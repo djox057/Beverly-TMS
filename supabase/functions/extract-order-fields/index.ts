@@ -8,19 +8,24 @@ const corsHeaders = {
 
 interface ExtractedData {
   brokerLoadNumber?: string;
+  internalLoadNumber?: string;
   broker?: string;
   pickupAddress?: string;
+  pickupCity?: string;
+  pickupState?: string;
+  pickupDate?: string;
   deliveryAddress?: string;
-  pickupDateTime?: string;
-  deliveryDateTime?: string;
-  freightAmount?: string;
-  dhMiles?: string;
-  loadedMiles?: string;
-  additionalPickups?: Array<{
-    type: 'pickup' | 'delivery';
-    address: string;
-    datetime?: string;
-  }>;
+  deliveryCity?: string;
+  deliveryState?: string;
+  deliveryDate?: string;
+  freightAmount?: number;
+  mileage?: number;
+  commodity?: string;
+  weight?: number;
+  trailer?: string;
+  equipment?: string;
+  temperature?: string;
+  notes?: string;
 }
 
 // Alternative: Use Lovable's document parsing service
@@ -156,57 +161,82 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
 
 // Extract data using OpenAI with text content
 async function extractWithTextAPI(textContent: string): Promise<ExtractedData> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  console.log('Calling OpenAI with text length:', textContent.length);
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: `You are an expert at extracting shipping information from transportation documents.
+          content: `You are a logistics document parser specialized in extracting shipping information from transportation documents, bills of lading, and load confirmations.
 
-Extract the following information and return ONLY a valid JSON object:
+Extract the following information from the provided text and return ONLY a valid JSON object with these exact fields:
 
 {
-  "brokerLoadNumber": "load/reference/confirmation number",
-  "broker": "broker/carrier company name", 
-  "pickupAddress": "complete pickup address",
-  "deliveryAddress": "complete delivery address", 
-  "pickupDateTime": "pickup date/time in YYYY-MM-DDTHH:MM format",
-  "deliveryDateTime": "delivery date/time in YYYY-MM-DDTHH:MM format",
-  "freightAmount": "freight amount as number only",
-  "dhMiles": "deadhead miles if found",
-  "loadedMiles": "loaded miles if found"
+  "brokerLoadNumber": "string - load/order/confirmation number from broker",
+  "internalLoadNumber": "string - internal reference number if different",
+  "broker": "string - broker/carrier company name",
+  "pickupAddress": "string - complete pickup street address",
+  "pickupCity": "string - pickup city",
+  "pickupState": "string - pickup state (2-letter code)",
+  "pickupDate": "string - pickup date in YYYY-MM-DD format",
+  "deliveryAddress": "string - complete delivery street address",
+  "deliveryCity": "string - delivery city", 
+  "deliveryState": "string - delivery state (2-letter code)",
+  "deliveryDate": "string - delivery date in YYYY-MM-DD format",
+  "freightAmount": "number - freight cost as number (remove $ and commas)",
+  "mileage": "number - total miles for the load",
+  "commodity": "string - type of goods being shipped",
+  "weight": "number - weight in pounds",
+  "trailer": "string - trailer type or number",
+  "equipment": "string - equipment requirements",
+  "temperature": "string - temperature requirements for reefer loads",
+  "notes": "string - any special instructions or notes"
 }
 
-Set fields to null if not found. Return ONLY the JSON object, no markdown or extra text.`
+CRITICAL INSTRUCTIONS:
+- Return ONLY the JSON object, no explanations or markdown formatting
+- If a field cannot be found, omit it from the response (do not include null values)
+- Convert dollar amounts to numbers (remove $ symbols and commas)
+- Use standard date format YYYY-MM-DD
+- Extract complete addresses when possible
+- Look for load numbers, confirmation numbers, BOL numbers, order numbers`
         },
         {
           role: 'user', 
-          content: `Extract shipping information from this document text:
+          content: `Extract all shipping information from this transportation document text:
 
-${textContent}
-
-Focus on finding load numbers, company names, addresses, dates, times, and dollar amounts.`
+${textContent}`
         }
       ],
-      max_tokens: 500,
-      temperature: 0.1
+      max_tokens: 1000,
+      temperature: 0.0
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI Text API failed: ${response.status}`);
+    const errorText = await response.text();
+    console.error('OpenAI API error:', response.status, errorText);
+    throw new Error(`OpenAI API failed: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
   const content = result.choices[0].message.content.trim();
   
-  // Clean JSON response
+  console.log('OpenAI raw response:', content);
+  
+  // Clean JSON response - remove markdown formatting if present
   let cleanContent = content;
   if (content.startsWith('```json')) {
     cleanContent = content.replace(/^```json\s*/g, '').replace(/```\s*$/g, '');
@@ -214,7 +244,15 @@ Focus on finding load numbers, company names, addresses, dates, times, and dolla
     cleanContent = content.replace(/^```\s*/g, '').replace(/```\s*$/g, '');
   }
   
-  return JSON.parse(cleanContent);
+  try {
+    const parsed = JSON.parse(cleanContent);
+    console.log('Successfully parsed OpenAI response:', parsed);
+    return parsed;
+  } catch (parseError) {
+    console.error('Failed to parse OpenAI response:', parseError);
+    console.error('Content to parse:', cleanContent);
+    throw new Error(`Failed to parse OpenAI response: ${parseError.message}`);
+  }
 }
 
 serve(async (req) => {
