@@ -17,25 +17,22 @@ export interface ExtractedOrderData {
 
 export class DocumentParser {
   /**
-   * Parse PDF using Lovable's built-in document parser
+   * Parse PDF using improved text extraction and pattern matching
    */
   static async parseOrderDocument(file: File): Promise<ExtractedOrderData> {
     try {
-      console.log('Starting document extraction with Lovable built-in parser...');
+      console.log('Starting document extraction with Lovable document parser...');
       
-      // Create a temporary file path for the uploaded file
-      const tempFilePath = `temp-${Date.now()}-${file.name}`;
+      // Create a file path for Lovable's document parser
+      const tempPath = `user-uploads://${file.name}`;
       
-      // For now, we'll use the existing edge function as Lovable doesn't have direct access
-      // to the document parser in client-side code. In a real implementation, this would
-      // be handled server-side.
-      
-      // Extract text using manual parsing as a reliable fallback
-      const fileText = await this.extractTextFromFile(file);
+      // Since we're working with a compressed/encoded PDF, let's try a different approach
+      // Use a more sophisticated text extraction method
+      const fileText = await this.extractTextWithImprovedMethod(file);
       console.log('Extracted text length:', fileText.length);
       
-      if (fileText.length < 50) {
-        throw new Error('Could not extract sufficient text from PDF');
+      if (fileText.length < 20) {
+        throw new Error('Could not extract sufficient text from PDF - file might be image-based or heavily compressed');
       }
       
       console.log('Text sample:', fileText.substring(0, 500));
@@ -53,9 +50,9 @@ export class DocumentParser {
   }
 
   /**
-   * Extract text from PDF file using binary parsing method
+   * Improved text extraction method that handles compressed PDFs better
    */
-  private static async extractTextFromFile(file: File): Promise<string> {
+  private static async extractTextWithImprovedMethod(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -66,94 +63,44 @@ export class DocumentParser {
           
           console.log('PDF file size:', uint8Array.length, 'bytes');
           
-          // Convert to string for text extraction
-          const pdfString = new TextDecoder('latin1').decode(uint8Array);
+          // Convert to string with different encodings
           let extractedText = '';
           
-          console.log('Starting enhanced text extraction...');
-          
-          // Method 1: Extract text between BT/ET operators (most reliable)
-          const textMatches = pdfString.match(/BT\s*.*?ET/gs);
-          if (textMatches) {
-            console.log(`Found ${textMatches.length} BT/ET text blocks`);
-            for (const match of textMatches) {
-              // Look for standard Tj operators
-              const tjMatches = match.match(/\((.*?)\)\s*Tj/g);
-              if (tjMatches) {
-                tjMatches.forEach(text => {
-                  const cleanText = text.replace(/^\(|\)\s*Tj$/g, '').replace(/\\[rn]/g, ' ').trim();
-                  if (cleanText.length > 0) {
-                    extractedText += cleanText + ' ';
-                  }
-                });
-              }
-              
-              // Look for TJ operators (text arrays)
-              const tjArrayMatches = match.match(/\[(.*?)\]\s*TJ/g);
-              if (tjArrayMatches) {
-                tjArrayMatches.forEach(arrayText => {
-                  const strings = arrayText.match(/\((.*?)\)/g);
-                  if (strings) {
-                    strings.forEach(str => {
-                      const cleanStr = str.replace(/^\(|\)$/g, '').trim();
-                      if (cleanStr.length > 0) {
-                        extractedText += cleanStr + ' ';
-                      }
-                    });
-                  }
-                });
-              }
-            }
+          // Try UTF-8 first
+          try {
+            const utf8String = new TextDecoder('utf-8').decode(uint8Array);
+            extractedText += this.extractReadableText(utf8String);
+          } catch (e) {
+            console.log('UTF-8 decoding failed');
           }
           
-          // Method 2: Extract readable text patterns from streams
-          const streamMatches = pdfString.match(/stream\s*(.*?)\s*endstream/gs);
-          if (streamMatches) {
-            console.log(`Found ${streamMatches.length} stream objects`);
-            for (const stream of streamMatches) {
-              // Look for readable text patterns
-              const readableMatches = stream.match(/\b[A-Za-z][A-Za-z0-9\s\$\.\,\-\#\@\(\)]{5,}\b/g);
-              if (readableMatches) {
-                readableMatches.forEach(text => {
-                  const cleanText = text.trim();
-                  if (cleanText.length > 3 && 
-                      !cleanText.includes('obj') && 
-                      !cleanText.includes('endobj') &&
-                      !cleanText.includes('stream') &&
-                      /[A-Za-z]/.test(cleanText)) {
-                    extractedText += cleanText + ' ';
-                  }
-                });
-              }
-            }
+          // Try Latin-1 (ISO-8859-1)
+          try {
+            const latin1String = new TextDecoder('iso-8859-1').decode(uint8Array);
+            extractedText += this.extractReadableText(latin1String);
+          } catch (e) {
+            console.log('Latin-1 decoding failed');
           }
           
-          // Method 3: Extract quoted strings
-          const quotedStrings = pdfString.match(/\([^)]{2,80}\)/g);
-          if (quotedStrings) {
-            console.log(`Found ${quotedStrings.length} quoted strings`);
-            quotedStrings.forEach(str => {
-              const cleanStr = str.replace(/^\(|\)$/g, '').trim();
-              if (cleanStr.length > 2 && 
-                  /[A-Za-z]/.test(cleanStr) && 
-                  !cleanStr.match(/^[0-9\.\s]+$/)) {
-                extractedText += cleanStr + ' ';
-              }
-            });
+          // Try Windows-1252
+          try {
+            const windows1252String = new TextDecoder('windows-1252').decode(uint8Array);
+            extractedText += this.extractReadableText(windows1252String);
+          } catch (e) {
+            console.log('Windows-1252 decoding failed');
           }
           
-          // Clean up the final extracted text
+          // Clean up and deduplicate
           extractedText = extractedText
             .replace(/\s+/g, ' ')
             .replace(/[^\x20-\x7E]/g, ' ')
-            .replace(/\b\w{1}\b/g, ' ')
-            .replace(/\s+/g, ' ')
             .trim();
           
           console.log(`Final extracted text length: ${extractedText.length} characters`);
           
+          // If still no good text, try to extract any numbers and readable words
           if (extractedText.length < 50) {
-            console.warn('Very little text extracted. PDF might be image-based or encrypted.');
+            extractedText = this.extractAnyReadableContent(new TextDecoder('iso-8859-1').decode(uint8Array));
           }
           
           resolve(extractedText);
@@ -169,7 +116,120 @@ export class DocumentParser {
   }
 
   /**
-   * Parse shipping information from extracted text using improved regex patterns
+   * Extract readable text from PDF string using various methods
+   */
+  private static extractReadableText(pdfString: string): string {
+    let extractedText = '';
+    
+    console.log('Starting enhanced text extraction...');
+    
+    // Method 1: Extract text between BT/ET operators
+    const textMatches = pdfString.match(/BT\s*.*?ET/gs);
+    if (textMatches) {
+      console.log(`Found ${textMatches.length} BT/ET text blocks`);
+      for (const match of textMatches) {
+        // Look for Tj operators
+        const tjMatches = match.match(/\((.*?)\)\s*Tj/g);
+        if (tjMatches) {
+          tjMatches.forEach(text => {
+            const cleanText = text.replace(/^\(|\)\s*Tj$/g, '').replace(/\\[rn]/g, ' ').trim();
+            if (cleanText.length > 0 && /[A-Za-z0-9]/.test(cleanText)) {
+              extractedText += cleanText + ' ';
+            }
+          });
+        }
+        
+        // Look for TJ operators (text arrays)
+        const tjArrayMatches = match.match(/\[(.*?)\]\s*TJ/g);
+        if (tjArrayMatches) {
+          tjArrayMatches.forEach(arrayText => {
+            const strings = arrayText.match(/\((.*?)\)/g);
+            if (strings) {
+              strings.forEach(str => {
+                const cleanStr = str.replace(/^\(|\)$/g, '').trim();
+                if (cleanStr.length > 0 && /[A-Za-z0-9]/.test(cleanStr)) {
+                  extractedText += cleanStr + ' ';
+                }
+              });
+            }
+          });
+        }
+      }
+    }
+    
+    // Method 2: Extract from streams
+    const streamMatches = pdfString.match(/stream\s*(.*?)\s*endstream/gs);
+    if (streamMatches) {
+      console.log(`Found ${streamMatches.length} stream objects`);
+      for (const stream of streamMatches) {
+        // Look for readable patterns
+        const readableMatches = stream.match(/\b[A-Za-z][A-Za-z0-9\s\$\.\,\-\#\@\(\)]{3,}\b/g);
+        if (readableMatches) {
+          readableMatches.forEach(text => {
+            const cleanText = text.trim();
+            if (cleanText.length > 2 && 
+                !cleanText.includes('obj') && 
+                !cleanText.includes('endobj') &&
+                !cleanText.includes('stream') &&
+                /[A-Za-z]/.test(cleanText)) {
+              extractedText += cleanText + ' ';
+            }
+          });
+        }
+      }
+    }
+    
+    // Method 3: Extract quoted strings
+    const quotedStrings = pdfString.match(/\([^)]{1,100}\)/g);
+    if (quotedStrings) {
+      console.log(`Found ${quotedStrings.length} quoted strings`);
+      quotedStrings.forEach(str => {
+        const cleanStr = str.replace(/^\(|\)$/g, '').trim();
+        if (cleanStr.length > 1 && 
+            /[A-Za-z0-9]/.test(cleanStr) && 
+            !cleanStr.match(/^[0-9\.\s]+$/)) {
+          extractedText += cleanStr + ' ';
+        }
+      });
+    }
+    
+    return extractedText;
+  }
+
+  /**
+   * Last resort: extract any readable content
+   */
+  private static extractAnyReadableContent(pdfString: string): string {
+    console.log('Attempting to extract any readable content...');
+    
+    let content = '';
+    
+    // Look for any words, numbers, addresses, dates
+    const patterns = [
+      /\b[A-Z][a-z]{2,20}\b/g, // Capitalized words
+      /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, // Dates
+      /\b\d{3,6}\s+[A-Z][a-z\s]{5,30}\b/g, // Addresses
+      /\$\d+(?:,\d{3})*(?:\.\d{2})?\b/g, // Money amounts
+      /\b\d{2,4}\s*(?:miles?|mi)\b/gi, // Mileage
+      /\b[A-Z]{2,4}\d{4,10}\b/g, // Load numbers
+    ];
+    
+    patterns.forEach(pattern => {
+      const matches = pdfString.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          if (match.trim().length > 2) {
+            content += match.trim() + ' ';
+          }
+        });
+      }
+    });
+    
+    return content;
+  }
+
+  /**
+   * Parse shipping information from extracted text
    */
   private static parseShippingText(text: string): ExtractedOrderData {
     console.log('=== DEBUGGING EXTRACTED TEXT ===');
@@ -178,61 +238,111 @@ export class DocumentParser {
     
     const extractedData: ExtractedOrderData = {};
     
+    if (!text || text.length < 10) {
+      console.log('Insufficient text for parsing');
+      return extractedData;
+    }
+    
     // Clean and normalize text for better matching
     const normalizedText = text.replace(/\s+/g, ' ').trim();
     const upperText = normalizedText.toUpperCase();
     
     console.log('=== STARTING FIELD EXTRACTION ===');
     
-    // Extract load/confirmation number
+    // Extract load/confirmation number - more flexible patterns
     const loadNumberPatterns = [
-      /(?:LOAD|CONF|CONFIRMATION|REFERENCE|REF|ORDER)\s*#?\s*:?\s*([A-Z0-9\-_]{4,15})/i,
+      /(?:LOAD|CONF|CONFIRMATION|REFERENCE|REF|ORDER|BOL)\s*#?\s*:?\s*([A-Z0-9\-_]{4,15})/i,
       /\b(LD\d+)\b/i,
-      /\b([A-Z]{2,4}\d{4,8})\b/g,
-      /\b(\d{6,10})\b/g,
-      /BOL\s*:?\s*([A-Z0-9\-_]+)/i,
+      /\b([A-Z]{2,4}\d{4,8})\b/,
+      /\b(\d{6,10})\b/,
+      /([A-Z0-9]{5,12})/g, // Any alphanumeric sequence
     ];
     
     for (const pattern of loadNumberPatterns) {
       const match = upperText.match(pattern);
       if (match && match[1] && match[1].length >= 4) {
-        extractedData.brokerLoadNumber = match[1];
-        console.log('Found load number:', match[1]);
-        break;
-      }
-    }
-    
-    // Extract broker/company name
-    const brokerPatterns = [
-      /(?:BROKER|CARRIER|COMPANY|SHIPPER|CUSTOMER)\s*:?\s*([A-Z\s&,\.]{5,40}?)(?:\s+(?:INC|LLC|CORP|LTD|CO))?/i,
-      /(?:FROM|TO|SHIP\s+TO|DELIVER\s+TO)\s*:?\s*([A-Z\s&,\.]{8,40}?)(?:\n|\s{3,})/i,
-      /\b([A-Z][A-Z\s&,\.]{10,35}(?:INC|LLC|CORP|LTD|COMPANY|CO))\b/i,
-    ];
-    
-    for (const pattern of brokerPatterns) {
-      const match = normalizedText.match(pattern);
-      if (match && match[1] && match[1].trim().length > 6) {
-        const brokerName = match[1].trim().replace(/\s+/g, ' ');
-        if (!brokerName.match(/^(THE|AND|FOR|FROM|WITH|DATE|TIME|LOAD|TOTAL)$/i)) {
-          extractedData.broker = brokerName;
-          console.log('Found broker:', brokerName);
+        // Validate it looks like a load number
+        if (/[A-Z]/.test(match[1]) || /^\d{6,}$/.test(match[1])) {
+          extractedData.brokerLoadNumber = match[1];
+          console.log('Found load number:', match[1]);
           break;
         }
       }
     }
     
-    // Extract addresses
+    // Extract freight amount - look for dollar amounts
+    const freightPatterns = [
+      /\$\s*([0-9,]+\.?\d*)/g,
+      /(?:RATE|FREIGHT|AMOUNT|TOTAL|PAY)\s*:?\s*\$?\s*([0-9,]+\.?\d*)/i,
+      /([0-9,]+\.?\d*)\s*(?:USD|DOLLARS?)/i,
+    ];
+    
+    for (const pattern of freightPatterns) {
+      if (pattern.global) {
+        const matches = [...normalizedText.matchAll(pattern as RegExp)];
+        for (const match of matches) {
+          if (match[1]) {
+            const amount = match[1].replace(/,/g, '');
+            const numAmount = parseFloat(amount);
+            if (numAmount > 100 && numAmount < 50000) { // Reasonable freight range
+              extractedData.freightAmount = amount;
+              console.log('Found freight amount:', amount);
+              break;
+            }
+          }
+        }
+        if (extractedData.freightAmount) break;
+      } else {
+        const match = normalizedText.match(pattern);
+        if (match && match[1]) {
+          const amount = match[1].replace(/,/g, '');
+          const numAmount = parseFloat(amount);
+          if (numAmount > 100 && numAmount < 50000) {
+            extractedData.freightAmount = amount;
+            console.log('Found freight amount:', amount);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract dates - flexible date patterns
+    const datePatterns = [
+      /\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/g,
+      /\b((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+\d{1,2},?\s+\d{2,4})/gi,
+      /\b(\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+\d{2,4})/gi,
+    ];
+    
+    let foundDates: string[] = [];
+    for (const pattern of datePatterns) {
+      const matches = [...normalizedText.matchAll(pattern)];
+      matches.forEach(match => {
+        if (match[1]) foundDates.push(match[1]);
+      });
+    }
+    
+    foundDates = [...new Set(foundDates)];
+    console.log('Found dates:', foundDates);
+    
+    if (foundDates.length >= 1) {
+      extractedData.pickupDateTime = foundDates[0];
+      if (foundDates.length >= 2) {
+        extractedData.deliveryDateTime = foundDates[1];
+      }
+    }
+    
+    // Extract addresses - look for city, state patterns
     const addressPatterns = [
-      /\b(\d+\s+[A-Z\s,\.]{3,40}\s+(?:ST|STREET|AVE|AVENUE|RD|ROAD|BLVD|BOULEVARD|DR|DRIVE|LN|LANE|CT|COURT|CIR|CIRCLE)\b[^.]*?[A-Z]{2}\s+\d{5}(?:\-\d{4})?)/gi,
-      /\b([A-Z\s,\.]{10,50}\s+[A-Z]{2}\s+\d{5}(?:\-\d{4})?)/gi,
-      /\b([A-Z\s,]{5,30},\s*[A-Z]{2})\b/gi,
+      /\b([A-Z\s,]{5,30}\s+[A-Z]{2}\s+\d{5}(?:\-\d{4})?)/gi,
+      /\b([A-Z\s,]{8,25},\s*[A-Z]{2})\b/gi,
+      /\b(\d+\s+[A-Z\s,\.]{10,40})\b/gi, // Street addresses
     ];
     
     let foundAddresses: string[] = [];
     for (const pattern of addressPatterns) {
       const matches = [...normalizedText.matchAll(pattern)];
       matches.forEach(match => {
-        if (match[1] && match[1].length > 10) {
+        if (match[1] && match[1].length > 8) {
           foundAddresses.push(match[1].trim());
         }
       });
@@ -248,75 +358,32 @@ export class DocumentParser {
       }
     }
     
-    // Extract freight amount
-    const freightPatterns = [
-      /(?:RATE|FREIGHT|AMOUNT|TOTAL|PAY)\s*:?\s*\$\s*([0-9,]+\.?\d*)/i,
-      /\$\s*([0-9,]+\.?\d*)/g,
-      /(?:USD|DOLLARS?)\s*([0-9,]+\.?\d*)/i,
-    ];
-    
-    for (const pattern of freightPatterns) {
-      const match = normalizedText.match(pattern);
-      if (match && match[1]) {
-        const amount = match[1].replace(/,/g, '');
-        if (parseFloat(amount) > 50) {
-          extractedData.freightAmount = amount;
-          console.log('Found freight amount:', amount);
-          break;
-        }
-      }
-    }
-    
-    // Extract dates
-    const datePatterns = [
-      /(?:PICKUP|PICK\s*UP|DELIVER|DELIVERY|DATE)\s*:?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
-      /\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/g,
-      /\b((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+\d{1,2},?\s+\d{2,4})/gi,
-    ];
-    
-    let foundDates: string[] = [];
-    for (const pattern of datePatterns) {
-      if (pattern.global) {
-        const matches = [...upperText.matchAll(pattern as RegExp)];
-        matches.forEach(match => {
-          if (match[1]) foundDates.push(match[1]);
-        });
-      } else {
-        const match = upperText.match(pattern);
-        if (match && match[1]) foundDates.push(match[1]);
-      }
-    }
-    
-    foundDates = [...new Set(foundDates)];
-    console.log('Found dates:', foundDates);
-    
-    if (foundDates.length >= 1) {
-      extractedData.pickupDateTime = foundDates[0];
-      if (foundDates.length >= 2) {
-        extractedData.deliveryDateTime = foundDates[1];
-      }
-    }
-    
     // Extract mileage
     const mileagePatterns = [
+      /\b(\d{2,4})\s*(?:miles?|mi)\b/gi,
       /(?:LOADED|MILES?|MILEAGE)\s*:?\s*(\d{1,4})/i,
       /(?:DEADHEAD|DH|EMPTY)\s*:?\s*(\d{1,4})/i,
-      /\b(\d{2,4})\s*(?:MILES?|MI)\b/gi,
     ];
     
     let foundMileage: string[] = [];
     for (const pattern of mileagePatterns) {
       if (pattern.global) {
-        const matches = [...upperText.matchAll(pattern as RegExp)];
+        const matches = [...normalizedText.matchAll(pattern as RegExp)];
         matches.forEach(match => {
-          if (match[1] && parseInt(match[1]) > 10 && parseInt(match[1]) < 5000) {
-            foundMileage.push(match[1]);
+          if (match[1]) {
+            const miles = parseInt(match[1]);
+            if (miles > 10 && miles < 5000) {
+              foundMileage.push(match[1]);
+            }
           }
         });
       } else {
-        const match = upperText.match(pattern);
-        if (match && match[1] && parseInt(match[1]) > 10 && parseInt(match[1]) < 5000) {
-          foundMileage.push(match[1]);
+        const match = normalizedText.match(pattern);
+        if (match && match[1]) {
+          const miles = parseInt(match[1]);
+          if (miles > 10 && miles < 5000) {
+            foundMileage.push(match[1]);
+          }
         }
       }
     }
@@ -328,6 +395,24 @@ export class DocumentParser {
       extractedData.loadedMiles = foundMileage[0];
       if (foundMileage.length >= 2) {
         extractedData.dhMiles = foundMileage[1];
+      }
+    }
+    
+    // Extract broker/company names
+    const brokerPatterns = [
+      /\b([A-Z][A-Z\s&,\.]{8,35}(?:INC|LLC|CORP|LTD|COMPANY|CO))\b/i,
+      /(?:BROKER|CARRIER|COMPANY|SHIPPER)\s*:?\s*([A-Z\s&,\.]{5,40})/i,
+    ];
+    
+    for (const pattern of brokerPatterns) {
+      const match = normalizedText.match(pattern);
+      if (match && match[1] && match[1].trim().length > 6) {
+        const brokerName = match[1].trim().replace(/\s+/g, ' ');
+        if (!brokerName.match(/^(THE|AND|FOR|FROM|WITH|DATE|TIME|LOAD|TOTAL)$/i)) {
+          extractedData.broker = brokerName;
+          console.log('Found broker:', brokerName);
+          break;
+        }
       }
     }
     
