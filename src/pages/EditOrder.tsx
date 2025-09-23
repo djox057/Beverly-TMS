@@ -51,6 +51,8 @@ const EditOrder = () => {
   const [bookedBy, setBookedBy] = useState("");
   const [invoiced, setInvoiced] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [existingFiles, setExistingFiles] = useState<any[]>([]);
 
   // Fetch data from database
   const { data: companies } = useCompanies();
@@ -72,7 +74,8 @@ const EditOrder = () => {
         .from('orders')
         .select(`
           *,
-          pickup_drops(*)
+          pickup_drops(*),
+          order_files(*)
         `)
         .eq('id', id)
         .single();
@@ -115,6 +118,12 @@ const EditOrder = () => {
           setPickupsDrops(transformedPickupsDrops);
           console.log('Set pickupsDrops to:', transformedPickupsDrops);
         }
+
+        // Load existing files
+        if (orderData.order_files) {
+          setExistingFiles(orderData.order_files);
+        }
+        
         console.log('Data loading completed successfully');
       }
     } catch (error) {
@@ -217,6 +226,34 @@ const EditOrder = () => {
         .eq('id', id);
 
       if (orderError) throw orderError;
+
+      // Upload new files if any
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fileName = `${id}/${Date.now()}_${file.name}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('order-files')
+            .upload(fileName, file);
+            
+          if (uploadError) throw uploadError;
+          
+          // Save file metadata
+          const { error: fileError } = await supabase
+            .from('order_files')
+            .insert({
+              order_id: id,
+              file_name: file.name,
+              file_path: fileName,
+              file_size: file.size,
+              content_type: file.type,
+              uploaded_by: 'System User'
+            });
+            
+          if (fileError) throw fileError;
+        }
+      }
 
       // Delete existing pickup_drops
       const { error: deleteError } = await supabase
@@ -506,6 +543,83 @@ const EditOrder = () => {
                 onChange={e => setNotes(e.target.value)} 
                 rows={4} 
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="files">Upload Additional Files</Label>
+              <Input 
+                id="files" 
+                type="file" 
+                multiple 
+                onChange={(e) => setFiles(e.target.files)}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+              />
+              {files && files.length > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  {files.length} new file(s) selected
+                </div>
+              )}
+              
+              {existingFiles.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Existing Files</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {existingFiles.map((file) => (
+                      <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
+                        <span className="text-sm">{file.file_name}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const { data } = supabase.storage
+                              .from('order-files')
+                              .getPublicUrl(file.file_path);
+                            window.open(data.publicUrl, '_blank');
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              // Delete from storage
+                              await supabase.storage
+                                .from('order-files')
+                                .remove([file.file_path]);
+                              
+                              // Delete from database
+                              await supabase
+                                .from('order_files')
+                                .delete()
+                                .eq('id', file.id);
+                              
+                              // Update local state
+                              setExistingFiles(existingFiles.filter(f => f.id !== file.id));
+                              
+                              toast({
+                                title: "File deleted",
+                                description: "File has been successfully deleted",
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to delete file",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-4">

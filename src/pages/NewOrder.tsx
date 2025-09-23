@@ -36,6 +36,7 @@ const NewOrder = () => {
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
+  const [files, setFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     toast
@@ -182,6 +183,35 @@ const NewOrder = () => {
       }).select().single();
       if (orderError) throw orderError;
 
+      // Upload files if any
+      if (files && files.length > 0 && orderData) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${orderData.id}/${Date.now()}_${file.name}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('order-files')
+            .upload(fileName, file);
+            
+          if (uploadError) throw uploadError;
+          
+          // Save file metadata
+          const { error: fileError } = await supabase
+            .from('order_files')
+            .insert({
+              order_id: orderData.id,
+              file_name: file.name,
+              file_path: fileName,
+              file_size: file.size,
+              content_type: file.type,
+              uploaded_by: 'System User'
+            });
+            
+          if (fileError) throw fileError;
+        }
+      }
+
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0 && orderData) {
         const pickupDropData = pickupsDrops.filter(item => item.address).map(item => ({
@@ -217,6 +247,10 @@ const NewOrder = () => {
       setDriverPrice('');
       setDhMiles('');
       setLoadedMiles('');
+      setFiles(null);
+      // Reset file input
+      const fileInput = document.getElementById('files') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
       setPickupsDrops([{
         id: "pickup-1",
         type: "pickup",
@@ -395,7 +429,18 @@ const NewOrder = () => {
 
           <div className="space-y-2">
             <Label htmlFor="files">Upload Files</Label>
-            <Input id="files" type="file" multiple />
+            <Input 
+              id="files" 
+              type="file" 
+              multiple 
+              onChange={(e) => setFiles(e.target.files)}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+            />
+            {files && files.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {files.length} file(s) selected
+              </div>
+            )}
           </div>
 
             <div className="flex justify-end gap-3">

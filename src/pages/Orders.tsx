@@ -7,6 +7,7 @@ import { Search, FileText, Edit, Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -140,7 +141,32 @@ const Orders = () => {
                       <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                       <TableCell>{order.companyName}</TableCell>
                       <TableCell>{order.bookedBy}</TableCell>
-                      <TableCell>-</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {order.files && order.files.length > 0 ? (
+                            order.files.map((file: any) => (
+                              <Button
+                                key={file.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={async () => {
+                                  const { data } = supabase.storage
+                                    .from('order-files')
+                                    .getPublicUrl(file.file_path);
+                                  window.open(data.publicUrl, '_blank');
+                                }}
+                              >
+                                {file.file_name.length > 10 
+                                  ? file.file_name.substring(0, 10) + '...' 
+                                  : file.file_name}
+                              </Button>
+                            ))
+                          ) : (
+                            '-'
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Button 
                           variant="outline" 
