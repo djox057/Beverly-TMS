@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
 export interface ExtractedOrderData {
   brokerLoadNumber?: string;
@@ -19,21 +23,21 @@ export interface ExtractedOrderData {
 
 export class DocumentParser {
   /**
-   * Parse PDF using Lovable's built-in document parsing
+   * Parse PDF using PDF.js library for proper text extraction
    */
   static async parsePDFWithLovable(file: File): Promise<ExtractedOrderData> {
     try {
-      console.log('Starting PDF parsing with Lovable document parser...');
+      console.log('Starting PDF parsing with PDF.js...');
       
-      // For now, we'll use a simple approach that extracts text and processes it
-      // This is more reliable than trying to send PDFs to external APIs
-      
-      const fileText = await this.extractTextFromFile(file);
+      // Extract text using PDF.js
+      const fileText = await this.extractTextWithPDFJS(file);
       console.log('Extracted text length:', fileText.length);
       
       if (fileText.length < 50) {
-        throw new Error('Could not extract sufficient text from PDF');
+        throw new Error('Could not extract sufficient text from PDF - file might be image-based or encrypted');
       }
+      
+      console.log('Text sample:', fileText.substring(0, 500));
       
       // Process the extracted text to find shipping information
       const extractedData = this.parseShippingText(fileText);
@@ -44,6 +48,46 @@ export class DocumentParser {
     } catch (error) {
       console.error('PDF parsing failed:', error);
       throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Extract text from PDF using PDF.js library
+   */
+  private static async extractTextWithPDFJS(file: File): Promise<string> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      console.log(`PDF loaded successfully. Pages: ${pdf.numPages}`);
+      
+      let fullText = '';
+      
+      // Extract text from all pages
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        // Combine all text items from the page
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n';
+        console.log(`Page ${pageNum} text length:`, pageText.length);
+      }
+      
+      // Clean up the text
+      fullText = fullText
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      console.log(`Total extracted text length: ${fullText.length}`);
+      return fullText;
+      
+    } catch (error) {
+      console.error('PDF.js extraction failed:', error);
+      throw new Error('Failed to extract text with PDF.js - trying fallback method');
     }
   }
 
@@ -384,21 +428,34 @@ export class DocumentParser {
   }
 
   /**
-   * Main parsing method - tries multiple approaches
+   * Main parsing method - tries PDF.js first, then fallback approaches
    */
   static async parseOrderDocument(file: File): Promise<ExtractedOrderData> {
-    // Try client-side parsing first (more reliable)
+    // Try PDF.js parsing first (most reliable)
     try {
       return await this.parsePDFWithLovable(file);
-    } catch (lovableError) {
-      console.log('Client-side parsing failed:', lovableError.message);
+    } catch (pdfJSError) {
+      console.log('PDF.js parsing failed:', pdfJSError.message);
       
       // Fallback to edge function
       try {
         return await this.parseWithEdgeFunction(file);
       } catch (edgeError) {
         console.log('Edge function parsing failed:', edgeError.message);
-        throw new Error(`All parsing methods failed. Client-side: ${lovableError.message}, Edge function: ${edgeError.message}`);
+        
+        // Final fallback - try the old binary extraction method
+        try {
+          console.log('Attempting binary text extraction as final fallback...');
+          const fileText = await this.extractTextFromFile(file);
+          
+          if (fileText.length < 50) {
+            throw new Error('Insufficient text extracted from PDF');
+          }
+          
+          return this.parseShippingText(fileText);
+        } catch (binaryError) {
+          throw new Error(`All parsing methods failed. PDF.js: ${pdfJSError.message}, Edge function: ${edgeError.message}, Binary: ${binaryError.message}`);
+        }
       }
     }
   }
