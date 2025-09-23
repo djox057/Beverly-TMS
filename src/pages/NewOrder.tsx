@@ -11,6 +11,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -29,7 +30,6 @@ const NewOrder = () => {
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
-  const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [pickupDateTime, setPickupDateTime] = useState("");
   const [deliveryDateTime, setDeliveryDateTime] = useState("");
@@ -60,6 +60,10 @@ const NewOrder = () => {
     data: drivers,
     isLoading: driversLoading
   } = useDrivers();
+  const {
+    data: nextInternalLoadNumber,
+    isLoading: loadingNextNumber
+  } = useNextInternalLoadNumber();
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -168,7 +172,7 @@ const NewOrder = () => {
         data: orderData,
         error: orderError
       } = await supabase.from('orders').insert({
-        internal_load_number: internalLoadNumber ? parseInt(internalLoadNumber) : null,
+        internal_load_number: nextInternalLoadNumber,
         broker_load_number: brokerLoadNumber || null,
         load_number: brokerLoadNumber || null, // Keep for backward compatibility
         company_id: bookedByCompany,
@@ -204,11 +208,10 @@ const NewOrder = () => {
       }
       toast({
         title: "Order Created",
-        description: `Order ${internalLoadNumber || brokerLoadNumber} has been successfully created.`
+        description: `Order ${nextInternalLoadNumber || brokerLoadNumber} has been successfully created.`
       });
 
-      // Reset form
-      setInternalLoadNumber('');
+      // Reset form - internal load number will auto-refresh
       setBrokerLoadNumber('');
       setBroker('');
       setTruck('');
@@ -246,7 +249,7 @@ const NewOrder = () => {
       setIsSubmitting(false);
     }
   };
-  const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading;
+  const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading || loadingNextNumber;
   if (isLoading) {
     return <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -262,8 +265,15 @@ const NewOrder = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="internal-load-number">Internal Load #</Label>
-                <Input id="internal-load-number" type="number" placeholder="Internal load number" value={internalLoadNumber} onChange={e => setInternalLoadNumber(e.target.value)} required />
+                <Label htmlFor="internal-load-number">Internal Load # (Auto-generated)</Label>
+                <Input 
+                  id="internal-load-number" 
+                  type="number" 
+                  placeholder="Auto-generated" 
+                  value={nextInternalLoadNumber || ''} 
+                  readOnly 
+                  className="bg-muted"
+                />
               </div>
 
               <div className="space-y-2">
