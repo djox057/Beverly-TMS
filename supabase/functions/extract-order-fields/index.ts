@@ -36,7 +36,7 @@ async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Prom
   const formData = new FormData();
   const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
   formData.append('file', pdfBlob, fileName);
-  formData.append('purpose', 'input');
+  formData.append('purpose', 'assistants');
 
   const uploadResponse = await fetch('https://api.openai.com/v1/files', {
     method: 'POST',
