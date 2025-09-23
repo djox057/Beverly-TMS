@@ -72,7 +72,7 @@ async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Prom
           content: [
             {
               type: 'text',
-              text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Look for load numbers, broker names, addresses, dates/times, freight amounts, and mileage information. Set null for missing fields.'
+              text: 'You are an expert at extracting shipping/transportation data from PDFs. Extract information from this document and return valid JSON. Look carefully for:\n\n- Load/confirmation/reference numbers (often labeled as "Load #", "Conf #", "Reference", etc.)\n- Broker/carrier company names\n- Pickup and delivery addresses (complete street addresses with city, state, zip)\n- Pickup and delivery dates/times\n- Freight amounts (dollar amounts, rates)\n- Mileage information (deadhead miles, loaded miles)\n\nBe thorough and extract any partial information you find. If a field is not found, set it to null. Return structured JSON only.'
             },
             {
               type: 'image_url',
@@ -317,17 +317,28 @@ serve(async (req) => {
       }
     }
 
-    // Validate that we got meaningful data
+    // Validate that we got some data
     if (!extractedData) {
       throw new Error('No data extracted from PDF');
     }
 
-    const hasData = Object.values(extractedData).some(value => 
-      value !== null && value !== undefined && value !== ''
-    );
+    console.log('Extracted data for validation:', JSON.stringify(extractedData, null, 2));
 
-    if (!hasData) {
-      throw new Error('No meaningful data found in PDF');
+    // Check for meaningful data - more lenient validation
+    const meaningfulData = Object.entries(extractedData).filter(([key, value]) => {
+      // Consider data meaningful if it's not null, undefined, empty string, or just whitespace
+      return value !== null && 
+             value !== undefined && 
+             value !== '' && 
+             (typeof value !== 'string' || value.trim().length > 0);
+    });
+
+    console.log(`Found ${meaningfulData.length} fields with meaningful data:`, meaningfulData.map(([key]) => key));
+
+    // Accept data if we have at least one meaningful field
+    if (meaningfulData.length === 0) {
+      console.log('All extracted fields are empty or null');
+      throw new Error(`No meaningful data found in PDF. Extracted data: ${JSON.stringify(extractedData)}`);
     }
 
     return new Response(
