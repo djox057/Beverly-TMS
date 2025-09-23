@@ -1,57 +1,323 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Edit, Building } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Search, Plus, Edit, Building, Trash2, Loader2 } from "lucide-react";
+import { useBrokers } from "@/hooks/useBrokers";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-const brokers = [
-  {
-    id: 1,
-    name: "ABC Logistics",
-    mcNumber: "MC-123456",
-    address: "123 Main St, Chicago, IL 60601",
-    contact: "John Doe",
-    phone: "(555) 987-6543",
-    email: "dispatch@abclogistics.com"
-  },
-  {
-    id: 2,
-    name: "XYZ Transport",
-    mcNumber: "MC-789012",
-    address: "456 Oak Ave, Dallas, TX 75201",
-    contact: "Jane Smith",
-    phone: "(555) 876-5432",
-    email: "ops@xyztransport.com"
-  },
-  {
-    id: 3,
-    name: "QuickMove Inc",
-    mcNumber: "MC-345678",
-    address: "789 Pine Rd, Denver, CO 80202",
-    contact: "Bob Johnson",
-    phone: "(555) 765-4321",
-    email: "loads@quickmove.com"
-  },
-  {
-    id: 4,
-    name: "Freight Masters",
-    mcNumber: "MC-901234",
-    address: "321 Elm St, Phoenix, AZ 85001",
-    contact: "Lisa Wilson",
-    phone: "(555) 654-3210",
-    email: "dispatch@freightmasters.com"
-  }
-];
+interface BrokerFormData {
+  name: string;
+  mc_number: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  phone: string;
+  email: string;
+}
 
 const Brokers = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingBroker, setEditingBroker] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState<BrokerFormData>({
+    name: "",
+    mc_number: "",
+    address: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    phone: "",
+    email: ""
+  });
+
+  const { toast } = useToast();
+  const { data: brokers, isLoading, refetch } = useBrokers();
+
+  // Filter brokers based on search term
+  const filteredBrokers = brokers?.filter(broker =>
+    broker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.mc_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    broker.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      mc_number: "",
+      address: "",
+      city: "",
+      state: "",
+      zip_code: "",
+      phone: "",
+      email: ""
+    });
+  };
+
+  const handleAddBroker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase
+        .from('brokers')
+        .insert({
+          name: formData.name,
+          mc_number: formData.mc_number || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          zip_code: formData.zip_code || null,
+          phone: formData.phone || null,
+          email: formData.email || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Broker added successfully",
+      });
+
+      resetForm();
+      setIsAddDialogOpen(false);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add broker",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditBroker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBroker) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase
+        .from('brokers')
+        .update({
+          name: formData.name,
+          mc_number: formData.mc_number || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          zip_code: formData.zip_code || null,
+          phone: formData.phone || null,
+          email: formData.email || null
+        })
+        .eq('id', editingBroker.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Broker updated successfully",
+      });
+
+      resetForm();
+      setIsEditDialogOpen(false);
+      setEditingBroker(null);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update broker",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBroker = async (brokerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('brokers')
+        .delete()
+        .eq('id', brokerId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Broker deleted successfully",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete broker",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (broker: any) => {
+    setEditingBroker(broker);
+    setFormData({
+      name: broker.name || "",
+      mc_number: broker.mc_number || "",
+      address: broker.address || "",
+      city: broker.city || "",
+      state: broker.state || "",
+      zip_code: broker.zip_code || "",
+      phone: broker.phone || "",
+      email: broker.email || ""
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const formatAddress = (broker: any) => {
+    const parts = [];
+    if (broker.address) parts.push(broker.address);
+    if (broker.city) parts.push(broker.city);
+    if (broker.state) parts.push(broker.state);
+    if (broker.zip_code) parts.push(broker.zip_code);
+    return parts.length > 0 ? parts.join(', ') : '—';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground">Brokers</h1>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Broker
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={resetForm}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Broker
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Add New Broker</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddBroker} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Company Name*</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="ABC Logistics"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mc_number">MC Number</Label>
+                  <Input
+                    id="mc_number"
+                    value={formData.mc_number}
+                    onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
+                    placeholder="MC123456"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Street Address</Label>
+                <Input
+                  id="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="123 Main St"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="Chicago"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="IL"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zip_code">Zip Code</Label>
+                  <Input
+                    id="zip_code"
+                    value={formData.zip_code}
+                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                    placeholder="60601"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="dispatch@company.com"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Add Broker
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -63,48 +329,189 @@ const Brokers = () => {
               <Input
                 placeholder="Search brokers..."
                 className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead>MC Number</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {brokers.map((broker) => (
-                <TableRow key={broker.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{broker.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono">{broker.mcNumber}</TableCell>
-                  <TableCell className="max-w-xs">{broker.address}</TableCell>
-                  <TableCell>{broker.contact}</TableCell>
-                  <TableCell>{broker.phone}</TableCell>
-                  <TableCell>{broker.email}</TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>MC Number</TableHead>
+                  <TableHead>Address</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredBrokers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      No brokers found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredBrokers.map((broker) => (
+                    <TableRow key={broker.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{broker.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono">{broker.mc_number || "—"}</TableCell>
+                      <TableCell className="max-w-xs">{formatAddress(broker)}</TableCell>
+                      <TableCell>{broker.phone || "—"}</TableCell>
+                      <TableCell>{broker.email || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => openEditDialog(broker)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete broker {broker.name}. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteBroker(broker.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Broker</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditBroker} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_name">Company Name*</Label>
+                <Input
+                  id="edit_name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="ABC Logistics"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_mc_number">MC Number</Label>
+                <Input
+                  id="edit_mc_number"
+                  value={formData.mc_number}
+                  onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
+                  placeholder="MC123456"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_address">Street Address</Label>
+              <Input
+                id="edit_address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="123 Main St"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_city">City</Label>
+                <Input
+                  id="edit_city"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Chicago"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_state">State</Label>
+                <Input
+                  id="edit_state"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder="IL"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_zip_code">Zip Code</Label>
+                <Input
+                  id="edit_zip_code"
+                  value={formData.zip_code}
+                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+                  placeholder="60601"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_phone">Phone</Label>
+                <Input
+                  id="edit_phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_email">Email</Label>
+                <Input
+                  id="edit_email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="dispatch@company.com"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Broker
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
