@@ -4,9 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditingState {
@@ -15,25 +16,63 @@ interface EditingState {
   value: string;
 }
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "In Transit":
-      return <Badge className="bg-primary text-primary-foreground">In Transit</Badge>;
-    case "Loading":
-      return <Badge className="bg-warning text-warning-foreground">Loading</Badge>;
-    case "Available":
-      return <Badge className="bg-success text-success-foreground">Available</Badge>;
-    case "Maintenance":
-      return <Badge variant="destructive">Maintenance</Badge>;
-    default:
-      return <Badge variant="secondary">{status}</Badge>;
-  }
+const STATUS_COLORS = {
+  red: 'bg-red-500',
+  cyan: 'bg-cyan-500', 
+  orange: 'bg-orange-500',
+  'dark-blue': 'bg-blue-900',
+  green: 'bg-green-500',
+  black: 'bg-black'
+};
+
+const getStatusColor = (status: string) => {
+  const statusLower = status.toLowerCase().replace(/\s+/g, '-');
+  return STATUS_COLORS[statusLower as keyof typeof STATUS_COLORS] || STATUS_COLORS.black;
+};
+
+// Column width management
+const STORAGE_KEY = 'reports-column-widths';
+const DEFAULT_WIDTHS = {
+  truck: 80,
+  driver: 120,
+  dispatcher: 120,
+  home: 100,
+  status: 80,
+  pickupAddress: 200,
+  pickupDate: 120,
+  pickupTime: 100,
+  deliveryAddress: 200,
+  deliveryDate: 120,
+  deliveryTime: 100,
+  away: 80,
+  drive: 80,
+  shift: 80,
+  cycle: 80,
+  note: 200,
+  lastEdit: 100,
+  date: 100
 };
 
 const Reports = () => {
   const { data: groupedReports, isLoading, error, updateTruckStatus, updateOrderNote, updatePickupDrop } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const [columnWidths, setColumnWidths] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : DEFAULT_WIDTHS;
+  });
   const { toast } = useToast();
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(columnWidths));
+  }, [columnWidths]);
+
+  // Flatten all trucks from all dispatchers
+  const allTrucks = Object.values(groupedReports || {}).flatMap(group => 
+    group.trucks.map(truck => ({
+      ...truck,
+      dispatcherName: group.dispatcher
+    }))
+  );
 
   const handleEdit = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
@@ -44,7 +83,6 @@ const Reports = () => {
 
     try {
       // Find the truck to get orderId and pickup/delivery stop IDs
-      const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
       const truck = allTrucks.find(t => t.id === editing.truckId);
       
       if (editing.field === 'status') {
@@ -145,9 +183,12 @@ const Reports = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="in_use">In Transit</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="red">Red</SelectItem>
+                <SelectItem value="cyan">Cyan</SelectItem>
+                <SelectItem value="orange">Orange</SelectItem>
+                <SelectItem value="dark-blue">Dark Blue</SelectItem>
+                <SelectItem value="green">Green</SelectItem>
+                <SelectItem value="black">Black</SelectItem>
               </SelectContent>
             </Select>
           ) : field === 'note' ? (
@@ -189,6 +230,17 @@ const Reports = () => {
       );
     }
 
+    if (field === 'status') {
+      return (
+        <div
+          className={`w-full h-8 rounded cursor-pointer flex items-center justify-center text-white font-medium ${getStatusColor(value)}`}
+          onClick={() => handleEdit(truckId, field, value)}
+        >
+          {value || "—"}
+        </div>
+      );
+    }
+
     return (
       <div
         className="flex items-center gap-2 cursor-pointer group hover:bg-muted/50 p-1 rounded min-h-[2rem]"
@@ -205,105 +257,104 @@ const Reports = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Dispatcher Fleet Reports</h1>
+        <h1 className="text-3xl font-semibold text-foreground">Fleet Reports</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4" />
-          Real-time fleet status by dispatcher assignment
+          Real-time fleet status - all dispatchers
         </div>
       </div>
 
-      {groupedReports && Object.keys(groupedReports).length === 0 ? (
+      {allTrucks.length === 0 ? (
         <Card>
           <CardContent className="text-center py-8 text-muted-foreground">
-            No trucks assigned to dispatchers found
+            No trucks with assigned dispatchers found
           </CardContent>
         </Card>
       ) : (
-        Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
-          <Card key={dispatcherId}>
-            <CardHeader>
-              <CardTitle>
-                {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Driver</TableHead>
-                      <TableHead>Home</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pickup Address</TableHead>
-                      <TableHead>Pickup Date</TableHead>
-                      <TableHead>Pickup Time</TableHead>
-                      <TableHead>Delivery Address</TableHead>
-                      <TableHead>Delivery Date</TableHead>
-                      <TableHead>Delivery Time</TableHead>
-                      <TableHead>Away (D)</TableHead>
-                      <TableHead>Drive</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Cycle</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead>Last Edit</TableHead>
-                      <TableHead>Date</TableHead>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              All Trucks ({allTrucks.length} truck{allTrucks.length !== 1 ? 's' : ''})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead style={{ width: `${columnWidths.truck}px` }}>Truck #</TableHead>
+                    <TableHead style={{ width: `${columnWidths.driver}px` }}>Driver</TableHead>
+                    <TableHead style={{ width: `${columnWidths.dispatcher}px` }}>Dispatcher</TableHead>
+                    <TableHead style={{ width: `${columnWidths.home}px` }}>Home</TableHead>
+                    <TableHead style={{ width: `${columnWidths.status}px` }}>Status</TableHead>
+                    <TableHead style={{ width: `${columnWidths.pickupAddress}px` }}>Pickup Address</TableHead>
+                    <TableHead style={{ width: `${columnWidths.pickupDate}px` }}>Pickup Date</TableHead>
+                    <TableHead style={{ width: `${columnWidths.pickupTime}px` }}>Pickup Time</TableHead>
+                    <TableHead style={{ width: `${columnWidths.deliveryAddress}px` }}>Delivery Address</TableHead>
+                    <TableHead style={{ width: `${columnWidths.deliveryDate}px` }}>Delivery Date</TableHead>
+                    <TableHead style={{ width: `${columnWidths.deliveryTime}px` }}>Delivery Time</TableHead>
+                    <TableHead style={{ width: `${columnWidths.away}px` }}>Away (D)</TableHead>
+                    <TableHead style={{ width: `${columnWidths.drive}px` }}>Drive</TableHead>
+                    <TableHead style={{ width: `${columnWidths.shift}px` }}>Shift</TableHead>
+                    <TableHead style={{ width: `${columnWidths.cycle}px` }}>Cycle</TableHead>
+                    <TableHead style={{ width: `${columnWidths.note}px` }}>Note</TableHead>
+                    <TableHead style={{ width: `${columnWidths.lastEdit}px` }}>Last Edit</TableHead>
+                    <TableHead style={{ width: `${columnWidths.date}px` }}>Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allTrucks.map((truck) => (
+                    <TableRow key={truck.id}>
+                      <TableCell className="font-medium">{truck.truckNumber}</TableCell>
+                      <TableCell>{truck.driver}</TableCell>
+                      <TableCell>{truck.dispatcherName}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
+                          {truck.home}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(
+                          truck.id,
+                          'status',
+                          truck.status
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'pickup-address', truck.pickup.address)}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'delivery-address', truck.delivery.address)}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
+                      </TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'delivery-time', truck.delivery.time)}
+                      </TableCell>
+                      <TableCell>{truck.awayDays}</TableCell>
+                      <TableCell>{truck.driveHours}h</TableCell>
+                      <TableCell>{truck.shiftHours}h</TableCell>
+                      <TableCell>{truck.cycleHours}h</TableCell>
+                      <TableCell>
+                        {renderEditableField(truck.id, 'note', truck.note)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{truck.lastEdit}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{truck.editDate}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.trucks.map((truck) => (
-                      <TableRow key={truck.id}>
-                        <TableCell className="font-medium">{truck.truckNumber}</TableCell>
-                        <TableCell>{truck.driver}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            {truck.home}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(
-                            truck.id,
-                            'status',
-                            truck.status,
-                            getStatusBadge(truck.status)
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'pickup-address', truck.pickup.address)}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'delivery-address', truck.delivery.address)}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
-                        </TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'delivery-time', truck.delivery.time)}
-                        </TableCell>
-                        <TableCell>{truck.awayDays}</TableCell>
-                        <TableCell>{truck.driveHours}h</TableCell>
-                        <TableCell>{truck.shiftHours}h</TableCell>
-                        <TableCell>{truck.cycleHours}h</TableCell>
-                        <TableCell>
-                          {renderEditableField(truck.id, 'note', truck.note)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.lastEdit}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.editDate}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        ))
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
