@@ -1,8 +1,49 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useReports = () => {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const updateTruckStatus = useMutation({
+    mutationFn: async ({ truckId, status }: { truckId: string; status: string }) => {
+      const { error } = await supabase
+        .from('trucks')
+        .update({ status })
+        .eq('id', truckId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
+  const updateOrderNote = useMutation({
+    mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ notes })
+        .eq('id', orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
+  const updatePickupDrop = useMutation({
+    mutationFn: async ({ pickupDropId, address, datetime }: { pickupDropId: string; address: string; datetime: string }) => {
+      const { error } = await supabase
+        .from('pickup_drops')
+        .update({ address, datetime })
+        .eq('id', pickupDropId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
+  const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
       // Fetch trucks with their drivers, dispatchers, and current orders
@@ -17,21 +58,22 @@ export const useReports = () => {
             status,
             notes,
             updated_at,
-            pickup_drops(
-              type,
-              address,
-              city,
-              state,
-              datetime
-            )
+           pickup_drops(
+             id,
+             type,
+             address,
+             city,
+             state,
+             datetime
+           )
           )
         `)
         .order('truck_number');
 
       if (trucksError) throw trucksError;
 
-      // Transform the data for the reports view
-      const reportData = trucks?.map(truck => {
+      // Filter out trucks without dispatchers and transform the data
+      const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
         const currentOrder = truck.orders && truck.orders.length > 0 
           ? truck.orders.find(order => order.status === 'pending' || order.status === 'in_transit') || truck.orders[0]
           : null;
@@ -49,7 +91,7 @@ export const useReports = () => {
 
         // Format pickup/delivery info
         const formatStopInfo = (stop: any) => {
-          if (!stop) return { address: "—", date: "—", time: "—" };
+          if (!stop) return { id: null, address: "—", date: "—", time: "—" };
           
           const address = stop.address || "—";
           let date = "—";
@@ -61,7 +103,7 @@ export const useReports = () => {
             time = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           }
           
-          return { address, date, time };
+          return { id: stop.id, address, date, time };
         };
 
         // Determine status based on order status and truck status
@@ -90,10 +132,12 @@ export const useReports = () => {
 
         return {
           id: truck.id,
+          orderId: currentOrder?.id,
           truckNumber: truck.truck_number,
           driver: truck.driver1?.name || "Unassigned",
           home: formatLocation(truck.driver1?.home_city, truck.driver1?.home_state),
-          dispatch: truck.dispatcher?.full_name || truck.dispatcher?.email || "Unassigned",
+          dispatcher: truck.dispatcher?.full_name || truck.dispatcher?.email || "Unknown",
+          dispatcherId: truck.dispatcher_id,
           status,
           pickup: formatStopInfo(pickupStop),
           delivery: formatStopInfo(deliveryStop),
@@ -107,7 +151,26 @@ export const useReports = () => {
         };
       }) || [];
 
-      return reportData;
+      // Group trucks by dispatcher
+      const groupedByDispatcher = reportData.reduce((acc, truck) => {
+        if (!acc[truck.dispatcherId]) {
+          acc[truck.dispatcherId] = {
+            dispatcher: truck.dispatcher,
+            trucks: []
+          };
+        }
+        acc[truck.dispatcherId].trucks.push(truck);
+        return acc;
+      }, {} as Record<string, { dispatcher: string; trucks: typeof reportData }>);
+
+      return groupedByDispatcher;
     },
   });
+
+  return {
+    ...reportsQuery,
+    updateTruckStatus,
+    updateOrderNote,
+    updatePickupDrop,
+  };
 };
