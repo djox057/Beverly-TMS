@@ -33,6 +33,8 @@ const NewOrder = () => {
   const [deliveryDateTime, setDeliveryDateTime] = useState("");
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
+  const [dhMiles, setDhMiles] = useState("");
+  const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {
@@ -184,6 +186,8 @@ const NewOrder = () => {
       setDeliveryDateTime('');
       setFreightAmount('');
       setDriverPrice('');
+      setDhMiles('');
+      setLoadedMiles('');
       setPickupsDrops([{
         id: "pickup-1",
         type: "pickup",
@@ -300,6 +304,30 @@ const NewOrder = () => {
                   <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
                 </div>
               </Card>)}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dh-miles">DH Miles</Label>
+              <Input id="dh-miles" type="number" placeholder="0" value={dhMiles} onChange={e => setDhMiles(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="loaded-miles">Loaded Miles</Label>
+              <Input id="loaded-miles" type="number" placeholder="0" value={loadedMiles} onChange={e => setLoadedMiles(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="total-miles">Total Miles</Label>
+              <Input 
+                id="total-miles" 
+                type="number" 
+                placeholder="0" 
+                value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
+                readOnly 
+                className="bg-muted"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
