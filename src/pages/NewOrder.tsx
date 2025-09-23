@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
@@ -13,6 +13,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -28,7 +29,8 @@ const NewOrder = () => {
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
-  const [loadNumber, setLoadNumber] = useState("");
+  const [internalLoadNumber, setInternalLoadNumber] = useState("");
+  const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [pickupDateTime, setPickupDateTime] = useState("");
   const [deliveryDateTime, setDeliveryDateTime] = useState("");
   const [freightAmount, setFreightAmount] = useState("");
@@ -91,6 +93,7 @@ const NewOrder = () => {
       }
     }
   }, [truck, trucks]);
+
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
       id: Date.now().toString(),
@@ -100,16 +103,43 @@ const NewOrder = () => {
       state: "",
       datetime: ""
     };
-    setPickupsDrops([...pickupsDrops, newItem]);
+
+    if (type === "pickup") {
+      // Find the index of the last pickup
+      const lastPickupIndex = pickupsDrops.reduce((lastIndex, item, index) => {
+        return item.type === "pickup" ? index : lastIndex;
+      }, -1);
+      
+      // Insert after the last pickup (or at the beginning if no pickups exist)
+      const insertIndex = lastPickupIndex + 1;
+      const newPickupsDrops = [...pickupsDrops];
+      newPickupsDrops.splice(insertIndex, 0, newItem);
+      setPickupsDrops(newPickupsDrops);
+    } else {
+      // Add delivery at the end
+      setPickupsDrops([...pickupsDrops, newItem]);
+    }
   };
+
   const removePickupDrop = (id: string) => {
     setPickupsDrops(pickupsDrops.filter(item => item.id !== id));
   };
+
   const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
     setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
       ...item,
       [field]: value
     } : item));
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(pickupsDrops);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setPickupsDrops(items);
   };
 
   // Prepare options for dropdowns
@@ -138,7 +168,9 @@ const NewOrder = () => {
         data: orderData,
         error: orderError
       } = await supabase.from('orders').insert({
-        load_number: loadNumber,
+        internal_load_number: internalLoadNumber ? parseInt(internalLoadNumber) : null,
+        broker_load_number: brokerLoadNumber || null,
+        load_number: brokerLoadNumber || null, // Keep for backward compatibility
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
@@ -172,11 +204,12 @@ const NewOrder = () => {
       }
       toast({
         title: "Order Created",
-        description: `Order ${loadNumber} has been successfully created.`
+        description: `Order ${internalLoadNumber || brokerLoadNumber} has been successfully created.`
       });
 
       // Reset form
-      setLoadNumber('');
+      setInternalLoadNumber('');
+      setBrokerLoadNumber('');
       setBroker('');
       setTruck('');
       setDriver1('');
@@ -229,8 +262,13 @@ const NewOrder = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="load-number">Load #</Label>
-                <Input id="load-number" placeholder="Load number" value={loadNumber} onChange={e => setLoadNumber(e.target.value)} required />
+                <Label htmlFor="internal-load-number">Internal Load #</Label>
+                <Input id="internal-load-number" type="number" placeholder="Internal load number" value={internalLoadNumber} onChange={e => setInternalLoadNumber(e.target.value)} required />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="broker-load-number">Broker Load #</Label>
+                <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
               </div>
             </div>
             
@@ -290,20 +328,44 @@ const NewOrder = () => {
               </div>
             </div>
 
-            {pickupsDrops.map(item => <Card key={item.id} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium capitalize">{item.type}</h4>
-                  <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Input placeholder="Address" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
-                  <Input placeholder="City" value={item.city} onChange={e => updatePickupDrop(item.id, "city", e.target.value)} />
-                  <Input placeholder="State" value={item.state} onChange={e => updatePickupDrop(item.id, "state", e.target.value)} />
-                  <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
-                </div>
-              </Card>)}
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="pickups-drops">
+                {(provided) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                    {pickupsDrops.map((item, index) => (
+                      <Draggable key={item.id} draggableId={item.id} index={index}>
+                        {(provided, snapshot) => (
+                          <Card 
+                            ref={provided.innerRef} 
+                            {...provided.draggableProps} 
+                            className={cn("p-4", snapshot.isDragging && "shadow-lg")}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div {...provided.dragHandleProps}>
+                                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                                </div>
+                                <h4 className="font-medium capitalize">{item.type}</h4>
+                              </div>
+                              <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                              <Input placeholder="Address" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
+                              <Input placeholder="City" value={item.city} onChange={e => updatePickupDrop(item.id, "city", e.target.value)} />
+                              <Input placeholder="State" value={item.state} onChange={e => updatePickupDrop(item.id, "state", e.target.value)} />
+                              <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
+                            </div>
+                          </Card>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

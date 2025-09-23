@@ -126,6 +126,7 @@ export type Database = {
         Row: {
           booked_by: string | null
           broker_id: string | null
+          broker_load_number: string | null
           company_id: string
           created_at: string
           delivery_datetime: string | null
@@ -134,6 +135,7 @@ export type Database = {
           driver2_id: string | null
           freight_amount: number | null
           id: string
+          internal_load_number: number | null
           invoiced: boolean | null
           load_number: string
           mileage: number | null
@@ -147,6 +149,7 @@ export type Database = {
         Insert: {
           booked_by?: string | null
           broker_id?: string | null
+          broker_load_number?: string | null
           company_id: string
           created_at?: string
           delivery_datetime?: string | null
@@ -155,6 +158,7 @@ export type Database = {
           driver2_id?: string | null
           freight_amount?: number | null
           id?: string
+          internal_load_number?: number | null
           invoiced?: boolean | null
           load_number: string
           mileage?: number | null
@@ -168,6 +172,7 @@ export type Database = {
         Update: {
           booked_by?: string | null
           broker_id?: string | null
+          broker_load_number?: string | null
           company_id?: string
           created_at?: string
           delivery_datetime?: string | null
@@ -176,6 +181,7 @@ export type Database = {
           driver2_id?: string | null
           freight_amount?: number | null
           id?: string
+          internal_load_number?: number | null
           invoiced?: boolean | null
           load_number?: string
           mileage?: number | null
