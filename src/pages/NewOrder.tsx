@@ -1,14 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PickupDrop {
@@ -17,14 +14,39 @@ interface PickupDrop {
   address: string;
   city: string;
   state: string;
-  date: Date | undefined;
-  time: string;
+  datetime: string;
 }
 
 const NewOrder = () => {
-  const [pickupDate, setPickupDate] = useState<Date>();
-  const [deliveryDate, setDeliveryDate] = useState<Date>();
+  const [bookedByCompany, setBookedByCompany] = useState("BF Prime");
+  const [broker, setBroker] = useState("");
+  const [truck, setTruck] = useState("");
+  const [driver1, setDriver1] = useState("");
+  const [driver2, setDriver2] = useState("");
+  const [pickupDateTime, setPickupDateTime] = useState("");
+  const [deliveryDateTime, setDeliveryDateTime] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
+
+  // Initialize with one pickup and one delivery
+  useEffect(() => {
+    const defaultPickup: PickupDrop = {
+      id: "pickup-1",
+      type: "pickup",
+      address: "",
+      city: "",
+      state: "",
+      datetime: "",
+    };
+    const defaultDelivery: PickupDrop = {
+      id: "delivery-1",
+      type: "delivery",
+      address: "",
+      city: "",
+      state: "",
+      datetime: "",
+    };
+    setPickupsDrops([defaultPickup, defaultDelivery]);
+  }, []);
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
@@ -33,8 +55,7 @@ const NewOrder = () => {
       address: "",
       city: "",
       state: "",
-      date: undefined,
-      time: "",
+      datetime: "",
     };
     setPickupsDrops([...pickupsDrops, newItem]);
   };
@@ -49,6 +70,33 @@ const NewOrder = () => {
     ));
   };
 
+  // Options for dropdowns
+  const companyOptions = [
+    { value: "BF Prime", label: "BF Prime" },
+    { value: "Beverly group", label: "Beverly group" },
+    { value: "Beverly Freight", label: "Beverly Freight" },
+    { value: "BF Prime Unite", label: "BF Prime Unite" },
+    { value: "BG Prime Inc", label: "BG Prime Inc" },
+  ];
+
+  const brokerOptions = [
+    { value: "broker1", label: "ABC Logistics" },
+    { value: "broker2", label: "XYZ Transport" },
+    { value: "broker3", label: "QuickMove Inc" },
+  ];
+
+  const truckOptions = [
+    { value: "truck1", label: "TRK-001" },
+    { value: "truck2", label: "TRK-002" },
+    { value: "truck3", label: "TRK-003" },
+  ];
+
+  const driverOptions = [
+    { value: "driver1", label: "John Smith" },
+    { value: "driver2", label: "Mike Johnson" },
+    { value: "driver3", label: "David Wilson" },
+  ];
+
   return (
     <div className="max-w-4xl mx-auto">
       <Card>
@@ -59,21 +107,24 @@ const NewOrder = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="company">Booked by Company</Label>
-              <Input id="company" placeholder="Company name" />
+              <Combobox
+                options={companyOptions}
+                value={bookedByCompany}
+                onValueChange={setBookedByCompany}
+                placeholder="Select company"
+                searchPlaceholder="Search companies..."
+              />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="broker">Broker</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select broker" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="broker1">ABC Logistics</SelectItem>
-                  <SelectItem value="broker2">XYZ Transport</SelectItem>
-                  <SelectItem value="broker3">QuickMove Inc</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={brokerOptions}
+                value={broker}
+                onValueChange={setBroker}
+                placeholder="Select broker"
+                searchPlaceholder="Search brokers..."
+              />
             </div>
 
             <div className="space-y-2">
@@ -83,16 +134,13 @@ const NewOrder = () => {
 
             <div className="space-y-2">
               <Label htmlFor="truck">Truck #</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select truck" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="truck1">TRK-001</SelectItem>
-                  <SelectItem value="truck2">TRK-002</SelectItem>
-                  <SelectItem value="truck3">TRK-003</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={truckOptions}
+                value={truck}
+                onValueChange={setTruck}
+                placeholder="Select truck"
+                searchPlaceholder="Search trucks..."
+              />
             </div>
 
             <div className="space-y-2">
@@ -102,93 +150,46 @@ const NewOrder = () => {
 
             <div className="space-y-2">
               <Label htmlFor="driver1">Driver 1</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select primary driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="driver1">John Smith</SelectItem>
-                  <SelectItem value="driver2">Mike Johnson</SelectItem>
-                  <SelectItem value="driver3">David Wilson</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={driverOptions}
+                value={driver1}
+                onValueChange={setDriver1}
+                placeholder="Select primary driver"
+                searchPlaceholder="Search drivers..."
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="driver2">Driver 2 (Optional)</Label>
-              <Select>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select second driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="driver1">John Smith</SelectItem>
-                  <SelectItem value="driver2">Mike Johnson</SelectItem>
-                  <SelectItem value="driver3">David Wilson</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={[{ value: "none", label: "None" }, ...driverOptions]}
+                value={driver2}
+                onValueChange={setDriver2}
+                placeholder="Select second driver"
+                searchPlaceholder="Search drivers..."
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Pickup Date & Time</Label>
-              <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "flex-1 justify-start text-left font-normal",
-                        !pickupDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {pickupDate ? format(pickupDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={pickupDate}
-                      onSelect={setPickupDate}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Input type="time" className="w-32" />
-              </div>
+              <Label htmlFor="pickup-datetime">Pickup Date & Time</Label>
+              <Input
+                id="pickup-datetime"
+                type="datetime-local"
+                value={pickupDateTime}
+                onChange={(e) => setPickupDateTime(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>Delivery Date & Time</Label>
-              <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "flex-1 justify-start text-left font-normal",
-                        !deliveryDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {deliveryDate ? format(deliveryDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={deliveryDate}
-                      onSelect={setDeliveryDate}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Input type="time" className="w-32" />
-              </div>
+              <Label htmlFor="delivery-datetime">Delivery Date & Time</Label>
+              <Input
+                id="delivery-datetime"
+                type="datetime-local"
+                value={deliveryDateTime}
+                onChange={(e) => setDeliveryDateTime(e.target.value)}
+              />
             </div>
           </div>
 
@@ -230,7 +231,7 @@ const NewOrder = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <Input
                     placeholder="Address"
                     value={item.address}
@@ -245,6 +246,11 @@ const NewOrder = () => {
                     placeholder="State"
                     value={item.state}
                     onChange={(e) => updatePickupDrop(item.id, "state", e.target.value)}
+                  />
+                  <Input
+                    type="datetime-local"
+                    value={item.datetime}
+                    onChange={(e) => updatePickupDrop(item.id, "datetime", e.target.value)}
                   />
                 </div>
               </Card>
