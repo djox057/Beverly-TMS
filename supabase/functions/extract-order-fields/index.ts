@@ -23,91 +23,49 @@ interface ExtractedData {
   }>;
 }
 
-// Upload PDF to OpenAI and extract structured data using chat completions API
+// Alternative: Use Lovable's document parsing service
+async function extractWithDocumentAPI(pdfBuffer: Uint8Array, fileName: string): Promise<ExtractedData> {
+  console.log('Using Lovable document parsing service...');
+  
+  try {
+    // For now, let's try a simpler approach with just text extraction and OpenAI text API
+    console.log('Attempting comprehensive text extraction...');
+    const textContent = await extractTextFromPDF(pdfBuffer);
+    
+    if (textContent.length < 20) {
+      throw new Error('Insufficient text extracted from PDF');
+    }
+    
+    console.log(`Extracted ${textContent.length} characters of text`);
+    console.log('Text sample:', textContent.substring(0, 500));
+    
+    // Use OpenAI text API for extraction
+    return await extractWithTextAPI(textContent);
+    
+  } catch (error) {
+    console.error('Document parsing failed:', error);
+    throw new Error(`Document parsing failed: ${error.message}`);
+  }
+}
+
+// Backup: Try direct OpenAI with simpler approach
 async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Promise<ExtractedData> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     throw new Error('OpenAI API key not found');
   }
 
-  console.log('Using chat completions API for PDF extraction...');
+  console.log('Trying simplified OpenAI approach...');
   
-  // Create base64 encoded PDF for direct processing
-  const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
-
-  // Define the schema for structured extraction
-  const schema = {
-    name: "ShippingDocument",
-    schema: {
-      type: "object",
-      properties: {
-        brokerLoadNumber: { type: "string", description: "Load/reference/confirmation number" },
-        broker: { type: "string", description: "Broker/carrier company name" },
-        pickupAddress: { type: "string", description: "Complete pickup address" },
-        deliveryAddress: { type: "string", description: "Complete delivery address" },
-        pickupDateTime: { type: "string", description: "Pickup date/time in YYYY-MM-DDTHH:MM format" },
-        deliveryDateTime: { type: "string", description: "Delivery date/time in YYYY-MM-DDTHH:MM format" },
-        freightAmount: { type: "string", description: "Freight amount as number only" },
-        dhMiles: { type: "string", description: "Deadhead miles if found" },
-        loadedMiles: { type: "string", description: "Loaded miles if found" }
-      },
-      additionalProperties: false
-    },
-    strict: true
-  };
-
-  // Extract data using chat completions API with vision
-  console.log('Extracting data with chat completions API...');
-  const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'You are an expert at extracting shipping/transportation data from PDFs. Extract information from this document and return valid JSON. Look carefully for:\n\n- Load/confirmation/reference numbers (often labeled as "Load #", "Conf #", "Reference", etc.)\n- Broker/carrier company names\n- Pickup and delivery addresses (complete street addresses with city, state, zip)\n- Pickup and delivery dates/times\n- Freight amounts (dollar amounts, rates)\n- Mileage information (deadhead miles, loaded miles)\n\nBe thorough and extract any partial information you find. If a field is not found, set it to null. Return structured JSON only.'
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:application/pdf;base64,${base64Pdf}`
-              }
-            }
-          ]
-        }
-      ],
-      response_format: {
-        type: "json_schema",
-        json_schema: schema
-      },
-      max_tokens: 1000
-    }),
-  });
-
-  if (!extractResponse.ok) {
-    const error = await extractResponse.text();
-    console.error('Chat completions extraction failed:', error);
-    throw new Error(`Chat completions extraction failed: ${extractResponse.status} - ${error}`);
-  }
-
-  const extractResult = await extractResponse.json();
-  console.log('Raw extraction result:', extractResult);
+  // First convert PDF to text, then use text-based extraction
+  const textContent = await extractTextFromPDF(pdfBuffer);
   
-  // Parse the response
-  const content = extractResult?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error('No content in chat completion response');
+  if (textContent.length < 20) {
+    throw new Error('Could not extract readable text from PDF');
   }
   
-  console.log('Extracted content:', content);
-  return JSON.parse(content);
+  console.log('Using extracted text for OpenAI processing...');
+  return await extractWithTextAPI(textContent);
 }
 
 // Improved PDF text extraction as fallback
@@ -288,32 +246,42 @@ serve(async (req) => {
     let extractedData: ExtractedData | null = null;
     let method = '';
 
-    // Method 1: Try OpenAI File API for structured extraction
-    console.log('Attempting OpenAI File API extraction...');
+    // Method 1: Try document parsing approach (more reliable)
+    console.log('Attempting document parsing extraction...');
     try {
-      extractedData = await extractWithFileAPI(pdfBuffer, file.name);
-      method = 'file_api';
-      console.log('File API extraction successful:', extractedData);
-    } catch (fileError) {
-      console.log('File API extraction failed:', fileError.message);
+      extractedData = await extractWithDocumentAPI(pdfBuffer, file.name);
+      method = 'document_api';
+      console.log('Document API extraction successful:', extractedData);
+    } catch (docError) {
+      console.log('Document API extraction failed:', docError.message);
       
-      // Method 2: Fallback to text extraction
-      console.log('Attempting text extraction fallback...');
+      // Method 2: Try simplified OpenAI approach
+      console.log('Attempting simplified OpenAI extraction...');
       try {
-        const textContent = await extractTextFromPDF(pdfBuffer);
-        console.log('Extracted text length:', textContent.length);
+        extractedData = await extractWithFileAPI(pdfBuffer, file.name);
+        method = 'simplified_openai';
+        console.log('Simplified OpenAI extraction successful:', extractedData);
+      } catch (fileError) {
+        console.log('Simplified OpenAI extraction failed:', fileError.message);
         
-        if (textContent.length > 50) {
-          console.log('Text sample:', textContent.substring(0, 300));
-          extractedData = await extractWithTextAPI(textContent);
-          method = 'text_extraction';
-          console.log('Text extraction successful:', extractedData);
-        } else {
-          throw new Error('Insufficient text extracted from PDF');
+        // Method 3: Final fallback to direct text extraction
+        console.log('Attempting direct text extraction fallback...');
+        try {
+          const textContent = await extractTextFromPDF(pdfBuffer);
+          console.log('Extracted text length:', textContent.length);
+          
+          if (textContent.length > 20) {
+            console.log('Text sample:', textContent.substring(0, 300));
+            extractedData = await extractWithTextAPI(textContent);
+            method = 'text_extraction';
+            console.log('Text extraction successful:', extractedData);
+          } else {
+            throw new Error('Insufficient text extracted from PDF');
+          }
+        } catch (textError) {
+          console.log('All extraction methods failed');
+          throw new Error(`All extraction methods failed. Doc: ${docError.message}, OpenAI: ${fileError.message}, Text: ${textError.message}`);
         }
-      } catch (textError) {
-        console.log('Text extraction also failed:', textError.message);
-        throw new Error(`All extraction methods failed. File API: ${fileError.message}, Text: ${textError.message}`);
       }
     }
 

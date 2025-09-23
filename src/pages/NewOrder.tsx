@@ -163,23 +163,14 @@ const NewOrder = () => {
     setIsExtracting(true);
     
     try {
-      const formData = new FormData();
-      formData.append('file', pdfFile);
-
-      const response = await supabase.functions.invoke('extract-order-fields', {
-        body: formData
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      const { data: extractedData } = response.data;
+      console.log('Starting document extraction with improved parser...');
       
-      if (!extractedData) {
-        throw new Error('No data returned from extraction');
-      }
-
+      // Import the DocumentParser dynamically to avoid issues
+      const { DocumentParser } = await import('@/utils/documentParser');
+      
+      // Use the new reliable document parser
+      const extractedData = await DocumentParser.parseOrderDocument(pdfFile);
+      
       console.log('Processing extracted data:', extractedData);
       
       // Check if any meaningful data was extracted
@@ -190,7 +181,7 @@ const NewOrder = () => {
       if (!hasData) {
         toast({
           title: "No Data Found",
-          description: "The AI couldn't extract meaningful data from the PDF. Please check the file and try again or fill the form manually.",
+          description: "Could not extract meaningful data from the PDF. The file might be an image-based PDF or have an unsupported format. Please fill the form manually.",
           variant: "destructive",
         });
         return;
