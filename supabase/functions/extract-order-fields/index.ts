@@ -23,35 +23,82 @@ interface ExtractedData {
   }>;
 }
 
-// Simple PDF text extraction for Deno
+// Improved PDF text extraction for Deno
 async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   try {
-    // Convert PDF buffer to base64 for processing
-    const base64 = btoa(String.fromCharCode(...pdfBuffer));
-    
-    // Use a simple text extraction approach
-    // In a real implementation, you might want to use a more sophisticated PDF parser
-    const textDecoder = new TextDecoder();
+    const textDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
     let text = '';
     
-    // Look for text objects in PDF
+    // Convert to string for processing
     const pdfString = textDecoder.decode(pdfBuffer);
+    console.log('PDF size:', pdfBuffer.length, 'bytes');
+    
+    // Method 1: Extract text between parentheses (common in PDF text objects)
     const textRegex = /\(([^)]+)\)/g;
     let match;
+    const extractedTexts = [];
     
     while ((match = textRegex.exec(pdfString)) !== null) {
-      text += match[1] + ' ';
+      const cleanText = match[1]
+        .replace(/\\n/g, ' ')
+        .replace(/\\r/g, ' ')
+        .replace(/\\t/g, ' ')
+        .replace(/\\/g, '')
+        .trim();
+      
+      if (cleanText.length > 2) { // Only add meaningful text
+        extractedTexts.push(cleanText);
+      }
     }
     
-    // Also try to extract text between BT and ET markers
-    const btEtRegex = /BT\s+(.*?)\s+ET/gs;
-    let btEtMatch;
+    text = extractedTexts.join(' ');
+    console.log('Method 1 extracted text length:', text.length);
     
-    while ((btEtMatch = btEtRegex.exec(pdfString)) !== null) {
-      text += btEtMatch[1] + ' ';
+    // Method 2: Look for text between BT and ET markers
+    if (text.length < 100) {
+      const btEtRegex = /BT\s+(.*?)\s+ET/gs;
+      let btEtMatch;
+      const btTexts = [];
+      
+      while ((btEtMatch = btEtRegex.exec(pdfString)) !== null) {
+        btTexts.push(btEtMatch[1].replace(/\s+/g, ' ').trim());
+      }
+      
+      if (btTexts.length > 0) {
+        text = btTexts.join(' ');
+        console.log('Method 2 extracted text length:', text.length);
+      }
     }
     
-    return text.trim() || pdfString.slice(0, 2000); // Fallback to first 2000 chars
+    // Method 3: Look for readable ASCII text in the PDF
+    if (text.length < 100) {
+      const readableTextRegex = /[A-Za-z0-9\s\.,\-#:@$%&\(\)\/]{10,}/g;
+      const readableTexts = pdfString.match(readableTextRegex) || [];
+      
+      // Filter out obvious binary content and keep meaningful text
+      const meaningfulTexts = readableTexts.filter(t => 
+        t.length > 10 && 
+        /[A-Za-z]/.test(t) && 
+        (t.includes('Load') || t.includes('pickup') || t.includes('delivery') || t.includes('$') || /\d{4}/.test(t))
+      );
+      
+      if (meaningfulTexts.length > 0) {
+        text = meaningfulTexts.join(' ').slice(0, 5000);
+        console.log('Method 3 extracted text length:', text.length);
+      }
+    }
+    
+    // Final fallback: Extract any visible text patterns
+    if (text.length < 50) {
+      console.log('All methods failed, using fallback');
+      // Look for common shipping/logistics terms in the raw data
+      const fallbackRegex = /(load|pickup|delivery|freight|rate|broker|truck|driver|miles|address|date|time|amount|\$\d+|\d{1,2}\/\d{1,2}\/\d{2,4})/gi;
+      const fallbackMatches = pdfString.match(fallbackRegex) || [];
+      text = fallbackMatches.slice(0, 100).join(' ');
+    }
+    
+    console.log('Final extracted text preview:', text.slice(0, 500));
+    return text.trim();
   } catch (error) {
     console.error('PDF extraction error:', error);
     throw new Error('Failed to extract text from PDF');
@@ -140,11 +187,18 @@ Only return the JSON object, no additional text. If a field cannot be found, omi
     
     try {
       // Parse the JSON response from OpenAI
-      const content = openAIResult.choices[0].message.content;
+      let content = openAIResult.choices[0].message.content;
+      console.log('Raw OpenAI content:', content);
+      
+      // Remove markdown code block formatting if present
+      content = content.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+      console.log('Cleaned content:', content);
+      
       extractedData = JSON.parse(content);
       console.log('Extracted data:', extractedData);
     } catch (parseError) {
       console.error('Failed to parse OpenAI response:', parseError);
+      console.error('Content that failed to parse:', openAIResult.choices[0].message.content);
       // Return partial data if parsing fails
       extractedData = { brokerLoadNumber: 'Failed to parse response' };
     }
