@@ -18,12 +18,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
   address: string;
   datetime: string;
 }
+
 const NewOrder = () => {
   const [bookedByCompany, setBookedByCompany] = useState("BF Prime");
   const [broker, setBroker] = useState("");
@@ -46,26 +48,11 @@ const NewOrder = () => {
   const { profile } = useAuthContext();
 
   // Fetch data from database
-  const {
-    data: companies,
-    isLoading: companiesLoading
-  } = useCompanies();
-  const {
-    data: brokers,
-    isLoading: brokersLoading
-  } = useBrokers();
-  const {
-    data: trucks,
-    isLoading: trucksLoading
-  } = useTrucks();
-  const {
-    data: drivers,
-    isLoading: driversLoading
-  } = useDrivers();
-  const {
-    data: nextInternalLoadNumber,
-    isLoading: loadingNextNumber
-  } = useNextInternalLoadNumber();
+  const { data: companies, isLoading: companiesLoading } = useCompanies();
+  const { data: brokers, isLoading: brokersLoading } = useBrokers();
+  const { data: trucks, isLoading: trucksLoading } = useTrucks();
+  const { data: drivers, isLoading: driversLoading } = useDrivers();
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber();
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -105,18 +92,15 @@ const NewOrder = () => {
     };
 
     if (type === "pickup") {
-      // Find the index of the last pickup
       const lastPickupIndex = pickupsDrops.reduce((lastIndex, item, index) => {
         return item.type === "pickup" ? index : lastIndex;
       }, -1);
       
-      // Insert after the last pickup (or at the beginning if no pickups exist)
       const insertIndex = lastPickupIndex + 1;
       const newPickupsDrops = [...pickupsDrops];
       newPickupsDrops.splice(insertIndex, 0, newItem);
       setPickupsDrops(newPickupsDrops);
     } else {
-      // Add delivery at the end
       setPickupsDrops([...pickupsDrops, newItem]);
     }
   };
@@ -167,7 +151,6 @@ const NewOrder = () => {
     try {
       console.log('Starting PDF extraction with OpenAI...');
       
-      // Prepare form data for the edge function
       const formData = new FormData();
       formData.append('pdf', pdfFile);
       
@@ -272,7 +255,6 @@ const NewOrder = () => {
     }
   };
 
-
   // Prepare options for dropdowns
   const companyOptions = companies?.map(company => ({
     value: company.id,
@@ -290,22 +272,18 @@ const NewOrder = () => {
     value: driver.id,
     label: driver.name
   })) || [];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Insert order
-      const {
-        data: orderData,
-        error: orderError
-      } = await supabase.from('orders').insert({
-        internal_load_number: nextInternalLoadNumber,
-        broker_load_number: brokerLoadNumber || null,
+      const { data: orderData, error: orderError } = await supabase.from('orders').insert({
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
+        broker_load_number: brokerLoadNumber || null,
         pickup_datetime: pickupDateRange?.from || null,
         pickup_end_datetime: pickupDateRange?.to || pickupDateRange?.from || null,
         delivery_datetime: deliveryDateRange?.from || null,
@@ -315,14 +293,14 @@ const NewOrder = () => {
         mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
         status: 'pending',
         booked_by: profile?.full_name || profile?.email || 'Unknown User'
-      }).select().single();
+      } as any).select().single();
+      
       if (orderError) throw orderError;
 
       // Upload files if any
       if (files && files.length > 0 && orderData) {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const fileExt = file.name.split('.').pop();
           const fileName = `${orderData.id}/${Date.now()}_${file.name}`;
           
           const { error: uploadError } = await supabase.storage
@@ -331,7 +309,6 @@ const NewOrder = () => {
             
           if (uploadError) throw uploadError;
           
-          // Save file metadata
           const { error: fileError } = await supabase
             .from('order_files')
             .insert({
@@ -358,18 +335,17 @@ const NewOrder = () => {
           datetime: item.datetime || null
         }));
         if (pickupDropData.length > 0) {
-          const {
-            error: pickupDropError
-          } = await supabase.from('pickup_drops').insert(pickupDropData);
+          const { error: pickupDropError } = await supabase.from('pickup_drops').insert(pickupDropData);
           if (pickupDropError) throw pickupDropError;
         }
       }
+
       toast({
         title: "Order Created",
         description: `Order ${nextInternalLoadNumber || brokerLoadNumber} has been successfully created.`
       });
 
-      // Reset form - internal load number will auto-refresh
+      // Reset form
       setBrokerLoadNumber('');
       setBroker('');
       setTruck('');
@@ -383,7 +359,6 @@ const NewOrder = () => {
       setDhMiles('');
       setLoadedMiles('');
       setFiles(null);
-      // Reset file input
       const fileInput = document.getElementById('files') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
       setPickupsDrops([{
@@ -407,14 +382,20 @@ const NewOrder = () => {
       setIsSubmitting(false);
     }
   };
+
   const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading || loadingNextNumber;
+  
   if (isLoading) {
-    return <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading...</span>
-      </div>;
+      </div>
+    );
   }
-  return <div className="max-w-4xl mx-auto">
+
+  return (
+    <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -426,209 +407,275 @@ const NewOrder = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
-              <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
+              <Input 
+                id="broker-load-number" 
+                placeholder="Broker load number" 
+                value={brokerLoadNumber} 
+                onChange={e => setBrokerLoadNumber(e.target.value)} 
+              />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
-                <Combobox options={companyOptions} value={bookedByCompany} onValueChange={setBookedByCompany} placeholder="Select company" searchPlaceholder="Search companies..." />
+                <Combobox 
+                  options={companyOptions} 
+                  value={bookedByCompany} 
+                  onValueChange={setBookedByCompany} 
+                  placeholder="Select company" 
+                  searchPlaceholder="Search companies..." 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="broker">Broker</Label>
+                <Combobox 
+                  options={brokerOptions} 
+                  value={broker} 
+                  onValueChange={setBroker} 
+                  placeholder="Select broker" 
+                  searchPlaceholder="Search brokers..." 
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
-                <Combobox options={truckOptions} value={truck} onValueChange={setTruck} placeholder="Select truck" searchPlaceholder="Search trucks..." />
+                <Combobox 
+                  options={truckOptions} 
+                  value={truck} 
+                  onValueChange={setTruck} 
+                  placeholder="Select truck" 
+                  searchPlaceholder="Search trucks..." 
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer # (Auto-filled)</Label>
-                <Input id="trailer" placeholder="Trailer number" value={trailer} onChange={e => setTrailer(e.target.value)} />
+                <Input 
+                  id="trailer" 
+                  placeholder="Trailer number" 
+                  value={trailer} 
+                  onChange={e => setTrailer(e.target.value)} 
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="driver1">Driver 1 (Auto-filled)</Label>
-                <Combobox options={driverOptions} value={driver1} onValueChange={setDriver1} placeholder="Select primary driver" searchPlaceholder="Search drivers..." />
+                <Combobox 
+                  options={driverOptions} 
+                  value={driver1} 
+                  onValueChange={setDriver1} 
+                  placeholder="Select primary driver" 
+                  searchPlaceholder="Search drivers..." 
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver2">Driver 2 (Optional, Auto-filled)</Label>
-                <Combobox options={[{
-                  value: "",
-                  label: "None"
-                }, ...driverOptions]} value={driver2} onValueChange={setDriver2} placeholder="Select second driver" searchPlaceholder="Search drivers..." />
-              </div>
-            </div>
-          </div>
-
-          
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Additional Pickups & Deliveries</Label>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Pickup
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Delivery
-                </Button>
+                <Combobox 
+                  options={[{ value: "", label: "None" }, ...driverOptions]} 
+                  value={driver2} 
+                  onValueChange={setDriver2} 
+                  placeholder="Select second driver" 
+                  searchPlaceholder="Search drivers..." 
+                />
               </div>
             </div>
 
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="pickups-drops">
-                {(provided) => (
-                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                    {pickupsDrops.map((item, index) => (
-                      <Draggable key={item.id} draggableId={item.id} index={index}>
-                        {(provided, snapshot) => (
-                          <Card 
-                            ref={provided.innerRef} 
-                            {...provided.draggableProps} 
-                            className={cn("p-4", snapshot.isDragging && "shadow-lg")}
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div {...provided.dragHandleProps}>
-                                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">Additional Pickups & Deliveries</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Pickup
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Delivery
+                  </Button>
+                </div>
+              </div>
+
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="pickups-drops">
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                      {pickupsDrops.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card 
+                              ref={provided.innerRef} 
+                              {...provided.draggableProps} 
+                              className={cn("p-4", snapshot.isDragging && "shadow-lg")}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div {...provided.dragHandleProps}>
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <span className={cn("px-2 py-1 rounded text-xs font-medium",
+                                    item.type === "pickup" 
+                                      ? "bg-blue-100 text-blue-700" 
+                                      : "bg-green-100 text-green-700"
+                                  )}>
+                                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                                  </span>
                                 </div>
-                                <h4 className="font-medium capitalize">{item.type}</h4>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removePickupDrop(item.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
-                              <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <Input placeholder="Address" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
-                              <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
-                            </div>
-                          </Card>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-             </DragDropContext>
-           </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <Label htmlFor={`address-${item.id}`}>Address</Label>
+                                  <Textarea
+                                    id={`address-${item.id}`}
+                                    placeholder="Full address"
+                                    value={item.address}
+                                    onChange={(e) => updatePickupDrop(item.id, 'address', e.target.value)}
+                                    className="min-h-[60px]"
+                                  />
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <Label htmlFor={`datetime-${item.id}`}>Date & Time</Label>
+                                  <Input
+                                    id={`datetime-${item.id}`}
+                                    type="datetime-local"
+                                    value={item.datetime}
+                                    onChange={(e) => updatePickupDrop(item.id, 'datetime', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
 
-           <div className="space-y-4">
-             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <Label>Pickup Date Range</Label>
-                 <DateRangePicker
-                   date={pickupDateRange}
-                   onDateChange={setPickupDateRange}
-                   placeholder="Select pickup dates"
-                 />
-               </div>
-               <div className="space-y-2">
-                 <Label>Delivery Date Range</Label>
-                 <DateRangePicker
-                   date={deliveryDateRange}
-                   onDateChange={setDeliveryDateRange}
-                   placeholder="Select delivery dates"
-                 />
-               </div>
-             </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Pickup Date Range</Label>
+                  <DateRangePicker
+                    date={pickupDateRange}
+                    onDateChange={setPickupDateRange}
+                    placeholder="Select pickup dates"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delivery Date Range</Label>
+                  <DateRangePicker
+                    date={deliveryDateRange}
+                    onDateChange={setDeliveryDateRange}
+                    placeholder="Select delivery dates"
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dh-miles">DH Miles</Label>
+                  <Input 
+                    id="dh-miles" 
+                    type="number" 
+                    placeholder="0" 
+                    value={dhMiles} 
+                    onChange={e => setDhMiles(e.target.value)} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="loaded-miles">Loaded Miles</Label>
+                  <Input 
+                    id="loaded-miles" 
+                    type="number" 
+                    placeholder="0" 
+                    value={loadedMiles} 
+                    onChange={e => setLoadedMiles(e.target.value)} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="total-miles">Total Miles</Label>
+                  <Input 
+                    id="total-miles" 
+                    type="number" 
+                    placeholder="0" 
+                    value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
+                    readOnly 
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="freight-amount">Freight Amount</Label>
+                  <Input 
+                    id="freight-amount" 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={freightAmount} 
+                    onChange={e => setFreightAmount(e.target.value)} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="driver-price">Price for Driver</Label>
+                  <Input 
+                    id="driver-price" 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={driverPrice} 
+                    onChange={e => setDriverPrice(e.target.value)} 
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label>Pickup Date Range</Label>
-                <DateRangePicker
-                  date={pickupDateRange}
-                  onDateChange={setPickupDateRange}
-                  placeholder="Select pickup dates"
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="files">Upload Files</Label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleExtractWithAI}
+                    disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {isExtracting ? "Extracting..." : "Extract with AI"}
+                  </Button>
+                </div>
+                <Input 
+                  id="files" 
+                  type="file" 
+                  multiple 
+                  onChange={e => setFiles(e.target.files)} 
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Delivery Date Range</Label>
-                <DateRangePicker
-                  date={deliveryDateRange}
-                  onDateChange={setDeliveryDateRange}
-                  placeholder="Select delivery dates"
-                />
-              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="dh-miles">DH Miles</Label>
-                <Input id="dh-miles" type="number" placeholder="0" value={dhMiles} onChange={e => setDhMiles(e.target.value)} />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="loaded-miles">Loaded Miles</Label>
-                <Input id="loaded-miles" type="number" placeholder="0" value={loadedMiles} onChange={e => setLoadedMiles(e.target.value)} />
-              </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="total-miles">Total Miles</Label>
-              <Input 
-                id="total-miles" 
-                type="number" 
-                placeholder="0" 
-                value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
-                readOnly 
-                className="bg-muted"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="freight-amount">Freight Amount</Label>
-              <Input id="freight-amount" type="number" placeholder="0.00" value={freightAmount} onChange={e => setFreightAmount(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="driver-price">Price for Driver</Label>
-              <Input id="driver-price" type="number" placeholder="0.00" value={driverPrice} onChange={e => setDriverPrice(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="files">Upload Files</Label>
-              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm"
-                onClick={handleExtractWithAI}
-                disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
-                className="gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                {isExtracting ? "Extracting..." : "Extract with AI"}
-              </Button>
-            </div>
-            <Input 
-              id="files" 
-              type="file" 
-              multiple 
-              onChange={(e) => setFiles(e.target.files)}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-            />
-            {files && files.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                {files.length} file(s) selected
-                {Array.from(files).some(f => f.type === 'application/pdf') && 
-                  <span className="text-primary ml-2">• PDF ready for AI extraction</span>
-                }
-              </div>
-            )}
-          </div>
 
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline">Cancel</Button>
@@ -636,7 +683,6 @@ const NewOrder = () => {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Order
               </Button>
-              </div>
             </div>
           </form>
         </CardContent>
