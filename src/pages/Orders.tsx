@@ -56,14 +56,15 @@ const Orders = () => {
     order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.brokerName.toLowerCase().includes(searchTerm.toLowerCase())
+    order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
-        <Button>
+        <Button onClick={() => navigate('/new-order')}>
           <FileText className="mr-2 h-4 w-4" />
           New Order
         </Button>
@@ -107,13 +108,14 @@ const Orders = () => {
                   <TableHead>Notes</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Booked By</TableHead>
+                  <TableHead>Files</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                       No orders found
                     </TableCell>
                   </TableRow>
@@ -138,6 +140,7 @@ const Orders = () => {
                       <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                       <TableCell>{order.companyName}</TableCell>
                       <TableCell>{order.bookedBy}</TableCell>
+                      <TableCell>-</TableCell>
                       <TableCell>
                         <Button 
                           variant="outline" 

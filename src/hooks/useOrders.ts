@@ -36,9 +36,19 @@ export const useOrders = () => {
         const getLocationFromAddress = (address: string, state: string) => {
           if (address && address.includes(',')) {
             const parts = address.split(',');
+            // Extract city from the end of the first part (after street address)
+            const firstPart = parts[0]?.trim() || '';
+            const cityMatch = firstPart.match(/\b([A-Za-z\s]+)$/);
+            const city = cityMatch ? cityMatch[1].trim() : firstPart;
+            
+            // Extract state code (first word) from second part, excluding zip
+            const secondPart = parts[1]?.trim() || '';
+            const stateMatch = secondPart.match(/^([A-Z]{2})/);
+            const extractedState = stateMatch ? stateMatch[1] : secondPart.split(' ')[0];
+            
             return {
-              city: parts[0]?.trim() || 'N/A',
-              state: parts[1]?.trim() || state || 'N/A'
+              city: city || 'N/A',
+              state: extractedState || state || 'N/A'
             };
           }
           return { city: address || 'N/A', state: state || 'N/A' };
@@ -66,7 +76,8 @@ export const useOrders = () => {
           freightAmount: order.freight_amount || 0,
           notes: order.notes || '',
           bookedBy: order.booked_by || 'N/A',
-          companyName: order.company?.name || 'N/A'
+          companyName: order.company?.name || 'N/A',
+          files: [] // Placeholder for future file attachments
         };
       }) || [];
     },
