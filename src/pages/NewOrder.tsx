@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2, GripVertical } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
@@ -39,6 +39,7 @@ const NewOrder = () => {
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [files, setFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -137,6 +138,109 @@ const NewOrder = () => {
     items.splice(result.destination.index, 0, reorderedItem);
 
     setPickupsDrops(items);
+  };
+
+  const handleExtractWithAI = async () => {
+    if (!files || files.length === 0) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a PDF file to extract data from.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const pdfFile = Array.from(files).find(file => file.type === 'application/pdf');
+    if (!pdfFile) {
+      toast({
+        title: "PDF Required", 
+        description: "Please select a PDF file for AI extraction.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    
+    try {
+      console.log('Starting PDF extraction with OpenAI...');
+      
+      // Prepare form data for the edge function
+      const formData = new FormData();
+      formData.append('pdf', pdfFile);
+      
+      console.log('Calling extract-order-fields edge function...');
+      
+      const response = await supabase.functions.invoke('extract-order-fields', {
+        body: formData,
+      });
+
+      console.log('Edge function response:', response);
+
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        throw new Error(response.error.message || 'Edge function failed');
+      }
+
+      if (!response.data?.success) {
+        console.error('Extraction failed:', response.data?.error);
+        throw new Error(response.data?.error || 'Failed to extract data');
+      }
+
+      const extractedData = response.data.data;
+      console.log('Successfully extracted data:', extractedData);
+      
+      // Populate form fields with extracted data
+      if (extractedData.brokerLoadNumber) {
+        setBrokerLoadNumber(extractedData.brokerLoadNumber);
+      }
+      if (extractedData.freightAmount) {
+        setFreightAmount(extractedData.freightAmount.toString());
+      }
+      if (extractedData.mileage) {
+        setLoadedMiles(extractedData.mileage.toString());
+      }
+      
+      // Handle pickups and deliveries
+      const newPickupsDrops: PickupDrop[] = [];
+      
+      if (extractedData.pickupAddress) {
+        newPickupsDrops.push({
+          id: "pickup-1",
+          type: "pickup",
+          address: `${extractedData.pickupAddress}${extractedData.pickupCity ? ', ' + extractedData.pickupCity : ''}${extractedData.pickupState ? ', ' + extractedData.pickupState : ''}`,
+          datetime: extractedData.pickupDate || ""
+        });
+      }
+      
+      if (extractedData.deliveryAddress) {
+        newPickupsDrops.push({
+          id: "delivery-1",
+          type: "delivery", 
+          address: `${extractedData.deliveryAddress}${extractedData.deliveryCity ? ', ' + extractedData.deliveryCity : ''}${extractedData.deliveryState ? ', ' + extractedData.deliveryState : ''}`,
+          datetime: extractedData.deliveryDate || ""
+        });
+      }
+      
+      if (newPickupsDrops.length > 0) {
+        setPickupsDrops(newPickupsDrops);
+      }
+
+      toast({
+        title: "Data Extracted Successfully",
+        description: `Extracted ${response.data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`
+      });
+
+    } catch (error: any) {
+      console.error('Extraction error:', error);
+      toast({
+        title: "Extraction Failed",
+        description: error.message || "Failed to extract data from PDF",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
 
@@ -429,7 +533,20 @@ const NewOrder = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="files">Upload Files</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="files">Upload Files</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={handleExtractWithAI}
+                disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                {isExtracting ? "Extracting..." : "Extract with AI"}
+              </Button>
+            </div>
             <Input 
               id="files" 
               type="file" 
@@ -440,6 +557,9 @@ const NewOrder = () => {
             {files && files.length > 0 && (
               <div className="text-sm text-muted-foreground">
                 {files.length} file(s) selected
+                {Array.from(files).some(f => f.type === 'application/pdf') && 
+                  <span className="text-primary ml-2">• PDF ready for AI extraction</span>
+                }
               </div>
             )}
           </div>
