@@ -248,27 +248,19 @@ const NewOrder = () => {
   return <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-semibold">Create New Order</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-semibold">Create New Order</CardTitle>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Internal Load #</div>
+              <div className="text-lg font-medium">{nextInternalLoadNumber || 'Loading...'}</div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="internal-load-number">Internal Load # (Auto-generated)</Label>
-                <Input 
-                  id="internal-load-number" 
-                  type="number" 
-                  placeholder="Auto-generated" 
-                  value={nextInternalLoadNumber || ''} 
-                  readOnly 
-                  className="bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="broker-load-number">Broker Load #</Label>
-                <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="broker-load-number">Broker Load #</Label>
+              <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
