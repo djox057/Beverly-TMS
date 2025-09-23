@@ -23,41 +23,136 @@ interface ExtractedData {
   }>;
 }
 
-// Enhanced PDF text extraction with better pattern matching
+// Upload PDF to OpenAI and extract structured data using file API
+async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Promise<ExtractedData> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new Error('OpenAI API key not found');
+  }
+
+  console.log('Uploading PDF to OpenAI files API...');
+  
+  // Step 1: Upload the PDF file to OpenAI
+  const formData = new FormData();
+  const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
+  formData.append('file', pdfBlob, fileName);
+  formData.append('purpose', 'input');
+
+  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!uploadResponse.ok) {
+    const error = await uploadResponse.text();
+    console.error('File upload failed:', error);
+    throw new Error(`File upload failed: ${uploadResponse.status} - ${error}`);
+  }
+
+  const uploadResult = await uploadResponse.json();
+  console.log('File uploaded successfully:', uploadResult.id);
+
+  // Step 2: Create structured extraction request
+  const schema = {
+    name: "ShippingDocument",
+    schema: {
+      type: "object",
+      properties: {
+        brokerLoadNumber: { type: "string", description: "Load/reference/confirmation number" },
+        broker: { type: "string", description: "Broker/carrier company name" },
+        pickupAddress: { type: "string", description: "Complete pickup address" },
+        deliveryAddress: { type: "string", description: "Complete delivery address" },
+        pickupDateTime: { type: "string", description: "Pickup date/time in YYYY-MM-DDTHH:MM format" },
+        deliveryDateTime: { type: "string", description: "Delivery date/time in YYYY-MM-DDTHH:MM format" },
+        freightAmount: { type: "string", description: "Freight amount as number only" },
+        dhMiles: { type: "string", description: "Deadhead miles if found" },
+        loadedMiles: { type: "string", description: "Loaded miles if found" }
+      },
+      additionalProperties: false
+    },
+    strict: true
+  };
+
+  // Step 3: Extract data using responses API
+  console.log('Extracting data with structured schema...');
+  const extractResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      input: [{
+        role: 'user',
+        content: [
+          { 
+            type: 'input_text', 
+            text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Set null for missing fields.' 
+          },
+          { 
+            type: 'input_file', 
+            file_id: uploadResult.id 
+          }
+        ]
+      }],
+      response_format: { 
+        type: 'json_schema', 
+        json_schema: schema 
+      }
+    }),
+  });
+
+  if (!extractResponse.ok) {
+    const error = await extractResponse.text();
+    console.error('Data extraction failed:', error);
+    throw new Error(`Data extraction failed: ${extractResponse.status} - ${error}`);
+  }
+
+  const extractResult = await extractResponse.json();
+  console.log('Raw extraction result:', extractResult);
+
+  // Step 4: Clean up uploaded file
+  try {
+    await fetch(`https://api.openai.com/v1/files/${uploadResult.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+    console.log('Uploaded file cleaned up');
+  } catch (cleanupError) {
+    console.warn('Failed to cleanup uploaded file:', cleanupError);
+  }
+
+  // Step 5: Parse response
+  const text = extractResult?.output?.[0]?.content?.[0]?.text ?? extractResult?.output_text;
+  if (!text) {
+    throw new Error('No text content in model response');
+  }
+
+  console.log('Extracted text:', text);
+  return JSON.parse(text);
+}
+
+// Simple PDF text extraction as fallback
 async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   try {
     console.log('Starting PDF text extraction...');
     const pdfString = new TextDecoder('latin1').decode(pdfBuffer);
     let extractedText = '';
     
-    // Method 1: Extract text between BT/ET (Begin Text/End Text) operators
+    // Extract text between BT/ET (Begin Text/End Text) operators
     const textMatches = pdfString.match(/BT\s*.*?ET/gs);
     if (textMatches) {
-      console.log(`Found ${textMatches.length} text blocks`);
       for (const match of textMatches) {
-        // Look for text within parentheses (Tj operator)
-        const parenthesesText = match.match(/\((.*?)\)\s*Tj/g);
-        if (parenthesesText) {
-          parenthesesText.forEach(text => {
-            const cleanText = text.replace(/^\(|\)\s*Tj$/g, '')
-              .replace(/\\[rn]/g, ' ')
-              .replace(/\\\(/g, '(')
-              .replace(/\\\)/g, ')')
-              .trim();
-            if (cleanText.length > 0) {
-              extractedText += cleanText + ' ';
-            }
-          });
-        }
-        
-        // Look for text within brackets [text] TJ
-        const bracketText = match.match(/\[(.*?)\]\s*TJ/g);
-        if (bracketText) {
-          bracketText.forEach(text => {
-            const cleanText = text.replace(/^\[|\]\s*TJ$/g, '')
-              .replace(/[()]/g, '')
-              .replace(/\\[rn]/g, ' ')
-              .trim();
+        const textContent = match.match(/\((.*?)\)\s*Tj/g);
+        if (textContent) {
+          textContent.forEach(text => {
+            const cleanText = text.replace(/^\(|\)\s*Tj$/g, '').replace(/\\[rn]/g, ' ').trim();
             if (cleanText.length > 0) {
               extractedText += cleanText + ' ';
             }
@@ -66,124 +161,12 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
       }
     }
     
-    // Method 2: Look for direct text patterns with Tj operators
-    const tjMatches = pdfString.match(/\(([^)]+)\)\s*Tj/g);
-    if (tjMatches) {
-      console.log(`Found ${tjMatches.length} Tj text patterns`);
-      tjMatches.forEach(match => {
-        const text = match.replace(/^\(|\)\s*Tj$/g, '').trim();
-        if (text.length > 1 && !extractedText.includes(text)) {
-          extractedText += text + ' ';
-        }
-      });
-    }
-    
-    // Method 3: Look for plain text patterns (fallback)
-    if (extractedText.length < 50) {
-      console.log('Using fallback text extraction...');
-      const patterns = [
-        /\/F\d+\s+\d+\s+Tf\s*\((.*?)\)/g,
-        /q\s+\d+\s+\d+\s+\d+\s+rg\s*\((.*?)\)/g,
-        /BT[^E]*?Tf[^E]*?\((.*?)\)[^E]*?ET/g
-      ];
-      
-      patterns.forEach(pattern => {
-        const matches = pdfString.match(pattern);
-        if (matches) {
-          matches.forEach(match => {
-            const textMatch = match.match(/\((.*?)\)/);
-            if (textMatch && textMatch[1]) {
-              const cleanText = textMatch[1].trim();
-              if (cleanText.length > 1 && !extractedText.includes(cleanText)) {
-                extractedText += cleanText + ' ';
-              }
-            }
-          });
-        }
-      });
-    }
-    
     console.log(`Total extracted text length: ${extractedText.length}`);
     return extractedText.trim();
   } catch (error) {
     console.error('Text extraction failed:', error);
     return '';
   }
-}
-
-// Send PDF as base64 to OpenAI for document analysis
-async function extractWithPDFAPI(pdfBuffer: Uint8Array): Promise<ExtractedData> {
-  const base64PDF = btoa(String.fromCharCode(...pdfBuffer));
-  
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert at extracting shipping information from transportation documents.
-
-Extract the following information and return ONLY a valid JSON object:
-
-{
-  "brokerLoadNumber": "load/reference/confirmation number",
-  "broker": "broker/carrier company name", 
-  "pickupAddress": "complete pickup address",
-  "deliveryAddress": "complete delivery address", 
-  "pickupDateTime": "pickup date/time in YYYY-MM-DDTHH:MM format",
-  "deliveryDateTime": "delivery date/time in YYYY-MM-DDTHH:MM format",
-  "freightAmount": "freight amount as number only",
-  "dhMiles": "deadhead miles if found",
-  "loadedMiles": "loaded miles if found"
-}
-
-Set fields to null if not found. Return ONLY the JSON object, no markdown or extra text.`
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Analyze this PDF document and extract shipping information. The document is a carrier rate confirmation or load sheet.'
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:application/pdf;base64,${base64PDF}`,
-                detail: 'high'
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.1
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI PDF API error:', errorText);
-    throw new Error(`OpenAI PDF API failed: ${response.status} - ${errorText}`);
-  }
-
-  const result = await response.json();
-  const content = result.choices[0].message.content.trim();
-  
-  // Clean JSON response
-  let cleanContent = content;
-  if (content.startsWith('```json')) {
-    cleanContent = content.replace(/^```json\s*/g, '').replace(/```\s*$/g, '');
-  } else if (content.startsWith('```')) {
-    cleanContent = content.replace(/^```\s*/g, '').replace(/```\s*$/g, '');
-  }
-  
-  return JSON.parse(cleanContent);
 }
 
 // Extract data using OpenAI with text content
@@ -249,77 +232,6 @@ Focus on finding load numbers, company names, addresses, dates, times, and dolla
   return JSON.parse(cleanContent);
 }
 
-// Extract data using OpenAI Vision API
-async function extractWithVisionAPI(images: string[]): Promise<ExtractedData> {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert at reading transportation documents and extracting shipping information.
-
-Extract this information and return ONLY a JSON object:
-
-{
-  "brokerLoadNumber": "load/confirmation number",
-  "broker": "carrier/broker company name",
-  "pickupAddress": "pickup location address", 
-  "deliveryAddress": "delivery location address",
-  "pickupDateTime": "pickup date/time in YYYY-MM-DDTHH:MM",
-  "deliveryDateTime": "delivery date/time in YYYY-MM-DDTHH:MM",
-  "freightAmount": "freight amount as number only",
-  "dhMiles": "deadhead miles",
-  "loadedMiles": "loaded miles"
-}
-
-Set fields to null if not found. Return ONLY JSON, no markdown.`
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Extract shipping information from this carrier rate confirmation document:'
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: images[0],
-                detail: 'high'
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.1
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI Vision API failed: ${response.status}`);
-  }
-
-  const result = await response.json();
-  const content = result.choices[0].message.content.trim();
-  
-  // Clean JSON response  
-  let cleanContent = content;
-  if (content.startsWith('```json')) {
-    cleanContent = content.replace(/^```json\s*/g, '').replace(/```\s*$/g, '');
-  } else if (content.startsWith('```')) {
-    cleanContent = content.replace(/^```\s*/g, '').replace(/```\s*$/g, '');
-  }
-  
-  return JSON.parse(cleanContent);
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -349,32 +261,32 @@ serve(async (req) => {
     let extractedData: ExtractedData | null = null;
     let method = '';
 
-    // Method 1: Try text extraction first
-    console.log('Attempting text extraction from PDF...');
+    // Method 1: Try OpenAI File API for structured extraction
+    console.log('Attempting OpenAI File API extraction...');
     try {
-      const textContent = await extractTextFromPDF(pdfBuffer);
-      console.log('Extracted text length:', textContent.length);
+      extractedData = await extractWithFileAPI(pdfBuffer, file.name);
+      method = 'file_api';
+      console.log('File API extraction successful:', extractedData);
+    } catch (fileError) {
+      console.log('File API extraction failed:', fileError.message);
       
-      if (textContent.length > 50) {
-        console.log('Text sample:', textContent.substring(0, 300));
-        extractedData = await extractWithTextAPI(textContent);
-        method = 'text_extraction';
-        console.log('Text extraction successful:', extractedData);
-      } else {
-        throw new Error('Insufficient text extracted from PDF');
-      }
-    } catch (textError) {
-      console.log('Text extraction failed:', textError.message);
-      
-      // Method 2: Try direct PDF analysis with OpenAI
-      console.log('Attempting direct PDF analysis with OpenAI...');
+      // Method 2: Fallback to text extraction
+      console.log('Attempting text extraction fallback...');
       try {
-        extractedData = await extractWithPDFAPI(pdfBuffer);
-        method = 'pdf_analysis';
-        console.log('PDF analysis successful:', extractedData);
-      } catch (pdfError) {
-        console.log('PDF analysis failed:', pdfError.message);
-        throw new Error(`All extraction methods failed. Text: ${textError.message}, PDF: ${pdfError.message}`);
+        const textContent = await extractTextFromPDF(pdfBuffer);
+        console.log('Extracted text length:', textContent.length);
+        
+        if (textContent.length > 50) {
+          console.log('Text sample:', textContent.substring(0, 300));
+          extractedData = await extractWithTextAPI(textContent);
+          method = 'text_extraction';
+          console.log('Text extraction successful:', extractedData);
+        } else {
+          throw new Error('Insufficient text extracted from PDF');
+        }
+      } catch (textError) {
+        console.log('Text extraction also failed:', textError.message);
+        throw new Error(`All extraction methods failed. File API: ${fileError.message}, Text: ${textError.message}`);
       }
     }
 
