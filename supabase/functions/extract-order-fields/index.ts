@@ -23,39 +23,19 @@ interface ExtractedData {
   }>;
 }
 
-// Upload PDF to OpenAI and extract structured data using file API
+// Upload PDF to OpenAI and extract structured data using chat completions API
 async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Promise<ExtractedData> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
     throw new Error('OpenAI API key not found');
   }
 
-  console.log('Uploading PDF to OpenAI files API...');
+  console.log('Using chat completions API for PDF extraction...');
   
-  // Step 1: Upload the PDF file to OpenAI
-  const formData = new FormData();
-  const pdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
-  formData.append('file', pdfBlob, fileName);
-  formData.append('purpose', 'assistants');
+  // Create base64 encoded PDF for direct processing
+  const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
 
-  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
-  if (!uploadResponse.ok) {
-    const error = await uploadResponse.text();
-    console.error('File upload failed:', error);
-    throw new Error(`File upload failed: ${uploadResponse.status} - ${error}`);
-  }
-
-  const uploadResult = await uploadResponse.json();
-  console.log('File uploaded successfully:', uploadResult.id);
-
-  // Step 2: Create structured extraction request
+  // Define the schema for structured extraction
   const schema = {
     name: "ShippingDocument",
     schema: {
@@ -76,113 +56,72 @@ async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Prom
     strict: true
   };
 
-  // Step 3: Extract data using responses API
-  console.log('Extracting data with structured schema...');
-  const requestBody = {
-    model: 'gpt-4o',
-    input: [{
-      role: 'user',
-      content: [
-        { 
-          type: 'input_text', 
-          text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Set null for missing fields.' 
-        },
-        { 
-          type: 'input_file', 
-          file_id: uploadResult.id 
-        }
-      ]
-    }],
-    // Try text_format first (newer API), fallback to response_format
-    text_format: { 
-      type: 'json_schema', 
-      json_schema: schema 
-    }
-  };
-
-  const extractResponse = await fetch('https://api.openai.com/v1/responses', {
+  // Extract data using chat completions API with vision
+  console.log('Extracting data with chat completions API...');
+  const extractResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Look for load numbers, broker names, addresses, dates/times, freight amounts, and mileage information. Set null for missing fields.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`
+              }
+            }
+          ]
+        }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: schema
+      },
+      max_tokens: 1000
+    }),
   });
 
-  // If text_format fails, try with response_format as fallback
   if (!extractResponse.ok) {
-    console.log('Trying fallback with response_format...');
-    const fallbackBody = {
-      ...requestBody,
-      response_format: requestBody.text_format
-    };
-    delete fallbackBody.text_format;
-
-    const fallbackResponse = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(fallbackBody),
-    });
-
-    if (!fallbackResponse.ok) {
-      const error = await fallbackResponse.text();
-      console.error('Data extraction failed with both formats:', error);
-      throw new Error(`Data extraction failed: ${fallbackResponse.status} - ${error}`);
-    }
-
-    const extractResult = await fallbackResponse.json();
-    console.log('Raw extraction result (fallback):', extractResult);
-    
-    // Parse fallback response
-    const text = extractResult?.output?.[0]?.content?.[0]?.text ?? extractResult?.output_text;
-    if (!text) {
-      throw new Error('No text content in fallback model response');
-    }
-    
-    console.log('Extracted text (fallback):', text);
-    return JSON.parse(text);
+    const error = await extractResponse.text();
+    console.error('Chat completions extraction failed:', error);
+    throw new Error(`Chat completions extraction failed: ${extractResponse.status} - ${error}`);
   }
 
   const extractResult = await extractResponse.json();
   console.log('Raw extraction result:', extractResult);
-
-  // Step 4: Clean up uploaded file
-  try {
-    await fetch(`https://api.openai.com/v1/files/${uploadResult.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
-    console.log('Uploaded file cleaned up');
-  } catch (cleanupError) {
-    console.warn('Failed to cleanup uploaded file:', cleanupError);
+  
+  // Parse the response
+  const content = extractResult?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('No content in chat completion response');
   }
-
-  // Step 5: Parse response
-  const text = extractResult?.output?.[0]?.content?.[0]?.text ?? extractResult?.output_text;
-  if (!text) {
-    throw new Error('No text content in model response');
-  }
-
-  console.log('Extracted text:', text);
-  return JSON.parse(text);
+  
+  console.log('Extracted content:', content);
+  return JSON.parse(content);
 }
 
-// Simple PDF text extraction as fallback
+// Improved PDF text extraction as fallback
 async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   try {
-    console.log('Starting PDF text extraction...');
+    console.log('Starting improved PDF text extraction...');
     const pdfString = new TextDecoder('latin1').decode(pdfBuffer);
     let extractedText = '';
     
-    // Extract text between BT/ET (Begin Text/End Text) operators
+    // Method 1: Extract text between BT/ET (Begin Text/End Text) operators
     const textMatches = pdfString.match(/BT\s*.*?ET/gs);
     if (textMatches) {
       for (const match of textMatches) {
+        // Look for text in parentheses followed by Tj operator
         const textContent = match.match(/\((.*?)\)\s*Tj/g);
         if (textContent) {
           textContent.forEach(text => {
@@ -192,11 +131,65 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
             }
           });
         }
+        
+        // Also look for text with TJ operator (array of strings)
+        const arrayTextMatches = match.match(/\[(.*?)\]\s*TJ/g);
+        if (arrayTextMatches) {
+          arrayTextMatches.forEach(arrayText => {
+            const strings = arrayText.match(/\((.*?)\)/g);
+            if (strings) {
+              strings.forEach(str => {
+                const cleanStr = str.replace(/^\(|\)$/g, '').trim();
+                if (cleanStr.length > 0) {
+                  extractedText += cleanStr + ' ';
+                }
+              });
+            }
+          });
+        }
       }
     }
     
+    // Method 2: Look for stream objects containing text
+    const streamMatches = pdfString.match(/stream\s*(.*?)\s*endstream/gs);
+    if (streamMatches) {
+      for (const stream of streamMatches) {
+        // Look for readable text patterns in streams
+        const readableText = stream.match(/[A-Za-z0-9\s\$\.\,\-\#\@\(\)]{10,}/g);
+        if (readableText) {
+          readableText.forEach(text => {
+            const cleanText = text.trim();
+            if (cleanText.length > 10 && !cleanText.includes('obj') && !cleanText.includes('endobj')) {
+              extractedText += cleanText + ' ';
+            }
+          });
+        }
+      }
+    }
+    
+    // Method 3: Look for string literals in the PDF
+    const stringMatches = pdfString.match(/\([^)]{5,100}\)/g);
+    if (stringMatches) {
+      stringMatches.forEach(str => {
+        const cleanStr = str.replace(/^\(|\)$/g, '').trim();
+        if (cleanStr.length > 3 && /[A-Za-z]/.test(cleanStr)) {
+          extractedText += cleanStr + ' ';
+        }
+      });
+    }
+    
+    // Clean up extracted text
+    extractedText = extractedText
+      .replace(/\s+/g, ' ')
+      .replace(/[^\x20-\x7E]/g, ' ')
+      .trim();
+    
     console.log(`Total extracted text length: ${extractedText.length}`);
-    return extractedText.trim();
+    if (extractedText.length > 100) {
+      console.log('Text sample:', extractedText.substring(0, 500));
+    }
+    
+    return extractedText;
   } catch (error) {
     console.error('Text extraction failed:', error);
     return '';
