@@ -184,6 +184,7 @@ const NewOrder = () => {
         delivery_datetime: deliveryDateTime || null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
+        mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
         status: 'pending',
         booked_by: 'System User' // This should be the logged-in user
       }).select().single();
