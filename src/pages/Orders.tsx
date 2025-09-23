@@ -28,8 +28,8 @@ const getStatusBadge = (status: string) => {
 const Orders = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("");
-  const [bookedByFilter, setBookedByFilter] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all-companies");
+  const [bookedByFilter, setBookedByFilter] = useState("all-users");
   
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -62,8 +62,8 @@ const Orders = () => {
       order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesCompany = !companyFilter || order.companyName === companyFilter;
-    const matchesBookedBy = !bookedByFilter || order.bookedBy === bookedByFilter;
+    const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
+    const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
     
     return matchesSearch && matchesCompany && matchesBookedBy;
   }) || [];
@@ -128,7 +128,7 @@ const Orders = () => {
                   <SelectValue placeholder="Filter by Company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Companies</SelectItem>
+                  <SelectItem value="all-companies">All Companies</SelectItem>
                   {uniqueCompanies.map(company => (
                     <SelectItem key={company} value={company}>{company}</SelectItem>
                   ))}
@@ -140,7 +140,7 @@ const Orders = () => {
                   <SelectValue placeholder="Filter by Booked By" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Users</SelectItem>
+                  <SelectItem value="all-users">All Users</SelectItem>
                   {uniqueBookedBy.map(user => (
                     <SelectItem key={user} value={user}>{user}</SelectItem>
                   ))}
