@@ -296,12 +296,12 @@ export class DocumentParser {
     
     let addresses: string[] = [];
     for (const pattern of addressPatterns) {
-      const matches = [...text.matchAll(pattern)];
-      matches.forEach(match => {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
         if (match[1] && match[1].length > 10) {
           addresses.push(match[1].trim());
         }
-      });
+      }
     }
     
     addresses = [...new Set(addresses)];
@@ -338,10 +338,10 @@ export class DocumentParser {
     
     let dates: string[] = [];
     for (const pattern of datePatterns) {
-      const matches = [...text.matchAll(pattern)];
-      matches.forEach(match => {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
         if (match[1]) dates.push(match[1]);
-      });
+      }
     }
     
     dates = [...new Set(dates)];
@@ -355,20 +355,20 @@ export class DocumentParser {
     // Extract mileage
     const mileagePatterns = [
       /\b(\d{2,4})\s*(?:miles?|mi)\b/gi,
-      /(?:LOADED|MILES)\s*:?\s*(\d{1,4})/i,
+      /(?:LOADED|MILES)\s*:?\s*(\d{1,4})/gi,
     ];
     
     let mileage: string[] = [];
     for (const pattern of mileagePatterns) {
-      const matches = [...text.matchAll(pattern)];
-      matches.forEach(match => {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
         if (match[1]) {
           const miles = parseInt(match[1]);
           if (miles > 10 && miles < 5000) {
             mileage.push(match[1]);
           }
         }
-      });
+      }
     }
     
     mileage = [...new Set(mileage)];
