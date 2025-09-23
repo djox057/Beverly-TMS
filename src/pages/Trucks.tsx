@@ -48,7 +48,8 @@ const Trucks = () => {
   // Filter trucks based on search term
   const filteredTrucks = trucks?.filter(truck =>
     truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    truck.fleet_assignment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.make?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -362,7 +363,7 @@ const Trucks = () => {
                       <TableCell className="font-medium">{truck.truck_number}</TableCell>
                       <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
                       <TableCell>{truck.driver1?.name || "—"}</TableCell>
-                      <TableCell>{truck.fleet_assignment || "—"}</TableCell>
+                      <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
                       <TableCell>
                         {truck.year || truck.make || truck.model ? 
                           `${truck.year || ''} ${truck.make || ''} ${truck.model || ''}`.trim() : 

@@ -1,84 +1,146 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface DispatcherFleet {
+  dispatcher: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+  trucks: any[];
+}
 
 export const useFleetManagement = () => {
-  return useQuery({
-    queryKey: ['fleet-management'],
-    queryFn: async () => {
-      const { data: trucks, error } = await supabase
-        .from('trucks')
-        .select(`
-          id,
-          truck_number,
-          fleet_assignment,
-          driver1:drivers!trucks_driver1_id_fkey(name),
-          trailer:trailers!trucks_trailer_id_fkey(trailer_number)
-        `)
-        .order('fleet_assignment, truck_number');
-
-      if (error) throw error;
-
-      // Group trucks by fleet
-      const fleetGroups: { [key: string]: any[] } = {};
-      
-      trucks?.forEach(truck => {
-        const fleet = truck.fleet_assignment || 'Unassigned';
-        if (!fleetGroups[fleet]) {
-          fleetGroups[fleet] = [];
-        }
-        fleetGroups[fleet].push(truck);
-      });
-
-      return fleetGroups;
-    },
-  });
-};
-
-export const useUpdateTruckFleet = () => {
-  const queryClient = useQueryClient();
+  const [dispatchers, setDispatchers] = useState<DispatcherFleet[]>([]);
+  const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
+  const [allDispatchers, setAllDispatchers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  return useMutation({
-    mutationFn: async ({ truckId, fleetAssignment }: { truckId: string; fleetAssignment: string | null }) => {
-      const { error } = await supabase
-        .from('trucks')
-        .update({ fleet_assignment: fleetAssignment })
-        .eq('id', truckId);
+  const fetchFleetData = async () => {
+    try {
+      setLoading(true);
       
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['fleet-management'] });
-      toast({
-        title: "Success",
-        description: "Truck fleet assignment updated successfully",
+      // Fetch all dispatchers
+      const { data: dispatcherProfiles, error: dispatcherError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'dispatch')
+        .order('full_name');
+
+      if (dispatcherError) throw dispatcherError;
+
+      // Fetch all trucks with their dispatcher assignments
+      const { data: trucks, error: trucksError } = await supabase
+        .from('trucks')
+        .select('*')
+        .order('truck_number');
+
+      if (trucksError) throw trucksError;
+
+      // Group trucks by dispatcher
+      const dispatcherGroups: { [key: string]: any[] } = {};
+      const unassignedTrucks: any[] = [];
+
+      trucks?.forEach(truck => {
+        if (truck.dispatcher_id) {
+          if (!dispatcherGroups[truck.dispatcher_id]) {
+            dispatcherGroups[truck.dispatcher_id] = [];
+          }
+          dispatcherGroups[truck.dispatcher_id].push(truck);
+        } else {
+          unassignedTrucks.push(truck);
+        }
       });
-    },
-    onError: (error: any) => {
+
+      // Create dispatcher fleets array
+      const dispatcherFleets = dispatcherProfiles?.map(dispatcher => ({
+        dispatcher,
+        trucks: dispatcherGroups[dispatcher.id] || []
+      })) || [];
+
+      // Filter out dispatchers with no trucks for the main list, but keep all for assignment
+      setDispatchers(dispatcherFleets);
+      setAllDispatchers(dispatcherProfiles || []);
+      setAvailableTrucks(unassignedTrucks);
+    } catch (error: any) {
+      console.error('Error fetching fleet data:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update fleet assignment",
+        description: "Failed to fetch fleet data",
         variant: "destructive",
       });
-    },
-  });
-};
+    } finally {
+      setLoading(false);
+    }
+  };
 
-export const useAvailableFleets = () => {
-  return useQuery({
-    queryKey: ['available-fleets'],
-    queryFn: async () => {
-      const { data: trucks, error } = await supabase
+  const assignTruckToDispatcher = async (truckId: string, dispatcherId: string) => {
+    try {
+      const { error } = await supabase
         .from('trucks')
-        .select('fleet_assignment')
-        .not('fleet_assignment', 'is', null);
+        .update({ dispatcher_id: dispatcherId })
+        .eq('id', truckId);
 
       if (error) throw error;
 
-      // Get unique fleet names
-      const fleets = [...new Set(trucks?.map(t => t.fleet_assignment).filter(Boolean))];
-      return fleets.sort();
-    },
-  });
+      // Find dispatcher name for the toast
+      const dispatcher = allDispatchers.find(d => d.id === dispatcherId);
+      const dispatcherName = dispatcher?.full_name || dispatcher?.email || 'dispatcher';
+
+      toast({
+        title: "Success",
+        description: `Truck assigned to ${dispatcherName} successfully`,
+      });
+
+      fetchFleetData();
+    } catch (error: any) {
+      console.error('Error assigning truck to dispatcher:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign truck to dispatcher",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeTruckFromDispatcher = async (truckId: string) => {
+    try {
+      const { error } = await supabase
+        .from('trucks')
+        .update({ dispatcher_id: null })
+        .eq('id', truckId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Truck removed from dispatcher successfully",
+      });
+
+      fetchFleetData();
+    } catch (error: any) {
+      console.error('Error removing truck from dispatcher:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove truck from dispatcher",
+        variant: "destructive",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchFleetData();
+  }, []);
+
+  return {
+    dispatchers,
+    availableTrucks,
+    allDispatchers,
+    loading,
+    fetchFleetData,
+    assignTruckToDispatcher,
+    removeTruckFromDispatcher,
+  };
 };
