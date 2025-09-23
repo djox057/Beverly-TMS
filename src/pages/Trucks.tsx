@@ -23,7 +23,6 @@ interface TruckFormData {
   year: string;
   make: string;
   model: string;
-  status: string;
 }
 
 const Trucks = () => {
@@ -41,8 +40,7 @@ const Trucks = () => {
     truck_type: "Semi-Truck",
     year: "",
     make: "",
-    model: "",
-    status: "available"
+    model: ""
   });
 
   const { toast } = useToast();
@@ -69,8 +67,7 @@ const Trucks = () => {
       truck_type: "Semi-Truck",
       year: "",
       make: "",
-      model: "",
-      status: "available"
+      model: ""
     });
   };
 
@@ -89,8 +86,7 @@ const Trucks = () => {
           truck_type: formData.truck_type,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
-          model: formData.model || null,
-          status: formData.status
+          model: formData.model || null
         });
 
       if (error) throw error;
@@ -131,8 +127,7 @@ const Trucks = () => {
           truck_type: formData.truck_type,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
-          model: formData.model || null,
-          status: formData.status
+          model: formData.model || null
         })
         .eq('id', editingTruck.id);
 
@@ -193,8 +188,7 @@ const Trucks = () => {
       truck_type: truck.truck_type || "Semi-Truck",
       year: truck.year?.toString() || "",
       make: truck.make || "",
-      model: truck.model || "",
-      status: truck.status || "available"
+      model: truck.model || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -318,35 +312,19 @@ const Trucks = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="truck_type">Truck Type</Label>
-                  <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
-                      <SelectItem value="Box Truck">Box Truck</SelectItem>
-                      <SelectItem value="Flatbed">Flatbed</SelectItem>
-                      <SelectItem value="Tanker">Tanker</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="available">Available</SelectItem>
-                      <SelectItem value="in_use">In Use</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="out_of_service">Out of Service</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="truck_type">Truck Type</Label>
+                <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
+                    <SelectItem value="Box Truck">Box Truck</SelectItem>
+                    <SelectItem value="Flatbed">Flatbed</SelectItem>
+                    <SelectItem value="Tanker">Tanker</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -389,14 +367,13 @@ const Trucks = () => {
                   <TableHead>Driver 2</TableHead>
                   <TableHead>Fleet Assignment</TableHead>
                   <TableHead>Vehicle Info</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTrucks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow>
@@ -413,16 +390,6 @@ const Trucks = () => {
                           `${truck.year || ''} ${truck.make || ''} ${truck.model || ''}`.trim() : 
                           "—"
                         }
-                      </TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          truck.status === 'available' ? 'bg-green-100 text-green-800' :
-                          truck.status === 'in_use' ? 'bg-blue-100 text-blue-800' :
-                          truck.status === 'maintenance' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {truck.status?.replace('_', ' ') || 'available'}
-                        </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -560,35 +527,19 @@ const Trucks = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_truck_type">Truck Type</Label>
-                <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
-                    <SelectItem value="Box Truck">Box Truck</SelectItem>
-                    <SelectItem value="Flatbed">Flatbed</SelectItem>
-                    <SelectItem value="Tanker">Tanker</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="in_use">In Use</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="out_of_service">Out of Service</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_truck_type">Truck Type</Label>
+              <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
+                  <SelectItem value="Box Truck">Box Truck</SelectItem>
+                  <SelectItem value="Flatbed">Flatbed</SelectItem>
+                  <SelectItem value="Tanker">Tanker</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex justify-end gap-3">
