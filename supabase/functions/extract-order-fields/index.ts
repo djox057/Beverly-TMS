@@ -151,18 +151,37 @@ serve(async (req) => {
             content: `You are an expert at extracting shipping and logistics information from rate confirmation documents (rate cons). 
 
 Extract the following information from the provided text and return it as a JSON object with these exact field names:
-- brokerLoadNumber: The broker's load number or confirmation number
-- broker: The broker/company name issuing the rate con
-- pickupAddress: The pickup location address
-- deliveryAddress: The delivery location address  
-- pickupDateTime: Pickup date and time (in ISO format if possible, e.g., 2024-01-15T10:00)
-- deliveryDateTime: Delivery date and time (in ISO format if possible)
-- freightAmount: The total freight amount/rate (numeric value only)
-- dhMiles: Deadhead miles (numeric value only)
-- loadedMiles: Loaded miles (numeric value only)
-- additionalPickups: Array of any additional pickup/delivery stops beyond the first pickup and final delivery
+- brokerLoadNumber: The broker's load number or confirmation number (look for patterns like #529393270 or Load #123456)
+- broker: The broker/company name issuing the rate con (like "C.H. Robinson", "XYZ Logistics", etc.)
+- pickupAddress: The complete pickup location address (street, city, state, zip)
+- deliveryAddress: The complete delivery location address (street, city, state, zip)  
+- pickupDateTime: Pickup date and time in YYYY-MM-DDTHH:MM format (convert dates like 9/24/25 to 2025-09-24T13:00)
+- deliveryDateTime: Delivery date and time in YYYY-MM-DDTHH:MM format
+- freightAmount: The total freight amount/rate as a number (extract from patterns like $1,710.00 -> 1710)
+- dhMiles: Deadhead miles as a number if mentioned
+- loadedMiles: Loaded miles as a number if mentioned
 
-Only return the JSON object, no additional text. If a field cannot be found, omit it from the response or set it to null.`
+Look for these specific patterns:
+- Load numbers: Often start with # or "Load #" 
+- Addresses: Usually have street numbers, street names, city, state, zip
+- Dates: Can be in MM/DD/YY or MM/DD/YYYY format
+- Dollar amounts: Look for $ symbols followed by numbers
+- Company names: Often in headers or "booked with" sections
+
+Return ONLY a JSON object, no markdown formatting. If a field cannot be found, set it to null.
+
+Example response:
+{
+  "brokerLoadNumber": "529393270",
+  "broker": "C.H. Robinson",
+  "pickupAddress": "609 Pinewood Ln, Perham, MN 56573",
+  "deliveryAddress": "6601 French Rd, Detroit, MI 48213",
+  "pickupDateTime": "2025-09-24T13:00",
+  "deliveryDateTime": "2025-09-26T08:00",
+  "freightAmount": 1710,
+  "dhMiles": null,
+  "loadedMiles": null
+}`
           },
           {
             role: 'user',

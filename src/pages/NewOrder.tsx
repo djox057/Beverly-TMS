@@ -177,35 +177,55 @@ const NewOrder = () => {
       const { data: extractedData } = response.data;
       
       if (extractedData) {
+        console.log('Processing extracted data:', extractedData);
+        
         // Populate form fields with extracted data
-        if (extractedData.brokerLoadNumber) setBrokerLoadNumber(extractedData.brokerLoadNumber);
-        if (extractedData.freightAmount) setFreightAmount(extractedData.freightAmount);
-        if (extractedData.dhMiles) setDhMiles(extractedData.dhMiles);
-        if (extractedData.loadedMiles) setLoadedMiles(extractedData.loadedMiles);
+        if (extractedData.brokerLoadNumber) {
+          console.log('Setting broker load number:', extractedData.brokerLoadNumber);
+          setBrokerLoadNumber(extractedData.brokerLoadNumber);
+        }
+        if (extractedData.freightAmount) {
+          console.log('Setting freight amount:', extractedData.freightAmount);
+          setFreightAmount(extractedData.freightAmount.toString());
+        }
+        if (extractedData.dhMiles) {
+          console.log('Setting DH miles:', extractedData.dhMiles);
+          setDhMiles(extractedData.dhMiles.toString());
+        }
+        if (extractedData.loadedMiles) {
+          console.log('Setting loaded miles:', extractedData.loadedMiles);
+          setLoadedMiles(extractedData.loadedMiles.toString());
+        }
         
         // Handle pickups and deliveries
         const newPickupsDrops: PickupDrop[] = [];
+        let hasData = false;
         
         if (extractedData.pickupAddress) {
+          console.log('Adding pickup:', extractedData.pickupAddress);
           newPickupsDrops.push({
             id: "pickup-1",
             type: "pickup",
             address: extractedData.pickupAddress,
             datetime: extractedData.pickupDateTime || ""
           });
+          hasData = true;
         }
         
         if (extractedData.deliveryAddress) {
+          console.log('Adding delivery:', extractedData.deliveryAddress);
           newPickupsDrops.push({
             id: "delivery-1", 
             type: "delivery",
             address: extractedData.deliveryAddress,
             datetime: extractedData.deliveryDateTime || ""
           });
+          hasData = true;
         }
         
         // Add additional stops if found
         if (extractedData.additionalPickups && extractedData.additionalPickups.length > 0) {
+          console.log('Adding additional stops:', extractedData.additionalPickups);
           extractedData.additionalPickups.forEach((stop, index) => {
             newPickupsDrops.push({
               id: `${stop.type}-${index + 2}`,
@@ -213,16 +233,40 @@ const NewOrder = () => {
               address: stop.address,
               datetime: stop.datetime || ""
             });
+            hasData = true;
           });
         }
         
-        if (newPickupsDrops.length > 0) {
+        if (hasData && newPickupsDrops.length > 0) {
+          console.log('Setting new pickups/drops:', newPickupsDrops);
           setPickupsDrops(newPickupsDrops);
         }
 
+        // Check if we actually got any meaningful data
+        const hasAnyData = extractedData.brokerLoadNumber || 
+                          extractedData.freightAmount || 
+                          extractedData.pickupAddress || 
+                          extractedData.deliveryAddress ||
+                          extractedData.dhMiles ||
+                          extractedData.loadedMiles;
+
+        if (hasAnyData) {
+          toast({
+            title: "Data Extracted Successfully",
+            description: "Order fields have been populated with extracted data. Please review and adjust as needed."
+          });
+        } else {
+          toast({
+            title: "No Data Found",
+            description: "The AI couldn't extract meaningful data from the PDF. Please check the file and try again or fill the form manually.",
+            variant: "destructive"
+          });
+        }
+      } else {
         toast({
-          title: "Data Extracted Successfully",
-          description: "Order fields have been populated with extracted data. Please review and adjust as needed."
+          title: "No Data Extracted",
+          description: "The AI response didn't contain extractable data.",
+          variant: "destructive"
         });
       }
     } catch (error: any) {
