@@ -116,6 +116,11 @@ serve(async (req) => {
         name: 'PDF Data Extractor',
         instructions: `You are an expert at extracting shipping/logistics data from PDF documents. Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
+IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. For example:
+- 09/24/25 becomes 2025-09-24
+- 9/24/2025 becomes 2025-09-24  
+- Sep 24, 2025 becomes 2025-09-24
+
 Return JSON with these exact fields (only include fields you can find):
 {
   "brokerLoadNumber": "string - load/order/confirmation/BOL/reference number",

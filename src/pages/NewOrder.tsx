@@ -212,14 +212,14 @@ const NewOrder = () => {
         setLoadedMiles(extractedData.mileage.toString());
       }
 
-      // Handle date ranges from AI extraction
+      // Handle date ranges from AI extraction - fix timezone offset
       if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
         setPickupDateRange({
-          from: new Date(extractedData.pickupStartDate),
-          to: new Date(extractedData.pickupEndDate)
+          from: new Date(extractedData.pickupStartDate + 'T12:00:00'),
+          to: new Date(extractedData.pickupEndDate + 'T12:00:00')
         });
       } else if (extractedData.pickupDate) {
-        const pickupDate = new Date(extractedData.pickupDate);
+        const pickupDate = new Date(extractedData.pickupDate + 'T12:00:00');
         setPickupDateRange({
           from: pickupDate,
           to: pickupDate
@@ -228,11 +228,11 @@ const NewOrder = () => {
 
       if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
         setDeliveryDateRange({
-          from: new Date(extractedData.deliveryStartDate),
-          to: new Date(extractedData.deliveryEndDate)
+          from: new Date(extractedData.deliveryStartDate + 'T12:00:00'),
+          to: new Date(extractedData.deliveryEndDate + 'T12:00:00')
         });
       } else if (extractedData.deliveryDate) {
-        const deliveryDate = new Date(extractedData.deliveryDate);
+        const deliveryDate = new Date(extractedData.deliveryDate + 'T12:00:00');
         setDeliveryDateRange({
           from: deliveryDate,
           to: deliveryDate
@@ -244,9 +244,9 @@ const NewOrder = () => {
       
       if (extractedData.pickupAddress) {
         const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate 
-          ? { from: new Date(extractedData.pickupStartDate), to: new Date(extractedData.pickupEndDate) }
+          ? { from: new Date(extractedData.pickupStartDate + 'T12:00:00'), to: new Date(extractedData.pickupEndDate + 'T12:00:00') }
           : extractedData.pickupDate 
-          ? { from: new Date(extractedData.pickupDate), to: new Date(extractedData.pickupDate) }
+          ? { from: new Date(extractedData.pickupDate + 'T12:00:00'), to: new Date(extractedData.pickupDate + 'T12:00:00') }
           : undefined;
 
         newPickupsDrops.push({
@@ -262,9 +262,9 @@ const NewOrder = () => {
       
       if (extractedData.deliveryAddress) {
         const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate 
-          ? { from: new Date(extractedData.deliveryStartDate), to: new Date(extractedData.deliveryEndDate) }
+          ? { from: new Date(extractedData.deliveryStartDate + 'T12:00:00'), to: new Date(extractedData.deliveryEndDate + 'T12:00:00') }
           : extractedData.deliveryDate 
-          ? { from: new Date(extractedData.deliveryDate), to: new Date(extractedData.deliveryDate) }
+          ? { from: new Date(extractedData.deliveryDate + 'T12:00:00'), to: new Date(extractedData.deliveryDate + 'T12:00:00') }
           : undefined;
 
         newPickupsDrops.push({
@@ -323,6 +323,7 @@ const NewOrder = () => {
     try {
       const { data: orderData, error: orderError } = await supabase.from('orders').insert({
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
+        internal_load_number: nextInternalLoadNumber,
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
@@ -371,14 +372,40 @@ const NewOrder = () => {
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0 && orderData) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => ({
-          order_id: orderData.id,
-          type: item.type,
-          address: item.address,
-          city: null,
-          state: null,
-          datetime: item.datetime || null
-        }));
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
+          // Parse city and state from address if it contains commas
+          const addressParts = item.address.split(',').map(part => part.trim());
+          let city = null;
+          let state = null;
+          let cleanAddress = item.address;
+          
+          if (addressParts.length >= 3) {
+            // Format: "Street Address, City, State"
+            cleanAddress = addressParts[0];
+            city = addressParts[1];
+            state = addressParts[2];
+          } else if (addressParts.length === 2) {
+            // Format: "Street Address, City State" or "Street Address, State"
+            cleanAddress = addressParts[0];
+            const cityState = addressParts[1];
+            const cityStateMatch = cityState.match(/^(.+?)\s+([A-Z]{2})$/);
+            if (cityStateMatch) {
+              city = cityStateMatch[1];
+              state = cityStateMatch[2];
+            } else {
+              city = cityState;
+            }
+          }
+          
+          return {
+            order_id: orderData.id,
+            type: item.type,
+            address: cleanAddress,
+            city,
+            state,
+            datetime: item.datetime || null
+          };
+        });
         if (pickupDropData.length > 0) {
           const { error: pickupDropError } = await supabase.from('pickup_drops').insert(pickupDropData);
           if (pickupDropError) throw pickupDropError;
