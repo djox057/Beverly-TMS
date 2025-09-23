@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditingState {
@@ -30,10 +30,68 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+const DEFAULT_COLUMN_WIDTHS = {
+  truck: 100,
+  driver: 120,
+  home: 100,
+  status: 120,
+  pickupAddress: 180,
+  pickupDate: 120,
+  pickupTime: 100,
+  deliveryAddress: 180,
+  deliveryDate: 120,
+  deliveryTime: 100,
+  away: 80,
+  drive: 80,
+  shift: 80,
+  cycle: 80,
+  note: 200,
+  lastEdit: 100,
+  date: 100
+};
+
 const Reports = () => {
   const { data: groupedReports, isLoading, error, updateTruckStatus, updateOrderNote, updatePickupDrop } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const [columnWidths, setColumnWidths] = useState(DEFAULT_COLUMN_WIDTHS);
+  const [isResizing, setIsResizing] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Load column widths from localStorage on mount
+  useEffect(() => {
+    const savedWidths = localStorage.getItem('reports-column-widths');
+    if (savedWidths) {
+      setColumnWidths({ ...DEFAULT_COLUMN_WIDTHS, ...JSON.parse(savedWidths) });
+    }
+  }, []);
+
+  // Save column widths to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('reports-column-widths', JSON.stringify(columnWidths));
+  }, [columnWidths]);
+
+  const handleMouseDown = (column: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(column);
+    
+    const startX = e.clientX;
+    const startWidth = columnWidths[column as keyof typeof columnWidths];
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const diff = e.clientX - startX;
+      const newWidth = Math.max(50, startWidth + diff);
+      setColumnWidths(prev => ({ ...prev, [column]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   const handleEdit = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
@@ -219,49 +277,214 @@ const Reports = () => {
           </CardContent>
         </Card>
       ) : (
-        Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
-          <Card key={dispatcherId}>
-            <CardHeader>
-              <CardTitle>
-                {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Driver</TableHead>
-                      <TableHead>Home</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pickup Address</TableHead>
-                      <TableHead>Pickup Date</TableHead>
-                      <TableHead>Pickup Time</TableHead>
-                      <TableHead>Delivery Address</TableHead>
-                      <TableHead>Delivery Date</TableHead>
-                      <TableHead>Delivery Time</TableHead>
-                      <TableHead>Away (D)</TableHead>
-                      <TableHead>Drive</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Cycle</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead>Last Edit</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.trucks.map((truck) => (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Dispatchers Fleet Report</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.truck }}
+                    >
+                      Dispatcher
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('truck')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.driver }}
+                    >
+                      Truck #
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('driver')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.home }}
+                    >
+                      Driver
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('home')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.status }}
+                    >
+                      Home
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('status')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.pickupAddress }}
+                    >
+                      Status
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('pickupAddress')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.pickupDate }}
+                    >
+                      Pickup Address
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('pickupDate')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.pickupTime }}
+                    >
+                      Pickup Date
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('pickupTime')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.deliveryAddress }}
+                    >
+                      Pickup Time
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('deliveryAddress')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.deliveryDate }}
+                    >
+                      Delivery Address
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('deliveryDate')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.deliveryTime }}
+                    >
+                      Delivery Date
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('deliveryTime')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.away }}
+                    >
+                      Delivery Time
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('away')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.drive }}
+                    >
+                      Away (D)
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('drive')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.shift }}
+                    >
+                      Drive
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('shift')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.cycle }}
+                    >
+                      Shift
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('cycle')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.note }}
+                    >
+                      Cycle
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('note')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.lastEdit }}
+                    >
+                      Note
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('lastEdit')}
+                      />
+                    </TableHead>
+                    <TableHead 
+                      className="relative select-none" 
+                      style={{ width: columnWidths.date }}
+                    >
+                      Last Edit
+                      <div 
+                        className="absolute right-0 top-0 w-1 h-full cursor-col-resize hover:bg-border bg-transparent"
+                        onMouseDown={handleMouseDown('date')}
+                      />
+                    </TableHead>
+                    <TableHead className="relative select-none">
+                      Date
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => 
+                    group.trucks.map((truck, index) => (
                       <TableRow key={truck.id}>
-                        <TableCell className="font-medium">{truck.truckNumber}</TableCell>
-                        <TableCell>{truck.driver}</TableCell>
-                        <TableCell>
+                        {index === 0 && (
+                          <TableCell 
+                            rowSpan={group.trucks.length} 
+                            className="font-semibold bg-muted/30 border-r text-center align-middle"
+                            style={{ width: columnWidths.truck, writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                          >
+                            {group.dispatcher}
+                          </TableCell>
+                        )}
+                        <TableCell className="font-medium" style={{ width: columnWidths.driver }}>
+                          {truck.truckNumber}
+                        </TableCell>
+                        <TableCell style={{ width: columnWidths.home }}>{truck.driver}</TableCell>
+                        <TableCell style={{ width: columnWidths.status }}>
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-muted-foreground" />
                             {truck.home}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.pickupAddress }}>
                           {renderEditableField(
                             truck.id,
                             'status',
@@ -269,41 +492,45 @@ const Reports = () => {
                             getStatusBadge(truck.status)
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.pickupDate }}>
                           {renderEditableField(truck.id, 'pickup-address', truck.pickup.address)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.pickupTime }}>
                           {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.deliveryAddress }}>
                           {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.deliveryDate }}>
                           {renderEditableField(truck.id, 'delivery-address', truck.delivery.address)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.deliveryTime }}>
                           {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.away }}>
                           {renderEditableField(truck.id, 'delivery-time', truck.delivery.time)}
                         </TableCell>
-                        <TableCell>{truck.awayDays}</TableCell>
-                        <TableCell>{truck.driveHours}h</TableCell>
-                        <TableCell>{truck.shiftHours}h</TableCell>
-                        <TableCell>{truck.cycleHours}h</TableCell>
-                        <TableCell>
+                        <TableCell style={{ width: columnWidths.drive }}>{truck.awayDays}</TableCell>
+                        <TableCell style={{ width: columnWidths.shift }}>{truck.driveHours}h</TableCell>
+                        <TableCell style={{ width: columnWidths.cycle }}>{truck.shiftHours}h</TableCell>
+                        <TableCell style={{ width: columnWidths.note }}>{truck.cycleHours}h</TableCell>
+                        <TableCell style={{ width: columnWidths.lastEdit }}>
                           {renderEditableField(truck.id, 'note', truck.note)}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.lastEdit}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.editDate}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground" style={{ width: columnWidths.date }}>
+                          {truck.lastEdit}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {truck.editDate}
+                        </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        ))
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
