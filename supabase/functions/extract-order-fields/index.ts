@@ -23,23 +23,41 @@ interface ExtractedData {
   }>;
 }
 
-// Simple PDF text extraction - extracts readable text from PDF stream
+// Enhanced PDF text extraction with better pattern matching
 async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   try {
-    // Convert buffer to string and look for text patterns
+    console.log('Starting PDF text extraction...');
     const pdfString = new TextDecoder('latin1').decode(pdfBuffer);
-    
-    // Extract text between stream objects - basic PDF text extraction
-    const textMatches = pdfString.match(/BT\s*.*?ET/gs);
     let extractedText = '';
     
+    // Method 1: Extract text between BT/ET (Begin Text/End Text) operators
+    const textMatches = pdfString.match(/BT\s*.*?ET/gs);
     if (textMatches) {
+      console.log(`Found ${textMatches.length} text blocks`);
       for (const match of textMatches) {
-        // Look for text within parentheses or brackets
-        const textContent = match.match(/\((.*?)\)/g) || match.match(/\[(.*?)\]/g);
-        if (textContent) {
-          textContent.forEach(text => {
-            const cleanText = text.replace(/[()[\]]/g, '').replace(/\\[rn]/g, ' ').trim();
+        // Look for text within parentheses (Tj operator)
+        const parenthesesText = match.match(/\((.*?)\)\s*Tj/g);
+        if (parenthesesText) {
+          parenthesesText.forEach(text => {
+            const cleanText = text.replace(/^\(|\)\s*Tj$/g, '')
+              .replace(/\\[rn]/g, ' ')
+              .replace(/\\\(/g, '(')
+              .replace(/\\\)/g, ')')
+              .trim();
+            if (cleanText.length > 0) {
+              extractedText += cleanText + ' ';
+            }
+          });
+        }
+        
+        // Look for text within brackets [text] TJ
+        const bracketText = match.match(/\[(.*?)\]\s*TJ/g);
+        if (bracketText) {
+          bracketText.forEach(text => {
+            const cleanText = text.replace(/^\[|\]\s*TJ$/g, '')
+              .replace(/[()]/g, '')
+              .replace(/\\[rn]/g, ' ')
+              .trim();
             if (cleanText.length > 0) {
               extractedText += cleanText + ' ';
             }
@@ -48,17 +66,44 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
       }
     }
     
-    // Also try to extract text using simple pattern matching
-    const simpleTextMatch = pdfString.match(/Tj\s*([^T]*?)T[jJ*]/gs);
-    if (simpleTextMatch) {
-      simpleTextMatch.forEach(match => {
-        const text = match.replace(/Tj|T[jJ*]/g, '').trim();
-        if (text.length > 2 && !text.includes('<<')) {
+    // Method 2: Look for direct text patterns with Tj operators
+    const tjMatches = pdfString.match(/\(([^)]+)\)\s*Tj/g);
+    if (tjMatches) {
+      console.log(`Found ${tjMatches.length} Tj text patterns`);
+      tjMatches.forEach(match => {
+        const text = match.replace(/^\(|\)\s*Tj$/g, '').trim();
+        if (text.length > 1 && !extractedText.includes(text)) {
           extractedText += text + ' ';
         }
       });
     }
     
+    // Method 3: Look for plain text patterns (fallback)
+    if (extractedText.length < 50) {
+      console.log('Using fallback text extraction...');
+      const patterns = [
+        /\/F\d+\s+\d+\s+Tf\s*\((.*?)\)/g,
+        /q\s+\d+\s+\d+\s+\d+\s+rg\s*\((.*?)\)/g,
+        /BT[^E]*?Tf[^E]*?\((.*?)\)[^E]*?ET/g
+      ];
+      
+      patterns.forEach(pattern => {
+        const matches = pdfString.match(pattern);
+        if (matches) {
+          matches.forEach(match => {
+            const textMatch = match.match(/\((.*?)\)/);
+            if (textMatch && textMatch[1]) {
+              const cleanText = textMatch[1].trim();
+              if (cleanText.length > 1 && !extractedText.includes(cleanText)) {
+                extractedText += cleanText + ' ';
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    console.log(`Total extracted text length: ${extractedText.length}`);
     return extractedText.trim();
   } catch (error) {
     console.error('Text extraction failed:', error);
@@ -66,19 +111,79 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   }
 }
 
-// Convert PDF to base64 images for OpenAI Vision API
-async function convertPDFToImages(pdfBuffer: Uint8Array): Promise<string[]> {
-  try {
-    // For now, we'll convert the entire PDF to a single base64 image representation
-    // This is a simplified approach - in production you'd want to use a proper PDF to image library
-    const base64PDF = btoa(String.fromCharCode(...pdfBuffer));
-    
-    // Return as a single "image" - OpenAI can sometimes handle PDF data this way
-    return [`data:application/pdf;base64,${base64PDF}`];
-  } catch (error) {
-    console.error('PDF to image conversion failed:', error);
-    return [];
+// Send PDF as base64 to OpenAI for document analysis
+async function extractWithPDFAPI(pdfBuffer: Uint8Array): Promise<ExtractedData> {
+  const base64PDF = btoa(String.fromCharCode(...pdfBuffer));
+  
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert at extracting shipping information from transportation documents.
+
+Extract the following information and return ONLY a valid JSON object:
+
+{
+  "brokerLoadNumber": "load/reference/confirmation number",
+  "broker": "broker/carrier company name", 
+  "pickupAddress": "complete pickup address",
+  "deliveryAddress": "complete delivery address", 
+  "pickupDateTime": "pickup date/time in YYYY-MM-DDTHH:MM format",
+  "deliveryDateTime": "delivery date/time in YYYY-MM-DDTHH:MM format",
+  "freightAmount": "freight amount as number only",
+  "dhMiles": "deadhead miles if found",
+  "loadedMiles": "loaded miles if found"
+}
+
+Set fields to null if not found. Return ONLY the JSON object, no markdown or extra text.`
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Analyze this PDF document and extract shipping information. The document is a carrier rate confirmation or load sheet.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${base64PDF}`,
+                detail: 'high'
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.1
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI PDF API error:', errorText);
+    throw new Error(`OpenAI PDF API failed: ${response.status} - ${errorText}`);
   }
+
+  const result = await response.json();
+  const content = result.choices[0].message.content.trim();
+  
+  // Clean JSON response
+  let cleanContent = content;
+  if (content.startsWith('```json')) {
+    cleanContent = content.replace(/^```json\s*/g, '').replace(/```\s*$/g, '');
+  } else if (content.startsWith('```')) {
+    cleanContent = content.replace(/^```\s*/g, '').replace(/```\s*$/g, '');
+  }
+  
+  return JSON.parse(cleanContent);
 }
 
 // Extract data using OpenAI with text content
@@ -251,30 +356,25 @@ serve(async (req) => {
       console.log('Extracted text length:', textContent.length);
       
       if (textContent.length > 50) {
-        console.log('Text sample:', textContent.substring(0, 200));
+        console.log('Text sample:', textContent.substring(0, 300));
         extractedData = await extractWithTextAPI(textContent);
         method = 'text_extraction';
         console.log('Text extraction successful:', extractedData);
       } else {
-        throw new Error('Insufficient text extracted');
+        throw new Error('Insufficient text extracted from PDF');
       }
     } catch (textError) {
       console.log('Text extraction failed:', textError.message);
       
-      // Method 2: Try vision API as fallback
-      console.log('Attempting Vision API extraction...');
+      // Method 2: Try direct PDF analysis with OpenAI
+      console.log('Attempting direct PDF analysis with OpenAI...');
       try {
-        const images = await convertPDFToImages(pdfBuffer);
-        if (images.length > 0) {
-          extractedData = await extractWithVisionAPI(images);
-          method = 'vision_api';
-          console.log('Vision API extraction successful:', extractedData);
-        } else {
-          throw new Error('No images generated from PDF');
-        }
-      } catch (visionError) {
-        console.log('Vision API extraction failed:', visionError.message);
-        throw new Error('Both text and vision extraction failed');
+        extractedData = await extractWithPDFAPI(pdfBuffer);
+        method = 'pdf_analysis';
+        console.log('PDF analysis successful:', extractedData);
+      } catch (pdfError) {
+        console.log('PDF analysis failed:', pdfError.message);
+        throw new Error(`All extraction methods failed. Text: ${textError.message}, PDF: ${pdfError.message}`);
       }
     }
 
