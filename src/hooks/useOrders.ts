@@ -20,27 +20,48 @@ export const useOrders = () => {
       
       // Transform the data to match the expected format
       return data?.map(order => {
-        const pickups = order.pickup_drops?.filter(pd => pd.type === 'pickup') || [];
-        const deliveries = order.pickup_drops?.filter(pd => pd.type === 'delivery') || [];
+        const pickups = order.pickup_drops?.filter(pd => pd.type === 'pickup').sort((a, b) => 
+          new Date(a.datetime || 0).getTime() - new Date(b.datetime || 0).getTime()
+        ) || [];
+        const deliveries = order.pickup_drops?.filter(pd => pd.type === 'delivery').sort((a, b) => 
+          new Date(b.datetime || 0).getTime() - new Date(a.datetime || 0).getTime()
+        ) || [];
+        
+        // Get first pickup and last delivery
         const firstPickup = pickups[0];
-        const firstDelivery = deliveries[0];
+        const lastDelivery = deliveries[0];
+        
+        // Extract city and state from address or use individual fields
+        const getLocationFromAddress = (address: string, state: string) => {
+          if (address && address.includes(',')) {
+            const parts = address.split(',');
+            return {
+              city: parts[0]?.trim() || 'N/A',
+              state: parts[1]?.trim() || state || 'N/A'
+            };
+          }
+          return { city: address || 'N/A', state: state || 'N/A' };
+        };
+        
+        const pickupLocation = getLocationFromAddress(firstPickup?.address || '', firstPickup?.state || '');
+        const deliveryLocation = getLocationFromAddress(lastDelivery?.address || '', lastDelivery?.state || '');
         
         return {
           id: order.id,
           truckNumber: order.truck?.truck_number || 'N/A',
-          loadNumber: order.load_number || order.broker_load_number || 'N/A',
-          pickupDate: firstPickup?.datetime ? new Date(firstPickup.datetime).toISOString().split('T')[0] : 'N/A',
-          pickupCity: firstPickup?.address || 'N/A',
-          pickupState: '',
-          deliveryDate: firstDelivery?.datetime ? new Date(firstDelivery.datetime).toISOString().split('T')[0] : 'N/A',
-          deliveryCity: firstDelivery?.address || 'N/A',
-          deliveryState: '',
+          internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
+          pickupDate: firstPickup?.datetime ? new Date(firstPickup.datetime).toLocaleDateString() : 'N/A',
+          pickupCity: pickupLocation.city,
+          pickupState: pickupLocation.state,
+          deliveryDate: lastDelivery?.datetime ? new Date(lastDelivery.datetime).toLocaleDateString() : 'N/A',
+          deliveryCity: deliveryLocation.city,
+          deliveryState: deliveryLocation.state,
           mileage: order.mileage || 0,
           driverPrice: order.driver_price || 0,
           driverName: order.driver1?.name || 'N/A',
           brokerName: order.broker?.name || 'N/A',
-          brokerLoadNumber: order.broker_load_number || order.load_number || 'N/A',
-          status: order.status || 'pending',
+          brokerLoadNumber: order.broker_load_number || 'N/A',
+          invoiced: order.invoiced ? 'Done' : '',
           freightAmount: order.freight_amount || 0,
           notes: order.notes || '',
           bookedBy: order.booked_by || 'N/A'

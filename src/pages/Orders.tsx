@@ -50,7 +50,7 @@ const Orders = () => {
 
   // Filter orders based on search term
   const filteredOrders = orders?.filter(order =>
-    order.loadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.brokerName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -88,13 +88,18 @@ const Orders = () => {
                 <TableRow>
                   <TableHead>Truck #</TableHead>
                   <TableHead>Load #</TableHead>
-                  <TableHead>Pickup</TableHead>
-                  <TableHead>Delivery</TableHead>
+                  <TableHead>Pickup Date</TableHead>
+                  <TableHead>Pickup City</TableHead>
+                  <TableHead>Pickup State</TableHead>
+                  <TableHead>Delivery Date</TableHead>
+                  <TableHead>Delivery City</TableHead>
+                  <TableHead>Delivery State</TableHead>
                   <TableHead>Miles</TableHead>
                   <TableHead>Driver Price</TableHead>
                   <TableHead>Driver</TableHead>
-                  <TableHead>Broker</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Broker Name</TableHead>
+                  <TableHead>Broker Load #</TableHead>
+                  <TableHead>Invoiced</TableHead>
                   <TableHead>Freight</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead>Booked By</TableHead>
@@ -104,7 +109,7 @@ const Orders = () => {
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                       No orders found
                     </TableCell>
                   </TableRow>
@@ -112,29 +117,19 @@ const Orders = () => {
                   filteredOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                      <TableCell>{order.loadNumber}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{order.pickupCity}</div>
-                          <div className="text-muted-foreground">{order.pickupDate}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{order.deliveryCity}</div>
-                          <div className="text-muted-foreground">{order.deliveryDate}</div>
-                        </div>
-                      </TableCell>
+                      <TableCell>{order.internalLoadNumber}</TableCell>
+                      <TableCell>{order.pickupDate}</TableCell>
+                      <TableCell>{order.pickupCity}</TableCell>
+                      <TableCell>{order.pickupState}</TableCell>
+                      <TableCell>{order.deliveryDate}</TableCell>
+                      <TableCell>{order.deliveryCity}</TableCell>
+                      <TableCell>{order.deliveryState}</TableCell>
                       <TableCell>{order.mileage.toLocaleString()}</TableCell>
                       <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
                       <TableCell>{order.driverName}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>{order.brokerName}</div>
-                          <div className="text-muted-foreground">{order.brokerLoadNumber}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>{order.brokerName}</TableCell>
+                      <TableCell>{order.brokerLoadNumber}</TableCell>
+                      <TableCell>{order.invoiced}</TableCell>
                       <TableCell>${order.freightAmount.toLocaleString()}</TableCell>
                       <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                       <TableCell>{order.bookedBy}</TableCell>
