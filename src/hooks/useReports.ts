@@ -5,12 +5,13 @@ export const useReports = () => {
   return useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      // Fetch trucks with their drivers and current orders
+      // Fetch trucks with their drivers, dispatchers, and current orders
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
           *,
           driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state),
+          dispatcher:dispatcher_id(id, full_name, email),
           orders!orders_truck_id_fkey(
             id,
             status,
@@ -92,7 +93,7 @@ export const useReports = () => {
           truckNumber: truck.truck_number,
           driver: truck.driver1?.name || "Unassigned",
           home: formatLocation(truck.driver1?.home_city, truck.driver1?.home_state),
-          dispatch: "System User", // Could be expanded to track actual dispatcher
+          dispatch: truck.dispatcher?.full_name || truck.dispatcher?.email || "Unassigned",
           status,
           pickup: formatStopInfo(pickupStop),
           delivery: formatStopInfo(deliveryStop),

@@ -44,16 +44,16 @@ const Reports = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Fleet Reports</h1>
+        <h1 className="text-3xl font-semibold text-foreground">Dispatcher Fleet Reports</h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4" />
-          Drive, Shift, and Cycle data from Tracking Transit US API
+          Real-time fleet status by dispatcher assignment
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Active Fleet Status</CardTitle>
+          <CardTitle>Active Fleet Status by Dispatcher</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
