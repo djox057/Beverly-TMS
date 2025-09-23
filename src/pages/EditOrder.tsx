@@ -15,6 +15,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface PickupDrop {
@@ -28,6 +29,7 @@ const EditOrder = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuthContext();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -248,7 +250,7 @@ const EditOrder = () => {
               file_path: fileName,
               file_size: file.size,
               content_type: file.type,
-              uploaded_by: 'System User'
+              uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
             });
             
           if (fileError) throw fileError;

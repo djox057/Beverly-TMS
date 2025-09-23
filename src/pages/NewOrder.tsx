@@ -14,6 +14,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 interface PickupDrop {
   id: string;
@@ -38,9 +39,8 @@ const NewOrder = () => {
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [files, setFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const { profile } = useAuthContext();
 
   // Fetch data from database
   const {
@@ -179,7 +179,7 @@ const NewOrder = () => {
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
         status: 'pending',
-        booked_by: 'System User' // This should be the logged-in user
+        booked_by: profile?.full_name || profile?.email || 'Unknown User'
       }).select().single();
       if (orderError) throw orderError;
 
@@ -205,7 +205,7 @@ const NewOrder = () => {
               file_path: fileName,
               file_size: file.size,
               content_type: file.type,
-              uploaded_by: 'System User'
+              uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
             });
             
           if (fileError) throw fileError;

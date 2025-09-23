@@ -3,11 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FileText, Edit, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from 'xlsx';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -25,12 +28,11 @@ const getStatusBadge = (status: string) => {
 const Orders = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [bookedByFilter, setBookedByFilter] = useState("");
   
-  const {
-    data: orders,
-    isLoading,
-    error
-  } = useOrders();
+  const { data: orders, isLoading, error } = useOrders();
+  const { data: companies } = useCompanies();
 
   if (isLoading) {
     return (
@@ -52,37 +54,108 @@ const Orders = () => {
     );
   }
 
-  // Filter orders based on search term
-  const filteredOrders = orders?.filter(order =>
-    order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  // Filter orders based on search term and filters
+  const filteredOrders = orders?.filter(order => {
+    const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCompany = !companyFilter || order.companyName === companyFilter;
+    const matchesBookedBy = !bookedByFilter || order.bookedBy === bookedByFilter;
+    
+    return matchesSearch && matchesCompany && matchesBookedBy;
+  }) || [];
+
+  // Get unique companies and booked by values for filters
+  const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
+  const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
+
+  const exportToExcel = () => {
+    if (!filteredOrders.length) return;
+    
+    const exportData = filteredOrders.map(order => ({
+      'Truck #': order.truckNumber,
+      'Load #': order.internalLoadNumber,
+      'Pickup Date': order.pickupDate,
+      'Pickup City': order.pickupCity,
+      'Pickup State': order.pickupState,
+      'Delivery Date': order.deliveryDate,
+      'Delivery City': order.deliveryCity,
+      'Delivery State': order.deliveryState,
+      'Miles': order.mileage,
+      'Driver Price': order.driverPrice,
+      'Driver': order.driverName,
+      'Broker Name': order.brokerName,
+      'Broker Load #': order.brokerLoadNumber,
+      'Invoiced': order.invoiced,
+      'Freight': order.freightAmount,
+      'Notes': order.notes,
+      'Company': order.companyName,
+      'Booked By': order.bookedBy
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+    XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
-        <Button onClick={() => navigate('/new-order')}>
-          <FileText className="mr-2 h-4 w-4" />
-          New Order
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Export to Excel
+          </Button>
+          <Button onClick={() => navigate('/new-order')}>
+            <FileText className="mr-2 h-4 w-4" />
+            New Order
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search orders..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex gap-4 items-center">
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Companies</SelectItem>
+                  {uniqueCompanies.map(company => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Booked By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Users</SelectItem>
+                  {uniqueBookedBy.map(user => (
+                    <SelectItem key={user} value={user}>{user}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search orders..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
