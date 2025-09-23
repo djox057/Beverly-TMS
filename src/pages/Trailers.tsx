@@ -193,7 +193,6 @@ const Trailers = () => {
                     <SelectValue placeholder="Select trailer type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     <SelectItem value="Dry Van">Dry Van</SelectItem>
                     <SelectItem value="Refrigerated">Refrigerated</SelectItem>
                     <SelectItem value="Flatbed">Flatbed</SelectItem>
@@ -324,7 +323,6 @@ const Trailers = () => {
                   <SelectValue placeholder="Select trailer type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
                   <SelectItem value="Dry Van">Dry Van</SelectItem>
                   <SelectItem value="Refrigerated">Refrigerated</SelectItem>
                   <SelectItem value="Flatbed">Flatbed</SelectItem>

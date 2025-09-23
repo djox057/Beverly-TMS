@@ -254,7 +254,6 @@ const Trucks = () => {
                       <SelectValue placeholder="Select primary driver" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       {driverOptions.map((driver) => (
                         <SelectItem key={driver.value} value={driver.value}>
                           {driver.label}
@@ -270,7 +269,6 @@ const Trucks = () => {
                       <SelectValue placeholder="Select secondary driver" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
                       {driverOptions.map((driver) => (
                         <SelectItem key={driver.value} value={driver.value}>
                           {driver.label}
@@ -469,7 +467,6 @@ const Trucks = () => {
                     <SelectValue placeholder="Select primary driver" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     {driverOptions.map((driver) => (
                       <SelectItem key={driver.value} value={driver.value}>
                         {driver.label}
@@ -485,7 +482,6 @@ const Trucks = () => {
                     <SelectValue placeholder="Select secondary driver" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     {driverOptions.map((driver) => (
                       <SelectItem key={driver.value} value={driver.value}>
                         {driver.label}
