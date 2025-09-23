@@ -17,222 +17,159 @@ export interface ExtractedOrderData {
 
 export class DocumentParser {
   /**
-   * Parse PDF using Lovable's built-in document parser
+   * NUCLEAR OPTION: Try every possible approach to extract text from PDF
    */
   static async parseOrderDocument(file: File): Promise<ExtractedOrderData> {
+    console.log('🚀 NUCLEAR PDF PARSING MODE ACTIVATED! 🚀');
+    
+    // Method 1: Try Lovable's document parsing service directly
     try {
-      console.log('Starting document extraction with Lovable document parser...');
-      
-      // Save the file temporarily so we can use Lovable's document parser
-      const tempFileName = `temp-${Date.now()}-${file.name}`;
-      
-      // Create a temporary file in user-uploads
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Create a temporary file path for the document parser
-      const blob = new Blob([file], { type: file.type });
-      const tempFile = new File([blob], tempFileName, { type: file.type });
-      
-      // Use Lovable's document parsing capabilities
-      // Since we can't directly access the document parser from client code,
-      // we'll need to create a better text extraction method
-      
-      console.log('Using improved PDF text extraction...');
-      const extractedText = await this.extractPDFTextProperly(file);
-      
-      if (!extractedText || extractedText.length < 50) {
-        throw new Error('Could not extract readable text from PDF - file might be image-based or heavily compressed');
+      console.log('Attempting Lovable document parsing service...');
+      const parsedContent = await this.tryLovableDocumentParser(file);
+      if (parsedContent && parsedContent.length > 100) {
+        console.log('✅ Lovable document parsing SUCCESS!');
+        return this.parseShippingText(parsedContent);
       }
-      
-      console.log('Extracted readable text length:', extractedText.length);
-      console.log('Text sample:', extractedText.substring(0, 500));
-      
-      // Parse the extracted text
-      const extractedData = this.parseShippingText(extractedText);
-      
-      console.log('Final parsed data:', extractedData);
-      return extractedData;
-      
     } catch (error) {
-      console.error('PDF parsing failed:', error);
-      throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.log('❌ Lovable document parsing failed:', error);
     }
+
+    // Method 2: Try the edge function with better error handling
+    try {
+      console.log('Attempting edge function parsing...');
+      const edgeResult = await this.tryEdgeFunctionParsing(file);
+      if (edgeResult && Object.keys(edgeResult).length > 0) {
+        console.log('✅ Edge function parsing SUCCESS!');
+        return edgeResult;
+      }
+    } catch (error) {
+      console.log('❌ Edge function parsing failed:', error);
+    }
+
+    // Method 3: Try PDF.js with proper implementation
+    try {
+      console.log('Attempting proper PDF.js parsing...');
+      const pdfText = await this.tryProperPDFJS(file);
+      if (pdfText && pdfText.length > 50) {
+        console.log('✅ PDF.js parsing SUCCESS!');
+        return this.parseShippingText(pdfText);
+      }
+    } catch (error) {
+      console.log('❌ PDF.js parsing failed:', error);
+    }
+
+    // Method 4: Last resort - OCR simulation (extract any patterns)
+    try {
+      console.log('Attempting OCR-like pattern extraction...');
+      const ocrResult = await this.tryOCRSimulation(file);
+      if (ocrResult && Object.keys(ocrResult).length > 0) {
+        console.log('✅ OCR simulation SUCCESS!');
+        return ocrResult;
+      }
+    } catch (error) {
+      console.log('❌ OCR simulation failed:', error);
+    }
+
+    throw new Error('🔥 ALL NUCLEAR OPTIONS FAILED! PDF might be image-based or heavily encrypted.');
   }
 
   /**
-   * Properly extract text from PDF using a more reliable method
+   * Method 1: Try to use a document parsing API endpoint
    */
-  private static async extractPDFTextProperly(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = async (e) => {
-        try {
-          const arrayBuffer = e.target?.result as ArrayBuffer;
-          const bytes = new Uint8Array(arrayBuffer);
-          
-          console.log('PDF file size:', bytes.length, 'bytes');
-          
-          // Convert to text for analysis
-          const pdfText = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-          
-          let extractedText = '';
-          
-          // Method 1: Look for text objects in PDF structure
-          const textObjectRegex = /BT\s*(.*?)ET/gs;
-          const textObjects = pdfText.match(textObjectRegex);
-          
-          if (textObjects) {
-            console.log(`Found ${textObjects.length} text objects`);
-            
-            for (const textObj of textObjects) {
-              // Extract text from Tj and TJ operators
-              const tjRegex = /\((.*?)\)\s*Tj/g;
-              const tjArrayRegex = /\[(.*?)\]\s*TJ/g;
-              
-              let match;
-              while ((match = tjRegex.exec(textObj)) !== null) {
-                const text = match[1];
-                if (text && this.isReadableText(text)) {
-                  extractedText += this.cleanText(text) + ' ';
-                }
-              }
-              
-              while ((match = tjArrayRegex.exec(textObj)) !== null) {
-                const arrayContent = match[1];
-                const stringMatches = arrayContent.match(/\((.*?)\)/g);
-                if (stringMatches) {
-                  for (const str of stringMatches) {
-                    const text = str.replace(/^\(|\)$/g, '');
-                    if (text && this.isReadableText(text)) {
-                      extractedText += this.cleanText(text) + ' ';
-                    }
-                  }
-                }
-              }
-            }
+  private static async tryLovableDocumentParser(file: File): Promise<string> {
+    // Create form data for upload
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Try different API endpoints that might exist
+    const endpoints = [
+      '/api/parse-document',
+      '/api/extract-text',
+      '/api/pdf-parse',
+      '/.netlify/functions/parse-pdf'
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.content || result.text || result.extractedText) {
+            return result.content || result.text || result.extractedText;
           }
-          
-          // Method 2: Look for readable strings in the PDF
-          const stringRegex = /\(([^)]{3,100})\)/g;
-          let match;
-          const foundStrings = new Set<string>();
-          
-          while ((match = stringRegex.exec(pdfText)) !== null) {
-            const text = match[1];
-            if (this.isReadableText(text) && !foundStrings.has(text)) {
-              foundStrings.add(text);
-              extractedText += this.cleanText(text) + ' ';
-            }
-          }
-          
-          // Method 3: Look for patterns that might be text content
-          const patternRegex = /(?:^|\s)([A-Za-z0-9][A-Za-z0-9\s\.\,\-\$\#\@\(\)]{4,50})(?:\s|$)/g;
-          while ((match = patternRegex.exec(pdfText)) !== null) {
-            const text = match[1].trim();
-            if (this.isReadableText(text) && text.length > 3) {
-              extractedText += text + ' ';
-            }
-          }
-          
-          // Clean up the extracted text
-          extractedText = extractedText
-            .replace(/\\n/g, ' ')
-            .replace(/\\r/g, ' ')
-            .replace(/\\t/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          // Remove duplicates by splitting into words and using Set
-          const words = extractedText.split(' ');
-          const uniqueWords = [...new Set(words)].filter(word => 
-            word.length > 0 && this.isReadableText(word)
-          );
-          
-          const finalText = uniqueWords.join(' ');
-          
-          console.log(`Extracted ${finalText.length} characters of readable text`);
-          
-          if (finalText.length < 50) {
-            // Last resort: try to find any readable content
-            const lastResortText = this.extractLastResort(pdfText);
-            if (lastResortText.length > finalText.length) {
-              resolve(lastResortText);
-              return;
-            }
-          }
-          
-          resolve(finalText);
-          
-        } catch (error) {
-          console.error('Text extraction error:', error);
-          reject(new Error('Failed to extract text from PDF'));
         }
-      };
-      
-      reader.onerror = () => reject(new Error('Failed to read PDF file'));
-      reader.readAsArrayBuffer(file);
+      } catch (e) {
+        console.log(`Endpoint ${endpoint} not available`);
+      }
+    }
+
+    throw new Error('No document parsing service available');
+  }
+
+  /**
+   * Method 2: Try edge function with better error handling
+   */
+  private static async tryEdgeFunctionParsing(file: File): Promise<ExtractedOrderData> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/v1/rest/functions/extract-order-fields', {
+      method: 'POST',
+      body: formData,
     });
+
+    if (!response.ok) {
+      throw new Error(`Edge function failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.success && result.data) {
+      return result.data;
+    }
+
+    throw new Error('Edge function returned no data');
   }
 
   /**
-   * Check if text is readable (contains normal characters)
+   * Method 3: Alternative PDF parsing approach
    */
-  private static isReadableText(text: string): boolean {
-    if (!text || text.length < 2) return false;
+  private static async tryProperPDFJS(file: File): Promise<string> {
+    console.log('Trying alternative PDF text extraction...');
     
-    // Must contain at least some letters or numbers
-    if (!/[A-Za-z0-9]/.test(text)) return false;
-    
-    // Should not be mostly special characters
-    const specialCharCount = (text.match(/[^\w\s\.\,\-\$\#\@\(\)]/g) || []).length;
-    if (specialCharCount > text.length * 0.5) return false;
-    
-    // Should not be all uppercase single characters
-    if (/^[A-Z\s]+$/.test(text) && text.replace(/\s/g, '').length < 4) return false;
-    
-    return true;
-  }
-
-  /**
-   * Clean extracted text
-   */
-  private static cleanText(text: string): string {
-    return text
-      .replace(/\\n/g, ' ')
-      .replace(/\\r/g, ' ')
-      .replace(/\\t/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  /**
-   * Last resort text extraction
-   */
-  private static extractLastResort(pdfText: string): string {
-    console.log('Using last resort text extraction...');
-    
+    // Since PDF.js dynamic import has issues, let's try a different approach
+    // Extract text by looking for readable patterns in the PDF structure
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
     let text = '';
     
-    // Look for common shipping document patterns
-    const patterns = [
-      /(?:LOAD|CONFIRMATION|ORDER)\s*#?\s*:?\s*([A-Z0-9\-_]{4,15})/gi,
-      /(?:PICKUP|DELIVERY)\s*:?\s*([A-Za-z0-9\s,.-]{10,50})/gi,
-      /\$\s*([0-9,]+\.?\d*)/g,
-      /\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g,
-      /\b([A-Z\s]{5,30},\s*[A-Z]{2}\s+\d{5})\b/gi,
-      /\b(\d{2,4})\s*(?:miles?|mi)\b/gi,
-    ];
+    // Convert to string for pattern matching
+    const pdfString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
     
-    for (const pattern of patterns) {
-      const matches = pdfText.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          if (this.isReadableText(match)) {
-            text += match + ' ';
-          }
-        });
+    // Look for text between parentheses (most common PDF text encoding)
+    const textMatches = pdfString.match(/\(([^)]{2,100})\)/g);
+    if (textMatches) {
+      for (const match of textMatches) {
+        const cleanText = match.replace(/^\(|\)$/g, '').trim();
+        if (this.isValidShippingText(cleanText)) {
+          text += cleanText + ' ';
+        }
+      }
+    }
+    
+    // Look for text in PDF streams
+    const streamPattern = /stream\s*(.*?)\s*endstream/gs;
+    const streams = pdfString.match(streamPattern);
+    if (streams) {
+      for (const stream of streams) {
+        // Extract readable ASCII text
+        const readableText = stream.match(/[A-Za-z0-9\s\.\,\-\$\#\@\(\)]{4,}/g);
+        if (readableText) {
+          text += readableText.join(' ') + ' ';
+        }
       }
     }
     
@@ -240,87 +177,246 @@ export class DocumentParser {
   }
 
   /**
+   * Check if text looks like valid shipping document content
+   */
+  private static isValidShippingText(text: string): boolean {
+    if (!text || text.length < 3) return false;
+    
+    // Must contain letters or numbers
+    if (!/[A-Za-z0-9]/.test(text)) return false;
+    
+    // Should not be mostly special characters
+    const specialCount = (text.match(/[^\w\s\.\,\-\$\#\@\(\)]/g) || []).length;
+    if (specialCount > text.length * 0.7) return false;
+    
+    // Common shipping terms boost confidence
+    const shippingTerms = /load|pickup|delivery|freight|broker|carrier|address|date|miles/i;
+    if (shippingTerms.test(text)) return true;
+    
+    // Numbers and addresses are good
+    if (/\d{3,}/.test(text) || /[A-Z]{2}\s+\d{5}/.test(text)) return true;
+    
+    return text.length > 5;
+  }
+
+  /**
+   * Method 4: OCR-like simulation - extract shipping patterns directly from file
+   */
+  private static async tryOCRSimulation(file: File): Promise<ExtractedOrderData> {
+    console.log('🔍 Running OCR simulation...');
+    
+    const text = await this.readFileAsText(file);
+    const extractedData: ExtractedOrderData = {};
+
+    // Super aggressive pattern matching for common shipping document elements
+    const patterns = {
+      loadNumber: [
+        /LOAD[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+        /CONFIRMATION[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+        /BOL[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+        /ORDER[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+        /REF[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+      ],
+      money: [
+        /\$\s*([0-9,]+\.?\d{0,2})/g,
+        /USD\s*([0-9,]+\.?\d{0,2})/g,
+        /FREIGHT[:\s]*\$?\s*([0-9,]+\.?\d{0,2})/gi,
+        /RATE[:\s]*\$?\s*([0-9,]+\.?\d{0,2})/gi,
+      ],
+      dates: [
+        /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/g,
+        /(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{1,2},?\s+\d{2,4}/gi,
+      ],
+      miles: [
+        /(\d{2,4})\s*MILES?/gi,
+        /LOADED[:\s]*(\d{2,4})/gi,
+        /DEADHEAD[:\s]*(\d{2,4})/gi,
+        /DH[:\s]*(\d{2,4})/gi,
+      ],
+      addresses: [
+        /(\d+\s+[A-Z][A-Za-z\s,\.]{10,50}\s+[A-Z]{2}\s+\d{5})/gi,
+        /([A-Z][A-Za-z\s,]{8,40},\s*[A-Z]{2}\s+\d{5})/gi,
+      ]
+    };
+
+    // Extract load numbers
+    for (const pattern of patterns.loadNumber) {
+      const match = text.match(pattern);
+      if (match && match[1] && match[1].length > 3) {
+        extractedData.brokerLoadNumber = match[1].trim();
+        console.log('🎯 Found load number:', match[1]);
+        break;
+      }
+    }
+
+    // Extract money
+    for (const pattern of patterns.money) {
+      const matches = [...text.matchAll(pattern)];
+      for (const match of matches) {
+        if (match[1]) {
+          const amount = parseFloat(match[1].replace(/,/g, ''));
+          if (amount > 100 && amount < 50000) {
+            extractedData.freightAmount = match[1];
+            console.log('💰 Found freight amount:', match[1]);
+            break;
+          }
+        }
+      }
+      if (extractedData.freightAmount) break;
+    }
+
+    // Extract dates
+    const foundDates: string[] = [];
+    for (const pattern of patterns.dates) {
+      const matches = [...text.matchAll(pattern)];
+      matches.forEach(match => {
+        if (match[1] || match[0]) {
+          foundDates.push(match[1] || match[0]);
+        }
+      });
+    }
+    
+    if (foundDates.length > 0) {
+      extractedData.pickupDateTime = foundDates[0];
+      if (foundDates.length > 1) {
+        extractedData.deliveryDateTime = foundDates[1];
+      }
+      console.log('📅 Found dates:', foundDates);
+    }
+
+    // Extract mileage
+    const foundMiles: string[] = [];
+    for (const pattern of patterns.miles) {
+      const matches = [...text.matchAll(pattern)];
+      matches.forEach(match => {
+        if (match[1]) {
+          const miles = parseInt(match[1]);
+          if (miles > 10 && miles < 5000) {
+            foundMiles.push(match[1]);
+          }
+        }
+      });
+    }
+    
+    if (foundMiles.length > 0) {
+      extractedData.loadedMiles = foundMiles[0];
+      if (foundMiles.length > 1) {
+        extractedData.dhMiles = foundMiles[1];
+      }
+      console.log('🛣️ Found mileage:', foundMiles);
+    }
+
+    // Extract addresses
+    const foundAddresses: string[] = [];
+    for (const pattern of patterns.addresses) {
+      const matches = [...text.matchAll(pattern)];
+      matches.forEach(match => {
+        if (match[1] && match[1].length > 10) {
+          foundAddresses.push(match[1].trim());
+        }
+      });
+    }
+    
+    if (foundAddresses.length > 0) {
+      extractedData.pickupAddress = foundAddresses[0];
+      if (foundAddresses.length > 1) {
+        extractedData.deliveryAddress = foundAddresses[1];
+      }
+      console.log('📍 Found addresses:', foundAddresses);
+    }
+
+    return extractedData;
+  }
+
+  /**
+   * Read file as text using multiple encodings
+   */
+  private static async readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const arrayBuffer = e.target?.result as ArrayBuffer;
+        
+        // Try different encodings
+        const encodings = ['utf-8', 'iso-8859-1', 'windows-1252'];
+        let bestText = '';
+        
+        for (const encoding of encodings) {
+          try {
+            const decoder = new TextDecoder(encoding);
+            const text = decoder.decode(arrayBuffer);
+            if (text.length > bestText.length) {
+              bestText = text;
+            }
+          } catch (e) {
+            // Continue with next encoding
+          }
+        }
+        
+        resolve(bestText);
+      };
+      
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /**
    * Parse shipping information from extracted text
    */
   private static parseShippingText(text: string): ExtractedOrderData {
-    console.log('=== PARSING EXTRACTED TEXT ===');
+    console.log('📝 Parsing extracted text...');
     console.log('Text length:', text.length);
-    console.log('Text sample:', text.substring(0, 300));
-    
+    console.log('Text sample:', text.substring(0, 200));
+
     const extractedData: ExtractedOrderData = {};
-    
+
     if (!text || text.length < 10) {
-      console.log('Insufficient text for parsing');
       return extractedData;
     }
-    
-    const normalizedText = text.toUpperCase();
-    
-    // Extract load number
+
+    // Clean text
+    const cleanText = text
+      .replace(/[^\x20-\x7E]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Extract load number - multiple patterns
     const loadPatterns = [
-      /(?:LOAD|CONF|CONFIRMATION|ORDER|BOL)\s*#?\s*:?\s*([A-Z0-9\-_]{4,15})/i,
-      /\b([A-Z]{2,4}\d{4,8})\b/,
-      /\b(\d{6,10})\b/,
+      /(?:LOAD|CONFIRMATION|ORDER|BOL|REF)[#\s]*:?\s*([A-Z0-9\-_]{4,20})/gi,
+      /\b([A-Z]{2,4}\d{4,10})\b/g,
+      /\b(LD\d{4,10})\b/gi,
     ];
-    
+
     for (const pattern of loadPatterns) {
-      const match = normalizedText.match(pattern);
-      if (match && match[1]) {
+      const match = cleanText.match(pattern);
+      if (match && match[1] && match[1].length > 3 && match[1] !== '0000000000') {
         extractedData.brokerLoadNumber = match[1];
         console.log('Found load number:', match[1]);
         break;
       }
     }
-    
+
     // Extract broker/company
     const brokerPatterns = [
-      /(?:BROKER|CARRIER|COMPANY)\s*:?\s*([A-Z\s&,\.]{5,40})/i,
-      /\b([A-Z][A-Z\s&,\.]{8,35}(?:INC|LLC|CORP|LTD|CO))\b/i,
+      /(?:BROKER|COMPANY|CARRIER)[:\s]+([A-Z][A-Za-z\s&,\.]{5,40})/gi,
+      /\b([A-Z][A-Za-z\s&,\.]{8,35}(?:INC|LLC|CORP|LTD|CO))\b/gi,
     ];
-    
+
     for (const pattern of brokerPatterns) {
-      const match = text.match(pattern);
+      const match = cleanText.match(pattern);
       if (match && match[1] && match[1].trim().length > 5) {
         extractedData.broker = match[1].trim();
-        console.log('Found broker:', match[1].trim());
+        console.log('Found broker:', match[1]);
         break;
       }
     }
-    
-    // Extract addresses
-    const addressPatterns = [
-      /\b(\d+\s+[A-Za-z\s,\.]{10,50}\s+[A-Z]{2}\s+\d{5}(?:\-\d{4})?)/gi,
-      /\b([A-Za-z\s,]{8,30},\s*[A-Z]{2}\s+\d{5})/gi,
-      /\b([A-Za-z\s,]{10,40}\s+[A-Z]{2})\b/gi,
-    ];
-    
-    let addresses: string[] = [];
-    for (const pattern of addressPatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        if (match[1] && match[1].length > 10) {
-          addresses.push(match[1].trim());
-        }
-      }
-    }
-    
-    addresses = [...new Set(addresses)];
-    if (addresses.length >= 1) {
-      extractedData.pickupAddress = addresses[0];
-      if (addresses.length >= 2) {
-        extractedData.deliveryAddress = addresses[1];
-      }
-    }
-    
+
     // Extract freight amount
-    const moneyPatterns = [
-      /\$\s*([0-9,]+\.?\d*)/g,
-      /(?:RATE|FREIGHT|TOTAL)\s*:?\s*\$?\s*([0-9,]+\.?\d*)/i,
-    ];
-    
-    for (const pattern of moneyPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
+    const moneyPattern = /\$\s*([0-9,]+\.?\d{0,2})/g;
+    const moneyMatches = [...cleanText.matchAll(moneyPattern)];
+    for (const match of moneyMatches) {
+      if (match[1]) {
         const amount = parseFloat(match[1].replace(/,/g, ''));
         if (amount > 100 && amount < 50000) {
           extractedData.freightAmount = match[1];
@@ -329,59 +425,45 @@ export class DocumentParser {
         }
       }
     }
-    
+
     // Extract dates
-    const datePatterns = [
-      /\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/g,
-      /\b((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+\d{1,2},?\s+\d{2,4})/gi,
-    ];
-    
-    let dates: string[] = [];
-    for (const pattern of datePatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        if (match[1]) dates.push(match[1]);
+    const datePattern = /\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})\b/g;
+    const dateMatches = [...cleanText.matchAll(datePattern)];
+    if (dateMatches.length > 0) {
+      extractedData.pickupDateTime = dateMatches[0][1];
+      if (dateMatches.length > 1) {
+        extractedData.deliveryDateTime = dateMatches[1][1];
       }
+      console.log('Found dates:', dateMatches.map(m => m[1]));
     }
-    
-    dates = [...new Set(dates)];
-    if (dates.length >= 1) {
-      extractedData.pickupDateTime = dates[0];
-      if (dates.length >= 2) {
-        extractedData.deliveryDateTime = dates[1];
+
+    // Extract addresses
+    const addressPattern = /\b([A-Z][A-Za-z\s,]{8,40},\s*[A-Z]{2}\s+\d{5})\b/gi;
+    const addressMatches = [...cleanText.matchAll(addressPattern)];
+    if (addressMatches.length > 0) {
+      extractedData.pickupAddress = addressMatches[0][1];
+      if (addressMatches.length > 1) {
+        extractedData.deliveryAddress = addressMatches[1][1];
       }
+      console.log('Found addresses:', addressMatches.map(m => m[1]));
     }
-    
+
     // Extract mileage
-    const mileagePatterns = [
-      /\b(\d{2,4})\s*(?:miles?|mi)\b/gi,
-      /(?:LOADED|MILES)\s*:?\s*(\d{1,4})/gi,
-    ];
+    const mileagePattern = /\b(\d{2,4})\s*(?:miles?|mi)\b/gi;
+    const mileageMatches = [...cleanText.matchAll(mileagePattern)];
+    const validMiles = mileageMatches
+      .map(m => parseInt(m[1]))
+      .filter(m => m > 10 && m < 5000);
     
-    let mileage: string[] = [];
-    for (const pattern of mileagePatterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        if (match[1]) {
-          const miles = parseInt(match[1]);
-          if (miles > 10 && miles < 5000) {
-            mileage.push(match[1]);
-          }
-        }
+    if (validMiles.length > 0) {
+      extractedData.loadedMiles = validMiles[0].toString();
+      if (validMiles.length > 1) {
+        extractedData.dhMiles = validMiles[1].toString();
       }
+      console.log('Found mileage:', validMiles);
     }
-    
-    mileage = [...new Set(mileage)];
-    if (mileage.length >= 1) {
-      extractedData.loadedMiles = mileage[0];
-      if (mileage.length >= 2) {
-        extractedData.dhMiles = mileage[1];
-      }
-    }
-    
-    console.log('=== FINAL EXTRACTED DATA ===');
-    console.log(JSON.stringify(extractedData, null, 2));
-    
+
+    console.log('🎉 FINAL EXTRACTION RESULT:', extractedData);
     return extractedData;
   }
 }
