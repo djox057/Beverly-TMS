@@ -3,71 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, FileText, Edit } from "lucide-react";
-
-// Sample data
-const orders = [
-  {
-    id: 1,
-    truckNumber: "TRK-001",
-    loadNumber: "LD-2024-001",
-    pickupDate: "2024-01-15",
-    pickupCity: "Chicago",
-    pickupState: "IL",
-    deliveryDate: "2024-01-17",
-    deliveryCity: "Dallas",
-    deliveryState: "TX",
-    mileage: 925,
-    driverPrice: 1850,
-    driverName: "John Smith",
-    brokerName: "ABC Logistics",
-    brokerLoadNumber: "ABC-001",
-    status: "In Transit",
-    freightAmount: 2500,
-    notes: "Special handling required",
-    bookedBy: "Sarah Johnson"
-  },
-  {
-    id: 2,
-    truckNumber: "TRK-002",
-    loadNumber: "LD-2024-002",
-    pickupDate: "2024-01-16",
-    pickupCity: "Los Angeles",
-    pickupState: "CA",
-    deliveryDate: "2024-01-19",
-    deliveryCity: "Denver",
-    deliveryState: "CO",
-    mileage: 1015,
-    driverPrice: 2030,
-    driverName: "Mike Johnson",
-    brokerName: "XYZ Transport",
-    brokerLoadNumber: "XYZ-445",
-    status: "Delivered",
-    freightAmount: 2800,
-    notes: "Delivered on time",
-    bookedBy: "Tom Wilson"
-  },
-  {
-    id: 3,
-    truckNumber: "TRK-003",
-    loadNumber: "LD-2024-003",
-    pickupDate: "2024-01-18",
-    pickupCity: "Miami",
-    pickupState: "FL",
-    deliveryDate: "2024-01-20",
-    deliveryCity: "Atlanta",
-    deliveryState: "GA",
-    mileage: 650,
-    driverPrice: 1300,
-    driverName: "David Wilson",
-    brokerName: "QuickMove Inc",
-    brokerLoadNumber: "QM-789",
-    status: "Pending",
-    freightAmount: 1800,
-    notes: "Waiting for dispatch",
-    bookedBy: "Lisa Brown"
-  }
-];
+import { Search, FileText, Edit, Loader2 } from "lucide-react";
+import { useOrders } from "@/hooks/useOrders";
+import { useState } from "react";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -83,6 +21,41 @@ const getStatusBadge = (status: string) => {
 };
 
 const Orders = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const {
+    data: orders,
+    isLoading,
+    error
+  } = useOrders();
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <p className="text-destructive">Error loading orders: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter orders based on search term
+  const filteredOrders = orders?.filter(order =>
+    order.loadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.brokerName.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -102,6 +75,8 @@ const Orders = () => {
               <Input
                 placeholder="Search orders..."
                 className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
@@ -127,42 +102,50 @@ const Orders = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                    <TableCell>{order.loadNumber}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{order.pickupCity}, {order.pickupState}</div>
-                        <div className="text-muted-foreground">{order.pickupDate}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{order.deliveryCity}, {order.deliveryState}</div>
-                        <div className="text-muted-foreground">{order.deliveryDate}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{order.mileage.toLocaleString()}</TableCell>
-                    <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
-                    <TableCell>{order.driverName}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{order.brokerName}</div>
-                        <div className="text-muted-foreground">{order.brokerLoadNumber}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>${order.freightAmount.toLocaleString()}</TableCell>
-                    <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
-                    <TableCell>{order.bookedBy}</TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                {filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                      No orders found
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                      <TableCell>{order.loadNumber}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{order.pickupCity}, {order.pickupState}</div>
+                          <div className="text-muted-foreground">{order.pickupDate}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{order.deliveryCity}, {order.deliveryState}</div>
+                          <div className="text-muted-foreground">{order.deliveryDate}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{order.mileage.toLocaleString()}</TableCell>
+                      <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
+                      <TableCell>{order.driverName}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>{order.brokerName}</div>
+                          <div className="text-muted-foreground">{order.brokerLoadNumber}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>${order.freightAmount.toLocaleString()}</TableCell>
+                      <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
+                      <TableCell>{order.bookedBy}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
