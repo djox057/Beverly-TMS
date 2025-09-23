@@ -1,0 +1,526 @@
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Combobox } from "@/components/ui/combobox";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useCompanies } from "@/hooks/useCompanies";
+import { useBrokers } from "@/hooks/useBrokers";
+import { useTrucks } from "@/hooks/useTrucks";
+import { useDrivers } from "@/hooks/useDrivers";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+
+interface PickupDrop {
+  id: string;
+  type: "pickup" | "delivery";
+  address: string;
+  datetime: string;
+}
+
+const EditOrder = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Form states
+  const [bookedByCompany, setBookedByCompany] = useState("");
+  const [broker, setBroker] = useState("");
+  const [truck, setTruck] = useState("");
+  const [driver1, setDriver1] = useState("");
+  const [driver2, setDriver2] = useState("");
+  const [trailer, setTrailer] = useState("");
+  const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
+  const [pickupDateTime, setPickupDateTime] = useState("");
+  const [deliveryDateTime, setDeliveryDateTime] = useState("");
+  const [freightAmount, setFreightAmount] = useState("");
+  const [driverPrice, setDriverPrice] = useState("");
+  const [dhMiles, setDhMiles] = useState("");
+  const [loadedMiles, setLoadedMiles] = useState("");
+  const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
+  const [notes, setNotes] = useState("");
+  const [bookedBy, setBookedBy] = useState("");
+  const [invoiced, setInvoiced] = useState("");
+  const [internalLoadNumber, setInternalLoadNumber] = useState("");
+
+  // Fetch data from database
+  const { data: companies } = useCompanies();
+  const { data: brokers } = useBrokers();
+  const { data: trucks } = useTrucks();
+  const { data: drivers } = useDrivers();
+
+  // Load order data
+  useEffect(() => {
+    if (id) {
+      loadOrderData();
+    }
+  }, [id]);
+
+  const loadOrderData = async () => {
+    try {
+      const { data: orderData, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pickup_drops(*)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (orderData) {
+        setBookedByCompany(orderData.company_id || "");
+        setBroker(orderData.broker_id || "");
+        setTruck(orderData.truck_id || "");
+        setDriver1(orderData.driver1_id || "");
+        setDriver2(orderData.driver2_id || "");
+        setBrokerLoadNumber(orderData.broker_load_number || "");
+        setFreightAmount(orderData.freight_amount?.toString() || "");
+        setDriverPrice(orderData.driver_price?.toString() || "");
+        setNotes(orderData.notes || "");
+        setBookedBy(orderData.booked_by || "");
+        setInvoiced(orderData.invoiced ? "Done" : "");
+        setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+
+        // Calculate miles
+        const totalMiles = orderData.mileage || 0;
+        setLoadedMiles(totalMiles.toString());
+
+        // Load pickup/drops
+        if (orderData.pickup_drops) {
+          const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => ({
+            id: pd.id,
+            type: pd.type,
+            address: pd.address || "",
+            datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : ""
+          }));
+          setPickupsDrops(transformedPickupsDrops);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load order data",
+        variant: "destructive",
+      });
+      navigate('/orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addPickupDrop = (type: "pickup" | "delivery") => {
+    const newItem: PickupDrop = {
+      id: Date.now().toString(),
+      type,
+      address: "",
+      datetime: ""
+    };
+
+    if (type === "pickup") {
+      const lastPickupIndex = pickupsDrops.reduce((lastIndex, item, index) => {
+        return item.type === "pickup" ? index : lastIndex;
+      }, -1);
+      
+      const insertIndex = lastPickupIndex + 1;
+      const newPickupsDrops = [...pickupsDrops];
+      newPickupsDrops.splice(insertIndex, 0, newItem);
+      setPickupsDrops(newPickupsDrops);
+    } else {
+      setPickupsDrops([...pickupsDrops, newItem]);
+    }
+  };
+
+  const removePickupDrop = (id: string) => {
+    setPickupsDrops(pickupsDrops.filter(item => item.id !== id));
+  };
+
+  const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      [field]: value
+    } : item));
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(pickupsDrops);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setPickupsDrops(items);
+  };
+
+  // Prepare options for dropdowns
+  const companyOptions = companies?.map(company => ({
+    value: company.id,
+    label: company.name
+  })) || [];
+  const brokerOptions = brokers?.map(broker => ({
+    value: broker.id,
+    label: broker.name
+  })) || [];
+  const truckOptions = trucks?.map(truck => ({
+    value: truck.id,
+    label: truck.truck_number
+  })) || [];
+  const driverOptions = drivers?.map(driver => ({
+    value: driver.id,
+    label: driver.name
+  })) || [];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      // Update order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({
+          broker_load_number: brokerLoadNumber || null,
+          company_id: bookedByCompany || null,
+          broker_id: broker || null,
+          truck_id: truck || null,
+          driver1_id: driver1 || null,
+          driver2_id: driver2 || null,
+          freight_amount: freightAmount ? parseFloat(freightAmount) : null,
+          driver_price: driverPrice ? parseFloat(driverPrice) : null,
+          mileage: parseFloat(loadedMiles) || null,
+          notes: notes || null,
+          booked_by: bookedBy || null,
+          invoiced: invoiced === "Done"
+        })
+        .eq('id', id);
+
+      if (orderError) throw orderError;
+
+      // Delete existing pickup_drops
+      const { error: deleteError } = await supabase
+        .from('pickup_drops')
+        .delete()
+        .eq('order_id', id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert updated pickup/drops
+      if (pickupsDrops.length > 0) {
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => ({
+          order_id: id,
+          type: item.type,
+          address: item.address,
+          city: null,
+          state: null,
+          datetime: item.datetime || null
+        }));
+        
+        if (pickupDropData.length > 0) {
+          const { error: pickupDropError } = await supabase
+            .from('pickup_drops')
+            .insert(pickupDropData);
+          if (pickupDropError) throw pickupDropError;
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Order updated successfully",
+      });
+      
+      navigate('/orders');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update order",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/orders')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Orders
+              </Button>
+              <CardTitle className="text-2xl font-semibold">Edit Order</CardTitle>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Internal Load #</div>
+              <div className="text-lg font-medium">{internalLoadNumber}</div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="broker-load-number">Broker Load #</Label>
+              <Input 
+                id="broker-load-number" 
+                placeholder="Broker load number" 
+                value={brokerLoadNumber} 
+                onChange={e => setBrokerLoadNumber(e.target.value)} 
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="company">Booked by Company</Label>
+                <Combobox 
+                  options={companyOptions} 
+                  value={bookedByCompany} 
+                  onValueChange={setBookedByCompany} 
+                  placeholder="Select company" 
+                  searchPlaceholder="Search companies..." 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="broker">Broker</Label>
+                <Combobox 
+                  options={brokerOptions} 
+                  value={broker} 
+                  onValueChange={setBroker} 
+                  placeholder="Select broker" 
+                  searchPlaceholder="Search brokers..." 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="truck">Truck #</Label>
+                <Combobox 
+                  options={truckOptions} 
+                  value={truck} 
+                  onValueChange={setTruck} 
+                  placeholder="Select truck" 
+                  searchPlaceholder="Search trucks..." 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="trailer">Trailer #</Label>
+                <Input 
+                  id="trailer" 
+                  placeholder="Trailer number" 
+                  value={trailer} 
+                  onChange={e => setTrailer(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="driver1">Driver 1</Label>
+                <Combobox 
+                  options={driverOptions} 
+                  value={driver1} 
+                  onValueChange={setDriver1} 
+                  placeholder="Select primary driver" 
+                  searchPlaceholder="Search drivers..." 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="driver2">Driver 2 (Optional)</Label>
+                <Combobox 
+                  options={[{ value: "", label: "None" }, ...driverOptions]} 
+                  value={driver2} 
+                  onValueChange={setDriver2} 
+                  placeholder="Select second driver" 
+                  searchPlaceholder="Search drivers..." 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">Pickups & Deliveries</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Pickup
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Delivery
+                  </Button>
+                </div>
+              </div>
+
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="pickups-drops">
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                      {pickupsDrops.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card 
+                              ref={provided.innerRef} 
+                              {...provided.draggableProps} 
+                              className={cn("p-4", snapshot.isDragging && "shadow-lg")}
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                  <div {...provided.dragHandleProps}>
+                                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                                  </div>
+                                  <h4 className="font-medium capitalize">{item.type}</h4>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <Input 
+                                  placeholder="Address" 
+                                  value={item.address} 
+                                  onChange={e => updatePickupDrop(item.id, "address", e.target.value)} 
+                                />
+                                <Input 
+                                  type="datetime-local" 
+                                  value={item.datetime} 
+                                  onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} 
+                                />
+                              </div>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="freight-amount">Freight Amount</Label>
+                <Input 
+                  id="freight-amount" 
+                  type="number" 
+                  placeholder="Freight amount" 
+                  value={freightAmount} 
+                  onChange={e => setFreightAmount(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="driver-price">Driver Price</Label>
+                <Input 
+                  id="driver-price" 
+                  type="number" 
+                  placeholder="Driver price" 
+                  value={driverPrice} 
+                  onChange={e => setDriverPrice(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="loaded-miles">Total Miles</Label>
+                <Input 
+                  id="loaded-miles" 
+                  type="number" 
+                  placeholder="Total miles" 
+                  value={loadedMiles} 
+                  onChange={e => setLoadedMiles(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invoiced">Invoiced Status</Label>
+                <Select value={invoiced} onValueChange={setInvoiced}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Not Invoiced</SelectItem>
+                    <SelectItem value="Done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="booked-by">Booked By</Label>
+              <Input 
+                id="booked-by" 
+                placeholder="Person who booked this order" 
+                value={bookedBy} 
+                onChange={e => setBookedBy(e.target.value)} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea 
+                id="notes" 
+                placeholder="Additional notes" 
+                value={notes} 
+                onChange={e => setNotes(e.target.value)} 
+                rows={4} 
+              />
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => navigate('/orders')}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Order'
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default EditOrder;
