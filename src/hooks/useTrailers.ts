@@ -7,7 +7,10 @@ export const useTrailers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('trailers')
-        .select('*')
+        .select(`
+          *,
+          trucks!trucks_trailer_id_fkey(truck_number)
+        `)
         .order('trailer_number', { ascending: true });
       
       if (error) throw error;

@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
-  capacity: string;
 }
 
 const Trailers = () => {
@@ -26,8 +25,7 @@ const Trailers = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<TrailerFormData>({
     trailer_number: "",
-    trailer_type: "",
-    capacity: ""
+    trailer_type: ""
   });
 
   const { toast } = useToast();
@@ -36,14 +34,15 @@ const Trailers = () => {
   // Filter trailers based on search term
   const filteredTrailers = trailers?.filter(trailer =>
     trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase())
+    trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (trailer.trucks && trailer.trucks.length > 0 && 
+     trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase()))
   ) || [];
 
   const resetForm = () => {
     setFormData({
       trailer_number: "",
-      trailer_type: "",
-      capacity: ""
+      trailer_type: ""
     });
   };
 
@@ -56,8 +55,7 @@ const Trailers = () => {
         .from('trailers')
         .insert({
           trailer_number: formData.trailer_number,
-          trailer_type: formData.trailer_type || null,
-          capacity: formData.capacity ? parseInt(formData.capacity) : null
+          trailer_type: formData.trailer_type || null
         });
 
       if (error) throw error;
@@ -92,8 +90,7 @@ const Trailers = () => {
         .from('trailers')
         .update({
           trailer_number: formData.trailer_number,
-          trailer_type: formData.trailer_type || null,
-          capacity: formData.capacity ? parseInt(formData.capacity) : null
+          trailer_type: formData.trailer_type || null
         })
         .eq('id', editingTrailer.id);
 
@@ -147,8 +144,7 @@ const Trailers = () => {
     setEditingTrailer(trailer);
     setFormData({
       trailer_number: trailer.trailer_number || "",
-      trailer_type: trailer.trailer_type || "",
-      capacity: trailer.capacity?.toString() || ""
+      trailer_type: trailer.trailer_type || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -204,21 +200,10 @@ const Trailers = () => {
                     <SelectItem value="Tank">Tank</SelectItem>
                     <SelectItem value="Container">Container</SelectItem>
                   </SelectContent>
-                </Select>
-              </div>
+              </Select>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="capacity">Capacity (lbs)</Label>
-                <Input
-                  id="capacity"
-                  type="number"
-                  value={formData.capacity}
-                  onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                  placeholder="48000"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
@@ -254,7 +239,7 @@ const Trailers = () => {
                 <TableRow>
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Trailer Type</TableHead>
-                  <TableHead>Capacity</TableHead>
+                  <TableHead>Connected Truck #</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -271,7 +256,7 @@ const Trailers = () => {
                       <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
                       <TableCell>{trailer.trailer_type || "—"}</TableCell>
                       <TableCell>
-                        {trailer.capacity ? `${trailer.capacity.toLocaleString()} lbs` : "—"}
+                        {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -347,17 +332,6 @@ const Trailers = () => {
                   <SelectItem value="Container">Container</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_capacity">Capacity (lbs)</Label>
-              <Input
-                id="edit_capacity"
-                type="number"
-                value={formData.capacity}
-                onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                placeholder="48000"
-              />
             </div>
 
             <div className="flex justify-end gap-3">
