@@ -4,14 +4,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Clock, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditingState {
   truckId: string;
-  field: 'status' | 'pickup' | 'delivery' | 'note';
+  field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note';
   value: string;
 }
 
@@ -35,7 +35,7 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const { toast } = useToast();
 
-  const handleEdit = (truckId: string, field: 'status' | 'pickup' | 'delivery' | 'note', currentValue: string) => {
+  const handleEdit = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
   };
 
@@ -43,7 +43,7 @@ const Reports = () => {
     if (!editing) return;
 
     try {
-      // Find the truck to get orderId
+      // Find the truck to get orderId and pickup/delivery stop IDs
       const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
       const truck = allTrucks.find(t => t.id === editing.truckId);
       
@@ -51,12 +51,53 @@ const Reports = () => {
         await updateTruckStatus.mutateAsync({ truckId: editing.truckId, status: editing.value.toLowerCase() });
       } else if (editing.field === 'note' && truck?.orderId) {
         await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: editing.value });
+      } else if (editing.field.startsWith('pickup-') && truck?.pickup.id) {
+        const currentPickup = truck.pickup;
+        const updates: any = { address: currentPickup.address };
+        
+        if (editing.field === 'pickup-address') {
+          updates.address = editing.value;
+        } else if (editing.field === 'pickup-date' || editing.field === 'pickup-time') {
+          // Combine date and time for datetime update
+          const currentDate = currentPickup.date !== '—' ? currentPickup.date : new Date().toLocaleDateString();
+          const currentTime = currentPickup.time !== '—' ? currentPickup.time : '00:00';
+          
+          const newDate = editing.field === 'pickup-date' ? editing.value : currentDate;
+          const newTime = editing.field === 'pickup-time' ? editing.value : currentTime;
+          
+          updates.datetime = new Date(`${newDate} ${newTime}`).toISOString();
+        }
+        
+        await updatePickupDrop.mutateAsync({
+          pickupDropId: truck.pickup.id,
+          ...updates
+        });
+      } else if (editing.field.startsWith('delivery-') && truck?.delivery.id) {
+        const currentDelivery = truck.delivery;
+        const updates: any = { address: currentDelivery.address };
+        
+        if (editing.field === 'delivery-address') {
+          updates.address = editing.value;
+        } else if (editing.field === 'delivery-date' || editing.field === 'delivery-time') {
+          // Combine date and time for datetime update
+          const currentDate = currentDelivery.date !== '—' ? currentDelivery.date : new Date().toLocaleDateString();
+          const currentTime = currentDelivery.time !== '—' ? currentDelivery.time : '00:00';
+          
+          const newDate = editing.field === 'delivery-date' ? editing.value : currentDate;
+          const newTime = editing.field === 'delivery-time' ? editing.value : currentTime;
+          
+          updates.datetime = new Date(`${newDate} ${newTime}`).toISOString();
+        }
+        
+        await updatePickupDrop.mutateAsync({
+          pickupDropId: truck.delivery.id,
+          ...updates
+        });
       }
-      // For pickup/delivery updates, we'd need more complex logic to update the pickup_drops table
       
       toast({
         title: "Updated successfully",
-        description: `${editing.field} has been updated.`,
+        description: `${editing.field.replace('-', ' ')} has been updated.`,
       });
       setEditing(null);
     } catch (error) {
@@ -92,7 +133,7 @@ const Reports = () => {
     );
   }
 
-  const renderEditableField = (truckId: string, field: 'status' | 'pickup' | 'delivery' | 'note', value: string, displayValue?: React.ReactNode) => {
+  const renderEditableField = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', value: string, displayValue?: React.ReactNode) => {
     const isEditing = editing?.truckId === truckId && editing?.field === field;
 
     if (isEditing) {
@@ -115,11 +156,25 @@ const Reports = () => {
               onChange={(e) => setEditing({...editing, value: e.target.value})}
               className="min-h-[60px]"
             />
+          ) : field.includes('date') ? (
+            <Input
+              type="date"
+              value={editing.value}
+              onChange={(e) => setEditing({...editing, value: e.target.value})}
+              className="w-36"
+            />
+          ) : field.includes('time') ? (
+            <Input
+              type="time"
+              value={editing.value}
+              onChange={(e) => setEditing({...editing, value: e.target.value})}
+              className="w-32"
+            />
           ) : (
             <Input
               value={editing.value}
               onChange={(e) => setEditing({...editing, value: e.target.value})}
-              className="min-w-[200px]"
+              className="min-w-[150px]"
             />
           )}
           <div className="flex gap-1">
@@ -136,11 +191,11 @@ const Reports = () => {
 
     return (
       <div
-        className="flex items-center gap-2 cursor-pointer group hover:bg-muted/50 p-1 rounded"
+        className="flex items-center gap-2 cursor-pointer group hover:bg-muted/50 p-1 rounded min-h-[2rem]"
         onClick={() => handleEdit(truckId, field, value)}
       >
         <div className="flex-1">
-          {displayValue || value}
+          {displayValue || value || "—"}
         </div>
         <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50" />
       </div>
@@ -180,8 +235,12 @@ const Reports = () => {
                       <TableHead>Driver</TableHead>
                       <TableHead>Home</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Pickup</TableHead>
-                      <TableHead>Delivery</TableHead>
+                      <TableHead>Pickup Address</TableHead>
+                      <TableHead>Pickup Date</TableHead>
+                      <TableHead>Pickup Time</TableHead>
+                      <TableHead>Delivery Address</TableHead>
+                      <TableHead>Delivery Date</TableHead>
+                      <TableHead>Delivery Time</TableHead>
                       <TableHead>Away (D)</TableHead>
                       <TableHead>Drive</TableHead>
                       <TableHead>Shift</TableHead>
@@ -211,36 +270,22 @@ const Reports = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {renderEditableField(
-                            truck.id,
-                            'pickup',
-                            truck.pickup.address,
-                            <div className="text-sm">
-                              <div className="max-w-xs truncate">{truck.pickup.address}</div>
-                              {truck.pickup.date !== "—" && (
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  {truck.pickup.date} {truck.pickup.time}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {renderEditableField(truck.id, 'pickup-address', truck.pickup.address)}
                         </TableCell>
                         <TableCell>
-                          {renderEditableField(
-                            truck.id,
-                            'delivery',
-                            truck.delivery.address,
-                            <div className="text-sm">
-                              <div className="max-w-xs truncate">{truck.delivery.address}</div>
-                              {truck.delivery.date !== "—" && (
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  {truck.delivery.date} {truck.delivery.time}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableField(truck.id, 'delivery-address', truck.delivery.address)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
+                        </TableCell>
+                        <TableCell>
+                          {renderEditableField(truck.id, 'delivery-time', truck.delivery.time)}
                         </TableCell>
                         <TableCell>{truck.awayDays}</TableCell>
                         <TableCell>{truck.driveHours}h</TableCell>
