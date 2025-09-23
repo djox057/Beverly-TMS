@@ -12,6 +12,7 @@ export const useOrders = () => {
           truck:trucks!orders_truck_id_fkey(truck_number),
           driver1:drivers!orders_driver1_id_fkey(name),
           broker:brokers!orders_broker_id_fkey(name),
+          company:companies!orders_company_id_fkey(name),
           pickup_drops(type, city, state, datetime, address)
         `)
         .order('created_at', { ascending: false });
@@ -64,7 +65,8 @@ export const useOrders = () => {
           invoiced: order.invoiced ? 'Done' : '',
           freightAmount: order.freight_amount || 0,
           notes: order.notes || '',
-          bookedBy: order.booked_by || 'N/A'
+          bookedBy: order.booked_by || 'N/A',
+          companyName: order.company?.name || 'N/A'
         };
       }) || [];
     },
