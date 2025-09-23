@@ -12,6 +12,7 @@ import Trucks from "./pages/Trucks";
 import Trailers from "./pages/Trailers";
 import Drivers from "./pages/Drivers";
 import Brokers from "./pages/Brokers";
+import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
 import WeeklyReport from "./pages/WeeklyReport";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/trailers" element={<Layout><Trailers /></Layout>} />
           <Route path="/drivers" element={<Layout><Drivers /></Layout>} />
           <Route path="/brokers" element={<Layout><Brokers /></Layout>} />
+          <Route path="/fleets" element={<Layout><Fleets /></Layout>} />
           <Route path="/reports" element={<Layout><Reports /></Layout>} />
           <Route path="/weekly-report" element={<Layout><WeeklyReport /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
