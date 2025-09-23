@@ -15,7 +15,6 @@ interface DriverFormData {
   name: string;
   phone: string;
   email: string;
-  license_number: string;
   home_address: string;
   home_city: string;
   home_state: string;
@@ -33,7 +32,6 @@ const Drivers = () => {
     name: "",
     phone: "",
     email: "",
-    license_number: "",
     home_address: "",
     home_city: "",
     home_state: "",
@@ -45,13 +43,14 @@ const Drivers = () => {
   const { data: drivers, isLoading, refetch } = useDrivers();
 
   // Filter drivers based on search term
-  const filteredDrivers = drivers?.filter(driver =>
+  const filteredDrivers = drivers?.filter((driver: any) =>
     driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.license_number?.toLowerCase().includes(searchTerm.toLowerCase())
+    driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const resetForm = () => {
@@ -59,7 +58,6 @@ const Drivers = () => {
       name: "",
       phone: "",
       email: "",
-      license_number: "",
       home_address: "",
       home_city: "",
       home_state: "",
@@ -79,7 +77,6 @@ const Drivers = () => {
           name: formData.name,
           phone: formData.phone || null,
           email: formData.email || null,
-          license_number: formData.license_number || null,
           home_address: formData.home_address || null,
           home_city: formData.home_city || null,
           home_state: formData.home_state || null,
@@ -121,7 +118,6 @@ const Drivers = () => {
           name: formData.name,
           phone: formData.phone || null,
           email: formData.email || null,
-          license_number: formData.license_number || null,
           home_address: formData.home_address || null,
           home_city: formData.home_city || null,
           home_state: formData.home_state || null,
@@ -182,7 +178,6 @@ const Drivers = () => {
       name: driver.name || "",
       phone: driver.phone || "",
       email: driver.email || "",
-      license_number: driver.license_number || "",
       home_address: driver.home_address || "",
       home_city: driver.home_city || "",
       home_state: driver.home_state || "",
@@ -218,26 +213,15 @@ const Drivers = () => {
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddDriver} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name*</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="John Smith"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="license_number">License Number</Label>
-                  <Input
-                    id="license_number"
-                    value={formData.license_number}
-                    onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                    placeholder="DL123456789"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Name*</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Smith"
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -353,7 +337,8 @@ const Drivers = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>License #</TableHead>
+                  <TableHead>Truck #</TableHead>
+                  <TableHead>Trailer #</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
                   <TableHead>Coordinates</TableHead>
@@ -363,15 +348,16 @@ const Drivers = () => {
               <TableBody>
                 {filteredDrivers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredDrivers.map((driver) => (
+                  filteredDrivers.map((driver: any) => (
                     <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
-                      <TableCell>{driver.license_number || "—"}</TableCell>
+                      <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
+                      <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {driver.phone && (
@@ -449,7 +435,6 @@ const Drivers = () => {
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditDriver} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_name">Name*</Label>
                 <Input
@@ -460,16 +445,6 @@ const Drivers = () => {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_license_number">License Number</Label>
-                <Input
-                  id="edit_license_number"
-                  value={formData.license_number}
-                  onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
-                  placeholder="DL123456789"
-                />
-              </div>
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
