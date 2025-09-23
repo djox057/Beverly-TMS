@@ -15,9 +15,6 @@ interface BrokerFormData {
   name: string;
   mc_number: string;
   address: string;
-  city: string;
-  state: string;
-  zip_code: string;
   phone: string;
   email: string;
 }
@@ -32,9 +29,6 @@ const Brokers = () => {
     name: "",
     mc_number: "",
     address: "",
-    city: "",
-    state: "",
-    zip_code: "",
     phone: "",
     email: ""
   });
@@ -58,9 +52,6 @@ const Brokers = () => {
       name: "",
       mc_number: "",
       address: "",
-      city: "",
-      state: "",
-      zip_code: "",
       phone: "",
       email: ""
     });
@@ -77,9 +68,6 @@ const Brokers = () => {
           name: formData.name,
           mc_number: formData.mc_number || null,
           address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          zip_code: formData.zip_code || null,
           phone: formData.phone || null,
           email: formData.email || null
         });
@@ -118,9 +106,6 @@ const Brokers = () => {
           name: formData.name,
           mc_number: formData.mc_number || null,
           address: formData.address || null,
-          city: formData.city || null,
-          state: formData.state || null,
-          zip_code: formData.zip_code || null,
           phone: formData.phone || null,
           email: formData.email || null
         })
@@ -178,9 +163,6 @@ const Brokers = () => {
       name: broker.name || "",
       mc_number: broker.mc_number || "",
       address: broker.address || "",
-      city: broker.city || "",
-      state: broker.state || "",
-      zip_code: broker.zip_code || "",
       phone: broker.phone || "",
       email: broker.email || ""
     });
@@ -252,36 +234,6 @@ const Brokers = () => {
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="123 Main St"
                 />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="Chicago"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                    placeholder="IL"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zip_code">Zip Code</Label>
-                  <Input
-                    id="zip_code"
-                    value={formData.zip_code}
-                    onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                    placeholder="60601"
-                  />
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -446,36 +398,6 @@ const Brokers = () => {
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="123 Main St"
               />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_city">City</Label>
-                <Input
-                  id="edit_city"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Chicago"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_state">State</Label>
-                <Input
-                  id="edit_state"
-                  value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  placeholder="IL"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_zip_code">Zip Code</Label>
-                <Input
-                  id="edit_zip_code"
-                  value={formData.zip_code}
-                  onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
-                  placeholder="60601"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
