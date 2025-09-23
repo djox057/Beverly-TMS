@@ -19,8 +19,6 @@ interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
   address: string;
-  city: string;
-  state: string;
   datetime: string;
 }
 const NewOrder = () => {
@@ -71,16 +69,12 @@ const NewOrder = () => {
       id: "pickup-1",
       type: "pickup",
       address: "",
-      city: "",
-      state: "",
       datetime: ""
     };
     const defaultDelivery: PickupDrop = {
       id: "delivery-1",
       type: "delivery",
       address: "",
-      city: "",
-      state: "",
       datetime: ""
     };
     setPickupsDrops([defaultPickup, defaultDelivery]);
@@ -103,8 +97,6 @@ const NewOrder = () => {
       id: Date.now().toString(),
       type,
       address: "",
-      city: "",
-      state: "",
       datetime: ""
     };
 
@@ -192,12 +184,12 @@ const NewOrder = () => {
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0 && orderData) {
-        const pickupDropData = pickupsDrops.filter(item => item.address && item.city && item.state).map(item => ({
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => ({
           order_id: orderData.id,
           type: item.type,
           address: item.address,
-          city: item.city,
-          state: item.state,
+          city: null,
+          state: null,
           datetime: item.datetime || null
         }));
         if (pickupDropData.length > 0) {
@@ -229,15 +221,11 @@ const NewOrder = () => {
         id: "pickup-1",
         type: "pickup",
         address: "",
-        city: "",
-        state: "",
         datetime: ""
       }, {
         id: "delivery-1",
         type: "delivery",
         address: "",
-        city: "",
-        state: "",
         datetime: ""
       }]);
     } catch (error: any) {
@@ -362,10 +350,8 @@ const NewOrder = () => {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <Input placeholder="Address" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
-                              <Input placeholder="City" value={item.city} onChange={e => updatePickupDrop(item.id, "city", e.target.value)} />
-                              <Input placeholder="State" value={item.state} onChange={e => updatePickupDrop(item.id, "state", e.target.value)} />
                               <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
                             </div>
                           </Card>

@@ -240,7 +240,7 @@ export type Database = {
       pickup_drops: {
         Row: {
           address: string
-          city: string
+          city: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
@@ -249,14 +249,14 @@ export type Database = {
           order_id: string
           sequence_number: number | null
           special_instructions: string | null
-          state: string
+          state: string | null
           type: string
           updated_at: string
           zip_code: string | null
         }
         Insert: {
           address: string
-          city: string
+          city?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -265,14 +265,14 @@ export type Database = {
           order_id: string
           sequence_number?: number | null
           special_instructions?: string | null
-          state: string
+          state?: string | null
           type: string
           updated_at?: string
           zip_code?: string | null
         }
         Update: {
           address?: string
-          city?: string
+          city?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -281,7 +281,7 @@ export type Database = {
           order_id?: string
           sequence_number?: number | null
           special_instructions?: string | null
-          state?: string
+          state?: string | null
           type?: string
           updated_at?: string
           zip_code?: string | null

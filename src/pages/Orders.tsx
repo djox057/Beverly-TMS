@@ -115,13 +115,13 @@ const Orders = () => {
                       <TableCell>{order.loadNumber}</TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{order.pickupCity}, {order.pickupState}</div>
+                          <div>{order.pickupCity}</div>
                           <div className="text-muted-foreground">{order.pickupDate}</div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
-                          <div>{order.deliveryCity}, {order.deliveryState}</div>
+                          <div>{order.deliveryCity}</div>
                           <div className="text-muted-foreground">{order.deliveryDate}</div>
                         </div>
                       </TableCell>
