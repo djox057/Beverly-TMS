@@ -3,8 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
 import Orders from "./pages/Orders";
@@ -21,27 +24,74 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route path="/" element={<Layout><Index /></Layout>} />
-          <Route path="/new-order" element={<Layout><NewOrder /></Layout>} />
-          <Route path="/edit-order/:id" element={<Layout><EditOrder /></Layout>} />
-          <Route path="/orders" element={<Layout><Orders /></Layout>} />
-          <Route path="/trucks" element={<Layout><Trucks /></Layout>} />
-          <Route path="/trailers" element={<Layout><Trailers /></Layout>} />
-          <Route path="/drivers" element={<Layout><Drivers /></Layout>} />
-          <Route path="/brokers" element={<Layout><Brokers /></Layout>} />
-          <Route path="/fleets" element={<Layout><Fleets /></Layout>} />
-          <Route path="/reports" element={<Layout><Reports /></Layout>} />
-          <Route path="/weekly-report" element={<Layout><WeeklyReport /></Layout>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout><Index /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/new-order" element={
+              <ProtectedRoute requiredRole="dispatch">
+                <Layout><NewOrder /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/edit-order/:id" element={
+              <ProtectedRoute requiredRole="dispatch">
+                <Layout><EditOrder /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/orders" element={
+              <ProtectedRoute>
+                <Layout><Orders /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/trucks" element={
+              <ProtectedRoute requiredRole="manager">
+                <Layout><Trucks /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/trailers" element={
+              <ProtectedRoute requiredRole="manager">
+                <Layout><Trailers /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/drivers" element={
+              <ProtectedRoute requiredRole="manager">
+                <Layout><Drivers /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/brokers" element={
+              <ProtectedRoute>
+                <Layout><Brokers /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/fleets" element={
+              <ProtectedRoute requiredRole="manager">
+                <Layout><Fleets /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/reports" element={
+              <ProtectedRoute>
+                <Layout><Reports /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/weekly-report" element={
+              <ProtectedRoute requiredRole="admin">
+                <Layout><WeeklyReport /></Layout>
+              </ProtectedRoute>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </BrowserRouter>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

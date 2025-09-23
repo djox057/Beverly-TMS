@@ -8,9 +8,14 @@ import {
   Building2, 
   BarChart3, 
   Calendar,
-  Plus
+  Plus,
+  LogOut,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const navigation = [
   { name: "New Order", href: "/new-order", icon: Plus },
@@ -25,6 +30,12 @@ const navigation = [
 ];
 
 export const Sidebar = () => {
+  const { profile, signOut } = useAuthContext();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
@@ -52,6 +63,36 @@ export const Sidebar = () => {
           </NavLink>
         ))}
       </nav>
+
+      {/* User Profile & Logout */}
+      <div className="p-4 border-t border-border">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-shrink-0">
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+              <User className="h-4 w-4 text-primary-foreground" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-foreground truncate">
+              {profile?.full_name || profile?.email || 'User'}
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {profile?.role || 'dispatch'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full"
+          onClick={handleSignOut}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
     </div>
   );
 };
