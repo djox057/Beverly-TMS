@@ -97,21 +97,20 @@ serve(async (req) => {
     const uploadedFile = await fileUploadResponse.json();
     console.log('File uploaded successfully, ID:', uploadedFile.id);
 
-    // Step 2: Use Chat Completions with file attachment to extract data
-    console.log('Extracting data from PDF using OpenAI...');
+    // Step 2: Create Assistant and Thread for PDF analysis
+    console.log('Creating OpenAI Assistant for PDF analysis...');
     
-    const extractionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Create an assistant
+    const assistantResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert at extracting shipping/logistics data from PDF documents. Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
+        name: 'PDF Data Extractor',
+        instructions: `You are an expert at extracting shipping/logistics data from PDF documents. Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
 Return JSON with these exact fields (only include fields you can find):
 {
@@ -134,37 +133,148 @@ Return JSON with these exact fields (only include fields you can find):
   "equipment": "string - equipment requirements/specifications",
   "temperature": "string - temperature requirements if refrigerated",
   "notes": "string - special instructions or additional information"
-}`
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Please analyze this shipping/logistics PDF document and extract ALL available order information. Return ONLY the JSON object with the data you can find.'
-              },
-              {
-                type: 'text',
-                text: `file_id:${uploadedFile.id}`
-              }
-            ]
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.1,
+}`,
+        model: 'gpt-4o',
+        tools: [{ type: 'file_search' }],
       }),
     });
 
-    if (!extractionResponse.ok) {
-      const errorText = await extractionResponse.text();
-      console.error('OpenAI extraction failed:', extractionResponse.status, errorText);
-      throw new Error(`OpenAI extraction failed: ${extractionResponse.status}`);
+    if (!assistantResponse.ok) {
+      const errorText = await assistantResponse.text();
+      console.error('Failed to create assistant:', assistantResponse.status, errorText);
+      throw new Error(`Failed to create assistant: ${assistantResponse.status}`);
     }
 
-    const extractionResult = await extractionResponse.json();
-    const extractedContent = extractionResult.choices[0].message.content.trim();
+    const assistant = await assistantResponse.json();
+    console.log('Assistant created:', assistant.id);
+
+    // Create a thread
+    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (!threadResponse.ok) {
+      const errorText = await threadResponse.text();
+      console.error('Failed to create thread:', threadResponse.status, errorText);
+      throw new Error(`Failed to create thread: ${threadResponse.status}`);
+    }
+
+    const thread = await threadResponse.json();
+    console.log('Thread created:', thread.id);
+
+    // Create a message with file attachment
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({
+        role: 'user',
+        content: 'Please analyze this shipping/logistics PDF document and extract ALL available order information. Return ONLY the JSON object with the data you can find.',
+        attachments: [
+          {
+            file_id: uploadedFile.id,
+            tools: [{ type: 'file_search' }],
+          },
+        ],
+      }),
+    });
+
+    if (!messageResponse.ok) {
+      const errorText = await messageResponse.text();
+      console.error('Failed to create message:', messageResponse.status, errorText);
+      throw new Error(`Failed to create message: ${messageResponse.status}`);
+    }
+
+    const message = await messageResponse.json();
+    console.log('Message created:', message.id);
+
+    // Run the assistant
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({
+        assistant_id: assistant.id,
+      }),
+    });
+
+    if (!runResponse.ok) {
+      const errorText = await runResponse.text();
+      console.error('Failed to start run:', runResponse.status, errorText);
+      throw new Error(`Failed to start run: ${runResponse.status}`);
+    }
+
+    const run = await runResponse.json();
+    console.log('Run started:', run.id);
+
+    // Poll for completion
+    let runStatus = run;
+    const maxAttempts = 30;
+    let attempts = 0;
+
+    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+      if (attempts >= maxAttempts) {
+        throw new Error('Assistant run timed out');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+      
+      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+
+      if (!statusResponse.ok) {
+        throw new Error('Failed to check run status');
+      }
+
+      runStatus = await statusResponse.json();
+      console.log('Run status:', runStatus.status);
+      attempts++;
+    }
+
+    if (runStatus.status !== 'completed') {
+      console.error('Run failed with status:', runStatus.status);
+      throw new Error(`Assistant run failed: ${runStatus.status}`);
+    }
+
+    // Get the messages
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'OpenAI-Beta': 'assistants=v2',
+      },
+    });
+
+    if (!messagesResponse.ok) {
+      const errorText = await messagesResponse.text();
+      console.error('Failed to get messages:', messagesResponse.status, errorText);
+      throw new Error(`Failed to get messages: ${messagesResponse.status}`);
+    }
+
+    const messagesResult = await messagesResponse.json();
+    const assistantMessages = messagesResult.data.filter(msg => msg.role === 'assistant');
     
-    console.log('OpenAI raw response:', extractedContent);
+    if (assistantMessages.length === 0) {
+      throw new Error('No assistant response found');
+    }
+
+    const extractedContent = assistantMessages[0].content[0].text.value.trim();
+    console.log('OpenAI Assistant response:', extractedContent);
 
     // Parse the JSON response
     let extractedData: ExtractedOrderData;
@@ -191,17 +301,36 @@ Return JSON with these exact fields (only include fields you can find):
       throw new Error(`Failed to parse extraction result: ${parseError.message}`);
     }
 
-    // Step 3: Clean up - delete the uploaded file
+    // Step 3: Clean up resources
     try {
+      // Delete the thread and assistant
+      await fetch(`https://api.openai.com/v1/threads/${thread.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+
+      await fetch(`https://api.openai.com/v1/assistants/${assistant.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+
+      // Delete the uploaded file
       await fetch(`https://api.openai.com/v1/files/${uploadedFile.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${openaiApiKey}`,
         },
       });
-      console.log('Uploaded file cleaned up successfully');
+      
+      console.log('Resources cleaned up successfully');
     } catch (cleanupError) {
-      console.warn('Failed to cleanup uploaded file:', cleanupError);
+      console.warn('Failed to cleanup resources:', cleanupError);
       // Don't fail the request if cleanup fails
     }
 
