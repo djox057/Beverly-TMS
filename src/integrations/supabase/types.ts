@@ -174,6 +174,7 @@ export type Database = {
           company_id: string
           created_at: string
           delivery_datetime: string | null
+          delivery_end_datetime: string | null
           driver_price: number | null
           driver1_id: string | null
           driver2_id: string | null
@@ -185,6 +186,7 @@ export type Database = {
           mileage: number | null
           notes: string | null
           pickup_datetime: string | null
+          pickup_end_datetime: string | null
           status: string | null
           trailer_id: string | null
           truck_id: string | null
@@ -197,6 +199,7 @@ export type Database = {
           company_id: string
           created_at?: string
           delivery_datetime?: string | null
+          delivery_end_datetime?: string | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
@@ -208,6 +211,7 @@ export type Database = {
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
+          pickup_end_datetime?: string | null
           status?: string | null
           trailer_id?: string | null
           truck_id?: string | null
@@ -220,6 +224,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           delivery_datetime?: string | null
+          delivery_end_datetime?: string | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
@@ -231,6 +236,7 @@ export type Database = {
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
+          pickup_end_datetime?: string | null
           status?: string | null
           trailer_id?: string | null
           truck_id?: string | null

@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Plus, Trash2, Loader2, GripVertical, Sparkles } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
@@ -30,8 +32,8 @@ const NewOrder = () => {
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
-  const [pickupDateTime, setPickupDateTime] = useState("");
-  const [deliveryDateTime, setDeliveryDateTime] = useState("");
+  const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
+  const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [dhMiles, setDhMiles] = useState("");
@@ -200,6 +202,33 @@ const NewOrder = () => {
       if (extractedData.mileage) {
         setLoadedMiles(extractedData.mileage.toString());
       }
+
+      // Handle date ranges from AI extraction
+      if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
+        setPickupDateRange({
+          from: new Date(extractedData.pickupStartDate),
+          to: new Date(extractedData.pickupEndDate)
+        });
+      } else if (extractedData.pickupDate) {
+        const pickupDate = new Date(extractedData.pickupDate);
+        setPickupDateRange({
+          from: pickupDate,
+          to: pickupDate
+        });
+      }
+
+      if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
+        setDeliveryDateRange({
+          from: new Date(extractedData.deliveryStartDate),
+          to: new Date(extractedData.deliveryEndDate)
+        });
+      } else if (extractedData.deliveryDate) {
+        const deliveryDate = new Date(extractedData.deliveryDate);
+        setDeliveryDateRange({
+          from: deliveryDate,
+          to: deliveryDate
+        });
+      }
       
       // Handle pickups and deliveries
       const newPickupsDrops: PickupDrop[] = [];
@@ -272,14 +301,15 @@ const NewOrder = () => {
       } = await supabase.from('orders').insert({
         internal_load_number: nextInternalLoadNumber,
         broker_load_number: brokerLoadNumber || null,
-        load_number: brokerLoadNumber || null, // Keep for backward compatibility
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
-        pickup_datetime: pickupDateTime || null,
-        delivery_datetime: deliveryDateTime || null,
+        pickup_datetime: pickupDateRange?.from || null,
+        pickup_end_datetime: pickupDateRange?.to || pickupDateRange?.from || null,
+        delivery_datetime: deliveryDateRange?.from || null,
+        delivery_end_datetime: deliveryDateRange?.to || deliveryDateRange?.from || null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
@@ -346,8 +376,8 @@ const NewOrder = () => {
       setDriver1('');
       setDriver2('');
       setTrailer('');
-      setPickupDateTime('');
-      setDeliveryDateTime('');
+      setPickupDateRange(undefined);
+      setDeliveryDateRange(undefined);
       setFreightAmount('');
       setDriverPrice('');
       setDhMiles('');
@@ -396,7 +426,7 @@ const NewOrder = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">>
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
               <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
@@ -407,11 +437,7 @@ const NewOrder = () => {
                 <Label htmlFor="company">Booked by Company</Label>
                 <Combobox options={companyOptions} value={bookedByCompany} onValueChange={setBookedByCompany} placeholder="Select company" searchPlaceholder="Search companies..." />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="broker">Broker</Label>
-                <Combobox options={brokerOptions} value={broker} onValueChange={setBroker} placeholder="Select broker" searchPlaceholder="Search brokers..." />
-              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -493,19 +519,59 @@ const NewOrder = () => {
                   </div>
                 )}
               </Droppable>
-            </DragDropContext>
-          </div>
+             </DragDropContext>
+           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="dh-miles">DH Miles</Label>
-              <Input id="dh-miles" type="number" placeholder="0" value={dhMiles} onChange={e => setDhMiles(e.target.value)} />
+           <div className="space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label>Pickup Date Range</Label>
+                 <DateRangePicker
+                   date={pickupDateRange}
+                   onDateChange={setPickupDateRange}
+                   placeholder="Select pickup dates"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <Label>Delivery Date Range</Label>
+                 <DateRangePicker
+                   date={deliveryDateRange}
+                   onDateChange={setDeliveryDateRange}
+                   placeholder="Select delivery dates"
+                 />
+               </div>
+             </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pickup Date Range</Label>
+                <DateRangePicker
+                  date={pickupDateRange}
+                  onDateChange={setPickupDateRange}
+                  placeholder="Select pickup dates"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Delivery Date Range</Label>
+                <DateRangePicker
+                  date={deliveryDateRange}
+                  onDateChange={setDeliveryDateRange}
+                  placeholder="Select delivery dates"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="loaded-miles">Loaded Miles</Label>
-              <Input id="loaded-miles" type="number" placeholder="0" value={loadedMiles} onChange={e => setLoadedMiles(e.target.value)} />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dh-miles">DH Miles</Label>
+                <Input id="dh-miles" type="number" placeholder="0" value={dhMiles} onChange={e => setDhMiles(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="loaded-miles">Loaded Miles</Label>
+                <Input id="loaded-miles" type="number" placeholder="0" value={loadedMiles} onChange={e => setLoadedMiles(e.target.value)} />
+              </div>
 
             <div className="space-y-2">
               <Label htmlFor="total-miles">Total Miles</Label>
@@ -570,10 +636,13 @@ const NewOrder = () => {
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Order
               </Button>
+              </div>
             </div>
           </form>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 };
+
 export default NewOrder;
