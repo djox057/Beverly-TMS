@@ -136,7 +136,7 @@ async function extractTextFromPDF(pdfBuffer: Uint8Array): Promise<string> {
   }
 }
 
-// Extract data using Claude (Anthropic) for better document analysis
+// Extract data using Claude (Anthropic) - DIRECT PDF ANALYSIS
 async function extractWithClaudeAPI(pdfBuffer: Uint8Array): Promise<ExtractedData> {
   const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!anthropicApiKey) {
@@ -144,10 +144,11 @@ async function extractWithClaudeAPI(pdfBuffer: Uint8Array): Promise<ExtractedDat
     throw new Error('Anthropic API key not configured');
   }
 
-  console.log('Using Claude for PDF analysis...');
+  console.log('Using Claude for DIRECT PDF analysis, buffer size:', pdfBuffer.length);
   
-  // Convert PDF to base64 for Claude
+  // Convert PDF to base64 for Claude - this sends the ACTUAL PDF FILE
   const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+  console.log('Base64 PDF length:', base64Pdf.length);
   
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -159,7 +160,7 @@ async function extractWithClaudeAPI(pdfBuffer: Uint8Array): Promise<ExtractedDat
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1500,
+        max_tokens: 2000,
         messages: [
           {
             role: 'user',
@@ -174,31 +175,32 @@ async function extractWithClaudeAPI(pdfBuffer: Uint8Array): Promise<ExtractedDat
               },
               {
                 type: 'text',
-                text: `Analyze this shipping/logistics PDF document and extract ALL available information. Return ONLY a JSON object with these fields (omit fields if not found):
+                text: `This is a shipping/logistics PDF document. I need you to carefully read and analyze the ENTIRE document content to extract shipping order information.
+
+CRITICAL: This PDF contains shipping/trucking/logistics information. Please extract ALL available data and return ONLY a valid JSON object with these exact field names (include only fields you can find):
 
 {
-  "brokerLoadNumber": "load/order/confirmation/BOL number",
-  "internalLoadNumber": "internal reference number",
-  "broker": "broker/carrier company name",
-  "pickupAddress": "complete pickup street address",
-  "pickupCity": "pickup city",
-  "pickupState": "pickup state (2-letter code)",
-  "pickupDate": "pickup date in YYYY-MM-DD format",
-  "deliveryAddress": "complete delivery street address", 
-  "deliveryCity": "delivery city",
-  "deliveryState": "delivery state (2-letter code)",
-  "deliveryDate": "delivery date in YYYY-MM-DD format",
-  "freightAmount": "freight cost as number (no $ or commas)",
-  "mileage": "total miles as number",
-  "commodity": "type of goods being shipped",
-  "weight": "weight in pounds as number",
-  "trailer": "trailer type or number",
-  "equipment": "equipment requirements",
-  "temperature": "temperature requirements",
-  "notes": "special instructions or notes"
+  "brokerLoadNumber": "string - any load number, order number, confirmation number, BOL number, reference number",
+  "broker": "string - company/broker name issuing this document",
+  "pickupAddress": "string - complete pickup street address",
+  "pickupCity": "string - pickup city name",
+  "pickupState": "string - pickup state (2-letter code like TX, CA)",
+  "pickupDate": "string - pickup date in YYYY-MM-DD format",
+  "deliveryAddress": "string - complete delivery street address", 
+  "deliveryCity": "string - delivery city name",
+  "deliveryState": "string - delivery state (2-letter code)",
+  "deliveryDate": "string - delivery date in YYYY-MM-DD format",
+  "freightAmount": number - freight cost as number only (no $ or commas),
+  "mileage": number - total miles as number,
+  "commodity": "string - type of goods/freight being shipped",
+  "weight": number - weight in pounds as number,
+  "trailer": "string - trailer type or number",
+  "equipment": "string - equipment requirements",
+  "temperature": "string - temperature requirements if any",
+  "notes": "string - any special instructions or additional notes"
 }
 
-Look for: load numbers, confirmation numbers, BOL numbers, company names, addresses, dates, dollar amounts, mileage, commodity descriptions, weight, and any special instructions. Return ONLY the JSON object.`
+Please read this document carefully and extract as much information as possible. Return ONLY the JSON object, no other text.`
               }
             ]
           }
