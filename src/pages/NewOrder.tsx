@@ -13,7 +13,6 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -22,7 +21,6 @@ interface PickupDrop {
   state: string;
   datetime: string;
 }
-
 const NewOrder = () => {
   const [bookedByCompany, setBookedByCompany] = useState("BF Prime");
   const [broker, setBroker] = useState("");
@@ -37,14 +35,27 @@ const NewOrder = () => {
   const [driverPrice, setDriverPrice] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    toast
+  } = useToast();
 
-  const { toast } = useToast();
-  
   // Fetch data from database
-  const { data: companies, isLoading: companiesLoading } = useCompanies();
-  const { data: brokers, isLoading: brokersLoading } = useBrokers();
-  const { data: trucks, isLoading: trucksLoading } = useTrucks();
-  const { data: drivers, isLoading: driversLoading } = useDrivers();
+  const {
+    data: companies,
+    isLoading: companiesLoading
+  } = useCompanies();
+  const {
+    data: brokers,
+    isLoading: brokersLoading
+  } = useBrokers();
+  const {
+    data: trucks,
+    isLoading: trucksLoading
+  } = useTrucks();
+  const {
+    data: drivers,
+    isLoading: driversLoading
+  } = useDrivers();
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -54,7 +65,7 @@ const NewOrder = () => {
       address: "",
       city: "",
       state: "",
-      datetime: "",
+      datetime: ""
     };
     const defaultDelivery: PickupDrop = {
       id: "delivery-1",
@@ -62,7 +73,7 @@ const NewOrder = () => {
       address: "",
       city: "",
       state: "",
-      datetime: "",
+      datetime: ""
     };
     setPickupsDrops([defaultPickup, defaultDelivery]);
   }, []);
@@ -78,7 +89,6 @@ const NewOrder = () => {
       }
     }
   }, [truck, trucks]);
-
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
       id: Date.now().toString(),
@@ -86,19 +96,18 @@ const NewOrder = () => {
       address: "",
       city: "",
       state: "",
-      datetime: "",
+      datetime: ""
     };
     setPickupsDrops([...pickupsDrops, newItem]);
   };
-
   const removePickupDrop = (id: string) => {
     setPickupsDrops(pickupsDrops.filter(item => item.id !== id));
   };
-
   const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
-    setPickupsDrops(pickupsDrops.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      [field]: value
+    } : item));
   };
 
   // Prepare options for dropdowns
@@ -106,74 +115,62 @@ const NewOrder = () => {
     value: company.id,
     label: company.name
   })) || [];
-
   const brokerOptions = brokers?.map(broker => ({
     value: broker.id,
     label: broker.name
   })) || [];
-
   const truckOptions = trucks?.map(truck => ({
     value: truck.id,
     label: truck.truck_number
   })) || [];
-
   const driverOptions = drivers?.map(driver => ({
     value: driver.id,
     label: driver.name
   })) || [];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     try {
       // Insert order
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          load_number: loadNumber,
-          company_id: bookedByCompany,
-          broker_id: broker || null,
-          truck_id: truck || null,
-          driver1_id: driver1 || null,
-          driver2_id: driver2 || null,
-          pickup_datetime: pickupDateTime || null,
-          delivery_datetime: deliveryDateTime || null,
-          freight_amount: freightAmount ? parseFloat(freightAmount) : null,
-          driver_price: driverPrice ? parseFloat(driverPrice) : null,
-          status: 'pending',
-          booked_by: 'System User' // This should be the logged-in user
-        })
-        .select()
-        .single();
-
+      const {
+        data: orderData,
+        error: orderError
+      } = await supabase.from('orders').insert({
+        load_number: loadNumber,
+        company_id: bookedByCompany,
+        broker_id: broker || null,
+        truck_id: truck || null,
+        driver1_id: driver1 || null,
+        driver2_id: driver2 || null,
+        pickup_datetime: pickupDateTime || null,
+        delivery_datetime: deliveryDateTime || null,
+        freight_amount: freightAmount ? parseFloat(freightAmount) : null,
+        driver_price: driverPrice ? parseFloat(driverPrice) : null,
+        status: 'pending',
+        booked_by: 'System User' // This should be the logged-in user
+      }).select().single();
       if (orderError) throw orderError;
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0 && orderData) {
-        const pickupDropData = pickupsDrops
-          .filter(item => item.address && item.city && item.state)
-          .map(item => ({
-            order_id: orderData.id,
-            type: item.type,
-            address: item.address,
-            city: item.city,
-            state: item.state,
-            datetime: item.datetime || null
-          }));
-
+        const pickupDropData = pickupsDrops.filter(item => item.address && item.city && item.state).map(item => ({
+          order_id: orderData.id,
+          type: item.type,
+          address: item.address,
+          city: item.city,
+          state: item.state,
+          datetime: item.datetime || null
+        }));
         if (pickupDropData.length > 0) {
-          const { error: pickupDropError } = await supabase
-            .from('pickup_drops')
-            .insert(pickupDropData);
-
+          const {
+            error: pickupDropError
+          } = await supabase.from('pickup_drops').insert(pickupDropData);
           if (pickupDropError) throw pickupDropError;
         }
       }
-
       toast({
         title: "Order Created",
-        description: `Order ${loadNumber} has been successfully created.`,
+        description: `Order ${loadNumber} has been successfully created.`
       });
 
       // Reset form
@@ -187,35 +184,39 @@ const NewOrder = () => {
       setDeliveryDateTime('');
       setFreightAmount('');
       setDriverPrice('');
-      setPickupsDrops([
-        { id: "pickup-1", type: "pickup", address: "", city: "", state: "", datetime: "" },
-        { id: "delivery-1", type: "delivery", address: "", city: "", state: "", datetime: "" }
-      ]);
-
+      setPickupsDrops([{
+        id: "pickup-1",
+        type: "pickup",
+        address: "",
+        city: "",
+        state: "",
+        datetime: ""
+      }, {
+        id: "delivery-1",
+        type: "delivery",
+        address: "",
+        city: "",
+        state: "",
+        datetime: ""
+      }]);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to create order",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading;
-
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
+    return <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading...</span>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="max-w-4xl mx-auto">
+  return <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">Create New Order</CardTitle>
@@ -225,194 +226,91 @@ const NewOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="load-number">Load #</Label>
-                <Input 
-                  id="load-number" 
-                  placeholder="Load number" 
-                  value={loadNumber}
-                  onChange={(e) => setLoadNumber(e.target.value)}
-                  required
-                />
+                <Input id="load-number" placeholder="Load number" value={loadNumber} onChange={e => setLoadNumber(e.target.value)} required />
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
-                <Combobox
-                  options={companyOptions}
-                  value={bookedByCompany}
-                  onValueChange={setBookedByCompany}
-                  placeholder="Select company"
-                  searchPlaceholder="Search companies..."
-                />
+                <Combobox options={companyOptions} value={bookedByCompany} onValueChange={setBookedByCompany} placeholder="Select company" searchPlaceholder="Search companies..." />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <Combobox
-                  options={brokerOptions}
-                  value={broker}
-                  onValueChange={setBroker}
-                  placeholder="Select broker"
-                  searchPlaceholder="Search brokers..."
-                />
+                <Combobox options={brokerOptions} value={broker} onValueChange={setBroker} placeholder="Select broker" searchPlaceholder="Search brokers..." />
               </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
-                <Combobox
-                  options={truckOptions}
-                  value={truck}
-                  onValueChange={setTruck}
-                  placeholder="Select truck"
-                  searchPlaceholder="Search trucks..."
-                />
+                <Combobox options={truckOptions} value={truck} onValueChange={setTruck} placeholder="Select truck" searchPlaceholder="Search trucks..." />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer # (Auto-filled)</Label>
-                <Input 
-                  id="trailer" 
-                  placeholder="Trailer number" 
-                  value={trailer}
-                  onChange={(e) => setTrailer(e.target.value)}
-                />
+                <Input id="trailer" placeholder="Trailer number" value={trailer} onChange={e => setTrailer(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="driver1">Driver 1 (Auto-filled)</Label>
-                <Combobox
-                  options={driverOptions}
-                  value={driver1}
-                  onValueChange={setDriver1}
-                  placeholder="Select primary driver"
-                  searchPlaceholder="Search drivers..."
-                />
+                <Combobox options={driverOptions} value={driver1} onValueChange={setDriver1} placeholder="Select primary driver" searchPlaceholder="Search drivers..." />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver2">Driver 2 (Optional, Auto-filled)</Label>
-                <Combobox
-                  options={[{ value: "", label: "None" }, ...driverOptions]}
-                  value={driver2}
-                  onValueChange={setDriver2}
-                  placeholder="Select second driver"
-                  searchPlaceholder="Search drivers..."
-                />
+                <Combobox options={[{
+                  value: "",
+                  label: "None"
+                }, ...driverOptions]} value={driver2} onValueChange={setDriver2} placeholder="Select second driver" searchPlaceholder="Search drivers..." />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pickup-datetime">Pickup Date & Time</Label>
-              <Input
-                id="pickup-datetime"
-                type="datetime-local"
-                value={pickupDateTime}
-                onChange={(e) => setPickupDateTime(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="delivery-datetime">Delivery Date & Time</Label>
-              <Input
-                id="delivery-datetime"
-                type="datetime-local"
-                value={deliveryDateTime}
-                onChange={(e) => setDeliveryDateTime(e.target.value)}
-              />
-            </div>
-          </div>
+          
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Additional Pickups & Deliveries</Label>
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addPickupDrop("pickup")}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Pickup
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addPickupDrop("delivery")}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
                   <Plus className="h-4 w-4 mr-1" />
                   Add Delivery
                 </Button>
               </div>
             </div>
 
-            {pickupsDrops.map((item) => (
-              <Card key={item.id} className="p-4">
+            {pickupsDrops.map(item => <Card key={item.id} className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium capitalize">{item.type}</h4>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removePickupDrop(item.id)}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Input
-                    placeholder="Address"
-                    value={item.address}
-                    onChange={(e) => updatePickupDrop(item.id, "address", e.target.value)}
-                  />
-                  <Input
-                    placeholder="City"
-                    value={item.city}
-                    onChange={(e) => updatePickupDrop(item.id, "city", e.target.value)}
-                  />
-                  <Input
-                    placeholder="State"
-                    value={item.state}
-                    onChange={(e) => updatePickupDrop(item.id, "state", e.target.value)}
-                  />
-                  <Input
-                    type="datetime-local"
-                    value={item.datetime}
-                    onChange={(e) => updatePickupDrop(item.id, "datetime", e.target.value)}
-                  />
+                  <Input placeholder="Address" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
+                  <Input placeholder="City" value={item.city} onChange={e => updatePickupDrop(item.id, "city", e.target.value)} />
+                  <Input placeholder="State" value={item.state} onChange={e => updatePickupDrop(item.id, "state", e.target.value)} />
+                  <Input type="datetime-local" value={item.datetime} onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} />
                 </div>
-              </Card>
-            ))}
+              </Card>)}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="freight-amount">Freight Amount</Label>
-              <Input 
-                id="freight-amount" 
-                type="number" 
-                placeholder="0.00" 
-                value={freightAmount}
-                onChange={(e) => setFreightAmount(e.target.value)}
-              />
+              <Input id="freight-amount" type="number" placeholder="0.00" value={freightAmount} onChange={e => setFreightAmount(e.target.value)} />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="driver-price">Price for Driver</Label>
-              <Input 
-                id="driver-price" 
-                type="number" 
-                placeholder="0.00" 
-                value={driverPrice}
-                onChange={(e) => setDriverPrice(e.target.value)}
-              />
+              <Input id="driver-price" type="number" placeholder="0.00" value={driverPrice} onChange={e => setDriverPrice(e.target.value)} />
             </div>
           </div>
 
@@ -431,8 +329,6 @@ const NewOrder = () => {
           </form>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default NewOrder;
