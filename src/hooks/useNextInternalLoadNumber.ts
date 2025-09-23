@@ -20,13 +20,3 @@ export const useNextInternalLoadNumber = () => {
     },
   });
 };
-
-// Helper function to get next unique internal load number and create order atomically
-export const createOrderWithUniqueLoadNumber = async (orderData: any) => {
-  const { data, error } = await supabase.rpc('create_order_with_unique_load_number', {
-    order_data: orderData
-  });
-  
-  if (error) throw error;
-  return data;
-};

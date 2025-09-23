@@ -321,33 +321,40 @@ const NewOrder = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { data: orderData, error: orderError } = await supabase.from('orders').insert({
+      // Create order data object for the atomic function
+      const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
-        internal_load_number: nextInternalLoadNumber,
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,
-        pickup_datetime: pickupDateRange?.from || null,
-        pickup_end_datetime: pickupDateRange?.to || pickupDateRange?.from || null,
-        delivery_datetime: deliveryDateRange?.from || null,
-        delivery_end_datetime: deliveryDateRange?.to || deliveryDateRange?.from || null,
+        pickup_datetime: pickupDateRange?.from?.toISOString() || null,
+        pickup_end_datetime: pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null,
+        delivery_datetime: deliveryDateRange?.from?.toISOString() || null,
+        delivery_end_datetime: deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
-        status: 'pending',
         booked_by: profile?.full_name || profile?.email || 'Unknown User'
-      } as any).select().maybeSingle();
-      
-      if (orderError) throw orderError;
+      };
+
+      // Use the atomic function to create order with unique internal load number
+      const { data: result, error: rpcError } = await supabase.rpc('create_order_with_unique_load_number', {
+        order_data: orderData
+      }) as { data: { id: string; internal_load_number: number }, error: any };
+
+      if (rpcError) throw rpcError;
+
+      const orderId = result.id;
+      const newInternalLoadNumber = result.internal_load_number;
 
       // Upload files if any
-      if (files && files.length > 0 && orderData) {
+      if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const fileName = `${orderData.id}/${Date.now()}_${file.name}`;
+          const fileName = `${orderId}/${Date.now()}_${file.name}`;
           
           const { error: uploadError } = await supabase.storage
             .from('order-files')
@@ -358,7 +365,7 @@ const NewOrder = () => {
           const { error: fileError } = await supabase
             .from('order_files')
             .insert({
-              order_id: orderData.id,
+              order_id: orderId,
               file_name: file.name,
               file_path: fileName,
               file_size: file.size,
@@ -371,7 +378,7 @@ const NewOrder = () => {
       }
 
       // Insert pickup/drop locations
-      if (pickupsDrops.length > 0 && orderData) {
+      if (pickupsDrops.length > 0) {
         const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
           // Parse city and state from address if it contains commas
           const addressParts = item.address.split(',').map(part => part.trim());
@@ -398,7 +405,7 @@ const NewOrder = () => {
           }
           
           return {
-            order_id: orderData.id,
+            order_id: orderId,
             type: item.type,
             address: cleanAddress,
             city,
@@ -414,10 +421,10 @@ const NewOrder = () => {
 
       toast({
         title: "Order Created",
-        description: `Order ${nextInternalLoadNumber || brokerLoadNumber} has been successfully created.`
+        description: `Order ${newInternalLoadNumber} has been successfully created.`
       });
 
-      // Reset form
+      // Reset form and refetch next internal load number
       setBrokerLoadNumber('');
       setBroker('');
       setTruck('');
