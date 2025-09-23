@@ -10,11 +10,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
+import { useTrucks } from "@/hooks/useTrucks";
 import { useToast } from "@/hooks/use-toast";
 
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
+  truck_id: string;
 }
 
 const Trailers = () => {
@@ -25,11 +27,13 @@ const Trailers = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<TrailerFormData>({
     trailer_number: "",
-    trailer_type: ""
+    trailer_type: "",
+    truck_id: ""
   });
 
   const { toast } = useToast();
   const { data: trailers, isLoading, refetch } = useTrailers();
+  const { data: trucks } = useTrucks();
 
   // Filter trailers based on search term
   const filteredTrailers = trailers?.filter(trailer =>
@@ -42,7 +46,8 @@ const Trailers = () => {
   const resetForm = () => {
     setFormData({
       trailer_number: "",
-      trailer_type: ""
+      trailer_type: "",
+      truck_id: ""
     });
   };
 
@@ -51,14 +56,27 @@ const Trailers = () => {
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
+      // First add the trailer
+      const { data: trailerData, error: trailerError } = await supabase
         .from('trailers')
         .insert({
           trailer_number: formData.trailer_number,
           trailer_type: formData.trailer_type || null
-        });
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (trailerError) throw trailerError;
+
+      // Then update the truck if one was selected
+      if (formData.truck_id && trailerData) {
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: trailerData.id })
+          .eq('id', formData.truck_id);
+
+        if (truckError) throw truckError;
+      }
 
       toast({
         title: "Success",
@@ -86,7 +104,8 @@ const Trailers = () => {
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
+      // Update the trailer
+      const { error: trailerError } = await supabase
         .from('trailers')
         .update({
           trailer_number: formData.trailer_number,
@@ -94,7 +113,31 @@ const Trailers = () => {
         })
         .eq('id', editingTrailer.id);
 
-      if (error) throw error;
+      if (trailerError) throw trailerError;
+
+      // Handle truck assignment changes
+      const currentTruck = editingTrailer.trucks?.[0];
+      const newTruckId = formData.truck_id;
+
+      // If there was a truck assigned and now it's different, clear the old assignment
+      if (currentTruck && currentTruck.id !== newTruckId) {
+        const { error: clearError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: null })
+          .eq('id', currentTruck.id);
+
+        if (clearError) throw clearError;
+      }
+
+      // If a new truck is selected, assign this trailer to it
+      if (newTruckId) {
+        const { error: assignError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: editingTrailer.id })
+          .eq('id', newTruckId);
+
+        if (assignError) throw assignError;
+      }
 
       toast({
         title: "Success",
@@ -144,7 +187,8 @@ const Trailers = () => {
     setEditingTrailer(trailer);
     setFormData({
       trailer_number: trailer.trailer_number || "",
-      trailer_type: trailer.trailer_type || ""
+      trailer_type: trailer.trailer_type || "",
+      truck_id: trailer.trucks?.[0]?.id || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -158,6 +202,13 @@ const Trailers = () => {
       </div>
     );
   }
+
+  // Get available trucks (trucks without trailers assigned)
+  const availableTrucks = trucks?.filter(truck => !truck.trailer_id) || [];
+  const truckOptions = availableTrucks.map(truck => ({
+    value: truck.id,
+    label: truck.truck_number
+  }));
 
   return (
     <div className="space-y-6">
@@ -199,8 +250,24 @@ const Trailers = () => {
                     <SelectItem value="Tank">Tank</SelectItem>
                     <SelectItem value="Container">Container</SelectItem>
                   </SelectContent>
-              </Select>
-            </div>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="truck_id">Truck #</Label>
+                <Select value={formData.truck_id} onValueChange={(value) => setFormData({ ...formData, truck_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select truck" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {truckOptions.map((truck) => (
+                      <SelectItem key={truck.value} value={truck.value}>
+                        {truck.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
             <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -328,6 +395,31 @@ const Trailers = () => {
                   <SelectItem value="Flatbed">Flatbed</SelectItem>
                   <SelectItem value="Tank">Tank</SelectItem>
                   <SelectItem value="Container">Container</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_truck_id">Truck #</Label>
+              <Select value={formData.truck_id} onValueChange={(value) => setFormData({ ...formData, truck_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select truck" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Include currently assigned truck + available trucks */}
+                  {editingTrailer?.trucks?.[0] && (
+                    <SelectItem value={editingTrailer.trucks[0].id}>
+                      {editingTrailer.trucks[0].truck_number}
+                    </SelectItem>
+                  )}
+                  {truckOptions
+                    .filter(truck => truck.value !== editingTrailer?.trucks?.[0]?.id)
+                    .map((truck) => (
+                      <SelectItem key={truck.value} value={truck.value}>
+                        {truck.label}
+                      </SelectItem>
+                    ))
+                  }
                 </SelectContent>
               </Select>
             </div>

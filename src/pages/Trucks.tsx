@@ -11,15 +11,14 @@ import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
+import { useTrailers } from "@/hooks/useTrailers";
 import { useToast } from "@/hooks/use-toast";
 
 interface TruckFormData {
   truck_number: string;
   trailer_id: string;
-  driver1_id: string;
-  driver2_id: string;
+  driver_id: string;
   fleet_assignment: string;
-  truck_type: string;
   year: string;
   make: string;
   model: string;
@@ -34,10 +33,8 @@ const Trucks = () => {
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     trailer_id: "",
-    driver1_id: "",
-    driver2_id: "",
+    driver_id: "",
     fleet_assignment: "",
-    truck_type: "Semi-Truck",
     year: "",
     make: "",
     model: ""
@@ -46,6 +43,7 @@ const Trucks = () => {
   const { toast } = useToast();
   const { data: trucks, isLoading, refetch } = useTrucks();
   const { data: drivers } = useDrivers();
+  const { data: trailers } = useTrailers();
 
   // Filter trucks based on search term
   const filteredTrucks = trucks?.filter(truck =>
@@ -54,17 +52,15 @@ const Trucks = () => {
     truck.make?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   const resetForm = () => {
     setFormData({
       truck_number: "",
       trailer_id: "",
-      driver1_id: "",
-      driver2_id: "",
+      driver_id: "",
       fleet_assignment: "",
-      truck_type: "Semi-Truck",
       year: "",
       make: "",
       model: ""
@@ -80,10 +76,9 @@ const Trucks = () => {
         .from('trucks')
         .insert({
           truck_number: formData.truck_number,
-          driver1_id: formData.driver1_id || null,
-          driver2_id: formData.driver2_id || null,
+          trailer_id: formData.trailer_id || null,
+          driver1_id: formData.driver_id || null,
           fleet_assignment: formData.fleet_assignment || null,
-          truck_type: formData.truck_type,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
           model: formData.model || null
@@ -121,10 +116,9 @@ const Trucks = () => {
         .from('trucks')
         .update({
           truck_number: formData.truck_number,
-          driver1_id: formData.driver1_id || null,
-          driver2_id: formData.driver2_id || null,
+          trailer_id: formData.trailer_id || null,
+          driver1_id: formData.driver_id || null,
           fleet_assignment: formData.fleet_assignment || null,
-          truck_type: formData.truck_type,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
           model: formData.model || null
@@ -182,10 +176,8 @@ const Trucks = () => {
     setFormData({
       truck_number: truck.truck_number || "",
       trailer_id: truck.trailer_id || "",
-      driver1_id: truck.driver1_id || "",
-      driver2_id: truck.driver2_id || "",
+      driver_id: truck.driver1_id || "",
       fleet_assignment: truck.fleet_assignment || "",
-      truck_type: truck.truck_type || "Semi-Truck",
       year: truck.year?.toString() || "",
       make: truck.make || "",
       model: truck.model || ""
@@ -206,6 +198,11 @@ const Trucks = () => {
   const driverOptions = drivers?.map(driver => ({
     value: driver.id,
     label: driver.name
+  })) || [];
+
+  const trailerOptions = trailers?.map(trailer => ({
+    value: trailer.id,
+    label: trailer.trailer_number
   })) || [];
 
   return (
@@ -248,25 +245,25 @@ const Trucks = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="driver1_id">Primary Driver</Label>
-                  <Select value={formData.driver1_id} onValueChange={(value) => setFormData({ ...formData, driver1_id: value })}>
+                  <Label htmlFor="trailer_id">Trailer Number</Label>
+                  <Select value={formData.trailer_id} onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select primary driver" />
+                      <SelectValue placeholder="Select trailer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {driverOptions.map((driver) => (
-                        <SelectItem key={driver.value} value={driver.value}>
-                          {driver.label}
+                      {trailerOptions.map((trailer) => (
+                        <SelectItem key={trailer.value} value={trailer.value}>
+                          {trailer.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="driver2_id">Secondary Driver</Label>
-                  <Select value={formData.driver2_id} onValueChange={(value) => setFormData({ ...formData, driver2_id: value })}>
+                  <Label htmlFor="driver_id">Driver</Label>
+                  <Select value={formData.driver_id} onValueChange={(value) => setFormData({ ...formData, driver_id: value })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select secondary driver" />
+                      <SelectValue placeholder="Select driver" />
                     </SelectTrigger>
                     <SelectContent>
                       {driverOptions.map((driver) => (
@@ -310,21 +307,6 @@ const Trucks = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="truck_type">Truck Type</Label>
-                <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
-                    <SelectItem value="Box Truck">Box Truck</SelectItem>
-                    <SelectItem value="Flatbed">Flatbed</SelectItem>
-                    <SelectItem value="Tanker">Tanker</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -360,9 +342,8 @@ const Trucks = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Truck #</TableHead>
-                  <TableHead>Connected Trailer</TableHead>
-                  <TableHead>Driver 1</TableHead>
-                  <TableHead>Driver 2</TableHead>
+                  <TableHead>Trailer #</TableHead>
+                  <TableHead>Driver</TableHead>
                   <TableHead>Fleet Assignment</TableHead>
                   <TableHead>Vehicle Info</TableHead>
                   <TableHead>Actions</TableHead>
@@ -371,7 +352,7 @@ const Trucks = () => {
               <TableBody>
                 {filteredTrucks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow>
@@ -381,7 +362,6 @@ const Trucks = () => {
                       <TableCell className="font-medium">{truck.truck_number}</TableCell>
                       <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
                       <TableCell>{truck.driver1?.name || "—"}</TableCell>
-                      <TableCell>{truck.driver2?.name || "—"}</TableCell>
                       <TableCell>{truck.fleet_assignment || "—"}</TableCell>
                       <TableCell>
                         {truck.year || truck.make || truck.model ? 
@@ -461,25 +441,25 @@ const Trucks = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit_driver1_id">Primary Driver</Label>
-                <Select value={formData.driver1_id} onValueChange={(value) => setFormData({ ...formData, driver1_id: value })}>
+                <Label htmlFor="edit_trailer_id">Trailer Number</Label>
+                <Select value={formData.trailer_id} onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select primary driver" />
+                    <SelectValue placeholder="Select trailer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {driverOptions.map((driver) => (
-                      <SelectItem key={driver.value} value={driver.value}>
-                        {driver.label}
+                    {trailerOptions.map((trailer) => (
+                      <SelectItem key={trailer.value} value={trailer.value}>
+                        {trailer.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_driver2_id">Secondary Driver</Label>
-                <Select value={formData.driver2_id} onValueChange={(value) => setFormData({ ...formData, driver2_id: value })}>
+                <Label htmlFor="edit_driver_id">Driver</Label>
+                <Select value={formData.driver_id} onValueChange={(value) => setFormData({ ...formData, driver_id: value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select secondary driver" />
+                    <SelectValue placeholder="Select driver" />
                   </SelectTrigger>
                   <SelectContent>
                     {driverOptions.map((driver) => (
@@ -521,21 +501,6 @@ const Trucks = () => {
                   placeholder="Cascadia"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_truck_type">Truck Type</Label>
-              <Select value={formData.truck_type} onValueChange={(value) => setFormData({ ...formData, truck_type: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Semi-Truck">Semi-Truck</SelectItem>
-                  <SelectItem value="Box Truck">Box Truck</SelectItem>
-                  <SelectItem value="Flatbed">Flatbed</SelectItem>
-                  <SelectItem value="Tanker">Tanker</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="flex justify-end gap-3">
