@@ -66,6 +66,7 @@ const EditOrder = () => {
   }, [id]);
 
   const loadOrderData = async () => {
+    console.log('Loading order data for ID:', id);
     try {
       const { data: orderData, error } = await supabase
         .from('orders')
@@ -76,9 +77,15 @@ const EditOrder = () => {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      console.log('Order data response:', { orderData, error });
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
       if (orderData) {
+        console.log('Setting form data with order:', orderData);
         setBookedByCompany(orderData.company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
@@ -89,7 +96,7 @@ const EditOrder = () => {
         setDriverPrice(orderData.driver_price?.toString() || "");
         setNotes(orderData.notes || "");
         setBookedBy(orderData.booked_by || "");
-        setInvoiced(orderData.invoiced ? "Done" : "");
+        setInvoiced(orderData.invoiced ? "Done" : "false");
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
 
         // Calculate miles
@@ -98,6 +105,7 @@ const EditOrder = () => {
 
         // Load pickup/drops
         if (orderData.pickup_drops) {
+          console.log('Processing pickup_drops:', orderData.pickup_drops);
           const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => ({
             id: pd.id,
             type: pd.type,
@@ -105,7 +113,9 @@ const EditOrder = () => {
             datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : ""
           }));
           setPickupsDrops(transformedPickupsDrops);
+          console.log('Set pickupsDrops to:', transformedPickupsDrops);
         }
+        console.log('Data loading completed successfully');
       }
     } catch (error) {
       console.error('Error loading order:', error);
@@ -116,6 +126,7 @@ const EditOrder = () => {
       });
       navigate('/orders');
     } finally {
+      console.log('Setting loading to false');
       setIsLoading(false);
     }
   };
@@ -358,9 +369,9 @@ const EditOrder = () => {
               <div className="space-y-2">
                 <Label htmlFor="driver2">Driver 2 (Optional)</Label>
                 <Combobox 
-                  options={[{ value: "", label: "None" }, ...driverOptions]} 
-                  value={driver2} 
-                  onValueChange={setDriver2} 
+                  options={[{ value: "none", label: "None" }, ...driverOptions]} 
+                  value={driver2 || "none"} 
+                  onValueChange={(value) => setDriver2(value === "none" ? "" : value)} 
                   placeholder="Select second driver" 
                   searchPlaceholder="Search drivers..." 
                 />
@@ -469,7 +480,7 @@ const EditOrder = () => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Not Invoiced</SelectItem>
+                    <SelectItem value="false">Not Invoiced</SelectItem>
                     <SelectItem value="Done">Done</SelectItem>
                   </SelectContent>
                 </Select>
