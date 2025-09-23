@@ -23,14 +23,17 @@ interface ExtractedData {
   }>;
 }
 
-// Convert PDF to image and use OpenAI Vision API
-async function extractDataFromPDFWithVision(pdfBuffer: Uint8Array): Promise<ExtractedData> {
+// Extract text from PDF and use OpenAI text API
+async function extractDataFromPDF(pdfBuffer: Uint8Array): Promise<ExtractedData> {
   try {
-    // Convert PDF pages to base64 images using a simple approach
-    const base64PDF = btoa(String.fromCharCode(...pdfBuffer));
+    // Convert PDF to base64 for text extraction
+    const base64PDF = Array.from(pdfBuffer)
+      .map(byte => String.fromCharCode(byte))
+      .join('');
+    const base64 = btoa(base64PDF);
     
-    // For now, let's try sending the PDF directly to OpenAI
-    // and let it handle the parsing
+    console.log('Sending PDF to OpenAI for text extraction...');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -42,38 +45,35 @@ async function extractDataFromPDFWithVision(pdfBuffer: Uint8Array): Promise<Extr
         messages: [
           {
             role: 'system',
-            content: `You are an expert at extracting shipping information from rate confirmation documents. 
+            content: `You are an expert at extracting shipping information from transportation documents.
 
-Extract these fields from the document and return as JSON:
+Please extract the following information from the document and return ONLY a valid JSON object with these exact field names:
+
 {
-  "brokerLoadNumber": "load number (often starts with # or has 'Load' in front)",
-  "broker": "broker company name", 
-  "pickupAddress": "complete pickup address",
-  "deliveryAddress": "complete delivery address",
-  "pickupDateTime": "pickup date/time in YYYY-MM-DDTHH:MM format",
-  "deliveryDateTime": "delivery date/time in YYYY-MM-DDTHH:MM format", 
-  "freightAmount": "freight amount as number (extract from $1,710.00 -> 1710)",
+  "brokerLoadNumber": "the load/reference number",
+  "broker": "broker/company name", 
+  "pickupAddress": "complete pickup address with city, state, zip",
+  "deliveryAddress": "complete delivery address with city, state, zip",
+  "pickupDateTime": "pickup date and time in YYYY-MM-DDTHH:MM format",
+  "deliveryDateTime": "delivery date and time in YYYY-MM-DDTHH:MM format",
+  "freightAmount": "freight amount as a number (no dollar sign)",
   "dhMiles": "deadhead miles if mentioned",
   "loadedMiles": "loaded miles if mentioned"
 }
 
-Return only the JSON, no markdown formatting. Set fields to null if not found.`
+If a field is not found, set it to null. Return ONLY the JSON object, no other text or formatting.`
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extract shipping information from this rate confirmation PDF:'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${base64PDF}`,
-                  detail: 'high'
-                }
-              }
-            ]
+            content: `Please extract shipping information from this PDF document (base64 encoded): ${base64.substring(0, 1000)}...
+
+Focus on finding:
+- Load number or confirmation number
+- Broker/carrier company name
+- Pickup and delivery addresses
+- Pickup and delivery dates/times
+- Freight rate or amount
+- Any mileage information`
           }
         ],
         max_tokens: 1000,
@@ -82,21 +82,32 @@ Return only the JSON, no markdown formatting. Set fields to null if not found.`
     });
 
     if (!response.ok) {
-      throw new Error(`Vision API failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API failed: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('OpenAI response:', result);
+    
     const content = result.choices[0].message.content;
+    console.log('Raw content from OpenAI:', content);
     
-    // Clean and parse JSON
-    const cleanContent = content.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+    // Clean and parse JSON - handle potential markdown formatting
+    let cleanContent = content.trim();
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\s*/g, '').replace(/```\s*$/g, '');
+    } else if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\s*/g, '').replace(/```\s*$/g, '');
+    }
+    
     const extractedData = JSON.parse(cleanContent);
+    console.log('Parsed extracted data:', extractedData);
     
-    console.log('Vision API extracted:', extractedData);
     return extractedData;
     
   } catch (error) {
-    console.error('Vision extraction failed:', error);
+    console.error('PDF extraction failed:', error);
     throw error;
   }
 }
@@ -127,51 +138,20 @@ serve(async (req) => {
     const arrayBuffer = await file.arrayBuffer();
     const pdfBuffer = new Uint8Array(arrayBuffer);
     
-    // Try vision-based extraction first
-    console.log('Attempting vision-based extraction...');
-    try {
-      const extractedData = await extractDataFromPDFWithVision(pdfBuffer);
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          data: extractedData,
-          method: 'vision'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    } catch (visionError) {
-      console.error('Vision extraction failed, falling back to text extraction:', visionError);
-      
-      // Fallback: Use pre-parsed content if available
-      // Since we know the content from the parsed document, let's use that directly
-      const knownData = {
-        brokerLoadNumber: "529393270",
-        broker: "C.H. Robinson", 
-        pickupAddress: "609 Pinewood Ln, Perham, MN 56573",
-        deliveryAddress: "6601 French Rd, Detroit, MI 48213",
-        pickupDateTime: "2025-09-24T13:00",
-        deliveryDateTime: "2025-09-26T08:00", 
-        freightAmount: 1710,
-        dhMiles: null,
-        loadedMiles: null
-      };
-      
-      console.log('Using fallback known data for this specific PDF');
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          data: knownData,
-          method: 'fallback'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
+    // Try PDF extraction
+    console.log('Attempting PDF extraction...');
+    const extractedData = await extractDataFromPDF(pdfBuffer);
+    
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        data: extractedData,
+        method: 'text_extraction'
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
 
   } catch (error) {
     console.error('Error in extract-order-fields function:', error);
