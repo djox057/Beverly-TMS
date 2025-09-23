@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Plus, Trash2, Loader2, GripVertical, Sparkles } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,9 @@ interface PickupDrop {
   type: "pickup" | "delivery";
   address: string;
   datetime: string;
+  dateRange?: DateRange;
+  startTime?: string;
+  endTime?: string;
 }
 
 const NewOrder = () => {
@@ -60,13 +63,19 @@ const NewOrder = () => {
       id: "pickup-1",
       type: "pickup",
       address: "",
-      datetime: ""
+      datetime: "",
+      dateRange: undefined,
+      startTime: "",
+      endTime: ""
     };
     const defaultDelivery: PickupDrop = {
       id: "delivery-1",
       type: "delivery",
       address: "",
-      datetime: ""
+      datetime: "",
+      dateRange: undefined,
+      startTime: "",
+      endTime: ""
     };
     setPickupsDrops([defaultPickup, defaultDelivery]);
   }, []);
@@ -88,7 +97,10 @@ const NewOrder = () => {
       id: Date.now().toString(),
       type,
       address: "",
-      datetime: ""
+      datetime: "",
+      dateRange: undefined,
+      startTime: "",
+      endTime: ""
     };
 
     if (type === "pickup") {
@@ -113,6 +125,20 @@ const NewOrder = () => {
     setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
       ...item,
       [field]: value
+    } : item));
+  };
+
+  const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      dateRange
+    } : item));
+  };
+
+  const updatePickupDropTime = (id: string, timeType: 'startTime' | 'endTime', time: string) => {
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      [timeType]: time
     } : item));
   };
 
@@ -213,24 +239,42 @@ const NewOrder = () => {
         });
       }
       
-      // Handle pickups and deliveries
+      // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       
       if (extractedData.pickupAddress) {
+        const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate 
+          ? { from: new Date(extractedData.pickupStartDate), to: new Date(extractedData.pickupEndDate) }
+          : extractedData.pickupDate 
+          ? { from: new Date(extractedData.pickupDate), to: new Date(extractedData.pickupDate) }
+          : undefined;
+
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
           address: `${extractedData.pickupAddress}${extractedData.pickupCity ? ', ' + extractedData.pickupCity : ''}${extractedData.pickupState ? ', ' + extractedData.pickupState : ''}`,
-          datetime: extractedData.pickupDate || ""
+          datetime: extractedData.pickupDate || "",
+          dateRange: pickupDateRange,
+          startTime: "08:00",
+          endTime: "17:00"
         });
       }
       
       if (extractedData.deliveryAddress) {
+        const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate 
+          ? { from: new Date(extractedData.deliveryStartDate), to: new Date(extractedData.deliveryEndDate) }
+          : extractedData.deliveryDate 
+          ? { from: new Date(extractedData.deliveryDate), to: new Date(extractedData.deliveryDate) }
+          : undefined;
+
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery", 
           address: `${extractedData.deliveryAddress}${extractedData.deliveryCity ? ', ' + extractedData.deliveryCity : ''}${extractedData.deliveryState ? ', ' + extractedData.deliveryState : ''}`,
-          datetime: extractedData.deliveryDate || ""
+          datetime: extractedData.deliveryDate || "",
+          dateRange: deliveryDateRange,
+          startTime: "08:00",
+          endTime: "17:00"
         });
       }
       
@@ -278,6 +322,7 @@ const NewOrder = () => {
     setIsSubmitting(true);
     try {
       const { data: orderData, error: orderError } = await supabase.from('orders').insert({
+        load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
@@ -293,7 +338,7 @@ const NewOrder = () => {
         mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
         status: 'pending',
         booked_by: profile?.full_name || profile?.email || 'Unknown User'
-      } as any).select().single();
+      } as any).select().maybeSingle();
       
       if (orderError) throw orderError;
 
@@ -365,12 +410,18 @@ const NewOrder = () => {
         id: "pickup-1",
         type: "pickup",
         address: "",
-        datetime: ""
+        datetime: "",
+        dateRange: undefined,
+        startTime: "",
+        endTime: ""
       }, {
         id: "delivery-1",
         type: "delivery",
         address: "",
-        datetime: ""
+        datetime: "",
+        dateRange: undefined,
+        startTime: "",
+        endTime: ""
       }]);
     } catch (error: any) {
       toast({
@@ -540,7 +591,7 @@ const NewOrder = () => {
                                 </Button>
                               </div>
                               
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 gap-3">
                                 <div className="space-y-1">
                                   <Label htmlFor={`address-${item.id}`}>Address</Label>
                                   <Textarea
@@ -553,12 +604,15 @@ const NewOrder = () => {
                                 </div>
                                 
                                 <div className="space-y-1">
-                                  <Label htmlFor={`datetime-${item.id}`}>Date & Time</Label>
-                                  <Input
-                                    id={`datetime-${item.id}`}
-                                    type="datetime-local"
-                                    value={item.datetime}
-                                    onChange={(e) => updatePickupDrop(item.id, 'datetime', e.target.value)}
+                                  <Label htmlFor={`daterange-${item.id}`}>Date & Time Range</Label>
+                                  <DateTimeRangePicker
+                                    date={item.dateRange}
+                                    onDateChange={(dateRange) => updatePickupDropDateRange(item.id, dateRange)}
+                                    startTime={item.startTime || ""}
+                                    endTime={item.endTime || ""}
+                                    onStartTimeChange={(time) => updatePickupDropTime(item.id, 'startTime', time)}
+                                    onEndTimeChange={(time) => updatePickupDropTime(item.id, 'endTime', time)}
+                                    placeholder={`Select ${item.type} date and time range`}
                                   />
                                 </div>
                               </div>
@@ -573,108 +627,87 @@ const NewOrder = () => {
               </DragDropContext>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Pickup Date Range</Label>
-                  <DateRangePicker
-                    date={pickupDateRange}
-                    onDateChange={setPickupDateRange}
-                    placeholder="Select pickup dates"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Delivery Date Range</Label>
-                  <DateRangePicker
-                    date={deliveryDateRange}
-                    onDateChange={setDeliveryDateRange}
-                    placeholder="Select delivery dates"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dh-miles">DH Miles</Label>
-                  <Input 
-                    id="dh-miles" 
-                    type="number" 
-                    placeholder="0" 
-                    value={dhMiles} 
-                    onChange={e => setDhMiles(e.target.value)} 
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="loaded-miles">Loaded Miles</Label>
-                  <Input 
-                    id="loaded-miles" 
-                    type="number" 
-                    placeholder="0" 
-                    value={loadedMiles} 
-                    onChange={e => setLoadedMiles(e.target.value)} 
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="total-miles">Total Miles</Label>
-                  <Input 
-                    id="total-miles" 
-                    type="number" 
-                    placeholder="0" 
-                    value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
-                    readOnly 
-                    className="bg-muted"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="freight-amount">Freight Amount</Label>
-                  <Input 
-                    id="freight-amount" 
-                    type="number" 
-                    placeholder="0.00" 
-                    value={freightAmount} 
-                    onChange={e => setFreightAmount(e.target.value)} 
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="driver-price">Price for Driver</Label>
-                  <Input 
-                    id="driver-price" 
-                    type="number" 
-                    placeholder="0.00" 
-                    value={driverPrice} 
-                    onChange={e => setDriverPrice(e.target.value)} 
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dh-miles">DH Miles</Label>
+                <Input 
+                  id="dh-miles" 
+                  type="number" 
+                  placeholder="0" 
+                  value={dhMiles} 
+                  onChange={e => setDhMiles(e.target.value)} 
+                />
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="files">Upload Files</Label>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleExtractWithAI}
-                    disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
-                    className="gap-2"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    {isExtracting ? "Extracting..." : "Extract with AI"}
-                  </Button>
-                </div>
+                <Label htmlFor="loaded-miles">Loaded Miles</Label>
                 <Input 
-                  id="files" 
-                  type="file" 
-                  multiple 
-                  onChange={e => setFiles(e.target.files)} 
+                  id="loaded-miles" 
+                  type="number" 
+                  placeholder="0" 
+                  value={loadedMiles} 
+                  onChange={e => setLoadedMiles(e.target.value)} 
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="total-miles">Total Miles</Label>
+                <Input 
+                  id="total-miles" 
+                  type="number" 
+                  placeholder="0" 
+                  value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
+                  readOnly 
+                  className="bg-muted"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="freight-amount">Freight Amount</Label>
+                <Input 
+                  id="freight-amount" 
+                  type="number" 
+                  placeholder="0.00" 
+                  value={freightAmount} 
+                  onChange={e => setFreightAmount(e.target.value)} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="driver-price">Price for Driver</Label>
+                <Input 
+                  id="driver-price" 
+                  type="number" 
+                  placeholder="0.00" 
+                  value={driverPrice} 
+                  onChange={e => setDriverPrice(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="files">Upload Files</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleExtractWithAI}
+                  disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
+                  className="gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isExtracting ? "Extracting..." : "Extract with AI"}
+                </Button>
+              </div>
+              <Input 
+                id="files" 
+                type="file" 
+                multiple 
+                onChange={e => setFiles(e.target.files)} 
+              />
             </div>
 
             <div className="flex justify-end gap-3">
