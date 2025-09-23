@@ -5,8 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCompanies } from "@/hooks/useCompanies";
+import { useBrokers } from "@/hooks/useBrokers";
+import { useTrucks } from "@/hooks/useTrucks";
+import { useDrivers } from "@/hooks/useDrivers";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface PickupDrop {
   id: string;
@@ -23,9 +29,22 @@ const NewOrder = () => {
   const [truck, setTruck] = useState("");
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
+  const [trailer, setTrailer] = useState("");
+  const [loadNumber, setLoadNumber] = useState("");
   const [pickupDateTime, setPickupDateTime] = useState("");
   const [deliveryDateTime, setDeliveryDateTime] = useState("");
+  const [freightAmount, setFreightAmount] = useState("");
+  const [driverPrice, setDriverPrice] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { toast } = useToast();
+  
+  // Fetch data from database
+  const { data: companies, isLoading: companiesLoading } = useCompanies();
+  const { data: brokers, isLoading: brokersLoading } = useBrokers();
+  const { data: trucks, isLoading: trucksLoading } = useTrucks();
+  const { data: drivers, isLoading: driversLoading } = useDrivers();
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -47,6 +66,18 @@ const NewOrder = () => {
     };
     setPickupsDrops([defaultPickup, defaultDelivery]);
   }, []);
+
+  // Auto-populate trailer and drivers when truck is selected
+  useEffect(() => {
+    if (truck && trucks) {
+      const selectedTruck = trucks.find(t => t.id === truck);
+      if (selectedTruck) {
+        setTrailer(selectedTruck.trailer?.trailer_number || '');
+        setDriver1(selectedTruck.driver1?.id || '');
+        setDriver2(selectedTruck.driver2?.id || '');
+      }
+    }
+  }, [truck, trucks]);
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
@@ -70,32 +101,118 @@ const NewOrder = () => {
     ));
   };
 
-  // Options for dropdowns
-  const companyOptions = [
-    { value: "BF Prime", label: "BF Prime" },
-    { value: "Beverly group", label: "Beverly group" },
-    { value: "Beverly Freight", label: "Beverly Freight" },
-    { value: "BF Prime Unite", label: "BF Prime Unite" },
-    { value: "BG Prime Inc", label: "BG Prime Inc" },
-  ];
+  // Prepare options for dropdowns
+  const companyOptions = companies?.map(company => ({
+    value: company.id,
+    label: company.name
+  })) || [];
 
-  const brokerOptions = [
-    { value: "broker1", label: "ABC Logistics" },
-    { value: "broker2", label: "XYZ Transport" },
-    { value: "broker3", label: "QuickMove Inc" },
-  ];
+  const brokerOptions = brokers?.map(broker => ({
+    value: broker.id,
+    label: broker.name
+  })) || [];
 
-  const truckOptions = [
-    { value: "truck1", label: "TRK-001" },
-    { value: "truck2", label: "TRK-002" },
-    { value: "truck3", label: "TRK-003" },
-  ];
+  const truckOptions = trucks?.map(truck => ({
+    value: truck.id,
+    label: truck.truck_number
+  })) || [];
 
-  const driverOptions = [
-    { value: "driver1", label: "John Smith" },
-    { value: "driver2", label: "Mike Johnson" },
-    { value: "driver3", label: "David Wilson" },
-  ];
+  const driverOptions = drivers?.map(driver => ({
+    value: driver.id,
+    label: driver.name
+  })) || [];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      // Insert order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          load_number: loadNumber,
+          company_id: bookedByCompany,
+          broker_id: broker || null,
+          truck_id: truck || null,
+          driver1_id: driver1 || null,
+          driver2_id: driver2 || null,
+          pickup_datetime: pickupDateTime || null,
+          delivery_datetime: deliveryDateTime || null,
+          freight_amount: freightAmount ? parseFloat(freightAmount) : null,
+          driver_price: driverPrice ? parseFloat(driverPrice) : null,
+          status: 'pending',
+          booked_by: 'System User' // This should be the logged-in user
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Insert pickup/drop locations
+      if (pickupsDrops.length > 0 && orderData) {
+        const pickupDropData = pickupsDrops
+          .filter(item => item.address && item.city && item.state)
+          .map(item => ({
+            order_id: orderData.id,
+            type: item.type,
+            address: item.address,
+            city: item.city,
+            state: item.state,
+            datetime: item.datetime || null
+          }));
+
+        if (pickupDropData.length > 0) {
+          const { error: pickupDropError } = await supabase
+            .from('pickup_drops')
+            .insert(pickupDropData);
+
+          if (pickupDropError) throw pickupDropError;
+        }
+      }
+
+      toast({
+        title: "Order Created",
+        description: `Order ${loadNumber} has been successfully created.`,
+      });
+
+      // Reset form
+      setLoadNumber('');
+      setBroker('');
+      setTruck('');
+      setDriver1('');
+      setDriver2('');
+      setTrailer('');
+      setPickupDateTime('');
+      setDeliveryDateTime('');
+      setFreightAmount('');
+      setDriverPrice('');
+      setPickupsDrops([
+        { id: "pickup-1", type: "pickup", address: "", city: "", state: "", datetime: "" },
+        { id: "delivery-1", type: "delivery", address: "", city: "", state: "", datetime: "" }
+      ]);
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create order",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -103,71 +220,89 @@ const NewOrder = () => {
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">Create New Order</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="company">Booked by Company</Label>
-              <Combobox
-                options={companyOptions}
-                value={bookedByCompany}
-                onValueChange={setBookedByCompany}
-                placeholder="Select company"
-                searchPlaceholder="Search companies..."
-              />
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="load-number">Load #</Label>
+                <Input 
+                  id="load-number" 
+                  placeholder="Load number" 
+                  value={loadNumber}
+                  onChange={(e) => setLoadNumber(e.target.value)}
+                  required
+                />
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="broker">Broker</Label>
-              <Combobox
-                options={brokerOptions}
-                value={broker}
-                onValueChange={setBroker}
-                placeholder="Select broker"
-                searchPlaceholder="Search brokers..."
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="company">Booked by Company</Label>
+                <Combobox
+                  options={companyOptions}
+                  value={bookedByCompany}
+                  onValueChange={setBookedByCompany}
+                  placeholder="Select company"
+                  searchPlaceholder="Search companies..."
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="broker">Broker</Label>
+                <Combobox
+                  options={brokerOptions}
+                  value={broker}
+                  onValueChange={setBroker}
+                  placeholder="Select broker"
+                  searchPlaceholder="Search brokers..."
+                />
+              </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="truck">Truck #</Label>
+                <Combobox
+                  options={truckOptions}
+                  value={truck}
+                  onValueChange={setTruck}
+                  placeholder="Select truck"
+                  searchPlaceholder="Search trucks..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="trailer">Trailer # (Auto-filled)</Label>
+                <Input 
+                  id="trailer" 
+                  placeholder="Trailer number" 
+                  value={trailer}
+                  onChange={(e) => setTrailer(e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="load-number">Load #</Label>
-              <Input id="load-number" placeholder="Load number" />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="driver1">Driver 1 (Auto-filled)</Label>
+                <Combobox
+                  options={driverOptions}
+                  value={driver1}
+                  onValueChange={setDriver1}
+                  placeholder="Select primary driver"
+                  searchPlaceholder="Search drivers..."
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="truck">Truck #</Label>
-              <Combobox
-                options={truckOptions}
-                value={truck}
-                onValueChange={setTruck}
-                placeholder="Select truck"
-                searchPlaceholder="Search trucks..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="trailer">Trailer #</Label>
-              <Input id="trailer" placeholder="Trailer number" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="driver1">Driver 1</Label>
-              <Combobox
-                options={driverOptions}
-                value={driver1}
-                onValueChange={setDriver1}
-                placeholder="Select primary driver"
-                searchPlaceholder="Search drivers..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="driver2">Driver 2 (Optional)</Label>
-              <Combobox
-                options={[{ value: "none", label: "None" }, ...driverOptions]}
-                value={driver2}
-                onValueChange={setDriver2}
-                placeholder="Select second driver"
-                searchPlaceholder="Search drivers..."
-              />
+              <div className="space-y-2">
+                <Label htmlFor="driver2">Driver 2 (Optional, Auto-filled)</Label>
+                <Combobox
+                  options={[{ value: "", label: "None" }, ...driverOptions]}
+                  value={driver2}
+                  onValueChange={setDriver2}
+                  placeholder="Select second driver"
+                  searchPlaceholder="Search drivers..."
+                />
+              </div>
             </div>
           </div>
 
@@ -260,12 +395,24 @@ const NewOrder = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="freight-amount">Freight Amount</Label>
-              <Input id="freight-amount" type="number" placeholder="0.00" />
+              <Input 
+                id="freight-amount" 
+                type="number" 
+                placeholder="0.00" 
+                value={freightAmount}
+                onChange={(e) => setFreightAmount(e.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="driver-price">Price for Driver</Label>
-              <Input id="driver-price" type="number" placeholder="0.00" />
+              <Input 
+                id="driver-price" 
+                type="number" 
+                placeholder="0.00" 
+                value={driverPrice}
+                onChange={(e) => setDriverPrice(e.target.value)}
+              />
             </div>
           </div>
 
@@ -274,10 +421,14 @@ const NewOrder = () => {
             <Input id="files" type="file" multiple />
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline">Cancel</Button>
-            <Button>Create Order</Button>
-          </div>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Order
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
