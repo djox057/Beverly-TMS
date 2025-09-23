@@ -78,38 +78,72 @@ async function extractWithFileAPI(pdfBuffer: Uint8Array, fileName: string): Prom
 
   // Step 3: Extract data using responses API
   console.log('Extracting data with structured schema...');
+  const requestBody = {
+    model: 'gpt-4o',
+    input: [{
+      role: 'user',
+      content: [
+        { 
+          type: 'input_text', 
+          text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Set null for missing fields.' 
+        },
+        { 
+          type: 'input_file', 
+          file_id: uploadResult.id 
+        }
+      ]
+    }],
+    // Try text_format first (newer API), fallback to response_format
+    text_format: { 
+      type: 'json_schema', 
+      json_schema: schema 
+    }
+  };
+
   const extractResponse = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      input: [{
-        role: 'user',
-        content: [
-          { 
-            type: 'input_text', 
-            text: 'Extract shipping information from this transportation document. Return structured JSON with brokerLoadNumber, broker, pickupAddress, deliveryAddress, pickupDateTime, deliveryDateTime, freightAmount, dhMiles, and loadedMiles. Set null for missing fields.' 
-          },
-          { 
-            type: 'input_file', 
-            file_id: uploadResult.id 
-          }
-        ]
-      }],
-      response_format: { 
-        type: 'json_schema', 
-        json_schema: schema 
-      }
-    }),
+    body: JSON.stringify(requestBody),
   });
 
+  // If text_format fails, try with response_format as fallback
   if (!extractResponse.ok) {
-    const error = await extractResponse.text();
-    console.error('Data extraction failed:', error);
-    throw new Error(`Data extraction failed: ${extractResponse.status} - ${error}`);
+    console.log('Trying fallback with response_format...');
+    const fallbackBody = {
+      ...requestBody,
+      response_format: requestBody.text_format
+    };
+    delete fallbackBody.text_format;
+
+    const fallbackResponse = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fallbackBody),
+    });
+
+    if (!fallbackResponse.ok) {
+      const error = await fallbackResponse.text();
+      console.error('Data extraction failed with both formats:', error);
+      throw new Error(`Data extraction failed: ${fallbackResponse.status} - ${error}`);
+    }
+
+    const extractResult = await fallbackResponse.json();
+    console.log('Raw extraction result (fallback):', extractResult);
+    
+    // Parse fallback response
+    const text = extractResult?.output?.[0]?.content?.[0]?.text ?? extractResult?.output_text;
+    if (!text) {
+      throw new Error('No text content in fallback model response');
+    }
+    
+    console.log('Extracted text (fallback):', text);
+    return JSON.parse(text);
   }
 
   const extractResult = await extractResponse.json();
