@@ -1,5 +1,14 @@
 import jsPDF from 'jspdf';
 
+interface OrderFile {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  content_type: string;
+  file_category: string;
+}
+
 interface Order {
   id: string;
   truckNumber: string;
@@ -22,6 +31,8 @@ interface Order {
   companyName: string;
   driverName: string;
   mileage: number;
+  rcFiles?: OrderFile[];
+  podFiles?: OrderFile[];
 }
 
 export const generateInvoicePDF = (orders: Order[]) => {
@@ -234,11 +245,61 @@ export const generateInvoicePDF = (orders: Order[]) => {
       doc.text(line, 105, yPosition + (i * 5), { align: 'center' });
     });
     
-    // Footer
+    // Get all RC and POD files for this group
+    const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
+    const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
+    const totalPages = 1 + allRcFiles.length + allPodFiles.length;
+    
+    // Update footer with correct page count
     doc.setTextColor(0, 0, 0); // Black color
     doc.setFontSize(8);
     doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
-    doc.text('Page 1 Of 1', 190, 280);
+    doc.text(`Page 1 Of ${totalPages}`, 190, 280);
+    
+    // Add RC file pages
+    let currentPage = 1;
+    allRcFiles.forEach((file) => {
+      doc.addPage();
+      currentPage++;
+      
+      // Add RC file content (placeholder - you may need to implement file loading)
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RATE CONFIRMATION', 105, 30, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`File: ${file.file_name}`, 20, 50);
+      doc.text('RC file content would be displayed here', 20, 70);
+      doc.text('(File loading implementation needed)', 20, 85);
+      
+      // Footer for RC page
+      doc.setFontSize(8);
+      doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
+      doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
+    });
+    
+    // Add POD file pages
+    allPodFiles.forEach((file) => {
+      doc.addPage();
+      currentPage++;
+      
+      // Add POD file content (placeholder - you may need to implement file loading)
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PROOF OF DELIVERY', 105, 30, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`File: ${file.file_name}`, 20, 50);
+      doc.text('POD file content would be displayed here', 20, 70);
+      doc.text('(File loading implementation needed)', 20, 85);
+      
+      // Footer for POD page
+      doc.setFontSize(8);
+      doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
+      doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
+    });
     
     // Save the PDF
     const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
