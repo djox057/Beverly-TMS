@@ -178,14 +178,19 @@ export type Database = {
           created_at: string
           delivery_datetime: string | null
           delivery_end_datetime: string | null
+          detention: number | null
           driver_price: number | null
           driver1_id: string | null
           driver2_id: string | null
+          extra_stop: number | null
           freight_amount: number | null
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
+          late_fee: number | null
+          layover: number | null
           load_number: string
+          lumper: number | null
           mileage: number | null
           notes: string | null
           pickup_datetime: string | null
@@ -203,14 +208,19 @@ export type Database = {
           created_at?: string
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
+          detention?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
+          extra_stop?: number | null
           freight_amount?: number | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          late_fee?: number | null
+          layover?: number | null
           load_number: string
+          lumper?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
@@ -228,14 +238,19 @@ export type Database = {
           created_at?: string
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
+          detention?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
+          extra_stop?: number | null
           freight_amount?: number | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          late_fee?: number | null
+          layover?: number | null
           load_number?: string
+          lumper?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
