@@ -234,7 +234,7 @@ const Orders = () => {
                   <TableHead>Broker Name</TableHead>
                   <TableHead>Broker Load #</TableHead>
                   <TableHead>Invoiced</TableHead>
-                  <TableHead>Total Freight Amount</TableHead>
+                  <TableHead>Freight Amount</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Booked By</TableHead>
