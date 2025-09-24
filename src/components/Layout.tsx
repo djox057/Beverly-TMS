@@ -13,8 +13,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <Sidebar />
         <div className="flex-1 flex flex-col">
           <header className="h-12 flex items-center border-b bg-background px-4">
-            <SidebarTrigger />
-            <h1 className="ml-4 text-lg font-semibold text-foreground">
+            <h1 className="text-lg font-semibold text-foreground">
               Dispatch Manager
             </h1>
           </header>

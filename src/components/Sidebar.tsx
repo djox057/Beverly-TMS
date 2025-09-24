@@ -25,6 +25,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -51,6 +52,9 @@ export const Sidebar = () => {
   return (
     <SidebarPrimitive>
       <SidebarContent>
+        <div className="p-2 border-b border-border">
+          <SidebarTrigger className="ml-auto" />
+        </div>
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
