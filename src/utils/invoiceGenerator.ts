@@ -1,5 +1,37 @@
 import jsPDF from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+// Helper function to convert PDF to image
+const convertPdfToImage = async (pdfData: Uint8Array): Promise<string | null> => {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const page = await pdf.getPage(1); // Get first page
+    
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    if (!context) return null;
+    
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+      canvas: canvas
+    }).promise;
+    
+    return canvas.toDataURL('image/png').split(',')[1]; // Return base64 without prefix
+  } catch (error) {
+    console.error('Error converting PDF to image:', error);
+    return null;
+  }
+};
 
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
@@ -20,6 +52,32 @@ const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
         resolve(base64.split(',')[1]); // Remove data URL prefix
       };
       reader.readAsDataURL(data);
+    });
+  } catch (error) {
+    console.error('Error loading file:', error);
+    return null;
+  }
+};
+
+// Helper function to load file as array buffer for PDFs
+const loadFileAsArrayBuffer = async (filePath: string): Promise<Uint8Array | null> => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('order-files')
+      .download(filePath);
+    
+    if (error) {
+      console.error('Error loading file:', error);
+      return null;
+    }
+    
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        resolve(new Uint8Array(arrayBuffer));
+      };
+      reader.readAsArrayBuffer(data);
     });
   } catch (error) {
     console.error('Error loading file:', error);
@@ -299,19 +357,38 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       doc.text(`File: ${file.file_name}`, 20, 50);
       
       // Load and display file content
-      const fileData = await loadFileAsBase64(file.file_path);
-      if (fileData && file.content_type.startsWith('image/')) {
-        try {
-          // Add image to PDF
-          const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
-          doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
-        } catch (error) {
-          console.error('Error adding image:', error);
+      if (file.content_type.startsWith('image/')) {
+        const fileData = await loadFileAsBase64(file.file_path);
+        if (fileData) {
+          try {
+            // Add image to PDF
+            const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
+            doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
+          } catch (error) {
+            console.error('Error adding image:', error);
+            doc.text('Error loading image file', 20, 70);
+          }
+        } else {
           doc.text('Error loading image file', 20, 70);
         }
       } else if (file.content_type === 'application/pdf') {
-        doc.text('PDF file - content display requires additional implementation', 20, 70);
-        doc.text('File is attached to this invoice package', 20, 85);
+        // Convert PDF to image and display
+        const pdfData = await loadFileAsArrayBuffer(file.file_path);
+        if (pdfData) {
+          const imageData = await convertPdfToImage(pdfData);
+          if (imageData) {
+            try {
+              doc.addImage(`data:image/png;base64,${imageData}`, 'PNG', 20, 70, 170, 180);
+            } catch (error) {
+              console.error('Error adding PDF as image:', error);
+              doc.text('Error converting PDF to image', 20, 70);
+            }
+          } else {
+            doc.text('Error converting PDF to image', 20, 70);
+          }
+        } else {
+          doc.text('Error loading PDF file', 20, 70);
+        }
       } else {
         doc.text(`File type: ${file.content_type}`, 20, 70);
         doc.text('File preview not available for this format', 20, 85);
@@ -338,19 +415,38 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       doc.text(`File: ${file.file_name}`, 20, 50);
       
       // Load and display file content
-      const fileData = await loadFileAsBase64(file.file_path);
-      if (fileData && file.content_type.startsWith('image/')) {
-        try {
-          // Add image to PDF
-          const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
-          doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
-        } catch (error) {
-          console.error('Error adding image:', error);
+      if (file.content_type.startsWith('image/')) {
+        const fileData = await loadFileAsBase64(file.file_path);
+        if (fileData) {
+          try {
+            // Add image to PDF
+            const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
+            doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
+          } catch (error) {
+            console.error('Error adding image:', error);
+            doc.text('Error loading image file', 20, 70);
+          }
+        } else {
           doc.text('Error loading image file', 20, 70);
         }
       } else if (file.content_type === 'application/pdf') {
-        doc.text('PDF file - content display requires additional implementation', 20, 70);
-        doc.text('File is attached to this invoice package', 20, 85);
+        // Convert PDF to image and display
+        const pdfData = await loadFileAsArrayBuffer(file.file_path);
+        if (pdfData) {
+          const imageData = await convertPdfToImage(pdfData);
+          if (imageData) {
+            try {
+              doc.addImage(`data:image/png;base64,${imageData}`, 'PNG', 20, 70, 170, 180);
+            } catch (error) {
+              console.error('Error adding PDF as image:', error);
+              doc.text('Error converting PDF to image', 20, 70);
+            }
+          } else {
+            doc.text('Error converting PDF to image', 20, 70);
+          }
+        } else {
+          doc.text('Error loading PDF file', 20, 70);
+        }
       } else {
         doc.text(`File type: ${file.content_type}`, 20, 70);
         doc.text('File preview not available for this format', 20, 85);
