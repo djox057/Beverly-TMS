@@ -111,15 +111,21 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     
     // Add broker address if available
     const firstOrder = group.orders[0];
+    let yPos = 61;
     if (firstOrder.brokerAddress) {
-      doc.text(firstOrder.brokerAddress, 22, 61);
+      // Split long address into multiple lines within the box
+      const addressLines = doc.splitTextToSize(firstOrder.brokerAddress, 95); // Max width of 95 units
+      for (let i = 0; i < Math.min(addressLines.length, 2); i++) { // Limit to 2 lines for address
+        doc.text(addressLines[i], 22, yPos);
+        yPos += 5;
+      }
     }
     if (firstOrder.brokerCity || firstOrder.brokerState || firstOrder.brokerZipCode) {
       const cityStateZip = [firstOrder.brokerCity, firstOrder.brokerState, firstOrder.brokerZipCode]
         .filter(Boolean)
         .join(', ');
       if (cityStateZip) {
-        doc.text(cityStateZip, 22, firstOrder.brokerAddress ? 67 : 61);
+        doc.text(cityStateZip, 22, yPos);
       }
     }
     

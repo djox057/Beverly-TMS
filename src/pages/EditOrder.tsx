@@ -126,6 +126,7 @@ const EditOrder = () => {
         setBookedByCompany(orderData.company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
+        setTrailer(orderData.trailer_id || "");
         setDriver1(orderData.driver1_id || "");
         setDriver2(orderData.driver2_id || "");
         setBrokerLoadNumber(orderData.broker_load_number || "");
@@ -518,6 +519,7 @@ const EditOrder = () => {
           company_id: bookedByCompany || null,
           broker_id: broker || null,
           truck_id: truck || null,
+          trailer_id: trailer || null,
           driver1_id: driver1 || null,
           driver2_id: driver2 || null,
           freight_amount: freightAmount ? parseFloat(freightAmount) : null,
