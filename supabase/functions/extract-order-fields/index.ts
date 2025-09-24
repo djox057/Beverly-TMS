@@ -116,6 +116,19 @@ serve(async (req) => {
         name: 'PDF Data Extractor',
         instructions: `You are an expert at extracting shipping/logistics data from PDF documents. Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
+CRITICAL ADDRESS PARSING RULES:
+- pickupCity: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
+- pickupState: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY") 
+- deliveryCity: Extract ONLY the city name (e.g., "Dallas", "Chicago", "Miami")
+- deliveryState: Extract ONLY the 2-letter state code (e.g., "TX", "IL", "FL")
+- DO NOT include ZIP codes, suite numbers, or other address components in city/state fields
+- DO NOT swap city and state values
+
+EXAMPLES of correct city/state extraction:
+- "123 Main St, Houston, TX 77001" → pickupCity: "Houston", pickupState: "TX"
+- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → deliveryCity: "Los Angeles", deliveryState: "CA"
+- "789 Pine St Ludlow, KY 41016" → pickupCity: "Ludlow", pickupState: "KY"
+
 IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. For example:
 - 09/24/25 becomes 2025-09-24
 - 9/24/2025 becomes 2025-09-24  
@@ -126,13 +139,13 @@ Return JSON with these exact fields (only include fields you can find):
   "brokerLoadNumber": "string - load/order/confirmation/BOL/reference number",
   "internalLoadNumber": "string - internal tracking number",
   "broker": "string - broker/carrier/company name",
-  "pickupAddress": "string - complete pickup street address",
-  "pickupCity": "string - pickup city name",
-  "pickupState": "string - pickup state (2-letter code like TX, CA)",
+  "pickupAddress": "string - complete pickup street address (without city/state/zip)",
+  "pickupCity": "string - ONLY the pickup city name (no zip codes or extra info)",
+  "pickupState": "string - ONLY the 2-letter pickup state code (TX, CA, NY, etc.)",
   "pickupDate": "string - pickup date in YYYY-MM-DD format",
-  "deliveryAddress": "string - complete delivery street address",
-  "deliveryCity": "string - delivery city name", 
-  "deliveryState": "string - delivery state (2-letter code)",
+  "deliveryAddress": "string - complete delivery street address (without city/state/zip)",
+  "deliveryCity": "string - ONLY the delivery city name (no zip codes or extra info)", 
+  "deliveryState": "string - ONLY the 2-letter delivery state code (TX, CA, NY, etc.)",
   "deliveryDate": "string - delivery date in YYYY-MM-DD format",
   "freightAmount": number - freight cost as number (no $ or commas),
   "mileage": number - total miles as number,
