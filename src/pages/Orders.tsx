@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { DateRange } from "react-day-picker";
 import * as XLSX from 'xlsx';
+import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -129,6 +130,11 @@ const Orders = () => {
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const generateInvoices = () => {
+    if (!filteredOrders.length) return;
+    generateInvoicePDF(filteredOrders);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -137,6 +143,10 @@ const Orders = () => {
           <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
             <Download className="mr-2 h-4 w-4" />
             Export to Excel
+          </Button>
+          <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length}>
+            <FileText className="mr-2 h-4 w-4" />
+            INVOICE
           </Button>
           <Button onClick={() => navigate('/new-order')}>
             <FileText className="mr-2 h-4 w-4" />
