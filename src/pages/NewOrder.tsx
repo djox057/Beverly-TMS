@@ -308,7 +308,9 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
-          address: `${extractedData.pickupAddress}${extractedData.pickupCity ? ', ' + extractedData.pickupCity : ''}${extractedData.pickupState ? ', ' + extractedData.pickupState : ''}`,
+          address: `${extractedData.pickupAddress}${extractedData.pickupCity && extractedData.pickupState && extractedData.pickupZip 
+            ? `\n${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}` 
+            : extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState && !extractedData.pickupZip ? `, ${extractedData.pickupState}` : ''}`,
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: "08:00",
@@ -326,7 +328,9 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery", 
-          address: `${extractedData.deliveryAddress}${extractedData.deliveryCity ? ', ' + extractedData.deliveryCity : ''}${extractedData.deliveryState ? ', ' + extractedData.deliveryState : ''}`,
+          address: `${extractedData.deliveryAddress}${extractedData.deliveryCity && extractedData.deliveryState && extractedData.deliveryZip 
+            ? `\n${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}` 
+            : extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState && !extractedData.deliveryZip ? `, ${extractedData.deliveryState}` : ''}`,
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: "08:00",
@@ -452,27 +456,54 @@ const NewOrder = () => {
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0) {
         const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
-          // Parse city and state from address if it contains commas
-          const addressParts = item.address.split(',').map(part => part.trim());
+          // Parse city, state, and zip from address
           let city = null;
           let state = null;
+          let zipCode = null;
           let cleanAddress = item.address;
           
-          if (addressParts.length >= 3) {
-            // Format: "Street Address, City, State"
-            cleanAddress = addressParts[0];
-            city = addressParts[1];
-            state = addressParts[2];
-          } else if (addressParts.length === 2) {
-            // Format: "Street Address, City State" or "Street Address, State"
-            cleanAddress = addressParts[0];
-            const cityState = addressParts[1];
-            const cityStateMatch = cityState.match(/^(.+?)\s+([A-Z]{2})$/);
-            if (cityStateMatch) {
-              city = cityStateMatch[1];
-              state = cityStateMatch[2];
-            } else {
-              city = cityState;
+          // Check if address has newline format: "Street Address\nCity, State Zip"
+          if (item.address.includes('\n')) {
+            const lines = item.address.split('\n');
+            cleanAddress = lines[0].trim();
+            
+            if (lines[1]) {
+              const cityStateZip = lines[1].trim();
+              const match = cityStateZip.match(/^(.+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+              if (match) {
+                city = match[1].trim();
+                state = match[2].trim();
+                zipCode = match[3].trim();
+              }
+            }
+          } else {
+            // Fallback to comma-separated parsing
+            const addressParts = item.address.split(',').map(part => part.trim());
+            
+            if (addressParts.length >= 3) {
+              // Format: "Street Address, City, State Zip" or "Street Address, City, State"
+              cleanAddress = addressParts[0];
+              city = addressParts[1];
+              const stateZip = addressParts[2];
+              const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+              if (stateZipMatch) {
+                state = stateZipMatch[1];
+                zipCode = stateZipMatch[2];
+              } else {
+                state = stateZip;
+              }
+            } else if (addressParts.length === 2) {
+              // Format: "Street Address, City State Zip"
+              cleanAddress = addressParts[0];
+              const cityState = addressParts[1];
+              const cityStateMatch = cityState.match(/^(.+?)\s+([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/);
+              if (cityStateMatch) {
+                city = cityStateMatch[1];
+                state = cityStateMatch[2];
+                zipCode = cityStateMatch[3] || null;
+              } else {
+                city = cityState;
+              }
             }
           }
           
@@ -482,6 +513,7 @@ const NewOrder = () => {
             address: cleanAddress,
             city,
             state,
+            zip_code: zipCode,
             datetime: item.datetime || null
           };
         });
