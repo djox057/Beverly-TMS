@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ interface PickupDrop {
 }
 
 const NewOrder = () => {
+  const navigate = useNavigate();
   const [bookedByCompany, setBookedByCompany] = useState("BF Prime");
   const [broker, setBroker] = useState("");
   const [truck, setTruck] = useState("");
@@ -427,6 +429,9 @@ const NewOrder = () => {
       // Reset form and refetch next internal load number
       setBrokerLoadNumber('');
       setBroker('');
+      
+      // Redirect to orders page
+      navigate('/orders');
       setTruck('');
       setDriver1('');
       setDriver2('');
