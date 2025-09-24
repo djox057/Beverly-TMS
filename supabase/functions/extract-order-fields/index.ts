@@ -172,7 +172,7 @@ Return JSON with these exact fields (only include fields you can find):
   "temperature": "string - temperature requirements if refrigerated",
   "notes": "string - special instructions or additional information"
 }`,
-        model: 'gpt-4o mini',
+        model: 'gpt-4o',
         tools: [{ type: 'file_search' }],
       }),
     });
