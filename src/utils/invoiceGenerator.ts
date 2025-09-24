@@ -83,13 +83,9 @@ export const generateInvoicePDF = async (orders: Order[]) => {
   const isMultipleInvoices = groupValues.length > 1;
   let folderName = '';
 
-  // If multiple invoices, determine folder name based on delivery date range
+  // If multiple invoices, use simple "folder" name
   if (isMultipleInvoices) {
-    const allDeliveryDates = orders.map(order => new Date(order.deliveryDate)).sort((a, b) => a.getTime() - b.getTime());
-    const startDate = allDeliveryDates[0].toISOString().split('T')[0];
-    const endDate = allDeliveryDates[allDeliveryDates.length - 1].toISOString().split('T')[0];
-    
-    folderName = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
+    folderName = 'folder';
   }
 
   // Generate PDF for each broker/company combination
@@ -117,7 +113,7 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
     
     // Generate filename with new format
-    const baseFilename = `INVOICE${invoiceNumber}.pdf`;
+    const baseFilename = `${invoiceNumber}.pdf`;
     const filename = isMultipleInvoices ? `${folderName}/${baseFilename}` : baseFilename;
     
     doc.rect(130, 40, 30, 8);
