@@ -1,8 +1,53 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export const useReports = () => {
   const queryClient = useQueryClient();
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    const channel = supabase
+      .channel('reports-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trucks'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pickup_drops'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const updateTruckStatus = useMutation({
     mutationFn: async ({ truckId, status }: { truckId: string; status: string }) => {
@@ -31,10 +76,14 @@ export const useReports = () => {
   });
 
   const updatePickupDrop = useMutation({
-    mutationFn: async ({ pickupDropId, address, datetime }: { pickupDropId: string; address: string; datetime: string }) => {
+    mutationFn: async ({ pickupDropId, address, datetime }: { pickupDropId: string; address?: string; datetime?: string }) => {
+      const updateData: any = {};
+      if (address !== undefined) updateData.address = address;
+      if (datetime !== undefined) updateData.datetime = datetime;
+      
       const { error } = await supabase
         .from('pickup_drops')
-        .update({ address, datetime })
+        .update(updateData)
         .eq('id', pickupDropId);
       if (error) throw error;
     },
@@ -91,9 +140,20 @@ export const useReports = () => {
 
         // Format pickup/delivery info
         const formatStopInfo = (stop: any) => {
-          if (!stop) return { id: null, address: "—", date: "—", time: "—" };
+          if (!stop) return { id: null, location: "—", date: "—", time: "—" };
           
-          const address = stop.address || "—";
+          // Prioritize city + state over address
+          let location = "—";
+          if (stop.city && stop.state) {
+            location = `${stop.city}, ${stop.state}`;
+          } else if (stop.city) {
+            location = stop.city;
+          } else if (stop.state) {
+            location = stop.state;
+          } else if (stop.address) {
+            location = stop.address.length > 30 ? stop.address.substring(0, 30) + '...' : stop.address;
+          }
+          
           let date = "—";
           let time = "—";
           
@@ -103,7 +163,7 @@ export const useReports = () => {
             time = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           }
           
-          return { id: stop.id, address, date, time };
+          return { id: stop.id, location, date, time };
         };
 
         // Determine status based on order status and truck status
@@ -165,6 +225,7 @@ export const useReports = () => {
 
       return groupedByDispatcher;
     },
+    refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
   });
 
   return {

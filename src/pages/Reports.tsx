@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface EditingState {
   truckId: string;
-  field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note';
+  field: 'status' | 'pickup-location' | 'pickup-date' | 'pickup-time' | 'delivery-location' | 'delivery-date' | 'delivery-time' | 'note';
   value: string;
 }
 
@@ -35,7 +35,7 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const { toast } = useToast();
 
-  const handleEdit = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', currentValue: string) => {
+  const handleEdit = (truckId: string, field: 'status' | 'pickup-location' | 'pickup-date' | 'pickup-time' | 'delivery-location' | 'delivery-date' | 'delivery-time' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
   };
 
@@ -53,9 +53,10 @@ const Reports = () => {
         await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: editing.value });
       } else if (editing.field.startsWith('pickup-') && truck?.pickup.id) {
         const currentPickup = truck.pickup;
-        const updates: any = { address: currentPickup.address };
+        const updates: any = {};
         
-        if (editing.field === 'pickup-address') {
+        if (editing.field === 'pickup-location') {
+          // For location, update the address field
           updates.address = editing.value;
         } else if (editing.field === 'pickup-date' || editing.field === 'pickup-time') {
           // Combine date and time for datetime update
@@ -70,13 +71,15 @@ const Reports = () => {
         
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.pickup.id,
-          ...updates
+          address: updates.address || currentPickup.location,
+          ...(updates.datetime && { datetime: updates.datetime })
         });
       } else if (editing.field.startsWith('delivery-') && truck?.delivery.id) {
         const currentDelivery = truck.delivery;
-        const updates: any = { address: currentDelivery.address };
+        const updates: any = {};
         
-        if (editing.field === 'delivery-address') {
+        if (editing.field === 'delivery-location') {
+          // For location, update the address field
           updates.address = editing.value;
         } else if (editing.field === 'delivery-date' || editing.field === 'delivery-time') {
           // Combine date and time for datetime update
@@ -91,7 +94,8 @@ const Reports = () => {
         
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.delivery.id,
-          ...updates
+          address: updates.address || currentDelivery.location,
+          ...(updates.datetime && { datetime: updates.datetime })
         });
       }
       
@@ -133,7 +137,7 @@ const Reports = () => {
     );
   }
 
-  const renderEditableField = (truckId: string, field: 'status' | 'pickup-address' | 'pickup-date' | 'pickup-time' | 'delivery-address' | 'delivery-date' | 'delivery-time' | 'note', value: string, displayValue?: React.ReactNode) => {
+  const renderEditableField = (truckId: string, field: 'status' | 'pickup-location' | 'pickup-date' | 'pickup-time' | 'delivery-location' | 'delivery-date' | 'delivery-time' | 'note', value: string, displayValue?: React.ReactNode) => {
     const isEditing = editing?.truckId === truckId && editing?.field === field;
 
     if (isEditing) {
@@ -235,10 +239,10 @@ const Reports = () => {
                       <TableHead>Driver</TableHead>
                       <TableHead>Home</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Pickup Address</TableHead>
+                      <TableHead>Pickup Location</TableHead>
                       <TableHead>Pickup Date</TableHead>
                       <TableHead>Pickup Time</TableHead>
-                      <TableHead>Delivery Address</TableHead>
+                      <TableHead>Delivery Location</TableHead>
                       <TableHead>Delivery Date</TableHead>
                       <TableHead>Delivery Time</TableHead>
                       <TableHead>Away (D)</TableHead>
@@ -270,7 +274,7 @@ const Reports = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          {renderEditableField(truck.id, 'pickup-address', truck.pickup.address)}
+                          {renderEditableField(truck.id, 'pickup-location', truck.pickup.location)}
                         </TableCell>
                         <TableCell>
                           {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
@@ -279,7 +283,7 @@ const Reports = () => {
                           {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
                         </TableCell>
                         <TableCell>
-                          {renderEditableField(truck.id, 'delivery-address', truck.delivery.address)}
+                          {renderEditableField(truck.id, 'delivery-location', truck.delivery.location)}
                         </TableCell>
                         <TableCell>
                           {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
