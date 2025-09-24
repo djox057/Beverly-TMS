@@ -154,73 +154,6 @@ const NewOrder = () => {
     setPickupsDrops(items);
   };
 
-  // Helper function to calculate distance using the edge function
-  const calculateDistance = async (addresses: PickupDrop[]): Promise<number | null> => {
-    try {
-      console.log('Calling geocode-and-calculate-distance edge function...');
-      
-      const addressData = addresses.map(addr => ({
-        address: addr.address,
-        type: addr.type
-      }));
-      
-      const response = await supabase.functions.invoke('geocode-and-calculate-distance', {
-        body: { addresses: addressData }
-      });
-      
-      if (response.error) {
-        console.error('Distance calculation failed:', response.error);
-        toast({
-          title: "Distance Calculation Failed",
-          description: `Error: ${response.error.message}`,
-          variant: "destructive"
-        });
-        return null;
-      }
-      
-      if (response.data && response.data.success) {
-        console.log('Distance calculation successful:', response.data.distance);
-        
-        // Show detailed popup with Nominatim and OSRM results
-        const debugInfo = response.data.debug;
-        if (debugInfo) {
-          toast({
-            title: "🗺️ Nominatim Results",
-            description: `Coordinates found: ${debugInfo.nominatim_coordinates.map(coord => `[${coord[0]}, ${coord[1]}]`).join(' → ')}`,
-          });
-          
-          setTimeout(() => {
-            toast({
-              title: "🚛 OSRM Results", 
-              description: `Distance: ${Math.round(response.data.distance.miles)} miles (${Math.round(response.data.distance.km)} km)`,
-            });
-          }, 2000);
-        }
-        
-        return response.data.distance.miles;
-      }
-      
-      // Show detailed response for debugging
-      if (response.data) {
-        toast({
-          title: "Distance Calculation Response",
-          description: `Response: ${JSON.stringify(response.data)}`,
-          variant: "destructive"
-        });
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('Distance calculation error:', error);
-      toast({
-        title: "Distance Calculation Error",
-        description: `Error: ${error.message}`,
-        variant: "destructive"
-      });
-      return null;
-    }
-  };
-
   const handleExtractWithAI = async () => {
     if (!files || files.length === 0) {
       toast({
@@ -326,8 +259,8 @@ const NewOrder = () => {
             : `${extractedData.pickupAddress}${extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
-          startTime: extractedData.pickupStartTime || "08:00",
-          endTime: extractedData.pickupEndTime || "17:00"
+          startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
+          endTime: extractedData.pickupEndTime || extractedData.pickupTime || ""
         });
       }
       
@@ -346,29 +279,13 @@ const NewOrder = () => {
             : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
-          startTime: extractedData.deliveryStartTime || "08:00",
-          endTime: extractedData.deliveryEndTime || "17:00"
+          startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
+          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || ""
         });
       }
       
       if (newPickupsDrops.length > 0) {
         setPickupsDrops(newPickupsDrops);
-        
-        // Calculate distance using edge function
-        if (newPickupsDrops.length >= 2) {
-          try {
-            console.log('Calculating distance between addresses...');
-            const distance = await calculateDistance(newPickupsDrops);
-            if (distance) {
-              const distanceInMiles = Math.round(distance);
-              setLoadedMiles(distanceInMiles.toString());
-              console.log(`Distance calculated: ${distanceInMiles} miles`);
-            }
-          } catch (error) {
-            console.error('Distance calculation failed:', error);
-            // Don't throw error, just log it - distance calculation is optional
-          }
-        }
       }
 
       toast({
