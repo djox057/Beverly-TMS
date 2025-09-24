@@ -366,8 +366,19 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+    } else if (result.zipFile) {
+      // ZIP file download (for multiple invoices)
+      const blob = new Blob([new Uint8Array(result.zipFile.zipBytes)], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.zipFile.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } else if (result.multipleFiles) {
-      // Multiple files - download sequentially to simulate folder
+      // Multiple files - download sequentially to simulate folder (fallback)
       result.multipleFiles.files.forEach((file: any, index: number) => {
         const blob = new Blob([new Uint8Array(file.pdfBytes)], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
