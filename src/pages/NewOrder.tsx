@@ -46,7 +46,10 @@ const NewOrder = () => {
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
-  const [files, setFiles] = useState<FileList | null>(null);
+  const [rcFiles, setRcFiles] = useState<FileList | null>(null);
+  const [bolFiles, setBolFiles] = useState<FileList | null>(null);
+  const [podFiles, setPodFiles] = useState<FileList | null>(null);
+  const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const { toast } = useToast();
@@ -155,16 +158,16 @@ const NewOrder = () => {
   };
 
   const handleExtractWithAI = async () => {
-    if (!files || files.length === 0) {
+    if (!rcFiles || rcFiles.length === 0) {
       toast({
-        title: "No File Selected",
-        description: "Please select a PDF file to extract data from.",
+        title: "No RC File Selected",
+        description: "Please select a PDF file in the RC section to extract data from.",
         variant: "destructive"
       });
       return;
     }
 
-    const pdfFile = Array.from(files).find(file => file.type === 'application/pdf');
+    const pdfFile = Array.from(rcFiles).find(file => file.type === 'application/pdf');
     if (!pdfFile) {
       toast({
         title: "PDF Required", 
@@ -357,29 +360,39 @@ const NewOrder = () => {
       const newInternalLoadNumber = result.internal_load_number;
 
       // Upload files if any
-      if (files && files.length > 0) {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const fileName = `${orderId}/${Date.now()}_${file.name}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('order-files')
-            .upload(fileName, file);
+      const allFiles = [
+        { files: rcFiles, category: 'RC' },
+        { files: bolFiles, category: 'BOL' },
+        { files: podFiles, category: 'POD' },
+        { files: additionalFiles, category: 'ADDITIONAL' }
+      ];
+
+      for (const { files, category } of allFiles) {
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileName = `${orderId}/${category}/${Date.now()}_${file.name}`;
             
-          if (uploadError) throw uploadError;
-          
-          const { error: fileError } = await supabase
-            .from('order_files')
-            .insert({
-              order_id: orderId,
-              file_name: file.name,
-              file_path: fileName,
-              file_size: file.size,
-              content_type: file.type,
-              uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
-            });
+            const { error: uploadError } = await supabase.storage
+              .from('order-files')
+              .upload(fileName, file);
+              
+            if (uploadError) throw uploadError;
             
-          if (fileError) throw fileError;
+            const { error: fileError } = await supabase
+              .from('order_files')
+              .insert({
+                order_id: orderId,
+                file_name: file.name,
+                file_path: fileName,
+                file_size: file.size,
+                content_type: file.type,
+                file_category: category,
+                uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
+              });
+              
+            if (fileError) throw fileError;
+          }
         }
       }
 
@@ -474,9 +487,18 @@ const NewOrder = () => {
       setDriverPrice('');
       setDhMiles('');
       setLoadedMiles('');
-      setFiles(null);
-      const fileInput = document.getElementById('files') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setRcFiles(null);
+      setBolFiles(null);
+      setPodFiles(null);
+      setAdditionalFiles(null);
+      const rcInput = document.getElementById('rc-files') as HTMLInputElement;
+      const bolInput = document.getElementById('bol-files') as HTMLInputElement;
+      const podInput = document.getElementById('pod-files') as HTMLInputElement;
+      const additionalInput = document.getElementById('additional-files') as HTMLInputElement;
+      if (rcInput) rcInput.value = '';
+      if (bolInput) bolInput.value = '';
+      if (podInput) podInput.value = '';
+      if (additionalInput) additionalInput.value = '';
       setPickupsDrops([{
         id: "pickup-1",
         type: "pickup",
@@ -530,6 +552,40 @@ const NewOrder = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* RC Upload Section - Top Priority */}
+            <Card className="bg-blue-50/50 border-blue-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-blue-700">RC (Rate Confirmation) Upload</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rc-files" className="text-sm font-medium">Upload RC Files</Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleExtractWithAI}
+                      disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')}
+                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {isExtracting ? "Extracting..." : "Extract with AI"}
+                    </Button>
+                  </div>
+                  <Input 
+                    id="rc-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setRcFiles(e.target.files)} 
+                    className="border-blue-300 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-blue-600">Upload rate confirmation files. AI extraction works only with PDF files.</p>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
               <Input 
@@ -758,27 +814,58 @@ const NewOrder = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="files">Upload Files</Label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleExtractWithAI}
-                  disabled={isExtracting || !files || files.length === 0 || !Array.from(files || []).some(f => f.type === 'application/pdf')}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {isExtracting ? "Extracting..." : "Extract with AI"}
-                </Button>
-              </div>
-              <Input 
-                id="files" 
-                type="file" 
-                multiple 
-                onChange={e => setFiles(e.target.files)} 
-              />
+            {/* Additional File Upload Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-green-700">BOL (Bill of Lading)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="bol-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setBolFiles(e.target.files)} 
+                    className="border-green-300 focus:border-green-500"
+                  />
+                  <p className="text-xs text-green-600 mt-1">Bill of lading documents</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-purple-700">POD (Proof of Delivery)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="pod-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setPodFiles(e.target.files)} 
+                    className="border-purple-300 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-purple-600 mt-1">Delivery confirmation documents</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-orange-700">Additional Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="additional-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setAdditionalFiles(e.target.files)} 
+                    className="border-orange-300 focus:border-orange-500"
+                  />
+                  <p className="text-xs text-orange-600 mt-1">Other supporting documents</p>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="flex justify-end gap-3">
