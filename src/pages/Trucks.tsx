@@ -12,13 +12,14 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrailers } from "@/hooks/useTrailers";
+import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useToast } from "@/hooks/use-toast";
 
 interface TruckFormData {
   truck_number: string;
   trailer_id: string;
   driver_id: string;
-  fleet_assignment: string;
+  dispatcher_id: string;
   year: string;
   make: string;
   model: string;
@@ -34,7 +35,7 @@ const Trucks = () => {
     truck_number: "",
     trailer_id: "",
     driver_id: "",
-    fleet_assignment: "",
+    dispatcher_id: "",
     year: "",
     make: "",
     model: ""
@@ -44,6 +45,7 @@ const Trucks = () => {
   const { data: trucks, isLoading, refetch } = useTrucks();
   const { data: drivers } = useDrivers();
   const { data: trailers } = useTrailers();
+  const { allDispatchers } = useFleetManagement();
 
   // Filter trucks based on search term
   const filteredTrucks = trucks?.filter(truck =>
@@ -61,7 +63,7 @@ const Trucks = () => {
       truck_number: "",
       trailer_id: "",
       driver_id: "",
-      fleet_assignment: "",
+      dispatcher_id: "",
       year: "",
       make: "",
       model: ""
@@ -79,7 +81,7 @@ const Trucks = () => {
           truck_number: formData.truck_number,
           trailer_id: formData.trailer_id || null,
           driver1_id: formData.driver_id || null,
-          fleet_assignment: formData.fleet_assignment || null,
+          dispatcher_id: formData.dispatcher_id || null,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
           model: formData.model || null
@@ -119,7 +121,7 @@ const Trucks = () => {
           truck_number: formData.truck_number,
           trailer_id: formData.trailer_id || null,
           driver1_id: formData.driver_id || null,
-          fleet_assignment: formData.fleet_assignment || null,
+          dispatcher_id: formData.dispatcher_id || null,
           year: formData.year ? parseInt(formData.year) : null,
           make: formData.make || null,
           model: formData.model || null
@@ -178,7 +180,7 @@ const Trucks = () => {
       truck_number: truck.truck_number || "",
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
-      fleet_assignment: truck.fleet_assignment || "",
+      dispatcher_id: truck.dispatcher_id || "",
       year: truck.year?.toString() || "",
       make: truck.make || "",
       model: truck.model || ""
@@ -204,6 +206,11 @@ const Trucks = () => {
   const trailerOptions = trailers?.map(trailer => ({
     value: trailer.id,
     label: trailer.trailer_number
+  })) || [];
+
+  const dispatcherOptions = allDispatchers?.map(dispatcher => ({
+    value: dispatcher.id,
+    label: dispatcher.full_name || dispatcher.email
   })) || [];
 
   return (
@@ -234,13 +241,19 @@ const Trucks = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fleet_assignment">Fleet Assignment</Label>
-                  <Input
-                    id="fleet_assignment"
-                    value={formData.fleet_assignment}
-                    onChange={(e) => setFormData({ ...formData, fleet_assignment: e.target.value })}
-                    placeholder="Fleet A"
-                  />
+                  <Label htmlFor="dispatcher_id">Dispatcher</Label>
+                  <Select value={formData.dispatcher_id} onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select dispatcher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dispatcherOptions.map((dispatcher) => (
+                        <SelectItem key={dispatcher.value} value={dispatcher.value}>
+                          {dispatcher.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -345,7 +358,7 @@ const Trucks = () => {
                   <TableHead>Truck #</TableHead>
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Driver</TableHead>
-                  <TableHead>Fleet Assignment</TableHead>
+                  <TableHead>Dispatcher</TableHead>
                   <TableHead>Vehicle Info</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -430,13 +443,19 @@ const Trucks = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit_fleet_assignment">Fleet Assignment</Label>
-                <Input
-                  id="edit_fleet_assignment"
-                  value={formData.fleet_assignment}
-                  onChange={(e) => setFormData({ ...formData, fleet_assignment: e.target.value })}
-                  placeholder="Fleet A"
-                />
+                <Label htmlFor="edit_dispatcher_id">Dispatcher</Label>
+                <Select value={formData.dispatcher_id} onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select dispatcher" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dispatcherOptions.map((dispatcher) => (
+                      <SelectItem key={dispatcher.value} value={dispatcher.value}>
+                        {dispatcher.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
