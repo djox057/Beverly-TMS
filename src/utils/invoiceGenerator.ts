@@ -137,9 +137,9 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     const currentDate = new Date().toLocaleDateString();
     const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
     
-    // Generate filename with new format - make it unique by including broker name
-    const sanitizedBrokerName = group.brokerName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
-    const baseFilename = `${sanitizedBrokerName}_${invoiceNumber}.pdf`;
+    // Generate filename with new format - make it unique by including company name
+    const sanitizedCompanyName = group.companyName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+    const baseFilename = `${sanitizedCompanyName}_${invoiceNumber}.pdf`;
     console.log(`Generated filename for group ${group.brokerName}-${group.companyName}: ${baseFilename}`);
     
     doc.rect(130, 40, 30, 8);
