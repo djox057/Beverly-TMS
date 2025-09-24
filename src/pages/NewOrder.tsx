@@ -157,8 +157,12 @@ const NewOrder = () => {
   // Helper function to geocode address using Nominatim
   const geocodeAddress = async (address: string): Promise<{ lat: number; lon: number } | null> => {
     try {
-      const response = await fetch(`https://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(address)}`);
+      console.log('Geocoding address:', address);
+      const encodedAddress = encodeURIComponent(address);
+      console.log('Encoded address sent to Nominatim:', encodedAddress);
+      const response = await fetch(`https://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
       const data = await response.json();
+      console.log('Nominatim response for address:', address, data);
       
       if (data && data.length > 0) {
         return {
@@ -308,9 +312,9 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
-          address: `${extractedData.pickupAddress}${extractedData.pickupCity && extractedData.pickupState && extractedData.pickupZip 
-            ? `\n${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}` 
-            : extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState && !extractedData.pickupZip ? `, ${extractedData.pickupState}` : ''}`,
+          address: extractedData.pickupZip 
+            ? `${extractedData.pickupAddress}\n${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
+            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `\n${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: "08:00",
@@ -328,9 +332,9 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery", 
-          address: `${extractedData.deliveryAddress}${extractedData.deliveryCity && extractedData.deliveryState && extractedData.deliveryZip 
-            ? `\n${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}` 
-            : extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState && !extractedData.deliveryZip ? `, ${extractedData.deliveryState}` : ''}`,
+          address: extractedData.deliveryZip 
+            ? `${extractedData.deliveryAddress}\n${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
+            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `\n${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: "08:00",

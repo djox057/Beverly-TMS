@@ -14,12 +14,14 @@ interface ExtractedOrderData {
   pickupAddress?: string;
   pickupCity?: string;
   pickupState?: string;
+  pickupZip?: string;
   pickupDate?: string;
   pickupStartDate?: string;
   pickupEndDate?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryState?: string;
+  deliveryZip?: string;
   deliveryDate?: string;
   deliveryStartDate?: string;
   deliveryEndDate?: string;
