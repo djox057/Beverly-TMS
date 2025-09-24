@@ -4,12 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { DateRange } from "react-day-picker";
 import * as XLSX from 'xlsx';
 
 const getStatusBadge = (status: string) => {
@@ -31,6 +33,7 @@ const Orders = () => {
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -77,7 +80,19 @@ const Orders = () => {
       }
     }
     
-    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs;
+    // Date filtering based on pickup date
+    let matchesDateRange = true;
+    if (dateRange?.from) {
+      const orderPickupDate = new Date(order.pickupDate.split(' - ')[0]);
+      if (dateRange.from && orderPickupDate < dateRange.from) {
+        matchesDateRange = false;
+      }
+      if (dateRange.to && orderPickupDate > dateRange.to) {
+        matchesDateRange = false;
+      }
+    }
+    
+    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs && matchesDateRange;
   }) || [];
 
   // Get unique companies and booked by values for filters
@@ -135,6 +150,13 @@ const Orders = () => {
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
             <div className="flex gap-4 items-center">
+              <DateRangePicker
+                date={dateRange}
+                onDateChange={setDateRange}
+                placeholder="Filter by pickup date"
+                className="w-72"
+              />
+              
               <Select value={companyFilter} onValueChange={setCompanyFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by Company" />
