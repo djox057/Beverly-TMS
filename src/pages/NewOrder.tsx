@@ -154,60 +154,33 @@ const NewOrder = () => {
     setPickupsDrops(items);
   };
 
-  // Helper function to geocode address using Nominatim
-  const geocodeAddress = async (address: string): Promise<{ lat: number; lon: number } | null> => {
-    try {
-      console.log('Geocoding address:', address);
-      const encodedAddress = encodeURIComponent(address);
-      console.log('Encoded address sent to Nominatim:', encodedAddress);
-      const response = await fetch(`https://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
-      const data = await response.json();
-      console.log('Nominatim response for address:', address, data);
-      
-      if (data && data.length > 0) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lon: parseFloat(data[0].lon)
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Geocoding failed for address:', address, error);
-      return null;
-    }
-  };
-
-  // Helper function to calculate distance using OSRM
+  // Helper function to calculate distance using the edge function
   const calculateDistance = async (addresses: PickupDrop[]): Promise<number | null> => {
     try {
-      // Get coordinates for all addresses
-      const coordinates = [];
-      for (const addr of addresses) {
-        if (addr.address) {
-          const coords = await geocodeAddress(addr.address);
-          if (coords) {
-            coordinates.push([coords.lon, coords.lat]);
-          }
-        }
-      }
-
-      if (coordinates.length < 2) {
-        console.warn('Need at least 2 coordinates for distance calculation');
+      console.log('Calling geocode-and-calculate-distance edge function...');
+      
+      const addressData = addresses.map(addr => ({
+        address: addr.address,
+        type: addr.type
+      }));
+      
+      const response = await supabase.functions.invoke('geocode-and-calculate-distance', {
+        body: { addresses: addressData }
+      });
+      
+      if (response.error) {
+        console.error('Distance calculation failed:', response.error);
         return null;
       }
-
-      // Build OSRM route request
-      const coordinateString = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(';');
-      const response = await fetch(`https://osrm.jonworgen.cloudns.be/route/v1/driving/${coordinateString}?overview=false&alternatives=false&steps=false`);
-      const data = await response.json();
-
-      if (data && data.routes && data.routes.length > 0) {
-        // Distance is in meters, convert to kilometers
-        return data.routes[0].distance / 1000;
+      
+      if (response.data && response.data.success) {
+        console.log('Distance calculation successful:', response.data.distance);
+        return response.data.distance.miles;
       }
+      
       return null;
     } catch (error) {
-      console.error('Distance calculation failed:', error);
+      console.error('Distance calculation error:', error);
       return null;
     }
   };
@@ -345,15 +318,15 @@ const NewOrder = () => {
       if (newPickupsDrops.length > 0) {
         setPickupsDrops(newPickupsDrops);
         
-        // Calculate distance using Nominatim + OSRM
+        // Calculate distance using edge function
         if (newPickupsDrops.length >= 2) {
           try {
             console.log('Calculating distance between addresses...');
             const distance = await calculateDistance(newPickupsDrops);
             if (distance) {
-              const distanceInMiles = (distance * 0.621371).toFixed(0); // Convert km to miles
-              setLoadedMiles(distanceInMiles);
-              console.log(`Distance calculated: ${distance} km (${distanceInMiles} miles)`);
+              const distanceInMiles = Math.round(distance);
+              setLoadedMiles(distanceInMiles.toString());
+              console.log(`Distance calculated: ${distanceInMiles} miles`);
             }
           } catch (error) {
             console.error('Distance calculation failed:', error);
