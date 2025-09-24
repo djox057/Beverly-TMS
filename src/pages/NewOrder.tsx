@@ -422,7 +422,9 @@ const NewOrder = () => {
         delivery_end_datetime: deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
-        mileage: ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || null,
+        loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
+        dh_miles: dhMiles ? parseInt(dhMiles) : null,
+        mileage: ((parseInt(dhMiles) || 0) + (parseInt(loadedMiles) || 0)) || null,
         booked_by: profile?.full_name || profile?.email || 'Unknown User'
       };
 
