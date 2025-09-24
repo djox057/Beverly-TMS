@@ -13,6 +13,11 @@ interface Order {
   brokerName: string;
   brokerLoadNumber: string;
   freightAmount: number;
+  detention?: number;
+  layover?: number;
+  extraStop?: number;
+  lumper?: number;
+  lateFee?: number;
   companyName: string;
   driverName: string;
   mileage: number;
@@ -57,7 +62,7 @@ export const generateInvoicePDF = (orders: Order[]) => {
     
     // Invoice details table (right side)
     const currentDate = new Date().toLocaleDateString();
-    const invoiceNumber = Math.floor(Math.random() * 9999) + 1000;
+    const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -106,7 +111,12 @@ export const generateInvoicePDF = (orders: Order[]) => {
     // Table rows
     doc.setFont('helvetica', 'normal');
     yPosition += 8;
-    let total = 0;
+    let freightTotal = 0;
+    let detentionTotal = 0;
+    let layoverTotal = 0;
+    let extraStopTotal = 0;
+    let lumperTotal = 0;
+    let lateFeeTotal = 0;
     
     group.orders.forEach((order) => {
       const pickupDate = order.pickupDate.split(' - ')[0];
@@ -134,7 +144,12 @@ export const generateInvoicePDF = (orders: Order[]) => {
       doc.text(`$${order.freightAmount.toLocaleString()}`, 157, yPosition + 7);
       doc.text(`$${order.freightAmount.toLocaleString()}`, 177, yPosition + 7);
       
-      total += order.freightAmount;
+      freightTotal += order.freightAmount;
+      detentionTotal += order.detention || 0;
+      layoverTotal += order.layover || 0;
+      extraStopTotal += order.extraStop || 0;
+      lumperTotal += order.lumper || 0;
+      lateFeeTotal += order.lateFee || 0;
       yPosition += 12;
     });
     
@@ -143,15 +158,59 @@ export const generateInvoicePDF = (orders: Order[]) => {
     doc.rect(175, yPosition, 25, 8);
     doc.setFont('helvetica', 'bold');
     doc.text('Freight Income', 137, yPosition + 5);
-    doc.text(`$${total.toLocaleString()}`, 177, yPosition + 5);
+    doc.text(`$${freightTotal.toLocaleString()}`, 177, yPosition + 5);
     
     yPosition += 8;
+    
+    // Additional fees (if any exist)
+    if (detentionTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('Detention', 137, yPosition + 5);
+      doc.text(`$${detentionTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (layoverTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('Layover', 137, yPosition + 5);
+      doc.text(`$${layoverTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (extraStopTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('Extra Stop', 137, yPosition + 5);
+      doc.text(`$${extraStopTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (lumperTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('Lumper', 137, yPosition + 5);
+      doc.text(`$${lumperTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (lateFeeTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('Late Fee', 137, yPosition + 5);
+      doc.text(`-$${lateFeeTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    // Calculate final total (add all except late fee which is subtracted)
+    const finalTotal = freightTotal + detentionTotal + layoverTotal + extraStopTotal + lumperTotal - lateFeeTotal;
     
     // Total row
     doc.rect(155, yPosition, 20, 8);
     doc.rect(175, yPosition, 25, 8);
     doc.text('TOTAL:', 157, yPosition + 5);
-    doc.text(`$${total.toLocaleString()}`, 177, yPosition + 5);
+    doc.text(`$${finalTotal.toLocaleString()}`, 177, yPosition + 5);
     
     // Notice of Assignment section
     yPosition += 30;

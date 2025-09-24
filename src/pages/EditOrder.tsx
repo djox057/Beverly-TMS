@@ -53,6 +53,11 @@ const EditOrder = () => {
   const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
+  const [detention, setDetention] = useState("");
+  const [layover, setLayover] = useState("");
+  const [extraStop, setExtraStop] = useState("");
+  const [lumper, setLumper] = useState("");
+  const [lateFee, setLateFee] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
@@ -110,6 +115,11 @@ const EditOrder = () => {
         setDriver2(orderData.driver2_id || "");
         setBrokerLoadNumber(orderData.broker_load_number || "");
         setFreightAmount(orderData.freight_amount?.toString() || "");
+        setDetention((orderData as any).detention?.toString() || "");
+        setLayover((orderData as any).layover?.toString() || "");
+        setExtraStop((orderData as any).extra_stop?.toString() || "");
+        setLumper((orderData as any).lumper?.toString() || "");
+        setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setNotes(orderData.notes || "");
         setBookedBy(orderData.booked_by || "");
@@ -428,6 +438,11 @@ const EditOrder = () => {
           driver1_id: driver1 || null,
           driver2_id: driver2 || null,
           freight_amount: freightAmount ? parseFloat(freightAmount) : null,
+          detention: detention ? parseFloat(detention) : null,
+          layover: layover ? parseFloat(layover) : null,
+          extra_stop: extraStop ? parseFloat(extraStop) : null,
+          lumper: lumper ? parseFloat(lumper) : null,
+          late_fee: lateFee ? parseFloat(lateFee) : null,
           driver_price: driverPrice ? parseFloat(driverPrice) : null,
           mileage: parseFloat(loadedMiles) || null,
           notes: notes || null,
@@ -788,6 +803,65 @@ const EditOrder = () => {
                   onChange={e => setFreightAmount(e.target.value)} 
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="detention">Detention</Label>
+                <Input 
+                  id="detention" 
+                  type="number" 
+                  placeholder="Detention amount" 
+                  value={detention} 
+                  onChange={e => setDetention(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="layover">Layover</Label>
+                <Input 
+                  id="layover" 
+                  type="number" 
+                  placeholder="Layover amount" 
+                  value={layover} 
+                  onChange={e => setLayover(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="extra-stop">Extra Stop</Label>
+                <Input 
+                  id="extra-stop" 
+                  type="number" 
+                  placeholder="Extra stop amount" 
+                  value={extraStop} 
+                  onChange={e => setExtraStop(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lumper">Lumper</Label>
+                <Input 
+                  id="lumper" 
+                  type="number" 
+                  placeholder="Lumper amount" 
+                  value={lumper} 
+                  onChange={e => setLumper(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="late-fee">Late Fee</Label>
+                <Input 
+                  id="late-fee" 
+                  type="number" 
+                  placeholder="Late fee amount" 
+                  value={lateFee} 
+                  onChange={e => setLateFee(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="driver-price">Driver Price</Label>
                 <Input 
