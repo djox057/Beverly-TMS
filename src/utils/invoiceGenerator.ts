@@ -47,6 +47,10 @@ interface Order {
   deliveryCity: string;
   deliveryState: string;
   brokerName: string;
+  brokerAddress?: string;
+  brokerCity?: string;
+  brokerState?: string;
+  brokerZipCode?: string;
   brokerLoadNumber: string;
   freightAmount: number;
   totalFreightAmount: number;
@@ -103,6 +107,20 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     doc.text('Bill To:', 22, 48);
     doc.setFont('helvetica', 'normal');
     doc.text(group.brokerName, 22, 55);
+    
+    // Add broker address if available
+    const firstOrder = group.orders[0];
+    if (firstOrder.brokerAddress) {
+      doc.text(firstOrder.brokerAddress, 22, 61);
+    }
+    if (firstOrder.brokerCity || firstOrder.brokerState || firstOrder.brokerZipCode) {
+      const cityStateZip = [firstOrder.brokerCity, firstOrder.brokerState, firstOrder.brokerZipCode]
+        .filter(Boolean)
+        .join(', ');
+      if (cityStateZip) {
+        doc.text(cityStateZip, 22, firstOrder.brokerAddress ? 67 : 61);
+      }
+    }
     
     // Invoice details table (right side)
     const currentDate = new Date().toLocaleDateString();
