@@ -26,6 +26,8 @@ serve(async (req) => {
     }
 
     console.log('Starting PDF merge process...')
+    console.log('Invoice PDF bytes type:', typeof invoicePdfBytes)
+    console.log('Invoice PDF bytes length:', invoicePdfBytes?.length)
 
     // Create Supabase client
     const supabase = createClient(
@@ -33,9 +35,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Convert array back to Uint8Array if needed
+    let pdfBytes: Uint8Array
+    if (Array.isArray(invoicePdfBytes)) {
+      pdfBytes = new Uint8Array(invoicePdfBytes)
+    } else if (invoicePdfBytes instanceof Uint8Array) {
+      pdfBytes = invoicePdfBytes
+    } else if (invoicePdfBytes instanceof ArrayBuffer) {
+      pdfBytes = new Uint8Array(invoicePdfBytes)
+    } else {
+      console.error('Invalid PDF bytes format:', typeof invoicePdfBytes)
+      return new Response(
+        JSON.stringify({ error: 'Invalid PDF data format' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
     // Create main PDF document from invoice
-    const mainPdf = await PDFDocument.load(invoicePdfBytes)
-    console.log('Loaded main invoice PDF')
+    const mainPdf = await PDFDocument.load(pdfBytes)
+    console.log('Loaded main invoice PDF successfully')
 
     // Add RC files
     if (rcFiles && rcFiles.length > 0) {
