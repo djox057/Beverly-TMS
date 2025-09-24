@@ -967,11 +967,13 @@ const EditOrder = () => {
                   value={tonu} 
                   onChange={e => {
                     setTonu(e.target.value);
-                    // If TONU has a value, set freight amount to 0
+                    // If TONU has a value, set freight amount, loaded miles, and driver price to 0
                     if (e.target.value && parseFloat(e.target.value) > 0) {
                       setFreightAmount("0");
+                      setLoadedMiles("0");
+                      setDriverPrice("0");
                     }
-                  }} 
+                  }}
                 />
               </div>
             </div>
