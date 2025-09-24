@@ -4,14 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { DateRange } from "react-day-picker";
 import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 
@@ -34,7 +33,7 @@ const Orders = () => {
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -82,18 +81,16 @@ const Orders = () => {
     }
     
     // Date filtering based on delivery date
-    let matchesDateRange = true;
-    if (dateRange?.from) {
+    let matchesDate = true;
+    if (selectedDate) {
       const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
-      if (dateRange.from && orderDeliveryDate < dateRange.from) {
-        matchesDateRange = false;
-      }
-      if (dateRange.to && orderDeliveryDate > dateRange.to) {
-        matchesDateRange = false;
-      }
+      const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
+      
+      matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
     }
     
-    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs && matchesDateRange;
+    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs && matchesDate;
   }) || [];
 
   // Get unique companies and booked by values for filters
@@ -160,9 +157,9 @@ const Orders = () => {
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
             <div className="flex gap-4 items-center">
-              <DateRangePicker
-                date={dateRange}
-                onDateChange={setDateRange}
+              <DatePicker
+                date={selectedDate}
+                onDateChange={setSelectedDate}
                 placeholder="Filter by delivery date"
                 className="w-72"
               />
