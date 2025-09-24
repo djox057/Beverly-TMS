@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -72,6 +72,20 @@ const EditOrder = () => {
   const [invoiced, setInvoiced] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+
+  // Drag states for file uploads
+  const [dragStates, setDragStates] = useState({
+    rc: false,
+    bol: false,
+    pod: false,
+    additional: false
+  });
+
+  // File input refs for programmatic access
+  const rcFileInputRef = useRef<HTMLInputElement>(null);
+  const bolFileInputRef = useRef<HTMLInputElement>(null);
+  const podFileInputRef = useRef<HTMLInputElement>(null);
+  const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data from database
   const { data: companies } = useCompanies();
@@ -403,6 +417,69 @@ const EditOrder = () => {
 
     setPickupsDrops(items);
   };
+
+  // File drag and drop handlers
+  const createFileDragHandlers = (fileType: 'rc' | 'bol' | 'pod' | 'additional') => {
+    const setFiles = {
+      rc: setRcFiles,
+      bol: setBolFiles,
+      pod: setPodFiles,
+      additional: setAdditionalFiles
+    }[fileType];
+
+    const fileInputRef = {
+      rc: rcFileInputRef,
+      bol: bolFileInputRef,
+      pod: podFileInputRef,
+      additional: additionalFileInputRef
+    }[fileType];
+
+    return {
+      onDragEnter: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragStates(prev => ({ ...prev, [fileType]: true }));
+      },
+      onDragLeave: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only set drag state to false if we're leaving the drop zone entirely
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+        if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+          setDragStates(prev => ({ ...prev, [fileType]: false }));
+        }
+      },
+      onDragOver: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragStates(prev => ({ ...prev, [fileType]: false }));
+        
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          setFiles(files);
+        }
+      },
+      onClick: (e: React.MouseEvent) => {
+        // Don't trigger if clicking on the Extract with AI button
+        if (fileType === 'rc' && (e.target as HTMLElement).closest('button[data-ai-extract]')) {
+          return;
+        }
+        e.preventDefault();
+        fileInputRef.current?.click();
+      }
+    };
+  };
+
+  const rcDragHandlers = createFileDragHandlers('rc');
+  const bolDragHandlers = createFileDragHandlers('bol');
+  const podDragHandlers = createFileDragHandlers('pod');
+  const additionalDragHandlers = createFileDragHandlers('additional');
 
   // Prepare options for dropdowns
   const companyOptions = companies?.map(company => ({
@@ -957,54 +1034,156 @@ const EditOrder = () => {
 
             {/* Additional File Upload Sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
+              <Card 
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]"
+                )}
+                {...bolDragHandlers}
+              >
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-green-700">BOL (Bill of Lading)</CardTitle>
+                  <CardTitle className="text-sm text-green-700 flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    BOL (Bill of Lading)
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input 
-                    id="bol-files" 
+                  {dragStates.bol ? (
+                    <div className="border-2 border-dashed border-green-400 rounded-lg p-4 text-center bg-green-50">
+                      <FileText className="mx-auto h-6 w-6 text-green-500 mb-1" />
+                      <p className="text-xs text-green-600 font-medium">Drop files here</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-green-600 mb-2">
+                        {bolFiles && bolFiles.length > 0 
+                          ? `${bolFiles.length} file(s) selected` 
+                          : "Click or drag files here"
+                        }
+                      </p>
+                      {bolFiles && bolFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {Array.from(bolFiles).map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                              <FileText className="h-3 w-3" />
+                              <span className="truncate">{file.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input 
+                    ref={bolFileInputRef}
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={e => setBolFiles(e.target.files)} 
-                    className="border-green-300 focus:border-green-500"
+                    className="hidden"
                   />
-                  <p className="text-xs text-green-600 mt-1">Bill of lading documents</p>
+                  <p className="text-xs text-green-600">Bill of lading documents</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]"
+                )}
+                {...podDragHandlers}
+              >
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-purple-700">POD (Proof of Delivery)</CardTitle>
+                  <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    POD (Proof of Delivery)
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input 
-                    id="pod-files" 
+                  {dragStates.pod ? (
+                    <div className="border-2 border-dashed border-purple-400 rounded-lg p-4 text-center bg-purple-50">
+                      <FileText className="mx-auto h-6 w-6 text-purple-500 mb-1" />
+                      <p className="text-xs text-purple-600 font-medium">Drop files here</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-purple-600 mb-2">
+                        {podFiles && podFiles.length > 0 
+                          ? `${podFiles.length} file(s) selected` 
+                          : "Click or drag files here"
+                        }
+                      </p>
+                      {podFiles && podFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {Array.from(podFiles).map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                              <FileText className="h-3 w-3" />
+                              <span className="truncate">{file.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input 
+                    ref={podFileInputRef}
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={e => setPodFiles(e.target.files)} 
-                    className="border-purple-300 focus:border-purple-500"
+                    className="hidden"
                   />
-                  <p className="text-xs text-purple-600 mt-1">Delivery confirmation documents</p>
+                  <p className="text-xs text-purple-600">Delivery confirmation documents</p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]"
+                )}
+                {...additionalDragHandlers}
+              >
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-orange-700">Additional Documents</CardTitle>
+                  <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Additional Documents
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Input 
-                    id="additional-files" 
+                  {dragStates.additional ? (
+                    <div className="border-2 border-dashed border-orange-400 rounded-lg p-4 text-center bg-orange-50">
+                      <FileText className="mx-auto h-6 w-6 text-orange-500 mb-1" />
+                      <p className="text-xs text-orange-600 font-medium">Drop files here</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-orange-600 mb-2">
+                        {additionalFiles && additionalFiles.length > 0 
+                          ? `${additionalFiles.length} file(s) selected` 
+                          : "Click or drag files here"
+                        }
+                      </p>
+                      {additionalFiles && additionalFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {Array.from(additionalFiles).map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                              <FileText className="h-3 w-3" />
+                              <span className="truncate">{file.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input 
+                    ref={additionalFileInputRef}
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={e => setAdditionalFiles(e.target.files)} 
-                    className="border-orange-300 focus:border-orange-500"
+                    className="hidden"
                   />
-                  <p className="text-xs text-orange-600 mt-1">Other supporting documents</p>
+                  <p className="text-xs text-orange-600">Other supporting documents</p>
                 </CardContent>
               </Card>
             </div>
