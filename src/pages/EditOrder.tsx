@@ -59,6 +59,7 @@ const EditOrder = () => {
   const [lumper, setLumper] = useState("");
   const [lateFee, setLateFee] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
+  const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
@@ -135,14 +136,19 @@ const EditOrder = () => {
         setLumper((orderData as any).lumper?.toString() || "");
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
+        setTonu((orderData as any).tonu?.toString() || "");
         setNotes(orderData.notes || "");
         setBookedBy(orderData.booked_by || "");
         setInvoiced(orderData.invoiced ? "Done" : "false");
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
 
-        // Calculate miles
-        const totalMiles = orderData.mileage || 0;
-        setLoadedMiles(totalMiles.toString());
+        // Calculate miles from loaded_miles and dh_miles or use legacy mileage
+        const loadedMilesValue = (orderData as any).loaded_miles || 0;
+        const dhMilesValue = (orderData as any).dh_miles || 0;
+        const totalMiles = loadedMilesValue + dhMilesValue || orderData.mileage || 0;
+        
+        setLoadedMiles(loadedMilesValue.toString());
+        setDhMiles(dhMilesValue.toString());
 
         // Load pickup/drops
         if (orderData.pickup_drops) {
@@ -521,7 +527,10 @@ const EditOrder = () => {
           lumper: lumper ? parseFloat(lumper) : null,
           late_fee: lateFee ? parseFloat(lateFee) : null,
           driver_price: driverPrice ? parseFloat(driverPrice) : null,
-          mileage: parseFloat(loadedMiles) || null,
+          tonu: tonu ? parseFloat(tonu) : null,
+          loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
+          dh_miles: dhMiles ? parseInt(dhMiles) : null,
+          mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
           notes: notes || null,
           booked_by: bookedBy || null,
           invoiced: invoiced === "Done"
@@ -949,19 +958,48 @@ const EditOrder = () => {
                   onChange={e => setDriverPrice(e.target.value)} 
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="tonu">TONU</Label>
+                <Input 
+                  id="tonu" 
+                  type="number" 
+                  placeholder="TONU amount" 
+                  value={tonu} 
+                  onChange={e => {
+                    setTonu(e.target.value);
+                    // If TONU has a value, set freight amount to 0
+                    if (e.target.value && parseFloat(e.target.value) > 0) {
+                      setFreightAmount("0");
+                    }
+                  }} 
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="loaded-miles">Total Miles</Label>
+                <Label htmlFor="loaded-miles">Loaded Miles</Label>
                 <Input 
                   id="loaded-miles" 
                   type="number" 
-                  placeholder="Total miles" 
+                  placeholder="Loaded miles" 
                   value={loadedMiles} 
                   onChange={e => setLoadedMiles(e.target.value)} 
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="dh-miles">DH Miles</Label>
+                <Input 
+                  id="dh-miles" 
+                  type="number" 
+                  placeholder="Deadhead miles" 
+                  value={dhMiles} 
+                  onChange={e => setDhMiles(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="invoiced">Invoiced Status</Label>
                 <Select value={invoiced} onValueChange={setInvoiced}>

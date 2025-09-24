@@ -58,6 +58,7 @@ interface Order {
   layover?: number;
   extraStop?: number;
   lumper?: number;
+  tonu?: number;
   lateFee?: number;
   companyName: string;
   driverName: string;
@@ -181,6 +182,7 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     let layoverTotal = 0;
     let extraStopTotal = 0;
     let lumperTotal = 0;
+    let tonuTotal = 0;
     let lateFeeTotal = 0;
     
     group.orders.forEach((order) => {
@@ -213,6 +215,7 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       layoverTotal += order.layover || 0;
       extraStopTotal += order.extraStop || 0;
       lumperTotal += order.lumper || 0;
+      tonuTotal += order.tonu || 0;
       lateFeeTotal += order.lateFee || 0;
       yPosition += 12;
     });
@@ -255,6 +258,14 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       doc.rect(175, yPosition, 25, 8);
       doc.text('Lumper', 137, yPosition + 5);
       doc.text(`$${lumperTotal.toLocaleString()}`, 177, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (tonuTotal > 0) {
+      doc.rect(135, yPosition, 40, 8);
+      doc.rect(175, yPosition, 25, 8);
+      doc.text('TONU', 137, yPosition + 5);
+      doc.text(`$${tonuTotal.toLocaleString()}`, 177, yPosition + 5);
       yPosition += 8;
     }
     

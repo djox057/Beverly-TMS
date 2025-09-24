@@ -179,6 +179,7 @@ export type Database = {
           delivery_datetime: string | null
           delivery_end_datetime: string | null
           detention: number | null
+          dh_miles: number | null
           driver_price: number | null
           driver1_id: string | null
           driver2_id: string | null
@@ -190,12 +191,14 @@ export type Database = {
           late_fee: number | null
           layover: number | null
           load_number: string
+          loaded_miles: number | null
           lumper: number | null
           mileage: number | null
           notes: string | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           status: string | null
+          tonu: number | null
           trailer_id: string | null
           truck_id: string | null
           updated_at: string
@@ -209,6 +212,7 @@ export type Database = {
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
+          dh_miles?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
@@ -220,12 +224,14 @@ export type Database = {
           late_fee?: number | null
           layover?: number | null
           load_number: string
+          loaded_miles?: number | null
           lumper?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           status?: string | null
+          tonu?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string
@@ -239,6 +245,7 @@ export type Database = {
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
+          dh_miles?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
@@ -250,12 +257,14 @@ export type Database = {
           late_fee?: number | null
           layover?: number | null
           load_number?: string
+          loaded_miles?: number | null
           lumper?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           status?: string | null
+          tonu?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string
