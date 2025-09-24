@@ -214,7 +214,8 @@ const Orders = () => {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <div className="min-w-[1800px]">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-20">Truck #</TableHead>
@@ -388,6 +389,7 @@ const Orders = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           </div>
         </CardContent>
       </Card>
