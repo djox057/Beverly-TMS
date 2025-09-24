@@ -32,7 +32,7 @@ interface PickupDrop {
 
 const NewOrder = () => {
   const navigate = useNavigate();
-  const [bookedByCompany, setBookedByCompany] = useState("BF Prime");
+  const [bookedByCompany, setBookedByCompany] = useState("");
   const [broker, setBroker] = useState("");
   const [truck, setTruck] = useState("");
   const [driver1, setDriver1] = useState("");
@@ -74,7 +74,7 @@ const NewOrder = () => {
   const { data: brokers, isLoading: brokersLoading } = useBrokers();
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
-  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber();
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(bookedByCompany);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
