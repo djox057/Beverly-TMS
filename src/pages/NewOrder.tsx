@@ -170,17 +170,53 @@ const NewOrder = () => {
       
       if (response.error) {
         console.error('Distance calculation failed:', response.error);
+        toast({
+          title: "Distance Calculation Failed",
+          description: `Error: ${response.error.message}`,
+          variant: "destructive"
+        });
         return null;
       }
       
       if (response.data && response.data.success) {
         console.log('Distance calculation successful:', response.data.distance);
+        
+        // Show detailed popup with Nominatim and OSRM results
+        const debugInfo = response.data.debug;
+        if (debugInfo) {
+          toast({
+            title: "🗺️ Nominatim Results",
+            description: `Coordinates found: ${debugInfo.nominatim_coordinates.map(coord => `[${coord[0]}, ${coord[1]}]`).join(' → ')}`,
+          });
+          
+          setTimeout(() => {
+            toast({
+              title: "🚛 OSRM Results", 
+              description: `Distance: ${Math.round(response.data.distance.miles)} miles (${Math.round(response.data.distance.km)} km)`,
+            });
+          }, 2000);
+        }
+        
         return response.data.distance.miles;
+      }
+      
+      // Show detailed response for debugging
+      if (response.data) {
+        toast({
+          title: "Distance Calculation Response",
+          description: `Response: ${JSON.stringify(response.data)}`,
+          variant: "destructive"
+        });
       }
       
       return null;
     } catch (error) {
       console.error('Distance calculation error:', error);
+      toast({
+        title: "Distance Calculation Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
       return null;
     }
   };

@@ -69,6 +69,14 @@ serve(async (req) => {
           const coords = [parseFloat(data[0].lon), parseFloat(data[0].lat)];
           coordinates.push(coords);
           console.log('Successfully geocoded:', addr.address, 'to coordinates:', coords);
+          
+          // Show popup with Nominatim result for this address
+          console.log(`🗺️ NOMINATIM RESULT for "${addr.address}": ${JSON.stringify({
+            coordinates: coords,
+            display_name: data[0].display_name,
+            full_response: data[0]
+          }, null, 2)}`);
+          
         } else {
           console.log('No results from Nominatim for address:', addr.address);
         }
@@ -121,6 +129,16 @@ serve(async (req) => {
         
         console.log(`Distance calculated: ${distanceInKm} km (${distanceInMiles} miles)`);
         
+        // Show popup with OSRM result
+        console.log(`🚛 OSRM RESULT: ${JSON.stringify({
+          coordinates_sent: coordinates,
+          distance_meters: distanceInMeters,
+          distance_km: distanceInKm,
+          distance_miles: distanceInMiles,
+          duration_seconds: osrmData.routes[0].duration,
+          full_response: osrmData.routes[0]
+        }, null, 2)}`);
+        
         return new Response(
           JSON.stringify({ 
             success: true,
@@ -128,6 +146,10 @@ serve(async (req) => {
               meters: distanceInMeters,
               km: distanceInKm,
               miles: distanceInMiles
+            },
+            debug: {
+              nominatim_coordinates: coordinates,
+              osrm_response: osrmData.routes[0]
             }
           }),
           { 
