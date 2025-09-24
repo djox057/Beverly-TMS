@@ -118,7 +118,7 @@ const Orders = () => {
       'Broker Name': order.brokerName,
       'Broker Load #': order.brokerLoadNumber,
       'Invoiced': order.invoiced,
-      'Freight': order.freightAmount,
+      'Total Freight': order.totalFreightAmount,
       'Notes': order.notes,
       'Company': order.companyName,
       'Booked By': order.bookedBy
@@ -234,7 +234,7 @@ const Orders = () => {
                   <TableHead>Broker Name</TableHead>
                   <TableHead>Broker Load #</TableHead>
                   <TableHead>Invoiced</TableHead>
-                  <TableHead>Freight</TableHead>
+                  <TableHead>Total Freight Amount</TableHead>
                   <TableHead>Notes</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Booked By</TableHead>
@@ -269,7 +269,7 @@ const Orders = () => {
                       <TableCell>{order.brokerName}</TableCell>
                       <TableCell>{order.brokerLoadNumber}</TableCell>
                       <TableCell>{order.invoiced}</TableCell>
-                      <TableCell>${order.freightAmount.toLocaleString()}</TableCell>
+                      <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
                       <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                       <TableCell>{order.companyName}</TableCell>
                       <TableCell>{order.bookedBy}</TableCell>

@@ -55,6 +55,7 @@ export const useOrders = () => {
             extraStop: order.extra_stop || 0,
             lumper: order.lumper || 0,
             lateFee: order.late_fee || 0,
+            totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) - (order.late_fee || 0),
             notes: order.notes || '',
             bookedBy: order.booked_by || 'N/A',
             companyName: order.company?.name || 'N/A',

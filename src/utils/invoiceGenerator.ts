@@ -13,6 +13,7 @@ interface Order {
   brokerName: string;
   brokerLoadNumber: string;
   freightAmount: number;
+  totalFreightAmount: number;
   detention?: number;
   layover?: number;
   extraStop?: number;
@@ -141,8 +142,8 @@ export const generateInvoicePDF = (orders: Order[]) => {
       doc.text(lines, 87, yPosition + 4);
       
       doc.text('1', 137, yPosition + 7);
-      doc.text(`$${order.freightAmount.toLocaleString()}`, 157, yPosition + 7);
-      doc.text(`$${order.freightAmount.toLocaleString()}`, 177, yPosition + 7);
+      doc.text(`$${order.totalFreightAmount.toLocaleString()}`, 157, yPosition + 7);
+      doc.text(`$${order.totalFreightAmount.toLocaleString()}`, 177, yPosition + 7);
       
       freightTotal += order.freightAmount;
       detentionTotal += order.detention || 0;
@@ -203,8 +204,8 @@ export const generateInvoicePDF = (orders: Order[]) => {
       yPosition += 8;
     }
     
-    // Calculate final total (add all except late fee which is subtracted)
-    const finalTotal = freightTotal + detentionTotal + layoverTotal + extraStopTotal + lumperTotal - lateFeeTotal;
+    // Calculate final total from totalFreightAmount
+    const finalTotal = group.orders.reduce((sum, order) => sum + order.totalFreightAmount, 0);
     
     // Total row
     doc.rect(155, yPosition, 20, 8);
