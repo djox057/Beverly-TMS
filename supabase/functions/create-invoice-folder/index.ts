@@ -57,9 +57,40 @@ Deno.serve(async (req) => {
     const zip = new JSZip();
     
     // Add each invoice PDF to the ZIP
-    for (const invoice of invoices) {
-      const pdfBuffer = new Uint8Array(invoice.pdfBytes);
-      zip.addFile(invoice.filename, pdfBuffer);
+    for (let i = 0; i < invoices.length; i++) {
+      const invoice = invoices[i];
+      console.log(`Processing invoice ${i + 1}/${invoices.length}: ${invoice.filename}, bytes: ${invoice.pdfBytes.length}`);
+      
+      try {
+        const pdfBuffer = new Uint8Array(invoice.pdfBytes);
+        
+        // Check if PDF bytes are valid
+        if (pdfBuffer.length === 0) {
+          console.error(`Invoice ${invoice.filename} has empty PDF bytes, skipping`);
+          continue;
+        }
+        
+        // Check for duplicate filenames and make unique if needed
+        let finalFilename = invoice.filename;
+        let counter = 1;
+        while (zip.file(finalFilename)) {
+          const nameParts = invoice.filename.split('.');
+          const extension = nameParts.pop();
+          const baseName = nameParts.join('.');
+          finalFilename = `${baseName}_${counter}.${extension}`;
+          counter++;
+        }
+        
+        if (finalFilename !== invoice.filename) {
+          console.log(`Renamed ${invoice.filename} to ${finalFilename} to avoid duplicate`);
+        }
+        
+        zip.addFile(finalFilename, pdfBuffer);
+        console.log(`Successfully added ${finalFilename} to ZIP`);
+      } catch (error) {
+        console.error(`Error processing invoice ${invoice.filename}:`, error);
+        // Continue with other invoices instead of failing completely
+      }
     }
     
     // Generate the ZIP file

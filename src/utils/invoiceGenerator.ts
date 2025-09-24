@@ -137,8 +137,10 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     const currentDate = new Date().toLocaleDateString();
     const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
     
-    // Generate filename with new format
-    const baseFilename = `${invoiceNumber}.pdf`;
+    // Generate filename with new format - make it unique by including broker name
+    const sanitizedBrokerName = group.brokerName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+    const baseFilename = `${sanitizedBrokerName}_${invoiceNumber}.pdf`;
+    console.log(`Generated filename for group ${group.brokerName}-${group.companyName}: ${baseFilename}`);
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -365,8 +367,11 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     }
   }
 
+  console.log(`Collected ${invoiceData.length} invoices for processing:`, invoiceData.map(inv => ({ filename: inv.filename, bytesLength: inv.pdfBytes.length })));
+
   // Use edge function to handle folder creation
   try {
+    console.log(`Sending ${invoiceData.length} invoices to create-invoice-folder function`);
     const { data: result, error } = await supabase.functions.invoke('create-invoice-folder', {
       body: {
         invoices: invoiceData,
