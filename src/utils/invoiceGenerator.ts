@@ -79,8 +79,21 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     return acc;
   }, {} as Record<string, { brokerName: string; companyName: string; orders: Order[] }>);
 
+  const groupValues = Object.values(groupedOrders);
+  const isMultipleInvoices = groupValues.length > 1;
+  let folderName = '';
+
+  // If multiple invoices, determine folder name based on delivery date range
+  if (isMultipleInvoices) {
+    const allDeliveryDates = orders.map(order => new Date(order.deliveryDate)).sort((a, b) => a.getTime() - b.getTime());
+    const startDate = allDeliveryDates[0].toISOString().split('T')[0];
+    const endDate = allDeliveryDates[allDeliveryDates.length - 1].toISOString().split('T')[0];
+    
+    folderName = startDate === endDate ? startDate : `${startDate}_to_${endDate}`;
+  }
+
   // Generate PDF for each broker/company combination
-  for (const [index, group] of Object.values(groupedOrders).entries()) {
+  for (const [index, group] of groupValues.entries()) {
     const doc = new jsPDF();
     
     // Header - Company name and INVOICE
@@ -102,6 +115,10 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     // Invoice details table (right side)
     const currentDate = new Date().toLocaleDateString();
     const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
+    
+    // Generate filename with new format
+    const baseFilename = `INVOICE${invoiceNumber}.pdf`;
+    const filename = isMultipleInvoices ? `${folderName}/${baseFilename}` : baseFilename;
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -299,7 +316,6 @@ export const generateInvoicePDF = async (orders: Order[]) => {
         if (mergeError) {
           console.error('Error merging PDFs:', mergeError);
           // Fallback to just the invoice
-          const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
           doc.save(filename);
         } else {
           // Download the merged PDF
@@ -308,7 +324,7 @@ export const generateInvoicePDF = async (orders: Order[]) => {
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
+          link.download = filename;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -317,12 +333,10 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       } catch (error) {
         console.error('Error in PDF merge process:', error);
         // Fallback to just the invoice
-        const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
         doc.save(filename);
       }
     } else {
       // No RC/POD files, just save the invoice
-      const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
       if (index === 0) {
         doc.save(filename);
       } else {
