@@ -163,7 +163,7 @@ const Orders = () => {
               <DateRangePicker
                 date={dateRange}
                 onDateChange={setDateRange}
-                placeholder="Filter by delivery date"
+                placeholder="Filter by pickup date"
                 className="w-72"
               />
               
