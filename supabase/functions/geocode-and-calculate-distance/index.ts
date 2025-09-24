@@ -62,7 +62,18 @@ serve(async (req) => {
           continue;
         }
         
-        const data = await response.json();
+        const responseText = await response.text();
+        console.log('Raw Nominatim response:', responseText.substring(0, 200) + '...');
+        
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`Failed to parse Nominatim response as JSON for address: ${addr.address}`);
+          console.error('Response was:', responseText);
+          console.error('Parse error:', parseError);
+          continue;
+        }
         console.log('Nominatim JSON response for address:', addr.address, JSON.stringify(data, null, 2));
         
         if (data && data.length > 0) {
