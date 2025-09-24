@@ -10,7 +10,8 @@ import {
   Calendar,
   Plus,
   LogOut,
-  User
+  User,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -42,12 +43,19 @@ const navigation = [
 ];
 
 export const Sidebar = () => {
-  const { profile, signOut } = useAuthContext();
+  const { profile, signOut, hasRole } = useAuthContext();
   const { state } = useSidebar();
 
   const handleSignOut = async () => {
     await signOut();
   };
+
+  // Add admin-only navigation items
+  const adminNavigation = hasRole('admin') ? [
+    { name: "User Management", href: "/admin/users", icon: Settings }
+  ] : [];
+
+  const allNavigation = [...navigation, ...adminNavigation];
 
   return (
     <SidebarPrimitive>
@@ -59,7 +67,7 @@ export const Sidebar = () => {
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
+              {allNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton asChild>
                     <NavLink

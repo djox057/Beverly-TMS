@@ -1,22 +1,38 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Truck, FileText, Users, Package, UserCheck, Building2, BarChart3, Plus } from "lucide-react";
+import { Truck, FileText, Users, Package, UserCheck, Building2, BarChart3, Plus, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDashboardStats, useRecentOrders } from "@/hooks/useDashboard";
 
-const stats = [
-  { name: "Active Orders", value: "12", icon: FileText, color: "text-primary" },
-  { name: "Available Trucks", value: "8", icon: Truck, color: "text-success" },
-  { name: "Active Drivers", value: "15", icon: UserCheck, color: "text-accent" },
-  { name: "Total Brokers", value: "24", icon: Building2, color: "text-warning" }
-];
+const getStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'delivered':
+      return 'bg-success/10 text-success';
+    case 'in_transit':
+    case 'pending':
+      return 'bg-primary/10 text-primary';
+    case 'loading':
+      return 'bg-warning/10 text-warning';
+    default:
+      return 'bg-muted/10 text-muted-foreground';
+  }
+};
 
-const recentOrders = [
-  { id: "LD-2024-001", truck: "TRK-001", route: "Chicago → Dallas", status: "In Transit" },
-  { id: "LD-2024-002", truck: "TRK-002", route: "LA → Denver", status: "Delivered" },
-  { id: "LD-2024-003", truck: "TRK-003", route: "Miami → Atlanta", status: "Loading" }
-];
+const formatStatus = (status: string) => {
+  return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
 
 const Index = () => {
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: recentOrders, isLoading: ordersLoading } = useRecentOrders();
+
+  const statItems = [
+    { name: "Active Orders", value: stats?.activeOrders?.toString() || "0", icon: FileText, color: "text-primary" },
+    { name: "Available Trucks", value: stats?.availableTrucks?.toString() || "0", icon: Truck, color: "text-success" },
+    { name: "Active Drivers", value: stats?.activeDrivers?.toString() || "0", icon: UserCheck, color: "text-accent" },
+    { name: "Total Brokers", value: stats?.totalBrokers?.toString() || "0", icon: Building2, color: "text-warning" }
+  ];
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -33,13 +49,19 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
+        {statItems.map((stat) => (
           <Card key={stat.name}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
-                  <p className="text-3xl font-bold">{stat.value}</p>
+                  {statsLoading ? (
+                    <div className="flex items-center">
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <p className="text-3xl font-bold">{stat.value}</p>
+                  )}
                 </div>
                 <stat.icon className={`h-8 w-8 ${stat.color}`} />
               </div>
@@ -54,23 +76,38 @@ const Index = () => {
             <CardTitle>Recent Orders</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{order.id}</p>
-                    <p className="text-sm text-muted-foreground">{order.truck} • {order.route}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    order.status === 'Delivered' ? 'bg-success/10 text-success' :
-                    order.status === 'In Transit' ? 'bg-primary/10 text-primary' :
-                    'bg-warning/10 text-warning'
-                  }`}>
-                    {order.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {ordersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentOrders && recentOrders.length > 0 ? (
+                  recentOrders.map((order) => {
+                    const route = [
+                      order.pickup_city && order.pickup_state ? `${order.pickup_city}, ${order.pickup_state}` : order.pickup_address?.substring(0, 20) + '...',
+                      order.delivery_city && order.delivery_state ? `${order.delivery_city}, ${order.delivery_state}` : order.delivery_address?.substring(0, 20) + '...'
+                    ].filter(Boolean).join(' → ');
+
+                    return (
+                      <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{order.load_number}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.truck_number || 'Unassigned'} • {route || 'Route not specified'}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                          {formatStatus(order.status)}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-center text-muted-foreground py-4">No recent orders found</p>
+                )}
+              </div>
+            )}
             <Link to="/orders">
               <Button variant="outline" className="w-full mt-4">View All Orders</Button>
             </Link>
