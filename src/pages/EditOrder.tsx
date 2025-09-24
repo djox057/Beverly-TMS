@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useBrokers } from "@/hooks/useBrokers";
@@ -23,6 +25,12 @@ interface PickupDrop {
   type: "pickup" | "delivery";
   address: string;
   datetime: string;
+  dateRange?: DateRange;
+  startTime?: string;
+  endTime?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 const EditOrder = () => {
@@ -42,19 +50,23 @@ const EditOrder = () => {
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
-  const [pickupDateTime, setPickupDateTime] = useState("");
-  const [deliveryDateTime, setDeliveryDateTime] = useState("");
+  const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
+  const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
+  const [rcFiles, setRcFiles] = useState<FileList | null>(null);
+  const [bolFiles, setBolFiles] = useState<FileList | null>(null);
+  const [podFiles, setPodFiles] = useState<FileList | null>(null);
+  const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
+  const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [notes, setNotes] = useState("");
   const [bookedBy, setBookedBy] = useState("");
   const [invoiced, setInvoiced] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
-  const [files, setFiles] = useState<FileList | null>(null);
-  const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Fetch data from database
   const { data: companies } = useCompanies();
@@ -111,12 +123,44 @@ const EditOrder = () => {
         // Load pickup/drops
         if (orderData.pickup_drops) {
           console.log('Processing pickup_drops:', orderData.pickup_drops);
-          const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => ({
-            id: pd.id,
-            type: pd.type,
-            address: pd.address || "",
-            datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : ""
-          }));
+          const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => {
+            // Reconstruct full address from parts
+            let fullAddress = pd.address || "";
+            if (pd.city || pd.state || pd.zip_code) {
+              const addressParts = [pd.address];
+              if (pd.city) addressParts.push(pd.city);
+              if (pd.state) {
+                if (pd.zip_code) {
+                  addressParts.push(`${pd.state} ${pd.zip_code}`);
+                } else {
+                  addressParts.push(pd.state);
+                }
+              } else if (pd.zip_code) {
+                addressParts.push(pd.zip_code);
+              }
+              fullAddress = addressParts.filter(Boolean).join(', ');
+            }
+
+            // Create date range from datetime fields
+            let dateRange: DateRange | undefined = undefined;
+            if (pd.datetime) {
+              const date = new Date(pd.datetime);
+              dateRange = { from: date, to: date };
+            }
+
+            return {
+              id: pd.id,
+              type: pd.type,
+              address: fullAddress,
+              datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : "",
+              dateRange,
+              startTime: pd.datetime ? new Date(pd.datetime).toTimeString().slice(0, 5) : "",
+              endTime: pd.datetime ? new Date(pd.datetime).toTimeString().slice(0, 5) : "",
+              city: pd.city || "",
+              state: pd.state || "",
+              zipCode: pd.zip_code || ""
+            };
+          });
           setPickupsDrops(transformedPickupsDrops);
           console.log('Set pickupsDrops to:', transformedPickupsDrops);
         }
@@ -175,6 +219,171 @@ const EditOrder = () => {
     } : item));
   };
 
+  const updatePickupDropTime = (id: string, timeType: 'startTime' | 'endTime', time: string) => {
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      [timeType]: time
+    } : item));
+  };
+
+  const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
+    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
+      ...item,
+      dateRange
+    } : item));
+  };
+
+  const handleExtractWithAI = async () => {
+    if (!rcFiles || rcFiles.length === 0) {
+      toast({
+        title: "No RC File Selected",
+        description: "Please select a PDF file in the RC section to extract data from.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const pdfFile = Array.from(rcFiles).find(file => file.type === 'application/pdf');
+    if (!pdfFile) {
+      toast({
+        title: "PDF Required", 
+        description: "Please select a PDF file for AI extraction.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExtracting(true);
+    
+    try {
+      console.log('Starting PDF extraction with OpenAI...');
+      
+      const formData = new FormData();
+      formData.append('pdf', pdfFile);
+      
+      console.log('Calling extract-order-fields edge function...');
+      
+      const response = await supabase.functions.invoke('extract-order-fields', {
+        body: formData,
+      });
+
+      console.log('Edge function response:', response);
+
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        throw new Error(response.error.message || 'Edge function failed');
+      }
+
+      if (!response.data?.success) {
+        console.error('Extraction failed:', response.data?.error);
+        throw new Error(response.data?.error || 'Failed to extract data');
+      }
+
+      const extractedData = response.data.data;
+      console.log('Successfully extracted data:', extractedData);
+      
+      // Populate form fields with extracted data
+      if (extractedData.brokerLoadNumber) {
+        setBrokerLoadNumber(extractedData.brokerLoadNumber);
+      }
+      if (extractedData.freightAmount) {
+        setFreightAmount(extractedData.freightAmount.toString());
+      }
+      if (extractedData.mileage) {
+        setLoadedMiles(extractedData.mileage.toString());
+      }
+
+      // Handle date ranges from AI extraction - fix timezone offset
+      if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
+        setPickupDateRange({
+          from: new Date(extractedData.pickupStartDate + 'T12:00:00'),
+          to: new Date(extractedData.pickupEndDate + 'T12:00:00')
+        });
+      } else if (extractedData.pickupDate) {
+        const pickupDate = new Date(extractedData.pickupDate + 'T12:00:00');
+        setPickupDateRange({
+          from: pickupDate,
+          to: pickupDate
+        });
+      }
+
+      if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
+        setDeliveryDateRange({
+          from: new Date(extractedData.deliveryStartDate + 'T12:00:00'),
+          to: new Date(extractedData.deliveryEndDate + 'T12:00:00')
+        });
+      } else if (extractedData.deliveryDate) {
+        const deliveryDate = new Date(extractedData.deliveryDate + 'T12:00:00');
+        setDeliveryDateRange({
+          from: deliveryDate,
+          to: deliveryDate
+        });
+      }
+      
+      // Handle pickups and deliveries with date ranges
+      const newPickupsDrops: PickupDrop[] = [];
+      
+      if (extractedData.pickupAddress) {
+        const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate 
+          ? { from: new Date(extractedData.pickupStartDate + 'T12:00:00'), to: new Date(extractedData.pickupEndDate + 'T12:00:00') }
+          : extractedData.pickupDate 
+          ? { from: new Date(extractedData.pickupDate + 'T12:00:00'), to: new Date(extractedData.pickupDate + 'T12:00:00') }
+          : undefined;
+
+        newPickupsDrops.push({
+          id: "pickup-1",
+          type: "pickup",
+          address: extractedData.pickupZip 
+            ? `${extractedData.pickupAddress}, ${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
+            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
+          datetime: extractedData.pickupDate || "",
+          dateRange: pickupDateRange,
+          startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
+          endTime: extractedData.pickupEndTime || extractedData.pickupTime || ""
+        });
+      }
+      
+      if (extractedData.deliveryAddress) {
+        const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate 
+          ? { from: new Date(extractedData.deliveryStartDate + 'T12:00:00'), to: new Date(extractedData.deliveryEndDate + 'T12:00:00') }
+          : extractedData.deliveryDate 
+          ? { from: new Date(extractedData.deliveryDate + 'T12:00:00'), to: new Date(extractedData.deliveryDate + 'T12:00:00') }
+          : undefined;
+
+        newPickupsDrops.push({
+          id: "delivery-1",
+          type: "delivery", 
+          address: extractedData.deliveryZip 
+            ? `${extractedData.deliveryAddress}, ${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
+            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
+          datetime: extractedData.deliveryDate || "",
+          dateRange: deliveryDateRange,
+          startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
+          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || ""
+        });
+      }
+      
+      if (newPickupsDrops.length > 0) {
+        setPickupsDrops(newPickupsDrops);
+      }
+
+      toast({
+        title: "Data Extracted Successfully",
+        description: `Extracted ${response.data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`
+      });
+
+    } catch (error: any) {
+      console.error('Extraction error:', error);
+      toast({
+        title: "Extraction Failed",
+        description: error.message || "Failed to extract data from PDF",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -230,31 +439,40 @@ const EditOrder = () => {
       if (orderError) throw orderError;
 
       // Upload new files if any
-      if (files && files.length > 0) {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          const fileName = `${id}/${Date.now()}_${file.name}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('order-files')
-            .upload(fileName, file);
+      const allFiles = [
+        { files: rcFiles, category: 'RC' },
+        { files: bolFiles, category: 'BOL' },
+        { files: podFiles, category: 'POD' },
+        { files: additionalFiles, category: 'ADDITIONAL' }
+      ];
+
+      for (const { files, category } of allFiles) {
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileName = `${id}/${category}/${Date.now()}_${file.name}`;
             
-          if (uploadError) throw uploadError;
-          
-          // Save file metadata
-          const { error: fileError } = await supabase
-            .from('order_files')
-            .insert({
-              order_id: id,
-              file_name: file.name,
-              file_path: fileName,
-              file_size: file.size,
-              content_type: file.type,
-              file_category: 'ADDITIONAL',
-              uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
-            });
+            const { error: uploadError } = await supabase.storage
+              .from('order-files')
+              .upload(fileName, file);
+              
+            if (uploadError) throw uploadError;
             
-          if (fileError) throw fileError;
+            // Save file metadata
+            const { error: fileError } = await supabase
+              .from('order_files')
+              .insert({
+                order_id: id,
+                file_name: file.name,
+                file_path: fileName,
+                file_size: file.size,
+                content_type: file.type,
+                file_category: category,
+                uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
+              });
+              
+            if (fileError) throw fileError;
+          }
         }
       }
 
@@ -268,14 +486,81 @@ const EditOrder = () => {
 
       // Insert updated pickup/drops
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => ({
-          order_id: id,
-          type: item.type,
-          address: item.address,
-          city: null,
-          state: null,
-          datetime: item.datetime || null
-        }));
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
+          // Parse city, state, and zip from address
+          let city = null;
+          let state = null;
+          let zipCode = null;
+          let cleanAddress = item.address;
+          
+          // Check if address has newline format: "Street Address\nCity, State Zip"
+          if (item.address.includes('\n')) {
+            const lines = item.address.split('\n');
+            cleanAddress = lines[0].trim();
+            
+            if (lines[1]) {
+              const cityStateZip = lines[1].trim();
+              const match = cityStateZip.match(/^(.+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+              if (match) {
+                city = match[1].trim();
+                state = match[2].trim();
+                zipCode = match[3].trim();
+              }
+            }
+          } else {
+            // Fallback to comma-separated parsing
+            const addressParts = item.address.split(',').map(part => part.trim());
+            
+            if (addressParts.length >= 3) {
+              // Format: "Street Address, City, State Zip" or "Street Address, City, State"
+              cleanAddress = addressParts[0];
+              city = addressParts[1];
+              const stateZip = addressParts[2];
+              const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+              if (stateZipMatch) {
+                state = stateZipMatch[1];
+                zipCode = stateZipMatch[2];
+              } else {
+                state = stateZip;
+              }
+            } else if (addressParts.length === 2) {
+              // Format: "Street Address, City State Zip"
+              cleanAddress = addressParts[0];
+              const cityState = addressParts[1];
+              const cityStateMatch = cityState.match(/^(.+?)\s+([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/);
+              if (cityStateMatch) {
+                city = cityStateMatch[1];
+                state = cityStateMatch[2];
+                zipCode = cityStateMatch[3] || null;
+              } else {
+                city = cityState;
+              }
+            }
+          }
+          
+          // Calculate datetime from date range and time if available
+          let datetime = item.datetime || null;
+          if (item.dateRange?.from && item.startTime) {
+            const date = new Date(item.dateRange.from);
+            const [hours, minutes] = item.startTime.split(':').map(Number);
+            date.setHours(hours, minutes, 0, 0);
+            datetime = date.toISOString();
+          }
+          
+          return {
+            order_id: id,
+            type: item.type,
+            address: cleanAddress,
+            city,
+            state,
+            zip_code: zipCode,
+            datetime,
+            sequence_number: 1,
+            contact_name: null,
+            contact_phone: null,
+            special_instructions: null
+          };
+        });
         
         if (pickupDropData.length > 0) {
           const { error: pickupDropError } = await supabase
@@ -456,17 +741,30 @@ const EditOrder = () => {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <Input 
-                                  placeholder="Address" 
-                                  value={item.address} 
-                                  onChange={e => updatePickupDrop(item.id, "address", e.target.value)} 
-                                />
-                                <Input 
-                                  type="datetime-local" 
-                                  value={item.datetime} 
-                                  onChange={e => updatePickupDrop(item.id, "datetime", e.target.value)} 
-                                />
+                              <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-1">
+                                  <Label htmlFor={`address-${item.id}`}>Address</Label>
+                                  <Textarea
+                                    id={`address-${item.id}`}
+                                    placeholder="Full address"
+                                    value={item.address}
+                                    onChange={(e) => updatePickupDrop(item.id, 'address', e.target.value)}
+                                    className="min-h-[60px]"
+                                  />
+                                </div>
+                                
+                                <div className="space-y-1">
+                                  <Label htmlFor={`daterange-${item.id}`}>Date & Time Range</Label>
+                                  <DateTimeRangePicker
+                                    date={item.dateRange}
+                                    onDateChange={(dateRange) => updatePickupDropDateRange(item.id, dateRange)}
+                                    startTime={item.startTime || ""}
+                                    endTime={item.endTime || ""}
+                                    onStartTimeChange={(time) => updatePickupDropTime(item.id, 'startTime', time)}
+                                    onEndTimeChange={(time) => updatePickupDropTime(item.id, 'endTime', time)}
+                                    placeholder={`Select ${item.type} date and time range`}
+                                  />
+                                </div>
                               </div>
                             </Card>
                           )}
@@ -548,82 +846,155 @@ const EditOrder = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="files">Upload Additional Files</Label>
-              <Input 
-                id="files" 
-                type="file" 
-                multiple 
-                onChange={(e) => setFiles(e.target.files)}
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-              />
-              {files && files.length > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  {files.length} new file(s) selected
-                </div>
-              )}
-              
-              {existingFiles.length > 0 && (
+            {/* File Upload Sections */}
+            {/* RC Upload Section - Top Priority */}
+            <Card className="bg-blue-50/50 border-blue-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-blue-700">RC (Rate Confirmation) Upload</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="space-y-2">
-                  <Label>Existing Files</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {existingFiles.map((file) => (
-                      <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
-                        <span className="text-sm">{file.file_name}</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            const { data } = supabase.storage
-                              .from('order-files')
-                              .getPublicUrl(file.file_path);
-                            window.open(data.publicUrl, '_blank');
-                          }}
-                        >
-                          View
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              // Delete from storage
-                              await supabase.storage
-                                .from('order-files')
-                                .remove([file.file_path]);
-                              
-                              // Delete from database
-                              await supabase
-                                .from('order_files')
-                                .delete()
-                                .eq('id', file.id);
-                              
-                              // Update local state
-                              setExistingFiles(existingFiles.filter(f => f.id !== file.id));
-                              
-                              toast({
-                                title: "File deleted",
-                                description: "File has been successfully deleted",
-                              });
-                            } catch (error) {
-                              toast({
-                                title: "Error",
-                                description: "Failed to delete file",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rc-files" className="text-sm font-medium">Upload RC Files</Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleExtractWithAI}
+                      disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')}
+                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {isExtracting ? "Extracting..." : "Extract with AI"}
+                    </Button>
                   </div>
+                  <Input 
+                    id="rc-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setRcFiles(e.target.files)} 
+                    className="border-blue-300 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-blue-600">Upload rate confirmation files. AI extraction works only with PDF files.</p>
                 </div>
-              )}
+              </CardContent>
+            </Card>
+
+            {/* Additional File Upload Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-green-700">BOL (Bill of Lading)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="bol-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setBolFiles(e.target.files)} 
+                    className="border-green-300 focus:border-green-500"
+                  />
+                  <p className="text-xs text-green-600 mt-1">Bill of lading documents</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-purple-700">POD (Proof of Delivery)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="pod-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setPodFiles(e.target.files)} 
+                    className="border-purple-300 focus:border-purple-500"
+                  />
+                  <p className="text-xs text-purple-600 mt-1">Delivery confirmation documents</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-orange-700">Additional Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input 
+                    id="additional-files" 
+                    type="file" 
+                    multiple 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={e => setAdditionalFiles(e.target.files)} 
+                    className="border-orange-300 focus:border-orange-500"
+                  />
+                  <p className="text-xs text-orange-600 mt-1">Other supporting documents</p>
+                </CardContent>
+              </Card>
             </div>
+
+            {existingFiles.length > 0 && (
+              <div className="space-y-2">
+                <Label>Existing Files</Label>
+                <div className="flex flex-wrap gap-2">
+                  {existingFiles.map((file) => (
+                    <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
+                      <span className="text-sm">{file.file_name} ({file.file_category || 'ADDITIONAL'})</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const { data } = supabase.storage
+                            .from('order-files')
+                            .getPublicUrl(file.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            // Delete from storage
+                            await supabase.storage
+                              .from('order-files')
+                              .remove([file.file_path]);
+                            
+                            // Delete from database
+                            await supabase
+                              .from('order_files')
+                              .delete()
+                              .eq('id', file.id);
+                            
+                            // Update local state
+                            setExistingFiles(existingFiles.filter(f => f.id !== file.id));
+                            
+                            toast({
+                              title: "File deleted",
+                              description: "File has been successfully deleted",
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to delete file",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-4">
               <Button 
