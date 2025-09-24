@@ -1,4 +1,31 @@
 import jsPDF from 'jspdf';
+import { supabase } from '@/integrations/supabase/client';
+
+// Helper function to load file from Supabase storage
+const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('order-files')
+      .download(filePath);
+    
+    if (error) {
+      console.error('Error loading file:', error);
+      return null;
+    }
+    
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        resolve(base64.split(',')[1]); // Remove data URL prefix
+      };
+      reader.readAsDataURL(data);
+    });
+  } catch (error) {
+    console.error('Error loading file:', error);
+    return null;
+  }
+};
 
 interface OrderFile {
   id: string;
@@ -35,7 +62,7 @@ interface Order {
   podFiles?: OrderFile[];
 }
 
-export const generateInvoicePDF = (orders: Order[]) => {
+export const generateInvoicePDF = async (orders: Order[]) => {
   if (!orders.length) return;
 
   // Group orders by broker and company
@@ -53,7 +80,7 @@ export const generateInvoicePDF = (orders: Order[]) => {
   }, {} as Record<string, { brokerName: string; companyName: string; orders: Order[] }>);
 
   // Generate PDF for each broker/company combination
-  Object.values(groupedOrders).forEach((group, index) => {
+  for (const [index, group] of Object.values(groupedOrders).entries()) {
     const doc = new jsPDF();
     
     // Header - Company name and INVOICE
@@ -258,11 +285,11 @@ export const generateInvoicePDF = (orders: Order[]) => {
     
     // Add RC file pages
     let currentPage = 1;
-    allRcFiles.forEach((file) => {
+    for (const file of allRcFiles) {
       doc.addPage();
       currentPage++;
       
-      // Add RC file content (placeholder - you may need to implement file loading)
+      // Add RC file header
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text('RATE CONFIRMATION', 105, 30, { align: 'center' });
@@ -270,21 +297,38 @@ export const generateInvoicePDF = (orders: Order[]) => {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
       doc.text(`File: ${file.file_name}`, 20, 50);
-      doc.text('RC file content would be displayed here', 20, 70);
-      doc.text('(File loading implementation needed)', 20, 85);
+      
+      // Load and display file content
+      const fileData = await loadFileAsBase64(file.file_path);
+      if (fileData && file.content_type.startsWith('image/')) {
+        try {
+          // Add image to PDF
+          const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
+          doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
+        } catch (error) {
+          console.error('Error adding image:', error);
+          doc.text('Error loading image file', 20, 70);
+        }
+      } else if (file.content_type === 'application/pdf') {
+        doc.text('PDF file - content display requires additional implementation', 20, 70);
+        doc.text('File is attached to this invoice package', 20, 85);
+      } else {
+        doc.text(`File type: ${file.content_type}`, 20, 70);
+        doc.text('File preview not available for this format', 20, 85);
+      }
       
       // Footer for RC page
       doc.setFontSize(8);
       doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
       doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
-    });
+    }
     
     // Add POD file pages
-    allPodFiles.forEach((file) => {
+    for (const file of allPodFiles) {
       doc.addPage();
       currentPage++;
       
-      // Add POD file content (placeholder - you may need to implement file loading)
+      // Add POD file header
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.text('PROOF OF DELIVERY', 105, 30, { align: 'center' });
@@ -292,14 +336,31 @@ export const generateInvoicePDF = (orders: Order[]) => {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
       doc.text(`File: ${file.file_name}`, 20, 50);
-      doc.text('POD file content would be displayed here', 20, 70);
-      doc.text('(File loading implementation needed)', 20, 85);
+      
+      // Load and display file content
+      const fileData = await loadFileAsBase64(file.file_path);
+      if (fileData && file.content_type.startsWith('image/')) {
+        try {
+          // Add image to PDF
+          const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
+          doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
+        } catch (error) {
+          console.error('Error adding image:', error);
+          doc.text('Error loading image file', 20, 70);
+        }
+      } else if (file.content_type === 'application/pdf') {
+        doc.text('PDF file - content display requires additional implementation', 20, 70);
+        doc.text('File is attached to this invoice package', 20, 85);
+      } else {
+        doc.text(`File type: ${file.content_type}`, 20, 70);
+        doc.text('File preview not available for this format', 20, 85);
+      }
       
       // Footer for POD page
       doc.setFontSize(8);
       doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
       doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
-    });
+    }
     
     // Save the PDF
     const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
@@ -309,5 +370,5 @@ export const generateInvoicePDF = (orders: Order[]) => {
       // For multiple PDFs, we need to create separate documents
       setTimeout(() => doc.save(filename), index * 100);
     }
-  });
+  }
 };

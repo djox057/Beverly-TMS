@@ -130,9 +130,9 @@ const Orders = () => {
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const generateInvoices = () => {
+  const generateInvoices = async () => {
     if (!filteredOrders.length) return;
-    generateInvoicePDF(filteredOrders);
+    await generateInvoicePDF(filteredOrders);
   };
 
   return (
