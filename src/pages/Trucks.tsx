@@ -198,10 +198,23 @@ const Trucks = () => {
     );
   }
 
-  const driverOptions = drivers?.map(driver => ({
+  // Filter out drivers who already have a truck assigned (excluding the current truck being edited)
+  const availableDrivers = drivers?.filter(driver => {
+    // If we're editing a truck, allow the currently assigned driver to remain in the list
+    if (editingTruck && (editingTruck.driver1_id === driver.id || editingTruck.driver2_id === driver.id)) {
+      return true;
+    }
+    // Check if this driver is assigned to any truck
+    const isAssigned = trucks?.some(truck => 
+      truck.driver1_id === driver.id || truck.driver2_id === driver.id
+    );
+    return !isAssigned;
+  }) || [];
+
+  const driverOptions = availableDrivers.map(driver => ({
     value: driver.id,
     label: driver.name
-  })) || [];
+  }));
 
   const trailerOptions = trailers?.map(trailer => ({
     value: trailer.id,
