@@ -129,7 +129,27 @@ const Orders = () => {
 
   const generateInvoices = async () => {
     if (!filteredOrders.length) return;
-    await generateInvoicePDF(filteredOrders);
+    
+    try {
+      await generateInvoicePDF(filteredOrders);
+      
+      // Update invoiced status for all orders that were processed
+      const orderIds = filteredOrders.map(order => order.id);
+      const { error } = await supabase
+        .from('orders')
+        .update({ invoiced: true })
+        .in('id', orderIds);
+      
+      if (error) {
+        console.error('Error updating invoice status:', error);
+      } else {
+        console.log(`Successfully updated ${orderIds.length} orders as invoiced`);
+        // Force refresh of orders data to show updated status
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error generating invoices:', error);
+    }
   };
 
   return (

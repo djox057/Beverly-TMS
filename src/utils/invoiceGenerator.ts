@@ -70,6 +70,8 @@ interface Order {
 export const generateInvoicePDF = async (orders: Order[]) => {
   if (!orders.length) return;
 
+  console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
+
   // Group orders by broker and company
   const groupedOrders = orders.reduce((acc, order) => {
     const key = `${order.brokerName}-${order.companyName}`;
@@ -83,6 +85,8 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     acc[key].orders.push(order);
     return acc;
   }, {} as Record<string, { brokerName: string; companyName: string; orders: Order[] }>);
+
+  console.log(`Grouped orders into ${Object.keys(groupedOrders).length} broker-company combinations:`, Object.keys(groupedOrders));
 
   const groupValues = Object.values(groupedOrders);
   const isMultipleInvoices = groupValues.length > 1;
