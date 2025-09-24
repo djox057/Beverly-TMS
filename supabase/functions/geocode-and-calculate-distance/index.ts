@@ -49,20 +49,26 @@ serve(async (req) => {
         console.log('Geocoding address:', addr.address);
         const encodedAddress = encodeURIComponent(addr.address);
         console.log('Encoded address for Nominatim:', encodedAddress);
+        console.log('Full Nominatim URL:', `http://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
         
         const response = await fetch(`http://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
         
+        console.log('Nominatim response status:', response.status);
+        console.log('Nominatim response ok:', response.ok);
+        
         if (!response.ok) {
-          console.error(`Nominatim API returned ${response.status} for address: ${addr.address}`);
+          const errorText = await response.text();
+          console.error(`Nominatim API returned ${response.status} for address: ${addr.address}. Error: ${errorText}`);
           continue;
         }
         
         const data = await response.json();
-        console.log('Nominatim response for address:', addr.address, data);
+        console.log('Nominatim JSON response for address:', addr.address, JSON.stringify(data, null, 2));
         
         if (data && data.length > 0) {
-          coordinates.push([parseFloat(data[0].lon), parseFloat(data[0].lat)]);
-          console.log('Successfully geocoded:', addr.address, 'to', [data[0].lon, data[0].lat]);
+          const coords = [parseFloat(data[0].lon), parseFloat(data[0].lat)];
+          coordinates.push(coords);
+          console.log('Successfully geocoded:', addr.address, 'to coordinates:', coords);
         } else {
           console.log('No results from Nominatim for address:', addr.address);
         }
@@ -92,17 +98,21 @@ serve(async (req) => {
       console.log('Calculating route distance with coordinates:', coordinates);
       const osrmCoords = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(';');
       const osrmUrl = `http://osrm.jonworgen.cloudns.be/route/v1/driving/${osrmCoords}?overview=false&alternatives=false&steps=false`;
-      console.log('OSRM URL:', osrmUrl);
+      console.log('Full OSRM URL:', osrmUrl);
       
       const osrmResponse = await fetch(osrmUrl);
       
+      console.log('OSRM response status:', osrmResponse.status);
+      console.log('OSRM response ok:', osrmResponse.ok);
+      
       if (!osrmResponse.ok) {
-        console.error('OSRM API error:', osrmResponse.status, await osrmResponse.text());
-        throw new Error(`OSRM API returned ${osrmResponse.status}`);
+        const errorText = await osrmResponse.text();
+        console.error('OSRM API error:', osrmResponse.status, errorText);
+        throw new Error(`OSRM API returned ${osrmResponse.status}: ${errorText}`);
       }
       
       const osrmData = await osrmResponse.json();
-      console.log('OSRM response:', osrmData);
+      console.log('OSRM JSON response:', JSON.stringify(osrmData, null, 2));
       
       if (osrmData.code === 'Ok' && osrmData.routes && osrmData.routes.length > 0) {
         const distanceInMeters = osrmData.routes[0].distance;
@@ -126,7 +136,7 @@ serve(async (req) => {
         );
       } else {
         console.error('OSRM returned no routes or error:', osrmData);
-        throw new Error('OSRM could not calculate route');
+        throw new Error(`OSRM could not calculate route: ${osrmData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('OSRM calculation failed:', error);
