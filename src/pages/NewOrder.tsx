@@ -154,6 +154,60 @@ const NewOrder = () => {
     setPickupsDrops(items);
   };
 
+  // Helper function to geocode address using Nominatim
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lon: number } | null> => {
+    try {
+      const response = await fetch(`https://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(address)}`);
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lon: parseFloat(data[0].lon)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Geocoding failed for address:', address, error);
+      return null;
+    }
+  };
+
+  // Helper function to calculate distance using OSRM
+  const calculateDistance = async (addresses: PickupDrop[]): Promise<number | null> => {
+    try {
+      // Get coordinates for all addresses
+      const coordinates = [];
+      for (const addr of addresses) {
+        if (addr.address) {
+          const coords = await geocodeAddress(addr.address);
+          if (coords) {
+            coordinates.push([coords.lon, coords.lat]);
+          }
+        }
+      }
+
+      if (coordinates.length < 2) {
+        console.warn('Need at least 2 coordinates for distance calculation');
+        return null;
+      }
+
+      // Build OSRM route request
+      const coordinateString = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(';');
+      const response = await fetch(`https://osrm.jonworgen.cloudns.be/route/v1/driving/${coordinateString}?overview=false&alternatives=false&steps=false`);
+      const data = await response.json();
+
+      if (data && data.routes && data.routes.length > 0) {
+        // Distance is in meters, convert to kilometers
+        return data.routes[0].distance / 1000;
+      }
+      return null;
+    } catch (error) {
+      console.error('Distance calculation failed:', error);
+      return null;
+    }
+  };
+
   const handleExtractWithAI = async () => {
     if (!files || files.length === 0) {
       toast({
@@ -282,6 +336,22 @@ const NewOrder = () => {
       
       if (newPickupsDrops.length > 0) {
         setPickupsDrops(newPickupsDrops);
+        
+        // Calculate distance using Nominatim + OSRM
+        if (newPickupsDrops.length >= 2) {
+          try {
+            console.log('Calculating distance between addresses...');
+            const distance = await calculateDistance(newPickupsDrops);
+            if (distance) {
+              const distanceInMiles = (distance * 0.621371).toFixed(0); // Convert km to miles
+              setLoadedMiles(distanceInMiles);
+              console.log(`Distance calculated: ${distance} km (${distanceInMiles} miles)`);
+            }
+          } catch (error) {
+            console.error('Distance calculation failed:', error);
+            // Don't throw error, just log it - distance calculation is optional
+          }
+        }
       }
 
       toast({
