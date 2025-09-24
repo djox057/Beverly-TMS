@@ -50,7 +50,7 @@ serve(async (req) => {
         const encodedAddress = encodeURIComponent(addr.address);
         console.log('Encoded address for Nominatim:', encodedAddress);
         
-        const response = await fetch(`https://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
+        const response = await fetch(`http://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
         
         if (!response.ok) {
           console.error(`Nominatim API returned ${response.status} for address: ${addr.address}`);
@@ -91,7 +91,7 @@ serve(async (req) => {
     try {
       console.log('Calculating route distance with coordinates:', coordinates);
       const osrmCoords = coordinates.map(coord => `${coord[0]},${coord[1]}`).join(';');
-      const osrmUrl = `https://osrm.jonworgen.cloudns.be/route/v1/driving/${osrmCoords}?overview=false&alternatives=false&steps=false`;
+      const osrmUrl = `http://osrm.jonworgen.cloudns.be/route/v1/driving/${osrmCoords}?overview=false&alternatives=false&steps=false`;
       console.log('OSRM URL:', osrmUrl);
       
       const osrmResponse = await fetch(osrmUrl);
