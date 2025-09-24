@@ -305,7 +305,7 @@ Return JSON with these exact fields (only include fields you can find):
     }
 
     const messagesResult = await messagesResponse.json();
-    const assistantMessages = messagesResult.data.filter(msg => msg.role === 'assistant');
+    const assistantMessages = messagesResult.data.filter((msg: any) => msg.role === 'assistant');
     
     if (assistantMessages.length === 0) {
       throw new Error('No assistant response found');
@@ -336,7 +336,7 @@ Return JSON with these exact fields (only include fields you can find):
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
       console.error('Content that failed to parse:', extractedContent);
-      throw new Error(`Failed to parse extraction result: ${parseError.message}`);
+      throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
     }
 
     // Step 3: Clean up resources
@@ -403,7 +403,7 @@ Return JSON with these exact fields (only include fields you can find):
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         message: 'Failed to extract data from PDF'
       }),
       {

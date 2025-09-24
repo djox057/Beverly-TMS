@@ -81,15 +81,12 @@ export const generateInvoicePDF = async (orders: Order[]) => {
 
   const groupValues = Object.values(groupedOrders);
   const isMultipleInvoices = groupValues.length > 1;
-  let folderName = '';
 
-  // If multiple invoices, use simple "folder" name
-  if (isMultipleInvoices) {
-    folderName = 'folder';
-  }
+  // Collect all invoice data for edge function
+  const invoiceData = [];
 
   // Generate PDF for each broker/company combination
-  for (const [index, group] of groupValues.entries()) {
+  for (const group of groupValues) {
     const doc = new jsPDF();
     
     // Header - Company name and INVOICE
@@ -106,7 +103,6 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     doc.text('Bill To:', 22, 48);
     doc.setFont('helvetica', 'normal');
     doc.text(group.brokerName, 22, 55);
-    // Note: Broker address would need to be added to data model
     
     // Invoice details table (right side)
     const currentDate = new Date().toLocaleDateString();
@@ -114,7 +110,6 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     
     // Generate filename with new format
     const baseFilename = `${invoiceNumber}.pdf`;
-    const filename = isMultipleInvoices ? `${folderName}/${baseFilename}` : baseFilename;
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -188,7 +183,6 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       doc.text(order.truckNumber, 42, yPosition + 5);
       doc.text(order.brokerLoadNumber, 62, yPosition + 5);
       
-      // Split origin-destination into two lines
       const lines = doc.splitTextToSize(originDestination, 48);
       doc.text(lines, 87, yPosition + 4);
       
@@ -205,16 +199,15 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       yPosition += 12;
     });
     
-    // Freight Income row
+    // Freight Income and additional fees
     doc.rect(135, yPosition, 40, 8);
     doc.rect(175, yPosition, 25, 8);
     doc.setFont('helvetica', 'bold');
     doc.text('Freight Income', 137, yPosition + 5);
     doc.text(`$${freightTotal.toLocaleString()}`, 177, yPosition + 5);
-    
     yPosition += 8;
     
-    // Additional fees (if any exist)
+    // Additional fees sections...
     if (detentionTotal > 0) {
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
@@ -255,18 +248,16 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       yPosition += 8;
     }
     
-    // Calculate final total from totalFreightAmount
+    // Total
     const finalTotal = group.orders.reduce((sum, order) => sum + order.totalFreightAmount, 0);
-    
-    // Total row
     doc.rect(155, yPosition, 20, 8);
     doc.rect(175, yPosition, 25, 8);
     doc.text('TOTAL:', 157, yPosition + 5);
     doc.text(`$${finalTotal.toLocaleString()}`, 177, yPosition + 5);
     
-    // Notice of Assignment section
+    // Notice section
     yPosition += 30;
-    doc.setTextColor(255, 0, 0); // Red color
+    doc.setTextColor(255, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.text('NOTICE OF ASSIGNMENT', 105, yPosition, { align: 'center' });
     
@@ -286,19 +277,17 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     });
     
     // Footer
-    doc.setTextColor(0, 0, 0); // Black color
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(8);
     doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
     doc.text('Page 1 Of 1', 190, 280);
     
-    // Get invoice PDF as bytes
+    // Get PDF bytes and collect RC/POD files
     const invoicePdfBytes = doc.output('arraybuffer');
-    
-    // Collect all RC and POD files
     const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
     const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
     
-    // If we have RC or POD files, merge them with the invoice
+    // If we have RC or POD files, merge them first
     if (allRcFiles.length > 0 || allPodFiles.length > 0) {
       try {
         const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
@@ -309,36 +298,105 @@ export const generateInvoicePDF = async (orders: Order[]) => {
           }
         });
         
-        if (mergeError) {
-          console.error('Error merging PDFs:', mergeError);
-          // Fallback to just the invoice
-          doc.save(filename);
+        if (!mergeError && mergeResult?.pdfBytes) {
+          invoiceData.push({
+            filename: baseFilename,
+            pdfBytes: mergeResult.pdfBytes
+          });
         } else {
-          // Download the merged PDF
-          const mergedBytes = new Uint8Array(mergeResult.pdfBytes);
-          const blob = new Blob([mergedBytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
+          // Fallback to just the invoice
+          invoiceData.push({
+            filename: baseFilename,
+            pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
+          });
+        }
+      } catch (error) {
+        // Fallback to just the invoice
+        invoiceData.push({
+          filename: baseFilename,
+          pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
+        });
+      }
+    } else {
+      // No additional files, just use the invoice
+      invoiceData.push({
+        filename: baseFilename,
+        pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
+      });
+    }
+  }
+
+  // Use edge function to handle folder creation
+  try {
+    const { data: result, error } = await supabase.functions.invoke('create-invoice-folder', {
+      body: {
+        invoices: invoiceData,
+        folderName: isMultipleInvoices ? 'folder' : undefined
+      }
+    });
+
+    if (error) {
+      console.error('Error creating invoice folder:', error);
+      // Fallback: download files individually
+      invoiceData.forEach((invoice, index) => {
+        const blob = new Blob([new Uint8Array(invoice.pdfBytes)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = invoice.filename;
+        document.body.appendChild(link);
+        setTimeout(() => {
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
-        }
-      } catch (error) {
-        console.error('Error in PDF merge process:', error);
-        // Fallback to just the invoice
-        doc.save(filename);
-      }
-    } else {
-      // No RC/POD files, just save the invoice
-      if (index === 0) {
-        doc.save(filename);
-      } else {
-        // For multiple PDFs, we need to create separate documents
-        setTimeout(() => doc.save(filename), index * 100);
-      }
+        }, index * 200);
+      });
+      return;
     }
+
+    // Handle the result from edge function
+    if (result.singleFile) {
+      // Single file download
+      const blob = new Blob([new Uint8Array(result.singleFile.pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.singleFile.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } else if (result.multipleFiles) {
+      // Multiple files - download sequentially to simulate folder
+      result.multipleFiles.files.forEach((file: any, index: number) => {
+        const blob = new Blob([new Uint8Array(file.pdfBytes)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.filename;
+        document.body.appendChild(link);
+        setTimeout(() => {
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }, index * 300);
+      });
+    }
+  } catch (error) {
+    console.error('Error in invoice generation:', error);
+    // Fallback: download files individually
+    invoiceData.forEach((invoice, index) => {
+      const blob = new Blob([new Uint8Array(invoice.pdfBytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = invoice.filename;
+      document.body.appendChild(link);
+      setTimeout(() => {
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, index * 200);
+    });
   }
 };
