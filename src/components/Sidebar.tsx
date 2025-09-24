@@ -55,7 +55,7 @@ export const Sidebar = () => {
         <SidebarGroup>
           <div className="flex items-center justify-between">
             <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-            <SidebarTrigger className="ml-auto" />
+            {state !== "collapsed" && <SidebarTrigger className="ml-auto" />}
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
