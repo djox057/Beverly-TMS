@@ -7,7 +7,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import Login from "./pages/Login";
+import AdminUsers from "./pages/AdminUsers";
 import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
 import Orders from "./pages/Orders";
@@ -30,7 +31,12 @@ const App = () => (
           <Toaster />
           <Sonner />
           <Routes>
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/admin/users" element={
+              <ProtectedRoute requiredRole="admin">
+                <Layout><AdminUsers /></Layout>
+              </ProtectedRoute>
+            } />
             <Route path="/" element={
               <ProtectedRoute>
                 <Layout><Index /></Layout>
