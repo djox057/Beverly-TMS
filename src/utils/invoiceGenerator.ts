@@ -1,25 +1,6 @@
 import jsPDF from 'jspdf';
 import { supabase } from '@/integrations/supabase/client';
 
-// Helper function to convert PDF to image using edge function
-const convertPdfToImage = async (filePath: string): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase.functions.invoke('convert-pdf-to-image', {
-      body: { filePath }
-    });
-
-    if (error) {
-      console.error('Error converting PDF to image:', error);
-      return null;
-    }
-
-    return data.imageData;
-  } catch (error) {
-    console.error('Error calling PDF conversion function:', error);
-    return null;
-  }
-};
-
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
@@ -291,131 +272,63 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       doc.text(line, 105, yPosition + (i * 5), { align: 'center' });
     });
     
-    // Get all RC and POD files for this group
-    const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
-    const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
-    const totalPages = 1 + allRcFiles.length + allPodFiles.length;
-    
-    // Update footer with correct page count
+    // Footer
     doc.setTextColor(0, 0, 0); // Black color
     doc.setFontSize(8);
     doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
-    doc.text(`Page 1 Of ${totalPages}`, 190, 280);
+    doc.text('Page 1 Of 1', 190, 280);
     
-    // Add RC file pages
-    let currentPage = 1;
-    for (const file of allRcFiles) {
-      doc.addPage();
-      currentPage++;
-      
-      // Add RC file header
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('RATE CONFIRMATION', 105, 30, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`File: ${file.file_name}`, 20, 50);
-      
-      // Load and display file content
-      if (file.content_type.startsWith('image/')) {
-        const fileData = await loadFileAsBase64(file.file_path);
-        if (fileData) {
-          try {
-            // Add image to PDF
-            const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
-            doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
-          } catch (error) {
-            console.error('Error adding image:', error);
-            doc.text('Error loading image file', 20, 70);
+    // Get invoice PDF as bytes
+    const invoicePdfBytes = doc.output('arraybuffer');
+    
+    // Collect all RC and POD files
+    const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
+    const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
+    
+    // If we have RC or POD files, merge them with the invoice
+    if (allRcFiles.length > 0 || allPodFiles.length > 0) {
+      try {
+        const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
+          body: {
+            invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
+            rcFiles: allRcFiles,
+            podFiles: allPodFiles
           }
+        });
+        
+        if (mergeError) {
+          console.error('Error merging PDFs:', mergeError);
+          // Fallback to just the invoice
+          const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
+          doc.save(filename);
         } else {
-          doc.text('Error loading image file', 20, 70);
+          // Download the merged PDF
+          const mergedBytes = new Uint8Array(mergeResult.pdfBytes);
+          const blob = new Blob([mergedBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         }
-      } else if (file.content_type === 'application/pdf') {
-        // Convert PDF to image and display using edge function
-        const imageData = await convertPdfToImage(file.file_path);
-        if (imageData) {
-          try {
-            doc.addImage(`data:image/png;base64,${imageData}`, 'PNG', 20, 70, 170, 180);
-          } catch (error) {
-            console.error('Error adding PDF as image:', error);
-            doc.text('Error converting PDF to image', 20, 70);
-          }
-        } else {
-          doc.text('Error converting PDF to image', 20, 70);
-        }
-      } else {
-        doc.text(`File type: ${file.content_type}`, 20, 70);
-        doc.text('File preview not available for this format', 20, 85);
+      } catch (error) {
+        console.error('Error in PDF merge process:', error);
+        // Fallback to just the invoice
+        const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
+        doc.save(filename);
       }
-      
-      // Footer for RC page
-      doc.setFontSize(8);
-      doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
-      doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
-    }
-    
-    // Add POD file pages
-    for (const file of allPodFiles) {
-      doc.addPage();
-      currentPage++;
-      
-      // Add POD file header
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PROOF OF DELIVERY', 105, 30, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`File: ${file.file_name}`, 20, 50);
-      
-      // Load and display file content
-      if (file.content_type.startsWith('image/')) {
-        const fileData = await loadFileAsBase64(file.file_path);
-        if (fileData) {
-          try {
-            // Add image to PDF
-            const imgFormat = file.content_type.includes('jpeg') || file.content_type.includes('jpg') ? 'JPEG' : 'PNG';
-            doc.addImage(`data:${file.content_type};base64,${fileData}`, imgFormat, 20, 70, 170, 180);
-          } catch (error) {
-            console.error('Error adding image:', error);
-            doc.text('Error loading image file', 20, 70);
-          }
-        } else {
-          doc.text('Error loading image file', 20, 70);
-        }
-      } else if (file.content_type === 'application/pdf') {
-        // Convert PDF to image and display using edge function
-        const imageData = await convertPdfToImage(file.file_path);
-        if (imageData) {
-          try {
-            doc.addImage(`data:image/png;base64,${imageData}`, 'PNG', 20, 70, 170, 180);
-          } catch (error) {
-            console.error('Error adding PDF as image:', error);
-            doc.text('Error converting PDF to image', 20, 70);
-          }
-        } else {
-          doc.text('Error converting PDF to image', 20, 70);
-        }
-      } else {
-        doc.text(`File type: ${file.content_type}`, 20, 70);
-        doc.text('File preview not available for this format', 20, 85);
-      }
-      
-      // Footer for POD page
-      doc.setFontSize(8);
-      doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
-      doc.text(`Page ${currentPage} Of ${totalPages}`, 190, 280);
-    }
-    
-    // Save the PDF
-    const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
-    if (index === 0) {
-      doc.save(filename);
     } else {
-      // For multiple PDFs, we need to create separate documents
-      setTimeout(() => doc.save(filename), index * 100);
+      // No RC/POD files, just save the invoice
+      const filename = `invoice_${group.brokerName.replace(/[^a-zA-Z0-9]/g, '_')}_${currentDate.replace(/\//g, '-')}.pdf`;
+      if (index === 0) {
+        doc.save(filename);
+      } else {
+        // For multiple PDFs, we need to create separate documents
+        setTimeout(() => doc.save(filename), index * 100);
+      }
     }
   }
 };
