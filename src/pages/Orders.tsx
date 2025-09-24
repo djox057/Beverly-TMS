@@ -81,14 +81,14 @@ const Orders = () => {
       }
     }
     
-    // Date filtering based on pickup date
+    // Date filtering based on delivery date
     let matchesDateRange = true;
     if (dateRange?.from) {
-      const orderPickupDate = new Date(order.pickupDate.split(' - ')[0]);
-      if (dateRange.from && orderPickupDate < dateRange.from) {
+      const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
+      if (dateRange.from && orderDeliveryDate < dateRange.from) {
         matchesDateRange = false;
       }
-      if (dateRange.to && orderPickupDate > dateRange.to) {
+      if (dateRange.to && orderDeliveryDate > dateRange.to) {
         matchesDateRange = false;
       }
     }
@@ -163,7 +163,7 @@ const Orders = () => {
               <DateRangePicker
                 date={dateRange}
                 onDateChange={setDateRange}
-                placeholder="Filter by pickup date"
+                placeholder="Filter by delivery date"
                 className="w-72"
               />
               
