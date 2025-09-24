@@ -43,6 +43,7 @@ const NewOrder = () => {
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
+  const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
@@ -422,6 +423,7 @@ const NewOrder = () => {
         delivery_end_datetime: deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
+        tonu: tonu ? parseFloat(tonu) : null,
         loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
         dh_miles: dhMiles ? parseInt(dhMiles) : null,
         mileage: ((parseInt(dhMiles) || 0) + (parseInt(loadedMiles) || 0)) || null,
@@ -564,6 +566,7 @@ const NewOrder = () => {
       setDeliveryDateRange(undefined);
       setFreightAmount('');
       setDriverPrice('');
+      setTonu('');
       setDhMiles('');
       setLoadedMiles('');
       setRcFiles(null);
@@ -924,6 +927,25 @@ const NewOrder = () => {
                   placeholder="0.00" 
                   value={driverPrice} 
                   onChange={e => setDriverPrice(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tonu">TONU</Label>
+                <Input 
+                  id="tonu" 
+                  type="number" 
+                  placeholder="0.00" 
+                  value={tonu} 
+                  onChange={e => {
+                    setTonu(e.target.value);
+                    // If TONU has a value, set freight amount to 0
+                    if (e.target.value && parseFloat(e.target.value) > 0) {
+                      setFreightAmount("0");
+                    }
+                  }} 
                 />
               </div>
             </div>
