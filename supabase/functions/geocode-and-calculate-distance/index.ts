@@ -49,9 +49,13 @@ serve(async (req) => {
         console.log('Geocoding address:', addr.address);
         const encodedAddress = encodeURIComponent(addr.address);
         console.log('Encoded address for Nominatim:', encodedAddress);
-        console.log('Full Nominatim URL:', `http://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
+        console.log('Full Nominatim URL:', `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
         
-        const response = await fetch(`http://nominatim.jonworgen.cloudns.be/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`);
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodedAddress}`, {
+          headers: {
+            'User-Agent': 'Fleet Management System'
+          }
+        });
         
         console.log('Nominatim response status:', response.status);
         console.log('Nominatim response ok:', response.ok);
