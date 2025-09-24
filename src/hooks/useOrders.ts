@@ -14,7 +14,7 @@ export const useOrders = () => {
           broker:brokers!orders_broker_id_fkey(name),
           company:companies!orders_company_id_fkey(name),
           pickup_drops(type, city, state, datetime, address),
-          order_files(id, file_name, file_path, file_size, content_type)
+          order_files(id, file_name, file_path, file_size, content_type, file_category)
         `)
         .order('created_at', { ascending: false });
       
@@ -53,7 +53,11 @@ export const useOrders = () => {
             notes: order.notes || '',
             bookedBy: order.booked_by || 'N/A',
             companyName: order.company?.name || 'N/A',
-            files: order.order_files || []
+            files: order.order_files || [],
+            rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
+            bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
+            podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
+            additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || []
           };
         });
 

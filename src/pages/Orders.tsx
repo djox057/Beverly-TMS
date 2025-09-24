@@ -30,6 +30,7 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
+  const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -65,7 +66,18 @@ const Orders = () => {
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
     
-    return matchesSearch && matchesCompany && matchesBookedBy;
+    let matchesMissingDocs = true;
+    if (missingDocsFilter !== 'all') {
+      if (missingDocsFilter === 'missing-rc') {
+        matchesMissingDocs = order.rcFiles?.length === 0;
+      } else if (missingDocsFilter === 'missing-bol') {
+        matchesMissingDocs = order.bolFiles?.length === 0;
+      } else if (missingDocsFilter === 'missing-pod') {
+        matchesMissingDocs = order.podFiles?.length === 0;
+      }
+    }
+    
+    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs;
   }) || [];
 
   // Get unique companies and booked by values for filters
@@ -147,6 +159,18 @@ const Orders = () => {
                 </SelectContent>
               </Select>
               
+              <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Missing Docs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Orders</SelectItem>
+                  <SelectItem value="missing-rc">Missing RC</SelectItem>
+                  <SelectItem value="missing-bol">Missing BOL</SelectItem>
+                  <SelectItem value="missing-pod">Missing POD</SelectItem>
+                </SelectContent>
+              </Select>
+              
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
@@ -182,14 +206,17 @@ const Orders = () => {
                   <TableHead>Notes</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Booked By</TableHead>
-                  <TableHead>Files</TableHead>
+                  <TableHead>RC</TableHead>
+                  <TableHead>BOL</TableHead>
+                  <TableHead>POD</TableHead>
+                  <TableHead>Additional</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={22} className="text-center py-8 text-muted-foreground">
                       No orders found
                     </TableCell>
                   </TableRow>
@@ -216,8 +243,8 @@ const Orders = () => {
                       <TableCell>{order.bookedBy}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {order.files && order.files.length > 0 ? (
-                            order.files.map((file: any) => (
+                          {order.rcFiles && order.rcFiles.length > 0 ? (
+                            order.rcFiles.map((file: any) => (
                               <Button
                                 key={file.id}
                                 variant="outline"
@@ -230,8 +257,86 @@ const Orders = () => {
                                   window.open(data.publicUrl, '_blank');
                                 }}
                               >
-                                {file.file_name.length > 10 
-                                  ? file.file_name.substring(0, 10) + '...' 
+                                {file.file_name.length > 8 
+                                  ? file.file_name.substring(0, 8) + '...' 
+                                  : file.file_name}
+                              </Button>
+                            ))
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Missing</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {order.bolFiles && order.bolFiles.length > 0 ? (
+                            order.bolFiles.map((file: any) => (
+                              <Button
+                                key={file.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={async () => {
+                                  const { data } = supabase.storage
+                                    .from('order-files')
+                                    .getPublicUrl(file.file_path);
+                                  window.open(data.publicUrl, '_blank');
+                                }}
+                              >
+                                {file.file_name.length > 8 
+                                  ? file.file_name.substring(0, 8) + '...' 
+                                  : file.file_name}
+                              </Button>
+                            ))
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Missing</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {order.podFiles && order.podFiles.length > 0 ? (
+                            order.podFiles.map((file: any) => (
+                              <Button
+                                key={file.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={async () => {
+                                  const { data } = supabase.storage
+                                    .from('order-files')
+                                    .getPublicUrl(file.file_path);
+                                  window.open(data.publicUrl, '_blank');
+                                }}
+                              >
+                                {file.file_name.length > 8 
+                                  ? file.file_name.substring(0, 8) + '...' 
+                                  : file.file_name}
+                              </Button>
+                            ))
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Missing</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {order.additionalFiles && order.additionalFiles.length > 0 ? (
+                            order.additionalFiles.map((file: any) => (
+                              <Button
+                                key={file.id}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={async () => {
+                                  const { data } = supabase.storage
+                                    .from('order-files')
+                                    .getPublicUrl(file.file_path);
+                                  window.open(data.publicUrl, '_blank');
+                                }}
+                              >
+                                {file.file_name.length > 8 
+                                  ? file.file_name.substring(0, 8) + '...' 
                                   : file.file_name}
                               </Button>
                             ))

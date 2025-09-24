@@ -250,6 +250,7 @@ const EditOrder = () => {
               file_path: fileName,
               file_size: file.size,
               content_type: file.type,
+              file_category: 'ADDITIONAL',
               uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
             });
             
