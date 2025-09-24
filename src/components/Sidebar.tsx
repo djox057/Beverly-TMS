@@ -52,11 +52,11 @@ export const Sidebar = () => {
   return (
     <SidebarPrimitive>
       <SidebarContent>
-        <div className="p-2 border-b border-border">
-          <SidebarTrigger className="ml-auto" />
-        </div>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <div className="flex items-center justify-between">
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarTrigger className="ml-auto" />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
