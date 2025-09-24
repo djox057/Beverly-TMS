@@ -105,7 +105,7 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        setTrailer(selectedTruck.trailer_id || '');
+        setTrailer(selectedTruck.trailer?.trailer_number || '');
         setDriver1(selectedTruck.driver1?.id || '');
         setDriver2(selectedTruck.driver2?.id || '');
       }
@@ -414,7 +414,7 @@ const NewOrder = () => {
         company_id: bookedByCompany,
         broker_id: broker || null,
         truck_id: truck || null,
-        trailer_id: trailer || null,
+        trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,

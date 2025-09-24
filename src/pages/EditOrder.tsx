@@ -109,7 +109,8 @@ const EditOrder = () => {
         .select(`
           *,
           pickup_drops(*),
-          order_files(*)
+          order_files(*),
+          trailer:trailer_id(trailer_number)
         `)
         .eq('id', id)
         .single();
@@ -126,7 +127,7 @@ const EditOrder = () => {
         setBookedByCompany(orderData.company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
-        setTrailer(orderData.trailer_id || "");
+        setTrailer(orderData.trailer?.trailer_number || "");
         setDriver1(orderData.driver1_id || "");
         setDriver2(orderData.driver2_id || "");
         setBrokerLoadNumber(orderData.broker_load_number || "");
@@ -519,7 +520,7 @@ const EditOrder = () => {
           company_id: bookedByCompany || null,
           broker_id: broker || null,
           truck_id: truck || null,
-          trailer_id: trailer || null,
+          trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
           driver1_id: driver1 || null,
           driver2_id: driver2 || null,
           freight_amount: freightAmount ? parseFloat(freightAmount) : null,
