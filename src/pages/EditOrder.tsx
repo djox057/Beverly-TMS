@@ -999,36 +999,70 @@ const EditOrder = () => {
 
             {/* File Upload Sections */}
             {/* RC Upload Section - Top Priority */}
-            <Card className="bg-blue-50/50 border-blue-200">
+            <Card 
+              className={cn(
+                "cursor-pointer transition-all duration-200 hover:shadow-md",
+                dragStates.rc && "border-blue-400 bg-blue-50/50 scale-[1.02]"
+              )}
+              {...rcDragHandlers}
+            >
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-blue-700">RC (Rate Confirmation) Upload</CardTitle>
+                <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  RC (Rate Confirmation) Upload
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="rc-files" className="text-sm font-medium">Upload RC Files</Label>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleExtractWithAI}
-                      disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')}
-                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      {isExtracting ? "Extracting..." : "Extract with AI"}
-                    </Button>
-                  </div>
-                  <Input 
-                    id="rc-files" 
-                    type="file" 
-                    multiple 
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setRcFiles(e.target.files)} 
-                    className="border-blue-300 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-blue-600">Upload rate confirmation files. AI extraction works only with PDF files.</p>
+              <CardContent>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-blue-700">
+                    {rcFiles && rcFiles.length > 0 
+                      ? `${rcFiles.length} file(s) selected` 
+                      : "Click or drag files here"
+                    }
+                  </p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleExtractWithAI}
+                    disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')}
+                    className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                    data-ai-extract="true"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {isExtracting ? "Extracting..." : "Extract with AI"}
+                  </Button>
                 </div>
+                
+                {dragStates.rc ? (
+                  <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
+                    <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
+                    <p className="text-sm text-blue-600 font-medium">Drop files here</p>
+                  </div>
+                ) : (
+                  <>
+                    {rcFiles && rcFiles.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {Array.from(rcFiles).map((file, index) => (
+                          <div key={index} className="flex items-center gap-1 text-sm text-gray-600">
+                            <FileText className="h-4 w-4" />
+                            <span className="truncate">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                <input 
+                  ref={rcFileInputRef}
+                  type="file" 
+                  multiple 
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={e => setRcFiles(e.target.files)} 
+                  className="hidden"
+                />
+                <p className="text-xs text-blue-600">Rate confirmation files. AI extraction works only with PDF files.</p>
               </CardContent>
             </Card>
 
