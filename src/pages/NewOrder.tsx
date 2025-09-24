@@ -286,12 +286,12 @@ const NewOrder = () => {
           id: "pickup-1",
           type: "pickup",
           address: extractedData.pickupZip 
-            ? `${extractedData.pickupAddress}\n${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
-            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `\n${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
+            ? `${extractedData.pickupAddress}, ${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
+            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
-          startTime: "08:00",
-          endTime: "17:00"
+          startTime: extractedData.pickupStartTime || "08:00",
+          endTime: extractedData.pickupEndTime || "17:00"
         });
       }
       
@@ -306,12 +306,12 @@ const NewOrder = () => {
           id: "delivery-1",
           type: "delivery", 
           address: extractedData.deliveryZip 
-            ? `${extractedData.deliveryAddress}\n${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
-            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `\n${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
+            ? `${extractedData.deliveryAddress}, ${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
+            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
-          startTime: "08:00",
-          endTime: "17:00"
+          startTime: extractedData.deliveryStartTime || "08:00",
+          endTime: extractedData.deliveryEndTime || "17:00"
         });
       }
       

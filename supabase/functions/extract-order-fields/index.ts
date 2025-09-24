@@ -18,6 +18,8 @@ interface ExtractedOrderData {
   pickupDate?: string;
   pickupStartDate?: string;
   pickupEndDate?: string;
+  pickupStartTime?: string;
+  pickupEndTime?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryState?: string;
@@ -25,6 +27,8 @@ interface ExtractedOrderData {
   deliveryDate?: string;
   deliveryStartDate?: string;
   deliveryEndDate?: string;
+  deliveryStartTime?: string;
+  deliveryEndTime?: string;
   freightAmount?: number;
   mileage?: number;
   commodity?: string;
@@ -146,11 +150,15 @@ Return JSON with these exact fields (only include fields you can find):
   "pickupState": "string - ONLY the 2-letter pickup state code (TX, CA, NY, etc.)",
   "pickupZip": "string - pickup ZIP code (5-digit or 9-digit format)",
   "pickupDate": "string - pickup date in YYYY-MM-DD format",
+  "pickupStartTime": "string - pickup start time in HH:MM format (24-hour)",
+  "pickupEndTime": "string - pickup end time in HH:MM format (24-hour)",
   "deliveryAddress": "string - complete delivery street address (without city/state/zip)",
   "deliveryCity": "string - ONLY the delivery city name (no zip codes or extra info)", 
   "deliveryState": "string - ONLY the 2-letter delivery state code (TX, CA, NY, etc.)",
   "deliveryZip": "string - delivery ZIP code (5-digit or 9-digit format)",
   "deliveryDate": "string - delivery date in YYYY-MM-DD format",
+  "deliveryStartTime": "string - delivery start time in HH:MM format (24-hour)",
+  "deliveryEndTime": "string - delivery end time in HH:MM format (24-hour)",
   "freightAmount": number - freight cost as number (no $ or commas),
   "mileage": number - total miles as number,
   "commodity": "string - type of goods/freight being shipped",
