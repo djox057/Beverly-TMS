@@ -237,7 +237,7 @@ export const calculateRouteDistance = async (
   end: Coordinates
 ): Promise<number | null> => {
   try {
-    const url = `http://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
     
     console.log('🚛 Route calculation request:', {
       startCoords: start,
