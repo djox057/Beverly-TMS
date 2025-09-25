@@ -1,6 +1,3 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,15 +15,15 @@ interface EditingState {
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
-      return <Badge className="bg-primary text-primary-foreground">In Transit</Badge>;
+      return <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 border border-blue-200">In Transit</span>;
     case "Loading":
-      return <Badge className="bg-warning text-warning-foreground">Loading</Badge>;
+      return <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 border border-yellow-200">Loading</span>;
     case "Available":
-      return <Badge className="bg-success text-success-foreground">Available</Badge>;
+      return <span className="px-2 py-1 text-xs bg-green-100 text-green-800 border border-green-200">Available</span>;
     case "Maintenance":
-      return <Badge variant="destructive">Maintenance</Badge>;
+      return <span className="px-2 py-1 text-xs bg-red-100 text-red-800 border border-red-200">Maintenance</span>;
     default:
-      return <Badge variant="secondary">{status}</Badge>;
+      return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 border border-gray-200">{status}</span>;
   }
 };
 
@@ -145,7 +142,7 @@ const Reports = () => {
         <div className="flex items-center gap-2">
           {field === 'status' ? (
             <Select value={editing.value} onValueChange={(value) => setEditing({...editing, value})}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-32 h-8 text-xs border-gray-300 rounded-none">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -158,35 +155,35 @@ const Reports = () => {
             <Textarea
               value={editing.value}
               onChange={(e) => setEditing({...editing, value: e.target.value})}
-              className="min-h-[60px]"
+              className="min-h-[60px] text-xs border-gray-300 rounded-none resize-none"
             />
           ) : field.includes('date') ? (
             <Input
               type="date"
               value={editing.value}
               onChange={(e) => setEditing({...editing, value: e.target.value})}
-              className="w-36"
+              className="w-36 h-8 text-xs border-gray-300 rounded-none"
             />
           ) : field.includes('time') ? (
             <Input
               type="time"
               value={editing.value}
               onChange={(e) => setEditing({...editing, value: e.target.value})}
-              className="w-32"
+              className="w-32 h-8 text-xs border-gray-300 rounded-none"
             />
           ) : (
             <Input
               value={editing.value}
               onChange={(e) => setEditing({...editing, value: e.target.value})}
-              className="min-w-[150px]"
+              className="min-w-[150px] h-8 text-xs border-gray-300 rounded-none"
             />
           )}
           <div className="flex gap-1">
-            <button onClick={handleSave} className="text-green-600 hover:text-green-800">
-              <Check className="h-4 w-4" />
+            <button onClick={handleSave} className="text-green-600 hover:text-green-800 p-1">
+              <Check className="h-3 w-3" />
             </button>
-            <button onClick={handleCancel} className="text-red-600 hover:text-red-800">
-              <X className="h-4 w-4" />
+            <button onClick={handleCancel} className="text-red-600 hover:text-red-800 p-1">
+              <X className="h-3 w-3" />
             </button>
           </div>
         </div>
@@ -195,119 +192,123 @@ const Reports = () => {
 
     return (
       <div
-        className="flex items-center gap-2 cursor-pointer group hover:bg-muted/50 p-1 rounded min-h-[2rem]"
+        className="flex items-center gap-2 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem] w-full"
         onClick={() => handleEdit(truckId, field, value)}
       >
-        <div className="flex-1">
+        <div className="flex-1 text-sm">
           {displayValue || value || "—"}
         </div>
-        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50 text-gray-500" />
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Dispatcher Fleet Reports</h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <AlertCircle className="h-4 w-4" />
+    <div className="min-h-screen bg-white">
+      {/* Google Sheets-style header */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+        <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
+        <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
+          <AlertCircle className="h-3 w-3" />
           Real-time fleet status by dispatcher assignment
         </div>
       </div>
 
       {groupedReports && Object.keys(groupedReports).length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8 text-muted-foreground">
+        <div className="p-6">
+          <div className="text-center py-12 text-gray-500">
             No trucks assigned to dispatchers found
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : (
-        Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
-          <Card key={dispatcherId}>
-            <CardHeader>
-              <CardTitle>
-                {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Truck #</TableHead>
-                      <TableHead>Driver</TableHead>
-                      <TableHead>Home</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Pickup Location</TableHead>
-                      <TableHead>Pickup Date</TableHead>
-                      <TableHead>Pickup Time</TableHead>
-                      <TableHead>Delivery Location</TableHead>
-                      <TableHead>Delivery Date</TableHead>
-                      <TableHead>Delivery Time</TableHead>
-                      <TableHead>Away (D)</TableHead>
-                      <TableHead>Drive</TableHead>
-                      <TableHead>Shift</TableHead>
-                      <TableHead>Cycle</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead>Last Edit</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.trucks.map((truck) => (
-                      <TableRow key={truck.id}>
-                        <TableCell className="font-medium">{truck.truckNumber}</TableCell>
-                        <TableCell>{truck.driver}</TableCell>
-                        <TableCell>
+        <div className="px-6 py-4 space-y-8">
+          {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
+            <div key={dispatcherId} className="bg-white">
+              {/* Dispatcher header - Google Sheets style */}
+              <div className="mb-2">
+                <h2 className="text-sm font-medium text-gray-900 px-1">
+                  {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
+                </h2>
+              </div>
+              
+              {/* Google Sheets-style table */}
+              <div className="overflow-x-auto border border-gray-300">
+                <table className="w-full border-collapse bg-white">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Status</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Pickup Location</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Pickup Date</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Pickup Time</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Delivery Location</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Delivery Date</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Delivery Time</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Cycle</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Note</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Last Edit</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.trucks.map((truck, index) => (
+                      <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium">{truck.truckNumber}</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driver}</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <MapPin className="h-3 w-3 text-gray-500" />
                             {truck.home}
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm">
                           {renderEditableField(
                             truck.id,
                             'status',
                             truck.status,
                             getStatusBadge(truck.status)
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'pickup-location', truck.pickup.location)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'pickup-date', truck.pickup.date)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'pickup-time', truck.pickup.time)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'delivery-location', truck.delivery.location)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'delivery-date', truck.delivery.date)}
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'delivery-time', truck.delivery.time)}
-                        </TableCell>
-                        <TableCell>{truck.awayDays}</TableCell>
-                        <TableCell>{truck.driveHours}h</TableCell>
-                        <TableCell>{truck.shiftHours}h</TableCell>
-                        <TableCell>{truck.cycleHours}h</TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.shiftHours}h</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.cycleHours}h</td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
                           {renderEditableField(truck.id, 'note', truck.note)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.lastEdit}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{truck.editDate}</TableCell>
-                      </TableRow>
+                        </td>
+                        <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.lastEdit}</td>
+                        <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.editDate}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            </CardContent>
-          </Card>
-        ))
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
