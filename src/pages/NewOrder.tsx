@@ -331,6 +331,7 @@ const NewOrder = () => {
       }
       if (extractedData.freightAmount) {
         setFreightAmount(extractedData.freightAmount.toString());
+        setDriverPrice(extractedData.freightAmount.toString()); // Auto-populate driver price with same amount
       }
       if (extractedData.mileage) {
         setLoadedMiles(extractedData.mileage.toString());
