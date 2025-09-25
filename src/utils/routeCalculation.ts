@@ -5,6 +5,23 @@ interface Coordinates {
   lon: number;
 }
 
+interface AddressComponents {
+  street?: string;
+  city?: string;
+  county?: string;
+  state?: string;
+  postalcode?: string;
+}
+
+interface GeocodingReport {
+  strategyStats: {
+    [key: string]: {
+      attempts: number;
+      successes: number;
+    };
+  };
+}
+
 interface OSRMRoute {
   routes: {
     distance: number; // in meters
@@ -12,8 +29,128 @@ interface OSRMRoute {
   }[];
 }
 
+// Global report for tracking geocoding strategy statistics
+const report: GeocodingReport = {
+  strategyStats: {}
+};
+
 /**
- * Geocode an address using Nominatim API
+ * Parse address components from a full address string
+ */
+const parseAddressComponents = (address: string): AddressComponents => {
+  const components: AddressComponents = {};
+  
+  // Common patterns for address parsing
+  const zipMatch = address.match(/\b(\d{5}(?:-\d{4})?)\b/);
+  if (zipMatch) {
+    components.postalcode = zipMatch[1];
+  }
+  
+  const stateMatch = address.match(/\b([A-Z]{2})\b/);
+  if (stateMatch) {
+    components.state = stateMatch[1];
+  }
+  
+  // Extract street (everything before first comma or before city/state/zip)
+  const streetMatch = address.match(/^([^,]+)/);
+  if (streetMatch) {
+    let street = streetMatch[1].trim();
+    // Remove suite/unit info for cleaner geocoding
+    street = street.replace(/\b(suite|ste|unit|apt|apartment|#)\s*\w+/gi, '').trim();
+    components.street = street;
+  }
+  
+  // Try to extract city - look for pattern: street, city, state zip
+  const cityStateMatch = address.match(/,\s*([^,]+?),?\s+([A-Z]{2})\s*\d{5}/);
+  if (cityStateMatch) {
+    components.city = cityStateMatch[1].trim();
+  }
+  
+  // Try to extract county from patterns like "Williams County"
+  const countyMatch = address.match(/\b(\w+\s+County)\b/i);
+  if (countyMatch) {
+    components.county = countyMatch[1];
+  }
+  
+  return components;
+};
+
+/**
+ * Build Nominatim URL from address components
+ */
+const buildNominatimUrl = (components: AddressComponents, useCounty = false): string => {
+  const baseUrl = 'https://nominatim.server4beverly.us/search';
+  const params = new URLSearchParams({
+    format: 'json',
+    limit: '5',
+    countrycodes: 'us'
+  });
+  
+  if (components.street) params.append('street', components.street);
+  if (useCounty && components.county) {
+    params.append('county', components.county);
+  } else if (components.city) {
+    params.append('city', components.city);
+  }
+  if (components.state) params.append('state', components.state);
+  if (components.postalcode) params.append('postalcode', components.postalcode);
+  
+  return `${baseUrl}?${params.toString()}`;
+};
+
+/**
+ * Try a single geocoding strategy
+ */
+const tryGeocodingStrategy = async (
+  url: string, 
+  strategyName: string, 
+  originalAddress: string
+): Promise<Coordinates | null> => {
+  // Initialize strategy stats if not exists
+  if (!report.strategyStats[strategyName]) {
+    report.strategyStats[strategyName] = { attempts: 0, successes: 0 };
+  }
+  
+  report.strategyStats[strategyName].attempts++;
+  
+  console.log(`🌍 Trying strategy "${strategyName}":`, {
+    originalAddress,
+    url
+  });
+  
+  try {
+    const response = await fetch(url);
+    console.log(`🌍 ${strategyName} response status:`, response.status);
+    
+    if (!response.ok) {
+      console.error(`❌ ${strategyName} API error:`, response.status, response.statusText);
+      return null;
+    }
+    
+    const data = await response.json();
+    console.log(`🌍 ${strategyName} response data:`, data);
+    
+    if (data && data.length > 0) {
+      const coords = {
+        lat: parseFloat(data[0].lat),
+        lon: parseFloat(data[0].lon)
+      };
+      
+      report.strategyStats[strategyName].successes++;
+      console.log(`✅ ${strategyName} successful:`, coords);
+      return coords;
+    }
+    
+    console.warn(`⚠️ ${strategyName} returned no results`);
+    return null;
+  } catch (error) {
+    console.error(`❌ ${strategyName} error:`, error);
+    return null;
+  }
+};
+
+/**
+ * Geocode an address using Nominatim API with multiple strategies including county fallback
  * @param address The address to geocode
  * @returns Promise<Coordinates | null>
  */
@@ -23,44 +160,70 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
     return null;
   }
 
+  const components = parseAddressComponents(address);
+  console.log('📍 Parsed address components:', components);
+
+  // Strategy 1: Full cleaned address
   try {
-    const encodedAddress = encodeURIComponent(address.trim());
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1&countrycodes=us`;
+    const cleanedAddress = address.trim().replace(/\b(suite|ste|unit|apt|apartment|#)\s*\w+/gi, '').trim();
+    const encodedAddress = encodeURIComponent(cleanedAddress);
+    const fullUrl = `https://nominatim.server4beverly.us/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`;
     
-    console.log('🌍 Geocoding request:', {
-      originalAddress: address,
-      encodedAddress,
-      url
-    });
-    
-    const response = await fetch(url);
-    
-    console.log('🌍 Nominatim response status:', response.status);
-    
-    if (!response.ok) {
-      console.error('❌ Nominatim API error:', response.status, response.statusText);
-      throw new Error(`Nominatim API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    console.log('🌍 Nominatim response data:', data);
-    
-    if (data && data.length > 0) {
-      const coords = {
-        lat: parseFloat(data[0].lat),
-        lon: parseFloat(data[0].lon)
-      };
-      console.log('✅ Geocoding successful:', coords);
-      return coords;
-    }
-    
-    console.warn('⚠️ No geocoding results found for address:', address);
-    return null;
+    const result = await tryGeocodingStrategy(fullUrl, "Full Cleaned Address", address);
+    if (result) return result;
   } catch (error) {
-    console.error('❌ Geocoding error for address:', address, error);
-    return null;
+    console.error('❌ Strategy 1 failed:', error);
   }
+
+  // Strategy 2: Full address + USA
+  try {
+    const addressWithUSA = `${address.trim()}, USA`;
+    const encodedAddress = encodeURIComponent(addressWithUSA);
+    const usaUrl = `https://nominatim.server4beverly.us/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`;
+    
+    const result = await tryGeocodingStrategy(usaUrl, "Full Address + USA", address);
+    if (result) return result;
+  } catch (error) {
+    console.error('❌ Strategy 2 failed:', error);
+  }
+
+  // Strategy 3: Structured query with city
+  if (components.street && components.city && components.state) {
+    try {
+      const structuredUrl = buildNominatimUrl(components, false);
+      const result = await tryGeocodingStrategy(structuredUrl, "Street + City + State + ZIP", address);
+      if (result) return result;
+    } catch (error) {
+      console.error('❌ Strategy 3 failed:', error);
+    }
+  }
+
+  // Strategy 4: NEW - Structured query with county (if county and state available)
+  if (components.street && components.county && components.state) {
+    try {
+      const countyUrl = buildNominatimUrl(components, true);
+      const result = await tryGeocodingStrategy(countyUrl, "Street + County + State + ZIP", address);
+      if (result) return result;
+    } catch (error) {
+      console.error('❌ Strategy 4 (County) failed:', error);
+    }
+  }
+
+  // Strategy 5: ZIP code only (final fallback)
+  if (components.postalcode) {
+    try {
+      const zipUrl = `https://nominatim.server4beverly.us/search?format=json&postalcode=${components.postalcode}&countrycodes=us&limit=5`;
+      const result = await tryGeocodingStrategy(zipUrl, "ZIP Code Only", address);
+      if (result) return result;
+    } catch (error) {
+      console.error('❌ Strategy 5 failed:', error);
+    }
+  }
+
+  // Log final strategy stats
+  console.log('📊 Final geocoding strategy stats:', report.strategyStats);
+  console.warn('❌ All geocoding strategies failed for address:', address);
+  return null;
 };
 
 /**
