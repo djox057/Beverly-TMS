@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { calculateLoadedMiles } from "@/utils/routeCalculation";
 
 interface PickupDrop {
   id: string;
@@ -53,6 +54,7 @@ const NewOrder = () => {
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -111,6 +113,45 @@ const NewOrder = () => {
       }
     }
   }, [truck, trucks]);
+
+  // Auto-calculate loaded miles when pickup and delivery addresses change
+  useEffect(() => {
+    const calculateMiles = async () => {
+      if (pickupsDrops.length < 2) return;
+
+      const pickupLocation = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
+      const deliveryLocation = pickupsDrops.find(item => item.type === 'delivery' && item.address.trim());
+
+      if (!pickupLocation || !deliveryLocation) {
+        return;
+      }
+
+      setIsCalculatingMiles(true);
+      try {
+        const miles = await calculateLoadedMiles(pickupLocation.address, deliveryLocation.address);
+        if (miles !== null) {
+          setLoadedMiles(miles.toString());
+          toast({
+            title: "Loaded Miles Calculated",
+            description: `Route distance: ${miles} miles`,
+          });
+        }
+      } catch (error) {
+        console.error('Error calculating loaded miles:', error);
+        toast({
+          title: "Calculation Failed",
+          description: "Unable to calculate loaded miles automatically",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCalculatingMiles(false);
+      }
+    };
+
+    // Debounce the calculation to avoid too many API calls
+    const timeoutId = setTimeout(calculateMiles, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [pickupsDrops, toast]);
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
@@ -885,14 +926,33 @@ const NewOrder = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="loaded-miles">Loaded Miles</Label>
-                <Input 
-                  id="loaded-miles" 
-                  type="number" 
-                  placeholder="0" 
-                  value={loadedMiles} 
-                  onChange={e => setLoadedMiles(e.target.value)} 
-                />
+                <Label htmlFor="loaded-miles">
+                  Loaded Miles
+                  {isCalculatingMiles && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (Calculating...)
+                    </span>
+                  )}
+                </Label>
+                <div className="relative">
+                  <Input 
+                    id="loaded-miles" 
+                    type="number" 
+                    placeholder="0" 
+                    value={loadedMiles} 
+                    onChange={e => setLoadedMiles(e.target.value)} 
+                    disabled={isCalculatingMiles}
+                    className={cn(
+                      isCalculatingMiles && "bg-muted cursor-not-allowed"
+                    )}
+                  />
+                  {isCalculatingMiles && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Auto-calculated from pickup to delivery addresses
+                </p>
               </div>
 
               <div className="space-y-2">
