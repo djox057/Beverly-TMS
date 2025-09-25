@@ -438,6 +438,7 @@ export type Database = {
       }
       trucks: {
         Row: {
+          company_id: string | null
           created_at: string
           dispatcher_id: string | null
           driver1_id: string | null
@@ -454,6 +455,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
           driver1_id?: string | null
@@ -470,6 +472,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
           driver1_id?: string | null
@@ -486,6 +489,13 @@ export type Database = {
           year?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "trucks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "trucks_dispatcher_id_fkey"
             columns: ["dispatcher_id"]
