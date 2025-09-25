@@ -287,10 +287,13 @@ export const calculateLoadedMiles = async (
   pickupAddress: string,
   deliveryAddress: string
 ): Promise<number | null> => {
-  console.log('📍 Starting loaded miles calculation:', {
-    pickupAddress,
-    deliveryAddress
-  });
+  console.log('📍 =================================');
+  console.log('📍 LOADED MILES CALCULATION START');
+  console.log('📍 =================================');
+  console.log('📍 Pickup Address:', JSON.stringify(pickupAddress));
+  console.log('📍 Delivery Address:', JSON.stringify(deliveryAddress));
+  console.log('📍 Pickup Address Length:', pickupAddress?.length || 0);
+  console.log('📍 Delivery Address Length:', deliveryAddress?.length || 0);
 
   if (!pickupAddress || !deliveryAddress) {
     console.log('❌ Missing addresses for loaded miles calculation');
@@ -298,16 +301,38 @@ export const calculateLoadedMiles = async (
   }
 
   try {
-    // Geocode both addresses
-    console.log('🔄 Starting parallel geocoding...');
-    const [pickupCoords, deliveryCoords] = await Promise.all([
-      geocodeAddress(pickupAddress),
-      geocodeAddress(deliveryAddress)
-    ]);
+    // Geocode addresses sequentially for better debugging
+    console.log('🔄 =================================');
+    console.log('🔄 STARTING PICKUP GEOCODING');
+    console.log('🔄 =================================');
+    const pickupCoords = await geocodeAddress(pickupAddress);
+    
+    console.log('🔄 =================================');
+    console.log('🔄 PICKUP GEOCODING COMPLETE');
+    console.log('🔄 Result:', JSON.stringify(pickupCoords));
+    console.log('🔄 =================================');
+    
+    console.log('🔄 =================================');
+    console.log('🔄 STARTING DELIVERY GEOCODING');
+    console.log('🔄 =================================');
+    const deliveryCoords = await geocodeAddress(deliveryAddress);
+    
+    console.log('🔄 =================================');
+    console.log('🔄 DELIVERY GEOCODING COMPLETE');
+    console.log('🔄 Result:', JSON.stringify(deliveryCoords));
+    console.log('🔄 =================================');
 
-    console.log('📍 Geocoding results:', {
-      pickupCoords,
-      deliveryCoords
+    console.log('📍 FINAL GEOCODING RESULTS:', {
+      pickup: {
+        address: pickupAddress,
+        coords: pickupCoords,
+        success: !!pickupCoords
+      },
+      delivery: {
+        address: deliveryAddress, 
+        coords: deliveryCoords,
+        success: !!deliveryCoords
+      }
     });
 
     if (!pickupCoords || !deliveryCoords) {
