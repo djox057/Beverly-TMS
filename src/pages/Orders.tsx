@@ -110,7 +110,7 @@ const Orders = () => {
       'Delivery City': order.deliveryCity,
       'Delivery State': order.deliveryState,
       'Miles': order.mileage,
-      'Driver Price': order.driverPrice,
+      'Driver Rate': order.driverPrice,
       'Driver': order.driverName,
       'Broker Name': order.brokerName,
       'Broker Load #': order.brokerLoadNumber,
@@ -247,7 +247,7 @@ const Orders = () => {
                   <TableHead className="w-28">Delivery City</TableHead>
                   <TableHead className="w-16">Delivery State</TableHead>
                   <TableHead className="w-16">Miles</TableHead>
-                  <TableHead className="w-24">Driver Price</TableHead>
+                  <TableHead className="w-24">Driver Rate</TableHead>
                   <TableHead className="w-32">Driver</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
                   <TableHead className="w-28">Broker Load #</TableHead>

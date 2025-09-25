@@ -952,11 +952,11 @@ const EditOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="driver-price">Driver Price</Label>
+                <Label htmlFor="driver-price">Driver Rate</Label>
                 <Input 
                   id="driver-price" 
                   type="number" 
-                  placeholder="Driver price" 
+                  placeholder="Driver Rate" 
                   value={driverPrice} 
                   onChange={e => setDriverPrice(e.target.value)} 
                 />
