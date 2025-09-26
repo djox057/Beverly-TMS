@@ -175,13 +175,24 @@ export const useReports = () => {
 
       // Filter out trucks without dispatchers and transform the data
       const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
-        // Find all active orders first
-        const activeOrders = truck.orders?.filter(order => 
-          order.status === 'pending' || order.status === 'in_transit'
-        ) || [];
+        const now = new Date().getTime();
         
-        // If we have active orders, pick the one with earliest pickup date
-        // Otherwise, fall back to the most recent order
+        // Find orders that are temporally active (not past their delivery time)
+        const timeRelevantOrders = truck.orders?.filter(order => {
+          // If no delivery datetime, consider it active
+          if (!order.delivery_datetime) return true;
+          
+          // Check if delivery time has passed
+          const deliveryTime = new Date(order.delivery_datetime).getTime();
+          return deliveryTime > now;
+        }) || [];
+        
+        // From time-relevant orders, find active ones by status
+        const activeOrders = timeRelevantOrders.filter(order => 
+          order.status === 'pending' || order.status === 'in_transit'
+        );
+        
+        // Prioritize active orders, then time-relevant orders, then any order
         const currentOrder = truck.orders && truck.orders.length > 0 
           ? (activeOrders.length > 0 
               ? activeOrders.sort((a, b) => {
@@ -189,7 +200,13 @@ export const useReports = () => {
                   const dateB = new Date(b.pickup_datetime || 0).getTime();
                   return dateA - dateB;
                 })[0]
-              : truck.orders[0])
+              : timeRelevantOrders.length > 0
+                ? timeRelevantOrders.sort((a, b) => {
+                    const dateA = new Date(a.pickup_datetime || 0).getTime();
+                    const dateB = new Date(b.pickup_datetime || 0).getTime();
+                    return dateA - dateB;
+                  })[0]
+                : truck.orders[0])
           : null;
 
         const pickupStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'pickup');
