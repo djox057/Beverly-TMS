@@ -208,23 +208,51 @@ const Orders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-32">Freight Amount</TableHead>
+                    <TableHead className="w-20">Truck #</TableHead>
+                    <TableHead className="w-20">Load #</TableHead>
+                    <TableHead className="w-32">Pickup Date</TableHead>
+                    <TableHead className="w-28">Pickup City</TableHead>
+                    <TableHead className="w-16">Pickup State</TableHead>
+                    <TableHead className="w-32">Delivery Date</TableHead>
+                    <TableHead className="w-28">Delivery City</TableHead>
+                    <TableHead className="w-16">Delivery State</TableHead>
+                    <TableHead className="w-16">Miles</TableHead>
+                    <TableHead className="w-24">Driver Rate</TableHead>
+                    <TableHead className="w-32">Driver</TableHead>
+                    <TableHead className="w-36">Broker Name</TableHead>
+                    <TableHead className="w-28">Broker Load #</TableHead>
+                    <TableHead className="w-20">Invoiced</TableHead>
+                    <TableHead className="w-28">Freight Amount</TableHead>
                     <TableHead className="w-40">Notes</TableHead>
-                    <TableHead className="w-32">Company</TableHead>
-                    <TableHead className="w-28">Booked By</TableHead>
-                    <TableHead className="w-20">RC</TableHead>
-                    <TableHead className="w-20">BOL</TableHead>
-                    <TableHead className="w-20">POD</TableHead>
-                    <TableHead className="w-24">Additional</TableHead>
-                    <TableHead className="w-20">Actions</TableHead>
+                    <TableHead className="w-28">Company</TableHead>
+                    <TableHead className="w-24">Booked By</TableHead>
+                    <TableHead className="w-16">RC</TableHead>
+                    <TableHead className="w-16">BOL</TableHead>
+                    <TableHead className="w-16">POD</TableHead>
+                    <TableHead className="w-20">Additional</TableHead>
+                    <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
               <TableBody>
                 {filteredOrders.length === 0 ? <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
                       No orders found
                     </TableCell>
                   </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                      <TableCell>{order.internalLoadNumber}</TableCell>
+                      <TableCell>{order.pickupDate}</TableCell>
+                      <TableCell>{order.pickupCity}</TableCell>
+                      <TableCell>{order.pickupState}</TableCell>
+                      <TableCell>{order.deliveryDate}</TableCell>
+                      <TableCell>{order.deliveryCity}</TableCell>
+                      <TableCell>{order.deliveryState}</TableCell>
+                      <TableCell>{order.mileage.toLocaleString()}</TableCell>
+                      <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
+                      <TableCell>{order.driverName}</TableCell>
+                      <TableCell>{order.brokerName}</TableCell>
+                      <TableCell>{order.brokerLoadNumber}</TableCell>
+                      <TableCell>{order.invoiced}</TableCell>
                       <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
                       <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                       <TableCell>{order.companyName}</TableCell>
