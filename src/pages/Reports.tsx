@@ -335,7 +335,7 @@ const Reports = () => {
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px', width: '272px', minWidth: '272px', maxWidth: '272px' }}>
+                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px' }}>
                             <div className="h-16 border-b border-gray-200">
                               {/* Labels row */}
                               <div className="h-8 flex">
@@ -352,7 +352,7 @@ const Reports = () => {
                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
                               </div>
                             </div>
-                            <div className="h-16 p-0" style={{ width: '272px' }}>
+                            <div className="h-16 p-0 w-full">
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
