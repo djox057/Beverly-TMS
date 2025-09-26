@@ -28,8 +28,9 @@ export const useOrders = () => {
         const formatDateRange = (startDate: string, endDate: string) => {
           if (!startDate) return 'N/A';
           const start = new Date(startDate).toLocaleDateString();
-          if (!endDate || startDate === endDate) return start;
+          if (!endDate) return start;
           const end = new Date(endDate).toLocaleDateString();
+          if (start === end) return start;
           return `${start} - ${end}`;
         };
         
