@@ -318,7 +318,8 @@ const Reports = () => {
                           </th>
                         ))}
                         <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
-                         <th colSpan={2} className={`border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{ width: '192px', minWidth: '192px', maxWidth: '192px' }}>Last Edit | Date</th>
+                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
+                         <th className={`border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -355,22 +356,8 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
-                           {/* Last Edit and Date merged cell */}
-                           <td colSpan={2} className={`border-b border-gray-300 p-0 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{ height: '128px' }}>
-                             <div className="h-16 border-b border-gray-200">
-                               {/* Labels row */}
-                               <div className="h-8 flex">
-                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Last Edit</div>
-                                 <div className="flex-1 px-2 py-1 text-center text-xs text-gray-600">Date</div>
-                               </div>
-                               {/* Values row */}
-                               <div className="h-8 flex">
-                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.lastEdit}</div>
-                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.editDate}</div>
-                               </div>
-                             </div>
-                             <div className="h-16 bg-gray-50"></div>
-                           </td>
+                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
+                           <td className={`border-b border-gray-300 px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
                         </tr>
                       ))}
                     </tbody>
