@@ -215,8 +215,8 @@ export const useReports = () => {
           let date = "—";
           let time = "—";
           
-          // Prioritize stop datetime over order datetime since it's more accurate
-          const datetimeToUse = stop.datetime || orderStartTime;
+          // Use order datetime if available, otherwise use stop datetime
+          const datetimeToUse = orderStartTime || stop.datetime;
           const endDatetimeToUse = orderEndTime;
           
           if (datetimeToUse) {
@@ -228,17 +228,12 @@ export const useReports = () => {
             const day = String(datetime.getUTCDate()).padStart(2, '0');
             date = `${month}/${day}/${year}`;
             
-            // Get the actual stored time (not converted to local timezone)
-            const hours = datetime.getUTCHours();
-            const minutes = datetime.getUTCMinutes();
-            const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            const startTime = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
             // If there's an end time and it's different from start time, show range
             if (endDatetimeToUse) {
               const endDateTime = new Date(endDatetimeToUse);
-              const endHours = endDateTime.getUTCHours();
-              const endMinutes = endDateTime.getUTCMinutes();
-              const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+              const endTime = endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               
               if (startTime !== endTime) {
                 time = `${startTime} - ${endTime}`;
