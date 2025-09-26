@@ -137,7 +137,7 @@ const Orders = () => {
     }
   };
   return (
-    <div className="h-full w-full overflow-auto">
+    <div className="h-full w-full">
       <div className="min-w-[1800px] space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
