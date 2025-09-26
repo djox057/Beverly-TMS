@@ -304,7 +304,7 @@ const Reports = () => {
                           </div>
                         </th>
                         <th colSpan={2} className="bg-gray-50"></th>
-                        <th colSpan={2} className="bg-gray-50"></th>
+                        <th colSpan={2} className={`bg-gray-50 border-b border-gray-300 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}></th>
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
