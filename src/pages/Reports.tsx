@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
+import { useSidebar } from "@/components/ui/sidebar";
 
 interface EditingState {
   truckId: string;
@@ -39,6 +40,7 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const { toast } = useToast();
+  const { state: sidebarState } = useSidebar();
 
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
@@ -315,8 +317,8 @@ const Reports = () => {
                           </th>
                         ))}
                         <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
-                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
-                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Date</th>
+                         <th className={`border-b ${sidebarState === "expanded" ? "border-r" : ""} border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24`}>Last Edit</th>
+                         <th className={`${sidebarState === "expanded" ? "border-b border-r" : ""} border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -332,29 +334,41 @@ const Reports = () => {
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px' }}>
-                            <div className="h-16 border-b border-gray-200">
-                              {/* Labels row */}
-                              <div className="h-8 flex">
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Away (D)</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Drive</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Shift</div>
-                                <div className="flex-1 px-2 py-1 text-center text-xs text-gray-600">Cycle</div>
-                              </div>
-                              {/* Values row */}
-                              <div className="h-8 flex">
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.driveHours}h</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.shiftHours}h</div>
-                                <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
-                              </div>
-                            </div>
-                            <div className="h-16 p-0 w-full">
-                              {renderEditableField(truck.id, 'note', truck.note)}
-                            </div>
-                          </td>
-                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
-                           <td className="px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
+                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px' }}>
+                             <div className="h-16 border-b border-gray-200">
+                               {/* Labels row */}
+                               <div className="h-8 flex">
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Away (D)</div>
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Drive</div>
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Shift</div>
+                                 <div className="flex-1 px-2 py-1 text-center text-xs text-gray-600">Cycle</div>
+                               </div>
+                               {/* Values row */}
+                               <div className="h-8 flex">
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.driveHours}h</div>
+                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.shiftHours}h</div>
+                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
+                               </div>
+                             </div>
+                             <div className="h-16 p-0 w-full">
+                               {renderEditableField(truck.id, 'note', truck.note)}
+                             </div>
+                           </td>
+                           <td className={`border-b border-gray-300 ${sidebarState === "expanded" ? "border-r" : ""} px-3 py-2 text-xs text-gray-600`} style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>
+                             <div className="h-16 border-b border-gray-200">
+                               <div className="h-8 px-2 py-1 text-center text-xs text-gray-600">Last edit</div>
+                               <div className="h-8 px-2 py-1 text-center text-sm text-gray-900">{truck.lastEdit}</div>
+                             </div>
+                             <div className="h-16 p-0 w-full"></div>
+                           </td>
+                           <td className={`${sidebarState === "expanded" ? "border-b border-r" : ""} border-gray-300 px-3 py-2 text-xs text-gray-600`} style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>
+                             <div className="h-16 border-b border-gray-200">
+                               <div className="h-8 px-2 py-1 text-center text-xs text-gray-600">Date</div>
+                               <div className="h-8 px-2 py-1 text-center text-sm text-gray-900">{truck.editDate}</div>
+                             </div>
+                             <div className="h-16 p-0 w-full"></div>
+                           </td>
                         </tr>
                       ))}
                     </tbody>
