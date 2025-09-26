@@ -1,12 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
-import { SharedCalendarCarousel } from "@/components/ui/shared-calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 
 interface EditingState {
@@ -275,6 +274,7 @@ const Reports = () => {
         <div className="px-6 py-4 space-y-8">
           {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
             const startDate = getCalendarStartDate(dispatcherId);
+            const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
             return (
               <div key={dispatcherId} className="bg-white">
                 {/* Dispatcher header - Google Sheets style */}
@@ -284,34 +284,60 @@ const Reports = () => {
                   </h2>
                 </div>
                 
-                {/* Shared Calendar Carousel */}
-                <div className="mb-4">
-                  <SharedCalendarCarousel
-                    startDate={startDate}
-                    onDateChange={(newDate) => handleCalendarDateChange(dispatcherId, newDate)}
-                  />
-                </div>
-                
                 {/* Google Sheets-style table */}
                 <div className="overflow-x-auto border border-gray-300">
                   <table className="w-full border-collapse bg-white">
                     <thead>
+                      {/* Date Range Selector Row */}
                       <tr className="bg-gray-50">
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Mon</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Tue</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Wed</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Thu</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Fri</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Cycle</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Note</th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Last Edit</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Date</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Truck #</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Driver</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Home</th>
+                        <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -7))}
+                              className="p-1 hover:bg-gray-200 rounded"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <div className="text-sm font-medium text-gray-700">
+                              {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
+                            </div>
+                            <button
+                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 7))}
+                              className="p-1 hover:bg-gray-200 rounded"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Away (D)</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Drive</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Shift</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Cycle</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Note</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Last Edit</th>
+                        <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Date</th>
+                      </tr>
+                      {/* Day Names Row */}
+                      <tr className="bg-gray-50">
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        {days.map((day, index) => (
+                          <th key={index} className="border-r border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">
+                            <div>{format(day, 'EEE')}</div>
+                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                          </th>
+                        ))}
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
                       </tr>
                     </thead>
                     <tbody>
