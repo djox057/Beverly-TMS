@@ -225,10 +225,6 @@ const Reports = () => {
       
       if (truck?.orderId) {
         await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: newValue });
-        toast({
-          title: "Note updated",
-          description: "The note has been updated successfully.",
-        });
       }
     } catch (error) {
       toast({
@@ -338,7 +334,7 @@ const Reports = () => {
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>
+                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px', width: '272px', minWidth: '272px', maxWidth: '272px' }}>
                             <div className="h-16 border-b border-gray-200">
                               {/* Labels row */}
                               <div className="h-8 flex">
