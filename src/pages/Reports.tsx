@@ -248,9 +248,9 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-full bg-white">
       {/* Google Sheets-style header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 z-10">
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
         <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
         <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
           <AlertCircle className="h-3 w-3" />
@@ -259,13 +259,13 @@ const Reports = () => {
       </div>
 
       {groupedReports && Object.keys(groupedReports).length === 0 ? (
-        <div className="p-6">
+        <div className="p-4">
           <div className="text-center py-12 text-gray-500">
             No trucks assigned to dispatchers found
           </div>
         </div>
       ) : (
-        <div className="px-6 py-4 space-y-8">
+        <div className="px-4 py-4 space-y-8">
           {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
             const startDate = getCalendarStartDate(dispatcherId);
             const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
@@ -279,8 +279,8 @@ const Reports = () => {
                 </div>
                 
                 {/* Google Sheets-style table */}
-                <div className="overflow-x-auto border border-gray-300">
-                  <table className="border-collapse bg-white" style={{ tableLayout: 'fixed' }}>
+                <div className="w-full border border-gray-300">
+                  <table className="w-full border-collapse bg-white" style={{ tableLayout: 'auto' }}>
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
