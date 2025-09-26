@@ -138,7 +138,7 @@ const Orders = () => {
   };
   return (
     <div className="h-full w-full">
-      <div className="min-w-[1800px] space-y-6 p-6">
+      <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
         <div className="flex gap-2">
@@ -204,7 +204,8 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-6">
+          <div className="overflow-x-auto">
+            <div className="min-w-[1800px] p-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -233,86 +234,87 @@ const Orders = () => {
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-              <TableBody>
-                {filteredOrders.length === 0 ? <TableRow>
-                    <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
-                      No orders found
-                    </TableCell>
-                  </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                      <TableCell>{order.internalLoadNumber}</TableCell>
-                      <TableCell>{order.pickupDate}</TableCell>
-                      <TableCell>{order.pickupCity}</TableCell>
-                      <TableCell>{order.pickupState}</TableCell>
-                      <TableCell>{order.deliveryDate}</TableCell>
-                      <TableCell>{order.deliveryCity}</TableCell>
-                      <TableCell>{order.deliveryState}</TableCell>
-                      <TableCell>{order.mileage.toLocaleString()}</TableCell>
-                      <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
-                      <TableCell>{order.driverName}</TableCell>
-                      <TableCell>{order.brokerName}</TableCell>
-                      <TableCell>{order.brokerLoadNumber}</TableCell>
-                      <TableCell>{order.invoiced}</TableCell>
-                      <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
-                      <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
-                      <TableCell>{order.companyName}</TableCell>
-                      <TableCell>{order.bookedBy}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                        const {
-                          data
-                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                        window.open(data.publicUrl, '_blank');
-                      }}>
-                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                        </div>
+                <TableBody>
+                  {filteredOrders.length === 0 ? <TableRow>
+                      <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
+                        No orders found
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {order.bolFiles && order.bolFiles.length > 0 ? order.bolFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                        const {
-                          data
-                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                        window.open(data.publicUrl, '_blank');
-                      }}>
-                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                        const {
-                          data
-                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                        window.open(data.publicUrl, '_blank');
-                      }}>
-                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {order.additionalFiles && order.additionalFiles.length > 0 ? order.additionalFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                        const {
-                          data
-                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                        window.open(data.publicUrl, '_blank');
-                      }}>
-                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                              </Button>) : '-'}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => navigate(`/edit-order/${order.id}`)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>)}
-              </TableBody>
-            </Table>
+                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                        <TableCell>{order.internalLoadNumber}</TableCell>
+                        <TableCell>{order.pickupDate}</TableCell>
+                        <TableCell>{order.pickupCity}</TableCell>
+                        <TableCell>{order.pickupState}</TableCell>
+                        <TableCell>{order.deliveryDate}</TableCell>
+                        <TableCell>{order.deliveryCity}</TableCell>
+                        <TableCell>{order.deliveryState}</TableCell>
+                        <TableCell>{order.mileage.toLocaleString()}</TableCell>
+                        <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
+                        <TableCell>{order.driverName}</TableCell>
+                        <TableCell>{order.brokerName}</TableCell>
+                        <TableCell>{order.brokerLoadNumber}</TableCell>
+                        <TableCell>{order.invoiced}</TableCell>
+                        <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
+                        <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
+                        <TableCell>{order.companyName}</TableCell>
+                        <TableCell>{order.bookedBy}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const {
+                            data
+                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}>
+                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {order.bolFiles && order.bolFiles.length > 0 ? order.bolFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const {
+                            data
+                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}>
+                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const {
+                            data
+                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}>
+                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {order.additionalFiles && order.additionalFiles.length > 0 ? order.additionalFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const {
+                            data
+                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                          window.open(data.publicUrl, '_blank');
+                        }}>
+                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                                </Button>) : '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/edit-order/${order.id}`)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>)}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </CardContent>
       </Card>
