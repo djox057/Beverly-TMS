@@ -560,7 +560,7 @@ const NewOrder = () => {
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map((item, index) => {
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
           // Parse city, state, and zip from address
           let city = null;
           let state = null;
@@ -621,8 +621,7 @@ const NewOrder = () => {
             zip_code: zipCode,
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
-              : item.dateRange?.from?.toISOString() || null,
-            sequence_number: index + 1
+              : item.dateRange?.from?.toISOString() || null
           };
         });
         if (pickupDropData.length > 0) {

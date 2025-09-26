@@ -590,7 +590,7 @@ const EditOrder = () => {
 
       // Insert updated pickup/drops
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map((item, index) => {
+        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
           // Parse city, state, and zip from address
           let city = null;
           let state = null;
@@ -659,7 +659,7 @@ const EditOrder = () => {
             state,
             zip_code: zipCode,
             datetime,
-            sequence_number: index + 1,
+            sequence_number: 1,
             contact_name: null,
             contact_phone: null,
             special_instructions: null
