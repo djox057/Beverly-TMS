@@ -314,45 +314,45 @@ const Reports = () => {
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Truck #</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Driver</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Home</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-20">Truck #</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-32">Driver</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => (
-                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50">
+                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 w-32">
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
                           </th>
                         ))}
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Away (D)</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Drive</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Shift</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Cycle</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Note</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Last Edit</th>
-                        <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Date</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-20">Away (D)</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Drive</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Shift</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Cycle</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-48">Note</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
+                        <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Date</th>
                        </tr>
                     </thead>
                     <tbody>
                       {group.trucks.map((truck, index) => (
                         <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium">{truck.truckNumber}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driver}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium w-20">{truck.truckNumber}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-32">{truck.driver}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-28">
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-gray-500" />
                               {truck.home}
                             </div>
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.shiftHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.cycleHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-20">{truck.awayDays}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.driveHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.shiftHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.cycleHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-48">
                             {renderEditableField(truck.id, 'note', truck.note)}
                           </td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.lastEdit}</td>
-                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.editDate}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600 w-24">{truck.lastEdit}</td>
+                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600 w-24">{truck.editDate}</td>
                         </tr>
                       ))}
                     </tbody>
