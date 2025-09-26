@@ -6,8 +6,6 @@ import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { DateRange } from "react-day-picker";
 
 interface EditingState {
   truckId: string;
@@ -33,15 +31,7 @@ const getStatusBadge = (status: string) => {
 const Reports = () => {
   const { data: groupedReports, isLoading, error, updateTruckStatus, updateOrderNote, updatePickupDrop } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
-  const [dateRanges, setDateRanges] = useState<Record<string, DateRange | undefined>>({});
   const { toast } = useToast();
-
-  const handleDateRangeChange = (dispatcherId: string, dateRange: DateRange | undefined) => {
-    setDateRanges(prev => ({
-      ...prev,
-      [dispatcherId]: dateRange
-    }));
-  };
 
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
@@ -193,33 +183,11 @@ const Reports = () => {
               <div className="overflow-x-auto border border-gray-300">
                 <table className="w-full border-collapse bg-white">
                   <thead>
-                    {/* 5-Day Calendar Row */}
                     <tr className="bg-gray-50">
-                      <th colSpan={10} className="border-b border-gray-300 px-3 py-4 text-center text-sm font-medium text-gray-700 bg-gray-50 sticky top-0">
-                        <CalendarCarousel
-                          truckId={group.trucks[0]?.id || ''}
-                          truckData={group.trucks[0]}
-                          editing={editing}
-                          onEdit={handleEdit}
-                          onSave={handleSave}
-                          onCancel={handleCancel}
-                          onEditingChange={setEditing}
-                        />
-                      </th>
-                    </tr>
-                    {/* Main Header Row */}
-                    <tr className="bg-gray-50">
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0 w-48">
-                        <DateRangePicker
-                          date={dateRanges[dispatcherId]}
-                          onDateChange={(date) => handleDateRangeChange(dispatcherId, date)}
-                          placeholder="Select date range"
-                          className="w-full"
-                        />
-                      </th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
+                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0 w-96">5-Day Calendar</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
@@ -232,9 +200,6 @@ const Reports = () => {
                   <tbody>
                     {group.trucks.map((truck, index) => (
                       <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600">
-                          {/* Empty cell for date range alignment */}
-                        </td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium">{truck.truckNumber}</td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driver}</td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
@@ -242,6 +207,17 @@ const Reports = () => {
                             <MapPin className="h-3 w-3 text-gray-500" />
                             {truck.home}
                           </div>
+                        </td>
+                        <td className="border-r border-b border-gray-300 p-0">
+                          <CalendarCarousel
+                            truckId={truck.id}
+                            truckData={truck}
+                            editing={editing}
+                            onEdit={handleEdit}
+                            onSave={handleSave}
+                            onCancel={handleCancel}
+                            onEditingChange={setEditing}
+                          />
                         </td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
