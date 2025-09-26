@@ -304,7 +304,9 @@ const Reports = () => {
                           </div>
                         </th>
                         <th colSpan={2} className="bg-gray-50 border-b border-gray-300"></th>
-                        <th colSpan={2} className={`bg-gray-50 border-b border-gray-300 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}></th>
+                        <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
+                          Recent Activity
+                        </th>
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
