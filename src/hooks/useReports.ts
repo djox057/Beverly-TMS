@@ -215,8 +215,8 @@ export const useReports = () => {
           let date = "—";
           let time = "—";
           
-          // Use order datetime if available, otherwise use stop datetime
-          const datetimeToUse = orderStartTime || stop.datetime;
+          // Prioritize stop datetime over order datetime since it's more accurate
+          const datetimeToUse = stop.datetime || orderStartTime;
           const endDatetimeToUse = orderEndTime;
           
           if (datetimeToUse) {
