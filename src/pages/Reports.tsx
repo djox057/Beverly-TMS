@@ -241,15 +241,12 @@ const Reports = () => {
 
   const renderEditableField = (truckId: string, field: 'note', value: string, displayValue?: React.ReactNode) => {
     return (
-      <div className="flex items-center justify-center w-full">
-        <Textarea
-          defaultValue={value || ""}
-          onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-          className="min-h-[40px] text-xs border-gray-300 rounded-none resize-none text-center"
-          style={{ width: '250px' }}
-          placeholder="Add note..."
-        />
-      </div>
+      <Textarea
+        defaultValue={value || ""}
+        onBlur={(e) => handleNoteChange(truckId, e.target.value)}
+        className="h-full w-full text-xs border-none rounded-none resize-none text-right bg-transparent focus:outline-none focus:ring-0"
+        placeholder="Add note..."
+      />
     );
   };
 
@@ -358,7 +355,7 @@ const Reports = () => {
                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
                               </div>
                             </div>
-                            <div className="h-16 flex items-center justify-center" style={{ width: '272px' }}>
+                            <div className="h-16 p-0" style={{ width: '272px' }}>
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
