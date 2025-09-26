@@ -6,11 +6,17 @@ import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
+import { SharedCalendarCarousel } from "@/components/ui/shared-calendar-carousel";
+import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 
 interface EditingState {
   truckId: string;
   field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note';
   value: string;
+}
+
+interface DispatcherCalendarState {
+  [dispatcherId: string]: Date;
 }
 
 const getStatusBadge = (status: string) => {
@@ -31,6 +37,7 @@ const getStatusBadge = (status: string) => {
 const Reports = () => {
   const { data: groupedReports, isLoading, error, updateTruckStatus, updateOrderNote, updatePickupDrop } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
+  const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const { toast } = useToast();
 
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
@@ -93,6 +100,102 @@ const Reports = () => {
 
   const handleCancel = () => {
     setEditing(null);
+  };
+
+  const getCalendarStartDate = (dispatcherId: string) => {
+    if (calendarDates[dispatcherId]) {
+      return calendarDates[dispatcherId];
+    }
+    // Default to current week start
+    return startOfWeek(new Date(), { weekStartsOn: 1 });
+  };
+
+  const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
+    setCalendarDates(prev => ({
+      ...prev,
+      [dispatcherId]: newDate
+    }));
+  };
+
+  const getStatusColors = (status: string) => {
+    switch (status) {
+      case "In Transit":
+        return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' };
+      case "Loading":
+        return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+      case "Available":
+        return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+      case "Maintenance":
+        return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+      default:
+        return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+    }
+  };
+
+  const renderTruckCalendarCells = (truck: any, startDate: Date) => {
+    const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
+    const statusColors = getStatusColors(truck.status);
+    
+    const parseDate = (dateStr: string) => {
+      if (dateStr === '—' || !dateStr) return null;
+      try {
+        return new Date(dateStr);
+      } catch {
+        return null;
+      }
+    };
+
+    const pickupDate = parseDate(truck.pickup.date);
+    const deliveryDate = parseDate(truck.delivery.date);
+
+    return days.map((day, index) => {
+      const isPickupDay = pickupDate && isSameDay(day, pickupDate);
+      const isDeliveryDay = deliveryDate && isSameDay(day, deliveryDate);
+
+      return (
+        <td key={index} className="border-r border-b border-gray-300 p-0 w-32">
+          <div className="h-32">
+            {/* Delivery cell (top half) */}
+            <div className={`h-16 border-b border-gray-200 p-2 ${isDeliveryDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`}>
+              {isDeliveryDay ? (
+                <div>
+                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`}>
+                    {truck.delivery.location}
+                  </div>
+                  <div className={`text-xs ${statusColors.text} opacity-70`}>
+                    {truck.delivery.date !== '—' && truck.delivery.time !== '—' 
+                      ? `${truck.delivery.time}`
+                      : '—'
+                    }
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400">—</div>
+              )}
+            </div>
+            
+            {/* Pickup cell (bottom half) */}
+            <div className={`h-16 p-2 ${isPickupDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`}>
+              {isPickupDay ? (
+                <div>
+                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`}>
+                    {truck.pickup.location}
+                  </div>
+                  <div className={`text-xs ${statusColors.text} opacity-70`}>
+                    {truck.pickup.date !== '—' && truck.pickup.time !== '—' 
+                      ? `${truck.pickup.time}`
+                      : '—'
+                    }
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400">—</div>
+              )}
+            </div>
+          </div>
+        </td>
+      );
+    });
   };
 
   if (isLoading) {
@@ -170,71 +273,76 @@ const Reports = () => {
         </div>
       ) : (
         <div className="px-6 py-4 space-y-8">
-          {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
-            <div key={dispatcherId} className="bg-white">
-              {/* Dispatcher header - Google Sheets style */}
-              <div className="mb-2">
-                <h2 className="text-sm font-medium text-gray-900 px-1">
-                  {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-                </h2>
-              </div>
-              
-              {/* Google Sheets-style table */}
-              <div className="overflow-x-auto border border-gray-300">
-                <table className="w-full border-collapse bg-white">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0 w-96">5-Day Calendar</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Cycle</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Note</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Last Edit</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.trucks.map((truck, index) => (
-                      <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium">{truck.truckNumber}</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driver}</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-gray-500" />
-                            {truck.home}
-                          </div>
-                        </td>
-                        <td className="border-r border-b border-gray-300 p-0">
-                          <CalendarCarousel
-                            truckId={truck.id}
-                            truckData={truck}
-                            editing={editing}
-                            onEdit={handleEdit}
-                            onSave={handleSave}
-                            onCancel={handleCancel}
-                            onEditingChange={setEditing}
-                          />
-                        </td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.shiftHours}h</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.cycleHours}h</td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
-                          {renderEditableField(truck.id, 'note', truck.note)}
-                        </td>
-                        <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.lastEdit}</td>
-                        <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.editDate}</td>
+          {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
+            const startDate = getCalendarStartDate(dispatcherId);
+            return (
+              <div key={dispatcherId} className="bg-white">
+                {/* Dispatcher header - Google Sheets style */}
+                <div className="mb-4">
+                  <h2 className="text-sm font-medium text-gray-900 px-1">
+                    {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
+                  </h2>
+                </div>
+                
+                {/* Shared Calendar Carousel */}
+                <div className="mb-4">
+                  <SharedCalendarCarousel
+                    startDate={startDate}
+                    onDateChange={(newDate) => handleCalendarDateChange(dispatcherId, newDate)}
+                  />
+                </div>
+                
+                {/* Google Sheets-style table */}
+                <div className="overflow-x-auto border border-gray-300">
+                  <table className="w-full border-collapse bg-white">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Mon</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Tue</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Wed</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Thu</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Fri</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Cycle</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Note</th>
+                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Last Edit</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {group.trucks.map((truck, index) => (
+                        <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium">{truck.truckNumber}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driver}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-gray-500" />
+                              {truck.home}
+                            </div>
+                          </td>
+                          {renderTruckCalendarCells(truck, startDate)}
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.shiftHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.cycleHours}h</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">
+                            {renderEditableField(truck.id, 'note', truck.note)}
+                          </td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.lastEdit}</td>
+                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600">{truck.editDate}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
