@@ -10,7 +10,6 @@ import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2 } from "lucide-react";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
 interface DriverFormData {
   name: string;
   phone: string;
@@ -21,7 +20,6 @@ interface DriverFormData {
   home_latitude: string;
   home_longitude: string;
 }
-
 const Drivers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -38,21 +36,17 @@ const Drivers = () => {
     home_latitude: "",
     home_longitude: ""
   });
-
-  const { toast } = useToast();
-  const { data: drivers, isLoading, refetch } = useDrivers();
+  const {
+    toast
+  } = useToast();
+  const {
+    data: drivers,
+    isLoading,
+    refetch
+  } = useDrivers();
 
   // Filter drivers based on search term
-  const filteredDrivers = drivers?.filter((driver: any) =>
-    driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
-
+  const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
   const resetForm = () => {
     setFormData({
       name: "",
@@ -65,32 +59,27 @@ const Drivers = () => {
       home_longitude: ""
     });
   };
-
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     try {
-      const { error } = await supabase
-        .from('drivers')
-        .insert({
-          name: formData.name,
-          phone: formData.phone || null,
-          email: formData.email || null,
-          home_address: formData.home_address || null,
-          home_city: formData.home_city || null,
-          home_state: formData.home_state || null,
-          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
-        });
-
+      const {
+        error
+      } = await supabase.from('drivers').insert({
+        name: formData.name,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        home_address: formData.home_address || null,
+        home_city: formData.home_city || null,
+        home_state: formData.home_state || null,
+        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
+      });
       if (error) throw error;
-
       toast({
         title: "Success",
-        description: "Driver added successfully",
+        description: "Driver added successfully"
       });
-
       resetForm();
       setIsAddDialogOpen(false);
       refetch();
@@ -98,41 +87,34 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to add driver",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleEditDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDriver) return;
-    
     setIsSubmitting(true);
-    
     try {
-      const { error } = await supabase
-        .from('drivers')
-        .update({
-          name: formData.name,
-          phone: formData.phone || null,
-          email: formData.email || null,
-          home_address: formData.home_address || null,
-          home_city: formData.home_city || null,
-          home_state: formData.home_state || null,
-          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
-        })
-        .eq('id', editingDriver.id);
-
+      const {
+        error
+      } = await supabase.from('drivers').update({
+        name: formData.name,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        home_address: formData.home_address || null,
+        home_city: formData.home_city || null,
+        home_state: formData.home_state || null,
+        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
+      }).eq('id', editingDriver.id);
       if (error) throw error;
-
       toast({
         title: "Success",
-        description: "Driver updated successfully",
+        description: "Driver updated successfully"
       });
-
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
@@ -141,37 +123,31 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to update driver",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleDeleteDriver = async (driverId: string) => {
     try {
-      const { error } = await supabase
-        .from('drivers')
-        .delete()
-        .eq('id', driverId);
-
+      const {
+        error
+      } = await supabase.from('drivers').delete().eq('id', driverId);
       if (error) throw error;
-
       toast({
         title: "Success",
-        description: "Driver deleted successfully",
+        description: "Driver deleted successfully"
       });
-
       refetch();
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to delete driver",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const openEditDialog = (driver: any) => {
     setEditingDriver(driver);
     setFormData({
@@ -186,21 +162,16 @@ const Drivers = () => {
     });
     setIsEditDialogOpen(true);
   };
-
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Drivers</h1>
+        <h1 className="text-3xl font-semibold text-foreground px-[10px]">Drivers</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -215,90 +186,68 @@ const Drivers = () => {
             <form onSubmit={handleAddDriver} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name*</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="John Smith"
-                  required
-                />
+                <Input id="name" value={formData.name} onChange={e => setFormData({
+                ...formData,
+                name: e.target.value
+              })} placeholder="John Smith" required />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(555) 123-4567"
-                  />
+                  <Input id="phone" value={formData.phone} onChange={e => setFormData({
+                  ...formData,
+                  phone: e.target.value
+                })} placeholder="(555) 123-4567" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="john.smith@company.com"
-                  />
+                  <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
+                  ...formData,
+                  email: e.target.value
+                })} placeholder="john.smith@company.com" />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="home_address">Home Address</Label>
-                <Input
-                  id="home_address"
-                  value={formData.home_address}
-                  onChange={(e) => setFormData({ ...formData, home_address: e.target.value })}
-                  placeholder="1234 Oak Street"
-                />
+                <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
+                ...formData,
+                home_address: e.target.value
+              })} placeholder="1234 Oak Street" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="home_city">Home City</Label>
-                  <Input
-                    id="home_city"
-                    value={formData.home_city}
-                    onChange={(e) => setFormData({ ...formData, home_city: e.target.value })}
-                    placeholder="Chicago"
-                  />
+                  <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
+                  ...formData,
+                  home_city: e.target.value
+                })} placeholder="Chicago" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="home_state">Home State</Label>
-                  <Input
-                    id="home_state"
-                    value={formData.home_state}
-                    onChange={(e) => setFormData({ ...formData, home_state: e.target.value })}
-                    placeholder="IL"
-                  />
+                  <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
+                  ...formData,
+                  home_state: e.target.value
+                })} placeholder="IL" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="home_latitude">Latitude</Label>
-                  <Input
-                    id="home_latitude"
-                    type="number"
-                    step="any"
-                    value={formData.home_latitude}
-                    onChange={(e) => setFormData({ ...formData, home_latitude: e.target.value })}
-                    placeholder="41.8781"
-                  />
+                  <Input id="home_latitude" type="number" step="any" value={formData.home_latitude} onChange={e => setFormData({
+                  ...formData,
+                  home_latitude: e.target.value
+                })} placeholder="41.8781" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="home_longitude">Longitude</Label>
-                  <Input
-                    id="home_longitude"
-                    type="number"
-                    step="any"
-                    value={formData.home_longitude}
-                    onChange={(e) => setFormData({ ...formData, home_longitude: e.target.value })}
-                    placeholder="-87.6298"
-                  />
+                  <Input id="home_longitude" type="number" step="any" value={formData.home_longitude} onChange={e => setFormData({
+                  ...formData,
+                  home_longitude: e.target.value
+                })} placeholder="-87.6298" />
                 </div>
               </div>
 
@@ -322,12 +271,7 @@ const Drivers = () => {
             <CardTitle>Driver Directory</CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search drivers..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -346,54 +290,36 @@ const Drivers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDrivers.length === 0 ? (
-                  <TableRow>
+                {filteredDrivers.length === 0 ? <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredDrivers.map((driver: any) => (
-                    <TableRow key={driver.id}>
+                  </TableRow> : filteredDrivers.map((driver: any) => <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {driver.phone && (
-                            <div className="flex items-center gap-2 text-sm">
+                          {driver.phone && <div className="flex items-center gap-2 text-sm">
                               <Phone className="h-3 w-3 text-muted-foreground" />
                               {driver.phone}
-                            </div>
-                          )}
-                          {driver.email && (
-                            <div className="flex items-center gap-2 text-sm">
+                            </div>}
+                          {driver.email && <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />
                               {driver.email}
-                            </div>
-                          )}
+                            </div>}
                           {!driver.phone && !driver.email && "—"}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {driver.home_city && driver.home_state 
-                          ? `${driver.home_city}, ${driver.home_state}`
-                          : driver.home_city || driver.home_state || "—"
-                        }
+                        {driver.home_city && driver.home_state ? `${driver.home_city}, ${driver.home_state}` : driver.home_city || driver.home_state || "—"}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        {driver.home_latitude && driver.home_longitude
-                          ? `${driver.home_latitude}, ${driver.home_longitude}`
-                          : "—"
-                        }
+                        {driver.home_latitude && driver.home_longitude ? `${driver.home_latitude}, ${driver.home_longitude}` : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(driver)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
@@ -419,9 +345,7 @@ const Drivers = () => {
                           </AlertDialog>
                         </div>
                       </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                    </TableRow>)}
               </TableBody>
             </Table>
           </div>
@@ -437,90 +361,68 @@ const Drivers = () => {
           <form onSubmit={handleEditDriver} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_name">Name*</Label>
-                <Input
-                  id="edit_name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="John Smith"
-                  required
-                />
+                <Input id="edit_name" value={formData.name} onChange={e => setFormData({
+              ...formData,
+              name: e.target.value
+            })} placeholder="John Smith" required />
               </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_phone">Phone</Label>
-                <Input
-                  id="edit_phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="(555) 123-4567"
-                />
+                <Input id="edit_phone" value={formData.phone} onChange={e => setFormData({
+                ...formData,
+                phone: e.target.value
+              })} placeholder="(555) 123-4567" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_email">Email</Label>
-                <Input
-                  id="edit_email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="john.smith@company.com"
-                />
+                <Input id="edit_email" type="email" value={formData.email} onChange={e => setFormData({
+                ...formData,
+                email: e.target.value
+              })} placeholder="john.smith@company.com" />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit_home_address">Home Address</Label>
-              <Input
-                id="edit_home_address"
-                value={formData.home_address}
-                onChange={(e) => setFormData({ ...formData, home_address: e.target.value })}
-                placeholder="1234 Oak Street"
-              />
+              <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
+              ...formData,
+              home_address: e.target.value
+            })} placeholder="1234 Oak Street" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_home_city">Home City</Label>
-                <Input
-                  id="edit_home_city"
-                  value={formData.home_city}
-                  onChange={(e) => setFormData({ ...formData, home_city: e.target.value })}
-                  placeholder="Chicago"
-                />
+                <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
+                ...formData,
+                home_city: e.target.value
+              })} placeholder="Chicago" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_home_state">Home State</Label>
-                <Input
-                  id="edit_home_state"
-                  value={formData.home_state}
-                  onChange={(e) => setFormData({ ...formData, home_state: e.target.value })}
-                  placeholder="IL"
-                />
+                <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
+                ...formData,
+                home_state: e.target.value
+              })} placeholder="IL" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_home_latitude">Latitude</Label>
-                <Input
-                  id="edit_home_latitude"
-                  type="number"
-                  step="any"
-                  value={formData.home_latitude}
-                  onChange={(e) => setFormData({ ...formData, home_latitude: e.target.value })}
-                  placeholder="41.8781"
-                />
+                <Input id="edit_home_latitude" type="number" step="any" value={formData.home_latitude} onChange={e => setFormData({
+                ...formData,
+                home_latitude: e.target.value
+              })} placeholder="41.8781" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_home_longitude">Longitude</Label>
-                <Input
-                  id="edit_home_longitude"
-                  type="number"
-                  step="any"
-                  value={formData.home_longitude}
-                  onChange={(e) => setFormData({ ...formData, home_longitude: e.target.value })}
-                  placeholder="-87.6298"
-                />
+                <Input id="edit_home_longitude" type="number" step="any" value={formData.home_longitude} onChange={e => setFormData({
+                ...formData,
+                home_longitude: e.target.value
+              })} placeholder="-87.6298" />
               </div>
             </div>
 
@@ -536,8 +438,6 @@ const Drivers = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 };
-
 export default Drivers;
