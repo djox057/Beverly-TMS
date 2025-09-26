@@ -6,6 +6,7 @@ import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRigh
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 
@@ -39,6 +40,7 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const { toast } = useToast();
+  const { open: sidebarOpen } = useSidebar();
 
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({ truckId, field, value: currentValue });
@@ -316,7 +318,7 @@ const Reports = () => {
                         ))}
                         <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
                          <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
-                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Date</th>
+                         <th className={`px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -354,7 +356,7 @@ const Reports = () => {
                             </div>
                           </td>
                            <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
-                           <td className="px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
+                           <td className={`border-b border-gray-300 px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
                         </tr>
                       ))}
                     </tbody>
