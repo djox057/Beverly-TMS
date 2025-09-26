@@ -370,7 +370,7 @@ const Reports = () => {
                           {/* Split cells for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td className="border-r border-b border-gray-300 p-0" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
                             <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
-                            <div className="h-16 px-1 py-1" style={{ width: '320px' }}>
+                            <div className="h-16 px-1 py-1" style={{ width: '80px' }}>
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
