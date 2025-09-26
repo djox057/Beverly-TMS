@@ -304,6 +304,7 @@ const Reports = () => {
                           </div>
                         </th>
                         <th colSpan={2} className="bg-gray-50"></th>
+                        <th colSpan={2} className="bg-gray-50"></th>
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
