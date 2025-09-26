@@ -240,8 +240,8 @@ const Reports = () => {
       <Textarea
         defaultValue={value || ""}
         onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-        className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2"
-        style={{ width: '272px', height: '64px', minHeight: '64px', maxHeight: '64px', boxShadow: 'none' }}
+        className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2 w-full"
+        style={{ height: '64px', minHeight: '64px', maxHeight: '64px', boxShadow: 'none' }}
         placeholder="Add note..."
       />
     );
