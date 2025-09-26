@@ -288,20 +288,17 @@ const Reports = () => {
                 <div className="overflow-x-auto border border-gray-300">
                   <table className="w-full border-collapse bg-white">
                     <thead>
-                      {/* Date Range Selector Row */}
+                      {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Truck #</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Driver</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Home</th>
-                        <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
-                          <div className="flex items-center justify-between">
+                        <th colSpan={12} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
+                          <div className="flex items-center justify-center">
                             <button
                               onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -7))}
                               className="p-1 hover:bg-gray-200 rounded"
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </button>
-                            <div className="text-sm font-medium text-gray-700">
+                            <div className="text-sm font-medium text-gray-700 mx-4">
                               {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
                             </div>
                             <button
@@ -312,6 +309,18 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
+                      </tr>
+                      {/* Column Headers Row */}
+                      <tr className="bg-gray-50">
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Truck #</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Driver</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Home</th>
+                        {days.map((day, index) => (
+                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50">
+                            <div>{format(day, 'EEE')}</div>
+                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                          </th>
+                        ))}
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Away (D)</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Drive</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Shift</th>
@@ -319,26 +328,7 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Note</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Last Edit</th>
                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Date</th>
-                      </tr>
-                      {/* Day Names Row */}
-                      <tr className="bg-gray-50">
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        {days.map((day, index) => (
-                          <th key={index} className="border-r border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">
-                            <div>{format(day, 'EEE')}</div>
-                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
-                          </th>
-                        ))}
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0"></th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody>
                       {group.trucks.map((truck, index) => (
