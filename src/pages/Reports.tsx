@@ -290,7 +290,7 @@ const Reports = () => {
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
+                        <th colSpan={3} className="bg-white"></th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button
