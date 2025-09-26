@@ -436,6 +436,33 @@ export type Database = {
         }
         Relationships: []
       }
+      truck_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          truck_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          truck_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          truck_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       trucks: {
         Row: {
           company_id: string | null

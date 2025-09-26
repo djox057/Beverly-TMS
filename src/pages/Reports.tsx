@@ -35,7 +35,7 @@ const getStatusBadge = (status: string) => {
 };
 
 const Reports = () => {
-  const { data: groupedReports, isLoading, error, updateTruckStatus, updateOrderNote, updatePickupDrop } = useReports();
+  const { data: groupedReports, isLoading, error, updateTruckStatus, updateTruckNote, updatePickupDrop } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const { toast } = useToast();
@@ -52,8 +52,8 @@ const Reports = () => {
       const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
       const truck = allTrucks.find(t => t.id === editing.truckId);
       
-      if (editing.field === 'note' && truck?.orderId) {
-        await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: editing.value });
+      if (editing.field === 'note') {
+        await updateTruckNote.mutateAsync({ truckId: truck.id, note: editing.value });
       } else if (editing.field.startsWith('pickup-') && truck?.pickup.id) {
         const updates: any = {};
         
@@ -220,12 +220,7 @@ const Reports = () => {
 
   const handleNoteChange = async (truckId: string, newValue: string) => {
     try {
-      const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
-      const truck = allTrucks.find(t => t.id === truckId);
-      
-      if (truck?.orderId) {
-        await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: newValue });
-      }
+      await updateTruckNote.mutateAsync({ truckId, note: newValue });
     } catch (error) {
       toast({
         title: "Update failed",

@@ -42,6 +42,17 @@ export const useReports = () => {
           queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'truck_notes'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -62,13 +73,36 @@ export const useReports = () => {
     },
   });
 
-  const updateOrderNote = useMutation({
-    mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
-      const { error } = await supabase
-        .from('orders')
-        .update({ notes })
-        .eq('id', orderId);
-      if (error) throw error;
+  const updateTruckNote = useMutation({
+    mutationFn: async ({ truckId, note }: { truckId: string; note: string }) => {
+      // First check if a note already exists for this truck
+      const { data: existingNote } = await supabase
+        .from('truck_notes')
+        .select('id')
+        .eq('truck_id', truckId)
+        .maybeSingle();
+
+      if (existingNote) {
+        // Update existing note
+        const { error } = await supabase
+          .from('truck_notes')
+          .update({ 
+            note,
+            updated_by: (await supabase.auth.getUser()).data.user?.id 
+          })
+          .eq('id', existingNote.id);
+        if (error) throw error;
+      } else {
+        // Create new note
+        const { error } = await supabase
+          .from('truck_notes')
+          .insert({ 
+            truck_id: truckId,
+            note,
+            updated_by: (await supabase.auth.getUser()).data.user?.id 
+          });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -95,7 +129,7 @@ export const useReports = () => {
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      // Fetch trucks with their drivers, dispatchers, and current orders
+      // Fetch trucks with their drivers, dispatchers, current orders, and truck notes
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
@@ -115,6 +149,12 @@ export const useReports = () => {
              state,
              datetime
            )
+          ),
+          truck_notes(
+            id,
+            note,
+            updated_at,
+            updated_by
           )
         `)
         .order('truck_number');
@@ -129,6 +169,11 @@ export const useReports = () => {
 
         const pickupStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'pickup');
         const deliveryStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'delivery');
+        
+        // Get the most recent truck note
+        const truckNote = truck.truck_notes && truck.truck_notes.length > 0 
+          ? truck.truck_notes.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]
+          : null;
 
         // Format location
         const formatLocation = (city: string | null, state: string | null) => {
@@ -205,9 +250,9 @@ export const useReports = () => {
           driveHours: 0, // Would need to integrate with tracking system
           shiftHours: 0, // Would need to integrate with tracking system  
           cycleHours: 0, // Would need to integrate with tracking system
-          note: currentOrder?.notes || (status === "Available" ? "Ready for dispatch" : "On assignment"),
-          lastEdit: currentOrder ? new Date(currentOrder.updated_at).toLocaleString() : new Date(truck.updated_at).toLocaleString(),
-          editDate: currentOrder ? new Date(currentOrder.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString()
+          note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
+          lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleString() : new Date(truck.updated_at).toLocaleString(),
+          editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString()
         };
       }) || [];
 
@@ -231,7 +276,7 @@ export const useReports = () => {
   return {
     ...reportsQuery,
     updateTruckStatus,
-    updateOrderNote,
+    updateTruckNote,
     updatePickupDrop,
   };
 };
