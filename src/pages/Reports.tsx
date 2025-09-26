@@ -315,7 +315,7 @@ const Reports = () => {
                           </th>
                         ))}
                         <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
+                        <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Date</th>
                        </tr>
                     </thead>
@@ -353,7 +353,7 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
+                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
                         </tr>
                       ))}
