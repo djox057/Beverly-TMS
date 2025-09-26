@@ -303,7 +303,7 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
-                        <th colSpan={2} className="bg-gray-50 border-b border-gray-300"></th>
+                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}></th>
                         <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
                           Recent Activity
                         </th>
