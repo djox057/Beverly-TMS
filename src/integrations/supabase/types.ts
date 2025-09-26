@@ -528,7 +528,7 @@ export type Database = {
             columns: ["dispatcher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "trucks_driver1_id_fkey"
