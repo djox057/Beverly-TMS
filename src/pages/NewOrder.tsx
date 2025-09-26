@@ -450,6 +450,24 @@ const NewOrder = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Helper function to combine date and time
+      const combineDateAndTime = (dateRange: any, timeStr: string) => {
+        if (!dateRange || !timeStr) return null;
+        
+        const date = new Date(dateRange);
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        
+        // Create new date with the time
+        const combined = new Date(date);
+        combined.setHours(hours, minutes, 0, 0);
+        
+        return combined.toISOString();
+      };
+
+      // Find pickup and delivery stops to get their time values
+      const pickupStop = pickupsDrops.find(stop => stop.type === 'pickup');
+      const deliveryStop = pickupsDrops.find(stop => stop.type === 'delivery');
+
       // Create order data object for the atomic function
       const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
@@ -460,10 +478,10 @@ const NewOrder = () => {
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,
-        pickup_datetime: pickupDateRange?.from?.toISOString() || null,
-        pickup_end_datetime: pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null,
-        delivery_datetime: deliveryDateRange?.from?.toISOString() || null,
-        delivery_end_datetime: deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null,
+        pickup_datetime: combineDateAndTime(pickupDateRange?.from, pickupStop?.startTime || ''),
+        pickup_end_datetime: combineDateAndTime(pickupDateRange?.to || pickupDateRange?.from, pickupStop?.endTime || pickupStop?.startTime || ''),
+        delivery_datetime: combineDateAndTime(deliveryDateRange?.from, deliveryStop?.startTime || ''),
+        delivery_end_datetime: combineDateAndTime(deliveryDateRange?.to || deliveryDateRange?.from, deliveryStop?.endTime || deliveryStop?.startTime || ''),
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
