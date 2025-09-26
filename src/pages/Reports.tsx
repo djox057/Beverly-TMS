@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
@@ -152,16 +153,16 @@ const Reports = () => {
       const isDeliveryDay = deliveryDate && isSameDay(day, deliveryDate);
 
       return (
-        <td key={index} className="border-r border-b border-gray-300 p-0 w-32">
-          <div className="h-32">
+        <td key={index} className="border-r border-b border-gray-300 p-0" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>
+          <div className="h-32" style={{ width: '128px' }}>
             {/* Delivery cell (top half) */}
-            <div className={`h-16 border-b border-gray-200 p-2 ${isDeliveryDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`}>
+            <div className={`border-b border-gray-200 p-2 ${isDeliveryDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
               {isDeliveryDay ? (
-                <div>
-                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`}>
+                <div style={{ width: '112px' }}>
+                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`} style={{ width: '112px' }}>
                     {truck.delivery.location}
                   </div>
-                  <div className={`text-xs ${statusColors.text} opacity-70`}>
+                  <div className={`text-xs ${statusColors.text} opacity-70`} style={{ width: '112px' }}>
                     {truck.delivery.date !== '—' && truck.delivery.time !== '—' 
                       ? `${truck.delivery.time}`
                       : '—'
@@ -169,18 +170,18 @@ const Reports = () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-gray-400">—</div>
+                <div className="text-xs text-gray-400" style={{ width: '112px' }}>—</div>
               )}
             </div>
             
             {/* Pickup cell (bottom half) */}
-            <div className={`h-16 p-2 ${isPickupDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`}>
+            <div className={`p-2 ${isPickupDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
               {isPickupDay ? (
-                <div>
-                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`}>
+                <div style={{ width: '112px' }}>
+                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`} style={{ width: '112px' }}>
                     {truck.pickup.location}
                   </div>
-                  <div className={`text-xs ${statusColors.text} opacity-70`}>
+                  <div className={`text-xs ${statusColors.text} opacity-70`} style={{ width: '112px' }}>
                     {truck.pickup.date !== '—' && truck.pickup.time !== '—' 
                       ? `${truck.pickup.time}`
                       : '—'
@@ -188,7 +189,7 @@ const Reports = () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-gray-400">—</div>
+                <div className="text-xs text-gray-400" style={{ width: '112px' }}>—</div>
               )}
             </div>
           </div>
@@ -240,17 +241,39 @@ const Reports = () => {
       );
     }
 
-    return (
+    const displayText = value || "—";
+    const shouldTruncate = displayText.length > 30;
+    const truncatedText = shouldTruncate ? displayText.substring(0, 27) + "..." : displayText;
+
+    const content = (
       <div
-        className="flex items-center gap-2 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem] w-full"
+        className="flex items-center gap-2 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
         onClick={() => handleEdit(truckId, field, value)}
+        style={{ width: '192px', maxWidth: '192px' }}
       >
-        <div className="flex-1 text-sm">
-          {displayValue || value || "—"}
+        <div className="flex-1 text-sm truncate" style={{ maxWidth: '160px' }}>
+          {displayValue || truncatedText}
         </div>
-        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50 text-gray-500" />
+        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50 text-gray-500 flex-shrink-0" />
       </div>
     );
+
+    if (shouldTruncate) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {content}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs">{displayText}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return content;
   };
 
   return (
@@ -318,7 +341,7 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-32">Driver</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => (
-                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 w-32">
+                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
                           </th>
