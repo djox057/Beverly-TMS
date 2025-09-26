@@ -129,13 +129,12 @@ export const useReports = () => {
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      // Fetch trucks with their drivers, dispatchers, current orders, and truck notes
+      // Fetch trucks with their drivers and current orders
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
           *,
           driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state),
-          dispatcher:dispatcher_id(id, full_name, email),
           orders!orders_truck_id_fkey(
             id,
             status,
@@ -149,17 +148,26 @@ export const useReports = () => {
              state,
              datetime
            )
-          ),
-          truck_notes(
-            id,
-            note,
-            updated_at,
-            updated_by
           )
         `)
         .order('truck_number');
 
       if (trucksError) throw trucksError;
+
+      // Fetch dispatcher information separately
+      const { data: dispatchers, error: dispatchersError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email');
+
+      if (dispatchersError) throw dispatchersError;
+
+      // Fetch truck notes separately
+      const { data: truckNotes, error: notesError } = await supabase
+        .from('truck_notes')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (notesError) throw notesError;
 
       // Filter out trucks without dispatchers and transform the data
       const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
@@ -170,10 +178,11 @@ export const useReports = () => {
         const pickupStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'pickup');
         const deliveryStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'delivery');
         
-        // Get the most recent truck note
-        const truckNote = truck.truck_notes && truck.truck_notes.length > 0 
-          ? truck.truck_notes.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0]
-          : null;
+        // Get the most recent truck note for this truck
+        const truckNote = truckNotes?.find(note => note.truck_id === truck.id);
+
+        // Find dispatcher info
+        const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.dispatcher_id);
 
         // Format location
         const formatLocation = (city: string | null, state: string | null) => {
@@ -241,7 +250,7 @@ export const useReports = () => {
           truckNumber: truck.truck_number,
           driver: truck.driver1?.name || "Unassigned",
           home: formatLocation(truck.driver1?.home_city, truck.driver1?.home_state),
-          dispatcher: truck.dispatcher?.full_name || truck.dispatcher?.email || "Unknown",
+          dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
           dispatcherId: truck.dispatcher_id,
           status,
           pickup: formatStopInfo(pickupStop),
