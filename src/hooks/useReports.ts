@@ -177,22 +177,29 @@ export const useReports = () => {
       const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
         const now = new Date().getTime();
         
-        // Find orders that are temporally active (not past their delivery time)
-        const timeRelevantOrders = truck.orders?.filter(order => {
-          // If no delivery datetime, consider it active
-          if (!order.delivery_datetime) return true;
+        // Categorize orders
+        const activeOrders = truck.orders?.filter(order => {
+          const isActiveStatus = order.status === 'pending' || order.status === 'in_transit';
+          const hasNoDeliveryDate = !order.delivery_datetime;
+          const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
           
-          // Check if delivery time has passed
-          const deliveryTime = new Date(order.delivery_datetime).getTime();
-          return deliveryTime > now;
+          return isActiveStatus && (hasNoDeliveryDate || deliveryInFuture);
         }) || [];
         
-        // From time-relevant orders, find active ones by status
-        const activeOrders = timeRelevantOrders.filter(order => 
-          order.status === 'pending' || order.status === 'in_transit'
-        );
+        const recentCompletedOrders = truck.orders?.filter(order => {
+          if (order.status === 'delivered') return true;
+          
+          // Consider pending orders past delivery time as recently completed
+          if (order.status === 'pending' && order.delivery_datetime) {
+            const deliveryTime = new Date(order.delivery_datetime).getTime();
+            const daysSinceDelivery = (now - deliveryTime) / (1000 * 60 * 60 * 24);
+            return deliveryTime <= now && daysSinceDelivery <= 7; // Within last 7 days
+          }
+          
+          return false;
+        }) || [];
         
-        // Prioritize active orders, then time-relevant orders, then any order
+        // Select the best order to display
         const currentOrder = truck.orders && truck.orders.length > 0 
           ? (activeOrders.length > 0 
               ? activeOrders.sort((a, b) => {
@@ -200,11 +207,11 @@ export const useReports = () => {
                   const dateB = new Date(b.pickup_datetime || 0).getTime();
                   return dateA - dateB;
                 })[0]
-              : timeRelevantOrders.length > 0
-                ? timeRelevantOrders.sort((a, b) => {
+              : recentCompletedOrders.length > 0
+                ? recentCompletedOrders.sort((a, b) => {
                     const dateA = new Date(a.pickup_datetime || 0).getTime();
                     const dateB = new Date(b.pickup_datetime || 0).getTime();
-                    return dateA - dateB;
+                    return dateB - dateA; // Most recent first
                   })[0]
                 : truck.orders[0])
           : null;
