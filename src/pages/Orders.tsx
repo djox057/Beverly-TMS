@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -136,11 +135,9 @@ const Orders = () => {
       console.error('Error generating invoices:', error);
     }
   };
-  return <div className="h-full flex flex-col">
-    <ScrollArea className="flex-1">
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
+  return <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-semibold text-foreground mx-[10px]">Orders</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
             <Download className="mr-2 h-4 w-4" />
@@ -203,9 +200,9 @@ const Orders = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-400px)]">
-            <div className="min-w-[1800px] p-6">
+        <CardContent>
+          <div className="overflow-x-auto">
+            <div className="min-w-[1800px]">
               <Table>
               <TableHeader>
                 <TableRow>
@@ -315,11 +312,9 @@ const Orders = () => {
               </TableBody>
             </Table>
             </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
-      </div>
-    </ScrollArea>
-  </div>;
+    </div>;
 };
 export default Orders;
