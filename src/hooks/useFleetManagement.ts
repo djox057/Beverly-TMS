@@ -25,7 +25,7 @@ export const useFleetManagement = () => {
       // Fetch all dispatchers
       const { data: dispatcherProfiles, error: dispatcherError } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('user_id, full_name, email')
         .eq('role', 'dispatch')
         .order('full_name');
 
@@ -56,13 +56,21 @@ export const useFleetManagement = () => {
 
       // Create dispatcher fleets array
       const dispatcherFleets = dispatcherProfiles?.map(dispatcher => ({
-        dispatcher,
-        trucks: dispatcherGroups[dispatcher.id] || []
+        dispatcher: {
+          id: dispatcher.user_id,
+          full_name: dispatcher.full_name,
+          email: dispatcher.email
+        },
+        trucks: dispatcherGroups[dispatcher.user_id] || []
       })) || [];
 
-      // Filter out dispatchers with no trucks for the main list, but keep all for assignment
+      // Filter out dispatchers with no trucks for the main list, but keep all for assignment  
       setDispatchers(dispatcherFleets);
-      setAllDispatchers(dispatcherProfiles || []);
+      setAllDispatchers(dispatcherProfiles?.map(d => ({ 
+        id: d.user_id, 
+        full_name: d.full_name, 
+        email: d.email 
+      })) || []);
       setAvailableTrucks(unassignedTrucks);
     } catch (error: any) {
       console.error('Error fetching fleet data:', error);

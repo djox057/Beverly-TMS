@@ -71,109 +71,112 @@ const Fleets = () => {
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UserCheck className="h-6 w-6" />
-            <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
-          </div>
-          <div className="flex gap-2">
-            <Dialog open={isAssignTruckOpen} onOpenChange={setIsAssignTruckOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Assign Truck to Dispatcher
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Assign Truck to Dispatcher</DialogTitle>
-                  <DialogDescription>
-                    Select a truck and dispatcher to assign, or simply drag and drop!
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Select Truck</Label>
-                    <Select value={selectedTruck} onValueChange={setSelectedTruck}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a truck" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTrucks.map((truck) => (
-                          <SelectItem key={truck.id} value={truck.id}>
-                            {truck.truck_number} - {truck.make} {truck.model}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Select Dispatcher</Label>
-                    <Select value={selectedDispatcher} onValueChange={setSelectedDispatcher}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a dispatcher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allDispatchers.map((dispatcher) => (
-                          <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                            {dispatcher.full_name || dispatcher.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleAssignTruck} className="w-full">
-                    Assign Truck
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 border-b bg-background px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-6 w-6" />
+              <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
+            </div>
+            <div className="flex gap-2">
+              <Dialog open={isAssignTruckOpen} onOpenChange={setIsAssignTruckOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Assign Truck to Dispatcher
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Assign Truck to Dispatcher</DialogTitle>
+                    <DialogDescription>
+                      Select a truck and dispatcher to assign, or simply drag and drop!
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Select Truck</Label>
+                      <Select value={selectedTruck} onValueChange={setSelectedTruck}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a truck" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableTrucks.map((truck) => (
+                            <SelectItem key={truck.id} value={truck.id}>
+                              {truck.truck_number} - {truck.make} {truck.model}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Select Dispatcher</Label>
+                      <Select value={selectedDispatcher} onValueChange={setSelectedDispatcher}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a dispatcher" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allDispatchers.map((dispatcher) => (
+                            <SelectItem key={dispatcher.id} value={dispatcher.id}>
+                              {dispatcher.full_name || dispatcher.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleAssignTruck} className="w-full">
+                      Assign Truck
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-6">
-          {/* Fleet Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Dispatchers</CardTitle>
-                <UserCheck className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-primary">
-                  {dispatchers.filter(d => d.trucks.length > 0).length}
-                </div>
-              </CardContent>
-            </Card>
+        <div className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            {/* Fleet Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Dispatchers</CardTitle>
+                  <UserCheck className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">
+                    {dispatchers.filter(d => d.trucks.length > 0).length}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Assigned Trucks</CardTitle>
-                <Truck className="h-4 w-4 text-success" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-success">
-                  {dispatchers.reduce((total, d) => total + d.trucks.length, 0)}
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Assigned Trucks</CardTitle>
+                  <Truck className="h-4 w-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">
+                    {dispatchers.reduce((total, d) => total + d.trucks.length, 0)}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Unassigned Trucks</CardTitle>
-                <Truck className="h-4 w-4 text-warning" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-warning">
-                  {availableTrucks.length}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Unassigned Trucks</CardTitle>
+                  <Truck className="h-4 w-4 text-warning" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-warning">
+                    {availableTrucks.length}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Dispatcher Fleets */}
-          {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => (
+            {/* Dispatcher Fleets */}
+            {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => (
             <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
               {(provided, snapshot) => (
                 <Card 
@@ -236,105 +239,106 @@ const Fleets = () => {
                 </Card>
               )}
             </Droppable>
-          ))}
+            ))}
 
-          {/* Dispatchers with no trucks */}
-          {dispatchers.filter(d => d.trucks.length === 0).length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Available Dispatchers
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dispatchers.filter(d => d.trucks.length === 0).map((dispatcherFleet) => (
-                  <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
-                    {(provided, snapshot) => (
-                      <Card 
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`transition-colors ${snapshot.isDraggingOver ? 'bg-primary/5 border-primary' : ''}`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <UserCheck className="h-4 w-4" />
-                              <div>
-                                <div className="font-medium">{dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {snapshot.isDraggingOver ? 'Drop truck here' : 'No trucks assigned'}
-                                </div>
-                              </div>
-                            </div>
-                            <Badge variant="outline">Available</Badge>
-                          </div>
-                          {provided.placeholder}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Droppable>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Unassigned Trucks */}
-          {availableTrucks.length > 0 && (
-            <Droppable droppableId="unassigned">
-              {(provided, snapshot) => (
-                <Card 
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className={`transition-colors ${snapshot.isDraggingOver ? 'bg-warning/5 border-warning' : ''}`}
-                >
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Unassigned Trucks
-                      <Badge variant="outline">{availableTrucks.length} trucks</Badge>
-                      {snapshot.isDraggingOver && (
-                        <Badge variant="outline" className="animate-pulse">Drop to unassign</Badge>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-2">
-                      {availableTrucks.map((truck, index) => (
-                        <Draggable key={truck.id} draggableId={truck.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
-                                snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
-                              }`}
-                            >
+            {/* Dispatchers with no trucks */}
+            {dispatchers.filter(d => d.trucks.length === 0).length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Available Dispatchers
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dispatchers.filter(d => d.trucks.length === 0).map((dispatcherFleet) => (
+                    <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
+                      {(provided, snapshot) => (
+                        <Card 
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`transition-colors ${snapshot.isDraggingOver ? 'bg-primary/5 border-primary' : ''}`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div 
-                                  {...provided.dragHandleProps}
-                                  className="cursor-grab active:cursor-grabbing"
-                                >
-                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <Truck className="h-4 w-4" />
+                                <UserCheck className="h-4 w-4" />
                                 <div>
-                                  <div className="font-medium">{truck.truck_number}</div>
+                                  <div className="font-medium">{dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}</div>
                                   <div className="text-sm text-muted-foreground">
-                                    {truck.make} {truck.model} {truck.year}
+                                    {snapshot.isDraggingOver ? 'Drop truck here' : 'No trucks assigned'}
                                   </div>
                                 </div>
                               </div>
-                              <Badge variant="secondary">Available</Badge>
+                              <Badge variant="outline">Available</Badge>
                             </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </Droppable>
-          )}
+                            {provided.placeholder}
+                          </CardContent>
+                        </Card>
+                      )}
+                    </Droppable>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Unassigned Trucks */}
+            {availableTrucks.length > 0 && (
+              <Droppable droppableId="unassigned">
+                {(provided, snapshot) => (
+                  <Card 
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`transition-colors ${snapshot.isDraggingOver ? 'bg-warning/5 border-warning' : ''}`}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Truck className="h-5 w-5" />
+                        Unassigned Trucks
+                        <Badge variant="outline">{availableTrucks.length} trucks</Badge>
+                        {snapshot.isDraggingOver && (
+                          <Badge variant="outline" className="animate-pulse">Drop to unassign</Badge>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-2">
+                        {availableTrucks.map((truck, index) => (
+                          <Draggable key={truck.id} draggableId={truck.id} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                  snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    {...provided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing"
+                                  >
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <Truck className="h-4 w-4" />
+                                  <div>
+                                    <div className="font-medium">{truck.truck_number}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {truck.make} {truck.model} {truck.year}
+                                    </div>
+                                  </div>
+                                </div>
+                                <Badge variant="secondary">Available</Badge>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </Droppable>
+            )}
+          </div>
         </div>
       </div>
     </DragDropContext>
