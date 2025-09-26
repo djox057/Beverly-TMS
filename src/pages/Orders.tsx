@@ -38,6 +38,14 @@ const Orders = () => {
     isLoading,
     error
   } = useOrders();
+  
+  console.log('Orders data loaded:', orders);
+  console.log('Orders count:', orders?.length);
+  if (orders && orders.length > 0) {
+    console.log('First order sample:', orders[0]);
+    console.log('First order ID:', orders[0].id);
+    console.log('First order ID type:', typeof orders[0].id);
+  }
   const {
     data: companies
   } = useCompanies();
@@ -311,11 +319,13 @@ const Orders = () => {
                             console.log('Edit button clicked for order:', order);
                             console.log('Order ID:', order.id);
                             console.log('Order ID type:', typeof order.id);
+                            const targetUrl = `/edit-order/${order.id}`;
+                            console.log('Navigating to:', targetUrl);
                             if (!order.id) {
                               console.error('Order ID is missing!');
                               return;
                             }
-                            navigate(`/edit-order/${order.id}`);
+                            navigate(targetUrl);
                           }}>
                             <Edit className="h-4 w-4" />
                           </Button>

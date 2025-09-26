@@ -98,6 +98,14 @@ const EditOrder = () => {
   useEffect(() => {
     if (id) {
       loadOrderData();
+    } else {
+      console.error('No order ID provided');
+      toast({
+        title: "Error",
+        description: "No order ID provided in URL",
+        variant: "destructive",
+      });
+      navigate('/orders');
     }
   }, [id]);
 
