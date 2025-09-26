@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
-
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -26,7 +25,6 @@ const getStatusBadge = (status: string) => {
       return <Badge variant="secondary">{status}</Badge>;
   }
 };
-
 const Orders = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,41 +32,34 @@ const Orders = () => {
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  
-  const { data: orders, isLoading, error } = useOrders();
-  const { data: companies } = useCompanies();
-
+  const {
+    data: orders,
+    isLoading,
+    error
+  } = useOrders();
+  const {
+    data: companies
+  } = useCompanies();
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (error) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <p className="text-destructive">Error loading orders: {error.message}</p>
         </div>
-      </div>
-    );
+      </div>;
   }
 
   // Filter orders based on search term and filters
   const filteredOrders = orders?.filter(order => {
-    const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
-    
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
       if (missingDocsFilter === 'missing-rc') {
@@ -79,27 +70,23 @@ const Orders = () => {
         matchesMissingDocs = order.podFiles?.length === 0;
       }
     }
-    
+
     // Date filtering based on delivery date
     let matchesDate = true;
     if (selectedDate) {
       const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
       const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
-      
       matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
     }
-    
     return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs && matchesDate;
   }) || [];
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
-
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
-    
     const exportData = filteredOrders.map(order => ({
       'Truck #': order.truckNumber,
       'Load #': order.internalLoadNumber,
@@ -120,26 +107,23 @@ const Orders = () => {
       'Company': order.companyName,
       'Booked By': order.bookedBy
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
-
   const generateInvoices = async () => {
     if (!filteredOrders.length) return;
-    
     try {
       await generateInvoicePDF(filteredOrders);
-      
+
       // Update invoiced status for all orders that were processed
       const orderIds = filteredOrders.map(order => order.id);
-      const { error } = await supabase
-        .from('orders')
-        .update({ invoiced: true })
-        .in('id', orderIds);
-      
+      const {
+        error
+      } = await supabase.from('orders').update({
+        invoiced: true
+      }).in('id', orderIds);
       if (error) {
         console.error('Error updating invoice status:', error);
       } else {
@@ -151,11 +135,9 @@ const Orders = () => {
       console.error('Error generating invoices:', error);
     }
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
+        <h1 className="text-3xl font-semibold text-foreground mx-[10px]">Orders</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
             <Download className="mr-2 h-4 w-4" />
@@ -177,12 +159,7 @@ const Orders = () => {
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
             <div className="flex gap-4 items-center">
-              <DatePicker
-                date={selectedDate}
-                onDateChange={setSelectedDate}
-                placeholder="Filter by delivery date"
-                className="w-72"
-              />
+              <DatePicker date={selectedDate} onDateChange={setSelectedDate} placeholder="Filter by delivery date" className="w-72" />
               
               <Select value={companyFilter} onValueChange={setCompanyFilter}>
                 <SelectTrigger className="w-48">
@@ -190,9 +167,7 @@ const Orders = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all-companies">All Companies</SelectItem>
-                  {uniqueCompanies.map(company => (
-                    <SelectItem key={company} value={company}>{company}</SelectItem>
-                  ))}
+                  {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
                 </SelectContent>
               </Select>
               
@@ -202,9 +177,7 @@ const Orders = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all-users">All Users</SelectItem>
-                  {uniqueBookedBy.map(user => (
-                    <SelectItem key={user} value={user}>{user}</SelectItem>
-                  ))}
+                  {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
                 </SelectContent>
               </Select>
               
@@ -222,12 +195,7 @@ const Orders = () => {
               
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search orders..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
             </div>
           </div>
@@ -264,15 +232,11 @@ const Orders = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.length === 0 ? (
-                  <TableRow>
+                {filteredOrders.length === 0 ? <TableRow>
                     <TableCell colSpan={22} className="text-center py-8 text-muted-foreground">
                       No orders found
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
+                  </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.truckNumber}</TableCell>
                       <TableCell>{order.internalLoadNumber}</TableCell>
                       <TableCell>{order.pickupDate}</TableCell>
@@ -293,128 +257,64 @@ const Orders = () => {
                       <TableCell>{order.bookedBy}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {order.rcFiles && order.rcFiles.length > 0 ? (
-                            order.rcFiles.map((file: any) => (
-                              <Button
-                                key={file.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={async () => {
-                                  const { data } = supabase.storage
-                                    .from('order-files')
-                                    .getPublicUrl(file.file_path);
-                                  window.open(data.publicUrl, '_blank');
-                                }}
-                              >
-                                {file.file_name.length > 8 
-                                  ? file.file_name.substring(0, 8) + '...' 
-                                  : file.file_name}
-                              </Button>
-                            ))
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">Missing</Badge>
-                          )}
+                          {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                        const {
+                          data
+                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                        window.open(data.publicUrl, '_blank');
+                      }}>
+                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {order.bolFiles && order.bolFiles.length > 0 ? (
-                            order.bolFiles.map((file: any) => (
-                              <Button
-                                key={file.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={async () => {
-                                  const { data } = supabase.storage
-                                    .from('order-files')
-                                    .getPublicUrl(file.file_path);
-                                  window.open(data.publicUrl, '_blank');
-                                }}
-                              >
-                                {file.file_name.length > 8 
-                                  ? file.file_name.substring(0, 8) + '...' 
-                                  : file.file_name}
-                              </Button>
-                            ))
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">Missing</Badge>
-                          )}
+                          {order.bolFiles && order.bolFiles.length > 0 ? order.bolFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                        const {
+                          data
+                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                        window.open(data.publicUrl, '_blank');
+                      }}>
+                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {order.podFiles && order.podFiles.length > 0 ? (
-                            order.podFiles.map((file: any) => (
-                              <Button
-                                key={file.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={async () => {
-                                  const { data } = supabase.storage
-                                    .from('order-files')
-                                    .getPublicUrl(file.file_path);
-                                  window.open(data.publicUrl, '_blank');
-                                }}
-                              >
-                                {file.file_name.length > 8 
-                                  ? file.file_name.substring(0, 8) + '...' 
-                                  : file.file_name}
-                              </Button>
-                            ))
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">Missing</Badge>
-                          )}
+                          {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                        const {
+                          data
+                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                        window.open(data.publicUrl, '_blank');
+                      }}>
+                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                              </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {order.additionalFiles && order.additionalFiles.length > 0 ? (
-                            order.additionalFiles.map((file: any) => (
-                              <Button
-                                key={file.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={async () => {
-                                  const { data } = supabase.storage
-                                    .from('order-files')
-                                    .getPublicUrl(file.file_path);
-                                  window.open(data.publicUrl, '_blank');
-                                }}
-                              >
-                                {file.file_name.length > 8 
-                                  ? file.file_name.substring(0, 8) + '...' 
-                                  : file.file_name}
-                              </Button>
-                            ))
-                          ) : (
-                            '-'
-                          )}
+                          {order.additionalFiles && order.additionalFiles.length > 0 ? order.additionalFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                        const {
+                          data
+                        } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
+                        window.open(data.publicUrl, '_blank');
+                      }}>
+                                {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
+                              </Button>) : '-'}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => navigate(`/edit-order/${order.id}`)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/edit-order/${order.id}`)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                    </TableRow>)}
               </TableBody>
             </Table>
             </div>
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default Orders;
