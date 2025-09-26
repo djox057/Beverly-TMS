@@ -28,6 +28,40 @@ const getStatusBadge = (status: string) => {
 };
 const Orders = () => {
   const navigate = useNavigate();
+  
+  // Debug navigation function
+  const navigateToEditOrder = (orderId: string) => {
+    console.log('=== NAVIGATION DEBUG ===');
+    console.log('Order ID to navigate to:', orderId);
+    console.log('Order ID type:', typeof orderId);
+    console.log('Current location:', window.location.href);
+    
+    if (!orderId) {
+      console.error('Order ID is missing!');
+      return;
+    }
+    
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(orderId)) {
+      console.error('Invalid order ID format:', orderId);
+      return;
+    }
+    
+    const targetUrl = `/edit-order/${orderId}`;
+    console.log('Target URL:', targetUrl);
+    
+    // Try navigation with fallback to window.location
+    try {
+      console.log('Attempting React Router navigation...');
+      navigate(targetUrl);
+      console.log('React Router navigation completed');
+    } catch (error) {
+      console.error('Navigation failed, using window.location:', error);
+      window.location.href = targetUrl;
+    }
+    console.log('=== END NAVIGATION DEBUG ===');
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
@@ -38,14 +72,6 @@ const Orders = () => {
     isLoading,
     error
   } = useOrders();
-  
-  console.log('Orders data loaded:', orders);
-  console.log('Orders count:', orders?.length);
-  if (orders && orders.length > 0) {
-    console.log('First order sample:', orders[0]);
-    console.log('First order ID:', orders[0].id);
-    console.log('First order ID type:', typeof orders[0].id);
-  }
   const {
     data: companies
   } = useCompanies();
@@ -315,18 +341,7 @@ const Orders = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => {
-                            console.log('Edit button clicked for order:', order);
-                            console.log('Order ID:', order.id);
-                            console.log('Order ID type:', typeof order.id);
-                            const targetUrl = `/edit-order/${order.id}`;
-                            console.log('Navigating to:', targetUrl);
-                            if (!order.id) {
-                              console.error('Order ID is missing!');
-                              return;
-                            }
-                            navigate(targetUrl);
-                          }}>
+                          <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </TableCell>

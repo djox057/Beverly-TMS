@@ -252,7 +252,7 @@ const Reports = () => {
         <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
         <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
           <AlertCircle className="h-3 w-3" />
-          Real-time fleet status by dispatcher assignment
+          Real-time fleet status by dispatcher assignment (showing current/most recent order per truck)
         </div>
       </div>
 

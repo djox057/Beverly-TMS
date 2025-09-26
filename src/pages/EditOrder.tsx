@@ -96,13 +96,28 @@ const EditOrder = () => {
 
   // Load order data
   useEffect(() => {
-    if (id) {
+    console.log('EditOrder useEffect - id parameter:', id);
+    console.log('Current window location:', window.location.href);
+    
+    if (id && id !== ':id') {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        console.error('Invalid order ID format:', id);
+        toast({
+          title: "Error",
+          description: "Invalid order ID format",
+          variant: "destructive",
+        });
+        navigate('/orders');
+        return;
+      }
       loadOrderData();
     } else {
-      console.error('No order ID provided');
+      console.error('No valid order ID provided. Received:', id);
       toast({
         title: "Error",
-        description: "No order ID provided in URL",
+        description: "No valid order ID provided in URL",
         variant: "destructive",
       });
       navigate('/orders');
