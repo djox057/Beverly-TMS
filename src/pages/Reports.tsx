@@ -243,6 +243,7 @@ const Reports = () => {
         className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2 w-full"
         style={{ height: '64px', minHeight: '64px', maxHeight: '64px', boxShadow: 'none' }}
         placeholder="Add note..."
+        spellCheck={false}
       />
     );
   };
