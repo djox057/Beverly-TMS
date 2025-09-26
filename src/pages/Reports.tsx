@@ -290,7 +290,8 @@ const Reports = () => {
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
-                        <th colSpan={12} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
+                        <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
+                        <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button
                               onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -7))}
@@ -309,6 +310,7 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
+                        <th colSpan={7} className="border-b border-gray-300 bg-gray-50"></th>
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
