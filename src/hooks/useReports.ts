@@ -228,12 +228,17 @@ export const useReports = () => {
             const day = String(datetime.getUTCDate()).padStart(2, '0');
             date = `${month}/${day}/${year}`;
             
-            const startTime = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Get the actual stored time (not converted to local timezone)
+            const hours = datetime.getUTCHours();
+            const minutes = datetime.getUTCMinutes();
+            const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             
             // If there's an end time and it's different from start time, show range
             if (endDatetimeToUse) {
               const endDateTime = new Date(endDatetimeToUse);
-              const endTime = endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const endHours = endDateTime.getUTCHours();
+              const endMinutes = endDateTime.getUTCMinutes();
+              const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
               
               if (startTime !== endTime) {
                 time = `${startTime} - ${endTime}`;
