@@ -140,6 +140,10 @@ export const useReports = () => {
             status,
             notes,
             updated_at,
+            pickup_datetime,
+            pickup_end_datetime,
+            delivery_datetime,
+            delivery_end_datetime,
            pickup_drops(
              id,
              type,
@@ -193,7 +197,7 @@ export const useReports = () => {
         };
 
         // Format pickup/delivery info
-        const formatStopInfo = (stop: any) => {
+        const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
           if (!stop) return { id: null, location: "—", date: "—", time: "—" };
           
           // Prioritize city + state over address
@@ -211,15 +215,34 @@ export const useReports = () => {
           let date = "—";
           let time = "—";
           
-          if (stop.datetime) {
+          // Use order datetime if available, otherwise use stop datetime
+          const datetimeToUse = orderStartTime || stop.datetime;
+          const endDatetimeToUse = orderEndTime;
+          
+          if (datetimeToUse) {
             // Handle the datetime to avoid timezone day shifts
-            const datetime = new Date(stop.datetime);
+            const datetime = new Date(datetimeToUse);
             // Get the date parts directly to avoid timezone issues
             const year = datetime.getUTCFullYear();
             const month = String(datetime.getUTCMonth() + 1).padStart(2, '0');
             const day = String(datetime.getUTCDate()).padStart(2, '0');
             date = `${month}/${day}/${year}`;
-            time = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const startTime = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // If there's an end time and it's different from start time, show range
+            if (endDatetimeToUse) {
+              const endDateTime = new Date(endDatetimeToUse);
+              const endTime = endDateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              
+              if (startTime !== endTime) {
+                time = `${startTime} - ${endTime}`;
+              } else {
+                time = startTime;
+              }
+            } else {
+              time = startTime;
+            }
           }
           
           return { id: stop.id, location, date, time };
@@ -258,8 +281,8 @@ export const useReports = () => {
           dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
           dispatcherId: truck.dispatcher_id,
           status,
-          pickup: formatStopInfo(pickupStop),
-          delivery: formatStopInfo(deliveryStop),
+          pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
+          delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
           awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
           driveHours: 0, // Would need to integrate with tracking system
           shiftHours: 0, // Would need to integrate with tracking system  
