@@ -280,7 +280,7 @@ const Reports = () => {
                 
                 {/* Google Sheets-style table */}
                 <div className="overflow-x-auto border border-gray-300">
-                  <table className="min-w-full border-collapse bg-white" style={{ tableLayout: 'fixed', width: '1200px' }}>
+                  <table className="border-collapse bg-white" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
