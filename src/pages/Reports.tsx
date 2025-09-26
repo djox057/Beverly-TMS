@@ -303,7 +303,7 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
-                        <th colSpan={2} className="bg-gray-50"></th>
+                        <th colSpan={2} className="bg-gray-50 border-b border-gray-300"></th>
                         <th colSpan={2} className={`bg-gray-50 border-b border-gray-300 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}></th>
                       </tr>
                       {/* Column Headers Row */}
@@ -317,9 +317,9 @@ const Reports = () => {
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
                           </th>
                         ))}
-                        <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
-                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
-                         <th className={`border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
+                        <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
+                         <th className="border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
+                         <th className={`border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
