@@ -137,7 +137,7 @@ const Orders = () => {
     }
   };
   return (
-    <ScrollArea className="h-full w-full">
+    <div className="h-full w-full overflow-auto">
       <div className="min-w-[1800px] space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
@@ -317,7 +317,7 @@ const Orders = () => {
         </CardContent>
       </Card>
       </div>
-    </ScrollArea>
+    </div>
   );
 };
 export default Orders;
