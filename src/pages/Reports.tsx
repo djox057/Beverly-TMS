@@ -223,18 +223,19 @@ const Reports = () => {
 
     if (isEditing) {
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Textarea
             value={editing.value}
             onChange={(e) => setEditing({...editing, value: e.target.value})}
-            className="min-h-[60px] text-xs border-gray-300 rounded-none resize-none"
+            className="min-h-[40px] text-xs border-gray-300 rounded-none resize-none"
+            style={{ width: '60px' }}
           />
           <div className="flex gap-1">
             <button onClick={handleSave} className="text-green-600 hover:text-green-800 p-1">
-              <Check className="h-3 w-3" />
+              <Check className="h-2 w-2" />
             </button>
             <button onClick={handleCancel} className="text-red-600 hover:text-red-800 p-1">
-              <X className="h-3 w-3" />
+              <X className="h-2 w-2" />
             </button>
           </div>
         </div>
@@ -247,14 +248,14 @@ const Reports = () => {
 
     const content = (
       <div
-        className="flex items-center gap-2 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
+        className="flex items-center gap-1 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
         onClick={() => handleEdit(truckId, field, value)}
-        style={{ width: '192px', maxWidth: '192px' }}
+        style={{ width: '72px', maxWidth: '72px' }}
       >
-        <div className="flex-1 text-sm truncate" style={{ maxWidth: '160px' }}>
+        <div className="flex-1 text-xs truncate" style={{ maxWidth: '50px' }}>
           {displayValue || truncatedText}
         </div>
-        <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-50 text-gray-500 flex-shrink-0" />
+        <Edit3 className="h-2 w-2 opacity-0 group-hover:opacity-50 text-gray-500 flex-shrink-0" />
       </div>
     );
 
@@ -346,11 +347,10 @@ const Reports = () => {
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
                           </th>
                         ))}
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-20">Away (D)</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Drive</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Shift</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-16">Cycle</th>
-                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-48">Note</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>Away (D)</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>Drive</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>Shift</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>Cycle</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
                         <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Date</th>
                        </tr>
@@ -358,24 +358,36 @@ const Reports = () => {
                     <tbody>
                       {group.trucks.map((truck, index) => (
                         <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium w-20">{truck.truckNumber}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-32">{truck.driver}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-28">
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>{truck.truckNumber}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>{truck.driver}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '112px', minWidth: '112px', maxWidth: '112px' }}>
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-gray-500" />
                               {truck.home}
                             </div>
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-20">{truck.awayDays}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.driveHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.shiftHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-16">{truck.cycleHours}h</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 w-48">
-                            {renderEditableField(truck.id, 'note', truck.note)}
+                          {/* Split cells for Away, Drive, Shift, Cycle with Notes at bottom */}
+                          <td className="border-r border-b border-gray-300 p-0" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                            <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
+                            <div className="h-16 px-1 py-1" style={{ width: '80px' }}>
+                              {renderEditableField(truck.id, 'note', truck.note)}
+                            </div>
                           </td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600 w-24">{truck.lastEdit}</td>
-                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600 w-24">{truck.editDate}</td>
+                          <td className="border-r border-b border-gray-300 p-0" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>
+                            <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900">{truck.driveHours}h</div>
+                            <div className="h-16" style={{ width: '64px' }}></div>
+                          </td>
+                          <td className="border-r border-b border-gray-300 p-0" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>
+                            <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900">{truck.shiftHours}h</div>
+                            <div className="h-16" style={{ width: '64px' }}></div>
+                          </td>
+                          <td className="border-r border-b border-gray-300 p-0" style={{ width: '64px', minWidth: '64px', maxWidth: '64px' }}>
+                            <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
+                            <div className="h-16" style={{ width: '64px' }}></div>
+                          </td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
+                          <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
                         </tr>
                       ))}
                     </tbody>
