@@ -212,8 +212,13 @@ export const useReports = () => {
           let time = "—";
           
           if (stop.datetime) {
+            // Handle the datetime to avoid timezone day shifts
             const datetime = new Date(stop.datetime);
-            date = datetime.toLocaleDateString();
+            // Get the date parts directly to avoid timezone issues
+            const year = datetime.getUTCFullYear();
+            const month = String(datetime.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(datetime.getUTCDate()).padStart(2, '0');
+            date = `${month}/${day}/${year}`;
             time = datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           }
           
