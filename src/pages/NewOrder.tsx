@@ -446,6 +446,16 @@ const NewOrder = () => {
     label: driver.name
   })) || [];
 
+  // Helper function to combine date and time into ISO string
+  const combineDateAndTime = (date: Date, time: string): string => {
+    if (!time) return date.toISOString();
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    const combined = new Date(date);
+    combined.setHours(hours, minutes, 0, 0);
+    return combined.toISOString();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -460,10 +470,38 @@ const NewOrder = () => {
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,
-        pickup_datetime: pickupDateRange?.from?.toISOString() || null,
-        pickup_end_datetime: pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null,
-        delivery_datetime: deliveryDateRange?.from?.toISOString() || null,
-        delivery_end_datetime: deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null,
+        pickup_datetime: (() => {
+          const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
+          if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
+            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
+          }
+          return pickupDateRange?.from?.toISOString() || null;
+        })(),
+        pickup_end_datetime: (() => {
+          const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
+          if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
+            return combineDateAndTime(firstPickup.dateRange.to, firstPickup.endTime);
+          } else if (firstPickup?.dateRange?.from && firstPickup?.endTime) {
+            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.endTime);
+          }
+          return pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null;
+        })(),
+        delivery_datetime: (() => {
+          const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
+          if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
+            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
+          }
+          return deliveryDateRange?.from?.toISOString() || null;
+        })(),
+        delivery_end_datetime: (() => {
+          const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
+          if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
+            return combineDateAndTime(firstDelivery.dateRange.to, firstDelivery.endTime);
+          } else if (firstDelivery?.dateRange?.from && firstDelivery?.endTime) {
+            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.endTime);
+          }
+          return deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null;
+        })(),
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
@@ -581,7 +619,9 @@ const NewOrder = () => {
             city,
             state,
             zip_code: zipCode,
-            datetime: item.datetime || null
+            datetime: item.dateRange?.from && item.startTime 
+              ? combineDateAndTime(item.dateRange.from, item.startTime)
+              : item.dateRange?.from?.toISOString() || null
           };
         });
         if (pickupDropData.length > 0) {
