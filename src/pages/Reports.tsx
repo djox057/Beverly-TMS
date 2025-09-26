@@ -218,63 +218,39 @@ const Reports = () => {
     );
   }
 
-  const renderEditableField = (truckId: string, field: 'note', value: string, displayValue?: React.ReactNode) => {
-    const isEditing = editing?.truckId === truckId && editing?.field === field;
-
-    if (isEditing) {
-      return (
-        <div className="flex items-center gap-1">
-          <Textarea
-            value={editing.value}
-            onChange={(e) => setEditing({...editing, value: e.target.value})}
-            className="min-h-[40px] text-xs border-gray-300 rounded-none resize-none"
-            style={{ width: '220px' }}
-          />
-          <div className="flex gap-1">
-            <button onClick={handleSave} className="text-green-600 hover:text-green-800 p-1">
-              <Check className="h-2 w-2" />
-            </button>
-            <button onClick={handleCancel} className="text-red-600 hover:text-red-800 p-1">
-              <X className="h-2 w-2" />
-            </button>
-          </div>
-        </div>
-      );
+  const handleNoteChange = async (truckId: string, newValue: string) => {
+    try {
+      const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
+      const truck = allTrucks.find(t => t.id === truckId);
+      
+      if (truck?.orderId) {
+        await updateOrderNote.mutateAsync({ orderId: truck.orderId, notes: newValue });
+        toast({
+          title: "Note updated",
+          description: "The note has been updated successfully.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description: "There was an error updating the note.",
+        variant: "destructive",
+      });
     }
+  };
 
-    const displayText = value || "—";
-    const shouldTruncate = displayText.length > 30;
-    const truncatedText = shouldTruncate ? displayText.substring(0, 27) + "..." : displayText;
-
-    const content = (
-      <div
-        className="flex items-center justify-center gap-1 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
-        onClick={() => handleEdit(truckId, field, value)}
-        style={{ width: '250px', maxWidth: '250px' }}
-      >
-        <div className="flex-1 text-xs text-center" style={{ maxWidth: '220px' }}>
-          {displayValue || truncatedText}
-        </div>
-        <Edit3 className="h-2 w-2 opacity-0 group-hover:opacity-50 text-gray-500 flex-shrink-0" />
+  const renderEditableField = (truckId: string, field: 'note', value: string, displayValue?: React.ReactNode) => {
+    return (
+      <div className="flex items-center justify-center w-full">
+        <Textarea
+          defaultValue={value || ""}
+          onBlur={(e) => handleNoteChange(truckId, e.target.value)}
+          className="min-h-[40px] text-xs border-gray-300 rounded-none resize-none text-center"
+          style={{ width: '250px' }}
+          placeholder="Add note..."
+        />
       </div>
     );
-
-    if (shouldTruncate) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {content}
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs">{displayText}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-
-    return content;
   };
 
   return (
@@ -382,7 +358,7 @@ const Reports = () => {
                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
                               </div>
                             </div>
-                            <div className="h-16 px-1 py-1 flex items-center justify-center" style={{ width: '272px' }}>
+                            <div className="h-16 flex items-center justify-center" style={{ width: '272px' }}>
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
