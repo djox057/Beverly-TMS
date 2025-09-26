@@ -108,8 +108,8 @@ const Reports = () => {
     if (calendarDates[dispatcherId]) {
       return calendarDates[dispatcherId];
     }
-    // Default to current week start
-    return startOfWeek(new Date(), { weekStartsOn: 1 });
+    // Default to 1 day before current day
+    return addDays(new Date(), -1);
   };
 
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
@@ -135,7 +135,7 @@ const Reports = () => {
   };
 
   const renderTruckCalendarCells = (truck: any, startDate: Date) => {
-    const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
     const statusColors = getStatusColors(truck.status);
     
     const parseDate = (dateStr: string) => {
@@ -267,7 +267,7 @@ const Reports = () => {
           <div className="px-4 py-4 space-y-8">
             {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
             const startDate = getCalendarStartDate(dispatcherId);
-            const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
+            const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
             return (
               <div key={dispatcherId} className="bg-white">
                 {/* Dispatcher header - Google Sheets style */}
@@ -284,19 +284,19 @@ const Reports = () => {
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
                         <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
-                        <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
+                        <th colSpan={7} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button
-                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -7))}
+                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))}
                               className="p-1 hover:bg-gray-200 rounded"
                             >
                               <ChevronLeft className="h-4 w-4" />
                             </button>
                             <div className="text-sm font-medium text-gray-700 mx-4">
-                              {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
+                              {format(startDate, 'MMM dd')} - {format(addDays(startDate, 6), 'MMM dd, yyyy')}
                             </div>
                             <button
-                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 7))}
+                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 1))}
                               className="p-1 hover:bg-gray-200 rounded"
                             >
                               <ChevronRight className="h-4 w-4" />
