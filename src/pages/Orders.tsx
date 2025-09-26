@@ -307,7 +307,16 @@ const Orders = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/edit-order/${order.id}`)}>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            console.log('Edit button clicked for order:', order);
+                            console.log('Order ID:', order.id);
+                            console.log('Order ID type:', typeof order.id);
+                            if (!order.id) {
+                              console.error('Order ID is missing!');
+                              return;
+                            }
+                            navigate(`/edit-order/${order.id}`);
+                          }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </TableCell>

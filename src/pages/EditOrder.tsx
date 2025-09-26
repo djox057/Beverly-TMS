@@ -104,7 +104,6 @@ const EditOrder = () => {
   const loadOrderData = async () => {
     console.log('Loading order data for ID:', id);
     console.log('Current URL:', window.location.href);
-    console.log('useParams result:', useParams());
     
     // Check if id is valid UUID format
     if (!id || id === ':id' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
