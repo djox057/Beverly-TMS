@@ -19,7 +19,7 @@ const LayoutContent = ({ children }: LayoutProps) => {
             Dispatch Manager
           </h1>
         </header>
-        <main className="flex-1">
+        <main className="flex-1 overflow-hidden">
           {children}
         </main>
       </div>
