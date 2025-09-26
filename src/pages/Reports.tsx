@@ -228,7 +228,7 @@ const Reports = () => {
             value={editing.value}
             onChange={(e) => setEditing({...editing, value: e.target.value})}
             className="min-h-[40px] text-xs border-gray-300 rounded-none resize-none"
-            style={{ width: '60px' }}
+            style={{ width: '220px' }}
           />
           <div className="flex gap-1">
             <button onClick={handleSave} className="text-green-600 hover:text-green-800 p-1">
@@ -248,11 +248,11 @@ const Reports = () => {
 
     const content = (
       <div
-        className="flex items-center gap-1 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
+        className="flex items-center justify-center gap-1 cursor-pointer group hover:bg-blue-50 p-1 rounded-none min-h-[1.5rem]"
         onClick={() => handleEdit(truckId, field, value)}
-        style={{ width: '72px', maxWidth: '72px' }}
+        style={{ width: '250px', maxWidth: '250px' }}
       >
-        <div className="flex-1 text-xs truncate" style={{ maxWidth: '50px' }}>
+        <div className="flex-1 text-xs text-center" style={{ maxWidth: '220px' }}>
           {displayValue || truncatedText}
         </div>
         <Edit3 className="h-2 w-2 opacity-0 group-hover:opacity-50 text-gray-500 flex-shrink-0" />
@@ -366,13 +366,23 @@ const Reports = () => {
                           {renderTruckCalendarCells(truck, startDate)}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>
-                            <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900 flex justify-around items-center">
-                              <span className="border-r border-gray-300 pr-4">{truck.awayDays}</span>
-                              <span className="border-r border-gray-300 pr-4">{truck.driveHours}h</span>
-                              <span className="border-r border-gray-300 pr-4">{truck.shiftHours}h</span>
-                              <span>{truck.cycleHours}h</span>
+                            <div className="h-16 border-b border-gray-200">
+                              {/* Labels row */}
+                              <div className="h-8 flex">
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Away (D)</div>
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Drive</div>
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Shift</div>
+                                <div className="flex-1 px-2 py-1 text-center text-xs text-gray-600">Cycle</div>
+                              </div>
+                              {/* Values row */}
+                              <div className="h-8 flex">
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.driveHours}h</div>
+                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.shiftHours}h</div>
+                                <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}h</div>
+                              </div>
                             </div>
-                            <div className="h-16 px-1 py-1 text-center" style={{ width: '272px' }}>
+                            <div className="h-16 px-1 py-1 flex items-center justify-center" style={{ width: '272px' }}>
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
