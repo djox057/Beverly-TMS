@@ -260,7 +260,7 @@ export const useReports = () => {
           shiftHours: 0, // Would need to integrate with tracking system  
           cycleHours: 0, // Would need to integrate with tracking system
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
-          lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleString() : new Date(truck.updated_at).toLocaleString(),
+          lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString()
         };
       }) || [];
