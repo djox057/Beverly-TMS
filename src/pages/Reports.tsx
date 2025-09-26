@@ -5,7 +5,7 @@ import { MapPin, AlertCircle, Loader2, Edit3, Check, X } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarCarousel } from "@/components/ui/calendar-carousel";
+import { DateCalendarCarousel } from "@/components/ui/date-calendar-carousel";
 
 interface EditingState {
   truckId: string;
@@ -173,10 +173,15 @@ const Reports = () => {
           {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => (
             <div key={dispatcherId} className="bg-white">
               {/* Dispatcher header - Google Sheets style */}
-              <div className="mb-2">
-                <h2 className="text-sm font-medium text-gray-900 px-1">
+              <div className="mb-4">
+                <h2 className="text-sm font-medium text-gray-900 px-1 mb-3">
                   {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
                 </h2>
+                
+                {/* Date Calendar Carousel - appears once per dispatcher */}
+                <div className="mb-4">
+                  <DateCalendarCarousel />
+                </div>
               </div>
               
               {/* Google Sheets-style table */}
@@ -187,7 +192,6 @@ const Reports = () => {
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Truck #</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Driver</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Home</th>
-                      <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0 w-96">5-Day Calendar</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Away (D)</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Drive</th>
                       <th className="border-r border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 sticky top-0">Shift</th>
@@ -207,17 +211,6 @@ const Reports = () => {
                             <MapPin className="h-3 w-3 text-gray-500" />
                             {truck.home}
                           </div>
-                        </td>
-                        <td className="border-r border-b border-gray-300 p-0">
-                          <CalendarCarousel
-                            truckId={truck.id}
-                            truckData={truck}
-                            editing={editing}
-                            onEdit={handleEdit}
-                            onSave={handleSave}
-                            onCancel={handleCancel}
-                            onEditingChange={setEditing}
-                          />
                         </td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.awayDays}</td>
                         <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900">{truck.driveHours}h</td>
