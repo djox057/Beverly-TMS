@@ -240,8 +240,8 @@ const Reports = () => {
       <Textarea
         defaultValue={value || ""}
         onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-        className="text-xs border-none rounded-none resize-none text-right bg-transparent focus:outline-none focus:ring-0 p-2"
-        style={{ width: '272px', height: '64px', minHeight: '64px', maxHeight: '64px' }}
+        className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2"
+        style={{ width: '272px', height: '64px', minHeight: '64px', maxHeight: '64px', boxShadow: 'none' }}
         placeholder="Add note..."
       />
     );
@@ -280,7 +280,7 @@ const Reports = () => {
                 
                 {/* Google Sheets-style table */}
                 <div className="overflow-x-auto border border-gray-300">
-                  <table className="w-full border-collapse bg-white">
+                  <table className="min-w-full border-collapse bg-white" style={{ tableLayout: 'fixed', width: '1200px' }}>
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
