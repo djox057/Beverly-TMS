@@ -367,9 +367,9 @@ const Reports = () => {
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>
                             <div className="h-16 border-b border-gray-200 px-3 py-1 text-center text-sm text-gray-900 flex justify-around items-center">
-                              <span>{truck.awayDays}</span>
-                              <span>{truck.driveHours}h</span>
-                              <span>{truck.shiftHours}h</span>
+                              <span className="border-r border-gray-300 pr-4">{truck.awayDays}</span>
+                              <span className="border-r border-gray-300 pr-4">{truck.driveHours}h</span>
+                              <span className="border-r border-gray-300 pr-4">{truck.shiftHours}h</span>
                               <span>{truck.cycleHours}h</span>
                             </div>
                             <div className="h-16 px-1 py-1 text-center" style={{ width: '272px' }}>
