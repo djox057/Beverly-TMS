@@ -309,6 +309,25 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
+                      </tr>
+                      {/* Column Headers Row */}
+                      <tr className="bg-gray-50">
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Truck #</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Driver</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Home</th>
+                        {days.map((day, index) => (
+                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50">
+                            <div>{format(day, 'EEE')}</div>
+                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                          </th>
+                        ))}
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Away (D)</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Drive</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Shift</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Cycle</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Note</th>
+                        <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Last Edit</th>
+                        <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50">Date</th>
                        </tr>
                     </thead>
                     <tbody>
