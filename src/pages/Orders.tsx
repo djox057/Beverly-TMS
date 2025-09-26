@@ -136,9 +136,9 @@ const Orders = () => {
       console.error('Error generating invoices:', error);
     }
   };
-  return <div className="h-full flex flex-col">
-    <ScrollArea className="flex-1">
-      <div className="space-y-6 p-6">
+  return (
+    <ScrollArea className="h-full w-full">
+      <div className="min-w-[1800px] space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
         <div className="flex gap-2">
@@ -204,9 +204,8 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-400px)]">
-            <div className="min-w-[1800px] p-6">
-              <Table>
+          <div className="p-6">
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-20">Truck #</TableHead>
@@ -314,12 +313,11 @@ const Orders = () => {
                     </TableRow>)}
               </TableBody>
             </Table>
-            </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
       </div>
     </ScrollArea>
-  </div>;
+  );
 };
 export default Orders;
