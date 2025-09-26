@@ -175,8 +175,21 @@ export const useReports = () => {
 
       // Filter out trucks without dispatchers and transform the data
       const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
+        // Find all active orders first
+        const activeOrders = truck.orders?.filter(order => 
+          order.status === 'pending' || order.status === 'in_transit'
+        ) || [];
+        
+        // If we have active orders, pick the one with earliest pickup date
+        // Otherwise, fall back to the most recent order
         const currentOrder = truck.orders && truck.orders.length > 0 
-          ? truck.orders.find(order => order.status === 'pending' || order.status === 'in_transit') || truck.orders[0]
+          ? (activeOrders.length > 0 
+              ? activeOrders.sort((a, b) => {
+                  const dateA = new Date(a.pickup_datetime || 0).getTime();
+                  const dateB = new Date(b.pickup_datetime || 0).getTime();
+                  return dateA - dateB;
+                })[0]
+              : truck.orders[0])
           : null;
 
         const pickupStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'pickup');
