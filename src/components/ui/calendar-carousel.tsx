@@ -64,18 +64,20 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
   onEditingChange
 }) => {
   const [startDate, setStartDate] = useState(() => {
-    // Start from 1 day before current day
-    const today = new Date();
-    return addDays(today, -1);
+    // Try to start from pickup or delivery date if available
+    const pickupDate = truckData.pickup.date !== '—' ? new Date(truckData.pickup.date) : null;
+    const deliveryDate = truckData.delivery.date !== '—' ? new Date(truckData.delivery.date) : null;
+    const refDate = pickupDate || deliveryDate || new Date();
+    return startOfWeek(refDate, { weekStartsOn: 1 }); // Start week on Monday
   });
 
   const statusColors = getStatusColors(truckData.status);
 
-  // Generate 7 consecutive days starting from startDate (Monday-Sunday)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+  // Generate 5 consecutive days starting from startDate
+  const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
 
-  const navigateDay = (direction: 'prev' | 'next') => {
-    setStartDate(prev => addDays(prev, direction === 'next' ? 1 : -1));
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    setStartDate(prev => addDays(prev, direction === 'next' ? 7 : -7));
   };
 
   const parseDate = (dateStr: string) => {
@@ -189,16 +191,16 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
       {/* Calendar Header */}
       <div className="flex items-center justify-between bg-gray-50 border-b border-gray-300 px-2 py-1">
         <button
-          onClick={() => navigateDay('prev')}
+          onClick={() => navigateWeek('prev')}
           className="p-1 hover:bg-gray-200 rounded"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="text-xs font-medium text-gray-700">
-          {format(startDate, 'MMM dd')} - {format(addDays(startDate, 6), 'MMM dd, yyyy')}
+          {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
         </div>
         <button
-          onClick={() => navigateDay('next')}
+          onClick={() => navigateWeek('next')}
           className="p-1 hover:bg-gray-200 rounded"
         >
           <ChevronRight className="h-4 w-4" />
