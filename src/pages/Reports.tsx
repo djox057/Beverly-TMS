@@ -278,8 +278,8 @@ const Reports = () => {
                 </div>
                 
                 {/* Google Sheets-style table */}
-                <div className="w-full border border-gray-300">
-                  <table className="w-full border-collapse bg-white" style={{ tableLayout: 'auto' }}>
+                <div className="w-full">
+                  <table className="w-full border-collapse bg-white border border-gray-300" style={{ tableLayout: 'auto' }}>
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
@@ -303,7 +303,7 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
-                        <th colSpan={2} className={`border-b border-gray-300 bg-gray-50 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}></th>
+                        <th colSpan={2} className="bg-gray-50"></th>
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
@@ -318,7 +318,7 @@ const Reports = () => {
                         ))}
                         <th colSpan={4} className="border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
                          <th className="border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
-                         <th className={`px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 border-b border-gray-300 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
+                         <th className={`border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
