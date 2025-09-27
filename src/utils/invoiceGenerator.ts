@@ -64,7 +64,6 @@ interface Order {
   driverName: string;
   mileage: number;
   rcFiles?: OrderFile[];
-  bolFiles?: OrderFile[];
   podFiles?: OrderFile[];
 }
 
@@ -324,20 +323,18 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
     doc.text('Page 1 Of 1', 190, 280);
     
-    // Get PDF bytes and collect RC/BOL/POD files
+    // Get PDF bytes and collect RC/POD files
     const invoicePdfBytes = doc.output('arraybuffer');
     const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
-    const allBolFiles = group.orders.flatMap(order => order.bolFiles || []);
     const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
     
-    // If we have RC, BOL, or POD files, merge them first
-    if (allRcFiles.length > 0 || allBolFiles.length > 0 || allPodFiles.length > 0) {
+    // If we have RC or POD files, merge them first
+    if (allRcFiles.length > 0 || allPodFiles.length > 0) {
       try {
         const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
           body: {
             invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
             rcFiles: allRcFiles,
-            bolFiles: allBolFiles,
             podFiles: allPodFiles
           }
         });
