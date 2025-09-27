@@ -1,8 +1,10 @@
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { useReports } from "@/hooks/useReports";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -155,7 +157,7 @@ const Reports = () => {
         ? new Date(order.delivery_datetime) 
         : null;
       
-      const statusColors = getStatusColors(order.isActive ? (order.status === 'in_transit' ? 'In Transit' : 'Loading') : 'Available');
+      const statusColors = order.documentColors;
       
       return {
         ...order,
@@ -192,13 +194,43 @@ const Reports = () => {
               {dayDeliveries.length > 0 ? (
                 <div className="space-y-0.5" style={{ width: '126px' }}>
                   {dayDeliveries.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
-                    <div key={`delivery-${order.id}-${idx}`} className={`${order.statusColors.bg} ${order.statusColors.border} border rounded px-1 py-0.5`}>
-                      <div className={`text-xs font-medium ${order.statusColors.text} truncate`} style={{ width: '110px' }}>
+                    <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{ width: '110px' }}>
                         {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.statusColors.text} opacity-70 truncate`}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
                         {order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
                       </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20"
+                          >
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && (
+                                <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
+                              )}
+                              {order.loadDetails.deliveryInfo && (
+                                <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
+                              )}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && (
+                                <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   ))}
                   {dayDeliveries.length > (hasMultipleActivities ? 1 : 2) && (
@@ -217,13 +249,43 @@ const Reports = () => {
               {dayPickups.length > 0 ? (
                 <div className="space-y-0.5" style={{ width: '126px' }}>
                   {dayPickups.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
-                    <div key={`pickup-${order.id}-${idx}`} className={`${order.statusColors.bg} ${order.statusColors.border} border rounded px-1 py-0.5`}>
-                      <div className={`text-xs font-medium ${order.statusColors.text} truncate`} style={{ width: '110px' }}>
+                    <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{ width: '110px' }}>
                         {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.statusColors.text} opacity-70 truncate`}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
                         {order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
                       </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20"
+                          >
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && (
+                                <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
+                              )}
+                              {order.loadDetails.deliveryInfo && (
+                                <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
+                              )}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && (
+                                <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   ))}
                   {dayPickups.length > (hasMultipleActivities ? 1 : 2) && (
@@ -237,12 +299,6 @@ const Reports = () => {
               )}
             </div>
 
-            {/* Multi-load indicator */}
-            {truck.hasMultipleOrders && (
-              <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                {truck.totalOrdersCount}
-              </div>
-            )}
           </div>
         </td>
       );

@@ -126,6 +126,34 @@ export const useReports = () => {
     },
   });
 
+  // Helper function to determine document status
+  const getDocumentStatus = (orderFiles: any[]) => {
+    if (!orderFiles || orderFiles.length === 0) return 'none';
+    
+    const hasRC = orderFiles.some(file => file.file_category === 'RC');
+    const hasBOL = orderFiles.some(file => file.file_category === 'BOL');
+    const hasPOD = orderFiles.some(file => file.file_category === 'POD');
+    
+    if (hasRC && hasBOL && hasPOD) return 'complete';
+    if (hasRC && hasBOL) return 'partial';
+    if (hasRC) return 'minimal';
+    return 'none';
+  };
+
+  // Helper function to get color classes based on document status
+  const getDocumentColorClass = (documentStatus: string) => {
+    switch (documentStatus) {
+      case 'complete':
+        return { bg: 'bg-green-600', text: 'text-green-100', border: 'border-green-700' };
+      case 'partial':
+        return { bg: 'bg-lime-100', text: 'text-lime-800', border: 'border-lime-300' };
+      case 'minimal':
+        return { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-300' };
+      default:
+        return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+    }
+  };
+
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
@@ -137,6 +165,9 @@ export const useReports = () => {
           driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state),
           orders!orders_truck_id_fkey(
             id,
+            load_number,
+            internal_load_number,
+            broker_load_number,
             status,
             notes,
             updated_at,
@@ -151,6 +182,12 @@ export const useReports = () => {
              city,
              state,
              datetime
+           ),
+           order_files(
+             id,
+             file_category,
+             file_name,
+             content_type
            )
           )
         `)
@@ -203,13 +240,40 @@ export const useReports = () => {
         const allOrdersWithStops = truck.orders?.map(order => {
           const pickupStop = order.pickup_drops?.find(stop => stop.type === 'pickup');
           const deliveryStop = order.pickup_drops?.find(stop => stop.type === 'delivery');
+          const documentStatus = getDocumentStatus(order.order_files || []);
+          const documentColors = getDocumentColorClass(documentStatus);
           
           return {
             ...order,
             pickupStop,
             deliveryStop,
             isActive: activeOrders.some(activeOrder => activeOrder.id === order.id),
-            isRecentCompleted: recentCompletedOrders.some(completedOrder => completedOrder.id === order.id)
+            isRecentCompleted: recentCompletedOrders.some(completedOrder => completedOrder.id === order.id),
+            documentStatus,
+            documentColors,
+            // Format load details for info display
+            loadDetails: {
+              loadNumber: order.load_number || order.internal_load_number || '—',
+              brokerLoadNumber: order.broker_load_number || '—',
+              pickupInfo: pickupStop ? {
+                address: pickupStop.address || '—',
+                city: pickupStop.city || '—',
+                state: pickupStop.state || '—',
+                datetime: pickupStop.datetime || order.pickup_datetime || '—'
+              } : null,
+              deliveryInfo: deliveryStop ? {
+                address: deliveryStop.address || '—',
+                city: deliveryStop.city || '—', 
+                state: deliveryStop.state || '—',
+                datetime: deliveryStop.datetime || order.delivery_datetime || '—'
+              } : null,
+              documents: (order.order_files || []).map(file => ({
+                category: file.file_category,
+                name: file.file_name,
+                type: file.content_type
+              })),
+              notes: order.notes || '—'
+            }
           };
         }) || [];
 
