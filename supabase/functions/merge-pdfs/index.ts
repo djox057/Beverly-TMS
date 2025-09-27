@@ -58,26 +58,82 @@ serve(async (req) => {
     const mainPdf = await PDFDocument.load(pdfBytes)
     console.log('Loaded main invoice PDF successfully')
 
+    // Helper function to check if file is an image
+    const isImageFile = (fileName: string, contentType?: string) => {
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']
+      const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp']
+      
+      const hasImageExtension = imageExtensions.some(ext => 
+        fileName.toLowerCase().endsWith(ext)
+      )
+      const hasImageType = contentType && imageTypes.includes(contentType.toLowerCase())
+      
+      return hasImageExtension || hasImageType
+    }
+
+    // Helper function to add file to PDF (handles both PDFs and images)
+    const addFileToPdf = async (file: any, fileType: string) => {
+      const { data: fileData, error } = await supabase.storage
+        .from('order-files')
+        .download(file.file_path)
+
+      if (error) {
+        console.error(`Error downloading ${fileType} file:`, error)
+        return false
+      }
+
+      const fileBytes = await fileData.arrayBuffer()
+      
+      if (isImageFile(file.file_name, file.content_type)) {
+        // Handle image files - convert to PDF page
+        console.log(`Processing ${fileType} image: ${file.file_name}`)
+        
+        let image
+        if (file.file_name.toLowerCase().includes('.png') || file.content_type?.includes('png')) {
+          image = await mainPdf.embedPng(fileBytes)
+        } else {
+          // Default to JPEG for all other image types
+          image = await mainPdf.embedJpg(fileBytes)
+        }
+        
+        const page = mainPdf.addPage()
+        const { width, height } = image.scale(1)
+        
+        // Scale image to fit page while maintaining aspect ratio
+        const pageWidth = page.getWidth()
+        const pageHeight = page.getHeight()
+        const scaleFactor = Math.min(pageWidth / width, pageHeight / height, 1)
+        
+        const scaledWidth = width * scaleFactor
+        const scaledHeight = height * scaleFactor
+        
+        page.drawImage(image, {
+          x: (pageWidth - scaledWidth) / 2,
+          y: (pageHeight - scaledHeight) / 2,
+          width: scaledWidth,
+          height: scaledHeight,
+        })
+        
+        console.log(`Added ${fileType} image: ${file.file_name}`)
+      } else {
+        // Handle PDF files
+        console.log(`Processing ${fileType} PDF: ${file.file_name}`)
+        const filePdf = await PDFDocument.load(fileBytes)
+        const pages = await mainPdf.copyPages(filePdf, filePdf.getPageIndices())
+        
+        pages.forEach((page) => mainPdf.addPage(page))
+        console.log(`Added ${fileType} PDF: ${file.file_name}`)
+      }
+      
+      return true
+    }
+
     // Add RC files
     if (rcFiles && rcFiles.length > 0) {
       console.log(`Processing ${rcFiles.length} RC files`)
       for (const rcFile of rcFiles) {
         try {
-          const { data: fileData, error } = await supabase.storage
-            .from('order-files')
-            .download(rcFile.file_path)
-
-          if (error) {
-            console.error('Error downloading RC file:', error)
-            continue
-          }
-
-          const fileBytes = await fileData.arrayBuffer()
-          const rcPdf = await PDFDocument.load(fileBytes)
-          const pages = await mainPdf.copyPages(rcPdf, rcPdf.getPageIndices())
-          
-          pages.forEach((page) => mainPdf.addPage(page))
-          console.log(`Added RC file: ${rcFile.file_name}`)
+          await addFileToPdf(rcFile, 'RC')
         } catch (error) {
           console.error(`Error processing RC file ${rcFile.file_name}:`, error)
         }
@@ -89,21 +145,7 @@ serve(async (req) => {
       console.log(`Processing ${podFiles.length} POD files`)
       for (const podFile of podFiles) {
         try {
-          const { data: fileData, error } = await supabase.storage
-            .from('order-files')
-            .download(podFile.file_path)
-
-          if (error) {
-            console.error('Error downloading POD file:', error)
-            continue
-          }
-
-          const fileBytes = await fileData.arrayBuffer()
-          const podPdf = await PDFDocument.load(fileBytes)
-          const pages = await mainPdf.copyPages(podPdf, podPdf.getPageIndices())
-          
-          pages.forEach((page) => mainPdf.addPage(page))
-          console.log(`Added POD file: ${podFile.file_name}`)
+          await addFileToPdf(podFile, 'POD')
         } catch (error) {
           console.error(`Error processing POD file ${podFile.file_name}:`, error)
         }
