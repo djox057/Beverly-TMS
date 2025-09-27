@@ -199,25 +199,32 @@ export const useReports = () => {
           return false;
         }) || [];
         
-        // Select the best order to display
-        const currentOrder = truck.orders && truck.orders.length > 0 
+        // Process all orders for this truck instead of selecting just one
+        const allOrdersWithStops = truck.orders?.map(order => {
+          const pickupStop = order.pickup_drops?.find(stop => stop.type === 'pickup');
+          const deliveryStop = order.pickup_drops?.find(stop => stop.type === 'delivery');
+          
+          return {
+            ...order,
+            pickupStop,
+            deliveryStop,
+            isActive: activeOrders.some(activeOrder => activeOrder.id === order.id),
+            isRecentCompleted: recentCompletedOrders.some(completedOrder => completedOrder.id === order.id)
+          };
+        }) || [];
+
+        // Select primary order for display (backward compatibility)
+        const currentOrder = allOrdersWithStops.length > 0 
           ? (activeOrders.length > 0 
-              ? activeOrders.sort((a, b) => {
-                  const dateA = new Date(a.pickup_datetime || 0).getTime();
-                  const dateB = new Date(b.pickup_datetime || 0).getTime();
-                  return dateA - dateB;
-                })[0]
+              ? allOrdersWithStops.find(order => order.isActive && activeOrders.some(active => active.id === order.id))
               : recentCompletedOrders.length > 0
-                ? recentCompletedOrders.sort((a, b) => {
-                    const dateA = new Date(a.pickup_datetime || 0).getTime();
-                    const dateB = new Date(b.pickup_datetime || 0).getTime();
-                    return dateB - dateA; // Most recent first
-                  })[0]
-                : truck.orders[0])
+                ? allOrdersWithStops.find(order => order.isRecentCompleted)
+                : allOrdersWithStops[0])
           : null;
 
-        const pickupStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'pickup');
-        const deliveryStop = currentOrder?.pickup_drops?.find(stop => stop.type === 'delivery');
+        // Ensure pickup and delivery come from the SAME order (data integrity fix)
+        const pickupStop = currentOrder?.pickupStop;
+        const deliveryStop = currentOrder?.deliveryStop;
         
         // Get the most recent truck note for this truck
         const truckNote = truckNotes?.find(note => note.truck_id === truck.id);
@@ -331,7 +338,12 @@ export const useReports = () => {
           cycleHours: 0, // Would need to integrate with tracking system
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
-          editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString()
+          editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
+          // Multi-load support
+          allOrders: allOrdersWithStops,
+          activeOrdersCount: activeOrders.length,
+          totalOrdersCount: truck.orders?.length || 0,
+          hasMultipleOrders: (truck.orders?.length || 0) > 1
         };
       }) || [];
 

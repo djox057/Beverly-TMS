@@ -136,7 +136,6 @@ const Reports = () => {
 
   const renderTruckCalendarCells = (truck: any, startDate: Date) => {
     const days = Array.from({ length: 4 }, (_, i) => addDays(startDate, i));
-    const statusColors = getStatusColors(truck.status);
     
     const parseDate = (dateStr: string) => {
       if (dateStr === '—' || !dateStr) return null;
@@ -147,53 +146,103 @@ const Reports = () => {
       }
     };
 
-    const pickupDate = parseDate(truck.pickup.date);
-    const deliveryDate = parseDate(truck.delivery.date);
+    // Get all orders with their pickup/delivery dates for multi-load overlay
+    const ordersWithDates = truck.allOrders?.map((order: any) => {
+      const pickupDate = order.pickupStop && order.pickup_datetime 
+        ? new Date(order.pickup_datetime) 
+        : null;
+      const deliveryDate = order.deliveryStop && order.delivery_datetime 
+        ? new Date(order.delivery_datetime) 
+        : null;
+      
+      const statusColors = getStatusColors(order.isActive ? (order.status === 'in_transit' ? 'In Transit' : 'Loading') : 'Available');
+      
+      return {
+        ...order,
+        pickupDate,
+        deliveryDate,
+        statusColors,
+        pickupLocation: order.pickupStop ? 
+          (order.pickupStop.city && order.pickupStop.state 
+            ? `${order.pickupStop.city}, ${order.pickupStop.state}`
+            : order.pickupStop.address || '—') : '—',
+        deliveryLocation: order.deliveryStop ? 
+          (order.deliveryStop.city && order.deliveryStop.state 
+            ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
+            : order.deliveryStop.address || '—') : '—'
+      };
+    }) || [];
 
     return days.map((day, index) => {
-      const isPickupDay = pickupDate && isSameDay(day, pickupDate);
-      const isDeliveryDay = deliveryDate && isSameDay(day, deliveryDate);
+      // Find all pickups and deliveries for this day
+      const dayPickups = ordersWithDates.filter(order => 
+        order.pickupDate && isSameDay(day, order.pickupDate)
+      );
+      const dayDeliveries = ordersWithDates.filter(order => 
+        order.deliveryDate && isSameDay(day, order.deliveryDate)
+      );
+
+      const hasMultipleActivities = (dayPickups.length + dayDeliveries.length) > 1;
 
       return (
         <td key={index} className="border-r border-b border-gray-300 p-0" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>
-          <div className="h-32" style={{ width: '128px' }}>
+          <div className="h-32 relative" style={{ width: '128px' }}>
             {/* Delivery cell (top half) */}
-            <div className={`border-b border-gray-200 p-2 ${isDeliveryDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
-              {isDeliveryDay ? (
-                <div style={{ width: '112px' }}>
-                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`} style={{ width: '112px' }}>
-                    {truck.delivery.location}
-                  </div>
-                  <div className={`text-xs ${statusColors.text} opacity-70`} style={{ width: '112px' }}>
-                    {truck.delivery.date !== '—' && truck.delivery.time !== '—' 
-                      ? `${truck.delivery.time}`
-                      : '—'
-                    }
-                  </div>
+            <div className={`border-b border-gray-200 p-1 ${dayDeliveries.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
+              {dayDeliveries.length > 0 ? (
+                <div className="space-y-0.5" style={{ width: '126px' }}>
+                  {dayDeliveries.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
+                    <div key={`delivery-${order.id}-${idx}`} className={`${order.statusColors.bg} ${order.statusColors.border} border rounded px-1 py-0.5`}>
+                      <div className={`text-xs font-medium ${order.statusColors.text} truncate`} style={{ width: '110px' }}>
+                        {order.deliveryLocation}
+                      </div>
+                      <div className={`text-xs ${order.statusColors.text} opacity-70 truncate`}>
+                        {order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                      </div>
+                    </div>
+                  ))}
+                  {dayDeliveries.length > (hasMultipleActivities ? 1 : 2) && (
+                    <div className="text-xs text-gray-600 text-center">
+                      +{dayDeliveries.length - (hasMultipleActivities ? 1 : 2)} more
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400" style={{ width: '112px' }}>—</div>
+                <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>
               )}
             </div>
             
             {/* Pickup cell (bottom half) */}
-            <div className={`p-2 ${isPickupDay ? `${statusColors.bg} ${statusColors.border} border` : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
-              {isPickupDay ? (
-                <div style={{ width: '112px' }}>
-                  <div className={`text-xs font-medium ${statusColors.text} truncate mb-1`} style={{ width: '112px' }}>
-                    {truck.pickup.location}
-                  </div>
-                  <div className={`text-xs ${statusColors.text} opacity-70`} style={{ width: '112px' }}>
-                    {truck.pickup.date !== '—' && truck.pickup.time !== '—' 
-                      ? `${truck.pickup.time}`
-                      : '—'
-                    }
-                  </div>
+            <div className={`p-1 ${dayPickups.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
+              {dayPickups.length > 0 ? (
+                <div className="space-y-0.5" style={{ width: '126px' }}>
+                  {dayPickups.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
+                    <div key={`pickup-${order.id}-${idx}`} className={`${order.statusColors.bg} ${order.statusColors.border} border rounded px-1 py-0.5`}>
+                      <div className={`text-xs font-medium ${order.statusColors.text} truncate`} style={{ width: '110px' }}>
+                        {order.pickupLocation}
+                      </div>
+                      <div className={`text-xs ${order.statusColors.text} opacity-70 truncate`}>
+                        {order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                      </div>
+                    </div>
+                  ))}
+                  {dayPickups.length > (hasMultipleActivities ? 1 : 2) && (
+                    <div className="text-xs text-gray-600 text-center">
+                      +{dayPickups.length - (hasMultipleActivities ? 1 : 2)} more
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400" style={{ width: '112px' }}>—</div>
+                <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>
               )}
             </div>
+
+            {/* Multi-load indicator */}
+            {truck.hasMultipleOrders && (
+              <div className="absolute top-1 right-1 bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                {truck.totalOrdersCount}
+              </div>
+            )}
           </div>
         </td>
       );
@@ -252,7 +301,7 @@ const Reports = () => {
         <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
         <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
           <AlertCircle className="h-3 w-3" />
-          Real-time fleet status by dispatcher assignment (showing current/most recent order per truck)
+          Real-time fleet status with multi-load overlay • Orange badge shows trucks with multiple orders
         </div>
       </div>
 
@@ -327,7 +376,25 @@ const Reports = () => {
                     <tbody>
                       {group.trucks.map((truck, index) => (
                         <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>{truck.truckNumber}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                            <div className="flex items-center gap-1">
+                              {truck.truckNumber}
+                              {truck.hasMultipleOrders && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div className="bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                                        {truck.totalOrdersCount}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{truck.totalOrdersCount} total orders ({truck.activeOrdersCount} active)</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </td>
                           <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>{truck.driver}</td>
                           <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '112px', minWidth: '112px', maxWidth: '112px' }}>
                             <div className="flex items-center gap-1">
