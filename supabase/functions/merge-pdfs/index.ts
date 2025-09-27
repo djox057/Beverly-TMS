@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { invoicePdfBytes, rcFiles, podFiles } = await req.json()
+    const { invoicePdfBytes, rcFiles, bolFiles, podFiles } = await req.json()
     
     if (!invoicePdfBytes) {
       return new Response(
@@ -136,6 +136,18 @@ serve(async (req) => {
           await addFileToPdf(rcFile, 'RC')
         } catch (error) {
           console.error(`Error processing RC file ${rcFile.file_name}:`, error)
+        }
+      }
+    }
+
+    // Add BOL files
+    if (bolFiles && bolFiles.length > 0) {
+      console.log(`Processing ${bolFiles.length} BOL files`)
+      for (const bolFile of bolFiles) {
+        try {
+          await addFileToPdf(bolFile, 'BOL')
+        } catch (error) {
+          console.error(`Error processing BOL file ${bolFile.file_name}:`, error)
         }
       }
     }
