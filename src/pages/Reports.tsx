@@ -208,14 +208,15 @@ const Reports = () => {
           <div className="h-32 relative" style={{
           width: '128px'
         }}>
-            {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            {/* Delivery cell (top half) - includes same-day deliveries */}
+            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '128px'
           }}>
-              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
+              {deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
+                  {/* Render delivery-only orders first */}
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
@@ -246,8 +247,42 @@ const Reports = () => {
                         </PopoverContent>
                       </Popover>
                     </div>)}
-                  {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{deliveryOnlyOrders.length - 2} more
+
+                  {/* Render same-day order deliveries */}
+                  {sameDayOrders.slice(0, Math.max(0, 2 - deliveryOnlyOrders.length)).map((order, idx) => <div key={`same-day-delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
+                        {order.deliveryLocation}
+                      </div>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                        {order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Same-Day Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>)}
+
+                  {/* Show +more indicator for delivery cell */}
+                  {(deliveryOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{(deliveryOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
@@ -292,23 +327,15 @@ const Reports = () => {
                       </Popover>
                     </div>)}
 
-                  {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {/* Render same-day order pickups */}
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
-                        P: {order.pickupLocation}
+                        {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
-                  width: '110px'
-                }}>
-                        D: {order.deliveryLocation}
-                      </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
-                  width: '110px'
-                }}>
-                        <span>{order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
-                        <span>{order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                        {order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
