@@ -11,17 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
-
 interface EditingState {
   truckId: string;
   field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note';
   value: string;
 }
-
 interface DispatcherCalendarState {
   [dispatcherId: string]: Date;
 }
-
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
@@ -36,76 +33,86 @@ const getStatusBadge = (status: string) => {
       return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 border border-gray-200">{status}</span>;
   }
 };
-
 const Reports = () => {
-  const { data: groupedReports, isLoading, error, updateTruckStatus, updateTruckNote, updatePickupDrop } = useReports();
+  const {
+    data: groupedReports,
+    isLoading,
+    error,
+    updateTruckStatus,
+    updateTruckNote,
+    updatePickupDrop
+  } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
-  const { toast } = useToast();
-  const { open: sidebarOpen } = useSidebar();
-
+  const {
+    toast
+  } = useToast();
+  const {
+    open: sidebarOpen
+  } = useSidebar();
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
-    setEditing({ truckId, field, value: currentValue });
+    setEditing({
+      truckId,
+      field,
+      value: currentValue
+    });
   };
-
   const handleSave = async () => {
     if (!editing) return;
-
     try {
       // Find the truck to get orderId and pickup/delivery stop IDs
       const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
       const truck = allTrucks.find(t => t.id === editing.truckId);
-      
       if (editing.field === 'note') {
-        await updateTruckNote.mutateAsync({ truckId: truck.id, note: editing.value });
+        await updateTruckNote.mutateAsync({
+          truckId: truck.id,
+          note: editing.value
+        });
       } else if (editing.field.startsWith('pickup-') && truck?.pickup.id) {
         const updates: any = {};
-        
         if (editing.field === 'pickup-location') {
           updates.address = editing.value;
         } else if (editing.field === 'pickup-datetime') {
           updates.datetime = new Date(editing.value).toISOString();
         }
-        
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.pickup.id,
           address: updates.address || truck.pickup.location,
-          ...(updates.datetime && { datetime: updates.datetime })
+          ...(updates.datetime && {
+            datetime: updates.datetime
+          })
         });
       } else if (editing.field.startsWith('delivery-') && truck?.delivery.id) {
         const updates: any = {};
-        
         if (editing.field === 'delivery-location') {
           updates.address = editing.value;
         } else if (editing.field === 'delivery-datetime') {
           updates.datetime = new Date(editing.value).toISOString();
         }
-        
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.delivery.id,
           address: updates.address || truck.delivery.location,
-          ...(updates.datetime && { datetime: updates.datetime })
+          ...(updates.datetime && {
+            datetime: updates.datetime
+          })
         });
       }
-      
       toast({
         title: "Updated successfully",
-        description: `${editing.field.replace('-', ' ')} has been updated.`,
+        description: `${editing.field.replace('-', ' ')} has been updated.`
       });
       setEditing(null);
     } catch (error) {
       toast({
         title: "Update failed",
         description: "There was an error updating the field.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const handleCancel = () => {
     setEditing(null);
   };
-
   const getCalendarStartDate = (dispatcherId: string) => {
     if (calendarDates[dispatcherId]) {
       return calendarDates[dispatcherId];
@@ -113,32 +120,50 @@ const Reports = () => {
     // Default to 1 day before current day
     return addDays(new Date(), -1);
   };
-
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
     setCalendarDates(prev => ({
       ...prev,
       [dispatcherId]: newDate
     }));
   };
-
   const getStatusColors = (status: string) => {
     switch (status) {
       case "In Transit":
-        return { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' };
+        return {
+          bg: 'bg-blue-100',
+          text: 'text-blue-800',
+          border: 'border-blue-200'
+        };
       case "Loading":
-        return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+        return {
+          bg: 'bg-yellow-100',
+          text: 'text-yellow-800',
+          border: 'border-yellow-200'
+        };
       case "Available":
-        return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+        return {
+          bg: 'bg-green-100',
+          text: 'text-green-800',
+          border: 'border-green-200'
+        };
       case "Maintenance":
-        return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
+        return {
+          bg: 'bg-red-100',
+          text: 'text-red-800',
+          border: 'border-red-200'
+        };
       default:
-        return { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+        return {
+          bg: 'bg-gray-100',
+          text: 'text-gray-800',
+          border: 'border-gray-200'
+        };
     }
   };
-
   const renderTruckCalendarCells = (truck: any, startDate: Date) => {
-    const days = Array.from({ length: 4 }, (_, i) => addDays(startDate, i));
-    
+    const days = Array.from({
+      length: 4
+    }, (_, i) => addDays(startDate, i));
     const parseDate = (dateStr: string) => {
       if (dateStr === '—' || !dateStr) return null;
       try {
@@ -155,61 +180,48 @@ const Reports = () => {
 
     // Get all orders with their pickup/delivery dates for multi-load overlay
     const ordersWithDates = truck.allOrders?.map((order: any) => {
-      const pickupDate = order.pickupStop && order.pickup_datetime 
-        ? new Date(order.pickup_datetime) 
-        : null;
-      const deliveryDate = order.deliveryStop && order.delivery_datetime 
-        ? new Date(order.delivery_datetime) 
-        : null;
-      
+      const pickupDate = order.pickupStop && order.pickup_datetime ? new Date(order.pickup_datetime) : null;
+      const deliveryDate = order.deliveryStop && order.delivery_datetime ? new Date(order.delivery_datetime) : null;
       const statusColors = order.documentColors;
-      
       return {
         ...order,
         pickupDate,
         deliveryDate,
         statusColors,
-        pickupLocation: order.pickupStop ? 
-          (order.pickupStop.city && order.pickupStop.state 
-            ? `${order.pickupStop.city}, ${order.pickupStop.state}`
-            : order.pickupStop.address || '—') : '—',
-        deliveryLocation: order.deliveryStop ? 
-          (order.deliveryStop.city && order.deliveryStop.state 
-            ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
-            : order.deliveryStop.address || '—') : '—'
+        pickupLocation: order.pickupStop ? order.pickupStop.city && order.pickupStop.state ? `${order.pickupStop.city}, ${order.pickupStop.state}` : order.pickupStop.address || '—' : '—',
+        deliveryLocation: order.deliveryStop ? order.deliveryStop.city && order.deliveryStop.state ? `${order.deliveryStop.city}, ${order.deliveryStop.state}` : order.deliveryStop.address || '—' : '—'
       };
     }) || [];
-
     return days.map((day, index) => {
       // Find all orders for this day and categorize them
-      const allDayOrders = ordersWithDates.filter(order => 
-        (order.pickupDate && isSameDay(day, order.pickupDate)) ||
-        (order.deliveryDate && isSameDay(day, order.deliveryDate))
-      );
-      
+      const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
+
       // Separate same-day orders from different-day orders
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
-      const pickupOnlyOrders = allDayOrders.filter(order => 
-        order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order)
-      );
-      const deliveryOnlyOrders = allDayOrders.filter(order => 
-        order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order)
-      );
-
-      
+      const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
+      const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
       const totalActivities = sameDayOrders.length + pickupOnlyOrders.length + deliveryOnlyOrders.length;
       const hasMultipleActivities = totalActivities > 1;
-
-      return (
-        <td key={index} className="border-r border-b border-gray-300 p-0" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>
-          <div className="h-32 relative" style={{ width: '128px' }}>
+      return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
+        width: '128px',
+        minWidth: '128px',
+        maxWidth: '128px'
+      }}>
+          <div className="h-32 relative" style={{
+          width: '128px'
+        }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
-              {deliveryOnlyOrders.length > 0 ? (
-                <div className="space-y-0.5" style={{ width: '126px' }}>
-                  {deliveryOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
-                    <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{ width: '110px' }}>
+            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            height: '64px',
+            width: '128px'
+          }}>
+              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
+              width: '126px'
+            }}>
+                  {deliveryOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
                         {order.deliveryLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -217,11 +229,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20"
-                          >
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -231,41 +239,34 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && (
-                                <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
-                              {order.loadDetails.deliveryInfo && (
-                                <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
-                              {order.loadDetails.notes !== '—' && (
-                                <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>
-                              )}
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  ))}
-                  {deliveryOnlyOrders.length > (hasMultipleActivities ? 1 : 2) && (
-                    <div className="text-xs text-gray-600 text-center">
+                    </div>)}
+                  {deliveryOnlyOrders.length > (hasMultipleActivities ? 1 : 2) && <div className="text-xs text-gray-600 text-center">
                       +{deliveryOnlyOrders.length - (hasMultipleActivities ? 1 : 2)} more
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>
-              )}
+                    </div>}
+                </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`p-1 ${(pickupOnlyOrders.length > 0 || sameDayOrders.length > 0) ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{ height: '64px', width: '128px' }}>
-              {(pickupOnlyOrders.length > 0 || sameDayOrders.length > 0) ? (
-                <div className="space-y-0.5" style={{ width: '126px' }}>
+            <div className={`p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
+            height: '64px',
+            width: '128px'
+          }}>
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
+              width: '126px'
+            }}>
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => (
-                    <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{ width: '110px' }}>
+                  {pickupOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
                         {order.pickupLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -273,11 +274,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20"
-                          >
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -287,43 +284,37 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && (
-                                <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
-                              {order.loadDetails.deliveryInfo && (
-                                <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
-                              {order.loadDetails.notes !== '—' && (
-                                <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>
-                              )}
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  ))}
+                    </div>)}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, (hasMultipleActivities ? 1 : 2) - pickupOnlyOrders.length)).map((order, idx) => (
-                    <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{ width: '110px' }}>
+                  {sameDayOrders.slice(0, Math.max(0, (hasMultipleActivities ? 1 : 2) - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
                         P: {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{ width: '110px' }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
+                  width: '110px'
+                }}>
                         D: {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{ width: '110px' }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
+                  width: '110px'
+                }}>
                         <span>{order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
                         <span>{order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20"
-                          >
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -333,87 +324,63 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && (
-                                <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
-                              {order.loadDetails.deliveryInfo && (
-                                <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>
-                              )}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
-                              {order.loadDetails.notes !== '—' && (
-                                <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>
-                              )}
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  ))}
+                    </div>)}
 
-                  {totalActivities > (hasMultipleActivities ? 1 : 2) && (
-                    <div className="text-xs text-gray-600 text-center">
+                  {totalActivities > (hasMultipleActivities ? 1 : 2) && <div className="text-xs text-gray-600 text-center">
                       +{totalActivities - (hasMultipleActivities ? 1 : 2)} more
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>
-              )}
+                    </div>}
+                </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
 
           </div>
-        </td>
-      );
+        </td>;
     });
   };
-
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (error) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8 text-destructive">
           Error loading reports: {error.message}
         </div>
-      </div>
-    );
+      </div>;
   }
-
   const handleNoteChange = async (truckId: string, newValue: string) => {
     try {
-      await updateTruckNote.mutateAsync({ truckId, note: newValue });
+      await updateTruckNote.mutateAsync({
+        truckId,
+        note: newValue
+      });
     } catch (error) {
       toast({
         title: "Update failed",
         description: "There was an error updating the note.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const renderEditableField = (truckId: string, field: 'note', value: string, displayValue?: React.ReactNode) => {
-    return (
-      <Textarea
-        defaultValue={value || ""}
-        onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-        className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2 w-full"
-        style={{ height: '64px', minHeight: '64px', maxHeight: '64px', boxShadow: 'none' }}
-        placeholder="Add note..."
-        spellCheck={false}
-      />
-    );
+    return <Textarea defaultValue={value || ""} onBlur={e => handleNoteChange(truckId, e.target.value)} className="text-xs border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-2 w-full" style={{
+      height: '64px',
+      minHeight: '64px',
+      maxHeight: '64px',
+      boxShadow: 'none'
+    }} placeholder="Add note..." spellCheck={false} />;
   };
-
-  return (
-    <div className="h-full bg-white overflow-hidden flex flex-col">
+  return <div className="h-full bg-white overflow-hidden flex flex-col">
       {/* Google Sheets-style header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-4 z-20 relative">
         <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
@@ -424,19 +391,17 @@ const Reports = () => {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {groupedReports && Object.keys(groupedReports).length === 0 ? (
-          <div className="p-4">
+        {groupedReports && Object.keys(groupedReports).length === 0 ? <div className="p-4">
             <div className="text-center py-12 text-gray-500">
               No trucks assigned to dispatchers found
             </div>
-          </div>
-        ) : (
-          <div className="px-4 py-4 space-y-8">
+          </div> : <div className="px-4 py-4 space-y-8">
             {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
-            const startDate = getCalendarStartDate(dispatcherId);
-            const days = Array.from({ length: 4 }, (_, i) => addDays(startDate, i));
-            return (
-              <div key={dispatcherId} className="bg-white">
+          const startDate = getCalendarStartDate(dispatcherId);
+          const days = Array.from({
+            length: 4
+          }, (_, i) => addDays(startDate, i));
+          return <div key={dispatcherId} className="bg-white">
                 {/* Dispatcher header - Google Sheets style */}
                 <div className="mb-4">
                   <h2 className="text-sm font-medium text-gray-900 px-1">
@@ -446,31 +411,31 @@ const Reports = () => {
                 
                 {/* Google Sheets-style table */}
                 <div className="w-full">
-                  <table className="w-full border-collapse bg-white border border-gray-300" style={{ tableLayout: 'auto' }}>
+                  <table className="w-full border-collapse bg-white border border-gray-300" style={{
+                tableLayout: 'auto'
+              }}>
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
                         <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
                         <th colSpan={4} className="border-r border-b border-gray-300 px-2 py-2 bg-gray-50">
                           <div className="flex items-center justify-center">
-                            <button
-                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
+                            <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))} className="p-1 hover:bg-gray-200 rounded">
                               <ChevronLeft className="h-4 w-4" />
                             </button>
                             <div className="text-sm font-medium text-gray-700 mx-4">
                               {format(startDate, 'MMM dd')} - {format(addDays(startDate, 3), 'MMM dd, yyyy')}
                             </div>
-                            <button
-                              onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 1))}
-                              className="p-1 hover:bg-gray-200 rounded"
-                            >
+                            <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 1))} className="p-1 hover:bg-gray-200 rounded">
                               <ChevronRight className="h-4 w-4" />
                             </button>
                           </div>
                         </th>
-                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}></th>
+                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{
+                      width: '272px',
+                      minWidth: '272px',
+                      maxWidth: '272px'
+                    }}></th>
                         <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
                           Recent Activity
                         </th>
@@ -480,41 +445,52 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-20">Truck #</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-32">Driver</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
-                        {days.map((day, index) => (
-                          <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>
+                        {days.map((day, index) => <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
+                      width: '128px',
+                      minWidth: '128px',
+                      maxWidth: '128px'
+                    }}>
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
-                          </th>
-                        ))}
-                        <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{ width: '272px', minWidth: '272px', maxWidth: '272px' }}>Away (D) | Drive | Shift | Cycle</th>
+                          </th>)}
+                        <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
+                      width: '272px',
+                      minWidth: '272px',
+                      maxWidth: '272px'
+                    }}>Away (D) | Drive | Shift | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
-                      {group.trucks.map((truck, index) => (
-                        <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
+                      {group.trucks.map((truck, index) => <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{
+                      width: '80px',
+                      minWidth: '80px',
+                      maxWidth: '80px'
+                    }}>
                             <div className="flex items-center gap-1">
                               {truck.truckNumber}
-                              {truck.hasMultipleOrders && (
-                                <TooltipProvider>
+                              {truck.hasMultipleOrders && <TooltipProvider>
                                   <Tooltip>
-                                    <TooltipTrigger>
-                                      <div className="bg-orange-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                                        {truck.totalOrdersCount}
-                                      </div>
-                                    </TooltipTrigger>
+                                    
                                     <TooltipContent>
                                       <p>{truck.totalOrdersCount} total orders ({truck.activeOrdersCount} active)</p>
                                     </TooltipContent>
                                   </Tooltip>
-                                </TooltipProvider>
-                              )}
+                                </TooltipProvider>}
                             </div>
                           </td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '128px', minWidth: '128px', maxWidth: '128px' }}>{truck.driver}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{ width: '112px', minWidth: '112px', maxWidth: '112px' }}>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{
+                      width: '128px',
+                      minWidth: '128px',
+                      maxWidth: '128px'
+                    }}>{truck.driver}</td>
+                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{
+                      width: '112px',
+                      minWidth: '112px',
+                      maxWidth: '112px'
+                    }}>
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3 text-gray-500" />
                               {truck.home}
@@ -522,7 +498,9 @@ const Reports = () => {
                           </td>
                           {renderTruckCalendarCells(truck, startDate)}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{ height: '128px' }}>
+                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{
+                      height: '128px'
+                    }}>
                             <div className="h-16 border-b border-gray-200">
                               {/* Labels row */}
                               <div className="h-8 flex">
@@ -543,21 +521,24 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
-                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.lastEdit}</td>
-                           <td className={`border-b border-gray-300 px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{ width: '96px', minWidth: '96px', maxWidth: '96px' }}>{truck.editDate}</td>
-                        </tr>
-                      ))}
+                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{
+                      width: '96px',
+                      minWidth: '96px',
+                      maxWidth: '96px'
+                    }}>{truck.lastEdit}</td>
+                           <td className={`border-b border-gray-300 px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
+                      width: '96px',
+                      minWidth: '96px',
+                      maxWidth: '96px'
+                    }}>{truck.editDate}</td>
+                        </tr>)}
                     </tbody>
                   </table>
                 </div>
-              </div>
-              );
-            })}
-          </div>
-        )}
+              </div>;
+        })}
+          </div>}
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Reports;
