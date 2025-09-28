@@ -472,29 +472,49 @@ const NewOrder = () => {
         broker_load_number: brokerLoadNumber || null,
         pickup_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-          if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
-            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
+           if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
+             const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
+             console.log('Pickup datetime:', { startTime: firstPickup.startTime, dateFrom: firstPickup.dateRange.from, result });
+             return result;
           }
           return pickupDateRange?.from?.toISOString() || null;
         })(),
         pickup_end_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-          if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
-            return combineDateAndTime(firstPickup.dateRange.to, firstPickup.endTime);
+           if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
+             const result = combineDateAndTime(firstPickup.dateRange.to, firstPickup.endTime);
+             console.log('Pickup end datetime:', { 
+               endTime: firstPickup.endTime, 
+               dateTo: firstPickup.dateRange.to, 
+               dateFrom: firstPickup.dateRange.from,
+               areSameDate: firstPickup.dateRange.from?.getTime() === firstPickup.dateRange.to?.getTime(),
+               result 
+             });
+             return result;
           }
           return pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null;
         })(),
         delivery_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-          if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
-            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
+           if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
+             const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
+             console.log('Delivery datetime:', { startTime: firstDelivery.startTime, dateFrom: firstDelivery.dateRange.from, result });
+             return result;
           }
           return deliveryDateRange?.from?.toISOString() || null;
         })(),
         delivery_end_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-          if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
-            return combineDateAndTime(firstDelivery.dateRange.to, firstDelivery.endTime);
+           if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
+             const result = combineDateAndTime(firstDelivery.dateRange.to, firstDelivery.endTime);
+             console.log('Delivery end datetime:', { 
+               endTime: firstDelivery.endTime, 
+               dateTo: firstDelivery.dateRange.to, 
+               dateFrom: firstDelivery.dateRange.from,
+               areSameDate: firstDelivery.dateRange.from?.getTime() === firstDelivery.dateRange.to?.getTime(),
+               result 
+             });
+             return result;
           }
           return deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null;
         })(),

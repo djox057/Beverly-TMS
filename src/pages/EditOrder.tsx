@@ -210,12 +210,40 @@ const EditOrder = () => {
               fullAddress = addressParts.filter(Boolean).join(', ');
             }
 
-            // Create date range from datetime fields
+            // Create date range from datetime fields, considering end datetimes
             let dateRange: DateRange | undefined = undefined;
+            let startTime = "";
+            let endTime = "";
+            
             if (pd.datetime) {
-              const date = new Date(pd.datetime);
-              dateRange = { from: date, to: date };
+              const startDate = new Date(pd.datetime);
+              startTime = startDate.toTimeString().slice(0, 5);
+              
+              // For pickup items, check if there's a pickup_end_datetime in the order
+              // For delivery items, check if there's a delivery_end_datetime in the order
+              let endDate = startDate; // Default to same date
+              
+              if (pd.type === 'pickup' && orderData.pickup_end_datetime) {
+                endDate = new Date(orderData.pickup_end_datetime);
+                endTime = endDate.toTimeString().slice(0, 5);
+              } else if (pd.type === 'delivery' && orderData.delivery_end_datetime) {
+                endDate = new Date(orderData.delivery_end_datetime);
+                endTime = endDate.toTimeString().slice(0, 5);
+              } else {
+                endTime = startTime; // If no end datetime, use same time
+              }
+              
+              dateRange = { from: startDate, to: endDate };
             }
+
+            console.log(`Loading ${pd.type}:`, {
+              startTime,
+              endTime,
+              dateRange,
+              raw_datetime: pd.datetime,
+              pickup_end_datetime: orderData.pickup_end_datetime,
+              delivery_end_datetime: orderData.delivery_end_datetime
+            });
 
             return {
               id: pd.id,
@@ -223,8 +251,8 @@ const EditOrder = () => {
               address: fullAddress,
               datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : "",
               dateRange,
-              startTime: pd.datetime ? new Date(pd.datetime).toTimeString().slice(0, 5) : "",
-              endTime: pd.datetime ? new Date(pd.datetime).toTimeString().slice(0, 5) : "",
+              startTime,
+              endTime,
               city: pd.city || "",
               state: pd.state || "",
               zipCode: pd.zip_code || ""

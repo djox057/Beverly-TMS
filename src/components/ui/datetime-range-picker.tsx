@@ -50,14 +50,27 @@ export function DateTimeRangePicker({
       // Create separate Date objects for same day selections
       const from = new Date(newDate.from);
       const to = new Date(newDate.to);
+      console.log('DateTimeRangePicker: Same day selection, created separate objects:', { 
+        from, 
+        to, 
+        areSameReference: from === to, 
+        areSameTime: from.getTime() === to.getTime() 
+      });
       onDateChange?.({ from, to });
     } else if (newDate.from && !newDate.to) {
       // Single date selection - create a same-day range
       const from = new Date(newDate.from);
       const to = new Date(newDate.from);
+      console.log('DateTimeRangePicker: Single date selection, created range:', { 
+        from, 
+        to, 
+        areSameReference: from === to, 
+        areSameTime: from.getTime() === to.getTime() 
+      });
       onDateChange?.({ from, to });
     } else {
       // Different dates selected
+      console.log('DateTimeRangePicker: Different dates selected:', newDate);
       onDateChange?.(newDate);
     }
   };
