@@ -193,9 +193,13 @@ const Reports = () => {
       };
     }) || [];
     return days.map((day, index) => {
-      // Filter orders for pickup and delivery separately (same-day orders will appear in both)
-      const dayPickups = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate));
-      const dayDeliveries = ordersWithDates.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate));
+      // Find all orders for this day and categorize them
+      const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
+
+      // Separate same-day orders from different-day orders
+      const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
+      const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
+      const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
       return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
         width: '128px',
         minWidth: '128px',
@@ -204,15 +208,15 @@ const Reports = () => {
           <div className="h-32 relative" style={{
           width: '128px'
         }}>
-            {/* Delivery cell (top half) */}
-            <div className={`border-b border-gray-200 p-1 ${dayDeliveries.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            {/* Delivery cell (top half) - empty for same-day orders */}
+            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '128px'
           }}>
-              {dayDeliveries.length > 0 ? <div className="space-y-0.5" style={{
+              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
-                  {dayDeliveries.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
@@ -242,21 +246,22 @@ const Reports = () => {
                         </PopoverContent>
                       </Popover>
                     </div>)}
-                  {dayDeliveries.length > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{dayDeliveries.length - 2} more
+                  {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{deliveryOnlyOrders.length - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
             
-            {/* Pickup cell (bottom half) */}
-            <div className={`p-1 ${dayPickups.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
+            {/* Pickup cell (bottom half) - includes same-day orders */}
+            <div className={`p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '128px'
           }}>
-              {dayPickups.length > 0 ? <div className="space-y-0.5" style={{
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
-                  {dayPickups.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {/* Render pickup-only orders first */}
+                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
@@ -286,8 +291,50 @@ const Reports = () => {
                         </PopoverContent>
                       </Popover>
                     </div>)}
-                  {dayPickups.length > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{dayPickups.length - 2} more
+
+                  {/* Render same-day orders (combined pickup and delivery) */}
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
+                        P: {order.pickupLocation}
+                      </div>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
+                  width: '110px'
+                }}>
+                        D: {order.deliveryLocation}
+                      </div>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
+                  width: '110px'
+                }}>
+                        <span>{order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Same-Day Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>)}
+
+                  {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
+                  {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{(pickupOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
