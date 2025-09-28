@@ -18,6 +18,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -29,6 +30,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -40,6 +42,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -51,6 +54,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -62,6 +66,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -73,6 +78,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .on(
@@ -84,6 +90,7 @@ export const useOrders = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
       .subscribe();

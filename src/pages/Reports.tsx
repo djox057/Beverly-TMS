@@ -223,7 +223,10 @@ const Reports = () => {
                         {order.deliveryLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
-                        {order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                        {order.delivery_datetime && order.delivery_end_datetime && 
+                         format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') 
+                         ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` 
+                         : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -237,8 +240,8 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
@@ -268,7 +271,10 @@ const Reports = () => {
                         {order.pickupLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
-                        {order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                        {order.pickup_datetime && order.pickup_end_datetime && 
+                         format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
+                         ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
+                         : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -282,8 +288,8 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
@@ -307,8 +313,14 @@ const Reports = () => {
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
                   width: '143px'
                 }}>
-                        <span>{order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
-                        <span>{order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.pickup_datetime && order.pickup_end_datetime && 
+                              format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
+                              ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
+                              : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.delivery_datetime && order.delivery_end_datetime && 
+                              format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') 
+                              ? `${format(new Date(order.delivery_datetime), 'HH:mm')}-${format(new Date(order.delivery_end_datetime), 'HH:mm')}` 
+                              : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -322,8 +334,8 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>

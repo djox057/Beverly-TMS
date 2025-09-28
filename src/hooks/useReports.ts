@@ -29,6 +29,7 @@ export const useReports = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['reports'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
         }
       )
       .on(
@@ -40,6 +41,7 @@ export const useReports = () => {
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ['reports'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
         }
       )
       .on(
@@ -253,19 +255,21 @@ export const useReports = () => {
             documentColors,
             // Format load details for info display
             loadDetails: {
-              loadNumber: order.load_number || order.internal_load_number || '—',
+              loadNumber: order.internal_load_number || '—',
               brokerLoadNumber: order.broker_load_number || '—',
               pickupInfo: pickupStop ? {
                 address: pickupStop.address || '—',
                 city: pickupStop.city || '—',
                 state: pickupStop.state || '—',
-                datetime: pickupStop.datetime || order.pickup_datetime || '—'
+                datetime: pickupStop.datetime || order.pickup_datetime || '—',
+                endDatetime: order.pickup_end_datetime || '—'
               } : null,
               deliveryInfo: deliveryStop ? {
                 address: deliveryStop.address || '—',
                 city: deliveryStop.city || '—', 
                 state: deliveryStop.state || '—',
-                datetime: deliveryStop.datetime || order.delivery_datetime || '—'
+                datetime: deliveryStop.datetime || order.delivery_datetime || '—',
+                endDatetime: order.delivery_end_datetime || '—'
               } : null,
               documents: (order.order_files || []).map(file => ({
                 category: file.file_category,
