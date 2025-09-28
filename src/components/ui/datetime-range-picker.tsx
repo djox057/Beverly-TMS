@@ -36,6 +36,32 @@ export function DateTimeRangePicker({
   className,
   disabled = false,
 }: DateTimeRangePickerProps) {
+  
+  // Handle calendar date selection to ensure proper same-day range handling
+  const handleDateChange = (newDate: DateRange | undefined) => {
+    if (!newDate) {
+      onDateChange?.(undefined);
+      return;
+    }
+
+    // If selecting the same day for both start and end, ensure they are separate Date objects
+    if (newDate.from && newDate.to && 
+        newDate.from.getTime() === newDate.to.getTime()) {
+      // Create separate Date objects for same day selections
+      const from = new Date(newDate.from);
+      const to = new Date(newDate.to);
+      onDateChange?.({ from, to });
+    } else if (newDate.from && !newDate.to) {
+      // Single date selection - create a same-day range
+      const from = new Date(newDate.from);
+      const to = new Date(newDate.from);
+      onDateChange?.({ from, to });
+    } else {
+      // Different dates selected
+      onDateChange?.(newDate);
+    }
+  };
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover>
@@ -74,7 +100,7 @@ export function DateTimeRangePicker({
               mode="range"
               defaultMonth={date?.from}
               selected={date}
-              onSelect={onDateChange}
+              onSelect={handleDateChange}
               numberOfMonths={2}
               className="pointer-events-auto"
             />

@@ -472,12 +472,6 @@ const NewOrder = () => {
         broker_load_number: brokerLoadNumber || null,
         pickup_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-          console.log('🔍 Pickup datetime debug:', {
-            firstPickup: firstPickup,
-            dateRange: firstPickup?.dateRange,
-            startTime: firstPickup?.startTime,
-            endTime: firstPickup?.endTime
-          });
           if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
             return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
           }
@@ -485,27 +479,13 @@ const NewOrder = () => {
         })(),
         pickup_end_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-          console.log('🔍 Pickup end datetime debug:', {
-            firstPickup: firstPickup,
-            dateRange: firstPickup?.dateRange,
-            startTime: firstPickup?.startTime,
-            endTime: firstPickup?.endTime
-          });
           if (firstPickup?.dateRange?.from && firstPickup?.endTime) {
-            const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.endTime);
-            console.log('🔍 Combined end datetime result:', result);
-            return result;
+            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.endTime);
           }
           return pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null;
         })(),
         delivery_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-          console.log('🔍 Delivery datetime debug:', {
-            firstDelivery: firstDelivery,
-            dateRange: firstDelivery?.dateRange,
-            startTime: firstDelivery?.startTime,
-            endTime: firstDelivery?.endTime
-          });
           if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
             return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
           }
@@ -513,16 +493,8 @@ const NewOrder = () => {
         })(),
         delivery_end_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-          console.log('🔍 Delivery end datetime debug:', {
-            firstDelivery: firstDelivery,
-            dateRange: firstDelivery?.dateRange,
-            startTime: firstDelivery?.startTime,
-            endTime: firstDelivery?.endTime
-          });
           if (firstDelivery?.dateRange?.from && firstDelivery?.endTime) {
-            const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.endTime);
-            console.log('🔍 Combined delivery end datetime result:', result);
-            return result;
+            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.endTime);
           }
           return deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null;
         })(),
