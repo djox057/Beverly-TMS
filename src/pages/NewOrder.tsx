@@ -479,8 +479,8 @@ const NewOrder = () => {
         })(),
         pickup_end_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-          if (firstPickup?.dateRange?.from && firstPickup?.endTime) {
-            return combineDateAndTime(firstPickup.dateRange.from, firstPickup.endTime);
+          if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
+            return combineDateAndTime(firstPickup.dateRange.to, firstPickup.endTime);
           }
           return pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null;
         })(),
@@ -493,8 +493,8 @@ const NewOrder = () => {
         })(),
         delivery_end_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-          if (firstDelivery?.dateRange?.from && firstDelivery?.endTime) {
-            return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.endTime);
+          if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
+            return combineDateAndTime(firstDelivery.dateRange.to, firstDelivery.endTime);
           }
           return deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null;
         })(),
