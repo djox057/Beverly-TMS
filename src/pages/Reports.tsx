@@ -200,8 +200,6 @@ const Reports = () => {
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
-      const totalActivities = sameDayOrders.length + pickupOnlyOrders.length + deliveryOnlyOrders.length;
-      const hasMultipleActivities = totalActivities > 1;
       return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
         width: '128px',
         minWidth: '128px',
@@ -218,7 +216,7 @@ const Reports = () => {
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
-                  {deliveryOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
@@ -248,8 +246,8 @@ const Reports = () => {
                         </PopoverContent>
                       </Popover>
                     </div>)}
-                  {deliveryOnlyOrders.length > (hasMultipleActivities ? 1 : 2) && <div className="text-xs text-gray-600 text-center">
-                      +{deliveryOnlyOrders.length - (hasMultipleActivities ? 1 : 2)} more
+                  {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{deliveryOnlyOrders.length - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
@@ -263,7 +261,7 @@ const Reports = () => {
               width: '126px'
             }}>
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, hasMultipleActivities ? 1 : 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
@@ -295,7 +293,7 @@ const Reports = () => {
                     </div>)}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, (hasMultipleActivities ? 1 : 2) - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
                   width: '110px'
                 }}>
@@ -334,8 +332,9 @@ const Reports = () => {
                       </Popover>
                     </div>)}
 
-                  {totalActivities > (hasMultipleActivities ? 1 : 2) && <div className="text-xs text-gray-600 text-center">
-                      +{totalActivities - (hasMultipleActivities ? 1 : 2)} more
+                  {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
+                  {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{(pickupOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
