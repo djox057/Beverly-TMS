@@ -178,15 +178,6 @@ const Reports = () => {
       return order.pickupDate && order.deliveryDate && isSameDay(order.pickupDate, order.deliveryDate);
     };
 
-    // Helper function to sort orders by time
-    const sortByTime = (orders: any[], timeField: string) => {
-      return orders.sort((a, b) => {
-        const timeA = a[timeField] ? new Date(a[timeField]).getTime() : 0;
-        const timeB = b[timeField] ? new Date(b[timeField]).getTime() : 0;
-        return timeA - timeB;
-      });
-    };
-
     // Get all orders with their pickup/delivery dates for multi-load overlay
     const ordersWithDates = truck.allOrders?.map((order: any) => {
       const pickupDate = order.pickupStop && order.pickup_datetime ? new Date(order.pickup_datetime) : null;
@@ -202,18 +193,9 @@ const Reports = () => {
       };
     }) || [];
     return days.map((day, index) => {
-      // Find all orders for this day and categorize them
-      const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
-
-      // Separate same-day orders from different-day orders
-      const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
-      const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
-      const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
-      
-      // Sort orders by time for chronological display
-      const sortedPickupOnlyOrders = sortByTime(pickupOnlyOrders, 'pickup_datetime');
-      const sortedDeliveryOnlyOrders = sortByTime(deliveryOnlyOrders, 'delivery_datetime');
-      const sortedSameDayOrders = sortByTime(sameDayOrders, 'pickup_datetime');
+      // Filter orders for pickup and delivery separately (same-day orders will appear in both)
+      const dayPickups = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate));
+      const dayDeliveries = ordersWithDates.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate));
       return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
         width: '128px',
         minWidth: '128px',
@@ -222,52 +204,90 @@ const Reports = () => {
           <div className="h-32 relative" style={{
           width: '128px'
         }}>
-            {/* Delivery cell (top half) - includes same-day deliveries */}
-            <div className={`border-b border-gray-200 p-1 ${sortedDeliveryOnlyOrders.length > 0 || sortedSameDayOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            {/* Delivery cell (top half) */}
+            <div className={`border-b border-gray-200 p-1 ${dayDeliveries.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '128px'
           }}>
-              {sortedDeliveryOnlyOrders.length > 0 || sortedSameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
+              {dayDeliveries.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
-                  {/* Render delivery-only orders first */}
-                  {sortedDeliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-...
+                  {dayDeliveries.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
+                        {order.deliveryLocation}
+                      </div>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                        {order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>)}
-
-                  {/* Render same-day order deliveries */}
-                  {sortedSameDayOrders.slice(0, Math.max(0, 2 - sortedDeliveryOnlyOrders.length)).map((order, idx) => <div key={`same-day-delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-...
-                    </div>)}
-
-                  {/* Show +more indicator for delivery cell */}
-                  {(sortedDeliveryOnlyOrders.length + sortedSameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{(sortedDeliveryOnlyOrders.length + sortedSameDayOrders.length) - 2} more
+                  {dayDeliveries.length > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{dayDeliveries.length - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
             
-            {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`p-1 ${sortedPickupOnlyOrders.length > 0 || sortedSameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
+            {/* Pickup cell (bottom half) */}
+            <div className={`p-1 ${dayPickups.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '128px'
           }}>
-              {sortedPickupOnlyOrders.length > 0 || sortedSameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
+              {dayPickups.length > 0 ? <div className="space-y-0.5" style={{
               width: '126px'
             }}>
-                  {/* Render pickup-only orders first */}
-                  {sortedPickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-...
+                  {dayPickups.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  width: '110px'
+                }}>
+                        {order.pickupLocation}
+                      </div>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                        {order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-2 text-sm">
+                            <h4 className="font-semibold">Load Information</h4>
+                            <div className="space-y-1">
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>)}
-
-                  {/* Render same-day order pickups */}
-                  {sortedSameDayOrders.slice(0, Math.max(0, 2 - sortedPickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-...
-                    </div>)}
-
-                  {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
-                  {(sortedPickupOnlyOrders.length + sortedSameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{(sortedPickupOnlyOrders.length + sortedSameDayOrders.length) - 2} more
+                  {dayPickups.length > 2 && <div className="text-xs text-gray-600 text-center">
+                      +{dayPickups.length - 2} more
                     </div>}
                 </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
             </div>
