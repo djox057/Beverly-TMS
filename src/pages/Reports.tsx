@@ -201,24 +201,24 @@ const Reports = () => {
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
       return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
-        width: '128px',
-        minWidth: '128px',
-        maxWidth: '128px'
+        width: '166px',
+        minWidth: '166px',
+        maxWidth: '166px'
       }}>
           <div className="h-32 relative" style={{
-          width: '128px'
+          width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
             height: '64px',
-            width: '128px'
+            width: '166px'
           }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
-              width: '126px'
+              width: '164px'
             }}>
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '110px'
+                  width: '143px'
                 }}>
                         {order.deliveryLocation}
                       </div>
@@ -255,15 +255,15 @@ const Reports = () => {
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div className={`p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
             height: '64px',
-            width: '128px'
+            width: '166px'
           }}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
-              width: '126px'
+              width: '164px'
             }}>
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '110px'
+                  width: '143px'
                 }}>
                         {order.pickupLocation}
                       </div>
@@ -295,17 +295,17 @@ const Reports = () => {
                   {/* Render same-day orders (combined pickup and delivery) */}
                   {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '110px'
+                  width: '143px'
                 }}>
                         P: {order.pickupLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
-                  width: '110px'
+                  width: '143px'
                 }}>
                         D: {order.deliveryLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
-                  width: '110px'
+                  width: '143px'
                 }}>
                         <span>{order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
                         <span>{order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
@@ -445,9 +445,9 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-32">Driver</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
-                      width: '128px',
-                      minWidth: '128px',
-                      maxWidth: '128px'
+                      width: '166px',
+                      minWidth: '166px',
+                      maxWidth: '166px'
                     }}>
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
