@@ -5,7 +5,9 @@ import { useToast } from '@/hooks/use-toast';
 
 export const TestHosSync = () => {
   const [loading, setLoading] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [debugResult, setDebugResult] = useState<any>(null);
   const { toast } = useToast();
 
   const testHosSync = async () => {
@@ -28,7 +30,7 @@ export const TestHosSync = () => {
         console.log('Function success:', data);
         toast({
           title: "Success",
-          description: `HOS sync completed. Updated ${data.updated} trucks.`,
+          description: `HOS sync completed. Updated ${data.updated} drivers.`,
         });
         setResult(data);
       }
@@ -45,22 +47,79 @@ export const TestHosSync = () => {
     }
   };
 
+  const testHosDebug = async () => {
+    setDebugLoading(true);
+    try {
+      console.log('Calling HOS debug function...');
+      const { data, error } = await supabase.functions.invoke('hos-debug', {
+        body: {}
+      });
+
+      if (error) {
+        console.error('Debug function error:', error);
+        toast({
+          title: "Error",
+          description: `HOS debug failed: ${error.message}`,
+          variant: "destructive"
+        });
+        setDebugResult({ error: error.message });
+      } else {
+        console.log('Debug function success:', data);
+        toast({
+          title: "Success",
+          description: `HOS debug completed. Found ${data.totalRecords} total records.`,
+        });
+        setDebugResult(data);
+      }
+    } catch (err) {
+      console.error('Unexpected debug error:', err);
+      toast({
+        title: "Error",
+        description: "Unexpected debug error occurred",
+        variant: "destructive"
+      });
+      setDebugResult({ error: 'Unexpected error' });
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
   return (
-    <div className="p-4 border rounded-lg">
-      <h3 className="text-lg font-semibold mb-4">Test HOS Sync</h3>
-      <Button 
-        onClick={testHosSync} 
-        disabled={loading}
-        className="mb-4"
-      >
-        {loading ? 'Testing...' : 'Test HOS Sync'}
-      </Button>
+    <div className="p-4 border rounded-lg space-y-4">
+      <h3 className="text-lg font-semibold">Test HOS Functions</h3>
+      
+      <div className="flex gap-2">
+        <Button 
+          onClick={testHosSync} 
+          disabled={loading}
+          variant="default"
+        >
+          {loading ? 'Testing...' : 'Test HOS Sync'}
+        </Button>
+        
+        <Button 
+          onClick={testHosDebug} 
+          disabled={debugLoading}
+          variant="secondary"
+        >
+          {debugLoading ? 'Debugging...' : 'Debug API Data'}
+        </Button>
+      </div>
       
       {result && (
-        <div className="mt-4">
-          <h4 className="font-medium mb-2">Result:</h4>
-          <pre className="bg-muted p-2 rounded text-sm overflow-auto">
+        <div>
+          <h4 className="font-medium mb-2">Sync Result:</h4>
+          <pre className="bg-muted p-2 rounded text-sm overflow-auto max-h-60">
             {JSON.stringify(result, null, 2)}
+          </pre>
+        </div>
+      )}
+      
+      {debugResult && (
+        <div>
+          <h4 className="font-medium mb-2">Debug Result:</h4>
+          <pre className="bg-muted p-2 rounded text-sm overflow-auto max-h-96">
+            {JSON.stringify(debugResult, null, 2)}
           </pre>
         </div>
       )}
