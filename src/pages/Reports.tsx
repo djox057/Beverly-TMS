@@ -226,7 +226,9 @@ const Reports = () => {
             }}>
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '143px'
+                  width: '100%',
+                  height: '100%',
+                  padding: '1%'
                 }}>
                         {order.deliveryLocation}
                       </div>
