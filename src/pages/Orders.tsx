@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Filter } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
@@ -66,7 +66,9 @@ const Orders = () => {
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
+  const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [showFilters, setShowFilters] = useState(true);
   const {
     data: orders,
     isLoading,
@@ -95,6 +97,7 @@ const Orders = () => {
     const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
+    const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
       if (missingDocsFilter === 'missing-rc') {
@@ -114,12 +117,13 @@ const Orders = () => {
       const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
       matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
     }
-    return matchesSearch && matchesCompany && matchesBookedBy && matchesMissingDocs && matchesDate;
+    return matchesSearch && matchesCompany && matchesBookedBy && matchesTruck && matchesMissingDocs && matchesDate;
   }) || [];
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
+  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
@@ -195,8 +199,32 @@ const Orders = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
-            <div className="flex gap-4 items-center">
+            <div className="flex gap-2 items-center">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                {showFilters ? 'Hide' : 'Show'} Filters
+              </Button>
+            </div>
+          </div>
+          
+          {showFilters && (
+            <div className="flex flex-wrap gap-4 items-center mt-4">
               <DatePicker date={selectedDate} onDateChange={setSelectedDate} placeholder="Filter by delivery date" className="w-72" />
+              
+              <Select value={truckFilter} onValueChange={setTruckFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Truck" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-trucks">All Trucks</SelectItem>
+                  {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
+                </SelectContent>
+              </Select>
               
               <Select value={companyFilter} onValueChange={setCompanyFilter}>
                 <SelectTrigger className="w-48">
@@ -235,7 +263,7 @@ const Orders = () => {
                 <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
             </div>
-          </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
