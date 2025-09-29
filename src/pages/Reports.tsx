@@ -206,7 +206,7 @@ const Reports = () => {
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
       
-      return <td key={index} className={`border-r border-b border-gray-300 p-0 relative ${isToday ? 'border-l-2 border-r-2 border-red-500' : ''}`} style={{
+      return <td key={index} className={`border-r p-0 relative ${isToday ? 'border-l-2 border-r-2 border-red-500' : ''}`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px'
@@ -468,12 +468,12 @@ const Reports = () => {
                         const isLastTruck = truckIndex === group.trucks.length - 1;
                         const calendarCells = renderTruckCalendarCells(truck, startDate);
                         
-                        // Add bottom border to today's cell if this is the last truck
-                        const modifiedCells = isLastTruck ? calendarCells.map((cell, cellIndex) => {
+                        // Add bottom border to today's cell if this is the last truck, otherwise no bottom border
+                        const modifiedCells = calendarCells.map((cell, cellIndex) => {
                           const day = addDays(startDate, cellIndex);
                           const isToday = isSameDay(day, new Date());
-                          if (isToday) {
-                            return <td key={cellIndex} className={`border-r border-b border-gray-300 p-0 relative border-l-2 border-r-2 border-b-2 border-red-500`} style={{
+                          if (isToday && isLastTruck) {
+                            return <td key={cellIndex} className="border-r p-0 relative border-l-2 border-r-2 border-b-2 border-red-500" style={{
                               width: '166px',
                               minWidth: '166px',
                               maxWidth: '166px'
@@ -482,10 +482,10 @@ const Reports = () => {
                             </td>;
                           }
                           return cell;
-                        }) : calendarCells;
+                        });
                         
                         return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{
+                          <td className={`border-r px-3 py-2 text-sm text-gray-900 font-medium ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       width: '80px',
                       minWidth: '80px',
                       maxWidth: '80px'
@@ -502,12 +502,12 @@ const Reports = () => {
                                 </TooltipProvider>}
                             </div>
                           </td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{
+                          <td className={`border-r px-3 py-2 text-sm text-gray-900 ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       width: '128px',
                       minWidth: '128px',
                       maxWidth: '128px'
                     }}>{truck.driver}</td>
-                          <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900" style={{
+                          <td className={`border-r px-3 py-2 text-sm text-gray-900 ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       width: '112px',
                       minWidth: '112px',
                       maxWidth: '112px'
@@ -519,7 +519,7 @@ const Reports = () => {
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{
+                          <td colSpan={4} className={`border-r p-0 ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       height: '128px'
                     }}>
                             <div className="h-16 border-b border-gray-200 flex items-center justify-around px-2">
@@ -567,12 +567,12 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                           </td>
-                           <td className="border-b border-gray-300 px-3 py-2 text-xs text-gray-600" style={{
+                           <td className={`px-3 py-2 text-xs text-gray-600 ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       width: '96px',
                       minWidth: '96px',
                       maxWidth: '96px'
                     }}>{truck.lastEdit}</td>
-                           <td className={`border-b border-gray-300 px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
+                           <td className={`px-3 py-2 text-xs text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''} ${isLastTruck ? 'border-b border-gray-300' : ''}`} style={{
                       width: '96px',
                       minWidth: '96px',
                       maxWidth: '96px'
