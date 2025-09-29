@@ -205,14 +205,13 @@ const Reports = () => {
       
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
-      const todayBorderClass = isToday ? 'border-2 border-red-500' : 'border-r border-b border-gray-300';
       
-      return <td key={index} className={`${todayBorderClass} p-0`} style={{
+      return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px'
       }}>
-          <div className="h-32 relative" style={{
+          <div className={`h-32 relative ${isToday ? 'border-l-2 border-r-2 border-red-500 z-10' : ''}`} style={{
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
@@ -466,14 +465,15 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
-                          const todayHeaderClass = isToday ? 'border-2 border-red-500' : 'border-r border-b border-gray-300';
-                          return <th key={index} className={`${todayHeaderClass} px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50`} style={{
+                          return <th key={index} className={`border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative ${isToday ? 'z-10' : ''}`} style={{
                             width: '166px',
                             minWidth: '166px',
                             maxWidth: '166px'
                           }}>
-                            <div>{format(day, 'EEE')}</div>
-                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                            <div className={`${isToday ? 'border-2 border-red-500 rounded -m-2 p-2' : ''}`}>
+                              <div>{format(day, 'EEE')}</div>
+                              <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                            </div>
                           </th>;
                         })}
                         <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
