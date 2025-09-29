@@ -182,120 +182,89 @@ serve(async (req) => {
     const truckLookupMap = createTruckLookupMap(apiData);
     console.log(`Created lookup map with ${Object.keys(truckLookupMap).length} trucks`);
 
-    // Get all drivers from database with their transit mapping
-    const { data: drivers, error: driversError } = await supabase
-      .from('drivers')
-      .select('id, name, license_number, email, phone');
+    // Get trucks and their assigned drivers from database
+    const { data: trucks, error: trucksError } = await supabase
+      .from('trucks')
+      .select(`
+        truck_number,
+        driver1_id,
+        driver2_id,
+        driver1:drivers!trucks_driver1_id_fkey(id, name, email, phone, license_number),
+        driver2:drivers!trucks_driver2_id_fkey(id, name, email, phone, license_number)
+      `);
 
-    if (driversError) {
-      throw new Error(`Error fetching drivers: ${driversError.message}`);
+    if (trucksError) {
+      throw new Error(`Error fetching trucks: ${trucksError.message}`);
     }
 
-    if (!drivers || drivers.length === 0) {
-      console.log('No drivers found in database');
+    if (!trucks || trucks.length === 0) {
+      console.log('No trucks found in database');
       return new Response(JSON.stringify({ 
         success: true, 
         updated: 0, 
-        message: 'No drivers found in database' 
+        message: 'No trucks found in database' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update drivers with HOS data
-    const updates = [];
+    // Update drivers with HOS data based on truck assignments
     let updatedCount = 0;
 
-    console.log(`Processing ${drivers.length} drivers from database:`);
-    drivers.forEach(driver => {
-      console.log(`DB Driver: ${driver.name} (ID: ${driver.id})`);
-    });
-
+    console.log(`Processing ${trucks.length} trucks from database:`);
     console.log(`Available assets in API lookup map: ${Object.keys(truckLookupMap).join(', ')}`);
 
-    for (const driver of drivers) {
-      if (!driver.name) {
-        console.log(`Skipping driver ${driver.id} - no name`);
-        continue;
-      }
-
-      // Try multiple matching strategies for drivers
-      const normalizedDriverName = driver.name.replace(/#/g, '').trim();
-      let hosData = truckLookupMap[normalizedDriverName];
+    for (const truck of trucks) {
+      console.log(`Truck: ${truck.truck_number}`);
       
-      // If no direct match, try other identifiers
-      if (!hosData && driver.license_number) {
-        hosData = truckLookupMap[driver.license_number.replace(/#/g, '').trim()];
-      }
+      // Check if this truck has HOS data in the API
+      const hosData = truckLookupMap[truck.truck_number];
       
-      // Try email prefix if available
-      if (!hosData && driver.email) {
-        const emailPrefix = driver.email.split('@')[0];
-        hosData = truckLookupMap[emailPrefix];
-      }
-      
-      // Try phone number if available
-      if (!hosData && driver.phone) {
-        const cleanPhone = driver.phone.replace(/\D/g, '');
-        hosData = truckLookupMap[cleanPhone];
-      }
-
-      console.log(`Driver ${driver.name} -> normalized: "${normalizedDriverName}" -> HOS data found: ${!!hosData}`);
-
       if (hosData && isValidHosRecord(hosData)) {
-        const updateData = {
-          id: driver.id,
-          hos_drive_minutes: hosData.minsTillDriving || 0,
-          hos_shift_minutes: hosData.minsTillShift || 0,
-          hos_cycle_minutes: hosData.minsTillCycle || 0,
-          hos_status: hosData.statusAbbreviation || null,
-          hos_last_updated: new Date().toISOString()
-        };
-        
-        console.log(`Updating driver ${driver.name} (${driver.id}) with VALID HOS data:`, {
-          drive_minutes: updateData.hos_drive_minutes,
-          shift_minutes: updateData.hos_shift_minutes,
-          cycle_minutes: updateData.hos_cycle_minutes,
-          status: updateData.hos_status,
-          api_name: hosData.name,
-          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp,
-          is_valid: true
-        });
-        
-        updates.push(updateData);
-        updatedCount++;
-      } else if (hosData && !isValidHosRecord(hosData)) {
-        console.log(`Found HOS data for driver ${driver.name} but it's INVALID:`, {
+        console.log(`✅ Found VALID HOS data for truck ${truck.truck_number}:`, {
           drive_minutes: hosData.minsTillDriving || 0,
           shift_minutes: hosData.minsTillShift || 0,
           cycle_minutes: hosData.minsTillCycle || 0,
           status: hosData.statusAbbreviation || null,
-          api_name: hosData.name,
-          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp,
-          is_valid: false
+          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
+        });
+        
+        // Update both drivers if assigned
+        const driversToUpdate = [truck.driver1, truck.driver2].filter(Boolean);
+        
+        for (const driver of driversToUpdate) {
+          if (driver && typeof driver === 'object' && 'id' in driver && 'name' in driver) {
+            console.log(`Updating driver: ${driver.name} (ID: ${driver.id}) for truck ${truck.truck_number}`);
+            
+            const { error: updateError } = await supabase
+              .from('drivers')
+              .update({
+                hos_drive_minutes: hosData.minsTillDriving || 0,
+                hos_shift_minutes: hosData.minsTillShift || 0,
+                hos_cycle_minutes: hosData.minsTillCycle || 0,
+                hos_status: hosData.statusAbbreviation || null,
+                hos_last_updated: new Date().toISOString()
+              })
+              .eq('id', driver.id);
+            
+            if (updateError) {
+              console.error(`Error updating driver ${driver.name}:`, updateError);
+            } else {
+              console.log(`✅ Updated HOS data for driver: ${driver.name}`);
+              updatedCount++;
+            }
+          }
+        }
+      } else if (hosData && !isValidHosRecord(hosData)) {
+        console.log(`Found HOS data for truck ${truck.truck_number} but it's INVALID:`, {
+          drive_minutes: hosData.minsTillDriving || 0,
+          shift_minutes: hosData.minsTillShift || 0,
+          cycle_minutes: hosData.minsTillCycle || 0,
+          status: hosData.statusAbbreviation || null,
+          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
         });
       } else {
-        console.log(`No HOS data found for driver ${driver.name} (normalized: "${normalizedDriverName}")`);
-      }
-    }
-
-    // Batch update drivers
-    if (updates.length > 0) {
-      for (const update of updates) {
-        const { error: updateError } = await supabase
-          .from('drivers')
-          .update({
-            hos_drive_minutes: update.hos_drive_minutes,
-            hos_shift_minutes: update.hos_shift_minutes,
-            hos_cycle_minutes: update.hos_cycle_minutes,
-            hos_status: update.hos_status,
-            hos_last_updated: update.hos_last_updated
-          })
-          .eq('id', update.id);
-
-        if (updateError) {
-          console.error(`Error updating driver ${update.id}:`, updateError);
-        }
+        console.log(`No HOS data found for truck ${truck.truck_number}`);
       }
     }
 
@@ -304,7 +273,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       updated: updatedCount,
-      total_drivers: drivers.length,
+      total_drivers: updatedCount,
       api_records: apiData.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
