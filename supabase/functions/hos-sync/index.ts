@@ -206,23 +206,48 @@ serve(async (req) => {
     const updates = [];
     let updatedCount = 0;
 
+    console.log(`Processing ${trucks.length} trucks from database:`);
+    trucks.forEach(truck => {
+      console.log(`DB Truck: ${truck.truck_number} (ID: ${truck.id})`);
+    });
+
+    console.log(`Available trucks in API lookup map: ${Object.keys(truckLookupMap).join(', ')}`);
+
     for (const truck of trucks) {
-      if (!truck.truck_number) continue;
+      if (!truck.truck_number) {
+        console.log(`Skipping truck ${truck.id} - no truck number`);
+        continue;
+      }
 
       // Clean truck number for matching
       const cleanTruckNumber = truck.truck_number.replace(/#/g, '').trim();
       const hosData = truckLookupMap[cleanTruckNumber];
 
+      console.log(`Truck ${truck.truck_number} -> cleaned: "${cleanTruckNumber}" -> HOS data found: ${!!hosData}`);
+
       if (hosData) {
-        updates.push({
+        const updateData = {
           id: truck.id,
           hos_drive_minutes: hosData.minsTillDriving || 0,
           hos_shift_minutes: hosData.minsTillShift || 0,
           hos_cycle_minutes: hosData.minsTillCycle || 0,
           hos_status: hosData.statusAbbreviation || null,
           hos_last_updated: new Date().toISOString()
+        };
+        
+        console.log(`Updating truck ${truck.truck_number} (${truck.id}) with HOS data:`, {
+          drive_minutes: updateData.hos_drive_minutes,
+          shift_minutes: updateData.hos_shift_minutes,
+          cycle_minutes: updateData.hos_cycle_minutes,
+          status: updateData.hos_status,
+          api_name: hosData.name,
+          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
         });
+        
+        updates.push(updateData);
         updatedCount++;
+      } else {
+        console.log(`No HOS data found for truck ${truck.truck_number} (cleaned: "${cleanTruckNumber}")`);
       }
     }
 
