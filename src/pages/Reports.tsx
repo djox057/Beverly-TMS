@@ -207,11 +207,10 @@ const Reports = () => {
       
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
-      // Check if next day is today (to remove left border)
-      const isNextDayToday = index < days.length - 1 && isSameDay(days[index + 1], new Date());
-      const showRightBorder = !isToday && !isNextDayToday;
+      // Apply left border to all cells except the first
+      const showLeftBorder = index > 0;
       
-      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showRightBorder ? 'border-r border-gray-300' : ''} p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
@@ -469,9 +468,9 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
-                          const isNextDayToday = index < days.length - 1 && isSameDay(days[index + 1], new Date());
-                          const showRightBorder = !isToday && !isNextDayToday;
-                          return <th key={index} className={`border-b border-gray-300 ${showRightBorder ? 'border-r border-gray-300' : ''} px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative`} style={{
+                          // Apply left border to all cells except the first
+                          const showLeftBorder = index > 0;
+                          return <th key={index} className={`border-b border-gray-300 ${showLeftBorder ? 'border-l border-gray-300' : ''} px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative`} style={{
                             width: '166px',
                             minWidth: '166px',
                             maxWidth: '166px',
