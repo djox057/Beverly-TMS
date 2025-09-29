@@ -25,6 +25,7 @@ interface TransitRecord {
 // Get bearer token using client_key
 async function getBearerToken(clientKey: string): Promise<string | null> {
   try {
+    console.log(`Attempting auth for key ${clientKey.slice(0, 10)}...`);
     const response = await fetch(AUTH_URL, {
       method: 'GET',
       headers: {
@@ -33,13 +34,18 @@ async function getBearerToken(clientKey: string): Promise<string | null> {
       }
     });
 
+    console.log(`Auth response status for key ${clientKey.slice(0, 10)}...: ${response.status}`);
+    
     if (response.status !== 200) {
-      console.log(`Auth failed for key ${clientKey.slice(0, 10)}... - Status: ${response.status}`);
+      const errorText = await response.text();
+      console.log(`Auth failed for key ${clientKey.slice(0, 10)}... - Status: ${response.status}, Error: ${errorText}`);
       return null;
     }
 
     const json = await response.json();
-    return json.token || null;
+    const token = json.token || null;
+    console.log(`Auth ${token ? 'successful' : 'failed'} for key ${clientKey.slice(0, 10)}...`);
+    return token;
   } catch (error) {
     console.error(`Error getting token for key ${clientKey.slice(0, 10)}...:`, error);
     return null;
@@ -145,15 +151,21 @@ serve(async (req) => {
   }
 
   try {
+    console.log('HOS Sync function started');
+    
     // Get API keys from environment
     const apiKeysEnv = Deno.env.get('TRANSIT_TRACKING_API_KEYS');
+    console.log('Raw API keys env:', apiKeysEnv ? `Found ${apiKeysEnv.length} characters` : 'Not found');
+    
     if (!apiKeysEnv) {
+      console.error('TRANSIT_TRACKING_API_KEYS environment variable not set');
       throw new Error('TRANSIT_TRACKING_API_KEYS environment variable not set');
     }
 
     // Parse API keys (expecting comma-separated values)
-    const apiKeys = apiKeysEnv.split(',').map(key => key.trim());
-    console.log(`Using ${apiKeys.length} API keys for Transit Tracking`);
+    const apiKeys = apiKeysEnv.split(',').map(key => key.trim()).filter(key => key.length > 0);
+    console.log(`Parsed ${apiKeys.length} API keys for Transit Tracking`);
+    console.log('API key lengths:', apiKeys.map(key => key.length));
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
