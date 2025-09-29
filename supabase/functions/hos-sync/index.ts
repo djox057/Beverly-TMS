@@ -225,7 +225,7 @@ serve(async (req) => {
 
       console.log(`Truck ${truck.truck_number} -> cleaned: "${cleanTruckNumber}" -> HOS data found: ${!!hosData}`);
 
-      if (hosData) {
+      if (hosData && isValidHosRecord(hosData)) {
         const updateData = {
           id: truck.id,
           hos_drive_minutes: hosData.minsTillDriving || 0,
@@ -235,17 +235,28 @@ serve(async (req) => {
           hos_last_updated: new Date().toISOString()
         };
         
-        console.log(`Updating truck ${truck.truck_number} (${truck.id}) with HOS data:`, {
+        console.log(`Updating truck ${truck.truck_number} (${truck.id}) with VALID HOS data:`, {
           drive_minutes: updateData.hos_drive_minutes,
           shift_minutes: updateData.hos_shift_minutes,
           cycle_minutes: updateData.hos_cycle_minutes,
           status: updateData.hos_status,
           api_name: hosData.name,
-          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
+          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp,
+          is_valid: true
         });
         
         updates.push(updateData);
         updatedCount++;
+      } else if (hosData && !isValidHosRecord(hosData)) {
+        console.log(`Found HOS data for truck ${truck.truck_number} but it's INVALID:`, {
+          drive_minutes: hosData.minsTillDriving || 0,
+          shift_minutes: hosData.minsTillShift || 0,
+          cycle_minutes: hosData.minsTillCycle || 0,
+          status: hosData.statusAbbreviation || null,
+          api_name: hosData.name,
+          api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp,
+          is_valid: false
+        });
       } else {
         console.log(`No HOS data found for truck ${truck.truck_number} (cleaned: "${cleanTruckNumber}")`);
       }
