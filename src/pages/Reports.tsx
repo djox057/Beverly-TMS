@@ -163,6 +163,7 @@ const Reports = () => {
     }
   };
   const renderTruckCalendarCells = (truck: any, startDate: Date, truckIndex: number, totalTrucks: number) => {
+    const isFirstTruck = truckIndex === 0;
     const isLastTruck = truckIndex === totalTrucks - 1;
     const days = Array.from({
       length: 5
@@ -222,7 +223,7 @@ const Reports = () => {
               style={{
                 borderLeft: '2px solid rgb(239, 68, 68)',
                 borderRight: '2px solid rgb(239, 68, 68)',
-                borderTop: '2px solid rgb(239, 68, 68)',
+                ...(isFirstTruck ? { borderTop: '2px solid rgb(239, 68, 68)' } : {}),
                 ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
                 zIndex: 100
               }}
@@ -471,6 +472,7 @@ const Reports = () => {
                               borderLeft: '2px solid rgb(239, 68, 68)',
                               borderRight: '2px solid rgb(239, 68, 68)',
                               borderTop: '2px solid rgb(239, 68, 68)',
+                              borderBottom: '1px solid rgb(209, 213, 219)',
                               position: 'relative',
                               zIndex: 10
                             } : {})
