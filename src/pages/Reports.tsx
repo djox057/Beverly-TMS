@@ -119,8 +119,8 @@ const Reports = () => {
     if (calendarDates[dispatcherId]) {
       return calendarDates[dispatcherId];
     }
-    // Default to 1 day before current day
-    return addDays(new Date(), -1);
+    // Default to 2 days before current day to show 5 days
+    return addDays(new Date(), -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
     setCalendarDates(prev => ({
@@ -468,9 +468,9 @@ const Reports = () => {
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
                           </th>)}
                         <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
-                      width: '272px',
-                      minWidth: '272px',
-                      maxWidth: '272px'
+                      width: '340px',
+                      minWidth: '340px',
+                      maxWidth: '340px'
                     }}>Away (D) | Drive | Shift | Break | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
