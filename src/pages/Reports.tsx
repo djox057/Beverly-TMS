@@ -217,19 +217,19 @@ const Reports = () => {
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-l border-r border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            <div className="border-b border-l border-r border-gray-200 p-1" style={{
             height: '64px',
             width: '166px'
           }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
               width: '164px'
             }}>
-                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
+                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.border} border rounded relative`} style={{
                   width: '100%',
                   height: '100%',
                   padding: '1%'
                 }}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         {order.deliveryLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -266,7 +266,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`border-l border-r border-gray-200 p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
+            <div className="border-l border-r border-gray-200 p-1" style={{
             height: '64px',
             width: '166px'
           }}>
@@ -274,10 +274,12 @@ const Reports = () => {
               width: '164px'
             }}>
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '143px'
+                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.border} border rounded relative`} style={{
+                  width: '100%',
+                  height: '100%',
+                  padding: '1%'
                 }}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         {order.pickupLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -309,20 +311,18 @@ const Reports = () => {
                     </div>)}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '143px'
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.border} border rounded relative`} style={{
+                  width: '100%',
+                  height: '100%',
+                  padding: '1%'
                 }}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         P: {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
-                  width: '143px'
-                }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
                         D: {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
-                  width: '143px'
-                }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`}>
                         <span>{order.pickup_datetime && order.pickup_end_datetime && 
                               format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
                               ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
