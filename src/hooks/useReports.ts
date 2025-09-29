@@ -164,7 +164,7 @@ export const useReports = () => {
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
           orders!orders_truck_id_fkey(
             id,
             load_number,
@@ -401,9 +401,14 @@ export const useReports = () => {
           pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
           delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
           awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
-          driveHours: truck.hos_drive_minutes ? `${Math.floor(truck.hos_drive_minutes / 60)}:${String(truck.hos_drive_minutes % 60).padStart(2, '0')}h` : '0:00h',
-          shiftHours: truck.hos_shift_minutes ? `${Math.floor(truck.hos_shift_minutes / 60)}:${String(truck.hos_shift_minutes % 60).padStart(2, '0')}h` : '0:00h',
-          cycleHours: truck.hos_cycle_minutes ? `${Math.floor(truck.hos_cycle_minutes / 60)}:${String(truck.hos_cycle_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          driveHours: truck.driver1?.hos_drive_minutes ? `${Math.floor(truck.driver1.hos_drive_minutes / 60)}:${String(truck.driver1.hos_drive_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          shiftHours: truck.driver1?.hos_shift_minutes ? `${Math.floor(truck.driver1.hos_shift_minutes / 60)}:${String(truck.driver1.hos_shift_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          cycleHours: truck.driver1?.hos_cycle_minutes ? `${Math.floor(truck.driver1.hos_cycle_minutes / 60)}:${String(truck.driver1.hos_cycle_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          driveMinutes: truck.driver1?.hos_drive_minutes || 0,
+          shiftMinutes: truck.driver1?.hos_shift_minutes || 0,
+          cycleMinutes: truck.driver1?.hos_cycle_minutes || 0,
+          hosStatus: truck.driver1?.hos_status || null,
+          hosLastUpdated: truck.driver1?.hos_last_updated || null,
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { TestHosSync } from "@/components/TestHosSync";
 import { useState } from "react";
@@ -514,21 +515,38 @@ const Reports = () => {
                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{
                       height: '128px'
                     }}>
-                            <div className="h-16 border-b border-gray-200">
-                              {/* Labels row */}
-                              <div className="h-8 flex">
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Away (D)</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Drive</div>
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-xs text-gray-600">Shift</div>
-                                <div className="flex-1 px-2 py-1 text-center text-xs text-gray-600">Cycle</div>
+                            <div className="h-16 border-b border-gray-200 flex items-center justify-around px-2">
+                              {/* Away Days */}
+                              <div className="flex flex-col items-center">
+                                <div className="text-xs text-gray-600 mb-1">AWAY (D)</div>
+                                <div className="text-sm text-gray-900 font-medium">{truck.awayDays}</div>
                               </div>
-                              {/* Values row */}
-                              <div className="h-8 flex">
-                                <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.awayDays}</div>
-                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.driveHours}</div>
-                                 <div className="flex-1 border-r border-gray-300 px-2 py-1 text-center text-sm text-gray-900">{truck.shiftHours}</div>
-                                 <div className="flex-1 px-2 py-1 text-center text-sm text-gray-900">{truck.cycleHours}</div>
-                              </div>
+                              
+                              {/* HOS Circular Timers */}
+                              <HosCircularTimer 
+                                minutes={truck.driveMinutes} 
+                                maxMinutes={11 * 60} // 11 hours max drive time
+                                label="DRIVE" 
+                                color="#84cc16" // green
+                                size={50}
+                                strokeWidth={4}
+                              />
+                              <HosCircularTimer 
+                                minutes={truck.shiftMinutes} 
+                                maxMinutes={14 * 60} // 14 hours max shift time
+                                label="SHIFT" 
+                                color="#06b6d4" // cyan
+                                size={50}
+                                strokeWidth={4}
+                              />
+                              <HosCircularTimer 
+                                minutes={truck.cycleMinutes} 
+                                maxMinutes={70 * 60} // 70 hours max cycle time
+                                label="CYCLE" 
+                                color="#6b7280" // gray
+                                size={50}
+                                strokeWidth={4}
+                              />
                             </div>
                             <div className="h-16 p-0 w-full">
                               {renderEditableField(truck.id, 'note', truck.note)}
