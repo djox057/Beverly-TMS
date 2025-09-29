@@ -217,7 +217,7 @@ const Reports = () => {
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
+            <div className={`border-b border-l border-r border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '166px'
           }}>
@@ -264,7 +264,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
+            <div className={`border-l border-r border-gray-200 p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
             height: '64px',
             width: '166px'
           }}>
