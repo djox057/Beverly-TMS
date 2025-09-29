@@ -207,11 +207,11 @@ const Reports = () => {
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
       
-      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-r border-b border-gray-300'} p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? '' : 'border-r border-b border-gray-300'} p-0 relative`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
-        height: '128px',
+        verticalAlign: 'top',
         ...(isToday ? {
           borderLeft: '2px solid rgb(239, 68, 68)',
           borderRight: '2px solid rgb(239, 68, 68)',
