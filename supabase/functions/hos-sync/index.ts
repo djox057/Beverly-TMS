@@ -16,6 +16,7 @@ interface TransitRecord {
   name?: string;
   minsTillDriving?: number;
   minsTillShift?: number;
+  minsTillBreak?: number;
   minsTillCycle?: number;
   statusAbbreviation?: string;
   hosUtcTimestamp?: string;
@@ -224,6 +225,7 @@ serve(async (req) => {
         console.log(`✅ Found VALID HOS data for truck ${truck.truck_number}:`, {
           drive_minutes: hosData.minsTillDriving || 0,
           shift_minutes: hosData.minsTillShift || 0,
+          break_minutes: hosData.minsTillBreak || 0,
           cycle_minutes: hosData.minsTillCycle || 0,
           status: hosData.statusAbbreviation || null,
           api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
@@ -241,6 +243,7 @@ serve(async (req) => {
               .update({
                 hos_drive_minutes: hosData.minsTillDriving || 0,
                 hos_shift_minutes: hosData.minsTillShift || 0,
+                hos_break_minutes: hosData.minsTillBreak || 0,
                 hos_cycle_minutes: hosData.minsTillCycle || 0,
                 hos_status: hosData.statusAbbreviation || null,
                 hos_last_updated: new Date().toISOString()
@@ -259,6 +262,7 @@ serve(async (req) => {
         console.log(`Found HOS data for truck ${truck.truck_number} but it's INVALID:`, {
           drive_minutes: hosData.minsTillDriving || 0,
           shift_minutes: hosData.minsTillShift || 0,
+          break_minutes: hosData.minsTillBreak || 0,
           cycle_minutes: hosData.minsTillCycle || 0,
           status: hosData.statusAbbreviation || null,
           api_timestamp: hosData.hosUtcTimestamp || hosData.utcTimestamp
