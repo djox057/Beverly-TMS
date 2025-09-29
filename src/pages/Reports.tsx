@@ -220,8 +220,12 @@ const Reports = () => {
           {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
             <div 
-              className="absolute inset-0 pointer-events-none" 
+              className="absolute pointer-events-none" 
               style={{
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 borderLeft: '2px solid rgb(239, 68, 68)',
                 borderRight: '2px solid rgb(239, 68, 68)',
                 ...(isFirstTruck ? { borderTop: '2px solid rgb(239, 68, 68)' } : {}),
@@ -472,16 +476,29 @@ const Reports = () => {
                             minWidth: '166px',
                             maxWidth: '166px',
                             ...(isToday ? {
-                              borderLeft: '2px solid rgb(239, 68, 68)',
-                              borderRight: '2px solid rgb(239, 68, 68)',
-                              borderTop: '2px solid rgb(239, 68, 68)',
-                              borderBottom: '1px solid rgb(209, 213, 219)',
                               position: 'relative',
                               zIndex: 10
                             } : {})
                           }}>
-                            <div>{format(day, 'EEE')}</div>
-                            <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
+                            {/* Red border overlay for today header */}
+                            {isToday && (
+                              <div 
+                                className="absolute pointer-events-none" 
+                                style={{
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  borderLeft: '2px solid rgb(239, 68, 68)',
+                                  borderRight: '2px solid rgb(239, 68, 68)',
+                                  borderTop: '2px solid rgb(239, 68, 68)',
+                                  borderBottom: '1px solid rgb(209, 213, 219)',
+                                  zIndex: 100
+                                }}
+                              />
+                            )}
+                            <div className="relative z-10">{format(day, 'EEE')}</div>
+                            <div className="text-xs text-gray-600 relative z-10">{format(day, 'dd')}</div>
                           </th>;
                         })}
                         <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
