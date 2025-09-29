@@ -164,7 +164,7 @@ const Reports = () => {
   };
   const renderTruckCalendarCells = (truck: any, startDate: Date) => {
     const days = Array.from({
-      length: 4
+      length: 5
     }, (_, i) => addDays(startDate, i));
     const parseDate = (dateStr: string) => {
       if (dateStr === '—' || !dateStr) return null;
@@ -471,7 +471,7 @@ const Reports = () => {
                       width: '272px',
                       minWidth: '272px',
                       maxWidth: '272px'
-                    }}>Away (D) | Drive | Shift | Cycle</th>
+                    }}>Away (D) | Drive | Shift | Break | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-24 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
@@ -531,11 +531,19 @@ const Reports = () => {
                                 size={50}
                                 strokeWidth={4}
                               />
-                              <HosCircularTimer 
+                               <HosCircularTimer 
                                 minutes={truck.shiftMinutes} 
                                 maxMinutes={14 * 60} // 14 hours max shift time
                                 label="SHIFT" 
                                 color="#06b6d4" // cyan
+                                size={50}
+                                strokeWidth={4}
+                              />
+                              <HosCircularTimer 
+                                minutes={truck.breakMinutes} 
+                                maxMinutes={8 * 60} // 8 hours max break time
+                                label="BREAK" 
+                                color="#8b5cf6" // purple
                                 size={50}
                                 strokeWidth={4}
                               />

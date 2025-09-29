@@ -118,6 +118,7 @@ export type Database = {
           home_latitude: number | null
           home_longitude: number | null
           home_state: string | null
+          hos_break_minutes: number | null
           hos_cycle_minutes: number | null
           hos_drive_minutes: number | null
           hos_last_updated: string | null
@@ -137,6 +138,7 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_state?: string | null
+          hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
           hos_last_updated?: string | null
@@ -156,6 +158,7 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_state?: string | null
+          hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
           hos_last_updated?: string | null

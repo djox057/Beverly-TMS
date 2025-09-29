@@ -164,7 +164,7 @@ export const useReports = () => {
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
           orders!orders_truck_id_fkey(
             id,
             load_number,
@@ -403,10 +403,11 @@ export const useReports = () => {
           awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
           driveHours: truck.driver1?.hos_drive_minutes ? `${Math.floor(truck.driver1.hos_drive_minutes / 60)}:${String(truck.driver1.hos_drive_minutes % 60).padStart(2, '0')}h` : '0:00h',
           shiftHours: truck.driver1?.hos_shift_minutes ? `${Math.floor(truck.driver1.hos_shift_minutes / 60)}:${String(truck.driver1.hos_shift_minutes % 60).padStart(2, '0')}h` : '0:00h',
-          cycleHours: truck.driver1?.hos_cycle_minutes ? `${Math.floor(truck.driver1.hos_cycle_minutes / 60)}:${String(truck.driver1.hos_cycle_minutes % 60).padStart(2, '0')}h` : '0:00h',
-          driveMinutes: truck.driver1?.hos_drive_minutes || 0,
-          shiftMinutes: truck.driver1?.hos_shift_minutes || 0,
-          cycleMinutes: truck.driver1?.hos_cycle_minutes || 0,
+           cycleHours: truck.driver1?.hos_cycle_minutes ? `${Math.floor(truck.driver1.hos_cycle_minutes / 60)}:${String(truck.driver1.hos_cycle_minutes % 60).padStart(2, '0')}h` : '0:00h',
+           driveMinutes: truck.driver1?.hos_drive_minutes || 0,
+           shiftMinutes: truck.driver1?.hos_shift_minutes || 0,
+           breakMinutes: truck.driver1?.hos_break_minutes || 0,
+           cycleMinutes: truck.driver1?.hos_cycle_minutes || 0,
           hosStatus: truck.driver1?.hos_status || null,
           hosLastUpdated: truck.driver1?.hos_last_updated || null,
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
