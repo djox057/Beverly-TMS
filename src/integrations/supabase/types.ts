@@ -470,6 +470,11 @@ export type Database = {
           dispatcher_id: string | null
           driver1_id: string | null
           driver2_id: string | null
+          hos_cycle_minutes: number | null
+          hos_drive_minutes: number | null
+          hos_last_updated: string | null
+          hos_shift_minutes: number | null
+          hos_status: string | null
           id: string
           make: string | null
           model: string | null
@@ -487,6 +492,11 @@ export type Database = {
           dispatcher_id?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
           id?: string
           make?: string | null
           model?: string | null
@@ -504,6 +514,11 @@ export type Database = {
           dispatcher_id?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
           id?: string
           make?: string | null
           model?: string | null
