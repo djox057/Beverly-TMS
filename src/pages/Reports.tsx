@@ -205,31 +205,20 @@ const Reports = () => {
       
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
-      const todayStyle = isToday ? { boxShadow: 'inset 2px 0 0 0 #ef4444, inset -2px 0 0 0 #ef4444' } : {};
       
-      return <td key={index} className="border-r border-b border-gray-300 p-0 relative" style={{
+      return <td key={index} className={`border-r border-b border-gray-300 p-0 relative ${isToday ? 'border-l-2 border-r-2 border-red-500' : ''}`} style={{
         width: '166px',
         minWidth: '166px',
-        maxWidth: '166px',
-        ...todayStyle
+        maxWidth: '166px'
       }}>
           <div className="h-32 relative" style={{
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-l border-r border-gray-200 p-1 ${deliveryOnlyOrders.length > 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{
-            height: '64px',
-            width: '166px'
-          }}>
-              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5" style={{
-              width: '164px'
-            }}>
-                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '100%',
-                  height: '100%',
-                  padding: '1%'
-                }}>
+            <div className={`border-b border-l border-r border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
+                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         {order.deliveryLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -266,18 +255,11 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`border-l border-r border-gray-200 p-1 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`} style={{
-            height: '64px',
-            width: '166px'
-          }}>
-              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5" style={{
-              width: '164px'
-            }}>
+            <div className={`border-l border-r border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '143px'
-                }}>
+                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         {order.pickupLocation}
                       </div>
                       <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
@@ -309,20 +291,14 @@ const Reports = () => {
                     </div>)}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded px-1 py-0.5 relative`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`} style={{
-                  width: '143px'
-                }}>
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
+                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
                         P: {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`} style={{
-                  width: '143px'
-                }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
                         D: {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`} style={{
-                  width: '143px'
-                }}>
+                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`}>
                         <span>{order.pickup_datetime && order.pickup_end_datetime && 
                               format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
                               ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
@@ -469,12 +445,10 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
-                          const todayStyle = isToday ? { boxShadow: 'inset 2px 0 0 0 #ef4444, inset -2px 0 0 0 #ef4444, inset 0 2px 0 0 #ef4444, inset 0 -2px 0 0 #ef4444' } : {};
-                          return <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative" style={{
+                          return <th key={index} className={`border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative ${isToday ? 'border-l-2 border-r-2 border-t-2 border-red-500' : ''}`} style={{
                             width: '166px',
                             minWidth: '166px',
-                            maxWidth: '166px',
-                            ...todayStyle
+                            maxWidth: '166px'
                           }}>
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
@@ -490,7 +464,27 @@ const Reports = () => {
                        </tr>
                     </thead>
                     <tbody>
-                      {group.trucks.map((truck, index) => <tr key={truck.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
+                      {group.trucks.map((truck, truckIndex) => {
+                        const isLastTruck = truckIndex === group.trucks.length - 1;
+                        const calendarCells = renderTruckCalendarCells(truck, startDate);
+                        
+                        // Add bottom border to today's cell if this is the last truck
+                        const modifiedCells = isLastTruck ? calendarCells.map((cell, cellIndex) => {
+                          const day = addDays(startDate, cellIndex);
+                          const isToday = isSameDay(day, new Date());
+                          if (isToday) {
+                            return <td key={cellIndex} className={`border-r border-b border-gray-300 p-0 relative border-l-2 border-r-2 border-b-2 border-red-500`} style={{
+                              width: '166px',
+                              minWidth: '166px',
+                              maxWidth: '166px'
+                            }}>
+                              {cell.props.children}
+                            </td>;
+                          }
+                          return cell;
+                        }) : calendarCells;
+                        
+                        return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
                           <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{
                       width: '80px',
                       minWidth: '80px',
@@ -523,7 +517,7 @@ const Reports = () => {
                               {truck.home}
                             </div>
                           </td>
-                          {renderTruckCalendarCells(truck, startDate)}
+                          {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{
                       height: '128px'
@@ -583,7 +577,8 @@ const Reports = () => {
                       minWidth: '96px',
                       maxWidth: '96px'
                     }}>{truck.editDate}</td>
-                        </tr>)}
+                        </tr>;
+                      })}
                     </tbody>
                   </table>
                 </div>
