@@ -401,9 +401,9 @@ export const useReports = () => {
           pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
           delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
           awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
-          driveHours: 0, // Would need to integrate with tracking system
-          shiftHours: 0, // Would need to integrate with tracking system  
-          cycleHours: 0, // Would need to integrate with tracking system
+          driveHours: truck.hos_drive_minutes ? `${Math.floor(truck.hos_drive_minutes / 60)}h:${String(truck.hos_drive_minutes % 60).padStart(2, '0')}m` : '0h',
+          shiftHours: truck.hos_shift_minutes ? `${Math.floor(truck.hos_shift_minutes / 60)}h:${String(truck.hos_shift_minutes % 60).padStart(2, '0')}m` : '0h',
+          cycleHours: truck.hos_cycle_minutes ? `${Math.floor(truck.hos_cycle_minutes / 60)}h:${String(truck.hos_cycle_minutes % 60).padStart(2, '0')}m` : '0h',
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
