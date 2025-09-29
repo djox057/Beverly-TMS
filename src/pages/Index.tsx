@@ -63,7 +63,7 @@ const Index = () => {
                     <p className="text-3xl font-bold">{stat.value}</p>
                   )}
                 </div>
-                <stat.icon className={`h-0 w-0 ${stat.color}`} />
+                <stat.icon className={`h-0.05 w-0.05 ${stat.color}`} />
               </div>
             </CardContent>
           </Card>
