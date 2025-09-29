@@ -182,52 +182,69 @@ serve(async (req) => {
     const truckLookupMap = createTruckLookupMap(apiData);
     console.log(`Created lookup map with ${Object.keys(truckLookupMap).length} trucks`);
 
-    // Get all trucks from database
-    const { data: trucks, error: trucksError } = await supabase
-      .from('trucks')
-      .select('id, truck_number');
+    // Get all drivers from database with their transit mapping
+    const { data: drivers, error: driversError } = await supabase
+      .from('drivers')
+      .select('id, name, license_number, email, phone');
 
-    if (trucksError) {
-      throw new Error(`Error fetching trucks: ${trucksError.message}`);
+    if (driversError) {
+      throw new Error(`Error fetching drivers: ${driversError.message}`);
     }
 
-    if (!trucks || trucks.length === 0) {
-      console.log('No trucks found in database');
+    if (!drivers || drivers.length === 0) {
+      console.log('No drivers found in database');
       return new Response(JSON.stringify({ 
         success: true, 
         updated: 0, 
-        message: 'No trucks found in database' 
+        message: 'No drivers found in database' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update trucks with HOS data
+    // Update drivers with HOS data
     const updates = [];
     let updatedCount = 0;
 
-    console.log(`Processing ${trucks.length} trucks from database:`);
-    trucks.forEach(truck => {
-      console.log(`DB Truck: ${truck.truck_number} (ID: ${truck.id})`);
+    console.log(`Processing ${drivers.length} drivers from database:`);
+    drivers.forEach(driver => {
+      console.log(`DB Driver: ${driver.name} (ID: ${driver.id})`);
     });
 
-    console.log(`Available trucks in API lookup map: ${Object.keys(truckLookupMap).join(', ')}`);
+    console.log(`Available assets in API lookup map: ${Object.keys(truckLookupMap).join(', ')}`);
 
-    for (const truck of trucks) {
-      if (!truck.truck_number) {
-        console.log(`Skipping truck ${truck.id} - no truck number`);
+    for (const driver of drivers) {
+      if (!driver.name) {
+        console.log(`Skipping driver ${driver.id} - no name`);
         continue;
       }
 
-      // Clean truck number for matching
-      const cleanTruckNumber = truck.truck_number.replace(/#/g, '').trim();
-      const hosData = truckLookupMap[cleanTruckNumber];
+      // Try multiple matching strategies for drivers
+      const normalizedDriverName = driver.name.replace(/#/g, '').trim();
+      let hosData = truckLookupMap[normalizedDriverName];
+      
+      // If no direct match, try other identifiers
+      if (!hosData && driver.license_number) {
+        hosData = truckLookupMap[driver.license_number.replace(/#/g, '').trim()];
+      }
+      
+      // Try email prefix if available
+      if (!hosData && driver.email) {
+        const emailPrefix = driver.email.split('@')[0];
+        hosData = truckLookupMap[emailPrefix];
+      }
+      
+      // Try phone number if available
+      if (!hosData && driver.phone) {
+        const cleanPhone = driver.phone.replace(/\D/g, '');
+        hosData = truckLookupMap[cleanPhone];
+      }
 
-      console.log(`Truck ${truck.truck_number} -> cleaned: "${cleanTruckNumber}" -> HOS data found: ${!!hosData}`);
+      console.log(`Driver ${driver.name} -> normalized: "${normalizedDriverName}" -> HOS data found: ${!!hosData}`);
 
       if (hosData && isValidHosRecord(hosData)) {
         const updateData = {
-          id: truck.id,
+          id: driver.id,
           hos_drive_minutes: hosData.minsTillDriving || 0,
           hos_shift_minutes: hosData.minsTillShift || 0,
           hos_cycle_minutes: hosData.minsTillCycle || 0,
@@ -235,7 +252,7 @@ serve(async (req) => {
           hos_last_updated: new Date().toISOString()
         };
         
-        console.log(`Updating truck ${truck.truck_number} (${truck.id}) with VALID HOS data:`, {
+        console.log(`Updating driver ${driver.name} (${driver.id}) with VALID HOS data:`, {
           drive_minutes: updateData.hos_drive_minutes,
           shift_minutes: updateData.hos_shift_minutes,
           cycle_minutes: updateData.hos_cycle_minutes,
@@ -248,7 +265,7 @@ serve(async (req) => {
         updates.push(updateData);
         updatedCount++;
       } else if (hosData && !isValidHosRecord(hosData)) {
-        console.log(`Found HOS data for truck ${truck.truck_number} but it's INVALID:`, {
+        console.log(`Found HOS data for driver ${driver.name} but it's INVALID:`, {
           drive_minutes: hosData.minsTillDriving || 0,
           shift_minutes: hosData.minsTillShift || 0,
           cycle_minutes: hosData.minsTillCycle || 0,
@@ -258,15 +275,15 @@ serve(async (req) => {
           is_valid: false
         });
       } else {
-        console.log(`No HOS data found for truck ${truck.truck_number} (cleaned: "${cleanTruckNumber}")`);
+        console.log(`No HOS data found for driver ${driver.name} (normalized: "${normalizedDriverName}")`);
       }
     }
 
-    // Batch update trucks
+    // Batch update drivers
     if (updates.length > 0) {
       for (const update of updates) {
         const { error: updateError } = await supabase
-          .from('trucks')
+          .from('drivers')
           .update({
             hos_drive_minutes: update.hos_drive_minutes,
             hos_shift_minutes: update.hos_shift_minutes,
@@ -277,17 +294,17 @@ serve(async (req) => {
           .eq('id', update.id);
 
         if (updateError) {
-          console.error(`Error updating truck ${update.id}:`, updateError);
+          console.error(`Error updating driver ${update.id}:`, updateError);
         }
       }
     }
 
-    console.log(`HOS sync complete. Updated ${updatedCount} trucks.`);
+    console.log(`HOS sync complete. Updated ${updatedCount} drivers.`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       updated: updatedCount,
-      total_trucks: trucks.length,
+      total_drivers: drivers.length,
       api_records: apiData.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

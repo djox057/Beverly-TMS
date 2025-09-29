@@ -77,6 +77,38 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_transit_mapping: {
+        Row: {
+          created_at: string
+          driver_id: string
+          id: string
+          transit_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          id?: string
+          transit_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          id?: string
+          transit_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_transit_mapping_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           created_at: string
@@ -86,6 +118,11 @@ export type Database = {
           home_latitude: number | null
           home_longitude: number | null
           home_state: string | null
+          hos_cycle_minutes: number | null
+          hos_drive_minutes: number | null
+          hos_last_updated: string | null
+          hos_shift_minutes: number | null
+          hos_status: string | null
           id: string
           license_number: string | null
           name: string
@@ -100,6 +137,11 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_state?: string | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
           id?: string
           license_number?: string | null
           name: string
@@ -114,6 +156,11 @@ export type Database = {
           home_latitude?: number | null
           home_longitude?: number | null
           home_state?: string | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
           id?: string
           license_number?: string | null
           name?: string
