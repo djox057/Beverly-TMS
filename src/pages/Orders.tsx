@@ -206,63 +206,63 @@ const Orders = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Orders</CardTitle>
-          </div>
-          
-          <div className="flex flex-wrap gap-4 items-center mt-4">
-            <DateRangePicker 
-              date={dateRange} 
-              onDateChange={setDateRange} 
-              placeholder="Filter by delivery date" 
-              className="w-72" 
-            />
             
-            <Select value={truckFilter} onValueChange={setTruckFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by Truck" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-trucks">All Trucks</SelectItem>
-                {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            
-            <Select value={companyFilter} onValueChange={setCompanyFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by Company" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-companies">All Companies</SelectItem>
-                {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            
-            <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by Booked By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-users">All Users</SelectItem>
-                {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            
-            <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by Missing Docs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Orders</SelectItem>
-                <SelectItem value="missing-rc">Missing RC</SelectItem>
-                <SelectItem value="missing-bol">Missing BOL</SelectItem>
-                <SelectItem value="missing-pod">Missing POD</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <div className="flex flex-wrap gap-4 items-center">
+              <DateRangePicker 
+                date={dateRange} 
+                onDateChange={setDateRange} 
+                placeholder="Filter by delivery date" 
+                className="w-72" 
+              />
+              
+              <Select value={truckFilter} onValueChange={setTruckFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Truck" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-trucks">All Trucks</SelectItem>
+                  {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-companies">All Companies</SelectItem>
+                  {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              
+              <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Booked By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-users">All Users</SelectItem>
+                  {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              
+              <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Missing Docs" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Orders</SelectItem>
+                  <SelectItem value="missing-rc">Missing RC</SelectItem>
+                  <SelectItem value="missing-bol">Missing BOL</SelectItem>
+                  <SelectItem value="missing-pod">Missing POD</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
             </div>
           </div>
         </CardHeader>
