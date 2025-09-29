@@ -202,7 +202,12 @@ const Reports = () => {
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
-      return <td key={index} className="border-r border-b border-gray-300 p-0" style={{
+      
+      // Check if this day is today
+      const isToday = isSameDay(day, new Date());
+      const todayBorderClass = isToday ? 'border-2 border-red-500' : 'border-r border-b border-gray-300';
+      
+      return <td key={index} className={`${todayBorderClass} p-0`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px'
@@ -459,14 +464,18 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-20">Truck #</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-32">Driver</th>
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
-                        {days.map((day, index) => <th key={index} className="border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
-                      width: '166px',
-                      minWidth: '166px',
-                      maxWidth: '166px'
-                    }}>
+                        {days.map((day, index) => {
+                          const isToday = isSameDay(day, new Date());
+                          const todayHeaderClass = isToday ? 'border-2 border-red-500' : 'border-r border-b border-gray-300';
+                          return <th key={index} className={`${todayHeaderClass} px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50`} style={{
+                            width: '166px',
+                            minWidth: '166px',
+                            maxWidth: '166px'
+                          }}>
                             <div>{format(day, 'EEE')}</div>
                             <div className="text-xs text-gray-600">{format(day, 'dd')}</div>
-                          </th>)}
+                          </th>;
+                        })}
                         <th colSpan={4} className="border-t border-r border-b border-gray-300 px-3 py-1 text-center text-xs font-medium text-gray-700 bg-gray-50" style={{
                       width: '340px',
                       minWidth: '340px',
