@@ -213,15 +213,22 @@ const Reports = () => {
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
-        verticalAlign: 'top',
-        ...(isToday ? {
-          borderLeft: '2px solid rgb(239, 68, 68)',
-          borderRight: '2px solid rgb(239, 68, 68)',
-          ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
-          position: 'relative',
-          zIndex: 20
-        } : {})
+        verticalAlign: 'top'
       }}>
+          {/* Red border overlay for today column - sits on top of everything */}
+          {isToday && (
+            <div 
+              className="absolute inset-0 pointer-events-none" 
+              style={{
+                borderLeft: '2px solid rgb(239, 68, 68)',
+                borderRight: '2px solid rgb(239, 68, 68)',
+                borderTop: '2px solid rgb(239, 68, 68)',
+                ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
+                zIndex: 100
+              }}
+            />
+          )}
+          
           <div className="h-32 relative" style={{
           width: '166px'
         }}>
