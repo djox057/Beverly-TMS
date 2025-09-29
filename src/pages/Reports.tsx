@@ -211,6 +211,7 @@ const Reports = () => {
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
+        height: '128px',
         ...(isToday ? {
           borderLeft: '2px solid rgb(239, 68, 68)',
           borderRight: '2px solid rgb(239, 68, 68)',
