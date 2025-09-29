@@ -206,8 +206,10 @@ const Reports = () => {
       
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
+      // Check if next day is today (to remove left border)
+      const isNextDayToday = index < days.length - 1 && isSameDay(days[index + 1], new Date());
       
-      return <td key={index} className={`${isToday ? '' : 'border-r border-b border-gray-300'} p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? '' : isNextDayToday ? 'border-b border-gray-300' : 'border-r border-b border-gray-300'} p-0 relative`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
@@ -217,14 +219,14 @@ const Reports = () => {
           borderRight: '2px solid rgb(239, 68, 68)',
           ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
           position: 'relative',
-          zIndex: 10
+          zIndex: 20
         } : {})
       }}>
           <div className="h-32 relative" style={{
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b border-l border-r border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : 'bg-gray-50'}`}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
@@ -264,7 +266,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`border-l border-r border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : 'bg-gray-50'}`}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
