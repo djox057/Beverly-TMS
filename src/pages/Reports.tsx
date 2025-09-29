@@ -473,7 +473,7 @@ const Reports = () => {
                           const day = addDays(startDate, cellIndex);
                           const isToday = isSameDay(day, new Date());
                           if (isToday) {
-                            return <td key={cellIndex} className={`border-r border-b border-gray-300 p-0 relative border-l-2 border-r-2 border-b-2 border-red-500`} style={{
+                            return <td key={cellIndex} className={`p-0 relative border-l-2 border-r-2 border-b-2 border-red-500`} style={{
                               width: '166px',
                               minWidth: '166px',
                               maxWidth: '166px'
