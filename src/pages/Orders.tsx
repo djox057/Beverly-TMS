@@ -1,12 +1,13 @@
+import { DateRange } from "react-day-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Filter } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
@@ -67,8 +68,7 @@ const Orders = () => {
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [showFilters, setShowFilters] = useState(true);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const {
     data: orders,
     isLoading,
@@ -111,11 +111,20 @@ const Orders = () => {
 
     // Date filtering based on delivery date
     let matchesDate = true;
-    if (selectedDate) {
+    if (dateRange?.from) {
       const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
-      const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
-      matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+      
+      if (dateRange.to) {
+        // Date range filtering
+        const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+        const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+        matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+      } else {
+        // Single date filtering
+        const selectedDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+        matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+      }
     }
     return matchesSearch && matchesCompany && matchesBookedBy && matchesTruck && matchesMissingDocs && matchesDate;
   }) || [];
@@ -199,71 +208,63 @@ const Orders = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>All Orders</CardTitle>
-            <div className="flex gap-2 items-center">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="gap-2"
-              >
-                <Filter className="h-4 w-4" />
-                {showFilters ? 'Hide' : 'Show'} Filters
-              </Button>
-            </div>
           </div>
           
-          {showFilters && (
-            <div className="flex flex-wrap gap-4 items-center mt-4">
-              <DatePicker date={selectedDate} onDateChange={setSelectedDate} placeholder="Filter by delivery date" className="w-72" />
-              
-              <Select value={truckFilter} onValueChange={setTruckFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Truck" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-trucks">All Trucks</SelectItem>
-                  {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-companies">All Companies</SelectItem>
-                  {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Booked By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-users">All Users</SelectItem>
-                  {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Missing Docs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
-                  <SelectItem value="missing-rc">Missing RC</SelectItem>
-                  <SelectItem value="missing-bol">Missing BOL</SelectItem>
-                  <SelectItem value="missing-pod">Missing POD</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-              </div>
+          <div className="flex flex-wrap gap-4 items-center mt-4">
+            <DateRangePicker 
+              date={dateRange} 
+              onDateChange={setDateRange} 
+              placeholder="Filter by delivery date" 
+              className="w-72" 
+            />
+            
+            <Select value={truckFilter} onValueChange={setTruckFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by Truck" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-trucks">All Trucks</SelectItem>
+                {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            
+            <Select value={companyFilter} onValueChange={setCompanyFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by Company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-companies">All Companies</SelectItem>
+                {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            
+            <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by Booked By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-users">All Users</SelectItem>
+                {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            
+            <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by Missing Docs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="missing-rc">Missing RC</SelectItem>
+                <SelectItem value="missing-bol">Missing BOL</SelectItem>
+                <SelectItem value="missing-pod">Missing POD</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
-          )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
