@@ -162,7 +162,8 @@ const Reports = () => {
         };
     }
   };
-  const renderTruckCalendarCells = (truck: any, startDate: Date) => {
+  const renderTruckCalendarCells = (truck: any, startDate: Date, truckIndex: number, totalTrucks: number) => {
+    const isLastTruck = truckIndex === totalTrucks - 1;
     const days = Array.from({
       length: 5
     }, (_, i) => addDays(startDate, i));
@@ -213,6 +214,7 @@ const Reports = () => {
         ...(isToday ? {
           borderLeft: '2px solid rgb(239, 68, 68)',
           borderRight: '2px solid rgb(239, 68, 68)',
+          ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
           position: 'relative',
           zIndex: 10
         } : {})
@@ -478,29 +480,7 @@ const Reports = () => {
                     </thead>
                     <tbody>
                       {group.trucks.map((truck, truckIndex) => {
-                        const isLastTruck = truckIndex === group.trucks.length - 1;
-                        const calendarCells = renderTruckCalendarCells(truck, startDate);
-                        
-                        // Add bottom border to today's cell if this is the last truck
-                        const modifiedCells = isLastTruck ? calendarCells.map((cell, cellIndex) => {
-                          const day = addDays(startDate, cellIndex);
-                          const isToday = isSameDay(day, new Date());
-                          if (isToday) {
-                            return <td key={cellIndex} className={`p-0 relative`} style={{
-                              width: '166px',
-                              minWidth: '166px',
-                              maxWidth: '166px',
-                              borderLeft: '2px solid rgb(239, 68, 68)',
-                              borderRight: '2px solid rgb(239, 68, 68)',
-                              borderBottom: '2px solid rgb(239, 68, 68)',
-                              position: 'relative',
-                              zIndex: 10
-                            }}>
-                              {cell.props.children}
-                            </td>;
-                          }
-                          return cell;
-                        }) : calendarCells;
+                        const modifiedCells = renderTruckCalendarCells(truck, startDate, truckIndex, group.trucks.length);
                         
                         return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
                           <td className="border-r border-b border-gray-300 px-3 py-2 text-sm text-gray-900 font-medium" style={{
