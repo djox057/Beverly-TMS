@@ -206,7 +206,7 @@ const Reports = () => {
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
       
-      return <td key={index} className={`border-r ${isToday ? '' : 'border-b'} border-gray-300 p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? '' : 'border-r border-b border-gray-300'} p-0 relative`} style={{
         width: '166px',
         minWidth: '166px',
         maxWidth: '166px',
@@ -451,7 +451,7 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-3 py-2 text-left text-xs font-medium text-gray-700 bg-gray-50 w-28">Home</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
-                          return <th key={index} className={`border-r border-b border-gray-300 px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative`} style={{
+                          return <th key={index} className={`${isToday ? '' : 'border-r border-b border-gray-300'} px-3 py-2 text-center text-xs font-medium text-gray-700 bg-gray-50 relative`} style={{
                             width: '166px',
                             minWidth: '166px',
                             maxWidth: '166px',
