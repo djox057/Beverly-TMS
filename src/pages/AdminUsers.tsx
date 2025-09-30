@@ -106,8 +106,18 @@ const AdminUsers = () => {
     
     setIsDeleting(userToDelete.id);
     try {
-      // Delete from auth.users (this will cascade to profiles due to foreign key)
-      const { error } = await supabase.auth.admin.deleteUser(userToDelete.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: userToDelete.id },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
       
       if (error) throw error;
       
@@ -121,7 +131,7 @@ const AdminUsers = () => {
       console.error('Error deleting user:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user",
+        description: error.message || "Failed to delete user",
         variant: "destructive",
       });
     } finally {
