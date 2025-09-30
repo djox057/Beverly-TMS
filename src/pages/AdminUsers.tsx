@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
+  user_id: string;
   email: string;
   full_name: string | null;
   role: 'dispatch' | 'admin' | 'manager' | 'driver';
@@ -104,7 +105,7 @@ const AdminUsers = () => {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     
-    setIsDeleting(userToDelete.id);
+    setIsDeleting(userToDelete.user_id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -112,14 +113,19 @@ const AdminUsers = () => {
         throw new Error('No active session');
       }
 
-      const { error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: userToDelete.id },
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: userToDelete.user_id },
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
       });
       
       if (error) throw error;
+      
+      // Check if the function returned an error in the response
+      if (data?.error) {
+        throw new Error(data.error);
+      }
       
       await fetchUsers();
       
@@ -295,9 +301,9 @@ const AdminUsers = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => setUserToDelete(user)}
-                      disabled={isDeleting === user.id}
+                      disabled={isDeleting === user.user_id}
                     >
-                      {isDeleting === user.id ? (
+                      {isDeleting === user.user_id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Trash2 className="h-4 w-4" />
