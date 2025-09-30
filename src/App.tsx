@@ -42,7 +42,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/" element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="dispatch">
                 <Layout><Index /></Layout>
               </ProtectedRoute>
             } />
