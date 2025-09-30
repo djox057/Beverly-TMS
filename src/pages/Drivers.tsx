@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2 } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,8 @@ interface DriverFormData {
   home_state: string;
   home_latitude: string;
   home_longitude: string;
+  createAccount: boolean;
+  password: string;
 }
 const Drivers = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,7 +37,9 @@ const Drivers = () => {
     home_city: "",
     home_state: "",
     home_latitude: "",
-    home_longitude: ""
+    home_longitude: "",
+    createAccount: false,
+    password: ""
   });
   const {
     toast
@@ -56,13 +61,51 @@ const Drivers = () => {
       home_city: "",
       home_state: "",
       home_latitude: "",
-      home_longitude: ""
+      home_longitude: "",
+      createAccount: false,
+      password: ""
     });
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (formData.createAccount && !formData.email) {
+      toast({
+        title: "Error",
+        description: "Email is required to create a driver account",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.createAccount && formData.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Create user account if requested
+      if (formData.createAccount && formData.email) {
+        const { error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.name,
+              role: 'driver'
+            }
+          }
+        });
+        
+        if (authError) throw authError;
+      }
+
+      // Create driver record
       const {
         error
       } = await supabase.from('drivers').insert({
@@ -75,10 +118,14 @@ const Drivers = () => {
         home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
         home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
       });
+      
       if (error) throw error;
+      
       toast({
         title: "Success",
-        description: "Driver added successfully"
+        description: formData.createAccount 
+          ? "Driver and account created successfully" 
+          : "Driver added successfully"
       });
       resetForm();
       setIsAddDialogOpen(false);
@@ -158,7 +205,9 @@ const Drivers = () => {
       home_city: driver.home_city || "",
       home_state: driver.home_state || "",
       home_latitude: driver.home_latitude?.toString() || "",
-      home_longitude: driver.home_longitude?.toString() || ""
+      home_longitude: driver.home_longitude?.toString() || "",
+      createAccount: false,
+      password: ""
     });
     setIsEditDialogOpen(true);
   };
@@ -251,6 +300,42 @@ const Drivers = () => {
                 </div>
               </div>
 
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="create_account"
+                    checked={formData.createAccount}
+                    onCheckedChange={(checked) => setFormData({
+                      ...formData,
+                      createAccount: checked as boolean
+                    })}
+                  />
+                  <Label htmlFor="create_account" className="text-sm font-medium cursor-pointer">
+                    Create driver portal account
+                  </Label>
+                </div>
+                
+                {formData.createAccount && (
+                  <div className="space-y-2 pl-6">
+                    <Label htmlFor="password">Password*</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={e => setFormData({
+                        ...formData,
+                        password: e.target.value
+                      })}
+                      placeholder="Minimum 6 characters"
+                      required={formData.createAccount}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Driver can change this password after first login
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -285,7 +370,7 @@ const Drivers = () => {
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
-                  <TableHead>Coordinates</TableHead>
+                  <TableHead>Portal Access</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -314,8 +399,16 @@ const Drivers = () => {
                       <TableCell>
                         {driver.home_city && driver.home_state ? `${driver.home_city}, ${driver.home_state}` : driver.home_city || driver.home_state || "—"}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {driver.home_latitude && driver.home_longitude ? `${driver.home_latitude}, ${driver.home_longitude}` : "—"}
+                      <TableCell>
+                        {driver.has_account ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                            No Access
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">

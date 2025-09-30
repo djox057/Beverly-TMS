@@ -22,6 +22,15 @@ export const useDrivers = () => {
       
       if (error) throw error;
       
+      // Get all profiles to check which drivers have accounts
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('email, role');
+      
+      const driverEmails = new Set(
+        profiles?.filter((p: any) => p.role === 'driver').map((p: any) => p.email.toLowerCase()) || []
+      );
+      
       // Transform the data to flatten truck/trailer info
       return data?.map(driver => {
         const truck1 = driver.trucks_driver1?.[0];
@@ -33,7 +42,8 @@ export const useDrivers = () => {
           truck_info: primaryTruck ? {
             truck_number: primaryTruck.truck_number,
             trailer_number: primaryTruck.trailer?.trailer_number || null
-          } : null
+          } : null,
+          has_account: driver.email ? driverEmails.has(driver.email.toLowerCase()) : false
         };
       });
     },
