@@ -323,11 +323,12 @@ const Reports = () => {
             />
           )}
           
-          <div className="h-16 relative" style={{
-          width: '120px'
+          <div className="flex flex-col relative" style={{
+          width: '120px',
+          height: '64px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-8 ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{ height: '32px', minHeight: '32px', maxHeight: '32px' }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
                     const cellColor = getDeliveryCellColor(order);
@@ -382,7 +383,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-8 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{ height: '32px', minHeight: '32px', maxHeight: '32px' }}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
