@@ -19,7 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { calculateLoadedMiles } from "@/utils/routeCalculation";
+import { calculateLoadedMiles, calculateDhMiles } from "@/utils/routeCalculation";
+import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 
 interface PickupDrop {
   id: string;
@@ -55,6 +56,7 @@ const NewOrder = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
+  const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -78,6 +80,7 @@ const NewOrder = () => {
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(bookedByCompany);
+  const { data: lastDelivery } = useTruckLastDelivery(truck || null);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -152,6 +155,47 @@ const NewOrder = () => {
     const timeoutId = setTimeout(calculateMiles, 1000);
     return () => clearTimeout(timeoutId);
   }, [pickupsDrops, toast]);
+
+  // Auto-calculate DH miles when truck is selected and pickup address is entered
+  useEffect(() => {
+    const calculateDh = async () => {
+      if (!truck || !lastDelivery) {
+        return;
+      }
+
+      const firstPickup = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
+      if (!firstPickup) {
+        return;
+      }
+
+      setIsCalculatingDhMiles(true);
+      try {
+        const miles = await calculateDhMiles(lastDelivery.deliveryAddress, firstPickup.address);
+        if (miles !== null) {
+          setDhMiles(miles.toString());
+          toast({
+            title: "DH Miles Calculated",
+            description: `Distance from last delivery: ${miles} miles`,
+          });
+        } else {
+          setDhMiles('0');
+        }
+      } catch (error) {
+        console.error('Error calculating DH miles:', error);
+        toast({
+          title: "DH Calculation Failed",
+          description: "Unable to calculate DH miles automatically",
+          variant: "destructive",
+        });
+      } finally {
+        setIsCalculatingDhMiles(false);
+      }
+    };
+
+    // Debounce the calculation
+    const timeoutId = setTimeout(calculateDh, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [truck, lastDelivery, pickupsDrops, toast]);
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
@@ -972,14 +1016,25 @@ const NewOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dh-miles">DH Miles</Label>
+                <Label htmlFor="dh-miles" className="flex items-center gap-2">
+                  DH Miles
+                  {isCalculatingDhMiles && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
+                </Label>
                 <Input 
                   id="dh-miles" 
                   type="number" 
-                  placeholder="0" 
+                  placeholder={lastDelivery ? "Auto-calculated from last delivery" : "0"} 
                   value={dhMiles} 
-                  onChange={e => setDhMiles(e.target.value)} 
+                  onChange={e => setDhMiles(e.target.value)}
+                  disabled={isCalculatingDhMiles}
                 />
+                {lastDelivery && dhMiles && !isCalculatingDhMiles && (
+                  <p className="text-xs text-muted-foreground">
+                    From: {lastDelivery.deliveryAddress}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

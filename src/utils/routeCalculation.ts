@@ -356,3 +356,45 @@ export const calculateLoadedMiles = async (
     return null;
   }
 };
+
+/**
+ * Calculate DH (Deadhead) miles from last delivery to current pickup
+ * @param lastDeliveryAddress Last delivery address string
+ * @param currentPickupAddress Current pickup address string
+ * @returns Promise<number | null> DH miles
+ */
+export const calculateDhMiles = async (
+  lastDeliveryAddress: string,
+  currentPickupAddress: string
+): Promise<number | null> => {
+  console.log('🚚 =================================');
+  console.log('🚚 DH MILES CALCULATION START');
+  console.log('🚚 =================================');
+  console.log('🚚 Last Delivery Address:', lastDeliveryAddress);
+  console.log('🚚 Current Pickup Address:', currentPickupAddress);
+
+  if (!lastDeliveryAddress || !currentPickupAddress) {
+    console.log('❌ Missing addresses for DH miles calculation');
+    return null;
+  }
+
+  try {
+    // Geocode both addresses
+    const lastDeliveryCoords = await geocodeAddress(lastDeliveryAddress);
+    const currentPickupCoords = await geocodeAddress(currentPickupAddress);
+
+    if (!lastDeliveryCoords || !currentPickupCoords) {
+      console.warn('❌ Could not geocode one or both addresses for DH calculation');
+      return null;
+    }
+
+    // Calculate route distance
+    const distance = await calculateRouteDistance(lastDeliveryCoords, currentPickupCoords);
+    
+    console.log('✅ DH miles calculation complete:', distance);
+    return distance;
+  } catch (error) {
+    console.error('❌ Error calculating DH miles:', error);
+    return null;
+  }
+};
