@@ -372,24 +372,24 @@ const Reports = () => {
                       </Popover>
                     </div>
                   })}
-                  {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
-                      +{deliveryOnlyOrders.length - 2} more
+                  {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
+                      +{deliveryOnlyOrders.length - 1} more
                     </div>}
                 </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isInTransit ? '>>>' : '—'}</div>}
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-8 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => {
+                  {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
-                    return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col p-1 flex-1`}>
-                      <div className="text-xs font-medium truncate">
+                    return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                      <div className="text-[10px] font-medium truncate leading-tight">
                         {order.pickupLocation}
                       </div>
-                      <div className="text-xs opacity-70 truncate">
+                      <div className="text-[9px] opacity-70 truncate leading-tight">
                         {order.pickup_datetime && order.pickup_end_datetime && 
                          format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
                          ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
@@ -397,8 +397,8 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
-                            <Info className="h-3 w-3" />
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
+                            <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 z-[101]">
