@@ -21,8 +21,6 @@ interface TruckFormData {
   driver_id: string;
   dispatcher_id: string;
   company_id: string;
-  year: string;
-  make: string;
   model: string;
 }
 const Trucks = () => {
@@ -37,8 +35,6 @@ const Trucks = () => {
     driver_id: "",
     dispatcher_id: "",
     company_id: "",
-    year: "",
-    make: "",
     model: ""
   });
   const {
@@ -63,7 +59,7 @@ const Trucks = () => {
   } = useFleetManagement();
 
   // Filter trucks based on search term
-  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.make?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
   const resetForm = () => {
     setFormData({
       truck_number: "",
@@ -71,8 +67,6 @@ const Trucks = () => {
       driver_id: "",
       dispatcher_id: "",
       company_id: "",
-      year: "",
-      make: "",
       model: ""
     });
   };
@@ -88,8 +82,6 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         dispatcher_id: formData.dispatcher_id || null,
         company_id: formData.company_id || null,
-        year: formData.year ? parseInt(formData.year) : null,
-        make: formData.make || null,
         model: formData.model || null
       });
       if (error) throw error;
@@ -123,8 +115,6 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         dispatcher_id: formData.dispatcher_id || null,
         company_id: formData.company_id || null,
-        year: formData.year ? parseInt(formData.year) : null,
-        make: formData.make || null,
         model: formData.model || null
       }).eq('id', editingTruck.id);
       if (error) throw error;
@@ -173,8 +163,6 @@ const Trucks = () => {
       driver_id: truck.driver1_id || "",
       dispatcher_id: truck.dispatcher_id || "",
       company_id: truck.company_id || "",
-      year: truck.year?.toString() || "",
-      make: truck.make || "",
       model: truck.model || ""
     });
     setIsEditDialogOpen(true);
@@ -308,28 +296,12 @@ const Trucks = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="year">Year</Label>
-                  <Input id="year" type="number" value={formData.year} onChange={e => setFormData({
-                  ...formData,
-                  year: e.target.value
-                })} placeholder="2023" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="make">Make</Label>
-                  <Input id="make" value={formData.make} onChange={e => setFormData({
-                  ...formData,
-                  make: e.target.value
-                })} placeholder="Freightliner" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="model">Model</Label>
-                  <Input id="model" value={formData.model} onChange={e => setFormData({
-                  ...formData,
-                  model: e.target.value
-                })} placeholder="Cascadia" />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="model">Model</Label>
+                <Input id="model" value={formData.model} onChange={e => setFormData({
+                ...formData,
+                model: e.target.value
+              })} placeholder="2023 Freightliner Cascadia" />
               </div>
 
               <div className="flex justify-end gap-3">
@@ -366,7 +338,7 @@ const Trucks = () => {
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Driver</TableHead>
                   <TableHead>Dispatcher</TableHead>
-                  <TableHead>Vehicle Info</TableHead>
+                  <TableHead>Model</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -381,9 +353,7 @@ const Trucks = () => {
                       <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
                       <TableCell>{truck.driver1?.name || "—"}</TableCell>
                       <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
-                      <TableCell>
-                        {truck.year || truck.make || truck.model ? `${truck.year || ''} ${truck.make || ''} ${truck.model || ''}`.trim() : "—"}
-                      </TableCell>
+                      <TableCell>{truck.model || "—"}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
@@ -506,28 +476,12 @@ const Trucks = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_year">Year</Label>
-                <Input id="edit_year" type="number" value={formData.year} onChange={e => setFormData({
-                ...formData,
-                year: e.target.value
-              })} placeholder="2023" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_make">Make</Label>
-                <Input id="edit_make" value={formData.make} onChange={e => setFormData({
-                ...formData,
-                make: e.target.value
-              })} placeholder="Freightliner" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_model">Model</Label>
-                <Input id="edit_model" value={formData.model} onChange={e => setFormData({
-                ...formData,
-                model: e.target.value
-              })} placeholder="Cascadia" />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_model">Model</Label>
+              <Input id="edit_model" value={formData.model} onChange={e => setFormData({
+              ...formData,
+              model: e.target.value
+            })} placeholder="2023 Freightliner Cascadia" />
             </div>
 
             <div className="flex justify-end gap-3">
