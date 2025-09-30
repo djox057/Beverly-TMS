@@ -39,7 +39,7 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
         
         {/* Time display in center */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-medium text-gray-900">
+          <span className={`font-medium text-gray-900 ${size < 40 ? 'text-[9px]' : 'text-sm'}`}>
             {timeDisplay}
           </span>
         </div>
