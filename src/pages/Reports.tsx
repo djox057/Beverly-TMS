@@ -7,7 +7,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
-import { TestHosSync } from "@/components/TestHosSync";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -414,7 +413,6 @@ const Reports = () => {
   return <div className="h-full bg-white overflow-hidden flex flex-col">
       {/* Google Sheets-style header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-4 z-20 relative">
-        <TestHosSync />
         <h1 className="text-lg font-normal text-gray-900">Dispatcher Fleet Reports</h1>
         <div className="flex items-center gap-2 text-xs text-gray-600 mt-1">
           <AlertCircle className="h-3 w-3" />
