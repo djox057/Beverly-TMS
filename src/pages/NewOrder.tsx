@@ -1088,14 +1088,16 @@ const NewOrder = () => {
                     <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                   )}
                 </Label>
-                <Input 
-                  id="dh-miles" 
-                  type="number" 
-                  placeholder={lastDelivery ? "Auto-calculated from last delivery" : "0"} 
-                  value={dhMiles} 
-                  onChange={e => setDhMiles(e.target.value)}
-                  disabled={isCalculatingDhMiles}
-                />
+                <div className="relative">
+                  <Input 
+                    id="dh-miles" 
+                    type="number" 
+                    placeholder={lastDelivery ? "Auto-calculated from last delivery" : "0"} 
+                    value={dhMiles} 
+                    onChange={e => setDhMiles(e.target.value)}
+                    disabled={isCalculatingDhMiles}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground min-h-[1.25rem]">
                   {lastDelivery && dhMiles && !isCalculatingDhMiles && (
                     <>From: {lastDelivery.deliveryAddress}</>
