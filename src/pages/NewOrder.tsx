@@ -1086,7 +1086,7 @@ const NewOrder = () => {
                   DH Miles
                   {isCalculatingDhMiles && (
                     <span className="text-xs text-muted-foreground ml-2">
-                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                      (Calculating...)
                     </span>
                   )}
                 </Label>
@@ -1098,12 +1098,18 @@ const NewOrder = () => {
                     value={dhMiles} 
                     onChange={e => setDhMiles(e.target.value)}
                     disabled={isCalculatingDhMiles}
+                    className={cn(
+                      isCalculatingDhMiles && "bg-muted cursor-not-allowed"
+                    )}
                   />
-                </div>
-                <p className="text-xs text-muted-foreground min-h-[1.25rem]">
-                  {lastDelivery && dhMiles && !isCalculatingDhMiles && (
-                    <>From: {lastDelivery.deliveryAddress}</>
+                  {isCalculatingDhMiles && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                   )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {lastDelivery && dhMiles && !isCalculatingDhMiles 
+                    ? `From: ${lastDelivery.deliveryAddress}` 
+                    : '\u00A0'}
                 </p>
               </div>
 
