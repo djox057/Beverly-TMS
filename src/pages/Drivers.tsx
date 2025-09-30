@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -25,10 +26,12 @@ interface DriverFormData {
 }
 const Drivers = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const itemsPerPage = 15;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
     phone: "",
@@ -52,6 +55,18 @@ const Drivers = () => {
 
   // Filter drivers based on search term
   const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedDrivers = filteredDrivers.slice(startIndex, endIndex);
+
+  // Reset to first page when search term changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
   const resetForm = () => {
     setFormData({
       name: "",
@@ -356,12 +371,12 @@ const Drivers = () => {
             <CardTitle>Driver Directory</CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto h-[700px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -375,11 +390,11 @@ const Drivers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDrivers.length === 0 ? <TableRow>
+                {paginatedDrivers.length === 0 ? <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
-                  </TableRow> : filteredDrivers.map((driver: any) => <TableRow key={driver.id}>
+                  </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id}>
                       <TableCell className="font-medium">{driver.name}</TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
@@ -439,9 +454,50 @@ const Drivers = () => {
                         </div>
                       </TableCell>
                     </TableRow>)}
+                {/* Empty rows to maintain consistent table height */}
+                {paginatedDrivers.length > 0 && Array.from({ length: itemsPerPage - paginatedDrivers.length }).map((_, index) => (
+                  <TableRow key={`empty-${index}`} className="hover:bg-transparent">
+                    <TableCell colSpan={7} className="h-[57px]">&nbsp;</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {filteredDrivers.length > 0 && (
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 

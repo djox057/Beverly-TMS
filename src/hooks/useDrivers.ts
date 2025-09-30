@@ -18,7 +18,8 @@ export const useDrivers = () => {
             trailer:trailers(trailer_number)
           )
         `)
-        .order('name', { ascending: true });
+        .order('name', { ascending: true })
+        .limit(1000);
       
       if (error) throw error;
       
