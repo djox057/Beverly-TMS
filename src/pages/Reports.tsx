@@ -195,6 +195,14 @@ const Reports = () => {
         deliveryLocation: order.deliveryStop ? order.deliveryStop.city && order.deliveryStop.state ? `${order.deliveryStop.city}, ${order.deliveryStop.state}` : order.deliveryStop.address || '—' : '—'
       };
     }) || [];
+    
+    // Find the first pickup date for this truck
+    const firstPickupDate = ordersWithDates
+      .filter(order => order.pickupDate)
+      .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
+    
+    const today = new Date();
+    const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
       // Find all orders for this day and categorize them
       const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
@@ -214,6 +222,12 @@ const Reports = () => {
         return dayTime > pickupTime && dayTime < deliveryTime;
       });
       const isInTransit = inTransitOrders.length > 0;
+      
+      // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
+      const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
+      const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
+      const isWithinTimeframe = day <= oneDayInFuture;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit;
       
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
@@ -248,7 +262,7 @@ const Reports = () => {
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-300' : 'bg-gray-50'}`}>
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1 flex-1`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
@@ -288,7 +302,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-300' : 'bg-gray-50'}`}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1 flex-1`}>
@@ -367,7 +381,7 @@ const Reports = () => {
                   {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
                       +{(pickupOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isInTransit ? '>>>' : '—'}</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isMissingPickup ? 'XXX' : isInTransit ? '>>>' : '—'}</div>}
             </div>
 
           </div>
