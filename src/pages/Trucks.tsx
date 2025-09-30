@@ -17,6 +17,7 @@ import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useToast } from "@/hooks/use-toast";
 interface TruckFormData {
   truck_number: string;
+  vin: string;
   trailer_id: string;
   driver_id: string;
   dispatcher_id: string;
@@ -31,6 +32,7 @@ const Trucks = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
+    vin: "",
     trailer_id: "",
     driver_id: "",
     dispatcher_id: "",
@@ -59,10 +61,11 @@ const Trucks = () => {
   } = useFleetManagement();
 
   // Filter trucks based on search term
-  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
   const resetForm = () => {
     setFormData({
       truck_number: "",
+      vin: "",
       trailer_id: "",
       driver_id: "",
       dispatcher_id: "",
@@ -78,6 +81,7 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').insert({
         truck_number: formData.truck_number,
+        vin: formData.vin || null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         dispatcher_id: formData.dispatcher_id || null,
@@ -111,6 +115,7 @@ const Trucks = () => {
         error
       } = await supabase.from('trucks').update({
         truck_number: formData.truck_number,
+        vin: formData.vin || null,
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         dispatcher_id: formData.dispatcher_id || null,
@@ -159,6 +164,7 @@ const Trucks = () => {
     setEditingTruck(truck);
     setFormData({
       truck_number: truck.truck_number || "",
+      vin: truck.vin || "",
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       dispatcher_id: truck.dispatcher_id || "",
@@ -225,6 +231,16 @@ const Trucks = () => {
                 })} placeholder="TRK-001" required />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="vin">VIN Number</Label>
+                  <Input id="vin" value={formData.vin} onChange={e => setFormData({
+                  ...formData,
+                  vin: e.target.value
+                })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label htmlFor="company_id">Company</Label>
                   <Select value={formData.company_id} onValueChange={value => setFormData({
                   ...formData,
@@ -239,6 +255,13 @@ const Trucks = () => {
                         </SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="model">Model</Label>
+                  <Input id="model" value={formData.model} onChange={e => setFormData({
+                  ...formData,
+                  model: e.target.value
+                })} placeholder="2023 Freightliner Cascadia" />
                 </div>
               </div>
 
@@ -296,14 +319,6 @@ const Trucks = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Input id="model" value={formData.model} onChange={e => setFormData({
-                ...formData,
-                model: e.target.value
-              })} placeholder="2023 Freightliner Cascadia" />
-              </div>
-
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -334,6 +349,7 @@ const Trucks = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Truck #</TableHead>
+                  <TableHead>VIN</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Driver</TableHead>
@@ -344,11 +360,12 @@ const Trucks = () => {
               </TableHeader>
               <TableBody>
                   {filteredTrucks.length === 0 ? <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow> : filteredTrucks.map(truck => <TableRow key={truck.id}>
                       <TableCell className="font-medium">{truck.truck_number}</TableCell>
+                      <TableCell className="font-mono text-sm">{truck.vin || "—"}</TableCell>
                       <TableCell>{truck.company?.name || "—"}</TableCell>
                       <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
                       <TableCell>{truck.driver1?.name || "—"}</TableCell>
@@ -405,6 +422,16 @@ const Trucks = () => {
               })} placeholder="TRK-001" required />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit_vin">VIN Number</Label>
+                <Input id="edit_vin" value={formData.vin} onChange={e => setFormData({
+                ...formData,
+                vin: e.target.value
+              })} placeholder="1HGBH41JXMN109186" maxLength={17} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit_company_id">Company</Label>
                 <Select value={formData.company_id} onValueChange={value => setFormData({
                 ...formData,
@@ -419,6 +446,13 @@ const Trucks = () => {
                       </SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_model">Model</Label>
+                <Input id="edit_model" value={formData.model} onChange={e => setFormData({
+                ...formData,
+                model: e.target.value
+              })} placeholder="2023 Freightliner Cascadia" />
               </div>
             </div>
 
@@ -474,14 +508,6 @@ const Trucks = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_model">Model</Label>
-              <Input id="edit_model" value={formData.model} onChange={e => setFormData({
-              ...formData,
-              model: e.target.value
-            })} placeholder="2023 Freightliner Cascadia" />
             </div>
 
             <div className="flex justify-end gap-3">
