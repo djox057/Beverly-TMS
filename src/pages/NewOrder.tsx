@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { calculateLoadedMiles, calculateDhMiles } from "@/utils/routeCalculation";
+import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 
 interface PickupDrop {
@@ -125,21 +125,34 @@ const NewOrder = () => {
     const calculateMiles = async () => {
       if (pickupsDrops.length < 2) return;
 
-      const pickupLocation = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
-      const deliveryLocation = pickupsDrops.find(item => item.type === 'delivery' && item.address.trim());
+      // Get all addresses in order (all pickups first, then all deliveries)
+      const addresses = pickupsDrops
+        .filter(item => item.address.trim())
+        .map(item => item.address);
 
-      if (!pickupLocation || !deliveryLocation) {
+      if (addresses.length < 2) {
         return;
       }
 
       setIsCalculatingMiles(true);
       try {
-        const miles = await calculateLoadedMiles(pickupLocation.address, deliveryLocation.address);
+        let miles: number | null = null;
+        
+        if (addresses.length === 2) {
+          // Single pickup to single delivery
+          miles = await calculateLoadedMiles(addresses[0], addresses[1]);
+        } else {
+          // Multi-drop route calculation
+          miles = await calculateMultiStopMiles(addresses);
+        }
+
         if (miles !== null) {
           setLoadedMiles(miles.toString());
           toast({
             title: "Loaded Miles Calculated",
-            description: `Route distance: ${miles} miles`,
+            description: addresses.length > 2 
+              ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops`
+              : `Route distance: ${miles} miles`,
           });
         }
       } catch (error) {
@@ -423,7 +436,28 @@ const NewOrder = () => {
       // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       
-      if (extractedData.pickupAddress) {
+      // Check if we have multi-drop data
+      if (extractedData.pickups && extractedData.pickups.length > 0) {
+        // Multi-drop pickups
+        extractedData.pickups.forEach((pickup: any, index: number) => {
+          const pickupDateRange = pickup.date 
+            ? { from: new Date(pickup.date + 'T12:00:00'), to: new Date(pickup.date + 'T12:00:00') }
+            : undefined;
+
+          newPickupsDrops.push({
+            id: `pickup-${index + 1}`,
+            type: "pickup",
+            address: pickup.zip 
+              ? `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}`
+              : `${pickup.address}${pickup.city ? `, ${pickup.city}` : ''}${pickup.state ? `, ${pickup.state}` : ''}`,
+            datetime: pickup.date || "",
+            dateRange: pickupDateRange,
+            startTime: pickup.startTime || "",
+            endTime: pickup.endTime || ""
+          });
+        });
+      } else if (extractedData.pickupAddress) {
+        // Single pickup (legacy format)
         const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate 
           ? { from: new Date(extractedData.pickupStartDate + 'T12:00:00'), to: new Date(extractedData.pickupEndDate + 'T12:00:00') }
           : extractedData.pickupDate 
@@ -443,7 +477,27 @@ const NewOrder = () => {
         });
       }
       
-      if (extractedData.deliveryAddress) {
+      if (extractedData.deliveries && extractedData.deliveries.length > 0) {
+        // Multi-drop deliveries
+        extractedData.deliveries.forEach((delivery: any, index: number) => {
+          const deliveryDateRange = delivery.date 
+            ? { from: new Date(delivery.date + 'T12:00:00'), to: new Date(delivery.date + 'T12:00:00') }
+            : undefined;
+
+          newPickupsDrops.push({
+            id: `delivery-${index + 1}`,
+            type: "delivery", 
+            address: delivery.zip 
+              ? `${delivery.address}, ${delivery.city}, ${delivery.state} ${delivery.zip}`
+              : `${delivery.address}${delivery.city ? `, ${delivery.city}` : ''}${delivery.state ? `, ${delivery.state}` : ''}`,
+            datetime: delivery.date || "",
+            dateRange: deliveryDateRange,
+            startTime: delivery.startTime || "",
+            endTime: delivery.endTime || ""
+          });
+        });
+      } else if (extractedData.deliveryAddress) {
+        // Single delivery (legacy format)
         const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate 
           ? { from: new Date(extractedData.deliveryStartDate + 'T12:00:00'), to: new Date(extractedData.deliveryEndDate + 'T12:00:00') }
           : extractedData.deliveryDate 
@@ -469,7 +523,7 @@ const NewOrder = () => {
 
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted ${response.data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`
+        description: `Extracted ${response.data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? ' (Multi-drop load detected)' : ''}. Please review and adjust as needed.`
       });
 
     } catch (error: any) {

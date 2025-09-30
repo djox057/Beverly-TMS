@@ -358,6 +358,72 @@ export const calculateLoadedMiles = async (
 };
 
 /**
+ * Calculate loaded miles through multiple stops (multi-drop)
+ * @param addresses Array of addresses in sequence
+ * @returns Promise<number | null> Total loaded miles
+ */
+export const calculateMultiStopMiles = async (
+  addresses: string[]
+): Promise<number | null> => {
+  console.log('📍 =================================');
+  console.log('📍 MULTI-STOP MILES CALCULATION START');
+  console.log('📍 =================================');
+  console.log('📍 Number of stops:', addresses.length);
+  console.log('📍 Addresses:', addresses);
+
+  if (!addresses || addresses.length < 2) {
+    console.log('❌ Need at least 2 addresses for multi-stop calculation');
+    return null;
+  }
+
+  try {
+    // Geocode all addresses
+    console.log('🔄 Geocoding all addresses...');
+    const coordsPromises = addresses.map(async (address, index) => {
+      console.log(`🔄 Geocoding stop ${index + 1}:`, address);
+      const coords = await geocodeAddress(address);
+      console.log(`✅ Stop ${index + 1} coords:`, coords);
+      return coords;
+    });
+
+    const allCoords = await Promise.all(coordsPromises);
+
+    // Check if any geocoding failed
+    const failedIndex = allCoords.findIndex(coords => !coords);
+    if (failedIndex !== -1) {
+      console.warn(`❌ Failed to geocode address at index ${failedIndex}:`, addresses[failedIndex]);
+      return null;
+    }
+
+    // Calculate route distance through all stops in sequence
+    console.log('🔄 Calculating route through all stops...');
+    let totalDistance = 0;
+
+    for (let i = 0; i < allCoords.length - 1; i++) {
+      const start = allCoords[i]!;
+      const end = allCoords[i + 1]!;
+      
+      console.log(`🔄 Calculating segment ${i + 1} → ${i + 2}`);
+      const segmentDistance = await calculateRouteDistance(start, end);
+      
+      if (segmentDistance === null) {
+        console.warn(`❌ Failed to calculate distance for segment ${i + 1} → ${i + 2}`);
+        return null;
+      }
+      
+      console.log(`✅ Segment ${i + 1} → ${i + 2}: ${segmentDistance} miles`);
+      totalDistance += segmentDistance;
+    }
+
+    console.log('✅ Multi-stop miles calculation complete:', totalDistance);
+    return totalDistance;
+  } catch (error) {
+    console.error('❌ Error calculating multi-stop miles:', error);
+    return null;
+  }
+};
+
+/**
  * Calculate DH (Deadhead) miles from last delivery to current pickup
  * @param lastDeliveryAddress Last delivery address string
  * @param currentPickupAddress Current pickup address string

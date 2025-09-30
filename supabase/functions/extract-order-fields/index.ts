@@ -7,10 +7,25 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+interface PickupDeliveryStop {
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
 interface ExtractedOrderData {
   brokerLoadNumber?: string;
   internalLoadNumber?: string;
   broker?: string;
+  // Support for multiple pickups
+  pickups?: PickupDeliveryStop[];
+  // Support for multiple deliveries
+  deliveries?: PickupDeliveryStop[];
+  // Legacy single pickup/delivery fields (for backward compatibility)
   pickupAddress?: string;
   pickupCity?: string;
   pickupState?: string;
@@ -120,57 +135,100 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         name: 'PDF Data Extractor',
-        instructions: `You are an expert at extracting shipping/logistics data from PDF documents. Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
+        instructions: `You are an expert at extracting shipping/logistics data from PDF documents. 
+
+CRITICAL: First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.
+
+Multi-drop indicators:
+- Multiple pickup addresses listed
+- Multiple delivery addresses listed  
+- Words like "multi-stop", "multi-drop", "multiple stops"
+- Stop numbers (Stop 1, Stop 2, etc.)
+- Multiple dates/times for pickups or deliveries
+
+If MULTI-DROP is detected:
+- Extract ALL pickup stops into the "pickups" array
+- Extract ALL delivery stops into the "deliveries" array
+- Each stop should have: address, city, state, zip, date, startTime, endTime
+
+If SINGLE-DROP (standard load):
+- Use the legacy single fields: pickupAddress, pickupCity, pickupState, etc.
+
+Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
 CRITICAL ADDRESS PARSING RULES:
-- pickupCity: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
-- pickupState: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY") 
-- deliveryCity: Extract ONLY the city name (e.g., "Dallas", "Chicago", "Miami")
-- deliveryState: Extract ONLY the 2-letter state code (e.g., "TX", "IL", "FL")
+- city: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
+- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY") 
 - DO NOT include ZIP codes, suite numbers, or other address components in city/state fields
 - DO NOT swap city and state values
 
 EXAMPLES of correct city/state extraction:
-- "123 Main St, Houston, TX 77001" → pickupCity: "Houston", pickupState: "TX"
-- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → deliveryCity: "Los Angeles", deliveryState: "CA"
-- "789 Pine St Ludlow, KY 41016" → pickupCity: "Ludlow", pickupState: "KY"
+- "123 Main St, Houston, TX 77001" → city: "Houston", state: "TX"
+- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → city: "Los Angeles", state: "CA"
 
 IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. For example:
 - 09/24/25 becomes 2025-09-24
 - 9/24/2025 becomes 2025-09-24  
 - Sep 24, 2025 becomes 2025-09-24
 
-Return JSON with these exact fields (only include fields you can find):
+For MULTI-DROP loads, return JSON like:
 {
-  "brokerLoadNumber": "string - load/order/confirmation/BOL/reference number",
-  "internalLoadNumber": "string - internal tracking number",
-  "broker": "string - broker/carrier/company name",
+  "brokerLoadNumber": "string",
+  "pickups": [
+    {
+      "address": "street address only",
+      "city": "city name only",
+      "state": "2-letter code",
+      "zip": "zip code",
+      "date": "YYYY-MM-DD",
+      "startTime": "HH:MM",
+      "endTime": "HH:MM"
+    }
+  ],
+  "deliveries": [
+    {
+      "address": "street address only",
+      "city": "city name only", 
+      "state": "2-letter code",
+      "zip": "zip code",
+      "date": "YYYY-MM-DD",
+      "startTime": "HH:MM",
+      "endTime": "HH:MM"
+    }
+  ],
+  "freightAmount": number,
+  "mileage": number,
+  "commodity": "string",
+  "notes": "string"
+}
+
+For SINGLE-DROP loads, return JSON with legacy fields:
+{
+  "brokerLoadNumber": "string",
   "pickupAddress": "string - complete pickup street address (without city/state/zip)",
-  "pickupCity": "string - ONLY the pickup city name (no zip codes or extra info)",
-  "pickupState": "string - ONLY the 2-letter pickup state code (TX, CA, NY, etc.)",
-  "pickupZip": "string - pickup ZIP code (5-digit or 9-digit format)",
+  "pickupCity": "string - ONLY the pickup city name",
+  "pickupState": "string - ONLY the 2-letter pickup state code",
+  "pickupZip": "string - pickup ZIP code",
   "pickupDate": "string - pickup date in YYYY-MM-DD format",
-          "pickupTime": "pickup time (HH:MM format, if only one time is given)",
-          "pickupStartTime": "pickup start time (HH:MM format, if time range is given)",
-          "pickupEndTime": "pickup end time (HH:MM format, if time range is given)", 
-          "deliveryTime": "delivery time (HH:MM format, if only one time is given)",
-          "deliveryStartTime": "delivery start time (HH:MM format, if time range is given)",
-          "deliveryEndTime": "delivery end time (HH:MM format, if time range is given)",
+  "pickupTime": "pickup time (HH:MM format, if only one time is given)",
+  "pickupStartTime": "pickup start time (HH:MM format, if time range is given)",
+  "pickupEndTime": "pickup end time (HH:MM format, if time range is given)", 
   "deliveryAddress": "string - complete delivery street address (without city/state/zip)",
-  "deliveryCity": "string - ONLY the delivery city name (no zip codes or extra info)", 
-  "deliveryState": "string - ONLY the 2-letter delivery state code (TX, CA, NY, etc.)",
-  "deliveryZip": "string - delivery ZIP code (5-digit or 9-digit format)",
+  "deliveryCity": "string - ONLY the delivery city name", 
+  "deliveryState": "string - ONLY the 2-letter delivery state code",
+  "deliveryZip": "string - delivery ZIP code",
   "deliveryDate": "string - delivery date in YYYY-MM-DD format",
-  "deliveryStartTime": "string - delivery start time in HH:MM format (24-hour)",
-  "deliveryEndTime": "string - delivery end time in HH:MM format (24-hour)",
-  "freightAmount": number - freight cost as number (no $ or commas),
-  "mileage": number - total miles as number,
-  "commodity": "string - type of goods/freight being shipped",
-  "weight": number - weight in pounds as number,
-  "trailer": "string - trailer type or equipment number",
-  "equipment": "string - equipment requirements/specifications",
-  "temperature": "string - temperature requirements if refrigerated",
-  "notes": "string - special instructions or additional information"
+  "deliveryTime": "delivery time (HH:MM format, if only one time is given)",
+  "deliveryStartTime": "delivery start time (HH:MM format, if time range is given)",
+  "deliveryEndTime": "delivery end time (HH:MM format, if time range is given)",
+  "freightAmount": number,
+  "mileage": number,
+  "commodity": "string",
+  "weight": number,
+  "trailer": "string",
+  "equipment": "string",
+  "temperature": "string",
+  "notes": "string"
 }`,
         model: 'gpt-4o',
         tools: [{ type: 'file_search' }],
