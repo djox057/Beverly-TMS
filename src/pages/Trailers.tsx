@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ interface TrailerFormData {
 }
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTrailer, setEditingTrailer] = useState<any>(null);
@@ -30,6 +32,8 @@ const Trailers = () => {
     vin: "",
     truck_id: ""
   });
+
+  const itemsPerPage = 15;
   const {
     toast
   } = useToast();
@@ -42,8 +46,23 @@ const Trailers = () => {
     data: trucks
   } = useTrucks();
 
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   // Filter trailers based on search term
   const filteredTrailers = trailers?.filter(trailer => trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentTrailers = filteredTrailers.slice(startIndex, endIndex);
+
+  // Generate empty rows to maintain consistent height
+  const emptyRows = itemsPerPage - currentTrailers.length;
+  const emptyRowsArray = Array.from({ length: Math.max(0, emptyRows) }, (_, i) => i);
   const resetForm = () => {
     setFormData({
       trailer_number: "",
@@ -284,7 +303,7 @@ const Trailers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto h-[700px] flex flex-col">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -296,17 +315,18 @@ const Trailers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTrailers.length === 0 ? <TableRow>
+                {currentTrailers.length === 0 ? <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No trailers found
                     </TableCell>
-                  </TableRow> : filteredTrailers.map(trailer => <TableRow key={trailer.id}>
-                      <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
-                      <TableCell>{trailer.trailer_type || "—"}</TableCell>
-                      <TableCell>{trailer.vin || "—"}</TableCell>
-                      <TableCell>
-                        {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
-                      </TableCell>
+                  </TableRow> : <>
+                    {currentTrailers.map(trailer => <TableRow key={trailer.id}>
+                        <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
+                        <TableCell>{trailer.trailer_type || "—"}</TableCell>
+                        <TableCell>{trailer.vin || "—"}</TableCell>
+                        <TableCell>
+                          {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
+                        </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
@@ -336,8 +356,48 @@ const Trailers = () => {
                         </div>
                       </TableCell>
                     </TableRow>)}
+                    {emptyRowsArray.map((_, index) => (
+                      <TableRow key={`empty-${index}`} className="h-[57px]">
+                        <TableCell colSpan={5}>&nbsp;</TableCell>
+                      </TableRow>
+                    ))}
+                  </>}
               </TableBody>
             </Table>
+            
+            {filteredTrailers.length > 0 && (
+              <div className="mt-auto pt-4 border-t">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
