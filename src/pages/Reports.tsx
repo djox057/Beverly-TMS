@@ -205,6 +205,17 @@ const Reports = () => {
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
       
+      // Check if this day is in transit (between pickup and delivery) for any order
+      const inTransitOrders = ordersWithDates.filter(order => {
+        if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
+        const dayTime = day.getTime();
+        const pickupTime = order.pickupDate.getTime();
+        const deliveryTime = order.deliveryDate.getTime();
+        // Day is in transit if it's after pickup and before delivery
+        return dayTime > pickupTime && dayTime < deliveryTime;
+      });
+      const isInTransit = inTransitOrders.length > 0;
+      
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
       // Apply left border to all cells except the first
@@ -238,7 +249,7 @@ const Reports = () => {
           width: '166px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-300' : 'bg-gray-50'}`}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
                   {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
                       <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
@@ -274,11 +285,11 @@ const Reports = () => {
                   {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
                       +{deliveryOnlyOrders.length - 2} more
                     </div>}
-                </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isInTransit ? '>>>' : '—'}</div>}
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : 'bg-gray-50'}`}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-300' : 'bg-gray-50'}`}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-1 overflow-hidden">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1`}>
@@ -357,7 +368,7 @@ const Reports = () => {
                   {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
                       +{(pickupOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
-                </div> : <div className="text-xs text-gray-400 h-full flex items-center justify-center">—</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isInTransit ? '>>>' : '—'}</div>}
             </div>
 
           </div>
