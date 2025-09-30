@@ -58,17 +58,17 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/trucks" element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute>
                 <Layout><Trucks /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/trailers" element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute>
                 <Layout><Trailers /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/drivers" element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute>
                 <Layout><Drivers /></Layout>
               </ProtectedRoute>
             } />
@@ -78,7 +78,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/fleets" element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute>
                 <Layout><Fleets /></Layout>
               </ProtectedRoute>
             } />
