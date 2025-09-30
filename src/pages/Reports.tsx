@@ -506,7 +506,7 @@ const Reports = () => {
                   {(pickupOnlyOrders.length + sameDayOrders.length) > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
                       +{(pickupOnlyOrders.length + sameDayOrders.length) - 1} more
                     </div>}
-                </div> : <div className={`text-[10px] h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? (e) => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? (e) => {
                   e.stopPropagation();
                   const dateStr = format(day, 'yyyy-MM-dd');
                   const currentNote = getLostDayNote(day);
