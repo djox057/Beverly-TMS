@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search } from "lucide-react";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -22,6 +24,34 @@ const Fleets = () => {
   const [selectedTruck, setSelectedTruck] = useState("");
   const [selectedDispatcher, setSelectedDispatcher] = useState("");
   const [isAssignTruckOpen, setIsAssignTruckOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
+
+  const itemsPerPage = 10;
+
+  // Filter trucks by search term
+  const filterTrucks = (trucks: any[]) => {
+    if (!searchTerm) return trucks;
+    return trucks.filter(truck => 
+      truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  // Get paginated trucks
+  const getPaginatedTrucks = (trucks: any[], pageKey: string) => {
+    const currentPage = currentPages[pageKey] || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return {
+      trucks: trucks.slice(startIndex, endIndex),
+      totalPages: Math.ceil(trucks.length / itemsPerPage),
+      currentPage
+    };
+  };
+
+  const setPage = (pageKey: string, page: number) => {
+    setCurrentPages(prev => ({ ...prev, [pageKey]: page }));
+  };
 
   const handleAssignTruck = async () => {
     if (selectedTruck && selectedDispatcher) {
@@ -73,7 +103,7 @@ const Fleets = () => {
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="h-full flex flex-col overflow-hidden">
         <div className="flex-shrink-0 border-b bg-background px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <UserCheck className="h-6 w-6" />
               <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
@@ -132,6 +162,15 @@ const Fleets = () => {
               </Dialog>
             </div>
           </div>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input 
+              placeholder="Search trucks by number..." 
+              className="pl-10" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+            />
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -176,7 +215,12 @@ const Fleets = () => {
             </div>
 
             {/* Dispatcher Fleets */}
-            {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => (
+            {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => {
+              const filteredTrucks = filterTrucks(dispatcherFleet.trucks);
+              const pageKey = `dispatcher-${dispatcherFleet.dispatcher.id}`;
+              const { trucks: paginatedTrucks, totalPages, currentPage } = getPaginatedTrucks(filteredTrucks, pageKey);
+              
+              return (
             <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
               {(provided, snapshot) => (
                 <Card 
@@ -188,7 +232,7 @@ const Fleets = () => {
                     <CardTitle className="flex items-center gap-2">
                       <UserCheck className="h-5 w-5" />
                       {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
-                      <Badge variant="secondary">{dispatcherFleet.trucks.length} trucks</Badge>
+                      <Badge variant="secondary">{filteredTrucks.length} trucks</Badge>
                       {snapshot.isDraggingOver && (
                         <Badge variant="outline" className="animate-pulse">Drop here</Badge>
                       )}
@@ -196,7 +240,7 @@ const Fleets = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-2">
-                      {dispatcherFleet.trucks.map((truck, index) => (
+                      {paginatedTrucks.map((truck, index) => (
                         <Draggable key={truck.id} draggableId={truck.id} index={index}>
                           {(provided, snapshot) => (
                             <div
@@ -235,11 +279,45 @@ const Fleets = () => {
                       ))}
                       {provided.placeholder}
                     </div>
+                    {totalPages > 1 && (
+                      <div className="mt-4 pt-4 border-t">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                onClick={() => setPage(pageKey, Math.max(1, currentPage - 1))}
+                                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  onClick={() => setPage(pageKey, page)}
+                                  isActive={currentPage === page}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+                            
+                            <PaginationItem>
+                              <PaginationNext 
+                                onClick={() => setPage(pageKey, Math.min(totalPages, currentPage + 1))}
+                                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
             </Droppable>
-            ))}
+            )}
+            )}
 
             {/* Dispatchers with no trucks */}
             {dispatchers.filter(d => d.trucks.length === 0).length > 0 && (
@@ -281,7 +359,12 @@ const Fleets = () => {
             )}
 
             {/* Unassigned Trucks */}
-            {availableTrucks.length > 0 && (
+            {availableTrucks.length > 0 && (() => {
+              const filteredUnassigned = filterTrucks(availableTrucks);
+              const pageKey = 'unassigned';
+              const { trucks: paginatedTrucks, totalPages, currentPage } = getPaginatedTrucks(filteredUnassigned, pageKey);
+              
+              return (
               <Droppable droppableId="unassigned">
                 {(provided, snapshot) => (
                   <Card 
@@ -293,7 +376,7 @@ const Fleets = () => {
                       <CardTitle className="flex items-center gap-2">
                         <Truck className="h-5 w-5" />
                         Unassigned Trucks
-                        <Badge variant="outline">{availableTrucks.length} trucks</Badge>
+                        <Badge variant="outline">{filteredUnassigned.length} trucks</Badge>
                         {snapshot.isDraggingOver && (
                           <Badge variant="outline" className="animate-pulse">Drop to unassign</Badge>
                         )}
@@ -301,7 +384,7 @@ const Fleets = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="grid gap-2">
-                        {availableTrucks.map((truck, index) => (
+                        {paginatedTrucks.map((truck, index) => (
                           <Draggable key={truck.id} draggableId={truck.id} index={index}>
                             {(provided, snapshot) => (
                               <div
@@ -333,11 +416,45 @@ const Fleets = () => {
                         ))}
                         {provided.placeholder}
                       </div>
+                      {totalPages > 1 && (
+                        <div className="mt-4 pt-4 border-t">
+                          <Pagination>
+                            <PaginationContent>
+                              <PaginationItem>
+                                <PaginationPrevious 
+                                  onClick={() => setPage(pageKey, Math.max(1, currentPage - 1))}
+                                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                />
+                              </PaginationItem>
+                              
+                              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    onClick={() => setPage(pageKey, page)}
+                                    isActive={currentPage === page}
+                                    className="cursor-pointer"
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              ))}
+                              
+                              <PaginationItem>
+                                <PaginationNext 
+                                  onClick={() => setPage(pageKey, Math.min(totalPages, currentPage + 1))}
+                                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                                />
+                              </PaginationItem>
+                            </PaginationContent>
+                          </Pagination>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 )}
               </Droppable>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
