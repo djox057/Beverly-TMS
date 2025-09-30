@@ -1,7 +1,1 @@
 project_id = "wjkbtagwgjniilmgwutb"
-
-[functions.create-invoice-folder]
-verify_jwt = false
-
-[functions.hos-sync]
-verify_jwt = false
