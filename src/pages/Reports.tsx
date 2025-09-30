@@ -296,13 +296,13 @@ const Reports = () => {
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       
-      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative ${isToday ? 'bg-blue-50/30' : ''}`} style={{
+      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: '120px',
         minWidth: '120px',
         maxWidth: '120px',
         verticalAlign: 'top'
       }}>
-          {/* Subtle blue border for today column */}
+          {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
             <div 
               className="absolute pointer-events-none" 
@@ -311,10 +311,10 @@ const Reports = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                borderLeft: '2px solid rgb(59, 130, 246)',
-                borderRight: '2px solid rgb(59, 130, 246)',
-                ...(isFirstTruck ? { borderTop: '2px solid rgb(59, 130, 246)' } : {}),
-                ...(isLastTruck ? { borderBottom: '2px solid rgb(59, 130, 246)' } : {}),
+                borderLeft: '2px solid rgb(239, 68, 68)',
+                borderRight: '2px solid rgb(239, 68, 68)',
+                ...(isFirstTruck ? { borderTop: '2px solid rgb(239, 68, 68)' } : {}),
+                ...(isLastTruck ? { borderBottom: '2px solid rgb(239, 68, 68)' } : {}),
                 zIndex: 100
               }}
             />
@@ -622,7 +622,7 @@ const Reports = () => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
                           const showLeftBorder = index > 0;
-                          return <th key={index} className={`border-b border-gray-300 ${showLeftBorder ? 'border-l border-gray-300' : ''} px-2 py-1 text-center text-[10px] font-medium ${isToday ? 'bg-blue-50' : 'bg-gray-50'} relative`} style={{
+                          return <th key={index} className={`border-b border-gray-300 ${showLeftBorder ? 'border-l border-gray-300' : ''} px-2 py-1 text-center text-[10px] font-medium text-gray-700 bg-gray-50 relative`} style={{
                             width: '120px',
                             minWidth: '120px',
                             maxWidth: '120px',
@@ -631,7 +631,7 @@ const Reports = () => {
                               zIndex: 10
                             } : {})
                           }}>
-                            {/* Subtle blue border for today header */}
+                            {/* Red border overlay for today header */}
                             {isToday && (
                               <div 
                                 className="absolute pointer-events-none" 
@@ -640,19 +640,16 @@ const Reports = () => {
                                   left: 0,
                                   right: 0,
                                   bottom: 0,
-                                  borderLeft: '2px solid rgb(59, 130, 246)',
-                                  borderRight: '2px solid rgb(59, 130, 246)',
-                                  borderTop: '2px solid rgb(59, 130, 246)',
+                                  borderLeft: '2px solid rgb(239, 68, 68)',
+                                  borderRight: '2px solid rgb(239, 68, 68)',
+                                  borderTop: '2px solid rgb(239, 68, 68)',
                                   borderBottom: '1px solid rgb(209, 213, 219)',
                                   zIndex: 100
                                 }}
                               />
                             )}
-                            {isToday && (
-                              <div className="relative z-10 text-[8px] font-bold text-blue-600 mb-0.5">TODAY</div>
-                            )}
-                            <div className={`relative z-10 text-[10px] ${isToday ? 'text-blue-700' : 'text-gray-700'}`}>{format(day, 'EEE')}</div>
-                            <div className={`text-[9px] relative z-10 ${isToday ? 'text-blue-600' : 'text-gray-600'}`}>{format(day, 'dd')}</div>
+                            <div className="relative z-10 text-[10px]">{format(day, 'EEE')}</div>
+                            <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'dd')}</div>
                           </th>;
                         })}
                         <th colSpan={4} className="border-t border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
