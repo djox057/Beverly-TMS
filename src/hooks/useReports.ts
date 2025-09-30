@@ -241,7 +241,7 @@ export const useReports = () => {
            )
           )
         `)
-        .order('truck_number');
+        .order('updated_at', { ascending: false });
 
       if (trucksError) throw trucksError;
 

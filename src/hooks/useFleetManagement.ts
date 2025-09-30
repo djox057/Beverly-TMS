@@ -35,7 +35,7 @@ export const useFleetManagement = () => {
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select('*')
-        .order('truck_number');
+        .order('updated_at', { ascending: false });
 
       if (trucksError) throw trucksError;
 
