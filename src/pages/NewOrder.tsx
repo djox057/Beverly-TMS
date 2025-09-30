@@ -80,7 +80,10 @@ const NewOrder = () => {
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(bookedByCompany);
-  const { data: lastDelivery } = useTruckLastDelivery(truck || null);
+  
+  // Get the first pickup datetime for DH miles calculation
+  const firstPickupDatetime = pickupsDrops.find(item => item.type === 'pickup')?.datetime || null;
+  const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
