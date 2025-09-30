@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -24,8 +25,11 @@ interface TruckFormData {
   company_id: string;
   model: string;
 }
+const ITEMS_PER_PAGE = 15;
+
 const Trucks = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
@@ -62,6 +66,18 @@ const Trucks = () => {
 
   // Filter trucks based on search term
   const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.model?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedTrucks = filteredTrucks.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search term changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
   const resetForm = () => {
     setFormData({
       truck_number: "",
@@ -339,12 +355,12 @@ const Trucks = () => {
             <CardTitle>Truck Fleet</CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search trucks..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <Input placeholder="Search trucks..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="flex flex-col h-[700px]">
+          <div className="overflow-x-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -359,50 +375,91 @@ const Trucks = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                  {filteredTrucks.length === 0 ? <TableRow>
+                  {paginatedTrucks.length === 0 ? <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
-                  </TableRow> : filteredTrucks.map(truck => <TableRow key={truck.id}>
-                      <TableCell className="font-medium">{truck.truck_number}</TableCell>
-                      <TableCell className="font-mono text-sm">{truck.vin || "—"}</TableCell>
-                      <TableCell>{truck.company?.name || "—"}</TableCell>
-                      <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
-                      <TableCell>{truck.driver1?.name || "—"}</TableCell>
-                      <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
-                      <TableCell>{truck.model || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete truck {truck.truck_number}. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteTruck(truck.id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>)}
+                  </TableRow> : (
+                    <>
+                      {paginatedTrucks.map(truck => <TableRow key={truck.id}>
+                        <TableCell className="font-medium">{truck.truck_number}</TableCell>
+                        <TableCell className="font-mono text-sm">{truck.vin || "—"}</TableCell>
+                        <TableCell>{truck.company?.name || "—"}</TableCell>
+                        <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
+                        <TableCell>{truck.driver1?.name || "—"}</TableCell>
+                        <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
+                        <TableCell>{truck.model || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete truck {truck.truck_number}. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteTruck(truck.id)}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>)}
+                      {/* Add empty rows to maintain consistent height */}
+                      {Array.from({ length: ITEMS_PER_PAGE - paginatedTrucks.length }).map((_, index) => (
+                        <TableRow key={`empty-${index}`}>
+                          <TableCell colSpan={8} className="h-[57px]">&nbsp;</TableCell>
+                        </TableRow>
+                      ))}
+                    </>
+                  )}
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center pt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
