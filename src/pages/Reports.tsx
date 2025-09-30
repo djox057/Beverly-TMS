@@ -298,11 +298,12 @@ const Reports = () => {
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
       
-      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} ${showRightBorder ? 'border-r border-gray-300' : ''} p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: '120px',
         minWidth: '120px',
         maxWidth: '120px',
-        verticalAlign: 'top'
+        verticalAlign: 'top',
+        ...(showRightBorder ? { borderRight: '1px solid rgb(209, 213, 219)', position: 'relative', zIndex: 101 } : {})
       }}>
           {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
