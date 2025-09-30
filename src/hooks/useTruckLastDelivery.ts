@@ -74,7 +74,7 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
       // Get the final delivery address (highest sequence_number with type = 'delivery')
       const { data: pickupDrops, error: pickupDropsError } = await supabase
         .from('pickup_drops')
-        .select('address, sequence_number')
+        .select('address, city, state, zip_code, sequence_number')
         .eq('order_id', lastOrder.id)
         .eq('type', 'delivery')
         .order('sequence_number', { ascending: false })
@@ -83,9 +83,12 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
       if (pickupDropsError) throw pickupDropsError;
       if (!pickupDrops || pickupDrops.length === 0) return null;
 
+      const pickup = pickupDrops[0];
+      const fullAddress = `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip_code}`;
+
       return {
         orderId: lastOrder.id,
-        deliveryAddress: pickupDrops[0].address,
+        deliveryAddress: fullAddress,
         deliveryDatetime: lastOrder.delivery_datetime || ''
       };
     },
