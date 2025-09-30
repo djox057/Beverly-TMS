@@ -1082,10 +1082,12 @@ const NewOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dh-miles" className="flex items-center gap-2">
+                <Label htmlFor="dh-miles">
                   DH Miles
                   {isCalculatingDhMiles && (
-                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground ml-2">
+                      <Loader2 className="h-3 w-3 animate-spin inline" />
+                    </span>
                   )}
                 </Label>
                 <div className="relative">
@@ -1137,14 +1139,16 @@ const NewOrder = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="total-miles">Total Miles</Label>
-                <Input 
-                  id="total-miles" 
-                  type="number" 
-                  placeholder="0" 
-                  value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
-                  readOnly 
-                  className="bg-muted"
-                />
+                <div className="relative">
+                  <Input 
+                    id="total-miles" 
+                    type="number" 
+                    placeholder="0" 
+                    value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} 
+                    readOnly 
+                    className="bg-muted"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground min-h-[1.25rem]"></p>
               </div>
             </div>
