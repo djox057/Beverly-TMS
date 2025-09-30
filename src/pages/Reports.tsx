@@ -344,7 +344,7 @@ const Reports = () => {
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 z-50">
                           <div className="space-y-2 text-sm">
                             <h4 className="font-semibold">Load Information</h4>
                             <div className="space-y-1">
