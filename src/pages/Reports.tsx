@@ -659,7 +659,7 @@ const Reports = () => {
                       width: '220px',
                       minWidth: '220px',
                       maxWidth: '220px'
-                    }}>Away (D) | Drive | Shift | Break | Cycle</th>
+                    }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
