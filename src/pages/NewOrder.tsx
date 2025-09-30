@@ -168,6 +168,15 @@ const NewOrder = () => {
         return;
       }
 
+      console.log('🚚 =================================');
+      console.log('🚚 DH MILES AUTO-CALCULATION');
+      console.log('🚚 =================================');
+      console.log('🚚 Truck ID:', truck);
+      console.log('🚚 Last Delivery Address:', lastDelivery.deliveryAddress);
+      console.log('🚚 Current Pickup Address:', firstPickup.address);
+      console.log('🚚 Last Order ID:', lastDelivery.orderId);
+      console.log('🚚 =================================');
+
       setIsCalculatingDhMiles(true);
       try {
         const miles = await calculateDhMiles(lastDelivery.deliveryAddress, firstPickup.address);
