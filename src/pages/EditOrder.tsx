@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,7 +13,6 @@ import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileT
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useBrokers } from "@/hooks/useBrokers";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,7 +90,6 @@ const EditOrder = () => {
 
   // Fetch data from database
   const { data: companies } = useCompanies();
-  const { data: brokers } = useBrokers();
   const { data: trucks } = useTrucks();
   const { data: drivers } = useDrivers();
 
@@ -559,10 +558,6 @@ const EditOrder = () => {
     value: company.id,
     label: company.name
   })) || [];
-  const brokerOptions = brokers?.map(broker => ({
-    value: broker.id,
-    label: broker.name
-  })) || [];
   const truckOptions = trucks?.map(truck => ({
     value: truck.id,
     label: truck.truck_number
@@ -815,8 +810,7 @@ const EditOrder = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <Combobox 
-                  options={brokerOptions} 
+                <BrokerCombobox 
                   value={broker} 
                   onValueChange={setBroker} 
                   placeholder="Select broker" 

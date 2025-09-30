@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Building, Trash2, Loader2 } from "lucide-react";
+import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface BrokerFormData {
   name: string;
@@ -19,8 +20,11 @@ interface BrokerFormData {
   email: string;
 }
 
+const ITEMS_PER_PAGE = 50;
+
 const Brokers = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingBroker, setEditingBroker] = useState<any>(null);
@@ -36,16 +40,32 @@ const Brokers = () => {
   const { toast } = useToast();
   const { data: brokers, isLoading, refetch } = useBrokers();
 
-  // Filter brokers based on search term
-  const filteredBrokers = brokers?.filter(broker =>
-    broker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.mc_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    broker.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  // Debounce search term to avoid filtering on every keystroke
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Memoized filtered brokers with pagination
+  const { filteredBrokers, totalPages, paginatedBrokers } = useMemo(() => {
+    const filtered = brokers?.filter(broker =>
+      broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.city?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.state?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.phone?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+      broker.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    ) || [];
+
+    const total = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    return { filteredBrokers: filtered, totalPages: total, paginatedBrokers: paginated };
+  }, [brokers, debouncedSearchTerm, currentPage]);
+
+  // Reset to page 1 when search term changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
 
   const resetForm = () => {
     setFormData({
@@ -301,14 +321,14 @@ const Brokers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBrokers.length === 0 ? (
+                {paginatedBrokers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No brokers found
+                      {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredBrokers.map((broker) => (
+                  paginatedBrokers.map((broker) => (
                     <TableRow key={broker.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -358,6 +378,38 @@ const Brokers = () => {
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredBrokers.length)} of {filteredBrokers.length} brokers
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {currentPage} of {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

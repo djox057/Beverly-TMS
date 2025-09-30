@@ -5,13 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useBrokers } from "@/hooks/useBrokers";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
@@ -76,7 +76,6 @@ const NewOrder = () => {
 
   // Fetch data from database
   const { data: companies, isLoading: companiesLoading } = useCompanies();
-  const { data: brokers, isLoading: brokersLoading } = useBrokers();
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(bookedByCompany);
@@ -543,10 +542,6 @@ const NewOrder = () => {
     value: company.id,
     label: company.name
   })) || [];
-  const brokerOptions = brokers?.map(broker => ({
-    value: broker.id,
-    label: broker.name
-  })) || [];
   const truckOptions = trucks?.map(truck => ({
     value: truck.id,
     label: truck.truck_number
@@ -818,7 +813,7 @@ const NewOrder = () => {
     }
   };
 
-  const isLoading = companiesLoading || brokersLoading || trucksLoading || driversLoading || loadingNextNumber;
+  const isLoading = companiesLoading || trucksLoading || driversLoading || loadingNextNumber;
   
   if (isLoading) {
     return (
@@ -936,8 +931,7 @@ const NewOrder = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <Combobox 
-                  options={brokerOptions} 
+                <BrokerCombobox 
                   value={broker} 
                   onValueChange={setBroker} 
                   placeholder="Select broker" 
