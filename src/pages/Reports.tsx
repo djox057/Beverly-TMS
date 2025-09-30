@@ -295,8 +295,10 @@ const Reports = () => {
       const isToday = isSameDay(day, new Date());
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
+      // Apply right border to the last day (5th day, index 4)
+      const showRightBorder = index === 4;
       
-      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
+      return <td key={index} className={`${isToday ? (isLastTruck ? '' : 'border-b border-gray-300') : 'border-b border-gray-300'} ${showLeftBorder ? 'border-l border-gray-300' : ''} ${showRightBorder ? 'border-r border-gray-300' : ''} p-0 relative`} style={{
         width: '120px',
         minWidth: '120px',
         maxWidth: '120px',
