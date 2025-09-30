@@ -128,6 +128,55 @@ export const useReports = () => {
     },
   });
 
+  const updateLostDayNote = useMutation({
+    mutationFn: async ({ truckId, date, note }: { truckId: string; date: string; note: string }) => {
+      // Store lost day notes in truck_notes with a special format: "lost_day:YYYY-MM-DD:note_text"
+      const noteKey = `lost_day:${date}`;
+      
+      // First check if a note already exists for this truck
+      const { data: existingNote } = await supabase
+        .from('truck_notes')
+        .select('id, note')
+        .eq('truck_id', truckId)
+        .maybeSingle();
+
+      // Parse existing notes to find lost day notes
+      let allNotes = existingNote?.note || '';
+      const lostDayRegex = new RegExp(`lost_day:${date}:[^\\n]*`, 'g');
+      
+      if (allNotes.includes(noteKey)) {
+        // Update existing lost day note
+        allNotes = allNotes.replace(lostDayRegex, `${noteKey}:${note}`);
+      } else {
+        // Add new lost day note
+        allNotes = allNotes ? `${allNotes}\n${noteKey}:${note}` : `${noteKey}:${note}`;
+      }
+
+      if (existingNote) {
+        const { error } = await supabase
+          .from('truck_notes')
+          .update({ 
+            note: allNotes,
+            updated_by: (await supabase.auth.getUser()).data.user?.id 
+          })
+          .eq('id', existingNote.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('truck_notes')
+          .insert({ 
+            truck_id: truckId,
+            note: allNotes,
+            updated_by: (await supabase.auth.getUser()).data.user?.id 
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
   // Helper function to determine document status
   const getDocumentStatus = (orderFiles: any[]) => {
     if (!orderFiles || orderFiles.length === 0) return 'none';
@@ -443,5 +492,6 @@ export const useReports = () => {
     updateTruckStatus,
     updateTruckNote,
     updatePickupDrop,
+    updateLostDayNote,
   };
 };

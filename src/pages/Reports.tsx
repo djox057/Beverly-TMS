@@ -41,7 +41,8 @@ const Reports = () => {
     error,
     updateTruckStatus,
     updateTruckNote,
-    updatePickupDrop
+    updatePickupDrop,
+    updateLostDayNote
   } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
@@ -174,6 +175,19 @@ const Reports = () => {
       } catch {
         return null;
       }
+    };
+
+    // Helper function to get lost day note for a specific date
+    const getLostDayNote = (date: Date): string => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const noteKey = `lost_day:${dateStr}:`;
+      const notes = truck.note || '';
+      const lines = notes.split('\n');
+      const lostDayLine = lines.find((line: string) => line.startsWith(noteKey));
+      if (lostDayLine) {
+        return lostDayLine.replace(noteKey, '').trim();
+      }
+      return 'Lost day';
     };
 
     // Helper function to check if pickup and delivery are on the same date
@@ -381,7 +395,15 @@ const Reports = () => {
                   {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">
                       +{(pickupOnlyOrders.length + sameDayOrders.length) - 2} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isMissingPickup ? 'XXX' : isInTransit ? '>>>' : '—'}</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? (e) => {
+                  e.stopPropagation();
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const currentNote = getLostDayNote(day);
+                  const newNote = prompt('Edit lost day note:', currentNote);
+                  if (newNote !== null && newNote !== currentNote) {
+                    updateLostDayNote.mutate({ truckId: truck.id, date: dateStr, note: newNote });
+                  }
+                } : undefined}>{isMissingPickup ? getLostDayNote(day) : isInTransit ? '>>>' : '—'}</div>}
             </div>
 
           </div>
