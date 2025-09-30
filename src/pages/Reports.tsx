@@ -180,14 +180,8 @@ const Reports = () => {
     // Helper function to get lost day note for a specific date
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, 'yyyy-MM-dd');
-      const noteKey = `lost_day:${dateStr}:`;
-      const notes = truck.note || '';
-      const lines = notes.split('\n');
-      const lostDayLine = lines.find((line: string) => line.startsWith(noteKey));
-      if (lostDayLine) {
-        return lostDayLine.replace(noteKey, '').trim();
-      }
-      return 'Lost day';
+      const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
+      return lostDayNote?.note || 'Lost day';
     };
 
     // Helper function to check if pickup and delivery are on the same date

@@ -172,6 +172,36 @@ export type Database = {
         }
         Relationships: []
       }
+      lost_day_notes: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          note: string
+          truck_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          note?: string
+          truck_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          note?: string
+          truck_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       order_files: {
         Row: {
           content_type: string | null

@@ -55,6 +55,17 @@ export const useReports = () => {
           queryClient.invalidateQueries({ queryKey: ['reports'] });
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lost_day_notes'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -130,47 +141,21 @@ export const useReports = () => {
 
   const updateLostDayNote = useMutation({
     mutationFn: async ({ truckId, date, note }: { truckId: string; date: string; note: string }) => {
-      // Store lost day notes in truck_notes with a special format: "lost_day:YYYY-MM-DD:note_text"
-      const noteKey = `lost_day:${date}`;
+      const userId = (await supabase.auth.getUser()).data.user?.id;
       
-      // First check if a note already exists for this truck
-      const { data: existingNote } = await supabase
-        .from('truck_notes')
-        .select('id, note')
-        .eq('truck_id', truckId)
-        .maybeSingle();
-
-      // Parse existing notes to find lost day notes
-      let allNotes = existingNote?.note || '';
-      const lostDayRegex = new RegExp(`lost_day:${date}:[^\\n]*`, 'g');
+      // Try to update existing note, if not exists, insert new one
+      const { error: upsertError } = await supabase
+        .from('lost_day_notes')
+        .upsert({ 
+          truck_id: truckId,
+          date: date,
+          note: note,
+          updated_by: userId
+        }, {
+          onConflict: 'truck_id,date'
+        });
       
-      if (allNotes.includes(noteKey)) {
-        // Update existing lost day note
-        allNotes = allNotes.replace(lostDayRegex, `${noteKey}:${note}`);
-      } else {
-        // Add new lost day note
-        allNotes = allNotes ? `${allNotes}\n${noteKey}:${note}` : `${noteKey}:${note}`;
-      }
-
-      if (existingNote) {
-        const { error } = await supabase
-          .from('truck_notes')
-          .update({ 
-            note: allNotes,
-            updated_by: (await supabase.auth.getUser()).data.user?.id 
-          })
-          .eq('id', existingNote.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('truck_notes')
-          .insert({ 
-            truck_id: truckId,
-            note: allNotes,
-            updated_by: (await supabase.auth.getUser()).data.user?.id 
-          });
-        if (error) throw error;
-      }
+      if (upsertError) throw upsertError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -261,6 +246,13 @@ export const useReports = () => {
 
       if (notesError) throw notesError;
 
+      // Fetch lost day notes separately
+      const { data: lostDayNotes, error: lostDayError } = await supabase
+        .from('lost_day_notes')
+        .select('*');
+
+      if (lostDayError) throw lostDayError;
+
       // Filter out trucks without dispatchers and transform the data
       const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
         const now = new Date().getTime();
@@ -345,6 +337,9 @@ export const useReports = () => {
         
         // Get the most recent truck note for this truck
         const truckNote = truckNotes?.find(note => note.truck_id === truck.id);
+
+        // Get lost day notes for this truck
+        const truckLostDayNotes = lostDayNotes?.filter(note => note.truck_id === truck.id) || [];
 
         // Find dispatcher info
         const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.dispatcher_id);
@@ -466,7 +461,8 @@ export const useReports = () => {
           allOrders: allOrdersWithStops,
           activeOrdersCount: activeOrders.length,
           totalOrdersCount: truck.orders?.length || 0,
-          hasMultipleOrders: (truck.orders?.length || 0) > 1
+          hasMultipleOrders: (truck.orders?.length || 0) > 1,
+          lostDayNotes: truckLostDayNotes
         };
       }) || [];
 
