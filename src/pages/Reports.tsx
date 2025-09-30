@@ -340,7 +340,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20 z-[101]">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -397,7 +397,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20 z-[101]">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>
@@ -453,7 +453,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20 z-[101]">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-white/20">
                             <Info className="h-3 w-3" />
                           </Button>
                         </PopoverTrigger>

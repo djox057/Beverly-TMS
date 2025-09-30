@@ -57,37 +57,37 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/orders" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Orders /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/trucks" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Trucks /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/trailers" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Trailers /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/drivers" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Drivers /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/brokers" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Brokers /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/fleets" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Fleets /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/reports" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><Reports /></Layout>
               </ProtectedRoute>
             } />
@@ -113,7 +113,6 @@ const App = () => (
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="/404" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
