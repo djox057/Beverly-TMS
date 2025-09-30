@@ -307,8 +307,8 @@ const Brokers = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="flex flex-col h-[700px]">
+          <div className="overflow-x-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -320,60 +320,68 @@ const Brokers = () => {
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="h-full">
                 {paginatedBrokers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground h-[500px]">
                       {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedBrokers.map((broker) => (
-                    <TableRow key={broker.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{broker.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono">{broker.mc_number || "—"}</TableCell>
-                      <TableCell className="max-w-xs">{formatAddress(broker)}</TableCell>
-                      <TableCell>{broker.phone || "—"}</TableCell>
-                      <TableCell>{broker.email || "—"}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => openEditDialog(broker)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete broker {broker.name}. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteBroker(broker.id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  <>
+                    {paginatedBrokers.map((broker) => (
+                      <TableRow key={broker.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Building className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{broker.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono">{broker.mc_number || "—"}</TableCell>
+                        <TableCell className="max-w-xs">{formatAddress(broker)}</TableCell>
+                        <TableCell>{broker.phone || "—"}</TableCell>
+                        <TableCell>{broker.email || "—"}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => openEditDialog(broker)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete broker {broker.name}. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteBroker(broker.id)}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Add empty rows to maintain consistent height */}
+                    {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length) }).map((_, i) => (
+                      <TableRow key={`empty-${i}`} className="h-[57px]">
+                        <TableCell colSpan={6}>&nbsp;</TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
               </TableBody>
             </Table>
