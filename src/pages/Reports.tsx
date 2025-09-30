@@ -181,7 +181,22 @@ const Reports = () => {
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, 'yyyy-MM-dd');
       const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
-      return lostDayNote?.note || 'Lost day';
+      
+      // If no existing note, check if this is 1 day in future
+      if (!lostDayNote) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const checkDate = new Date(date);
+        checkDate.setHours(0, 0, 0, 0);
+        const oneDayFuture = addDays(today, 1);
+        
+        if (isSameDay(checkDate, oneDayFuture)) {
+          return 'No pre-book 🥺?';
+        }
+        return 'Lost day';
+      }
+      
+      return lostDayNote.note;
     };
 
     // Helper function to check if pickup and delivery are on the same date
