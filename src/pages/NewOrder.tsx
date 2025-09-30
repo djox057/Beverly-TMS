@@ -1096,11 +1096,11 @@ const NewOrder = () => {
                   onChange={e => setDhMiles(e.target.value)}
                   disabled={isCalculatingDhMiles}
                 />
-                {lastDelivery && dhMiles && !isCalculatingDhMiles && (
-                  <p className="text-xs text-muted-foreground -mb-2">
-                    From: {lastDelivery.deliveryAddress}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground min-h-[1.25rem]">
+                  {lastDelivery && dhMiles && !isCalculatingDhMiles && (
+                    <>From: {lastDelivery.deliveryAddress}</>
+                  )}
+                </p>
               </div>
 
               <div className="space-y-2">
