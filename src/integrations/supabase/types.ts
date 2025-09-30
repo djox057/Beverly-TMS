@@ -397,6 +397,7 @@ export type Database = {
       pickup_drops: {
         Row: {
           address: string
+          arrived_at: string | null
           city: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -413,6 +414,7 @@ export type Database = {
         }
         Insert: {
           address: string
+          arrived_at?: string | null
           city?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -429,6 +431,7 @@ export type Database = {
         }
         Update: {
           address?: string
+          arrived_at?: string | null
           city?: string | null
           contact_name?: string | null
           contact_phone?: string | null

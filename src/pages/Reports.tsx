@@ -42,7 +42,8 @@ const Reports = () => {
     updateTruckStatus,
     updateTruckNote,
     updatePickupDrop,
-    updateLostDayNote
+    updateLostDayNote,
+    updatePickupDropArrival
   } = useReports();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
@@ -177,6 +178,30 @@ const Reports = () => {
       }
     };
 
+    // Helper to get pickup cell color based on status and previous load
+    const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+      const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+      const hasArrived = order.pickupStop?.arrived_at;
+      
+      if (hasBOL || hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
+      if (hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
+      if (previousLoadDeliveryComplete) return 'bg-blue-300 text-blue-900 border-blue-400'; // Light Blue (in transit)
+      return 'bg-gray-100 text-gray-800 border-gray-200'; // Grey
+    };
+
+    // Helper to get delivery cell color based on status
+    const getDeliveryCellColor = (order: any) => {
+      const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+      const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+      const hasArrived = order.deliveryStop?.arrived_at;
+      
+      if (hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
+      if (hasBOL && hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
+      if (hasBOL) return 'bg-lime-400 text-lime-950 border-lime-500'; // Lime Green
+      return 'bg-gray-100 text-gray-800 border-gray-200'; // Grey
+    };
+
     // Helper function to get lost day note for a specific date
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, 'yyyy-MM-dd');
@@ -204,20 +229,34 @@ const Reports = () => {
       return order.pickupDate && order.deliveryDate && isSameDay(order.pickupDate, order.deliveryDate);
     };
 
-    // Get all orders with their pickup/delivery dates for multi-load overlay
+    // Get all orders with their pickup/delivery dates sorted chronologically
     const ordersWithDates = truck.allOrders?.map((order: any) => {
       const pickupDate = order.pickupStop && order.pickup_datetime ? new Date(order.pickup_datetime) : null;
       const deliveryDate = order.deliveryStop && order.delivery_datetime ? new Date(order.delivery_datetime) : null;
-      const statusColors = order.documentColors;
       return {
         ...order,
         pickupDate,
         deliveryDate,
-        statusColors,
         pickupLocation: order.pickupStop ? order.pickupStop.city && order.pickupStop.state ? `${order.pickupStop.city}, ${order.pickupStop.state}` : order.pickupStop.address || '—' : '—',
         deliveryLocation: order.deliveryStop ? order.deliveryStop.city && order.deliveryStop.state ? `${order.deliveryStop.city}, ${order.deliveryStop.state}` : order.deliveryStop.address || '—' : '—'
       };
+    }).sort((a, b) => {
+      // Sort by pickup date
+      if (!a.pickupDate && !b.pickupDate) return 0;
+      if (!a.pickupDate) return 1;
+      if (!b.pickupDate) return -1;
+      return a.pickupDate.getTime() - b.pickupDate.getTime();
     }) || [];
+    
+    // Helper to check if previous load's delivery is complete (dark green)
+    const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
+      const currentIndex = ordersWithDates.findIndex(o => o.id === currentOrder.id);
+      if (currentIndex <= 0) return true; // First load, no previous
+      
+      const previousOrder = ordersWithDates[currentIndex - 1];
+      const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+      return !!hasPOD; // Dark green if POD exists
+    };
     
     // Find the first pickup date for this truck
     const firstPickupDate = ordersWithDates
@@ -287,11 +326,13 @@ const Reports = () => {
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
-                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => <div key={`delivery-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1 flex-1`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
+                  {deliveryOnlyOrders.slice(0, 2).map((order, idx) => {
+                    const cellColor = getDeliveryCellColor(order);
+                    return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col p-1 flex-1`}>
+                      <div className="text-xs font-medium truncate">
                         {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                      <div className="text-xs opacity-70 truncate">
                         {order.delivery_datetime && order.delivery_end_datetime && 
                          format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') 
                          ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` 
@@ -314,10 +355,23 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
+                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: order.deliveryStop.id });
+                                  toast({ title: "Marked as arrived at delivery" });
+                                }}
+                                className="w-full mt-2"
+                              >
+                                Arrived at Delivery
+                              </Button>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>)}
+                    </div>
+                  })}
                   {deliveryOnlyOrders.length > 2 && <div className="text-xs text-gray-600 text-center">
                       +{deliveryOnlyOrders.length - 2} more
                     </div>}
@@ -328,11 +382,14 @@ const Reports = () => {
             <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col h-16 ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => <div key={`pickup-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1 flex-1`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
+                  {pickupOnlyOrders.slice(0, 2).map((order, idx) => {
+                    const previousComplete = getPreviousLoadDeliveryStatus(order);
+                    const cellColor = getPickupCellColor(order, previousComplete);
+                    return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col p-1 flex-1`}>
+                      <div className="text-xs font-medium truncate">
                         {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                      <div className="text-xs opacity-70 truncate">
                         {order.pickup_datetime && order.pickup_end_datetime && 
                          format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
                          ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
@@ -355,20 +412,36 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
+                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: order.pickupStop.id });
+                                  toast({ title: "Marked as arrived at pickup" });
+                                }}
+                                className="w-full mt-2"
+                              >
+                                Arrived at Pickup
+                              </Button>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>)}
+                    </div>
+                  })}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => <div key={`same-day-${order.id}-${idx}`} className={`${order.documentColors.bg} ${order.documentColors.border} border rounded relative flex flex-col p-1 flex-1`}>
-                      <div className={`text-xs font-medium ${order.documentColors.text} truncate`}>
+                  {sameDayOrders.slice(0, Math.max(0, 2 - pickupOnlyOrders.length)).map((order, idx) => {
+                    const previousComplete = getPreviousLoadDeliveryStatus(order);
+                    const cellColor = getPickupCellColor(order, previousComplete);
+                    return <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col p-1 flex-1`}>
+                      <div className="text-xs font-medium truncate">
                         P: {order.pickupLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate`}>
+                      <div className="text-xs opacity-70 truncate">
                         D: {order.deliveryLocation}
                       </div>
-                      <div className={`text-xs ${order.documentColors.text} opacity-70 truncate flex justify-between`}>
+                      <div className="text-xs opacity-70 truncate flex justify-between">
                         <span>{order.pickup_datetime && order.pickup_end_datetime && 
                               format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
                               ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
@@ -395,10 +468,35 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
+                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: order.pickupStop.id });
+                                  toast({ title: "Marked as arrived at pickup" });
+                                }}
+                                className="w-full mt-2"
+                              >
+                                Arrived at Pickup
+                              </Button>
+                            )}
+                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: order.deliveryStop.id });
+                                  toast({ title: "Marked as arrived at delivery" });
+                                }}
+                                className="w-full mt-2"
+                              >
+                                Arrived at Delivery
+                              </Button>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>)}
+                    </div>
+                  })}
 
                   {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
                   {(pickupOnlyOrders.length + sameDayOrders.length) > 2 && <div className="text-xs text-gray-600 text-center">

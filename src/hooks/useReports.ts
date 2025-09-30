@@ -162,6 +162,19 @@ export const useReports = () => {
     },
   });
 
+  const updatePickupDropArrival = useMutation({
+    mutationFn: async ({ pickupDropId }: { pickupDropId: string }) => {
+      const { error } = await supabase
+        .from('pickup_drops')
+        .update({ arrived_at: new Date().toISOString() })
+        .eq('id', pickupDropId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
   // Helper function to determine document status
   const getDocumentStatus = (orderFiles: any[]) => {
     if (!orderFiles || orderFiles.length === 0) return 'none';
@@ -217,7 +230,8 @@ export const useReports = () => {
              address,
              city,
              state,
-             datetime
+             datetime,
+             arrived_at
            ),
            order_files(
              id,
@@ -489,5 +503,6 @@ export const useReports = () => {
     updateTruckNote,
     updatePickupDrop,
     updateLostDayNote,
+    updatePickupDropArrival,
   };
 };
