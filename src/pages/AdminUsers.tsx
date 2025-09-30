@@ -16,7 +16,7 @@ interface User {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'dispatch' | 'admin' | 'manager';
+  role: 'dispatch' | 'admin' | 'manager' | 'driver';
   created_at: string;
 }
 
@@ -32,7 +32,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver'>('dispatch');
 
   useEffect(() => {
     fetchUsers();
@@ -97,6 +97,8 @@ const AdminUsers = () => {
         return 'default';
       case 'dispatch':
         return 'secondary';
+      case 'driver':
+        return 'outline';
       default:
         return 'outline';
     }
@@ -168,7 +170,7 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager') => setRole(value)}>
+                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver') => setRole(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -176,6 +178,7 @@ const AdminUsers = () => {
                     <SelectItem value="dispatch">Dispatch</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

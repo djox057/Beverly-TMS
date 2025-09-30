@@ -6,8 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { DriverLayout } from "./components/DriverLayout";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import DriverDashboard from "./pages/driver/DriverDashboard";
+import DriverOrders from "./pages/driver/DriverOrders";
+import DriverInfo from "./pages/driver/DriverInfo";
 import AdminUsers from "./pages/AdminUsers";
 import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
@@ -90,6 +94,22 @@ const App = () => (
             <Route path="/weekly-report" element={
               <ProtectedRoute requiredRole="admin">
                 <Layout><WeeklyReport /></Layout>
+              </ProtectedRoute>
+            } />
+            {/* Driver Portal Routes */}
+            <Route path="/driver" element={
+              <ProtectedRoute requiredRole="driver">
+                <DriverLayout><DriverDashboard /></DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/orders" element={
+              <ProtectedRoute requiredRole="driver">
+                <DriverLayout><DriverOrders /></DriverLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/driver/info" element={
+              <ProtectedRoute requiredRole="driver">
+                <DriverLayout><DriverInfo /></DriverLayout>
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

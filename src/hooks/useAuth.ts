@@ -8,7 +8,7 @@ export interface UserProfile {
   user_id: string;
   email: string;
   full_name: string | null;
-  role: 'dispatch' | 'admin' | 'manager';
+  role: 'dispatch' | 'admin' | 'manager' | 'driver';
   avatar_url: string | null;
 }
 
@@ -68,7 +68,7 @@ export const useAuth = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager') => {
+  const signUp = async (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver') => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -160,11 +160,11 @@ export const useAuth = () => {
     }
   };
 
-  const hasRole = (requiredRole: 'dispatch' | 'admin' | 'manager'): boolean => {
+  const hasRole = (requiredRole: 'dispatch' | 'admin' | 'manager' | 'driver'): boolean => {
     if (!profile) return false;
     
-    // Admin has access to everything
-    if (profile.role === 'admin') return true;
+    // Admin has access to everything except driver-only pages
+    if (profile.role === 'admin' && requiredRole !== 'driver') return true;
     
     // Manager has access to dispatch functions
     if (profile.role === 'manager' && requiredRole === 'dispatch') return true;

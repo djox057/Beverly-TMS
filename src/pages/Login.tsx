@@ -8,7 +8,7 @@ import { Loader2, LogIn, Truck } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 const Login = () => {
-  const { user, loading, signIn } = useAuthContext();
+  const { user, profile, loading, signIn } = useAuthContext();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +22,12 @@ const Login = () => {
     );
   }
 
-  if (user) {
+  if (user && profile) {
+    // Redirect drivers to driver portal
+    if (profile.role === 'driver') {
+      return <Navigate to="/driver" replace />;
+    }
+    // Redirect other roles to main dashboard
     return <Navigate to="/" replace />;
   }
 
