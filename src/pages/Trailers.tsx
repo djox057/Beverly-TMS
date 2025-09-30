@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
+  vin: string;
   truck_id: string;
 }
 const Trailers = () => {
@@ -26,6 +27,7 @@ const Trailers = () => {
   const [formData, setFormData] = useState<TrailerFormData>({
     trailer_number: "",
     trailer_type: "",
+    vin: "",
     truck_id: ""
   });
   const {
@@ -41,11 +43,12 @@ const Trailers = () => {
   } = useTrucks();
 
   // Filter trailers based on search term
-  const filteredTrailers = trailers?.filter(trailer => trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTrailers = trailers?.filter(trailer => trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase())) || [];
   const resetForm = () => {
     setFormData({
       trailer_number: "",
       trailer_type: "",
+      vin: "",
       truck_id: ""
     });
   };
@@ -59,7 +62,8 @@ const Trailers = () => {
         error: trailerError
       } = await supabase.from('trailers').insert({
         trailer_number: formData.trailer_number,
-        trailer_type: formData.trailer_type || null
+        trailer_type: formData.trailer_type || null,
+        vin: formData.vin || null
       }).select().single();
       if (trailerError) throw trailerError;
 
@@ -99,7 +103,8 @@ const Trailers = () => {
         error: trailerError
       } = await supabase.from('trailers').update({
         trailer_number: formData.trailer_number,
-        trailer_type: formData.trailer_type || null
+        trailer_type: formData.trailer_type || null,
+        vin: formData.vin || null
       }).eq('id', editingTrailer.id);
       if (trailerError) throw trailerError;
 
@@ -168,6 +173,7 @@ const Trailers = () => {
     setFormData({
       trailer_number: trailer.trailer_number || "",
       trailer_type: trailer.trailer_type || "",
+      vin: trailer.vin || "",
       truck_id: trailer.trucks?.[0]?.id || ""
     });
     setIsEditDialogOpen(true);
@@ -229,6 +235,14 @@ const Trailers = () => {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="vin">VIN Number</Label>
+                <Input id="vin" value={formData.vin} onChange={e => setFormData({
+                ...formData,
+                vin: e.target.value
+              })} placeholder="Enter VIN" maxLength={17} />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="truck_id">Truck #</Label>
                 <Select value={formData.truck_id} onValueChange={value => setFormData({
                 ...formData,
@@ -276,18 +290,20 @@ const Trailers = () => {
                 <TableRow>
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Trailer Type</TableHead>
+                  <TableHead>VIN</TableHead>
                   <TableHead>Connected Truck #</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTrailers.length === 0 ? <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No trailers found
                     </TableCell>
                   </TableRow> : filteredTrailers.map(trailer => <TableRow key={trailer.id}>
                       <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
                       <TableCell>{trailer.trailer_type || "—"}</TableCell>
+                      <TableCell>{trailer.vin || "—"}</TableCell>
                       <TableCell>
                         {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
                       </TableCell>
@@ -358,6 +374,14 @@ const Trailers = () => {
                   <SelectItem value="Container">Container</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_vin">VIN Number</Label>
+              <Input id="edit_vin" value={formData.vin} onChange={e => setFormData({
+              ...formData,
+              vin: e.target.value
+            })} placeholder="Enter VIN" maxLength={17} />
             </div>
 
             <div className="space-y-2">

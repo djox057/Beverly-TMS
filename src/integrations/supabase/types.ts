@@ -498,6 +498,7 @@ export type Database = {
           trailer_number: string
           trailer_type: string | null
           updated_at: string
+          vin: string | null
         }
         Insert: {
           capacity?: number | null
@@ -507,6 +508,7 @@ export type Database = {
           trailer_number: string
           trailer_type?: string | null
           updated_at?: string
+          vin?: string | null
         }
         Update: {
           capacity?: number | null
@@ -516,6 +518,7 @@ export type Database = {
           trailer_number?: string
           trailer_type?: string | null
           updated_at?: string
+          vin?: string | null
         }
         Relationships: []
       }
