@@ -867,8 +867,14 @@ const Reports = () => {
                       maxWidth: '80px'
                     }}>
                             <div className="flex items-center gap-1">
-                              <MapPin className="h-2.5 w-2.5 text-gray-500" />
-                              <span className="text-[10px]">{truck.home}</span>
+                              {(!truck.home || truck.home === '—') ? (
+                                <MapPin className="h-3 w-3 text-red-500" />
+                              ) : (
+                                <>
+                                  <MapPin className="h-2.5 w-2.5 text-gray-500" />
+                                  <span className="text-[10px]">{truck.home}</span>
+                                </>
+                              )}
                             </div>
                           </td>
                           {modifiedCells}
