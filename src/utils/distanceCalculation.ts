@@ -55,9 +55,16 @@ export const calculateDistanceFromTruck = async (
   truckLocation: TruckLocation,
   targetAddress: string | null = null
 ): Promise<number | null> => {
-  console.log('📍 Calculating distance from truck');
-  console.log('📍 Truck location:', truckLocation);
-  console.log('📍 Target:', targetAddress || 'TERMINAL');
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📍 CALCULATE DISTANCE FROM TRUCK START');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🚛 Truck:', truckLocation.truck_number);
+  console.log('📍 Truck Location:', {
+    lat: truckLocation.latitude,
+    lon: truckLocation.longitude,
+    ageMinutes: truckLocation.ageMinutes
+  });
+  console.log('🎯 Raw Target:', targetAddress || 'TERMINAL');
 
   if (!truckLocation) {
     console.log('❌ Missing truck location');
@@ -75,16 +82,19 @@ export const calculateDistanceFromTruck = async (
     if (!targetAddress) {
       // Calculate to terminal
       targetCoords = TERMINAL_COORDINATES;
-      console.log('📍 Using terminal coordinates');
+      console.log('📍 Using terminal coordinates:', targetCoords);
     } else {
       // Clean and geocode target address
       const cleanedAddress = cleanAddress(targetAddress);
-      console.log('📍 Cleaned address:', cleanedAddress);
+      console.log('🧹 Cleaned address:', cleanedAddress);
       
+      console.log('🌐 Geocoding address...');
       targetCoords = await geocodeAddress(cleanedAddress);
+      console.log('🌐 Geocode result:', targetCoords);
       
       if (!targetCoords) {
-        console.warn('❌ Could not geocode target address:', cleanedAddress);
+        console.error('❌ GEOCODING FAILED for:', cleanedAddress);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         return null;
       }
     }
@@ -95,13 +105,26 @@ export const calculateDistanceFromTruck = async (
       lon: truckLocation.longitude,
     };
 
+    console.log('🛣️ Calculating route distance via OSRM...');
+    console.log('🛣️ From:', truckCoords);
+    console.log('🛣️ To:', targetCoords);
+    
     // Calculate route distance
     const distance = await calculateRouteDistance(truckCoords, targetCoords);
     
-    console.log('✅ Distance calculation complete:', distance);
+    console.log('🛣️ OSRM Result:', distance, 'miles');
+    
+    if (distance === null) {
+      console.error('❌ OSRM CALCULATION FAILED');
+    } else {
+      console.log('✅ SUCCESS: Distance =', distance, 'miles');
+    }
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return distance;
   } catch (error) {
-    console.error('❌ Error calculating distance from truck:', error);
+    console.error('❌ ERROR in calculateDistanceFromTruck:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return null;
   }
 };
@@ -118,62 +141,87 @@ export const calculateOrderDistance = async (
   order: any,
   truckStatus?: string
 ): Promise<number> => {
+  console.log('\n╔════════════════════════════════════════╗');
+  console.log('║   ORDER DISTANCE CALCULATION START     ║');
+  console.log('╚════════════════════════════════════════╝');
+  
   if (!truckLocation || !order) {
+    console.log('⚠️ Missing data:', { hasTruckLocation: !!truckLocation, hasOrder: !!order });
     return 0;
   }
+
+  console.log('📦 Order:', order.load_number);
+  console.log('📦 Status:', order.status);
+  console.log('🚛 Truck Status:', truckStatus);
 
   // Check if order files exist for status determination
   const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
   const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
   const pickupArrived = order.pickupStop?.arrived_at;
 
+  console.log('📄 Files:', { hasBOL, hasPOD, pickupArrived: !!pickupArrived });
+
   // Red status (STOPPED) - set miles to 0
   if (truckStatus === 'Maintenance') {
-    console.log('🛑 Truck in maintenance, miles = 0');
+    console.log('🛑 Truck in maintenance, returning 0 miles');
     return 0;
   }
 
   // Dark green (delivered with POD) - don't calculate
   if (hasPOD) {
-    console.log('✅ Order delivered (has POD), miles = 0');
+    console.log('✅ Order delivered (has POD), returning 0 miles');
     return 0;
   }
 
   // Black status (TO_TERMINAL) - calculate to terminal
   if (truckStatus === 'Available') {
-    console.log('🏭 Calculating distance to terminal');
+    console.log('🏭 Status: Available - Calculating distance to terminal');
     const distance = await calculateDistanceFromTruck(truckLocation, null);
+    console.log('🏭 Terminal distance result:', distance);
     return distance || 0;
   }
 
   // Light blue (pending, not picked up yet) - calculate distance to pickup
   if (!hasBOL && !pickupArrived) {
-    console.log('📦 Calculating distance to pickup');
+    console.log('📦 Status: Pending - Calculating distance to pickup');
     const pickupStop = order.pickupStop;
-    if (!pickupStop?.address) return 0;
+    console.log('📦 Pickup stop:', pickupStop);
+    
+    if (!pickupStop?.address) {
+      console.log('❌ No pickup address found');
+      return 0;
+    }
     
     // Combine address with city and state for better geocoding
     const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''}`.trim().replace(/,\s*,/g, ',');
     console.log('📦 Full pickup address:', fullAddress);
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
+    console.log('📦 Pickup distance result:', distance);
     return distance || 0;
   }
 
   // Lime green (in transit with BOL, not delivered yet) - calculate distance to delivery
   if (hasBOL && !hasPOD) {
-    console.log('🚛 Calculating distance to delivery');
+    console.log('🚛 Status: In Transit - Calculating distance to delivery');
     const deliveryStop = order.deliveryStop;
-    if (!deliveryStop?.address) return 0;
+    console.log('🚛 Delivery stop:', deliveryStop);
+    
+    if (!deliveryStop?.address) {
+      console.log('❌ No delivery address found');
+      return 0;
+    }
     
     // Combine address with city and state for better geocoding
     const fullAddress = `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''}`.trim().replace(/,\s*,/g, ',');
     console.log('🚛 Full delivery address:', fullAddress);
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
+    console.log('🚛 Delivery distance result:', distance);
     return distance || 0;
   }
 
   // Any other status - set miles to 0
+  console.log('⚠️ No matching condition, returning 0 miles');
   return 0;
 };
