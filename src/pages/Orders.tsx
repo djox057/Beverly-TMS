@@ -106,6 +106,8 @@ const Orders = () => {
         matchesMissingDocs = order.bolFiles?.length === 0;
       } else if (missingDocsFilter === 'missing-pod') {
         matchesMissingDocs = order.podFiles?.length === 0;
+      } else if (missingDocsFilter === 'complete') {
+        matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
       }
     }
 
@@ -253,6 +255,7 @@ const Orders = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Orders</SelectItem>
+                  <SelectItem value="complete">Complete (RC + POD)</SelectItem>
                   <SelectItem value="missing-rc">Missing RC</SelectItem>
                   <SelectItem value="missing-bol">Missing BOL</SelectItem>
                   <SelectItem value="missing-pod">Missing POD</SelectItem>
