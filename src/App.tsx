@@ -23,6 +23,7 @@ import Brokers from "./pages/Brokers";
 import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
 import WeeklyReport from "./pages/WeeklyReport";
+import SamsaraDebug from "./pages/SamsaraDebug";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,11 @@ const App = () => (
             <Route path="/weekly-report" element={
               <ProtectedRoute requiredRole="admin">
                 <Layout><WeeklyReport /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/samsara-debug" element={
+              <ProtectedRoute requiredRole="admin">
+                <Layout><SamsaraDebug /></Layout>
               </ProtectedRoute>
             } />
             {/* Driver Portal Routes */}
