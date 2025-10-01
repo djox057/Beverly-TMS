@@ -871,7 +871,7 @@ const Reports = () => {
                                 <MapPin className="h-3 w-3 text-red-500" />
                               ) : (
                                 <>
-                                  <MapPin className="h-2.5 w-2.5 text-gray-500" />
+                                  <MapPin className="h-3 w-3 text-gray-500" />
                                   <span className="text-[10px]">{truck.home}</span>
                                 </>
                               )}
