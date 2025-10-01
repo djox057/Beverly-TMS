@@ -40,15 +40,17 @@ const report: GeocodingReport = {
 const parseAddressComponents = (address: string): AddressComponents => {
   const components: AddressComponents = {};
   
-  // Common patterns for address parsing
-  const zipMatch = address.match(/\b(\d{5}(?:-\d{4})?)\b/);
-  if (zipMatch) {
-    components.postalcode = zipMatch[1];
-  }
-  
+  // Parse state first (any 2 uppercase letters)
   const stateMatch = address.match(/\b([A-Z]{2})\b/);
   if (stateMatch) {
     components.state = stateMatch[1];
+  }
+  
+  // Parse ZIP code - must come after state or at end of address to avoid matching street numbers
+  // Match pattern: STATE ZIP or just ZIP at the end
+  const zipMatch = address.match(/[A-Z]{2}\s+(\d{5}(?:-\d{4})?)\b|,\s*(\d{5}(?:-\d{4})?)\s*$/);
+  if (zipMatch) {
+    components.postalcode = zipMatch[1] || zipMatch[2];
   }
   
   // Extract street (everything before first comma or before city/state/zip)
