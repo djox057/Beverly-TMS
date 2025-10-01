@@ -777,11 +777,11 @@ const Reports = () => {
                             </button>
                           </div>
                         </th>
-                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50 px-2 py-1 text-center text-[10px] font-medium text-gray-700" style={{
+                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{
                       width: '220px',
                       minWidth: '220px',
                       maxWidth: '220px'
-                    }}>Away (D) | Drive | Shift | Break | Cycle</th>
+                    }}></th>
                         <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-2 py-1 text-center text-[10px] font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
                           Recent Activity
                         </th>
@@ -837,7 +837,7 @@ const Reports = () => {
                       width: '220px',
                       minWidth: '220px',
                       maxWidth: '220px'
-                    }}></th>
+                    }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
