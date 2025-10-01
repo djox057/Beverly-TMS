@@ -66,7 +66,16 @@ const Reports = () => {
   // Calculate distances when locations or reports change
   useEffect(() => {
     const calculateDistances = async () => {
-      if (!samsaraLocations || !groupedReports) return;
+      if (!samsaraLocations || !groupedReports) {
+        console.log('⚠️ Missing data for distance calculation:', {
+          hasSamsaraLocations: !!samsaraLocations,
+          hasGroupedReports: !!groupedReports
+        });
+        return;
+      }
+
+      console.log('🚀 Starting distance calculations...');
+      console.log('📍 Available Samsara locations:', samsaraLocations.length);
 
       const distances: { [truckId: string]: number } = {};
       
@@ -74,16 +83,52 @@ const Reports = () => {
         for (const truck of group.trucks) {
           const truckLocation = samsaraLocations.find(loc => loc.truck_id === truck.id);
           
+          console.log(`\n🚛 Processing truck ${truck.truckNumber}:`, {
+            truckId: truck.id,
+            hasLocation: !!truckLocation,
+            location: truckLocation,
+            ordersCount: truck.allOrders?.length || 0,
+            truckStatus: truck.status
+          });
+          
           // Get current load (first order)
           const currentOrder = truck.allOrders?.[0];
           
           if (truckLocation && currentOrder) {
+            console.log('📦 Order details:', {
+              loadNumber: currentOrder.loadNumber,
+              pickupStop: currentOrder.pickupStop,
+              deliveryStop: currentOrder.deliveryStop
+            });
+            
             const distance = await calculateOrderDistance(truckLocation, currentOrder, truck.status);
-            distances[truck.id] = distance;
+            console.log(`✅ Calculated distance for truck ${truck.truckNumber}:`, distance);
+            
+            if (distance > 0) {
+              distances[truck.id] = distance;
+              
+              // Save to database
+              const { error } = await supabase
+                .from('trucks')
+                .update({ miles_away: distance })
+                .eq('id', truck.id);
+              
+              if (error) {
+                console.error('❌ Error saving miles_away:', error);
+              } else {
+                console.log(`💾 Saved ${distance} miles to database for truck ${truck.truckNumber}`);
+              }
+            }
+          } else {
+            console.log(`⚠️ Skipping truck ${truck.truckNumber}:`, {
+              hasLocation: !!truckLocation,
+              hasOrder: !!currentOrder
+            });
           }
         }
       }
       
+      console.log('✅ Distance calculation complete:', distances);
       setTruckDistances(distances);
     };
 
