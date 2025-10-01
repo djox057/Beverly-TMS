@@ -218,6 +218,10 @@ const Reports = () => {
         if (isSameDay(checkDate, oneDayFuture)) {
           return 'No pre-book 🥺?';
         }
+        // Show "Empty" for current day, "Lost day" for other days
+        if (isSameDay(checkDate, today)) {
+          return 'Empty';
+        }
         return 'Lost day';
       }
       
