@@ -78,7 +78,7 @@ const Reports = () => {
           const currentOrder = truck.allOrders?.[0];
           
           if (truckLocation && currentOrder) {
-            const distance = await calculateOrderDistance(truckLocation, currentOrder);
+            const distance = await calculateOrderDistance(truckLocation, currentOrder, truck.status);
             distances[truck.id] = distance;
           }
         }
