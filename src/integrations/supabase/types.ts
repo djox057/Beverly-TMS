@@ -566,6 +566,7 @@ export type Database = {
           hos_status: string | null
           id: string
           make: string | null
+          miles_away: number | null
           model: string | null
           status: string | null
           trailer_id: string | null
@@ -588,6 +589,7 @@ export type Database = {
           hos_status?: string | null
           id?: string
           make?: string | null
+          miles_away?: number | null
           model?: string | null
           status?: string | null
           trailer_id?: string | null
@@ -610,6 +612,7 @@ export type Database = {
           hos_status?: string | null
           id?: string
           make?: string | null
+          miles_away?: number | null
           model?: string | null
           status?: string | null
           trailer_id?: string | null

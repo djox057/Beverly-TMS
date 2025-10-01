@@ -96,7 +96,7 @@ const Reports = () => {
           
           if (truckLocation && currentOrder) {
             console.log('📦 Order details:', {
-              loadNumber: currentOrder.loadNumber,
+              loadNumber: currentOrder.load_number,
               pickupStop: currentOrder.pickupStop,
               deliveryStop: currentOrder.deliveryStop
             });
@@ -110,7 +110,7 @@ const Reports = () => {
               // Save to database
               const { error } = await supabase
                 .from('trucks')
-                .update({ miles_away: distance })
+                .update({ miles_away: distance } as any)
                 .eq('id', truck.id);
               
               if (error) {
