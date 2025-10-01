@@ -789,8 +789,16 @@ const Reports = () => {
                       {/* Column Headers Row */}
                       <tr className="bg-gray-50">
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Truck #</th>
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-24">Driver</th>
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Home</th>
+                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                          width: '163px',
+                          minWidth: '163px',
+                          maxWidth: '163px'
+                        }}>Driver</th>
+                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                          width: '136px',
+                          minWidth: '136px',
+                          maxWidth: '136px'
+                        }}>Home</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
@@ -857,14 +865,14 @@ const Reports = () => {
                             </div>
                           </td>
                           <td className="border-r border-b border-gray-300 px-2 py-1 text-xs text-gray-900" style={{
-                      width: '96px',
-                      minWidth: '96px',
-                      maxWidth: '96px'
+                      width: '163px',
+                      minWidth: '163px',
+                      maxWidth: '163px'
                     }}>{truck.driver}</td>
                           <td className="border-r border-b border-gray-300 px-2 py-1 text-xs text-gray-900" style={{
-                      width: '80px',
-                      minWidth: '80px',
-                      maxWidth: '80px'
+                      width: '136px',
+                      minWidth: '136px',
+                      maxWidth: '136px'
                     }}>
                             <div className="flex items-center gap-1" style={{ display: 'flex', alignItems: 'center' }}>
                               {(!truck.home || truck.home === '—') ? (
