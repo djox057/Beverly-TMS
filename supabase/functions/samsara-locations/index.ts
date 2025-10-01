@@ -114,14 +114,36 @@ serve(async (req) => {
     }
 
     console.log(`Total vehicles fetched: ${allVehicles.length}`);
+    console.log(`Total trucks in database: ${trucks?.length || 0}`);
+
+    // Log sample vehicle names for debugging
+    console.log('\n=== SAMPLE VEHICLE NAMES ===');
+    allVehicles.slice(0, 10).forEach(v => {
+      console.log(`  "${v.name}" (ID: ${v.id})`);
+    });
+
+    // Log sample truck numbers for debugging
+    console.log('\n=== SAMPLE TRUCK NUMBERS ===');
+    (trucks || []).slice(0, 10).forEach(t => {
+      console.log(`  "${t.truck_number}" (ID: ${t.id})`);
+    });
 
     // Match vehicles with trucks using flexible matching
     const allLocations: TruckLocation[] = [];
+    let matchAttempts = 0;
+    let successfulMatches = 0;
     
     for (const truck of trucks || []) {
+      matchAttempts++;
+      console.log(`\n--- Matching attempt ${matchAttempts} ---`);
+      console.log(`Looking for truck: "${truck.truck_number}"`);
+      
       const matchedVehicle = findMatchingVehicle(allVehicles, truck.truck_number);
       
       if (matchedVehicle) {
+        console.log(`✓ Found matching vehicle: "${matchedVehicle.name}"`);
+        successfulMatches++;
+        
         const location = matchedVehicle.location || matchedVehicle.gps;
         
         if (location && location.latitude && location.longitude) {
@@ -131,6 +153,11 @@ serve(async (req) => {
           
           const isValid = validateLocationBounds(location.latitude, location.longitude);
           const isFresh = ageMinutes <= MAX_LOCATION_AGE_MINUTES;
+          
+          console.log(`  Location: ${location.latitude}, ${location.longitude}`);
+          console.log(`  Age: ${ageMinutes.toFixed(1)} minutes`);
+          console.log(`  Valid bounds: ${isValid}`);
+          console.log(`  Fresh: ${isFresh}`);
           
           if (isValid) {
             allLocations.push({
@@ -144,13 +171,22 @@ serve(async (req) => {
               isValid: isFresh
             });
             
-            console.log(`✓ Matched truck ${truck.truck_number} -> ${matchedVehicle.name} (${ageMinutes.toFixed(1)} min old, ${isFresh ? 'fresh' : 'stale'})`);
+            console.log(`  ✓ Added to locations list`);
           } else {
-            console.log(`⚠ Truck ${truck.truck_number} location out of bounds: ${location.latitude}, ${location.longitude}`);
+            console.log(`  ✗ Location out of bounds`);
           }
+        } else {
+          console.log(`  ✗ No valid location data in vehicle`);
         }
+      } else {
+        console.log(`✗ No matching vehicle found`);
       }
     }
+
+    console.log(`\n=== MATCHING SUMMARY ===`);
+    console.log(`Total match attempts: ${matchAttempts}`);
+    console.log(`Successful matches: ${successfulMatches}`);
+    console.log(`Final locations: ${allLocations.length}`);
 
     console.log(`Matched ${allLocations.length} truck locations`);
 
@@ -176,7 +212,10 @@ serve(async (req) => {
  * Flexible truck name matching with multiple variants
  */
 function findMatchingVehicle(vehicles: SamsaraVehicle[], truckNumber: string): SamsaraVehicle | null {
-  if (!truckNumber) return null;
+  if (!truckNumber) {
+    console.log('  Empty truck number provided');
+    return null;
+  }
   
   // Normalize truck number and create variants
   const norm = String(truckNumber).replace(/^#/, '').trim();
@@ -185,31 +224,49 @@ function findMatchingVehicle(vehicles: SamsaraVehicle[], truckNumber: string): S
   const variants = [
     `TRUCK ${pad4}`,
     `TRUCK #${pad4}`,
-    `TRUCK ${norm}`,
+    `TRUCK${pad4}`,
     `TRUCK #${norm}`,
+    `TRUCK ${norm}`,
+    `TRUCK${norm}`,
     `#${pad4}`,
     `#${norm}`,
     pad4,
     norm,
     String(truckNumber)
-  ].map(s => s.toUpperCase());
+  ];
+  
+  console.log(`  Trying variants: ${variants.slice(0, 5).join(', ')}...`);
   
   // Find matching vehicle
   for (const vehicle of vehicles) {
     if (!vehicle.name) continue;
     const vehicleName = String(vehicle.name).toUpperCase().trim();
     
-    // Exact match
-    if (variants.some(variant => vehicleName === variant)) {
-      return vehicle;
-    }
-    
-    // Partial match (contains padded number)
-    if (vehicleName.includes(pad4)) {
-      return vehicle;
+    // Check each variant
+    for (const variant of variants) {
+      const variantUpper = variant.toUpperCase();
+      
+      // Exact match
+      if (vehicleName === variantUpper) {
+        console.log(`  ✓ Exact match found: "${vehicle.name}" matches "${variant}"`);
+        return vehicle;
+      }
+      
+      // Contains match (for cases like "TRUCK 9494 - Driver Name")
+      if (vehicleName.includes(variantUpper)) {
+        console.log(`  ✓ Partial match found: "${vehicle.name}" contains "${variant}"`);
+        return vehicle;
+      }
+      
+      // Check if vehicle name contains the padded number anywhere
+      if (vehicleName.includes(pad4)) {
+        console.log(`  ✓ Number match found: "${vehicle.name}" contains "${pad4}"`);
+        return vehicle;
+      }
     }
   }
   
+  console.log(`  ✗ No match found for any variant`);
   return null;
 }
 
