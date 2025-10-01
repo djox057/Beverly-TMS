@@ -149,20 +149,28 @@ export const calculateOrderDistance = async (
   // Light blue (pending, not picked up yet) - calculate distance to pickup
   if (!hasBOL && !pickupArrived) {
     console.log('📦 Calculating distance to pickup');
-    const pickupAddress = order.pickupStop?.address;
-    if (!pickupAddress) return 0;
+    const pickupStop = order.pickupStop;
+    if (!pickupStop?.address) return 0;
     
-    const distance = await calculateDistanceFromTruck(truckLocation, pickupAddress);
+    // Combine address with city and state for better geocoding
+    const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''}`.trim().replace(/,\s*,/g, ',');
+    console.log('📦 Full pickup address:', fullAddress);
+    
+    const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
     return distance || 0;
   }
 
   // Lime green (in transit with BOL, not delivered yet) - calculate distance to delivery
   if (hasBOL && !hasPOD) {
     console.log('🚛 Calculating distance to delivery');
-    const deliveryAddress = order.deliveryStop?.address;
-    if (!deliveryAddress) return 0;
+    const deliveryStop = order.deliveryStop;
+    if (!deliveryStop?.address) return 0;
     
-    const distance = await calculateDistanceFromTruck(truckLocation, deliveryAddress);
+    // Combine address with city and state for better geocoding
+    const fullAddress = `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''}`.trim().replace(/,\s*,/g, ',');
+    console.log('🚛 Full delivery address:', fullAddress);
+    
+    const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
     return distance || 0;
   }
 

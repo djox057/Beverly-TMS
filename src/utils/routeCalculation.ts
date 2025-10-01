@@ -169,8 +169,18 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
     const encodedAddress = encodeURIComponent(cleanedAddress);
     const fullUrl = `https://nominatim.server4beverly.us/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`;
     
+    console.log('🎯 GEOCODING ATTEMPT:', {
+      strategy: 'Full Cleaned Address',
+      originalAddress: address,
+      cleanedAddress: cleanedAddress,
+      url: fullUrl
+    });
+    
     const result = await tryGeocodingStrategy(fullUrl, "Full Cleaned Address", address);
-    if (result) return result;
+    if (result) {
+      console.log('✅ GEOCODING SUCCESS - Using coordinates:', result);
+      return result;
+    }
   } catch (error) {
     console.error('❌ Strategy 1 failed:', error);
   }
@@ -239,15 +249,16 @@ export const calculateRouteDistance = async (
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
     
-    console.log('🚛 Route calculation request:', {
-      startCoords: start,
-      endCoords: end,
-      url
-    });
+    console.log('🚗 =================================');
+    console.log('🚗 OSRM ROUTE CALCULATION');
+    console.log('🚗 =================================');
+    console.log('🚗 Start Coordinates:', start);
+    console.log('🚗 End Coordinates:', end);
+    console.log('🚗 OSRM URL:', url);
     
     const response = await fetch(url);
     
-    console.log('🚛 OSRM response status:', response.status);
+    console.log('🚗 OSRM response status:', response.status);
     
     if (!response.ok) {
       console.error('❌ OSRM API error:', response.status, response.statusText);
@@ -256,16 +267,18 @@ export const calculateRouteDistance = async (
     
     const data: OSRMRoute = await response.json();
     
-    console.log('🚛 OSRM response data:', data);
+    console.log('🚗 OSRM response data:', data);
     
     if (data.routes && data.routes.length > 0) {
       const distanceInMeters = data.routes[0].distance;
       const distanceInMiles = Math.round(distanceInMeters * 0.000621371); // Convert meters to miles
-      console.log('✅ Route calculation successful:', {
-        distanceInMeters,
-        distanceInMiles,
-        duration: data.routes[0].duration
-      });
+      console.log('✅ =================================');
+      console.log('✅ OSRM CALCULATION COMPLETE');
+      console.log('✅ =================================');
+      console.log('✅ Distance in meters:', distanceInMeters);
+      console.log('✅ Distance in miles:', distanceInMiles);
+      console.log('✅ Duration in seconds:', data.routes[0].duration);
+      console.log('✅ =================================');
       return distanceInMiles;
     }
     
