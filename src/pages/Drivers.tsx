@@ -191,6 +191,36 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleMarkDriverDone = async () => {
+    if (!editingDriver) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ is_active: false })
+        .eq('id', editingDriver.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: `${formData.name} has been marked as done and removed from active drivers`
+      });
+      resetForm();
+      setIsEditDialogOpen(false);
+      setEditingDriver(null);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark driver as done",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const handleDeleteDriver = async (driverId: string) => {
     try {
       const {
@@ -575,14 +605,26 @@ const Drivers = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
+            <div className="flex justify-between gap-3">
+              <Button 
+                type="button" 
+                variant="destructive" 
+                onClick={handleMarkDriverDone}
+                disabled={isSubmitting}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Driver
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Done
               </Button>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Driver
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>

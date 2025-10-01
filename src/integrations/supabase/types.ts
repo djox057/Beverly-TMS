@@ -125,6 +125,7 @@ export type Database = {
           hos_shift_minutes: number | null
           hos_status: string | null
           id: string
+          is_active: boolean
           license_number: string | null
           name: string
           phone: string | null
@@ -145,6 +146,7 @@ export type Database = {
           hos_shift_minutes?: number | null
           hos_status?: string | null
           id?: string
+          is_active?: boolean
           license_number?: string | null
           name: string
           phone?: string | null
@@ -165,6 +167,7 @@ export type Database = {
           hos_shift_minutes?: number | null
           hos_status?: string | null
           id?: string
+          is_active?: boolean
           license_number?: string | null
           name?: string
           phone?: string | null
