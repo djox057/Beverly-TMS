@@ -4,11 +4,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { calculateOrderDistance } from "@/utils/distanceCalculation";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -51,6 +53,9 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [truckDistances, setTruckDistances] = useState<{ [truckId: string]: number }>({});
+  const [showDebugData, setShowDebugData] = useState(false);
+  const [debugData, setDebugData] = useState<any>(null);
+  const [loadingDebug, setLoadingDebug] = useState(false);
   const {
     toast
   } = useToast();
@@ -84,6 +89,70 @@ const Reports = () => {
 
     calculateDistances();
   }, [samsaraLocations, groupedReports]);
+
+  const testSamsaraConnection = async () => {
+    setLoadingDebug(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('samsara-locations');
+      
+      if (error) {
+        console.error('Error testing Samsara:', error);
+        toast({
+          title: "Connection Test Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Connection Successful",
+          description: `Found ${data.locations?.length || 0} truck locations`,
+        });
+        console.log('Samsara locations:', data);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Connection Test Failed",
+        description: "Failed to connect to Samsara",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingDebug(false);
+    }
+  };
+
+  const showRawSamsaraData = async () => {
+    setLoadingDebug(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('samsara-debug');
+      
+      if (error) {
+        console.error('Error fetching debug data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch Samsara data",
+          variant: "destructive"
+        });
+      } else {
+        setDebugData(data);
+        setShowDebugData(true);
+        console.log('Samsara Debug Data:', data);
+        toast({
+          title: "Debug Data Loaded",
+          description: `Found ${data.totalVehicles} vehicles`,
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch Samsara data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingDebug(false);
+    }
+  };
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({
       truckId,
@@ -595,12 +664,77 @@ const Reports = () => {
   return <div className="h-full bg-white overflow-hidden flex flex-col">
       {/* Google Sheets-style header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 z-20 relative">
-        <h1 className="text-base font-normal text-gray-900">Dispatcher Fleet Reports</h1>
-        <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5">
-          <AlertCircle className="h-2.5 w-2.5" />
-          Real-time fleet status with multi-load overlay • Orange badge shows trucks with multiple orders
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-base font-normal text-gray-900">Dispatcher Fleet Reports</h1>
+            <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5">
+              <AlertCircle className="h-2.5 w-2.5" />
+              Real-time fleet status with multi-load overlay • Orange badge shows trucks with multiple orders
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={testSamsaraConnection}
+              disabled={loadingDebug}
+            >
+              {loadingDebug ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Test Connection
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={showRawSamsaraData}
+              disabled={loadingDebug}
+            >
+              {loadingDebug ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+              Show API Data
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Debug Data Dialog */}
+      <Dialog open={showDebugData} onOpenChange={setShowDebugData}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Samsara API Raw Data</DialogTitle>
+          </DialogHeader>
+          {debugData && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded">
+                <h3 className="font-semibold mb-2">Summary</h3>
+                <p>Total Vehicles: {debugData.totalVehicles}</p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded">
+                <h3 className="font-semibold mb-2">Name Patterns</h3>
+                <p>With "TRUCK" prefix: {debugData.namePatterns?.withTRUCKPrefix?.length || 0}</p>
+                <p>With 4-digit numbers: {debugData.namePatterns?.withNumbers?.length || 0}</p>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded">
+                <h3 className="font-semibold mb-2">All Vehicle Names</h3>
+                <div className="max-h-64 overflow-y-auto">
+                  <ul className="space-y-1 font-mono text-xs">
+                    {debugData.namePatterns?.all?.map((name: string, index: number) => (
+                      <li key={index}>{name}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-3 rounded">
+                <h3 className="font-semibold mb-2">Full Raw Data</h3>
+                <pre className="overflow-auto text-xs bg-white p-3 rounded max-h-96">
+                  {JSON.stringify(debugData, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 overflow-auto">
         {groupedReports && Object.keys(groupedReports).length === 0 ? <div className="p-4">
@@ -629,7 +763,7 @@ const Reports = () => {
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
-                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50"></th>
+                        <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
@@ -657,7 +791,6 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Truck #</th>
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-24">Driver</th>
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Home</th>
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-center text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Miles</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
@@ -738,29 +871,22 @@ const Reports = () => {
                               <span className="text-[10px]">{truck.home}</span>
                             </div>
                           </td>
-                          <td className="border-r border-b border-gray-300 px-2 py-1 text-center" style={{
-                      width: '64px',
-                      minWidth: '64px',
-                      maxWidth: '64px'
-                    }}>
-                            {isLoadingSamsara ? (
-                              <Loader2 className="h-3 w-3 animate-spin mx-auto text-gray-400" />
-                            ) : truckDistances[truck.id] > 0 ? (
-                              <span className="text-[10px] font-medium text-blue-600">{truckDistances[truck.id]}</span>
-                            ) : (
-                              <span className="text-[10px] text-gray-400">—</span>
-                            )}
-                          </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td colSpan={4} className="border-r border-b border-gray-300 p-0" style={{
                       height: '64px'
                     }}>
                             <div className="h-8 border-b border-gray-200 flex items-center justify-around px-1">
-                              {/* Away Days */}
+                              {/* Away Days - Show distance in miles if available */}
                               <div className="flex flex-col items-center">
                                 <div className="text-[9px] text-gray-600 mb-0">AWAY (D)</div>
-                                <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>
+                                {isLoadingSamsara ? (
+                                  <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                                ) : truckDistances[truck.id] > 0 ? (
+                                  <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div>
+                                ) : (
+                                  <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>
+                                )}
                               </div>
                               
                               {/* HOS Circular Timers */}
