@@ -866,12 +866,20 @@ const Reports = () => {
                       minWidth: '80px',
                       maxWidth: '80px'
                     }}>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1" style={{ display: 'flex', alignItems: 'center' }}>
                               {(!truck.home || truck.home === '—') ? (
-                                <MapPin className="h-3 w-3 text-red-500" />
+                                <MapPin 
+                                  className="text-red-500" 
+                                  style={{ width: '12px', height: '12px', flexShrink: 0 }}
+                                  size={12}
+                                />
                               ) : (
                                 <>
-                                  <MapPin className="h-3 w-3 text-gray-500" />
+                                  <MapPin 
+                                    className="text-gray-500" 
+                                    style={{ width: '12px', height: '12px', flexShrink: 0 }}
+                                    size={12}
+                                  />
                                   <span className="text-[10px]">{truck.home}</span>
                                 </>
                               )}
