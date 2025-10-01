@@ -833,7 +833,7 @@ const Reports = () => {
                             <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'dd')}</div>
                           </th>;
                         })}
-                        <th colSpan={4} className="border-t border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                        <th colSpan={4} className="border-t border-l border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
                       width: '220px',
                       minWidth: '220px',
                       maxWidth: '220px'
