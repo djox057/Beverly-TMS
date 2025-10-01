@@ -407,7 +407,7 @@ const Reports = () => {
         minWidth: '120px',
         maxWidth: '120px',
         verticalAlign: 'top',
-        ...(showRightBorder ? { borderRight: '1px solid rgb(209, 213, 219)', position: 'relative', zIndex: 101 } : {})
+        ...(showRightBorder ? { borderRight: '1px solid rgb(209, 213, 219)' } : {})
       }}>
           {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
