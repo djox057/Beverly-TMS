@@ -1,1 +1,4 @@
 project_id = "wjkbtagwgjniilmgwutb"
+
+[functions.samsara-locations]
+verify_jwt = true

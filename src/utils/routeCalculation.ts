@@ -1,6 +1,6 @@
 // Utility functions for geocoding and route calculation
 
-interface Coordinates {
+export interface Coordinates {
   lat: number;
   lon: number;
 }

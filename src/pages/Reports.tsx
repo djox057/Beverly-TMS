@@ -7,7 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
-import { useState } from "react";
+import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
+import { calculateOrderDistance } from "@/utils/distanceCalculation";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
@@ -45,14 +47,43 @@ const Reports = () => {
     updateLostDayNote,
     updatePickupDropArrival
   } = useReports();
+  const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
+  const [truckDistances, setTruckDistances] = useState<{ [truckId: string]: number }>({});
   const {
     toast
   } = useToast();
   const {
     open: sidebarOpen
   } = useSidebar();
+
+  // Calculate distances when locations or reports change
+  useEffect(() => {
+    const calculateDistances = async () => {
+      if (!samsaraLocations || !groupedReports) return;
+
+      const distances: { [truckId: string]: number } = {};
+      
+      for (const group of Object.values(groupedReports)) {
+        for (const truck of group.trucks) {
+          const truckLocation = samsaraLocations.find(loc => loc.truck_id === truck.id);
+          
+          // Get current load (first order)
+          const currentOrder = truck.allOrders?.[0];
+          
+          if (truckLocation && currentOrder) {
+            const distance = await calculateOrderDistance(truckLocation, currentOrder);
+            distances[truck.id] = distance;
+          }
+        }
+      }
+      
+      setTruckDistances(distances);
+    };
+
+    calculateDistances();
+  }, [samsaraLocations, groupedReports]);
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({
       truckId,
@@ -598,7 +629,7 @@ const Reports = () => {
                     <thead>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
+                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50"></th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
@@ -626,6 +657,7 @@ const Reports = () => {
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Truck #</th>
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-24">Driver</th>
                         <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Home</th>
+                        <th className="border-r border-b border-gray-300 px-2 py-1 text-center text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Miles</th>
                         {days.map((day, index) => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
@@ -705,6 +737,19 @@ const Reports = () => {
                               <MapPin className="h-2.5 w-2.5 text-gray-500" />
                               <span className="text-[10px]">{truck.home}</span>
                             </div>
+                          </td>
+                          <td className="border-r border-b border-gray-300 px-2 py-1 text-center" style={{
+                      width: '64px',
+                      minWidth: '64px',
+                      maxWidth: '64px'
+                    }}>
+                            {isLoadingSamsara ? (
+                              <Loader2 className="h-3 w-3 animate-spin mx-auto text-gray-400" />
+                            ) : truckDistances[truck.id] > 0 ? (
+                              <span className="text-[10px] font-medium text-blue-600">{truckDistances[truck.id]}</span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">—</span>
+                            )}
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
