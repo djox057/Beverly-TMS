@@ -91,8 +91,10 @@ const Reports = () => {
             truckStatus: truck.status
           });
           
-          // Get current load (first order)
-          const currentOrder = truck.allOrders?.[0];
+          // Get current load (first non-completed order without POD)
+          const currentOrder = truck.allOrders?.find(order => 
+            !order.order_files?.some((file: any) => file.file_category === 'POD')
+          );
           
           if (truckLocation && currentOrder) {
             console.log('📦 Order details:', {
