@@ -97,9 +97,15 @@ const Reports = () => {
           if (truckLocation && currentOrder) {
             console.log('📦 Order details:', {
               loadNumber: currentOrder.load_number,
+              status: currentOrder.status,
               pickupStop: currentOrder.pickupStop,
-              deliveryStop: currentOrder.deliveryStop
+              deliveryStop: currentOrder.deliveryStop,
+              hasBOL: currentOrder.order_files?.some((file: any) => file.file_category === 'BOL'),
+              hasPOD: currentOrder.order_files?.some((file: any) => file.file_category === 'POD'),
+              pickupArrived: currentOrder.pickupStop?.arrived_at
             });
+            console.log('📦 VERIFICATION - PickupStop address:', currentOrder.pickupStop?.address);
+            console.log('📦 VERIFICATION - DeliveryStop address:', currentOrder.deliveryStop?.address);
             
             const distance = await calculateOrderDistance(truckLocation, currentOrder, truck.status);
             console.log(`✅ Calculated distance for truck ${truck.truckNumber}:`, distance);

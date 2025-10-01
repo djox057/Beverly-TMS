@@ -185,7 +185,10 @@ export const calculateOrderDistance = async (
   if (!hasBOL && !pickupArrived) {
     console.log('📦 Status: Pending - Calculating distance to pickup');
     const pickupStop = order.pickupStop;
-    console.log('📦 Pickup stop:', pickupStop);
+    const deliveryStop = order.deliveryStop;
+    console.log('📦 VERIFICATION - Pickup stop:', pickupStop);
+    console.log('📦 VERIFICATION - Delivery stop (should NOT use this):', deliveryStop);
+    console.log('📦 VERIFICATION - Using address from:', pickupStop?.address, '(this should be PICKUP not DELIVERY)');
     
     if (!pickupStop?.address) {
       console.log('❌ No pickup address found');
@@ -194,7 +197,8 @@ export const calculateOrderDistance = async (
     
     // Combine address with city and state for better geocoding
     const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''}`.trim().replace(/,\s*,/g, ',');
-    console.log('📦 Full pickup address:', fullAddress);
+    console.log('📦 Full pickup address being geocoded:', fullAddress);
+    console.log('📦 COMPARISON - Delivery address (should NOT match above):', deliveryStop?.address);
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
     console.log('📦 Pickup distance result:', distance);
