@@ -479,20 +479,22 @@ export const useReports = () => {
         };
       }) || [];
 
-      // Group trucks by dispatcher
-      const groupedByDispatcher = reportData.reduce((acc, truck) => {
-        if (!acc[truck.dispatcherId]) {
-          acc[truck.dispatcherId] = {
+      // Group trucks by dispatcher - use array to maintain stable order
+      const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; trucks: typeof reportData }>();
+      
+      for (const truck of reportData) {
+        if (!dispatcherMap.has(truck.dispatcherId)) {
+          dispatcherMap.set(truck.dispatcherId, {
             dispatcher: truck.dispatcher,
             dispatcherId: truck.dispatcherId,
             trucks: []
-          };
+          });
         }
-        acc[truck.dispatcherId].trucks.push(truck);
-        return acc;
-      }, {} as Record<string, { dispatcher: string; dispatcherId: string; trucks: typeof reportData }>);
+        dispatcherMap.get(truck.dispatcherId)!.trucks.push(truck);
+      }
 
-      return Object.values(groupedByDispatcher);
+      // Convert Map to array - this preserves insertion order
+      return Array.from(dispatcherMap.values());
     },
     refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
   });
