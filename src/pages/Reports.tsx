@@ -438,9 +438,12 @@ const Reports = () => {
         const pickupTime = order.pickupDate.getTime();
         const deliveryTime = order.deliveryDate.getTime();
         // Day is in transit if it's after pickup and before delivery
-        return dayTime > pickupTime && dayTime < deliveryTime;
+        // AND the load has been picked up (has BOL or arrived at pickup)
+        const hasPickedUp = order.order_files?.some((file: any) => file.file_category === 'BOL') || order.pickupStop?.arrived_at;
+        return dayTime > pickupTime && dayTime < deliveryTime && hasPickedUp;
       });
-      const isInTransit = inTransitOrders.length > 0;
+      // Only show in-transit if there are no other orders on this day
+      const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
       
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
