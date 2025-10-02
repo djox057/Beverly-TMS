@@ -240,14 +240,16 @@ export const useReports = () => {
              content_type
            )
           )
-        `);
+        `)
+        .order('id', { ascending: true });
 
       if (trucksError) throw trucksError;
 
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email');
+        .select('user_id, full_name, email')
+        .order('user_id', { ascending: true });
 
       if (dispatchersError) throw dispatchersError;
 
@@ -262,7 +264,8 @@ export const useReports = () => {
       // Fetch lost day notes separately
       const { data: lostDayNotes, error: lostDayError } = await supabase
         .from('lost_day_notes')
-        .select('*');
+        .select('*')
+        .order('id', { ascending: true });
 
       if (lostDayError) throw lostDayError;
 
