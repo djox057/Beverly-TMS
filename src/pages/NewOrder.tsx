@@ -1163,6 +1163,9 @@ const NewOrder = () => {
                   value={freightAmount} 
                   onChange={e => setFreightAmount(e.target.value)} 
                 />
+                <p className="text-xs text-muted-foreground">
+                  RPM: ${((parseFloat(freightAmount) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0).toFixed(2)}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1174,6 +1177,9 @@ const NewOrder = () => {
                   value={driverPrice} 
                   onChange={e => setDriverPrice(e.target.value)} 
                 />
+                <p className="text-xs text-muted-foreground">
+                  RPM: ${((parseFloat(driverPrice) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0).toFixed(2)}
+                </p>
               </div>
             </div>
 
