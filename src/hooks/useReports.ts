@@ -240,16 +240,14 @@ export const useReports = () => {
              content_type
            )
           )
-        `)
-        .order('created_at', { ascending: true });
+        `);
 
       if (trucksError) throw trucksError;
 
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, created_at')
-        .order('created_at', { ascending: true });
+        .select('user_id, full_name, email');
 
       if (dispatchersError) throw dispatchersError;
 
@@ -494,16 +492,7 @@ export const useReports = () => {
         return acc;
       }, {} as Record<string, { dispatcher: string; dispatcherId: string; trucks: typeof reportData }>);
 
-      // Convert to array and sort by dispatcher creation order
-      const dispatcherCreationOrder = new Map(
-        dispatchers?.map(d => [d.user_id, d.created_at]) || []
-      );
-
-      return Object.values(groupedByDispatcher).sort((a, b) => {
-        const aCreated = dispatcherCreationOrder.get(a.dispatcherId) || '';
-        const bCreated = dispatcherCreationOrder.get(b.dispatcherId) || '';
-        return aCreated < bCreated ? -1 : aCreated > bCreated ? 1 : 0;
-      });
+      return Object.values(groupedByDispatcher);
     },
     refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
   });
