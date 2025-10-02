@@ -315,7 +315,7 @@ const Orders = () => {
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
+                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className="h-16">
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell>{order.pickupDate}</TableCell>
