@@ -135,14 +135,6 @@ export default function DriverInfo() {
                   <div className="text-xs text-muted-foreground mb-1">Truck Number</div>
                   <div className="text-sm font-medium text-foreground">{data.truck.truck_number}</div>
                 </div>
-                {data.truck.make && (
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Make & Model</div>
-                    <div className="text-sm font-medium text-foreground">
-                      {data.truck.make} {data.truck.model} {data.truck.year}
-                    </div>
-                  </div>
-                )}
                 {data.truck.trailer && (
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Trailer</div>

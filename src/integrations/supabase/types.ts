@@ -62,38 +62,6 @@ export type Database = {
         }
         Relationships: []
       }
-      driver_transit_mapping: {
-        Row: {
-          created_at: string
-          driver_id: string
-          id: string
-          transit_name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          driver_id: string
-          id?: string
-          transit_name: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          driver_id?: string
-          id?: string
-          transit_name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "driver_transit_mapping_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       drivers: {
         Row: {
           created_at: string
@@ -544,13 +512,7 @@ export type Database = {
           dispatcher_id: string | null
           driver1_id: string | null
           driver2_id: string | null
-          hos_cycle_minutes: number | null
-          hos_drive_minutes: number | null
-          hos_last_updated: string | null
-          hos_shift_minutes: number | null
-          hos_status: string | null
           id: string
-          make: string | null
           miles_away: number | null
           model: string | null
           status: string | null
@@ -559,7 +521,6 @@ export type Database = {
           truck_type: string | null
           updated_at: string
           vin: string | null
-          year: number | null
         }
         Insert: {
           company_id?: string | null
@@ -567,13 +528,7 @@ export type Database = {
           dispatcher_id?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
-          hos_cycle_minutes?: number | null
-          hos_drive_minutes?: number | null
-          hos_last_updated?: string | null
-          hos_shift_minutes?: number | null
-          hos_status?: string | null
           id?: string
-          make?: string | null
           miles_away?: number | null
           model?: string | null
           status?: string | null
@@ -582,7 +537,6 @@ export type Database = {
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
-          year?: number | null
         }
         Update: {
           company_id?: string | null
@@ -590,13 +544,7 @@ export type Database = {
           dispatcher_id?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
-          hos_cycle_minutes?: number | null
-          hos_drive_minutes?: number | null
-          hos_last_updated?: string | null
-          hos_shift_minutes?: number | null
-          hos_status?: string | null
           id?: string
-          make?: string | null
           miles_away?: number | null
           model?: string | null
           status?: string | null
@@ -605,7 +553,6 @@ export type Database = {
           truck_type?: string | null
           updated_at?: string
           vin?: string | null
-          year?: number | null
         }
         Relationships: [
           {
