@@ -79,7 +79,7 @@ const Reports = () => {
 
       const distances: { [truckId: string]: number } = {};
       
-      for (const group of Object.values(groupedReports)) {
+      for (const group of groupedReports) {
         for (const truck of group.trucks) {
           const truckLocation = samsaraLocations.find(loc => loc.truck_id === truck.id);
           
@@ -790,17 +790,17 @@ const Reports = () => {
       </Dialog>
 
       <div className="flex-1 overflow-auto">
-        {groupedReports && Object.keys(groupedReports).length === 0 ? <div className="p-4">
+        {groupedReports && groupedReports.length === 0 ? <div className="p-4">
             <div className="text-center py-12 text-gray-500">
               No trucks assigned to dispatchers found
             </div>
           </div> : <div className="px-4 py-2 space-y-4">
-            {Object.entries(groupedReports || {}).map(([dispatcherId, group]) => {
-          const startDate = getCalendarStartDate(dispatcherId);
+            {(groupedReports || []).map((group) => {
+          const startDate = getCalendarStartDate(group.dispatcherId);
           const days = Array.from({
             length: 5
           }, (_, i) => addDays(startDate, i));
-          return <div key={dispatcherId} className="bg-white">
+          return <div key={group.dispatcherId} className="bg-white">
                 {/* Dispatcher header - Google Sheets style */}
                 <div className="mb-2">
                   <h2 className="text-xs font-medium text-gray-900 px-1">
@@ -819,13 +819,13 @@ const Reports = () => {
                         <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
                           <div className="flex items-center justify-center">
-                            <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
+                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
                               <ChevronLeft className="h-3 w-3" />
                             </button>
                             <div className="text-xs font-medium text-gray-700 mx-2">
                               {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
                             </div>
-                            <button onClick={() => handleCalendarDateChange(dispatcherId, addDays(startDate, 1))} className="p-0.5 hover:bg-gray-200 rounded">
+                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))} className="p-0.5 hover:bg-gray-200 rounded">
                               <ChevronRight className="h-3 w-3" />
                             </button>
                           </div>
