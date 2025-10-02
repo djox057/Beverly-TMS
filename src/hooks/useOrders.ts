@@ -107,7 +107,7 @@ export const useOrders = () => {
         .from('orders')
         .select(`
           *,
-          truck:trucks!orders_truck_id_fkey(truck_number),
+          truck:trucks!orders_truck_id_fkey(truck_number, company:companies(name)),
           driver1:drivers!orders_driver1_id_fkey(name),
           broker:brokers!orders_broker_id_fkey(name, address, city, state, zip_code),
           company:companies!orders_company_id_fkey(name),
@@ -138,6 +138,7 @@ export const useOrders = () => {
         return {
           id: order.id,
           truckNumber: order.truck?.truck_number || 'N/A',
+          truckCompanyName: order.truck?.company?.name || 'N/A',
           internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
           pickupDate: formatDateRange(order.pickup_datetime, order.pickup_end_datetime),
           pickupCity: pickupLocation?.city || 'N/A',
