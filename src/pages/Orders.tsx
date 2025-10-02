@@ -306,15 +306,13 @@ const Orders = () => {
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
                     <TableHead className="w-16">RC</TableHead>
-                    <TableHead className="w-16">BOL</TableHead>
                     <TableHead className="w-16">POD</TableHead>
-                    <TableHead className="w-20">Additional</TableHead>
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.length === 0 ? <TableRow>
-                      <TableCell colSpan={22} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
@@ -349,18 +347,6 @@ const Orders = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            {order.bolFiles && order.bolFiles.length > 0 ? order.bolFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
-                        }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
                             {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
                           const {
                             data
@@ -369,18 +355,6 @@ const Orders = () => {
                         }}>
                                   {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
                                 </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {order.additionalFiles && order.additionalFiles.length > 0 ? order.additionalFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
-                        }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : '-'}
                           </div>
                         </TableCell>
                         <TableCell>
