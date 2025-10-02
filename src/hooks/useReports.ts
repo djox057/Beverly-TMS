@@ -241,7 +241,7 @@ export const useReports = () => {
            )
           )
         `)
-        .order('updated_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (trucksError) throw trucksError;
 
