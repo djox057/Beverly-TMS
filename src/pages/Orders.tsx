@@ -303,7 +303,6 @@ const Orders = () => {
                     <TableHead className="w-28">Broker Load #</TableHead>
                     <TableHead className="w-20">Invoiced</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
-                    <TableHead className="w-40">Notes</TableHead>
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
                     <TableHead className="w-16">RC</TableHead>
@@ -315,7 +314,7 @@ const Orders = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.length === 0 ? <TableRow>
-                      <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={22} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow> : filteredOrders.map(order => <TableRow key={order.id}>
@@ -334,7 +333,6 @@ const Orders = () => {
                         <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>{order.invoiced}</TableCell>
                         <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
-                        <TableCell className="max-w-xs truncate">{order.notes}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell>{order.bookedBy}</TableCell>
                         <TableCell>
