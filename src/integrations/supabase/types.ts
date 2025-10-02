@@ -16,43 +16,28 @@ export type Database = {
     Tables: {
       brokers: {
         Row: {
-          address: string | null
-          city: string | null
+          address: string
           created_at: string
-          email: string | null
           id: string
-          mc_number: string | null
+          mc_number: string
           name: string
-          phone: string | null
-          state: string | null
           updated_at: string
-          zip_code: string | null
         }
         Insert: {
-          address?: string | null
-          city?: string | null
+          address: string
           created_at?: string
-          email?: string | null
           id?: string
-          mc_number?: string | null
+          mc_number: string
           name: string
-          phone?: string | null
-          state?: string | null
           updated_at?: string
-          zip_code?: string | null
         }
         Update: {
-          address?: string | null
-          city?: string | null
+          address?: string
           created_at?: string
-          email?: string | null
           id?: string
-          mc_number?: string | null
+          mc_number?: string
           name?: string
-          phone?: string | null
-          state?: string | null
           updated_at?: string
-          zip_code?: string | null
         }
         Relationships: []
       }

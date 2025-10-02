@@ -16,8 +16,6 @@ interface BrokerFormData {
   name: string;
   mc_number: string;
   address: string;
-  phone: string;
-  email: string;
 }
 
 const ITEMS_PER_PAGE = 50;
@@ -33,8 +31,6 @@ const Brokers = () => {
     name: "",
     mc_number: "",
     address: "",
-    phone: "",
-    email: ""
   });
 
   const { toast } = useToast();
@@ -48,11 +44,7 @@ const Brokers = () => {
     const filtered = brokers?.filter(broker =>
       broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
       broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.city?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.state?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.phone?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.email?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
     ) || [];
 
     const total = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -72,27 +64,41 @@ const Brokers = () => {
       name: "",
       mc_number: "",
       address: "",
-      phone: "",
-      email: ""
     });
+    setEditingBroker(null);
   };
 
   const handleAddBroker = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
+      toast({
+        title: "Error",
+        description: "Name, MC Number, and Address are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
       const { error } = await supabase
         .from('brokers')
-        .insert({
-          name: formData.name,
-          mc_number: formData.mc_number || null,
-          address: formData.address || null,
-          phone: formData.phone || null,
-          email: formData.email || null
-        });
+        .insert([formData]);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: "Error",
+            description: "A broker with this MC Number already exists",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast({
         title: "Success",
@@ -115,23 +121,36 @@ const Brokers = () => {
 
   const handleEditBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingBroker) return;
+    
+    if (!editingBroker || !formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
+      toast({
+        title: "Error",
+        description: "Name, MC Number, and Address are required",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
       const { error } = await supabase
         .from('brokers')
-        .update({
-          name: formData.name,
-          mc_number: formData.mc_number || null,
-          address: formData.address || null,
-          phone: formData.phone || null,
-          email: formData.email || null
-        })
+        .update(formData)
         .eq('id', editingBroker.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: "Error",
+            description: "A broker with this MC Number already exists",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       toast({
         title: "Success",
@@ -140,7 +159,6 @@ const Brokers = () => {
 
       resetForm();
       setIsEditDialogOpen(false);
-      setEditingBroker(null);
       refetch();
     } catch (error: any) {
       toast({
@@ -183,19 +201,8 @@ const Brokers = () => {
       name: broker.name || "",
       mc_number: broker.mc_number || "",
       address: broker.address || "",
-      phone: broker.phone || "",
-      email: broker.email || ""
     });
     setIsEditDialogOpen(true);
-  };
-
-  const formatAddress = (broker: any) => {
-    const parts = [];
-    if (broker.address) parts.push(broker.address);
-    if (broker.city) parts.push(broker.city);
-    if (broker.state) parts.push(broker.state);
-    if (broker.zip_code) parts.push(broker.zip_code);
-    return parts.length > 0 ? parts.join(', ') : '—';
   };
 
   if (isLoading) {
@@ -224,58 +231,37 @@ const Brokers = () => {
               <DialogTitle>Add New Broker</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddBroker} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Company Name*</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="ABC Logistics"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="mc_number">MC Number</Label>
-                  <Input
-                    id="mc_number"
-                    value={formData.mc_number}
-                    onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                    placeholder="MC123456"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Company Name *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="ABC Logistics"
+                  required
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Street Address</Label>
+                <Label htmlFor="mc_number">MC Number *</Label>
+                <Input
+                  id="mc_number"
+                  value={formData.mc_number}
+                  onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
+                  placeholder="MC123456"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="address">Full Address *</Label>
                 <Input
                   id="address"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="123 Main St"
+                  placeholder="123 Main St, City, State ZIP"
+                  required
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="dispatch@company.com"
-                  />
-                </div>
               </div>
 
               <div className="flex justify-end gap-3">
@@ -315,15 +301,13 @@ const Brokers = () => {
                   <TableHead>Company Name</TableHead>
                   <TableHead>MC Number</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="h-full">
                 {paginatedBrokers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground h-[500px]">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground h-[500px]">
                       {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
                   </TableRow>
@@ -337,10 +321,8 @@ const Brokers = () => {
                             <span className="font-medium">{broker.name}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono">{broker.mc_number || "—"}</TableCell>
-                        <TableCell className="max-w-xs">{formatAddress(broker)}</TableCell>
-                        <TableCell>{broker.phone || "—"}</TableCell>
-                        <TableCell>{broker.email || "—"}</TableCell>
+                        <TableCell className="font-mono">{broker.mc_number}</TableCell>
+                        <TableCell className="max-w-xs">{broker.address}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button 
@@ -378,7 +360,7 @@ const Brokers = () => {
                     {/* Add empty rows to maintain consistent height */}
                     {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length) }).map((_, i) => (
                       <TableRow key={`empty-${i}`} className="h-[57px]">
-                        <TableCell colSpan={6}>&nbsp;</TableCell>
+                        <TableCell colSpan={4}>&nbsp;</TableCell>
                       </TableRow>
                     ))}
                   </>
@@ -428,58 +410,37 @@ const Brokers = () => {
             <DialogTitle>Edit Broker</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditBroker} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_name">Company Name*</Label>
-                <Input
-                  id="edit_name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="ABC Logistics"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_mc_number">MC Number</Label>
-                <Input
-                  id="edit_mc_number"
-                  value={formData.mc_number}
-                  onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                  placeholder="MC123456"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_name">Company Name *</Label>
+              <Input
+                id="edit_name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="ABC Logistics"
+                required
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit_address">Street Address</Label>
+              <Label htmlFor="edit_mc_number">MC Number *</Label>
+              <Input
+                id="edit_mc_number"
+                value={formData.mc_number}
+                onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
+                placeholder="MC123456"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_address">Full Address *</Label>
               <Input
                 id="edit_address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="123 Main St"
+                placeholder="123 Main St, City, State ZIP"
+                required
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_phone">Phone</Label>
-                <Input
-                  id="edit_phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_email">Email</Label>
-                <Input
-                  id="edit_email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="dispatch@company.com"
-                />
-              </div>
             </div>
 
             <div className="flex justify-end gap-3">
