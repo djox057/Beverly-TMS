@@ -25,20 +25,20 @@ interface EditingState {
 interface DispatcherCalendarState {
   [dispatcherId: string]: Date;
 }
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "In Transit":
-        return <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-800 border border-blue-200">In Transit</span>;
-      case "Loading":
-        return <span className="px-1 py-0.5 text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200">Loading</span>;
-      case "Available":
-        return <span className="px-1 py-0.5 text-[10px] bg-green-100 text-green-800 border border-green-200">Available</span>;
-      case "Maintenance":
-        return <span className="px-1 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-200">Maintenance</span>;
-      default:
-        return <span className="px-1 py-0.5 text-[10px] bg-gray-100 text-gray-800 border border-gray-200">{status}</span>;
-    }
-  };
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "In Transit":
+      return <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-800 border border-blue-200">In Transit</span>;
+    case "Loading":
+      return <span className="px-1 py-0.5 text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200">Loading</span>;
+    case "Available":
+      return <span className="px-1 py-0.5 text-[10px] bg-green-100 text-green-800 border border-green-200">Available</span>;
+    case "Maintenance":
+      return <span className="px-1 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-200">Maintenance</span>;
+    default:
+      return <span className="px-1 py-0.5 text-[10px] bg-gray-100 text-gray-800 border border-gray-200">{status}</span>;
+  }
+};
 const Reports = () => {
   const {
     data: groupedReports,
@@ -50,10 +50,15 @@ const Reports = () => {
     updateLostDayNote,
     updatePickupDropArrival
   } = useReports();
-  const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
+  const {
+    data: samsaraLocations,
+    isLoading: isLoadingSamsara
+  } = useSamsaraLocations();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
-  const [truckDistances, setTruckDistances] = useState<{ [truckId: string]: number }>({});
+  const [truckDistances, setTruckDistances] = useState<{
+    [truckId: string]: number;
+  }>({});
   const [activeTab, setActiveTab] = useState<string>("Čačak");
   const {
     toast
@@ -72,16 +77,14 @@ const Reports = () => {
         });
         return;
       }
-
       console.log('🚀 Starting distance calculations...');
       console.log('📍 Available Samsara locations:', samsaraLocations.length);
-
-      const distances: { [truckId: string]: number } = {};
-      
+      const distances: {
+        [truckId: string]: number;
+      } = {};
       for (const group of groupedReports) {
         for (const truck of group.trucks) {
           const truckLocation = samsaraLocations.find(loc => loc.truck_id === truck.id);
-          
           console.log(`\n🚛 Processing truck ${truck.truckNumber}:`, {
             truckId: truck.id,
             hasLocation: !!truckLocation,
@@ -89,12 +92,9 @@ const Reports = () => {
             ordersCount: truck.allOrders?.length || 0,
             truckStatus: truck.status
           });
-          
+
           // Get current load (first non-completed order without POD)
-          const currentOrder = truck.allOrders?.find(order => 
-            !order.order_files?.some((file: any) => file.file_category === 'POD')
-          );
-          
+          const currentOrder = truck.allOrders?.find(order => !order.order_files?.some((file: any) => file.file_category === 'POD'));
           if (truckLocation && currentOrder) {
             console.log('📦 Order details:', {
               loadNumber: currentOrder.load_number,
@@ -107,19 +107,17 @@ const Reports = () => {
             });
             console.log('📦 VERIFICATION - PickupStop address:', currentOrder.pickupStop?.address);
             console.log('📦 VERIFICATION - DeliveryStop address:', currentOrder.deliveryStop?.address);
-            
             const distance = await calculateOrderDistance(truckLocation, currentOrder, truck.status);
             console.log(`✅ Calculated distance for truck ${truck.truckNumber}:`, distance);
-            
             if (distance > 0) {
               distances[truck.id] = distance;
-              
+
               // Save to database
-              const { error } = await supabase
-                .from('trucks')
-                .update({ miles_away: distance } as any)
-                .eq('id', truck.id);
-              
+              const {
+                error
+              } = await supabase.from('trucks').update({
+                miles_away: distance
+              } as any).eq('id', truck.id);
               if (error) {
                 console.error('❌ Error saving miles_away:', error);
               } else {
@@ -134,14 +132,11 @@ const Reports = () => {
           }
         }
       }
-      
       console.log('✅ Distance calculation complete:', distances);
       setTruckDistances(distances);
     };
-
     calculateDistances();
   }, [samsaraLocations, groupedReports]);
-
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({
       truckId,
@@ -272,7 +267,6 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
       const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
       const hasArrived = order.pickupStop?.arrived_at;
-      
       if (hasBOL || hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
       if (hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
       if (previousLoadDeliveryComplete) return 'bg-blue-300 text-blue-900 border-blue-400'; // Light Blue (in transit)
@@ -284,7 +278,6 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
       const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
       const hasArrived = order.deliveryStop?.arrived_at;
-      
       if (hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
       if (hasBOL && hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
       if (hasBOL) return 'bg-lime-400 text-lime-950 border-lime-500'; // Lime Green
@@ -295,7 +288,7 @@ const Reports = () => {
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, 'yyyy-MM-dd');
       const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
-      
+
       // If no existing note, check if this is 1 day in future
       if (!lostDayNote) {
         const today = new Date();
@@ -303,7 +296,6 @@ const Reports = () => {
         const checkDate = new Date(date);
         checkDate.setHours(0, 0, 0, 0);
         const oneDayFuture = addDays(today, 1);
-        
         if (isSameDay(checkDate, oneDayFuture)) {
           return 'No pre-book 🥺?';
         }
@@ -313,7 +305,6 @@ const Reports = () => {
         }
         return 'Lost day';
       }
-      
       return lostDayNote.note;
     };
 
@@ -340,22 +331,19 @@ const Reports = () => {
       if (!b.pickupDate) return -1;
       return a.pickupDate.getTime() - b.pickupDate.getTime();
     }) || [];
-    
+
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
       const currentIndex = ordersWithDates.findIndex(o => o.id === currentOrder.id);
       if (currentIndex <= 0) return true; // First load, no previous
-      
+
       const previousOrder = ordersWithDates[currentIndex - 1];
       const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
       return !!hasPOD; // Dark green if POD exists
     };
-    
+
     // Find the first pickup date for this truck
-    const firstPickupDate = ordersWithDates
-      .filter(order => order.pickupDate)
-      .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
-    
+    const firstPickupDate = ordersWithDates.filter(order => order.pickupDate).sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
@@ -366,7 +354,7 @@ const Reports = () => {
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
-      
+
       // Check if this day is in transit (between pickup and delivery) for any order
       const inTransitOrders = ordersWithDates.filter(order => {
         if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
@@ -380,63 +368,64 @@ const Reports = () => {
       });
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
-      
+
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
       const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit;
-      
+
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
-      
       return <td key={index} className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: '120px',
         minWidth: '120px',
         maxWidth: '120px',
         verticalAlign: 'top',
-        ...(showRightBorder ? { borderRight: '1px solid rgb(209, 213, 219)' } : {})
+        ...(showRightBorder ? {
+          borderRight: '1px solid rgb(209, 213, 219)'
+        } : {})
       }}>
           {/* Red border overlay for today column - sits on top of everything */}
-          {isToday && (
-            <div 
-              className="absolute pointer-events-none" 
-              style={{
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderLeft: '4px solid rgb(239, 68, 68)',
-                borderRight: '4px solid rgb(239, 68, 68)',
-                ...(isFirstTruck ? { borderTop: '4px solid rgb(239, 68, 68)' } : {}),
-                ...(isLastTruck ? { borderBottom: '4px solid rgb(239, 68, 68)' } : {}),
-                zIndex: 100
-              }}
-            />
-          )}
+          {isToday && <div className="absolute pointer-events-none" style={{
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderLeft: '4px solid rgb(239, 68, 68)',
+          borderRight: '4px solid rgb(239, 68, 68)',
+          ...(isFirstTruck ? {
+            borderTop: '4px solid rgb(239, 68, 68)'
+          } : {}),
+          ...(isLastTruck ? {
+            borderBottom: '4px solid rgb(239, 68, 68)'
+          } : {}),
+          zIndex: 100
+        }} />}
           
           <div className="flex flex-col relative" style={{
           width: '120px',
           height: '64px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{ height: '32px', minHeight: '32px', maxHeight: '32px' }}>
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{
+            height: '32px',
+            minHeight: '32px',
+            maxHeight: '32px'
+          }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
-                    const cellColor = getDeliveryCellColor(order);
-                    return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                const cellColor = getDeliveryCellColor(order);
+                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
                       <div className="text-[10px] font-medium truncate leading-tight">
                         {order.deliveryLocation}
                       </div>
                       <div className="text-[9px] opacity-70 truncate leading-tight">
-                        {order.delivery_datetime && order.delivery_end_datetime && 
-                         format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') 
-                         ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` 
-                         : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                        {order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -455,23 +444,21 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
-                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  updatePickupDropArrival.mutate({ pickupDropId: order.deliveryStop.id });
-                                  toast({ title: "Marked as arrived at delivery" });
-                                }}
-                                className="w-full mt-2"
-                              >
+                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && <Button size="sm" onClick={() => {
+                          updatePickupDropArrival.mutate({
+                            pickupDropId: order.deliveryStop.id
+                          });
+                          toast({
+                            title: "Marked as arrived at delivery"
+                          });
+                        }} className="w-full mt-2">
                                 Arrived at Delivery
-                              </Button>
-                            )}
+                              </Button>}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  })}
+                    </div>;
+              })}
                   {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
                       +{deliveryOnlyOrders.length - 1} more
                     </div>}
@@ -479,21 +466,22 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{ height: '32px', minHeight: '32px', maxHeight: '32px' }}>
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{
+            height: '32px',
+            minHeight: '32px',
+            maxHeight: '32px'
+          }}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    const cellColor = getPickupCellColor(order, previousComplete);
-                    return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                const previousComplete = getPreviousLoadDeliveryStatus(order);
+                const cellColor = getPickupCellColor(order, previousComplete);
+                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
                       <div className="text-[10px] font-medium truncate leading-tight">
                         {order.pickupLocation}
                       </div>
                       <div className="text-[9px] opacity-70 truncate leading-tight">
-                        {order.pickup_datetime && order.pickup_end_datetime && 
-                         format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
-                         ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
-                         : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                        {order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -512,29 +500,27 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
-                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  updatePickupDropArrival.mutate({ pickupDropId: order.pickupStop.id });
-                                  toast({ title: "Marked as arrived at pickup" });
-                                }}
-                                className="w-full mt-2"
-                              >
+                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && <Button size="sm" onClick={() => {
+                          updatePickupDropArrival.mutate({
+                            pickupDropId: order.pickupStop.id
+                          });
+                          toast({
+                            title: "Marked as arrived at pickup"
+                          });
+                        }} className="w-full mt-2">
                                 Arrived at Pickup
-                              </Button>
-                            )}
+                              </Button>}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  })}
+                    </div>;
+              })}
 
                   {/* Render same-day orders (combined pickup and delivery) */}
                   {sameDayOrders.slice(0, Math.max(0, 1 - pickupOnlyOrders.length)).map((order, idx) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    const cellColor = getPickupCellColor(order, previousComplete);
-                    return <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                const previousComplete = getPreviousLoadDeliveryStatus(order);
+                const cellColor = getPickupCellColor(order, previousComplete);
+                return <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
                       <div className="text-[10px] font-medium truncate leading-tight">
                         P: {order.pickupLocation}
                       </div>
@@ -542,14 +528,8 @@ const Reports = () => {
                         D: {order.deliveryLocation}
                       </div>
                       <div className="text-[9px] opacity-70 truncate flex justify-between leading-tight">
-                        <span>{order.pickup_datetime && order.pickup_end_datetime && 
-                              format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') 
-                              ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` 
-                              : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
-                        <span>{order.delivery_datetime && order.delivery_end_datetime && 
-                              format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') 
-                              ? `${format(new Date(order.delivery_datetime), 'HH:mm')}-${format(new Date(order.delivery_end_datetime), 'HH:mm')}` 
-                              : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')}-${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -568,49 +548,49 @@ const Reports = () => {
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
-                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  updatePickupDropArrival.mutate({ pickupDropId: order.pickupStop.id });
-                                  toast({ title: "Marked as arrived at pickup" });
-                                }}
-                                className="w-full mt-2"
-                              >
+                            {order.pickupStop?.id && !order.pickupStop?.arrived_at && <Button size="sm" onClick={() => {
+                          updatePickupDropArrival.mutate({
+                            pickupDropId: order.pickupStop.id
+                          });
+                          toast({
+                            title: "Marked as arrived at pickup"
+                          });
+                        }} className="w-full mt-2">
                                 Arrived at Pickup
-                              </Button>
-                            )}
-                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  updatePickupDropArrival.mutate({ pickupDropId: order.deliveryStop.id });
-                                  toast({ title: "Marked as arrived at delivery" });
-                                }}
-                                className="w-full mt-2"
-                              >
+                              </Button>}
+                            {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && <Button size="sm" onClick={() => {
+                          updatePickupDropArrival.mutate({
+                            pickupDropId: order.deliveryStop.id
+                          });
+                          toast({
+                            title: "Marked as arrived at delivery"
+                          });
+                        }} className="w-full mt-2">
                                 Arrived at Delivery
-                              </Button>
-                            )}
+                              </Button>}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </div>
-                  })}
+                    </div>;
+              })}
 
                   {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
-                  {(pickupOnlyOrders.length + sameDayOrders.length) > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
-                      +{(pickupOnlyOrders.length + sameDayOrders.length) - 1} more
+                  {pickupOnlyOrders.length + sameDayOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
+                      +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? (e) => {
-                  e.stopPropagation();
-                  const dateStr = format(day, 'yyyy-MM-dd');
-                  const currentNote = getLostDayNote(day);
-                  const newNote = prompt('Edit lost day note:', currentNote);
-                  if (newNote !== null && newNote !== currentNote) {
-                    updateLostDayNote.mutate({ truckId: truck.id, date: dateStr, note: newNote });
-                  }
-                } : undefined}>{isMissingPickup ? getLostDayNote(day) : isInTransit ? '>>>' : '—'}</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? e => {
+              e.stopPropagation();
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const currentNote = getLostDayNote(day);
+              const newNote = prompt('Edit lost day note:', currentNote);
+              if (newNote !== null && newNote !== currentNote) {
+                updateLostDayNote.mutate({
+                  truckId: truck.id,
+                  date: dateStr,
+                  note: newNote
+                });
+              }
+            } : undefined}>{isMissingPickup ? getLostDayNote(day) : isInTransit ? '>>>' : '—'}</div>}
             </div>
 
           </div>
@@ -660,57 +640,42 @@ const Reports = () => {
     if (!groupedReports) return [];
     return groupedReports.filter(group => group.office === office);
   };
-
   return <div className="h-full bg-white overflow-hidden flex flex-col">{/* Google Sheets-style header */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 z-20 relative">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-normal text-gray-900">Dispatcher Fleet Reports</h1>
-            <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5">
-              <AlertCircle className="h-2.5 w-2.5" />
-              Real-time fleet status with multi-load overlay • Orange badge shows trucks with multiple orders
-            </div>
-          </div>
-        </div>
-      </div>
+      
 
       <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="px-4 pt-2 sticky top-0 bg-white z-10 border-b border-gray-200">
             <TabsList className="grid w-full grid-cols-4 mb-2">
-              {offices.map(office => (
-                <TabsTrigger key={office} value={office}>
+              {offices.map(office => <TabsTrigger key={office} value={office}>
                   {office}
-                </TabsTrigger>
-              ))}
+                </TabsTrigger>)}
             </TabsList>
           </div>
 
-          {offices.map(office => (
-            <TabsContent key={office} value={office} className="mt-0">
-              {filterReportsByOffice(office).length === 0 ? (
-                <div className="p-4">
+          {offices.map(office => <TabsContent key={office} value={office} className="mt-0">
+              {filterReportsByOffice(office).length === 0 ? <div className="p-4">
                   <div className="text-center py-12 text-gray-500">
                     No trucks assigned to dispatchers in {office}
                   </div>
-                </div>
-              ) : (
-                <div className="px-4 py-2">
-                  {filterReportsByOffice(office).map((group) => {
-          const startDate = getCalendarStartDate(group.dispatcherId);
-          const days = Array.from({
-            length: 5
-          }, (_, i) => addDays(startDate, i));
-          return <div key={group.dispatcherId} className="bg-white">
+                </div> : <div className="px-4 py-2">
+                  {filterReportsByOffice(office).map(group => {
+              const startDate = getCalendarStartDate(group.dispatcherId);
+              const days = Array.from({
+                length: 5
+              }, (_, i) => addDays(startDate, i));
+              return <div key={group.dispatcherId} className="bg-white">
                 {/* Google Sheets-style table */}
                 <div className="w-full">
                   <table className="w-full border-collapse bg-white border border-gray-300" style={{
-                tableLayout: 'auto'
-              }}>
+                    tableLayout: 'auto'
+                  }}>
                     <thead>
                       {/* Date Range Selector Row with Dispatcher Name */}
                       <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left font-bold text-gray-900 bg-gray-50" style={{ fontSize: '0.825rem' }}>
+                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left font-bold text-gray-900 bg-gray-50" style={{
+                          fontSize: '0.825rem'
+                        }}>
                           {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
                         </th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
@@ -727,10 +692,10 @@ const Reports = () => {
                           </div>
                         </th>
                         <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{
-                      width: '220px',
-                      minWidth: '220px',
-                      maxWidth: '220px'
-                    }}></th>
+                          width: '220px',
+                          minWidth: '220px',
+                          maxWidth: '220px'
+                        }}></th>
                         <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-2 py-1 text-center text-[10px] font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
                           Recent Activity
                         </th>
@@ -762,31 +727,26 @@ const Reports = () => {
                             } : {})
                           }}>
                             {/* Red border overlay for today header */}
-                            {isToday && (
-                              <div 
-                                className="absolute pointer-events-none" 
-                                style={{
-                                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  borderLeft: '4px solid rgb(239, 68, 68)',
-                  borderRight: '4px solid rgb(239, 68, 68)',
-                  borderTop: '4px solid rgb(239, 68, 68)',
-                  borderBottom: '4px solid rgb(156, 163, 175)',
-                  zIndex: 100
-                                }}
-                              />
-                            )}
+                            {isToday && <div className="absolute pointer-events-none" style={{
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              borderLeft: '4px solid rgb(239, 68, 68)',
+                              borderRight: '4px solid rgb(239, 68, 68)',
+                              borderTop: '4px solid rgb(239, 68, 68)',
+                              borderBottom: '4px solid rgb(156, 163, 175)',
+                              zIndex: 100
+                            }} />}
                             <div className="relative z-10 text-[10px]">{format(day, 'EEEE')}</div>
                             <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'M/d/yyyy')}</div>
                           </th>;
                         })}
                         <th colSpan={4} className="border-t border-l border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
-                      width: '220px',
-                      minWidth: '220px',
-                      maxWidth: '220px'
-                    }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
+                          width: '220px',
+                          minWidth: '220px',
+                          maxWidth: '220px'
+                        }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
                          <th className="border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Last Edit</th>
                          <th className={`border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
                        </tr>
@@ -795,13 +755,12 @@ const Reports = () => {
                       {group.trucks.map((truck, truckIndex) => {
                         const modifiedCells = renderTruckCalendarCells(truck, startDate, truckIndex, group.trucks.length);
                         const isLastTruck = truckIndex === group.trucks.length - 1;
-                        
                         return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
                           <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900 font-medium`} style={{
-                      width: '64px',
-                      minWidth: '64px',
-                      maxWidth: '64px'
-                    }}>
+                            width: '64px',
+                            minWidth: '64px',
+                            maxWidth: '64px'
+                          }}>
                             <div className="flex items-center gap-1">
                               {truck.truckNumber}
                               {truck.hasMultipleOrders && <TooltipProvider>
@@ -815,111 +774,82 @@ const Reports = () => {
                             </div>
                           </td>
                           <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
-                      width: '163px',
-                      minWidth: '163px',
-                      maxWidth: '163px'
-                    }}>{truck.driver}</td>
+                            width: '163px',
+                            minWidth: '163px',
+                            maxWidth: '163px'
+                          }}>{truck.driver}</td>
                           <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
-                      width: '136px',
-                      minWidth: '136px',
-                      maxWidth: '136px'
-                    }}>
-                            <div className="flex items-center gap-1" style={{ display: 'flex', alignItems: 'center' }}>
-                              {(!truck.home || truck.home === '—') ? (
-                                <MapPin 
-                                  className="text-red-500" 
-                                  style={{ width: '12px', height: '12px', flexShrink: 0 }}
-                                  size={12}
-                                />
-                              ) : (
-                                <>
-                                  <MapPin 
-                                    className="text-gray-500" 
-                                    style={{ width: '12px', height: '12px', flexShrink: 0 }}
-                                    size={12}
-                                  />
+                            width: '136px',
+                            minWidth: '136px',
+                            maxWidth: '136px'
+                          }}>
+                            <div className="flex items-center gap-1" style={{
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}>
+                              {!truck.home || truck.home === '—' ? <MapPin className="text-red-500" style={{
+                                width: '12px',
+                                height: '12px',
+                                flexShrink: 0
+                              }} size={12} /> : <>
+                                  <MapPin className="text-gray-500" style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  flexShrink: 0
+                                }} size={12} />
                                   <span className="text-[10px]">{truck.home}</span>
-                                </>
-                              )}
+                                </>}
                             </div>
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                           <td colSpan={4} className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} p-0`} style={{
-                      height: '64px'
-                    }}>
+                            height: '64px'
+                          }}>
                             <div className="h-8 border-b border-gray-200 flex items-center justify-around px-1">
                               {/* Away Days - Show distance in miles if available */}
                               <div className="flex flex-col items-center">
                                 <div className="text-[9px] text-gray-600 mb-0">AWAY (D)</div>
-                                {isLoadingSamsara ? (
-                                  <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                                ) : truckDistances[truck.id] > 0 ? (
-                                  <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div>
-                                ) : (
-                                  <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>
-                                )}
+                                {isLoadingSamsara ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : truckDistances[truck.id] > 0 ? <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div> : <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>}
                               </div>
                               
                               {/* HOS Circular Timers */}
-                              <HosCircularTimer 
-                                minutes={truck.driveMinutes} 
-                                maxMinutes={11 * 60} // 11 hours max drive time
-                                label="DRIVE" 
-                                color="#84cc16" // green
-                                size={32}
-                                strokeWidth={3}
-                              />
-                               <HosCircularTimer 
-                                minutes={truck.shiftMinutes} 
-                                maxMinutes={14 * 60} // 14 hours max shift time
-                                label="SHIFT" 
-                                color="#06b6d4" // cyan
-                                size={32}
-                                strokeWidth={3}
-                              />
-                              <HosCircularTimer 
-                                minutes={truck.breakMinutes} 
-                                maxMinutes={8 * 60} // 8 hours max break time
-                                label="BREAK" 
-                                color="#8b5cf6" // purple
-                                size={32}
-                                strokeWidth={3}
-                              />
-                              <HosCircularTimer 
-                                minutes={truck.cycleMinutes} 
-                                maxMinutes={70 * 60} // 70 hours max cycle time
-                                label="CYCLE" 
-                                color="#6b7280" // gray
-                                size={32}
-                                strokeWidth={3}
-                              />
+                              <HosCircularTimer minutes={truck.driveMinutes} maxMinutes={11 * 60} // 11 hours max drive time
+                              label="DRIVE" color="#84cc16" // green
+                              size={32} strokeWidth={3} />
+                               <HosCircularTimer minutes={truck.shiftMinutes} maxMinutes={14 * 60} // 14 hours max shift time
+                              label="SHIFT" color="#06b6d4" // cyan
+                              size={32} strokeWidth={3} />
+                              <HosCircularTimer minutes={truck.breakMinutes} maxMinutes={8 * 60} // 8 hours max break time
+                              label="BREAK" color="#8b5cf6" // purple
+                              size={32} strokeWidth={3} />
+                              <HosCircularTimer minutes={truck.cycleMinutes} maxMinutes={70 * 60} // 70 hours max cycle time
+                              label="CYCLE" color="#6b7280" // gray
+                              size={32} strokeWidth={3} />
                             </div>
                             <div className="h-8 p-0 w-full">
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                            </td>
                            <td className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-[10px] text-gray-600`} style={{
-                      width: '80px',
-                      minWidth: '80px',
-                      maxWidth: '80px'
-                    }}>{truck.lastEdit}</td>
+                            width: '80px',
+                            minWidth: '80px',
+                            maxWidth: '80px'
+                          }}>{truck.lastEdit}</td>
                            <td className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-[10px] text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
-                      width: '80px',
-                      minWidth: '80px',
-                      maxWidth: '80px'
-                    }}>{truck.editDate}</td>
+                            width: '80px',
+                            minWidth: '80px',
+                            maxWidth: '80px'
+                          }}>{truck.editDate}</td>
                         </tr>;
                       })}
                     </tbody>
                   </table>
                 </div>
               </div>;
-        })}
-                </div>
-              )}
-            </TabsContent>
-          ))}
+            })}
+                </div>}
+            </TabsContent>)}
         </Tabs>
       </div>
     </div>;
