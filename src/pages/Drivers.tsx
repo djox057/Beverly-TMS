@@ -31,6 +31,7 @@ interface DriverFormData {
   fuel_card_number: string;
   cdl_number: string;
   cdl_expiration_date: Date | undefined;
+  medical_card_expiration_date: Date | undefined;
   hire_date: Date | undefined;
   termination_date: Date | undefined;
   mvr_date: Date | undefined;
@@ -64,6 +65,7 @@ const Drivers = () => {
     fuel_card_number: "",
     cdl_number: "",
     cdl_expiration_date: undefined,
+    medical_card_expiration_date: undefined,
     hire_date: undefined,
     termination_date: undefined,
     mvr_date: undefined,
@@ -115,6 +117,7 @@ const Drivers = () => {
       fuel_card_number: "",
       cdl_number: "",
       cdl_expiration_date: undefined,
+      medical_card_expiration_date: undefined,
       hire_date: undefined,
       termination_date: undefined,
       mvr_date: undefined,
@@ -178,7 +181,7 @@ const Drivers = () => {
         personal_id: formData.personal_id || null,
         fuel_card_number: formData.fuel_card_number || null,
         cdl_number: formData.cdl_number || null,
-        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
+        medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
         hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
@@ -241,6 +244,7 @@ const Drivers = () => {
         fuel_card_number: formData.fuel_card_number || null,
         cdl_number: formData.cdl_number || null,
         cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
+        medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
         hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
@@ -354,6 +358,7 @@ const Drivers = () => {
       fuel_card_number: driver.fuel_card_number || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date ? new Date(driver.cdl_expiration_date) : undefined,
+      medical_card_expiration_date: driver.medical_card_expiration_date ? new Date(driver.medical_card_expiration_date) : undefined,
       hire_date: driver.hire_date ? new Date(driver.hire_date) : undefined,
       termination_date: driver.termination_date ? new Date(driver.termination_date) : undefined,
       mvr_date: driver.mvr_date ? new Date(driver.mvr_date) : undefined,
@@ -392,22 +397,22 @@ const Drivers = () => {
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddDriver} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-4">
+                <div className="space-y-2 col-span-3">
                   <Label htmlFor="name">Name*</Label>
                   <Input id="name" value={formData.name} onChange={e => setFormData({
                   ...formData,
                   name: e.target.value
                 })} placeholder="John Smith" required />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-3">
                   <Label htmlFor="phone">Phone</Label>
                   <Input id="phone" value={formData.phone} onChange={e => setFormData({
                   ...formData,
                   phone: e.target.value
                 })} placeholder="(555) 123-4567" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-6">
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
                   ...formData,
@@ -448,22 +453,22 @@ const Drivers = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-12 gap-4">
+                <div className="space-y-2 col-span-8">
                   <Label htmlFor="home_address">Home Address</Label>
                   <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
                   ...formData,
                   home_address: e.target.value
                 })} placeholder="1234 Oak Street" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-3">
                   <Label htmlFor="home_city">Home City</Label>
                   <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
                   ...formData,
                   home_city: e.target.value
                 })} placeholder="Chicago" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-1">
                   <Label htmlFor="home_state">Home State</Label>
                   <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
                   ...formData,
@@ -534,7 +539,7 @@ const Drivers = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mvr_date">MVR Date</Label>
                     <DatePicker
@@ -554,6 +559,16 @@ const Drivers = () => {
                       clearing_house: date
                     })}
                   />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="medical_card_expiration_date">Medical Card Exp</Label>
+                    <DatePicker
+                      date={formData.medical_card_expiration_date}
+                      onDateChange={(date) => setFormData({
+                        ...formData,
+                        medical_card_expiration_date: date
+                      })}
+                    />
                   </div>
                 </div>
 
@@ -768,22 +783,22 @@ const Drivers = () => {
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditDriver} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-4">
+              <div className="space-y-2 col-span-3">
                 <Label htmlFor="edit_name">Name*</Label>
                 <Input id="edit_name" value={formData.name} onChange={e => setFormData({
                 ...formData,
                 name: e.target.value
               })} placeholder="John Smith" required />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-3">
                 <Label htmlFor="edit_phone">Phone</Label>
                 <Input id="edit_phone" value={formData.phone} onChange={e => setFormData({
                 ...formData,
                 phone: e.target.value
               })} placeholder="(555) 123-4567" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-6">
                 <Label htmlFor="edit_email">Email</Label>
                 <Input id="edit_email" type="email" value={formData.email} onChange={e => setFormData({
                 ...formData,
@@ -824,22 +839,22 @@ const Drivers = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-4">
+              <div className="space-y-2 col-span-8">
                 <Label htmlFor="edit_home_address">Home Address</Label>
                 <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
                 ...formData,
                 home_address: e.target.value
               })} placeholder="1234 Oak Street" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-3">
                 <Label htmlFor="edit_home_city">Home City</Label>
                 <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
                 ...formData,
                 home_city: e.target.value
               })} placeholder="Chicago" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-1">
                 <Label htmlFor="edit_home_state">Home State</Label>
                 <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
                 ...formData,
@@ -910,7 +925,7 @@ const Drivers = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit_mvr_date">MVR Date</Label>
                   <DatePicker
@@ -928,6 +943,16 @@ const Drivers = () => {
                     onDateChange={(date) => setFormData({
                       ...formData,
                       clearing_house: date
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_medical_card_expiration_date">Medical Card Exp</Label>
+                  <DatePicker
+                    date={formData.medical_card_expiration_date}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      medical_card_expiration_date: date
                     })}
                   />
                 </div>

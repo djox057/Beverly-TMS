@@ -86,6 +86,7 @@ export type Database = {
           id: string
           is_active: boolean
           license_number: string | null
+          medical_card_expiration_date: string | null
           mvr_date: string | null
           name: string
           personal_id: string | null
@@ -117,6 +118,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           license_number?: string | null
+          medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name: string
           personal_id?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           license_number?: string | null
+          medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string
           personal_id?: string | null
