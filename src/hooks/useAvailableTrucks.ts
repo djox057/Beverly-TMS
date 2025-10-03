@@ -7,7 +7,7 @@ export const useAvailableTrucks = (currentDriverId?: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('trucks')
-        .select('id, truck_number, driver1_id')
+        .select('id, truck_number, driver1_id, trailer_id')
         .order('truck_number', { ascending: true });
       
       if (error) throw error;

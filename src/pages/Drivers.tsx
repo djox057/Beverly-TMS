@@ -431,7 +431,12 @@ const Drivers = () => {
                     }))}
                     value={formData.truck_id}
                     onValueChange={(value) => {
-                      setFormData({ ...formData, truck_id: value, trailer_id: "" });
+                      const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+                      setFormData({ 
+                        ...formData, 
+                        truck_id: value, 
+                        trailer_id: selectedTruck?.trailer_id || "" 
+                      });
                       setSelectedTruckId(value);
                     }}
                     placeholder="Select truck..."
@@ -817,7 +822,12 @@ const Drivers = () => {
                   }))}
                   value={formData.truck_id}
                   onValueChange={(value) => {
-                    setFormData({ ...formData, truck_id: value, trailer_id: "" });
+                    const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+                    setFormData({ 
+                      ...formData, 
+                      truck_id: value, 
+                      trailer_id: selectedTruck?.trailer_id || "" 
+                    });
                     setSelectedTruckId(value);
                   }}
                   placeholder="Select truck..."
