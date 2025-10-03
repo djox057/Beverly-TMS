@@ -670,7 +670,7 @@ const Reports = () => {
             <div className="text-center py-12 text-gray-500">
               No trucks assigned to dispatchers found
             </div>
-          </div> : <div className="px-4 py-2 space-y-4">
+          </div> : <div className="px-4 py-2">
             {(groupedReports || []).map((group) => {
           const startDate = getCalendarStartDate(group.dispatcherId);
           const days = Array.from({
