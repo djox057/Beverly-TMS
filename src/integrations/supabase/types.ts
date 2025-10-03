@@ -106,6 +106,50 @@ export type Database = {
           },
         ]
       }
+      driver_pii_audit_log: {
+        Row: {
+          access_reason: string | null
+          accessed_at: string
+          accessed_by: string
+          driver_id: string
+          fields_accessed: string[] | null
+          id: string
+          ip_address: unknown | null
+          operation: string
+          user_agent: string | null
+        }
+        Insert: {
+          access_reason?: string | null
+          accessed_at?: string
+          accessed_by: string
+          driver_id: string
+          fields_accessed?: string[] | null
+          id?: string
+          ip_address?: unknown | null
+          operation: string
+          user_agent?: string | null
+        }
+        Update: {
+          access_reason?: string | null
+          accessed_at?: string
+          accessed_by?: string
+          driver_id?: string
+          fields_accessed?: string[] | null
+          id?: string
+          ip_address?: unknown | null
+          operation?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_pii_audit_log_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_sensitive_pii: {
         Row: {
           created_at: string
@@ -830,7 +874,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      recent_pii_access: {
+        Row: {
+          access_reason: string | null
+          accessed_at: string | null
+          accessed_by_email: string | null
+          accessed_by_name: string | null
+          accessed_by_role: Database["public"]["Enums"]["app_role"] | null
+          driver_name: string | null
+          fields_accessed: string[] | null
+          id: string | null
+          operation: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_order_with_unique_load_number: {
@@ -843,6 +900,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_pii_view: {
+        Args: {
+          p_driver_id: string
+          p_fields_accessed: string[]
+          p_reason?: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
