@@ -482,7 +482,10 @@ export type Database = {
         Row: {
           capacity: number | null
           created_at: string
+          dot_inspection_date: string | null
           id: string
+          insurance_expiration_date: string | null
+          plate_expiration_date: string | null
           status: string | null
           trailer_number: string
           trailer_type: string | null
@@ -492,7 +495,10 @@ export type Database = {
         Insert: {
           capacity?: number | null
           created_at?: string
+          dot_inspection_date?: string | null
           id?: string
+          insurance_expiration_date?: string | null
+          plate_expiration_date?: string | null
           status?: string | null
           trailer_number: string
           trailer_type?: string | null
@@ -502,7 +508,10 @@ export type Database = {
         Update: {
           capacity?: number | null
           created_at?: string
+          dot_inspection_date?: string | null
           id?: string
+          insurance_expiration_date?: string | null
+          plate_expiration_date?: string | null
           status?: string | null
           trailer_number?: string
           trailer_type?: string | null

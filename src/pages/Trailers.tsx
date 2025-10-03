@@ -18,6 +18,9 @@ interface TrailerFormData {
   trailer_type: string;
   vin: string;
   truck_id: string;
+  dot_inspection_date: string;
+  plate_expiration_date: string;
+  insurance_expiration_date: string;
 }
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +33,10 @@ const Trailers = () => {
     trailer_number: "",
     trailer_type: "",
     vin: "",
-    truck_id: ""
+    truck_id: "",
+    dot_inspection_date: "",
+    plate_expiration_date: "",
+    insurance_expiration_date: ""
   });
 
   const itemsPerPage = 15;
@@ -68,7 +74,10 @@ const Trailers = () => {
       trailer_number: "",
       trailer_type: "",
       vin: "",
-      truck_id: ""
+      truck_id: "",
+      dot_inspection_date: "",
+      plate_expiration_date: "",
+      insurance_expiration_date: ""
     });
   };
   const handleAddTrailer = async (e: React.FormEvent) => {
@@ -82,7 +91,10 @@ const Trailers = () => {
       } = await supabase.from('trailers').insert({
         trailer_number: formData.trailer_number,
         trailer_type: formData.trailer_type || null,
-        vin: formData.vin || null
+        vin: formData.vin || null,
+        dot_inspection_date: formData.dot_inspection_date || null,
+        plate_expiration_date: formData.plate_expiration_date || null,
+        insurance_expiration_date: formData.insurance_expiration_date || null
       }).select().single();
       if (trailerError) throw trailerError;
 
@@ -123,7 +135,10 @@ const Trailers = () => {
       } = await supabase.from('trailers').update({
         trailer_number: formData.trailer_number,
         trailer_type: formData.trailer_type || null,
-        vin: formData.vin || null
+        vin: formData.vin || null,
+        dot_inspection_date: formData.dot_inspection_date || null,
+        plate_expiration_date: formData.plate_expiration_date || null,
+        insurance_expiration_date: formData.insurance_expiration_date || null
       }).eq('id', editingTrailer.id);
       if (trailerError) throw trailerError;
 
@@ -193,7 +208,10 @@ const Trailers = () => {
       trailer_number: trailer.trailer_number || "",
       trailer_type: trailer.trailer_type || "",
       vin: trailer.vin || "",
-      truck_id: trailer.trucks?.[0]?.id || ""
+      truck_id: trailer.trucks?.[0]?.id || "",
+      dot_inspection_date: trailer.dot_inspection_date || "",
+      plate_expiration_date: trailer.plate_expiration_date || "",
+      insurance_expiration_date: trailer.insurance_expiration_date || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -278,6 +296,45 @@ const Trailers = () => {
                 </Select>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="dot_inspection_date">DOT Inspection Date</Label>
+                <Input 
+                  id="dot_inspection_date" 
+                  type="date" 
+                  value={formData.dot_inspection_date} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    dot_inspection_date: e.target.value
+                  })} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plate_expiration_date">Plate Expiration Date</Label>
+                <Input 
+                  id="plate_expiration_date" 
+                  type="date" 
+                  value={formData.plate_expiration_date} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    plate_expiration_date: e.target.value
+                  })} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="insurance_expiration_date">Insurance Expiration Date</Label>
+                <Input 
+                  id="insurance_expiration_date" 
+                  type="date" 
+                  value={formData.insurance_expiration_date} 
+                  onChange={e => setFormData({
+                    ...formData,
+                    insurance_expiration_date: e.target.value
+                  })} 
+                />
+              </div>
+
             <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -307,27 +364,33 @@ const Trailers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Trailer #</TableHead>
-                  <TableHead>Trailer Type</TableHead>
-                  <TableHead>VIN</TableHead>
-                  <TableHead>Connected Truck #</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-center">Trailer #</TableHead>
+                  <TableHead className="text-center">Trailer Type</TableHead>
+                  <TableHead className="text-center">VIN</TableHead>
+                  <TableHead className="text-center">Connected Truck #</TableHead>
+                  <TableHead className="text-center">DOT Inspection</TableHead>
+                  <TableHead className="text-center">Plate Exp.</TableHead>
+                  <TableHead className="text-center">Insurance Exp.</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {currentTrailers.length === 0 ? <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No trailers found
                     </TableCell>
                   </TableRow> : <>
                     {currentTrailers.map(trailer => <TableRow key={trailer.id}>
-                        <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
-                        <TableCell>{trailer.trailer_type || "—"}</TableCell>
-                        <TableCell>{trailer.vin || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium text-center">{trailer.trailer_number}</TableCell>
+                        <TableCell className="text-center">{trailer.trailer_type || "—"}</TableCell>
+                        <TableCell className="text-center">{trailer.vin || "—"}</TableCell>
+                        <TableCell className="text-center">
                           {trailer.trucks && trailer.trucks.length > 0 ? trailer.trucks[0].truck_number : "—"}
                         </TableCell>
-                      <TableCell>
+                        <TableCell className="text-center">{trailer.dot_inspection_date || "—"}</TableCell>
+                        <TableCell className="text-center">{trailer.plate_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center">{trailer.insurance_expiration_date || "—"}</TableCell>
+                      <TableCell className="text-center">
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
                             <Edit className="h-4 w-4" />
@@ -358,7 +421,7 @@ const Trailers = () => {
                     </TableRow>)}
                     {emptyRowsArray.map((_, index) => (
                       <TableRow key={`empty-${index}`} className="h-[57px]">
-                        <TableCell colSpan={5}>&nbsp;</TableCell>
+                        <TableCell colSpan={8}>&nbsp;</TableCell>
                       </TableRow>
                     ))}
                   </>}
@@ -442,6 +505,45 @@ const Trailers = () => {
               ...formData,
               vin: e.target.value
             })} placeholder="Enter VIN" maxLength={17} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_dot_inspection_date">DOT Inspection Date</Label>
+              <Input 
+                id="edit_dot_inspection_date" 
+                type="date" 
+                value={formData.dot_inspection_date} 
+                onChange={e => setFormData({
+                  ...formData,
+                  dot_inspection_date: e.target.value
+                })} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_plate_expiration_date">Plate Expiration Date</Label>
+              <Input 
+                id="edit_plate_expiration_date" 
+                type="date" 
+                value={formData.plate_expiration_date} 
+                onChange={e => setFormData({
+                  ...formData,
+                  plate_expiration_date: e.target.value
+                })} 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit_insurance_expiration_date">Insurance Expiration Date</Label>
+              <Input 
+                id="edit_insurance_expiration_date" 
+                type="date" 
+                value={formData.insurance_expiration_date} 
+                onChange={e => setFormData({
+                  ...formData,
+                  insurance_expiration_date: e.target.value
+                })} 
+              />
             </div>
 
             <div className="space-y-2">
