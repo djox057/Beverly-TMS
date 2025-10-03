@@ -18,6 +18,9 @@ import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
+import { useDriverSensitivePII } from "@/hooks/useDriverSensitivePII";
+import { useAuthContext } from "@/contexts/AuthContext";
+
 interface DriverFormData {
   name: string;
   phone: string;
@@ -44,6 +47,9 @@ interface DriverFormData {
   password: string;
 }
 const Drivers = () => {
+  const { hasRole } = useAuthContext();
+  const canViewSensitiveData = hasRole('manager') || hasRole('admin');
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -88,6 +94,7 @@ const Drivers = () => {
   
   const { data: availableTrucks } = useAvailableTrucks(editingDriver?.id);
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || formData.truck_id);
+  const { data: sensitivePII, refetch: refetchSensitivePII } = useDriverSensitivePII(editingDriver?.id);
 
   // Filter drivers based on search term
   const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
@@ -170,29 +177,40 @@ const Drivers = () => {
         if (authError) throw authError;
       }
 
-      // Create driver record
+      // Create driver record (non-sensitive data only)
       const { data: driverData, error } = await supabase.from('drivers').insert({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
-        home_address: formData.home_address || null,
-        home_city: formData.home_city || null,
-        home_state: formData.home_state || null,
-        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
-        personal_id: formData.personal_id || null,
-        fuel_card_number: formData.fuel_card_number || null,
         cdl_number: formData.cdl_number || null,
+        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
         medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
         hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
         clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
-        ssn: formData.ssn || null,
-        fein: formData.fein || null
+        license_number: formData.cdl_number || null
       }).select().single();
       
       if (error) throw error;
+
+      // Insert sensitive PII if user has permission (managers/admins only)
+      if (canViewSensitiveData && driverData) {
+        const { error: piiError } = await supabase.from('driver_sensitive_pii').insert({
+          driver_id: driverData.id,
+          ssn: formData.ssn || null,
+          fein: formData.fein || null,
+          home_address: formData.home_address || null,
+          home_city: formData.home_city || null,
+          home_state: formData.home_state || null,
+          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+          fuel_card_number: formData.fuel_card_number || null,
+          personal_id: formData.personal_id || null
+        });
+        
+        if (piiError) throw piiError;
+      }
       
       // Update truck if selected
       if (formData.truck_id && driverData) {
@@ -231,19 +249,11 @@ const Drivers = () => {
     if (!editingDriver) return;
     setIsSubmitting(true);
     try {
-      const {
-        error
-      } = await supabase.from('drivers').update({
+      // Update driver record (non-sensitive data only)
+      const { error } = await supabase.from('drivers').update({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
-        home_address: formData.home_address || null,
-        home_city: formData.home_city || null,
-        home_state: formData.home_state || null,
-        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
-        personal_id: formData.personal_id || null,
-        fuel_card_number: formData.fuel_card_number || null,
         cdl_number: formData.cdl_number || null,
         cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
         medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
@@ -251,10 +261,32 @@ const Drivers = () => {
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
         clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
-        ssn: formData.ssn || null,
-        fein: formData.fein || null
+        license_number: formData.cdl_number || null
       }).eq('id', editingDriver.id);
+      
       if (error) throw error;
+
+      // Update sensitive PII if user has permission (managers/admins only)
+      if (canViewSensitiveData) {
+        const { error: piiError } = await supabase
+          .from('driver_sensitive_pii')
+          .upsert({
+            driver_id: editingDriver.id,
+            ssn: formData.ssn || null,
+            fein: formData.fein || null,
+            home_address: formData.home_address || null,
+            home_city: formData.home_city || null,
+            home_state: formData.home_state || null,
+            home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+            home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+            fuel_card_number: formData.fuel_card_number || null,
+            personal_id: formData.personal_id || null
+          }, {
+            onConflict: 'driver_id'
+          });
+        
+        if (piiError) throw piiError;
+      }
       
       // Update truck if selected
       if (formData.truck_id) {
@@ -345,19 +377,30 @@ const Drivers = () => {
       .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
       .maybeSingle();
     
+    // Fetch sensitive PII if user has permission
+    let sensitivePIIData = null;
+    if (canViewSensitiveData) {
+      const { data } = await supabase
+        .from('driver_sensitive_pii')
+        .select('*')
+        .eq('driver_id', driver.id)
+        .maybeSingle();
+      sensitivePIIData = data;
+    }
+    
     setFormData({
       name: driver.name || "",
       phone: driver.phone || "",
       email: driver.email || "",
       truck_id: truckData?.id || "",
       trailer_id: truckData?.trailer_id || "",
-      home_address: driver.home_address || "",
-      home_city: driver.home_city || "",
-      home_state: driver.home_state || "",
-      home_latitude: driver.home_latitude?.toString() || "",
-      home_longitude: driver.home_longitude?.toString() || "",
-      personal_id: driver.personal_id || "",
-      fuel_card_number: driver.fuel_card_number || "",
+      home_address: sensitivePIIData?.home_address || "",
+      home_city: sensitivePIIData?.home_city || "",
+      home_state: sensitivePIIData?.home_state || "",
+      home_latitude: sensitivePIIData?.home_latitude?.toString() || "",
+      home_longitude: sensitivePIIData?.home_longitude?.toString() || "",
+      personal_id: sensitivePIIData?.personal_id || "",
+      fuel_card_number: sensitivePIIData?.fuel_card_number || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date ? new Date(driver.cdl_expiration_date) : undefined,
       medical_card_expiration_date: driver.medical_card_expiration_date ? new Date(driver.medical_card_expiration_date) : undefined,
@@ -365,8 +408,8 @@ const Drivers = () => {
       termination_date: driver.termination_date ? new Date(driver.termination_date) : undefined,
       mvr_date: driver.mvr_date ? new Date(driver.mvr_date) : undefined,
       clearing_house: driver.clearing_house ? new Date(driver.clearing_house) : undefined,
-      ssn: driver.ssn || "",
-      fein: driver.fein || "",
+      ssn: sensitivePIIData?.ssn || "",
+      fein: sensitivePIIData?.fein || "",
       createAccount: false,
       password: ""
     });
@@ -694,7 +737,11 @@ const Drivers = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {driver.home_city && driver.home_state ? `${driver.home_city}, ${driver.home_state}` : driver.home_city || driver.home_state || "—"}
+                        {canViewSensitiveData ? (
+                          <span className="text-xs text-muted-foreground">View in details</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Restricted</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {driver.has_account ? (
@@ -859,48 +906,76 @@ const Drivers = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-12 gap-4">
-                  <div className="space-y-2 col-span-7">
-                    <Label htmlFor="edit_home_address">Home Address</Label>
-                    <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
-                    ...formData,
-                    home_address: e.target.value
-                  })} placeholder="1234 Oak Street" />
-                  </div>
-                  <div className="space-y-2 col-span-3">
-                    <Label htmlFor="edit_home_city">Home City</Label>
-                    <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
-                    ...formData,
-                    home_city: e.target.value
-                  })} placeholder="Chicago" />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="edit_home_state">Home State</Label>
-                    <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
-                    ...formData,
-                    home_state: e.target.value
-                  })} placeholder="IL" />
-                  </div>
-                </div>
+                {canViewSensitiveData && (
+                  <>
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-4">
+                        🔒 Sensitive Information (Managers/Admins Only)
+                      </p>
+                      
+                      <div className="grid grid-cols-12 gap-4">
+                        <div className="space-y-2 col-span-7">
+                          <Label htmlFor="edit_home_address">Home Address</Label>
+                          <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
+                          ...formData,
+                          home_address: e.target.value
+                        })} placeholder="1234 Oak Street" />
+                        </div>
+                        <div className="space-y-2 col-span-3">
+                          <Label htmlFor="edit_home_city">Home City</Label>
+                          <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
+                          ...formData,
+                          home_city: e.target.value
+                        })} placeholder="Chicago" />
+                        </div>
+                        <div className="space-y-2 col-span-2">
+                          <Label htmlFor="edit_home_state">Home State</Label>
+                          <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
+                          ...formData,
+                          home_state: e.target.value
+                        })} placeholder="IL" />
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="border-t pt-4 space-y-4">
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_personal_id">Personal ID</Label>
-                      <Input id="edit_personal_id" value={formData.personal_id} onChange={e => setFormData({
-                        ...formData,
-                        personal_id: e.target.value
-                      })} placeholder="Personal ID" />
+                    <div className="border-t pt-4 space-y-4">
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_personal_id">Personal ID</Label>
+                          <Input id="edit_personal_id" value={formData.personal_id} onChange={e => setFormData({
+                            ...formData,
+                            personal_id: e.target.value
+                          })} placeholder="Personal ID" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
+                          <Input id="edit_fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
+                            ...formData,
+                            fuel_card_number: e.target.value
+                          })} placeholder="Fuel Card Number" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_ssn">SSN #</Label>
+                          <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
+                            ...formData,
+                            ssn: e.target.value
+                          })} placeholder="SSN" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_fein">FEIN #</Label>
+                          <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
+                            ...formData,
+                            fein: e.target.value
+                          })} placeholder="FEIN" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
-                      <Input id="edit_fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                        ...formData,
-                        fuel_card_number: e.target.value
-                      })} placeholder="Fuel Card Number" />
-                    </div>
-                  </div>
+                  </>
+                )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -978,23 +1053,24 @@ const Drivers = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_ssn">SSN #</Label>
-                      <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
-                        ...formData,
-                        ssn: e.target.value
-                      })} placeholder="SSN" />
+                  {canViewSensitiveData && (
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_ssn">SSN #</Label>
+                        <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
+                          ...formData,
+                          ssn: e.target.value
+                        })} placeholder="SSN" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_fein">FEIN #</Label>
+                        <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
+                          ...formData,
+                          fein: e.target.value
+                        })} placeholder="FEIN" />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_fein">FEIN #</Label>
-                      <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
-                        ...formData,
-                        fein: e.target.value
-                      })} placeholder="FEIN" />
-                    </div>
-                  </div>
-                </div>
+                  )}
 
                 <div className="flex justify-between gap-3">
                   <Button 

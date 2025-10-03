@@ -106,17 +106,6 @@ export default function DriverInfo() {
               </div>
               <div className="text-sm font-medium text-foreground">{data?.driver?.phone || 'N/A'}</div>
             </div>
-            {data?.driver?.home_city && (
-              <div>
-                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  Home Location
-                </div>
-                <div className="text-sm font-medium text-foreground">
-                  {data.driver.home_city}, {data.driver.home_state}
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 

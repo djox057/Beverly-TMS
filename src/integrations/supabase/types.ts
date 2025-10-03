@@ -106,6 +106,62 @@ export type Database = {
           },
         ]
       }
+      driver_sensitive_pii: {
+        Row: {
+          created_at: string
+          driver_id: string
+          fein: string | null
+          fuel_card_number: string | null
+          home_address: string | null
+          home_city: string | null
+          home_latitude: number | null
+          home_longitude: number | null
+          home_state: string | null
+          id: string
+          personal_id: string | null
+          ssn: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          fein?: string | null
+          fuel_card_number?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
+          id?: string
+          personal_id?: string | null
+          ssn?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          fein?: string | null
+          fuel_card_number?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
+          id?: string
+          personal_id?: string | null
+          ssn?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_sensitive_pii_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: true
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           cdl_expiration_date: string | null
@@ -113,14 +169,7 @@ export type Database = {
           clearing_house: string | null
           created_at: string
           email: string | null
-          fein: string | null
-          fuel_card_number: string | null
           hire_date: string | null
-          home_address: string | null
-          home_city: string | null
-          home_latitude: number | null
-          home_longitude: number | null
-          home_state: string | null
           hos_break_minutes: number | null
           hos_cycle_minutes: number | null
           hos_drive_minutes: number | null
@@ -133,9 +182,7 @@ export type Database = {
           medical_card_expiration_date: string | null
           mvr_date: string | null
           name: string
-          personal_id: string | null
           phone: string | null
-          ssn: string | null
           termination_date: string | null
           updated_at: string
         }
@@ -145,14 +192,7 @@ export type Database = {
           clearing_house?: string | null
           created_at?: string
           email?: string | null
-          fein?: string | null
-          fuel_card_number?: string | null
           hire_date?: string | null
-          home_address?: string | null
-          home_city?: string | null
-          home_latitude?: number | null
-          home_longitude?: number | null
-          home_state?: string | null
           hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
@@ -165,9 +205,7 @@ export type Database = {
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name: string
-          personal_id?: string | null
           phone?: string | null
-          ssn?: string | null
           termination_date?: string | null
           updated_at?: string
         }
@@ -177,14 +215,7 @@ export type Database = {
           clearing_house?: string | null
           created_at?: string
           email?: string | null
-          fein?: string | null
-          fuel_card_number?: string | null
           hire_date?: string | null
-          home_address?: string | null
-          home_city?: string | null
-          home_latitude?: number | null
-          home_longitude?: number | null
-          home_state?: string | null
           hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
@@ -197,9 +228,7 @@ export type Database = {
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string
-          personal_id?: string | null
           phone?: string | null
-          ssn?: string | null
           termination_date?: string | null
           updated_at?: string
         }
