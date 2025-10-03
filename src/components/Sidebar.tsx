@@ -51,18 +51,18 @@ export const Sidebar = () => {
 
   // Filter navigation based on role
   const getFilteredNavigation = () => {
-    // Manager role: limited navigation
-    if (hasRole('manager')) {
-      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
-      return navigation.filter(item => allowedPages.includes(item.href));
-    }
-    
-    // Admin role: all navigation + admin pages
+    // Admin role: all navigation + admin pages (check first!)
     if (hasRole('admin')) {
       return [
         ...navigation,
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
+    }
+    
+    // Manager role: limited navigation
+    if (hasRole('manager')) {
+      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
+      return navigation.filter(item => allowedPages.includes(item.href));
     }
     
     // Dispatch role: all navigation except admin pages
