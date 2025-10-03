@@ -49,12 +49,27 @@ export const Sidebar = () => {
     await signOut();
   };
 
-  // Add admin-only navigation items
-  const adminNavigation = hasRole('admin') ? [
-    { name: "User Management", href: "/admin/users", icon: Settings }
-  ] : [];
+  // Filter navigation based on role
+  const getFilteredNavigation = () => {
+    // Manager role: limited navigation
+    if (hasRole('manager')) {
+      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
+      return navigation.filter(item => allowedPages.includes(item.href));
+    }
+    
+    // Admin role: all navigation + admin pages
+    if (hasRole('admin')) {
+      return [
+        ...navigation,
+        { name: "User Management", href: "/admin/users", icon: Settings }
+      ];
+    }
+    
+    // Dispatch role: all navigation except admin pages
+    return navigation;
+  };
 
-  const allNavigation = [...navigation, ...adminNavigation];
+  const allNavigation = getFilteredNavigation();
 
   return (
     <SidebarPrimitive>
