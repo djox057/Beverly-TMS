@@ -498,8 +498,25 @@ export const useReports = () => {
         dispatcherMap.get(truck.dispatcherId)!.trucks.push(truck);
       }
 
-      // Convert Map to array - this preserves insertion order
-      return Array.from(dispatcherMap.values());
+      // Convert Map to array
+      const groupedData = Array.from(dispatcherMap.values());
+      
+      // Get current user to sort their dispatcher section first
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Sort so current user's dispatcher appears first
+      if (user) {
+        groupedData.sort((a, b) => {
+          const aIsCurrentUser = a.dispatcherId === user.id;
+          const bIsCurrentUser = b.dispatcherId === user.id;
+          
+          if (aIsCurrentUser && !bIsCurrentUser) return -1;
+          if (!aIsCurrentUser && bIsCurrentUser) return 1;
+          return 0;
+        });
+      }
+      
+      return groupedData;
     },
     refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
   });
