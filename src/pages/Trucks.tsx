@@ -380,8 +380,8 @@ const Trucks = () => {
                   <TableHead>VIN</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Trailer #</TableHead>
-                  <TableHead>Driver 1</TableHead>
-                  <TableHead>Driver 2</TableHead>
+                  <TableHead className="text-center">Driver 1</TableHead>
+                  <TableHead className="text-center">Driver 2</TableHead>
                   <TableHead>Dispatcher</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -398,8 +398,8 @@ const Trucks = () => {
                         <TableCell className="font-mono text-sm">{truck.vin || "—"}</TableCell>
                         <TableCell>{truck.company?.name || "—"}</TableCell>
                         <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
-                        <TableCell>{truck.driver1?.name || "—"}</TableCell>
-                        <TableCell>{truck.driver2?.name || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
                         <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
