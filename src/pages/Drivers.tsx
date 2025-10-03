@@ -906,39 +906,41 @@ const Drivers = () => {
                   </div>
                 </div>
 
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-12 gap-4">
+                    <div className="space-y-2 col-span-7">
+                      <Label htmlFor="edit_home_address">Home Address</Label>
+                      <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
+                      ...formData,
+                      home_address: e.target.value
+                    })} placeholder="1234 Oak Street" />
+                    </div>
+                    <div className="space-y-2 col-span-3">
+                      <Label htmlFor="edit_home_city">Home City</Label>
+                      <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
+                      ...formData,
+                      home_city: e.target.value
+                    })} placeholder="Chicago" />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="edit_home_state">Home State</Label>
+                      <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
+                      ...formData,
+                      home_state: e.target.value
+                    })} placeholder="IL" />
+                    </div>
+                  </div>
+                </div>
+
                 {canViewSensitiveData && (
                   <>
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium text-muted-foreground mb-4">
                         🔒 Sensitive Information (Managers/Admins Only)
                       </p>
-                      
-                      <div className="grid grid-cols-12 gap-4">
-                        <div className="space-y-2 col-span-7">
-                          <Label htmlFor="edit_home_address">Home Address</Label>
-                          <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
-                          ...formData,
-                          home_address: e.target.value
-                        })} placeholder="1234 Oak Street" />
-                        </div>
-                        <div className="space-y-2 col-span-3">
-                          <Label htmlFor="edit_home_city">Home City</Label>
-                          <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
-                          ...formData,
-                          home_city: e.target.value
-                        })} placeholder="Chicago" />
-                        </div>
-                        <div className="space-y-2 col-span-2">
-                          <Label htmlFor="edit_home_state">Home State</Label>
-                          <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
-                          ...formData,
-                          home_state: e.target.value
-                        })} placeholder="IL" />
-                        </div>
-                      </div>
                     </div>
 
-                    <div className="border-t pt-4 space-y-4">
+                    <div className="space-y-4">
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

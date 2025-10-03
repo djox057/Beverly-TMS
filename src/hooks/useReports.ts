@@ -211,7 +211,7 @@ export const useReports = () => {
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
           orders!orders_truck_id_fkey(
             id,
             load_number,
@@ -454,7 +454,9 @@ export const useReports = () => {
           orderId: currentOrder?.id,
           truckNumber: truck.truck_number,
           driver: truck.driver1?.name || "Unassigned",
-          home: "N/A", // Home location is now sensitive PII (managers/admins only)
+          home: truck.driver1?.home_city && truck.driver1?.home_state 
+            ? `${truck.driver1.home_city}, ${truck.driver1.home_state}` 
+            : truck.driver1?.home_city || truck.driver1?.home_state || "—",
           dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
           dispatcherId: truck.dispatcher_id,
           status,
