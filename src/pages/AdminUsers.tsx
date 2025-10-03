@@ -21,6 +21,7 @@ import {
 import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { createUserSchema } from "@/lib/validation";
 
 interface User {
   id: string;
@@ -46,6 +47,7 @@ const AdminUsers = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver'>('dispatch');
+  const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   useEffect(() => {
     fetchUsers();
@@ -74,7 +76,25 @@ const AdminUsers = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    setFormErrors({});
+    
+    // Validate input
+    const result = createUserSchema.safeParse({ email, password, fullName, role });
+    
+    if (!result.success) {
+      const fieldErrors: { email?: string; password?: string; fullName?: string; role?: string } = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        fieldErrors[field as keyof typeof fieldErrors] = err.message;
+      });
+      setFormErrors(fieldErrors);
+      toast({
+        title: "Validation Error",
+        description: "Please correct the errors in the form",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsCreating(true);
     try {
@@ -85,6 +105,7 @@ const AdminUsers = () => {
         setPassword("");
         setFullName("");
         setRole('dispatch');
+        setFormErrors({});
         setIsDialogOpen(false);
         
         // Refresh users list
@@ -205,8 +226,14 @@ const AdminUsers = () => {
                   id="new-full-name"
                   placeholder="Enter full name"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setFormErrors(prev => ({ ...prev, fullName: undefined }));
+                  }}
                 />
+                {formErrors.fullName && (
+                  <p className="text-sm text-destructive">{formErrors.fullName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-email">Email</Label>
@@ -215,24 +242,39 @@ const AdminUsers = () => {
                   type="email"
                   placeholder="Enter email address"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setFormErrors(prev => ({ ...prev, email: undefined }));
+                  }}
                   required
                 />
+                {formErrors.email && (
+                  <p className="text-sm text-destructive">{formErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">Password</Label>
                 <Input
                   id="new-password"
                   type="password"
-                  placeholder="Create a password"
+                  placeholder="Min 10 chars with uppercase, lowercase, number"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFormErrors(prev => ({ ...prev, password: undefined }));
+                  }}
                   required
                 />
+                {formErrors.password && (
+                  <p className="text-sm text-destructive">{formErrors.password}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver') => setRole(value)}>
+                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver') => {
+                  setRole(value);
+                  setFormErrors(prev => ({ ...prev, role: undefined }));
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -243,6 +285,9 @@ const AdminUsers = () => {
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
+                {formErrors.role && (
+                  <p className="text-sm text-destructive">{formErrors.role}</p>
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>

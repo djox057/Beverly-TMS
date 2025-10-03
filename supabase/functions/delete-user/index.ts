@@ -36,14 +36,15 @@ Deno.serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Check if user has admin role
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
+    // Check if user has admin role using user_roles table
+    const { data: userRole } = await supabaseAdmin
+      .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
+      .eq('role', 'admin')
       .single()
 
-    if (profile?.role !== 'admin') {
+    if (!userRole) {
       throw new Error('Unauthorized: Admin role required')
     }
 
