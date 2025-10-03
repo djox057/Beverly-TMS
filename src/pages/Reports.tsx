@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -53,6 +54,7 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [truckDistances, setTruckDistances] = useState<{ [truckId: string]: number }>({});
+  const [activeTab, setActiveTab] = useState<string>("Čačak");
   const {
     toast
   } = useToast();
@@ -651,8 +653,15 @@ const Reports = () => {
       boxShadow: 'none'
     }} placeholder="Add note..." spellCheck={false} />;
   };
-  return <div className="h-full bg-white overflow-hidden flex flex-col">
-      {/* Google Sheets-style header */}
+
+  // Filter reports by office
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"];
+  const filterReportsByOffice = (office: string) => {
+    if (!groupedReports) return [];
+    return groupedReports.filter(group => group.office === office);
+  };
+
+  return <div className="h-full bg-white overflow-hidden flex flex-col">{/* Google Sheets-style header */}
       <div className="flex-shrink-0 bg-white border-b border-gray-200 px-4 py-2 z-20 relative">
         <div className="flex items-center justify-between">
           <div>
@@ -666,12 +675,28 @@ const Reports = () => {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {groupedReports && groupedReports.length === 0 ? <div className="p-4">
-            <div className="text-center py-12 text-gray-500">
-              No trucks assigned to dispatchers found
-            </div>
-          </div> : <div className="px-4 py-2">
-            {(groupedReports || []).map((group) => {
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="px-4 pt-2 sticky top-0 bg-white z-10 border-b border-gray-200">
+            <TabsList className="grid w-full grid-cols-4 mb-2">
+              {offices.map(office => (
+                <TabsTrigger key={office} value={office}>
+                  {office}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          {offices.map(office => (
+            <TabsContent key={office} value={office} className="mt-0">
+              {filterReportsByOffice(office).length === 0 ? (
+                <div className="p-4">
+                  <div className="text-center py-12 text-gray-500">
+                    No trucks assigned to dispatchers in {office}
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-2">
+                  {filterReportsByOffice(office).map((group) => {
           const startDate = getCalendarStartDate(group.dispatcherId);
           const days = Array.from({
             length: 5
@@ -891,7 +916,11 @@ const Reports = () => {
                 </div>
               </div>;
         })}
-          </div>}
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
     </div>;
 };
