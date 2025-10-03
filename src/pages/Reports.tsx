@@ -411,7 +411,8 @@ const Reports = () => {
                 borderLeft: '4px solid rgb(239, 68, 68)',
                 borderRight: '4px solid rgb(239, 68, 68)',
                 ...(isFirstTruck ? { borderTop: '4px solid rgb(239, 68, 68)' } : {}),
-                zIndex: 200
+                ...(isLastTruck ? { borderBottom: '4px solid rgb(239, 68, 68)' } : {}),
+                zIndex: 100
               }}
             />
           )}
