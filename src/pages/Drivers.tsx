@@ -389,23 +389,6 @@ const Drivers = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="home_latitude">Latitude</Label>
-                  <Input id="home_latitude" type="number" step="any" value={formData.home_latitude} onChange={e => setFormData({
-                  ...formData,
-                  home_latitude: e.target.value
-                })} placeholder="41.8781" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="home_longitude">Longitude</Label>
-                  <Input id="home_longitude" type="number" step="any" value={formData.home_longitude} onChange={e => setFormData({
-                  ...formData,
-                  home_longitude: e.target.value
-                })} placeholder="-87.6298" />
-                </div>
-              </div>
-
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-semibold">Additional Information</h3>
                 
@@ -747,23 +730,6 @@ const Drivers = () => {
                 ...formData,
                 home_state: e.target.value
               })} placeholder="IL" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_home_latitude">Latitude</Label>
-                <Input id="edit_home_latitude" type="number" step="any" value={formData.home_latitude} onChange={e => setFormData({
-                ...formData,
-                home_latitude: e.target.value
-              })} placeholder="41.8781" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_home_longitude">Longitude</Label>
-                <Input id="edit_home_longitude" type="number" step="any" value={formData.home_longitude} onChange={e => setFormData({
-                ...formData,
-                home_longitude: e.target.value
-              })} placeholder="-87.6298" />
               </div>
             </div>
 
