@@ -677,19 +677,18 @@ const Reports = () => {
             length: 5
           }, (_, i) => addDays(startDate, i));
           return <div key={group.dispatcherId} className="bg-white">
-                {/* Dispatcher header - Google Sheets style */}
-                <div className="mb-2">
-                  <h2 className="text-xs font-medium text-gray-900 px-1">
-                    {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-                  </h2>
-                </div>
-                
                 {/* Google Sheets-style table */}
                 <div className="w-full">
                   <table className="w-full border-collapse bg-white border border-gray-300" style={{
                 tableLayout: 'auto'
               }}>
                     <thead>
+                      {/* Dispatcher Name Row */}
+                      <tr className="bg-gray-50">
+                        <th colSpan={14} className="border-b border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-900 bg-gray-50">
+                          {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
+                        </th>
+                      </tr>
                       {/* Date Range Selector Row - Above main headers */}
                       <tr className="bg-gray-50">
                         <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
