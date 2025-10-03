@@ -339,15 +339,14 @@ const Drivers = () => {
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddDriver} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name*</Label>
-                <Input id="name" value={formData.name} onChange={e => setFormData({
-                ...formData,
-                name: e.target.value
-              })} placeholder="John Smith" required />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name*</Label>
+                  <Input id="name" value={formData.name} onChange={e => setFormData({
+                  ...formData,
+                  name: e.target.value
+                })} placeholder="John Smith" required />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
                   <Input id="phone" value={formData.phone} onChange={e => setFormData({
@@ -364,15 +363,14 @@ const Drivers = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="home_address">Home Address</Label>
-                <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
-                ...formData,
-                home_address: e.target.value
-              })} placeholder="1234 Oak Street" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="home_address">Home Address</Label>
+                  <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
+                  ...formData,
+                  home_address: e.target.value
+                })} placeholder="1234 Oak Street" />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="home_city">Home City</Label>
                   <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
@@ -683,15 +681,14 @@ const Drivers = () => {
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditDriver} className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_name">Name*</Label>
                 <Input id="edit_name" value={formData.name} onChange={e => setFormData({
-              ...formData,
-              name: e.target.value
-            })} placeholder="John Smith" required />
+                ...formData,
+                name: e.target.value
+              })} placeholder="John Smith" required />
               </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_phone">Phone</Label>
                 <Input id="edit_phone" value={formData.phone} onChange={e => setFormData({
@@ -708,15 +705,14 @@ const Drivers = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_home_address">Home Address</Label>
-              <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
-              ...formData,
-              home_address: e.target.value
-            })} placeholder="1234 Oak Street" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_home_address">Home Address</Label>
+                <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
+                ...formData,
+                home_address: e.target.value
+              })} placeholder="1234 Oak Street" />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_home_city">Home City</Label>
                 <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
