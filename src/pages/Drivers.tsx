@@ -177,11 +177,16 @@ const Drivers = () => {
         if (authError) throw authError;
       }
 
-      // Create driver record (non-sensitive data only)
+      // Create driver record including home address
       const { data: driverData, error } = await supabase.from('drivers').insert({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        home_address: formData.home_address || null,
+        home_city: formData.home_city || null,
+        home_state: formData.home_state || null,
+        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
         cdl_number: formData.cdl_number || null,
         cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
         medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
@@ -200,11 +205,6 @@ const Drivers = () => {
           driver_id: driverData.id,
           ssn: formData.ssn || null,
           fein: formData.fein || null,
-          home_address: formData.home_address || null,
-          home_city: formData.home_city || null,
-          home_state: formData.home_state || null,
-          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
           fuel_card_number: formData.fuel_card_number || null,
           personal_id: formData.personal_id || null
         });
@@ -249,11 +249,16 @@ const Drivers = () => {
     if (!editingDriver) return;
     setIsSubmitting(true);
     try {
-      // Update driver record (non-sensitive data only)
+      // Update driver record including home address
       const { error } = await supabase.from('drivers').update({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        home_address: formData.home_address || null,
+        home_city: formData.home_city || null,
+        home_state: formData.home_state || null,
+        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
         cdl_number: formData.cdl_number || null,
         cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
         medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
@@ -274,11 +279,6 @@ const Drivers = () => {
             driver_id: editingDriver.id,
             ssn: formData.ssn || null,
             fein: formData.fein || null,
-            home_address: formData.home_address || null,
-            home_city: formData.home_city || null,
-            home_state: formData.home_state || null,
-            home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-            home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
             fuel_card_number: formData.fuel_card_number || null,
             personal_id: formData.personal_id || null
           }, {
@@ -394,11 +394,11 @@ const Drivers = () => {
       email: driver.email || "",
       truck_id: truckData?.id || "",
       trailer_id: truckData?.trailer_id || "",
-      home_address: sensitivePIIData?.home_address || "",
-      home_city: sensitivePIIData?.home_city || "",
-      home_state: sensitivePIIData?.home_state || "",
-      home_latitude: sensitivePIIData?.home_latitude?.toString() || "",
-      home_longitude: sensitivePIIData?.home_longitude?.toString() || "",
+      home_address: driver.home_address || "",
+      home_city: driver.home_city || "",
+      home_state: driver.home_state || "",
+      home_latitude: driver.home_latitude?.toString() || "",
+      home_longitude: driver.home_longitude?.toString() || "",
       personal_id: sensitivePIIData?.personal_id || "",
       fuel_card_number: sensitivePIIData?.fuel_card_number || "",
       cdl_number: driver.cdl_number || "",
