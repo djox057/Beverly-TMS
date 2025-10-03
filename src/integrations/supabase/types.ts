@@ -104,6 +104,13 @@ export type Database = {
             referencedRelation: "drivers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_files_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       drivers: {
@@ -405,10 +412,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_driver1_id_fkey"
+            columns: ["driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_driver2_id_fkey"
             columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver2_id_fkey"
+            columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_public"
             referencedColumns: ["id"]
           },
           {
@@ -763,10 +784,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "trucks_driver1_id_fkey"
+            columns: ["driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "trucks_driver2_id_fkey"
             columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trucks_driver2_id_fkey"
+            columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers_public"
             referencedColumns: ["id"]
           },
           {
@@ -801,7 +836,90 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      drivers_public: {
+        Row: {
+          cdl_expiration_date: string | null
+          cdl_number: string | null
+          clearing_house: string | null
+          created_at: string | null
+          email: string | null
+          fuel_card_number: string | null
+          hire_date: string | null
+          home_city: string | null
+          home_state: string | null
+          hos_break_minutes: number | null
+          hos_cycle_minutes: number | null
+          hos_drive_minutes: number | null
+          hos_last_updated: string | null
+          hos_shift_minutes: number | null
+          hos_status: string | null
+          id: string | null
+          is_active: boolean | null
+          license_number: string | null
+          medical_card_expiration_date: string | null
+          mvr_date: string | null
+          name: string | null
+          personal_id: string | null
+          phone: string | null
+          termination_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          clearing_house?: string | null
+          created_at?: string | null
+          email?: string | null
+          fuel_card_number?: string | null
+          hire_date?: string | null
+          home_city?: string | null
+          home_state?: string | null
+          hos_break_minutes?: number | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          license_number?: string | null
+          medical_card_expiration_date?: string | null
+          mvr_date?: string | null
+          name?: string | null
+          personal_id?: string | null
+          phone?: string | null
+          termination_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          clearing_house?: string | null
+          created_at?: string | null
+          email?: string | null
+          fuel_card_number?: string | null
+          hire_date?: string | null
+          home_city?: string | null
+          home_state?: string | null
+          hos_break_minutes?: number | null
+          hos_cycle_minutes?: number | null
+          hos_drive_minutes?: number | null
+          hos_last_updated?: string | null
+          hos_shift_minutes?: number | null
+          hos_status?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          license_number?: string | null
+          medical_card_expiration_date?: string | null
+          mvr_date?: string | null
+          name?: string | null
+          personal_id?: string | null
+          phone?: string | null
+          termination_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_order_with_unique_load_number: {
