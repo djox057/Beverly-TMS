@@ -156,11 +156,6 @@ export type Database = {
           driver_id: string
           fein: string | null
           fuel_card_number: string | null
-          home_address: string | null
-          home_city: string | null
-          home_latitude: number | null
-          home_longitude: number | null
-          home_state: string | null
           id: string
           personal_id: string | null
           ssn: string | null
@@ -171,11 +166,6 @@ export type Database = {
           driver_id: string
           fein?: string | null
           fuel_card_number?: string | null
-          home_address?: string | null
-          home_city?: string | null
-          home_latitude?: number | null
-          home_longitude?: number | null
-          home_state?: string | null
           id?: string
           personal_id?: string | null
           ssn?: string | null
@@ -186,11 +176,6 @@ export type Database = {
           driver_id?: string
           fein?: string | null
           fuel_card_number?: string | null
-          home_address?: string | null
-          home_city?: string | null
-          home_latitude?: number | null
-          home_longitude?: number | null
-          home_state?: string | null
           id?: string
           personal_id?: string | null
           ssn?: string | null
@@ -214,6 +199,11 @@ export type Database = {
           created_at: string
           email: string | null
           hire_date: string | null
+          home_address: string | null
+          home_city: string | null
+          home_latitude: number | null
+          home_longitude: number | null
+          home_state: string | null
           hos_break_minutes: number | null
           hos_cycle_minutes: number | null
           hos_drive_minutes: number | null
@@ -237,6 +227,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           hire_date?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
           hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
@@ -260,6 +255,11 @@ export type Database = {
           created_at?: string
           email?: string | null
           hire_date?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
           hos_break_minutes?: number | null
           hos_cycle_minutes?: number | null
           hos_drive_minutes?: number | null
