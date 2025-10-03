@@ -737,11 +737,9 @@ const Drivers = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {canViewSensitiveData ? (
-                          <span className="text-xs text-muted-foreground">View in details</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Restricted</span>
-                        )}
+                        {driver.home_city && driver.home_state ? (
+                          `${driver.home_city}, ${driver.home_state}`
+                        ) : driver.home_city || driver.home_state || "—"}
                       </TableCell>
                       <TableCell>
                         {driver.has_account ? (
