@@ -677,6 +677,13 @@ const Reports = () => {
             length: 5
           }, (_, i) => addDays(startDate, i));
           return <div key={group.dispatcherId} className="bg-white">
+                {/* Dispatcher header - Google Sheets style */}
+                <div className="mb-2">
+                  <h2 className="text-xs font-medium text-gray-900 px-1">
+                    {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
+                  </h2>
+                </div>
+                
                 {/* Google Sheets-style table */}
                 <div className="w-full">
                   <table className="w-full border-collapse bg-white border border-gray-300" style={{
@@ -765,15 +772,6 @@ const Reports = () => {
                        </tr>
                     </thead>
                     <tbody>
-                      {/* Dispatcher name row */}
-                      <tr className="bg-gray-50">
-                        <td colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-xs font-medium text-gray-900">
-                          {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
-                        </td>
-                        <td colSpan={5} className="border-r border-b border-gray-300"></td>
-                        <td colSpan={4} className="border-r border-b border-gray-300"></td>
-                        <td colSpan={2} className={`border-b border-gray-300 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}></td>
-                      </tr>
                       {group.trucks.map((truck, truckIndex) => {
                         const modifiedCells = renderTruckCalendarCells(truck, startDate, truckIndex, group.trucks.length);
                         
