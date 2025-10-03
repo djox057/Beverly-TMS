@@ -874,20 +874,7 @@ export type Database = {
       }
     }
     Views: {
-      recent_pii_access: {
-        Row: {
-          access_reason: string | null
-          accessed_at: string | null
-          accessed_by_email: string | null
-          accessed_by_name: string | null
-          accessed_by_role: Database["public"]["Enums"]["app_role"] | null
-          driver_name: string | null
-          fields_accessed: string[] | null
-          id: string | null
-          operation: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       create_order_with_unique_load_number: {
