@@ -24,6 +24,10 @@ interface TruckFormData {
   driver2_id: string;
   dispatcher_id: string;
   company_id: string;
+  ipass: string;
+  dot_inspection_date: string;
+  plate_expiration_date: string;
+  insurance_expiration_date: string;
 }
 const ITEMS_PER_PAGE = 15;
 
@@ -41,7 +45,11 @@ const Trucks = () => {
     driver_id: "",
     driver2_id: "",
     dispatcher_id: "",
-    company_id: ""
+    company_id: "",
+    ipass: "",
+    dot_inspection_date: "",
+    plate_expiration_date: "",
+    insurance_expiration_date: ""
   });
   const {
     toast
@@ -86,7 +94,11 @@ const Trucks = () => {
       driver_id: "",
       driver2_id: "",
       dispatcher_id: "",
-      company_id: ""
+      company_id: "",
+      ipass: "",
+      dot_inspection_date: "",
+      plate_expiration_date: "",
+      insurance_expiration_date: ""
     });
   };
   const handleAddTruck = async (e: React.FormEvent) => {
@@ -102,7 +114,11 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         dispatcher_id: formData.dispatcher_id || null,
-        company_id: formData.company_id || null
+        company_id: formData.company_id || null,
+        ipass: formData.ipass || null,
+        dot_inspection_date: formData.dot_inspection_date || null,
+        plate_expiration_date: formData.plate_expiration_date || null,
+        insurance_expiration_date: formData.insurance_expiration_date || null
       });
       if (error) throw error;
       toast({
@@ -136,7 +152,11 @@ const Trucks = () => {
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
         dispatcher_id: formData.dispatcher_id || null,
-        company_id: formData.company_id || null
+        company_id: formData.company_id || null,
+        ipass: formData.ipass || null,
+        dot_inspection_date: formData.dot_inspection_date || null,
+        plate_expiration_date: formData.plate_expiration_date || null,
+        insurance_expiration_date: formData.insurance_expiration_date || null
       }).eq('id', editingTruck.id);
       if (error) throw error;
       toast({
@@ -185,7 +205,11 @@ const Trucks = () => {
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
       dispatcher_id: truck.dispatcher_id || "",
-      company_id: truck.company_id || ""
+      company_id: truck.company_id || "",
+      ipass: truck.ipass || "",
+      dot_inspection_date: truck.dot_inspection_date || "",
+      plate_expiration_date: truck.plate_expiration_date || "",
+      insurance_expiration_date: truck.insurance_expiration_date || ""
     });
     setIsEditDialogOpen(true);
   };
@@ -347,6 +371,40 @@ const Trucks = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ipass">IPASS</Label>
+                  <Input id="ipass" value={formData.ipass} onChange={e => setFormData({
+                  ...formData,
+                  ipass: e.target.value
+                })} placeholder="IPASS Number" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dot_inspection_date">DOT Inspection Date</Label>
+                  <Input id="dot_inspection_date" type="date" value={formData.dot_inspection_date} onChange={e => setFormData({
+                  ...formData,
+                  dot_inspection_date: e.target.value
+                })} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="plate_expiration_date">Plate Expiration Date</Label>
+                  <Input id="plate_expiration_date" type="date" value={formData.plate_expiration_date} onChange={e => setFormData({
+                  ...formData,
+                  plate_expiration_date: e.target.value
+                })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="insurance_expiration_date">Insurance Expiration Date</Label>
+                  <Input id="insurance_expiration_date" type="date" value={formData.insurance_expiration_date} onChange={e => setFormData({
+                  ...formData,
+                  insurance_expiration_date: e.target.value
+                })} />
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
@@ -383,12 +441,16 @@ const Trucks = () => {
                   <TableHead className="text-center">Driver 1</TableHead>
                   <TableHead className="text-center">Driver 2</TableHead>
                   <TableHead>Dispatcher</TableHead>
+                  <TableHead>IPASS</TableHead>
+                  <TableHead>DOT Inspection</TableHead>
+                  <TableHead>Plate Exp.</TableHead>
+                  <TableHead>Insurance Exp.</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                   {paginatedTrucks.length === 0 ? <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow> : (
@@ -401,6 +463,10 @@ const Trucks = () => {
                         <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
                         <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
+                        <TableCell>{truck.ipass || "—"}</TableCell>
+                        <TableCell>{truck.dot_inspection_date || "—"}</TableCell>
+                        <TableCell>{truck.plate_expiration_date || "—"}</TableCell>
+                        <TableCell>{truck.insurance_expiration_date || "—"}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
@@ -433,7 +499,7 @@ const Trucks = () => {
                       {/* Add empty rows to maintain consistent height */}
                       {Array.from({ length: ITEMS_PER_PAGE - paginatedTrucks.length }).map((_, index) => (
                         <TableRow key={`empty-${index}`}>
-                          <TableCell colSpan={8} className="h-[57px]">&nbsp;</TableCell>
+                          <TableCell colSpan={12} className="h-[57px]">&nbsp;</TableCell>
                         </TableRow>
                       ))}
                     </>
@@ -588,6 +654,40 @@ const Trucks = () => {
                       </SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_ipass">IPASS</Label>
+                <Input id="edit_ipass" value={formData.ipass} onChange={e => setFormData({
+                ...formData,
+                ipass: e.target.value
+              })} placeholder="IPASS Number" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_dot_inspection_date">DOT Inspection Date</Label>
+                <Input id="edit_dot_inspection_date" type="date" value={formData.dot_inspection_date} onChange={e => setFormData({
+                ...formData,
+                dot_inspection_date: e.target.value
+              })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_plate_expiration_date">Plate Expiration Date</Label>
+                <Input id="edit_plate_expiration_date" type="date" value={formData.plate_expiration_date} onChange={e => setFormData({
+                ...formData,
+                plate_expiration_date: e.target.value
+              })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_insurance_expiration_date">Insurance Expiration Date</Label>
+                <Input id="edit_insurance_expiration_date" type="date" value={formData.insurance_expiration_date} onChange={e => setFormData({
+                ...formData,
+                insurance_expiration_date: e.target.value
+              })} />
               </div>
             </div>
 

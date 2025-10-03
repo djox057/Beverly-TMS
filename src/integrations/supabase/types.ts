@@ -543,11 +543,15 @@ export type Database = {
           company_id: string | null
           created_at: string
           dispatcher_id: string | null
+          dot_inspection_date: string | null
           driver1_id: string | null
           driver2_id: string | null
           id: string
+          insurance_expiration_date: string | null
+          ipass: string | null
           miles_away: number | null
           model: string | null
+          plate_expiration_date: string | null
           status: string | null
           trailer_id: string | null
           truck_number: string
@@ -559,11 +563,15 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dot_inspection_date?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          insurance_expiration_date?: string | null
+          ipass?: string | null
           miles_away?: number | null
           model?: string | null
+          plate_expiration_date?: string | null
           status?: string | null
           trailer_id?: string | null
           truck_number: string
@@ -575,11 +583,15 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
+          dot_inspection_date?: string | null
           driver1_id?: string | null
           driver2_id?: string | null
           id?: string
+          insurance_expiration_date?: string | null
+          ipass?: string | null
           miles_away?: number | null
           model?: string | null
+          plate_expiration_date?: string | null
           status?: string | null
           trailer_id?: string | null
           truck_number?: string
