@@ -12,10 +12,6 @@ export const useDrivers = () => {
           trucks_driver1:trucks!trucks_driver1_id_fkey(
             truck_number,
             trailer:trailers(trailer_number)
-          ),
-          trucks_driver2:trucks!trucks_driver2_id_fkey(
-            truck_number,
-            trailer:trailers(trailer_number)
           )
         `)
         .eq('is_active', true)
@@ -35,15 +31,13 @@ export const useDrivers = () => {
       
       // Transform the data to flatten truck/trailer info
       return data?.map(driver => {
-        const truck1 = driver.trucks_driver1?.[0];
-        const truck2 = driver.trucks_driver2?.[0];
-        const primaryTruck = truck1 || truck2;
+        const truck = driver.trucks_driver1?.[0];
         
         return {
           ...driver,
-          truck_info: primaryTruck ? {
-            truck_number: primaryTruck.truck_number,
-            trailer_number: primaryTruck.trailer?.trailer_number || null
+          truck_info: truck ? {
+            truck_number: truck.truck_number,
+            trailer_number: truck.trailer?.trailer_number || null
           } : null,
           has_account: driver.email ? driverEmails.has(driver.email.toLowerCase()) : false
         };

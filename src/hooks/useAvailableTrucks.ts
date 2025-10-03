@@ -7,18 +7,16 @@ export const useAvailableTrucks = (currentDriverId?: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('trucks')
-        .select('id, truck_number, driver1_id, driver2_id')
+        .select('id, truck_number, driver1_id')
         .order('truck_number', { ascending: true });
       
       if (error) throw error;
       
-      // Filter trucks that have at least one empty driver slot
+      // Filter trucks that don't have a driver assigned
       // or are currently assigned to the driver being edited
       return data?.filter(truck => 
         truck.driver1_id === null || 
-        truck.driver2_id === null ||
-        truck.driver1_id === currentDriverId ||
-        truck.driver2_id === currentDriverId
+        truck.driver1_id === currentDriverId
       ) || [];
     },
   });

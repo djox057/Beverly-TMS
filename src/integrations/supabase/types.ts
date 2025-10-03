@@ -541,7 +541,6 @@ export type Database = {
           created_at: string
           dispatcher_id: string | null
           driver1_id: string | null
-          driver2_id: string | null
           id: string
           miles_away: number | null
           model: string | null
@@ -557,7 +556,6 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           driver1_id?: string | null
-          driver2_id?: string | null
           id?: string
           miles_away?: number | null
           model?: string | null
@@ -573,7 +571,6 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           driver1_id?: string | null
-          driver2_id?: string | null
           id?: string
           miles_away?: number | null
           model?: string | null
@@ -602,13 +599,6 @@ export type Database = {
           {
             foreignKeyName: "trucks_driver1_id_fkey"
             columns: ["driver1_id"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trucks_driver2_id_fkey"
-            columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
