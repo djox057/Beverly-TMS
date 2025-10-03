@@ -39,7 +39,6 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Weekly Report", href: "/weekly-report", icon: Calendar },
 ];
 
 export const Sidebar = () => {
