@@ -7,10 +7,10 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
-  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver') => boolean;
+  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

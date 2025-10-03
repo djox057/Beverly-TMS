@@ -28,7 +28,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  role: 'dispatch' | 'admin' | 'manager' | 'driver';
+  role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety';
   created_at: string;
 }
 
@@ -46,7 +46,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety'>('dispatch');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   // Security check: Only admins should access this page
@@ -214,6 +214,8 @@ const AdminUsers = () => {
         return 'destructive';
       case 'manager':
         return 'default';
+      case 'safety':
+        return 'default';
       case 'dispatch':
         return 'secondary';
       case 'driver':
@@ -324,7 +326,7 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver') => {
+                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => {
                   setRole(value);
                   setFormErrors(prev => ({ ...prev, role: undefined }));
                 }}>
@@ -334,6 +336,7 @@ const AdminUsers = () => {
                   <SelectContent>
                     <SelectItem value="dispatch">Dispatch</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="safety">Safety</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>

@@ -65,6 +65,11 @@ export const Sidebar = () => {
       return navigation.filter(item => allowedPages.includes(item.href));
     }
     
+    // Safety role: view-only access to all pages except user management
+    if (hasRole('safety')) {
+      return navigation;
+    }
+    
     // Dispatch role: all navigation except admin pages
     return navigation;
   };
