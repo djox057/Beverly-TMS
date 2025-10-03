@@ -685,7 +685,7 @@ const Reports = () => {
                     <thead>
                       {/* Date Range Selector Row with Dispatcher Name */}
                       <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-900 bg-gray-50">
+                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left font-bold text-gray-900 bg-gray-50" style={{ fontSize: '0.825rem' }}>
                           {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
                         </th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
