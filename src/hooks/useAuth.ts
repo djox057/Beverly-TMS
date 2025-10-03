@@ -169,8 +169,8 @@ export const useAuth = () => {
     // Manager has access to dispatch functions
     if (profile.role === 'manager' && requiredRole === 'dispatch') return true;
     
-    // Safety has access to view pages (not dispatch/create functions)
-    if (profile.role === 'safety' && requiredRole === 'safety') return true;
+    // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
+    if (profile.role === 'safety' && requiredRole === 'dispatch') return true;
     
     // Check exact role match
     return profile.role === requiredRole;
