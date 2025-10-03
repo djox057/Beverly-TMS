@@ -13,10 +13,15 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
+import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
+import { Combobox } from "@/components/ui/combobox";
 interface DriverFormData {
   name: string;
   phone: string;
   email: string;
+  truck_id: string;
+  trailer_id: string;
   home_address: string;
   home_city: string;
   home_state: string;
@@ -29,7 +34,7 @@ interface DriverFormData {
   hire_date: Date | undefined;
   termination_date: Date | undefined;
   mvr_date: Date | undefined;
-  clearing_house: string;
+  clearing_house: Date | undefined;
   ssn: string;
   fein: string;
   createAccount: boolean;
@@ -42,11 +47,14 @@ const Drivers = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedTruckId, setSelectedTruckId] = useState<string>("");
   const itemsPerPage = 15;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
     phone: "",
     email: "",
+    truck_id: "",
+    trailer_id: "",
     home_address: "",
     home_city: "",
     home_state: "",
@@ -59,7 +67,7 @@ const Drivers = () => {
     hire_date: undefined,
     termination_date: undefined,
     mvr_date: undefined,
-    clearing_house: "",
+    clearing_house: undefined,
     ssn: "",
     fein: "",
     createAccount: false,
@@ -73,6 +81,9 @@ const Drivers = () => {
     isLoading,
     refetch
   } = useDrivers();
+  
+  const { data: availableTrucks } = useAvailableTrucks(editingDriver?.id);
+  const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || formData.truck_id);
 
   // Filter drivers based on search term
   const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
@@ -93,6 +104,8 @@ const Drivers = () => {
       name: "",
       phone: "",
       email: "",
+      truck_id: "",
+      trailer_id: "",
       home_address: "",
       home_city: "",
       home_state: "",
@@ -105,12 +118,13 @@ const Drivers = () => {
       hire_date: undefined,
       termination_date: undefined,
       mvr_date: undefined,
-      clearing_house: "",
+      clearing_house: undefined,
       ssn: "",
       fein: "",
       createAccount: false,
       password: ""
     });
+    setSelectedTruckId("");
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,9 +166,7 @@ const Drivers = () => {
       }
 
       // Create driver record
-      const {
-        error
-      } = await supabase.from('drivers').insert({
+      const { data: driverData, error } = await supabase.from('drivers').insert({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
@@ -170,12 +182,25 @@ const Drivers = () => {
         hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
-        clearing_house: formData.clearing_house || null,
+        clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
         ssn: formData.ssn || null,
         fein: formData.fein || null
-      });
+      }).select().single();
       
       if (error) throw error;
+      
+      // Update truck if selected
+      if (formData.truck_id && driverData) {
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({
+            driver1_id: driverData.id,
+            trailer_id: formData.trailer_id || null
+          })
+          .eq('id', formData.truck_id);
+        
+        if (truckError) throw truckError;
+      }
       
       toast({
         title: "Success",
@@ -219,11 +244,24 @@ const Drivers = () => {
         hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
         termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
         mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
-        clearing_house: formData.clearing_house || null,
+        clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
         ssn: formData.ssn || null,
         fein: formData.fein || null
       }).eq('id', editingDriver.id);
       if (error) throw error;
+      
+      // Update truck if selected
+      if (formData.truck_id) {
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({
+            driver1_id: editingDriver.id,
+            trailer_id: formData.trailer_id || null
+          })
+          .eq('id', formData.truck_id);
+        
+        if (truckError) throw truckError;
+      }
       toast({
         title: "Success",
         description: "Driver updated successfully"
@@ -291,12 +329,22 @@ const Drivers = () => {
       });
     }
   };
-  const openEditDialog = (driver: any) => {
+  const openEditDialog = async (driver: any) => {
     setEditingDriver(driver);
+    
+    // Get current truck assignment
+    const { data: truckData } = await supabase
+      .from('trucks')
+      .select('id, trailer_id')
+      .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+      .maybeSingle();
+    
     setFormData({
       name: driver.name || "",
       phone: driver.phone || "",
       email: driver.email || "",
+      truck_id: truckData?.id || "",
+      trailer_id: truckData?.trailer_id || "",
       home_address: driver.home_address || "",
       home_city: driver.home_city || "",
       home_state: driver.home_state || "",
@@ -309,12 +357,17 @@ const Drivers = () => {
       hire_date: driver.hire_date ? new Date(driver.hire_date) : undefined,
       termination_date: driver.termination_date ? new Date(driver.termination_date) : undefined,
       mvr_date: driver.mvr_date ? new Date(driver.mvr_date) : undefined,
-      clearing_house: driver.clearing_house || "",
+      clearing_house: driver.clearing_house ? new Date(driver.clearing_house) : undefined,
       ssn: driver.ssn || "",
       fein: driver.fein || "",
       createAccount: false,
       password: ""
     });
+    
+    if (truckData?.id) {
+      setSelectedTruckId(truckData.id);
+    }
+    
     setIsEditDialogOpen(true);
   };
   if (isLoading) {
@@ -363,6 +416,38 @@ const Drivers = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="truck">Truck Number</Label>
+                  <Combobox
+                    options={(availableTrucks || []).map(truck => ({
+                      value: truck.id,
+                      label: truck.truck_number
+                    }))}
+                    value={formData.truck_id}
+                    onValueChange={(value) => {
+                      setFormData({ ...formData, truck_id: value, trailer_id: "" });
+                      setSelectedTruckId(value);
+                    }}
+                    placeholder="Select truck..."
+                    emptyText="No available trucks"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="trailer">Trailer Number</Label>
+                  <Combobox
+                    options={(availableTrailers || []).map(trailer => ({
+                      value: trailer.id,
+                      label: trailer.trailer_number
+                    }))}
+                    value={formData.trailer_id}
+                    onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}
+                    placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
+                    emptyText="No available trailers"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="home_address">Home Address</Label>
@@ -388,7 +473,6 @@ const Drivers = () => {
               </div>
 
               <div className="border-t pt-4 space-y-4">
-                <h3 className="font-semibold">Additional Information</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -462,11 +546,14 @@ const Drivers = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="clearing_house">Clearing House</Label>
-                    <Input id="clearing_house" value={formData.clearing_house} onChange={e => setFormData({
+                  <Label htmlFor="clearing_house">Clearing House</Label>
+                  <DatePicker
+                    date={formData.clearing_house}
+                    onDateChange={(date) => setFormData({
                       ...formData,
-                      clearing_house: e.target.value
-                    })} placeholder="Clearing House" />
+                      clearing_house: date
+                    })}
+                  />
                   </div>
                 </div>
 
@@ -705,6 +792,38 @@ const Drivers = () => {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_truck">Truck Number</Label>
+                <Combobox
+                  options={(availableTrucks || []).map(truck => ({
+                    value: truck.id,
+                    label: truck.truck_number
+                  }))}
+                  value={formData.truck_id}
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, truck_id: value, trailer_id: "" });
+                    setSelectedTruckId(value);
+                  }}
+                  placeholder="Select truck..."
+                  emptyText="No available trucks"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_trailer">Trailer Number</Label>
+                <Combobox
+                  options={(availableTrailers || []).map(trailer => ({
+                    value: trailer.id,
+                    label: trailer.trailer_number
+                  }))}
+                  value={formData.trailer_id}
+                  onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}
+                  placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
+                  emptyText="No available trailers"
+                />
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_home_address">Home Address</Label>
@@ -730,7 +849,6 @@ const Drivers = () => {
             </div>
 
             <div className="border-t pt-4 space-y-4">
-              <h3 className="font-semibold">Additional Information</h3>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -805,10 +923,13 @@ const Drivers = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_clearing_house">Clearing House</Label>
-                  <Input id="edit_clearing_house" value={formData.clearing_house} onChange={e => setFormData({
-                    ...formData,
-                    clearing_house: e.target.value
-                  })} placeholder="Clearing House" />
+                  <DatePicker
+                    date={formData.clearing_house}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      clearing_house: date
+                    })}
+                  />
                 </div>
               </div>
 
