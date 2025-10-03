@@ -392,7 +392,7 @@ const Reports = () => {
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
       
-      return <td key={index} className={`${isLastTruck ? '' : 'border-b-4 border-gray-400'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
+      return <td key={index} className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: '120px',
         minWidth: '120px',
         maxWidth: '120px',
@@ -772,7 +772,7 @@ const Reports = () => {
                         const isLastTruck = truckIndex === group.trucks.length - 1;
                         
                         return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className={`border-r ${isLastTruck ? '' : 'border-b-4 border-gray-400'} px-2 py-1 text-xs text-gray-900 font-medium`} style={{
+                          <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900 font-medium`} style={{
                       width: '64px',
                       minWidth: '64px',
                       maxWidth: '64px'
@@ -789,12 +789,12 @@ const Reports = () => {
                                 </TooltipProvider>}
                             </div>
                           </td>
-                          <td className={`border-r ${isLastTruck ? '' : 'border-b-4 border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
+                          <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
                       width: '163px',
                       minWidth: '163px',
                       maxWidth: '163px'
                     }}>{truck.driver}</td>
-                          <td className={`border-r ${isLastTruck ? '' : 'border-b-4 border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
+                          <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
                       width: '136px',
                       minWidth: '136px',
                       maxWidth: '136px'
@@ -820,7 +820,7 @@ const Reports = () => {
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className={`border-r ${isLastTruck ? '' : 'border-b-4 border-gray-400'} p-0`} style={{
+                          <td colSpan={4} className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} p-0`} style={{
                       height: '64px'
                     }}>
                             <div className="h-8 border-b border-gray-200 flex items-center justify-around px-1">
@@ -874,12 +874,12 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                            </td>
-                           <td className={`${isLastTruck ? '' : 'border-b-4 border-gray-400'} px-2 py-1 text-[10px] text-gray-600`} style={{
+                           <td className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-[10px] text-gray-600`} style={{
                       width: '80px',
                       minWidth: '80px',
                       maxWidth: '80px'
                     }}>{truck.lastEdit}</td>
-                           <td className={`${isLastTruck ? '' : 'border-b-4 border-gray-400'} px-2 py-1 text-[10px] text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
+                           <td className={`${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-[10px] text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
                       width: '80px',
                       minWidth: '80px',
                       maxWidth: '80px'
