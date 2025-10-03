@@ -12,6 +12,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
 interface DriverFormData {
   name: string;
   phone: string;
@@ -21,6 +22,16 @@ interface DriverFormData {
   home_state: string;
   home_latitude: string;
   home_longitude: string;
+  personal_id: string;
+  fuel_card_number: string;
+  cdl_number: string;
+  cdl_expiration_date: Date | undefined;
+  hire_date: Date | undefined;
+  termination_date: Date | undefined;
+  mvr_date: Date | undefined;
+  clearing_house: string;
+  ssn: string;
+  fein: string;
   createAccount: boolean;
   password: string;
 }
@@ -41,6 +52,16 @@ const Drivers = () => {
     home_state: "",
     home_latitude: "",
     home_longitude: "",
+    personal_id: "",
+    fuel_card_number: "",
+    cdl_number: "",
+    cdl_expiration_date: undefined,
+    hire_date: undefined,
+    termination_date: undefined,
+    mvr_date: undefined,
+    clearing_house: "",
+    ssn: "",
+    fein: "",
     createAccount: false,
     password: ""
   });
@@ -77,6 +98,16 @@ const Drivers = () => {
       home_state: "",
       home_latitude: "",
       home_longitude: "",
+      personal_id: "",
+      fuel_card_number: "",
+      cdl_number: "",
+      cdl_expiration_date: undefined,
+      hire_date: undefined,
+      termination_date: undefined,
+      mvr_date: undefined,
+      clearing_house: "",
+      ssn: "",
+      fein: "",
       createAccount: false,
       password: ""
     });
@@ -131,7 +162,17 @@ const Drivers = () => {
         home_city: formData.home_city || null,
         home_state: formData.home_state || null,
         home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+        personal_id: formData.personal_id || null,
+        fuel_card_number: formData.fuel_card_number || null,
+        cdl_number: formData.cdl_number || null,
+        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
+        hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
+        termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
+        mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
+        clearing_house: formData.clearing_house || null,
+        ssn: formData.ssn || null,
+        fein: formData.fein || null
       });
       
       if (error) throw error;
@@ -170,7 +211,17 @@ const Drivers = () => {
         home_city: formData.home_city || null,
         home_state: formData.home_state || null,
         home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null
+        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+        personal_id: formData.personal_id || null,
+        fuel_card_number: formData.fuel_card_number || null,
+        cdl_number: formData.cdl_number || null,
+        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
+        hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
+        termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
+        mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
+        clearing_house: formData.clearing_house || null,
+        ssn: formData.ssn || null,
+        fein: formData.fein || null
       }).eq('id', editingDriver.id);
       if (error) throw error;
       toast({
@@ -251,6 +302,16 @@ const Drivers = () => {
       home_state: driver.home_state || "",
       home_latitude: driver.home_latitude?.toString() || "",
       home_longitude: driver.home_longitude?.toString() || "",
+      personal_id: driver.personal_id || "",
+      fuel_card_number: driver.fuel_card_number || "",
+      cdl_number: driver.cdl_number || "",
+      cdl_expiration_date: driver.cdl_expiration_date ? new Date(driver.cdl_expiration_date) : undefined,
+      hire_date: driver.hire_date ? new Date(driver.hire_date) : undefined,
+      termination_date: driver.termination_date ? new Date(driver.termination_date) : undefined,
+      mvr_date: driver.mvr_date ? new Date(driver.mvr_date) : undefined,
+      clearing_house: driver.clearing_house || "",
+      ssn: driver.ssn || "",
+      fein: driver.fein || "",
       createAccount: false,
       password: ""
     });
@@ -342,6 +403,107 @@ const Drivers = () => {
                   ...formData,
                   home_longitude: e.target.value
                 })} placeholder="-87.6298" />
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-semibold">Additional Information</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="personal_id">Personal ID</Label>
+                    <Input id="personal_id" value={formData.personal_id} onChange={e => setFormData({
+                      ...formData,
+                      personal_id: e.target.value
+                    })} placeholder="Personal ID" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fuel_card_number">Fuel Card #</Label>
+                    <Input id="fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
+                      ...formData,
+                      fuel_card_number: e.target.value
+                    })} placeholder="Fuel Card Number" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cdl_number">CDL Number</Label>
+                    <Input id="cdl_number" value={formData.cdl_number} onChange={e => setFormData({
+                      ...formData,
+                      cdl_number: e.target.value
+                    })} placeholder="CDL Number" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
+                    <DatePicker
+                      date={formData.cdl_expiration_date}
+                      onDateChange={(date) => setFormData({
+                        ...formData,
+                        cdl_expiration_date: date
+                      })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="hire_date">Hire Date</Label>
+                    <DatePicker
+                      date={formData.hire_date}
+                      onDateChange={(date) => setFormData({
+                        ...formData,
+                        hire_date: date
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="termination_date">Termination Date</Label>
+                    <DatePicker
+                      date={formData.termination_date}
+                      onDateChange={(date) => setFormData({
+                        ...formData,
+                        termination_date: date
+                      })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mvr_date">MVR Date</Label>
+                    <DatePicker
+                      date={formData.mvr_date}
+                      onDateChange={(date) => setFormData({
+                        ...formData,
+                        mvr_date: date
+                      })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="clearing_house">Clearing House</Label>
+                    <Input id="clearing_house" value={formData.clearing_house} onChange={e => setFormData({
+                      ...formData,
+                      clearing_house: e.target.value
+                    })} placeholder="Clearing House" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ssn">SSN #</Label>
+                    <Input id="ssn" value={formData.ssn} onChange={e => setFormData({
+                      ...formData,
+                      ssn: e.target.value
+                    })} placeholder="SSN" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fein">FEIN #</Label>
+                    <Input id="fein" value={formData.fein} onChange={e => setFormData({
+                      ...formData,
+                      fein: e.target.value
+                    })} placeholder="FEIN" />
+                  </div>
                 </div>
               </div>
 
@@ -602,6 +764,107 @@ const Drivers = () => {
                 ...formData,
                 home_longitude: e.target.value
               })} placeholder="-87.6298" />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-semibold">Additional Information</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_personal_id">Personal ID</Label>
+                  <Input id="edit_personal_id" value={formData.personal_id} onChange={e => setFormData({
+                    ...formData,
+                    personal_id: e.target.value
+                  })} placeholder="Personal ID" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
+                  <Input id="edit_fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
+                    ...formData,
+                    fuel_card_number: e.target.value
+                  })} placeholder="Fuel Card Number" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_cdl_number">CDL Number</Label>
+                  <Input id="edit_cdl_number" value={formData.cdl_number} onChange={e => setFormData({
+                    ...formData,
+                    cdl_number: e.target.value
+                  })} placeholder="CDL Number" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_cdl_expiration_date">CDL Expiration Date</Label>
+                  <DatePicker
+                    date={formData.cdl_expiration_date}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      cdl_expiration_date: date
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_hire_date">Hire Date</Label>
+                  <DatePicker
+                    date={formData.hire_date}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      hire_date: date
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_termination_date">Termination Date</Label>
+                  <DatePicker
+                    date={formData.termination_date}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      termination_date: date
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_mvr_date">MVR Date</Label>
+                  <DatePicker
+                    date={formData.mvr_date}
+                    onDateChange={(date) => setFormData({
+                      ...formData,
+                      mvr_date: date
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_clearing_house">Clearing House</Label>
+                  <Input id="edit_clearing_house" value={formData.clearing_house} onChange={e => setFormData({
+                    ...formData,
+                    clearing_house: e.target.value
+                  })} placeholder="Clearing House" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_ssn">SSN #</Label>
+                  <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
+                    ...formData,
+                    ssn: e.target.value
+                  })} placeholder="SSN" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_fein">FEIN #</Label>
+                  <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
+                    ...formData,
+                    fein: e.target.value
+                  })} placeholder="FEIN" />
+                </div>
               </div>
             </div>
 

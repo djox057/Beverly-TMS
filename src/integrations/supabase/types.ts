@@ -64,8 +64,14 @@ export type Database = {
       }
       drivers: {
         Row: {
+          cdl_expiration_date: string | null
+          cdl_number: string | null
+          clearing_house: string | null
           created_at: string
           email: string | null
+          fein: string | null
+          fuel_card_number: string | null
+          hire_date: string | null
           home_address: string | null
           home_city: string | null
           home_latitude: number | null
@@ -80,13 +86,23 @@ export type Database = {
           id: string
           is_active: boolean
           license_number: string | null
+          mvr_date: string | null
           name: string
+          personal_id: string | null
           phone: string | null
+          ssn: string | null
+          termination_date: string | null
           updated_at: string
         }
         Insert: {
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          clearing_house?: string | null
           created_at?: string
           email?: string | null
+          fein?: string | null
+          fuel_card_number?: string | null
+          hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
           home_latitude?: number | null
@@ -101,13 +117,23 @@ export type Database = {
           id?: string
           is_active?: boolean
           license_number?: string | null
+          mvr_date?: string | null
           name: string
+          personal_id?: string | null
           phone?: string | null
+          ssn?: string | null
+          termination_date?: string | null
           updated_at?: string
         }
         Update: {
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          clearing_house?: string | null
           created_at?: string
           email?: string | null
+          fein?: string | null
+          fuel_card_number?: string | null
+          hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
           home_latitude?: number | null
@@ -122,8 +148,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           license_number?: string | null
+          mvr_date?: string | null
           name?: string
+          personal_id?: string | null
           phone?: string | null
+          ssn?: string | null
+          termination_date?: string | null
           updated_at?: string
         }
         Relationships: []
