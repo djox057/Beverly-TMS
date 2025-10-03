@@ -454,7 +454,7 @@ const Drivers = () => {
               </div>
 
               <div className="grid grid-cols-12 gap-4">
-                <div className="space-y-2 col-span-8">
+                <div className="space-y-2 col-span-7">
                   <Label htmlFor="home_address">Home Address</Label>
                   <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
                   ...formData,
@@ -468,7 +468,7 @@ const Drivers = () => {
                   home_city: e.target.value
                 })} placeholder="Chicago" />
                 </div>
-                <div className="space-y-2 col-span-1">
+                <div className="space-y-2 col-span-2">
                   <Label htmlFor="home_state">Home State</Label>
                   <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
                   ...formData,
@@ -840,7 +840,7 @@ const Drivers = () => {
             </div>
 
             <div className="grid grid-cols-12 gap-4">
-              <div className="space-y-2 col-span-8">
+              <div className="space-y-2 col-span-7">
                 <Label htmlFor="edit_home_address">Home Address</Label>
                 <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
                 ...formData,
@@ -854,7 +854,7 @@ const Drivers = () => {
                 home_city: e.target.value
               })} placeholder="Chicago" />
               </div>
-              <div className="space-y-2 col-span-1">
+              <div className="space-y-2 col-span-2">
                 <Label htmlFor="edit_home_state">Home State</Label>
                 <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
                 ...formData,
