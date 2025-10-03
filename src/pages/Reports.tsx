@@ -53,9 +53,6 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [truckDistances, setTruckDistances] = useState<{ [truckId: string]: number }>({});
-  const [showDebugData, setShowDebugData] = useState(false);
-  const [debugData, setDebugData] = useState<any>(null);
-  const [loadingDebug, setLoadingDebug] = useState(false);
   const {
     toast
   } = useToast();
@@ -143,69 +140,6 @@ const Reports = () => {
     calculateDistances();
   }, [samsaraLocations, groupedReports]);
 
-  const testSamsaraConnection = async () => {
-    setLoadingDebug(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('samsara-locations');
-      
-      if (error) {
-        console.error('Error testing Samsara:', error);
-        toast({
-          title: "Connection Test Failed",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Connection Successful",
-          description: `Found ${data.locations?.length || 0} truck locations`,
-        });
-        console.log('Samsara locations:', data);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Connection Test Failed",
-        description: "Failed to connect to Samsara",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingDebug(false);
-    }
-  };
-
-  const showRawSamsaraData = async () => {
-    setLoadingDebug(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('samsara-debug');
-      
-      if (error) {
-        console.error('Error fetching debug data:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch Samsara data",
-          variant: "destructive"
-        });
-      } else {
-        setDebugData(data);
-        setShowDebugData(true);
-        console.log('Samsara Debug Data:', data);
-        toast({
-          title: "Debug Data Loaded",
-          description: `Found ${data.totalVehicles} vehicles`,
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch Samsara data",
-        variant: "destructive"
-      });
-    } finally {
-      setLoadingDebug(false);
-    }
-  };
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({
       truckId,
@@ -728,69 +662,8 @@ const Reports = () => {
               Real-time fleet status with multi-load overlay • Orange badge shows trucks with multiple orders
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={testSamsaraConnection}
-              disabled={loadingDebug}
-            >
-              {loadingDebug ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Test Connection
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={showRawSamsaraData}
-              disabled={loadingDebug}
-            >
-              {loadingDebug ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Show API Data
-            </Button>
-          </div>
         </div>
       </div>
-
-      {/* Debug Data Dialog */}
-      <Dialog open={showDebugData} onOpenChange={setShowDebugData}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Samsara API Raw Data</DialogTitle>
-          </DialogHeader>
-          {debugData && (
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-3 rounded">
-                <h3 className="font-semibold mb-2">Summary</h3>
-                <p>Total Vehicles: {debugData.totalVehicles}</p>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded">
-                <h3 className="font-semibold mb-2">Name Patterns</h3>
-                <p>With "TRUCK" prefix: {debugData.namePatterns?.withTRUCKPrefix?.length || 0}</p>
-                <p>With 4-digit numbers: {debugData.namePatterns?.withNumbers?.length || 0}</p>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded">
-                <h3 className="font-semibold mb-2">All Vehicle Names</h3>
-                <div className="max-h-64 overflow-y-auto">
-                  <ul className="space-y-1 font-mono text-xs">
-                    {debugData.namePatterns?.all?.map((name: string, index: number) => (
-                      <li key={index}>{name}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-3 rounded">
-                <h3 className="font-semibold mb-2">Full Raw Data</h3>
-                <pre className="overflow-auto text-xs bg-white p-3 rounded max-h-96">
-                  {JSON.stringify(debugData, null, 2)}
-                </pre>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <div className="flex-1 overflow-auto">
         {groupedReports && groupedReports.length === 0 ? <div className="p-4">
