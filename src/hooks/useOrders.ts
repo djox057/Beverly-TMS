@@ -109,7 +109,7 @@ export const useOrders = () => {
           *,
           truck:trucks!orders_truck_id_fkey(truck_number, company:companies(name)),
           driver1:drivers!orders_driver1_id_fkey(name),
-          broker:brokers!orders_broker_id_fkey(name, address, city, state, zip_code),
+          broker:brokers!orders_broker_id_fkey(name, address),
           company:companies!orders_company_id_fkey(name),
           pickup_drops(type, city, state, datetime, address),
           order_files(id, file_name, file_path, file_size, content_type, file_category)
@@ -151,9 +151,6 @@ export const useOrders = () => {
           driverName: order.driver1?.name || 'N/A',
           brokerName: order.broker?.name || 'N/A',
           brokerAddress: order.broker?.address || '',
-          brokerCity: order.broker?.city || '',
-          brokerState: order.broker?.state || '',
-          brokerZipCode: order.broker?.zip_code || '',
           brokerLoadNumber: order.broker_load_number || 'N/A',
           invoiced: order.invoiced ? 'Done' : '',
           freightAmount: order.freight_amount || 0,
