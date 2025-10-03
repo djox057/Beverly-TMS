@@ -683,15 +683,11 @@ const Reports = () => {
                 tableLayout: 'auto'
               }}>
                     <thead>
-                      {/* Dispatcher Name Row */}
+                      {/* Date Range Selector Row with Dispatcher Name */}
                       <tr className="bg-gray-50">
-                        <th colSpan={14} className="border-b border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-900 bg-gray-50">
+                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-900 bg-gray-50">
                           {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
                         </th>
-                      </tr>
-                      {/* Date Range Selector Row - Above main headers */}
-                      <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 bg-gray-50"></th>
                         <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
                           <div className="flex items-center justify-center">
                             <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
