@@ -753,8 +753,8 @@ const Reports = () => {
                                 }}
                               />
                             )}
-                            <div className="relative z-10 text-[10px]">{format(day, 'EEE')}</div>
-                            <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'dd')}</div>
+                            <div className="relative z-10 text-[10px]">{format(day, 'EEEE')}</div>
+                            <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'M/d/yyyy')}</div>
                           </th>;
                         })}
                         <th colSpan={4} className="border-t border-l border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
