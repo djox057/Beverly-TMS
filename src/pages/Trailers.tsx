@@ -13,6 +13,8 @@ import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
@@ -467,116 +469,135 @@ const Trailers = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Trailer</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditTrailer} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit_trailer_number">Trailer Number*</Label>
-              <Input id="edit_trailer_number" value={formData.trailer_number} onChange={e => setFormData({
-              ...formData,
-              trailer_number: e.target.value
-            })} placeholder="TRL-001" required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_trailer_type">Trailer Type</Label>
-              <Select value={formData.trailer_type} onValueChange={value => setFormData({
-              ...formData,
-              trailer_type: value
-            })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select trailer type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Dry Van">Dry Van</SelectItem>
-                  <SelectItem value="Refrigerated">Refrigerated</SelectItem>
-                  <SelectItem value="Flatbed">Flatbed</SelectItem>
-                  <SelectItem value="Tank">Tank</SelectItem>
-                  <SelectItem value="Container">Container</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_vin">VIN Number</Label>
-              <Input id="edit_vin" value={formData.vin} onChange={e => setFormData({
-              ...formData,
-              vin: e.target.value
-            })} placeholder="Enter VIN" maxLength={17} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit_dot_inspection_date">DOT Inspection Date</Label>
-              <Input 
-                id="edit_dot_inspection_date" 
-                type="date" 
-                value={formData.dot_inspection_date} 
-                onChange={e => setFormData({
+          
+          <Tabs defaultValue="info" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info">Trailer Info</TabsTrigger>
+              <TabsTrigger value="files">Trailer Files</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="info">
+              <form onSubmit={handleEditTrailer} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_trailer_number">Trailer Number*</Label>
+                  <Input id="edit_trailer_number" value={formData.trailer_number} onChange={e => setFormData({
                   ...formData,
-                  dot_inspection_date: e.target.value
-                })} 
-              />
-            </div>
+                  trailer_number: e.target.value
+                })} placeholder="TRL-001" required />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_plate_expiration_date">Plate Expiration Date</Label>
-              <Input 
-                id="edit_plate_expiration_date" 
-                type="date" 
-                value={formData.plate_expiration_date} 
-                onChange={e => setFormData({
+                <div className="space-y-2">
+                  <Label htmlFor="edit_trailer_type">Trailer Type</Label>
+                  <Select value={formData.trailer_type} onValueChange={value => setFormData({
                   ...formData,
-                  plate_expiration_date: e.target.value
-                })} 
-              />
-            </div>
+                  trailer_type: value
+                })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select trailer type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dry Van">Dry Van</SelectItem>
+                      <SelectItem value="Refrigerated">Refrigerated</SelectItem>
+                      <SelectItem value="Flatbed">Flatbed</SelectItem>
+                      <SelectItem value="Tank">Tank</SelectItem>
+                      <SelectItem value="Container">Container</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_insurance_expiration_date">Insurance Expiration Date</Label>
-              <Input 
-                id="edit_insurance_expiration_date" 
-                type="date" 
-                value={formData.insurance_expiration_date} 
-                onChange={e => setFormData({
+                <div className="space-y-2">
+                  <Label htmlFor="edit_vin">VIN Number</Label>
+                  <Input id="edit_vin" value={formData.vin} onChange={e => setFormData({
                   ...formData,
-                  insurance_expiration_date: e.target.value
-                })} 
-              />
-            </div>
+                  vin: e.target.value
+                })} placeholder="Enter VIN" maxLength={17} />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit_truck_id">Truck #</Label>
-              <Select value={formData.truck_id} onValueChange={value => setFormData({
-              ...formData,
-              truck_id: value
-            })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select truck" />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Include currently assigned truck + available trucks */}
-                  {editingTrailer?.trucks?.[0] && <SelectItem value={editingTrailer.trucks[0].id}>
-                      {editingTrailer.trucks[0].truck_number}
-                    </SelectItem>}
-                  {truckOptions.filter(truck => truck.value !== editingTrailer?.trucks?.[0]?.id).map(truck => <SelectItem key={truck.value} value={truck.value}>
-                        {truck.label}
-                      </SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_dot_inspection_date">DOT Inspection Date</Label>
+                  <Input 
+                    id="edit_dot_inspection_date" 
+                    type="date" 
+                    value={formData.dot_inspection_date} 
+                    onChange={e => setFormData({
+                      ...formData,
+                      dot_inspection_date: e.target.value
+                    })} 
+                  />
+                </div>
 
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Update Trailer
-              </Button>
-            </div>
-          </form>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_plate_expiration_date">Plate Expiration Date</Label>
+                  <Input 
+                    id="edit_plate_expiration_date" 
+                    type="date" 
+                    value={formData.plate_expiration_date} 
+                    onChange={e => setFormData({
+                      ...formData,
+                      plate_expiration_date: e.target.value
+                    })} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_insurance_expiration_date">Insurance Expiration Date</Label>
+                  <Input 
+                    id="edit_insurance_expiration_date" 
+                    type="date" 
+                    value={formData.insurance_expiration_date} 
+                    onChange={e => setFormData({
+                      ...formData,
+                      insurance_expiration_date: e.target.value
+                    })} 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_truck_id">Truck #</Label>
+                  <Select value={formData.truck_id} onValueChange={value => setFormData({
+                  ...formData,
+                  truck_id: value
+                })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select truck" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Include currently assigned truck + available trucks */}
+                      {editingTrailer?.trucks?.[0] && <SelectItem value={editingTrailer.trucks[0].id}>
+                          {editingTrailer.trucks[0].truck_number}
+                        </SelectItem>}
+                      {truckOptions.filter(truck => truck.value !== editingTrailer?.trucks?.[0]?.id).map(truck => <SelectItem key={truck.value} value={truck.value}>
+                            {truck.label}
+                          </SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Update Trailer
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="files">
+              {editingTrailer && (
+                <TrailerFilesManager 
+                  trailerId={editingTrailer.id} 
+                  trailerNumber={editingTrailer.trailer_number}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>;
