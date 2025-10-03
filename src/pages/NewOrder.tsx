@@ -329,11 +329,11 @@ const NewOrder = () => {
         }
       },
       onClick: (e: React.MouseEvent) => {
-        // Don't trigger if clicking on the Extract with AI button
-        if (fileType === 'rc' && (e.target as HTMLElement).closest('button[data-ai-extract]')) {
+        // Don't trigger if clicking on buttons or interactive elements
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, a')) {
           return;
         }
-        e.preventDefault();
         fileInputRef.current?.click();
       }
     };
