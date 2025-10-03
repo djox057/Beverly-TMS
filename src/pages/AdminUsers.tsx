@@ -33,7 +33,7 @@ interface User {
 }
 
 const AdminUsers = () => {
-  const { signUp } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +49,22 @@ const AdminUsers = () => {
   const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver'>('dispatch');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
+  // Security check: Only admins should access this page
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!loading && profile && !hasRole('admin')) {
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to manage users",
+        variant: "destructive",
+      });
+    }
+  }, [profile, loading, hasRole, toast]);
+
+  useEffect(() => {
+    if (hasRole('admin')) {
+      fetchUsers();
+    }
+  }, [hasRole]);
 
   const fetchUsers = async () => {
     try {
@@ -98,26 +111,54 @@ const AdminUsers = () => {
     
     setIsCreating(true);
     try {
-      const { error } = await signUp(email, password, fullName, role);
-      if (!error) {
-        // Reset form
-        setEmail("");
-        setPassword("");
-        setFullName("");
-        setRole('dispatch');
-        setFormErrors({});
-        setIsDialogOpen(false);
-        
-        // Refresh users list
-        await fetchUsers();
-        
-        toast({
-          title: "Success",
-          description: "User created successfully!",
-        });
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
       }
-    } catch (error) {
+
+      // Use admin-only edge function to create user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: { 
+          email, 
+          password, 
+          fullName: fullName || email, 
+          role 
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Check if the function returned an error in the response
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      // Reset form
+      setEmail("");
+      setPassword("");
+      setFullName("");
+      setRole('dispatch');
+      setFormErrors({});
+      setIsDialogOpen(false);
+      
+      // Refresh users list
+      await fetchUsers();
+      
+      toast({
+        title: "Success",
+        description: "User created successfully!",
+      });
+    } catch (error: any) {
       console.error('Error creating user:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
     } finally {
       setIsCreating(false);
     }
@@ -186,6 +227,18 @@ const AdminUsers = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Additional security check - only render for admins
+  if (!hasRole('admin')) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-destructive mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">Admin role required to manage users</p>
+        </div>
       </div>
     );
   }
