@@ -434,18 +434,18 @@ const Trucks = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Truck #</TableHead>
-                  <TableHead>VIN</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Trailer #</TableHead>
+                  <TableHead className="text-center">Truck #</TableHead>
+                  <TableHead className="text-center">VIN</TableHead>
+                  <TableHead className="text-center">Company</TableHead>
+                  <TableHead className="text-center">Trailer #</TableHead>
                   <TableHead className="text-center">Driver 1</TableHead>
                   <TableHead className="text-center">Driver 2</TableHead>
-                  <TableHead>Dispatcher</TableHead>
-                  <TableHead>IPASS</TableHead>
-                  <TableHead>DOT Inspection</TableHead>
-                  <TableHead>Plate Exp.</TableHead>
-                  <TableHead>Insurance Exp.</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-center">Dispatcher</TableHead>
+                  <TableHead className="text-center">IPASS</TableHead>
+                  <TableHead className="text-center">DOT Inspection</TableHead>
+                  <TableHead className="text-center">Plate Exp.</TableHead>
+                  <TableHead className="text-center">Insurance Exp.</TableHead>
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -456,18 +456,18 @@ const Trucks = () => {
                   </TableRow> : (
                     <>
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
-                        <TableCell className="font-medium">{truck.truck_number}</TableCell>
-                        <TableCell className="font-mono text-sm">{truck.vin || "—"}</TableCell>
-                        <TableCell>{truck.company?.name || "—"}</TableCell>
-                        <TableCell>{truck.trailer?.trailer_number || "—"}</TableCell>
+                        <TableCell className="font-medium text-center">{truck.truck_number}</TableCell>
+                        <TableCell className="font-mono text-sm text-center">{truck.vin || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.company?.name || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.trailer?.trailer_number || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
-                        <TableCell>{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
-                        <TableCell>{truck.ipass || "—"}</TableCell>
-                        <TableCell>{truck.dot_inspection_date || "—"}</TableCell>
-                        <TableCell>{truck.plate_expiration_date || "—"}</TableCell>
-                        <TableCell>{truck.insurance_expiration_date || "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-center">{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.ipass || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.dot_inspection_date || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.plate_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.insurance_expiration_date || "—"}</TableCell>
+                        <TableCell className="text-center">
                           <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
                               <Edit className="h-4 w-4" />
