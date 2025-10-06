@@ -166,11 +166,30 @@ serve(async (req) => {
     // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
 
+    // Extract state from city/state/zip format (e.g., "Saint Cloud, MN 56303" -> "MN")
+    const extractState = (cityStateZip: string): string => {
+      const match = cityStateZip.match(/,\s*([A-Z]{2})\s+\d{5}/);
+      return match ? match[1] : '';
+    };
+
+    const pickupState = extractState(data.pickupCityStateZip);
+    const deliveryState = extractState(data.deliveryCityStateZip);
+    
+    // Format today's date as m/d/y
+    const today = new Date();
+    const todayFormatted = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+    
+    // Extract first name from driver name (e.g., "Jimmie Taylor" -> "Jimmie")
+    const driverFirstName = data.driverName.split(' ')[0];
+    
+    // Format: #3869 Samuel // 9/25/2025 // Load#2002255693 // MO - LA
+    const filename = `#${data.truckNumber} ${driverFirstName} // ${todayFormatted} // Load#${data.brokerLoadNumber} // ${pickupState} - ${deliveryState}.pdf`;
+
     return new Response(pdfBytes, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="load-confirmation-${data.brokerLoadNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
 
