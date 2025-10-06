@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
-import { TruckMapDialog } from "@/components/TruckMapDialog";
+import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 interface EditingState {
   truckId: string;
   field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note';
@@ -57,6 +57,7 @@ const Reports = () => {
   } = useSamsaraLocations();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
+  const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
   const [truckDistances, setTruckDistances] = useState<{
     [truckId: string]: number;
   }>({});
@@ -756,7 +757,10 @@ const Reports = () => {
                       {group.trucks.map((truck, truckIndex) => {
                         const modifiedCells = renderTruckCalendarCells(truck, startDate, truckIndex, group.trucks.length);
                         const isLastTruck = truckIndex === group.trucks.length - 1;
-                        return <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
+                        const isMapExpanded = expandedTruckMap === truck.id;
+                        return (
+                          <>
+                            <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
                           <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900 font-medium`} style={{
                             width: '64px',
                             minWidth: '64px',
@@ -822,6 +826,8 @@ const Reports = () => {
                                   truckId={truck.id}
                                   pickupAddress={truck.pickup?.location}
                                   deliveryAddress={truck.delivery?.location}
+                                  isOpen={isMapExpanded}
+                                  onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
                                 >
                                   <MapPin 
                                     className="text-red-500 cursor-pointer hover:text-red-700 transition-colors" 
@@ -840,6 +846,8 @@ const Reports = () => {
                                     truckId={truck.id}
                                     pickupAddress={truck.pickup?.location}
                                     deliveryAddress={truck.delivery?.location}
+                                    isOpen={isMapExpanded}
+                                    onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
                                   >
                                     <MapPin 
                                       className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
@@ -895,8 +903,22 @@ const Reports = () => {
                             width: '80px',
                             minWidth: '80px',
                             maxWidth: '80px'
-                          }}>{truck.editDate}</td>
-                        </tr>;
+                           }}>{truck.editDate}</td>
+                        </tr>
+                        {isMapExpanded && (
+                          <tr key={`${truck.id}-map`}>
+                            <td colSpan={13} className="p-4 border-b-[3px] border-gray-400">
+                              <TruckMapView
+                                truckNumber={truck.truckNumber}
+                                truckId={truck.id}
+                                pickupAddress={truck.pickup?.location}
+                                deliveryAddress={truck.delivery?.location}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                        );
                       })}
                     </tbody>
                   </table>
