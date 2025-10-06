@@ -89,10 +89,18 @@ export const generateInvoicePDF = async (orders: Order[]) => {
   console.log(`Grouped orders into ${Object.keys(groupedOrders).length} broker-company combinations:`, Object.keys(groupedOrders));
 
   const groupValues = Object.values(groupedOrders);
-  const isMultipleInvoices = groupValues.length > 1;
 
   // Collect all invoice data for edge function
   const invoiceData = [];
+
+  // Fetch broker MC numbers for all orders
+  const brokerNames = [...new Set(orders.map(o => o.brokerName))];
+  const { data: brokersData } = await supabase
+    .from('brokers')
+    .select('name, mc_number')
+    .in('name', brokerNames);
+  
+  const brokerMcMap = new Map(brokersData?.map(b => [b.name, b.mc_number]) || []);
 
   // Generate PDF for each broker/company combination
   for (const group of groupValues) {
@@ -369,13 +377,25 @@ export const generateInvoicePDF = async (orders: Order[]) => {
 
   console.log(`Collected ${invoiceData.length} invoices for processing:`, invoiceData.map(inv => ({ filename: inv.filename, bytesLength: inv.pdfBytes.length })));
 
-  // Use edge function to handle folder creation
+  // Generate XLSX file with order data
+  const currentDate = new Date().toLocaleDateString();
+  const xlsxData = orders.map(order => ({
+    'ClientNo': brokerMcMap.get(order.brokerName) || '',
+    'Invoice#': order.internalLoadNumber,
+    'Debtor Debtor Name': order.brokerName,
+    'Pono': order.brokerLoadNumber,
+    'InvDate': currentDate,
+    'InvAmt': `$${order.totalFreightAmount.toLocaleString()}`
+  }));
+
+  // Use edge function to handle folder creation (always create ZIP)
   try {
-    console.log(`Sending ${invoiceData.length} invoices to create-invoice-folder function`);
+    console.log(`Sending ${invoiceData.length} invoices and XLSX data to create-invoice-folder function`);
     const { data: result, error } = await supabase.functions.invoke('create-invoice-folder', {
       body: {
         invoices: invoiceData,
-        folderName: isMultipleInvoices ? 'folder' : undefined
+        xlsxData: xlsxData,
+        folderName: 'invoices'
       }
     });
 
@@ -399,19 +419,8 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     }
 
     // Handle the result from edge function
-    if (result.singleFile) {
-      // Single file download
-      const blob = new Blob([new Uint8Array(result.singleFile.pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.singleFile.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } else if (result.zipFile) {
-      // ZIP file download (for multiple invoices)
+    if (result.zipFile) {
+      // ZIP file download
       const blob = new Blob([new Uint8Array(result.zipFile.zipBytes)], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -421,21 +430,6 @@ export const generateInvoicePDF = async (orders: Order[]) => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-    } else if (result.multipleFiles) {
-      // Multiple files - download sequentially to simulate folder (fallback)
-      result.multipleFiles.files.forEach((file: any, index: number) => {
-        const blob = new Blob([new Uint8Array(file.pdfBytes)], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.filename;
-        document.body.appendChild(link);
-        setTimeout(() => {
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, index * 300);
-      });
     }
   } catch (error) {
     console.error('Error in invoice generation:', error);

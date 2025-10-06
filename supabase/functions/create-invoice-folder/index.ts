@@ -10,6 +10,15 @@ interface InvoiceFile {
   pdfBytes: number[];
 }
 
+interface XlsxRow {
+  'ClientNo': string;
+  'Invoice#': string;
+  'Debtor Debtor Name': string;
+  'Pono': string;
+  'InvDate': string;
+  'InvAmt': string;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -19,7 +28,7 @@ Deno.serve(async (req) => {
   try {
     console.log('Starting invoice folder creation process...');
     
-    const { invoices, folderName } = await req.json();
+    const { invoices, xlsxData, folderName } = await req.json();
     
     if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
       return new Response(
@@ -31,28 +40,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${invoices.length} invoices for folder: ${folderName || 'single'}`);
+    console.log(`Processing ${invoices.length} invoices for folder: ${folderName || 'invoices'}`);
 
-    // If only one invoice, return it directly
-    if (invoices.length === 1) {
-      console.log('Single invoice, returning directly');
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          singleFile: {
-            filename: invoices[0].filename,
-            pdfBytes: invoices[0].pdfBytes
-          }
-        }),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // For multiple invoices, create a ZIP file
-    console.log('Multiple invoices detected, creating ZIP file');
+    // Always create a ZIP file
+    console.log('Creating ZIP file with invoices and XLSX');
     
     const zip = new JSZip();
     
@@ -93,6 +84,25 @@ Deno.serve(async (req) => {
       }
     }
     
+    // Add XLSX file if data provided
+    if (xlsxData && Array.isArray(xlsxData) && xlsxData.length > 0) {
+      console.log(`Adding XLSX with ${xlsxData.length} rows`);
+      
+      // Create CSV content (Excel can open CSV files)
+      const headers = ['ClientNo', 'Invoice#', 'Debtor Debtor Name', 'Pono', 'InvDate', 'InvAmt'];
+      const csvRows = [
+        headers.join('\t'),
+        ...xlsxData.map((row: XlsxRow) => 
+          headers.map(h => row[h as keyof XlsxRow] || '').join('\t')
+        )
+      ];
+      const csvContent = csvRows.join('\n');
+      const csvBytes = new TextEncoder().encode(csvContent);
+      
+      zip.addFile('invoice_data.xls', csvBytes);
+      console.log('Successfully added XLSX to ZIP');
+    }
+    
     // Generate the ZIP file
     const zipBytes = await zip.generateAsync({ 
       type: "uint8array",
@@ -100,13 +110,13 @@ Deno.serve(async (req) => {
       compressionOptions: { level: 6 }
     });
     
-    console.log(`Created ZIP file with ${invoices.length} invoices`);
+    console.log(`Created ZIP file with ${invoices.length} invoices and XLSX`);
     
     return new Response(
       JSON.stringify({ 
         success: true, 
         zipFile: {
-          filename: `${folderName || 'folder'}.zip`,
+          filename: `${folderName || 'invoices'}.zip`,
           zipBytes: Array.from(zipBytes)
         }
       }),
