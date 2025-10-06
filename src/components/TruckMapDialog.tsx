@@ -322,36 +322,14 @@ export function TruckMapView({
         let pickupCoords = null;
         let deliveryCoords = null;
 
-        // Format date/time as MM/DD, HH:mm using UTC (same as Reports popup)
-        const formatDateTime = (datetime?: string, endDatetime?: string) => {
-          if (!datetime) return '';
-          const dt = new Date(datetime);
-          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(dt.getUTCDate()).padStart(2, '0');
-          const hours = String(dt.getUTCHours()).padStart(2, '0');
-          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-          
-          let timeStr = `${month}/${day}, ${hours}:${minutes}`;
-          
-          if (endDatetime) {
-            const endDt = new Date(endDatetime);
-            const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-            const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-            if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-              timeStr += ` - ${endHours}:${endMinutes}`;
-            }
-          }
-          
-          return timeStr;
-        };
-
         // Create comprehensive load information popup
         const loadInfoPopup = `
-          <div style="padding: 10px; font-size: 14px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.8;">
-            ${loadNumber ? `<div>• Load #: ${loadNumber}</div>` : ''}
-            ${brokerLoadNumber ? `<div>• Broker Load #: ${brokerLoadNumber}</div>` : ''}
-            ${pickupAddress ? `<div>• Pickup: ${pickupAddress} at ${formatDateTime(pickupDate, pickupTime)}</div>` : ''}
-            ${deliveryAddress ? `<div>• Delivery: ${deliveryAddress} at ${formatDateTime(deliveryDate, deliveryTime)}</div>` : ''}
+          <div style="min-width: 450px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
+            <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
+            ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
+            ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
+            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
+            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
           </div>
         `;
 
