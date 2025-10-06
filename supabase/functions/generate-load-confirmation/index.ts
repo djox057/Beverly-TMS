@@ -68,10 +68,10 @@ serve(async (req) => {
     const fields = form.getFields();
     console.log('Available form fields:', fields.map(f => f.getName()));
 
-    // Fill in the form fields - adjust field names based on what's in your PDF
+    // Fill in the form fields - using actual field names from PDF
     try {
-      // Broker Load Number in LOAD ORDER CONFIRMATION field
-      const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRMATION');
+      // Broker Load Number in LOAD ORDER CONFIRAMTION field (note: typo in PDF)
+      const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRAMTION');
       loadConfirmationField.setText(data.brokerLoadNumber);
 
       // Driver Info
@@ -104,22 +104,22 @@ serve(async (req) => {
       const rateField = form.getTextField('Rate');
       rateField.setText('$' + data.rate);
 
-      // Pickup Info
+      // Pickup Info (first location)
       if (data.pickupShipper) {
         const shipperField = form.getTextField('Shipper');
         shipperField.setText(data.pickupShipper);
       }
 
-      const pickupAddressField = form.getTextField('Address_pickup');
+      const pickupAddressField = form.getTextField('Address');
       pickupAddressField.setText(data.pickupAddress);
 
-      const pickupCityField = form.getTextField('City state zip_pickup');
+      const pickupCityField = form.getTextField('City state zip');
       pickupCityField.setText(data.pickupCityStateZip);
 
-      const pickupDateField = form.getTextField('Date_pickup');
+      const pickupDateField = form.getTextField('Date');
       pickupDateField.setText(data.pickupDate);
 
-      const pickupTimeField = form.getTextField('Time_pickup');
+      const pickupTimeField = form.getTextField('Time');
       pickupTimeField.setText(data.pickupTime);
 
       if (data.pickupPuNumber) {
@@ -128,30 +128,30 @@ serve(async (req) => {
       }
 
       if (data.pickupPoNumber) {
-        const poPickupField = form.getTextField('PO_pickup');
+        const poPickupField = form.getTextField('PO');
         poPickupField.setText(data.pickupPoNumber);
       }
 
-      // Delivery Info
+      // Delivery Info (second location - _2 suffix)
       if (data.deliveryReceiver) {
-        const receiverField = form.getTextField('Receiver');
+        const receiverField = form.getTextField('Shipper_2');
         receiverField.setText(data.deliveryReceiver);
       }
 
-      const deliveryAddressField = form.getTextField('Address_delivery');
+      const deliveryAddressField = form.getTextField('Address_2');
       deliveryAddressField.setText(data.deliveryAddress);
 
-      const deliveryCityField = form.getTextField('City state zip_delivery');
+      const deliveryCityField = form.getTextField('City state zip_2');
       deliveryCityField.setText(data.deliveryCityStateZip);
 
-      const deliveryDateField = form.getTextField('Date_delivery');
+      const deliveryDateField = form.getTextField('Date_2');
       deliveryDateField.setText(data.deliveryDate);
 
-      const deliveryTimeField = form.getTextField('Time_delivery');
+      const deliveryTimeField = form.getTextField('Time_2');
       deliveryTimeField.setText(data.deliveryTime);
 
       if (data.deliveryPoNumber) {
-        const poDeliveryField = form.getTextField('PO_delivery');
+        const poDeliveryField = form.getTextField('PO_2');
         poDeliveryField.setText(data.deliveryPoNumber);
       }
 
@@ -170,7 +170,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="load-confirmation-${data.loadNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="load-confirmation-${data.brokerLoadNumber}.pdf"`,
       },
     });
 
