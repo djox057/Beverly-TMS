@@ -838,6 +838,7 @@ const Reports = () => {
                                   deliveryDate={truck.delivery?.date}
                                   deliveryTime={truck.delivery?.time}
                                   loadNumber={currentOrder?.load_number}
+                                  brokerLoadNumber={currentOrder?.broker_load_number}
                                   hasBOL={hasBOL}
                                   hasPOD={hasPOD}
                                   pickupArrived={pickupArrived}
@@ -866,6 +867,7 @@ const Reports = () => {
                                     deliveryDate={truck.delivery?.date}
                                     deliveryTime={truck.delivery?.time}
                                     loadNumber={currentOrder?.load_number}
+                                    brokerLoadNumber={currentOrder?.broker_load_number}
                                     hasBOL={hasBOL}
                                     hasPOD={hasPOD}
                                     pickupArrived={pickupArrived}
@@ -941,6 +943,7 @@ const Reports = () => {
                                 deliveryDate={truck.delivery?.date}
                                 deliveryTime={truck.delivery?.time}
                                 loadNumber={currentOrder?.load_number}
+                                brokerLoadNumber={currentOrder?.broker_load_number}
                                 hasBOL={hasBOL}
                                 hasPOD={hasPOD}
                                 pickupArrived={pickupArrived}

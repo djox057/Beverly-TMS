@@ -15,6 +15,7 @@ interface TruckMapDialogProps {
   deliveryDate?: string;
   deliveryTime?: string;
   loadNumber?: string;
+  brokerLoadNumber?: string;
   hasBOL: boolean;
   hasPOD: boolean;
   pickupArrived: boolean;
@@ -33,6 +34,7 @@ export function TruckMapDialog({
   deliveryDate,
   deliveryTime,
   loadNumber,
+  brokerLoadNumber,
   hasBOL,
   hasPOD,
   pickupArrived,
@@ -253,6 +255,7 @@ export function TruckMapView({
   deliveryDate,
   deliveryTime,
   loadNumber,
+  brokerLoadNumber,
   hasBOL,
   hasPOD,
   pickupArrived,
@@ -319,6 +322,23 @@ export function TruckMapView({
         let pickupCoords = null;
         let deliveryCoords = null;
 
+        // Create comprehensive load information popup
+        const documentsStatus = [];
+        if (hasBOL) documentsStatus.push('BOL');
+        if (hasPOD) documentsStatus.push('POD');
+        if (!hasBOL && !hasPOD) documentsStatus.push('RC');
+        
+        const loadInfoPopup = `
+          <div style="min-width: 350px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
+            <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
+            ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
+            ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
+            ${pickupAddress ? `<div style="margin-bottom: 8px;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
+            ${deliveryAddress ? `<div style="margin-bottom: 8px;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
+            ${documentsStatus.length > 0 ? `<div style="margin-bottom: 8px;"><strong>Documents:</strong> ${documentsStatus.join(', ')}</div>` : ''}
+          </div>
+        `;
+
         // Always show pickup marker if address exists
         if (pickupAddress) {
           pickupCoords = await geocodeAddress(pickupAddress);
@@ -328,20 +348,10 @@ export function TruckMapView({
             pickupEl.innerHTML = '📍';
             pickupEl.style.fontSize = '32px';
             
-            const pickupPopupContent = `
-              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
-                <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Pickup</strong>
-                ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
-                <div style="margin-bottom: 6px; word-wrap: break-word;">${pickupAddress}</div>
-                ${pickupDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${pickupDate}</div>` : ''}
-                ${pickupTime ? `<div><strong>Time:</strong> ${pickupTime}</div>` : ''}
-              </div>
-            `;
-            
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(pickupPopupContent)
+                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(loadInfoPopup)
               )
               .addTo(map.current);
 
@@ -358,20 +368,10 @@ export function TruckMapView({
             deliveryEl.innerHTML = '🎯';
             deliveryEl.style.fontSize = '32px';
             
-            const deliveryPopupContent = `
-              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
-                <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Delivery</strong>
-                ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
-                <div style="margin-bottom: 6px; word-wrap: break-word;">${deliveryAddress}</div>
-                ${deliveryDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${deliveryDate}</div>` : ''}
-                ${deliveryTime ? `<div><strong>Time:</strong> ${deliveryTime}</div>` : ''}
-              </div>
-            `;
-            
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(deliveryPopupContent)
+                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(loadInfoPopup)
               )
               .addTo(map.current);
 
