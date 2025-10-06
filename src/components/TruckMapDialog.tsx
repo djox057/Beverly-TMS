@@ -87,11 +87,6 @@ export function TruckMapDialog({
         
         new mapboxgl.Marker(truckEl)
           .setLngLat([truckLocation.longitude, truckLocation.latitude])
-          .setPopup(
-            new mapboxgl.Popup().setHTML(
-              `<strong>${truckNumber}</strong><br/>Current Location`
-            )
-          )
           .addTo(map.current);
 
         const bounds = new mapboxgl.LngLatBounds();
@@ -108,11 +103,6 @@ export function TruckMapDialog({
             
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
-              .setPopup(
-                new mapboxgl.Popup().setHTML(
-                  `<strong>Pickup</strong><br/>${pickupAddress}`
-                )
-              )
               .addTo(map.current);
 
             bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
@@ -130,11 +120,6 @@ export function TruckMapDialog({
             
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
-              .setPopup(
-                new mapboxgl.Popup().setHTML(
-                  `<strong>Delivery</strong><br/>${deliveryAddress}`
-                )
-              )
               .addTo(map.current);
 
             bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
@@ -305,11 +290,6 @@ export function TruckMapView({
         
         new mapboxgl.Marker(truckEl)
           .setLngLat([truckLocation.longitude, truckLocation.latitude])
-          .setPopup(
-            new mapboxgl.Popup().setHTML(
-              `<strong>${truckNumber}</strong><br/>Current Location`
-            )
-          )
           .addTo(map.current);
 
         const bounds = new mapboxgl.LngLatBounds();
@@ -344,9 +324,6 @@ export function TruckMapView({
             
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
-              .setPopup(
-                new mapboxgl.Popup({ maxWidth: '550px' }).setHTML(loadInfoPopup)
-              )
               .addTo(map.current);
 
             bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
@@ -364,9 +341,6 @@ export function TruckMapView({
             
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
-              .setPopup(
-                new mapboxgl.Popup({ maxWidth: '550px' }).setHTML(loadInfoPopup)
-              )
               .addTo(map.current);
 
             bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
