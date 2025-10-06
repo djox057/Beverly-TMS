@@ -472,14 +472,12 @@ const NewOrder = () => {
         setDriverPickupEndTime(extractedData.pickupEndTime || "");
       }
 
-      if (extractedData.deliveries && extractedData.deliveries.length > 0 && extractedData.deliveries[0]) {
+      if (extractedData.deliveries && extractedData.deliveries.length > 0 && extractedData.deliveries[0] && extractedData.deliveries[0].date) {
         const firstDelivery = extractedData.deliveries[0];
-        if (firstDelivery.date) {
-          setDriverDeliveryDateRange({
-            from: new Date(firstDelivery.date + 'T12:00:00'),
-            to: new Date(firstDelivery.date + 'T12:00:00')
-          });
-        }
+        setDriverDeliveryDateRange({
+          from: new Date(firstDelivery.date + 'T12:00:00'),
+          to: new Date(firstDelivery.date + 'T12:00:00')
+        });
         setDriverDeliveryStartTime(firstDelivery.startTime || "");
         setDriverDeliveryEndTime(firstDelivery.endTime || "");
       } else if (extractedData.deliveryDate || (extractedData.deliveryStartDate && extractedData.deliveryEndDate)) {
