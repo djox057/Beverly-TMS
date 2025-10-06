@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
+import { TruckMapDialog } from "@/components/TruckMapDialog";
 interface EditingState {
   truckId: string;
   field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note';
@@ -60,6 +61,13 @@ const Reports = () => {
     [truckId: string]: number;
   }>({});
   const [activeTab, setActiveTab] = useState<string>("Čačak");
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
+  const [selectedTruck, setSelectedTruck] = useState<{
+    truckNumber: string;
+    truckId: string;
+    pickupAddress?: string;
+    deliveryAddress?: string;
+  } | null>(null);
   const {
     toast
   } = useToast();
@@ -815,16 +823,42 @@ const Reports = () => {
                               display: 'flex',
                               alignItems: 'center'
                             }}>
-                              {!truck.home || truck.home === '—' ? <MapPin className="text-red-500" style={{
-                                width: '12px',
-                                height: '12px',
-                                flexShrink: 0
-                              }} size={12} /> : <>
-                                  <MapPin className="text-gray-500" style={{
+                              {!truck.home || truck.home === '—' ? <MapPin 
+                                className="text-red-500 cursor-pointer hover:text-red-700 transition-colors" 
+                                style={{
                                   width: '12px',
                                   height: '12px',
                                   flexShrink: 0
-                                }} size={12} />
+                                }} 
+                                size={12}
+                                onClick={() => {
+                                  setSelectedTruck({
+                                    truckNumber: truck.truckNumber,
+                                    truckId: truck.id,
+                                    pickupAddress: truck.pickup?.location,
+                                    deliveryAddress: truck.delivery?.location,
+                                  });
+                                  setMapDialogOpen(true);
+                                }}
+                              /> : <>
+                                  <MapPin 
+                                    className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                                    style={{
+                                      width: '12px',
+                                      height: '12px',
+                                      flexShrink: 0
+                                    }} 
+                                    size={12}
+                                    onClick={() => {
+                                      setSelectedTruck({
+                                        truckNumber: truck.truckNumber,
+                                        truckId: truck.id,
+                                        pickupAddress: truck.pickup?.location,
+                                        deliveryAddress: truck.delivery?.location,
+                                      });
+                                      setMapDialogOpen(true);
+                                    }}
+                                  />
                                   <span className="text-[10px]">{truck.home}</span>
                                 </>}
                             </div>
@@ -880,6 +914,17 @@ const Reports = () => {
             </TabsContent>)}
         </Tabs>
       </div>
+
+      {selectedTruck && (
+        <TruckMapDialog
+          open={mapDialogOpen}
+          onOpenChange={setMapDialogOpen}
+          truckNumber={selectedTruck.truckNumber}
+          truckId={selectedTruck.truckId}
+          pickupAddress={selectedTruck.pickupAddress}
+          deliveryAddress={selectedTruck.deliveryAddress}
+        />
+      )}
     </div>;
 };
 export default Reports;
