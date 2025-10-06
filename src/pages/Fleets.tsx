@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search } from "lucide-react";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -259,7 +260,33 @@ const Fleets = () => {
                                 </div>
                                 <Truck className="h-4 w-4" />
                                 <div>
-                                  <div className="font-medium">{truck.truck_number}</div>
+                                  <div className="font-medium flex items-center gap-2">
+                                    {truck.truck_number}
+                                    {truck.driver1 && (
+                                      <>
+                                        <span className="text-muted-foreground">•</span>
+                                        <span className="text-sm font-normal">{truck.driver1.name}</span>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{truck.driver1.name}</p>
+                                                {truck.driver1.phone && (
+                                                  <p className="text-sm">📞 {truck.driver1.phone}</p>
+                                                )}
+                                                {truck.driver1.email && (
+                                                  <p className="text-sm">✉️ {truck.driver1.email}</p>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </>
+                                    )}
+                                  </div>
                                   <div className="text-sm text-muted-foreground">
                                     {truck.make} {truck.model} {truck.year}
                                   </div>
@@ -401,13 +428,39 @@ const Fleets = () => {
                                   >
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                                  <Truck className="h-4 w-4" />
-                                  <div>
-                                    <div className="font-medium">{truck.truck_number}</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {truck.make} {truck.model} {truck.year}
-                                    </div>
-                                  </div>
+                              <Truck className="h-4 w-4" />
+                              <div>
+                                <div className="font-medium flex items-center gap-2">
+                                  {truck.truck_number}
+                                  {truck.driver1 && (
+                                    <>
+                                      <span className="text-muted-foreground">•</span>
+                                      <span className="text-sm font-normal">{truck.driver1.name}</span>
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <div className="space-y-1">
+                                              <p className="font-semibold">{truck.driver1.name}</p>
+                                              {truck.driver1.phone && (
+                                                <p className="text-sm">📞 {truck.driver1.phone}</p>
+                                              )}
+                                              {truck.driver1.email && (
+                                                <p className="text-sm">✉️ {truck.driver1.email}</p>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {truck.make} {truck.model} {truck.year}
+                                </div>
+                              </div>
                                 </div>
                                 <Badge variant="secondary">Available</Badge>
                               </div>

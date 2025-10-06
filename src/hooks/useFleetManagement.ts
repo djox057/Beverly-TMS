@@ -31,10 +31,13 @@ export const useFleetManagement = () => {
 
       if (dispatcherError) throw dispatcherError;
 
-      // Fetch all trucks with their dispatcher assignments
+      // Fetch all trucks with their dispatcher assignments and driver info
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
-        .select('*')
+        .select(`
+          *,
+          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email)
+        `)
         .order('updated_at', { ascending: false });
 
       if (trucksError) throw trucksError;
