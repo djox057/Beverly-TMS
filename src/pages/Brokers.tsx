@@ -5,7 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,11 +51,13 @@ const Brokers = () => {
 
   // Memoized filtered brokers with pagination
   const { filteredBrokers, totalPages, paginatedBrokers } = useMemo(() => {
-    const filtered = brokers?.filter(broker =>
-      broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-      broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-    ) || [];
+    const filtered =
+      brokers?.filter(
+        (broker) =>
+          broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()),
+      ) || [];
 
     const total = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -70,7 +82,7 @@ const Brokers = () => {
 
   const handleAddBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
       toast({
         title: "Error",
@@ -81,14 +93,12 @@ const Brokers = () => {
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      const { error } = await supabase
-        .from('brokers')
-        .insert([formData]);
+      const { error } = await supabase.from("brokers").insert([formData]);
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === "23505") {
           toast({
             title: "Error",
             description: "A broker with this MC Number already exists",
@@ -121,7 +131,7 @@ const Brokers = () => {
 
   const handleEditBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!editingBroker || !formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
       toast({
         title: "Error",
@@ -130,17 +140,14 @@ const Brokers = () => {
       });
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const { error } = await supabase
-        .from('brokers')
-        .update(formData)
-        .eq('id', editingBroker.id);
+      const { error } = await supabase.from("brokers").update(formData).eq("id", editingBroker.id);
 
       if (error) {
-        if (error.code === '23505') {
+        if (error.code === "23505") {
           toast({
             title: "Error",
             description: "A broker with this MC Number already exists",
@@ -173,10 +180,7 @@ const Brokers = () => {
 
   const handleDeleteBroker = async (brokerId: string) => {
     try {
-      const { error } = await supabase
-        .from('brokers')
-        .delete()
-        .eq('id', brokerId);
+      const { error } = await supabase.from("brokers").delete().eq("id", brokerId);
 
       if (error) throw error;
 
@@ -218,7 +222,7 @@ const Brokers = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Brokers</h1>
+        <h1 className="text-3xl font-semibold text-foreground"> Brokers</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -325,11 +329,7 @@ const Brokers = () => {
                         <TableCell className="max-w-xs">{broker.address}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => openEditDialog(broker)}
-                            >
+                            <Button variant="outline" size="sm" onClick={() => openEditDialog(broker)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <AlertDialog>
@@ -368,18 +368,19 @@ const Brokers = () => {
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-2 py-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredBrokers.length)} of {filteredBrokers.length} brokers
+                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
+                {Math.min(currentPage * ITEMS_PER_PAGE, filteredBrokers.length)} of {filteredBrokers.length} brokers
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -391,7 +392,7 @@ const Brokers = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
                   Next
