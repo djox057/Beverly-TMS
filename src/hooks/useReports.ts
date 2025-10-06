@@ -373,16 +373,20 @@ export const useReports = () => {
         const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
           if (!stop) return { id: null, location: "—", date: "—", time: "—" };
           
-          // Prioritize city + state over address
+          // Build full address with all available components
           let location = "—";
-          if (stop.city && stop.state) {
-            location = `${stop.city}, ${stop.state}`;
-          } else if (stop.city) {
-            location = stop.city;
-          } else if (stop.state) {
-            location = stop.state;
-          } else if (stop.address) {
-            location = stop.address.length > 30 ? stop.address.substring(0, 30) + '...' : stop.address;
+          const parts = [];
+          
+          if (stop.address) parts.push(stop.address);
+          if (stop.city) parts.push(stop.city);
+          if (stop.state) parts.push(stop.state);
+          
+          if (parts.length > 0) {
+            location = parts.join(', ');
+            // Truncate if too long for display
+            if (location.length > 30) {
+              location = location.substring(0, 30) + '...';
+            }
           }
           
           let date = "—";

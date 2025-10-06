@@ -376,10 +376,10 @@ export function TruckMapView({
       destinationCoords: [number, number]
     ) => {
       try {
-        // Get route from Mapbox Directions API
+        // Get route from OSRM (same as distance calculations)
         const coordinates = `${truckCoords[0]},${truckCoords[1]};${destinationCoords[0]},${destinationCoords[1]}`;
         const response = await fetch(
-          `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
+          `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
         );
         
         const data = await response.json();
