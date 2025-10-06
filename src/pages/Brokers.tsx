@@ -5,31 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
-
 interface BrokerFormData {
   name: string;
   mc_number: string;
   address: string;
 }
-
 const ITEMS_PER_PAGE = 50;
-
 const Brokers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,81 +27,80 @@ const Brokers = () => {
   const [formData, setFormData] = useState<BrokerFormData>({
     name: "",
     mc_number: "",
-    address: "",
+    address: ""
   });
-
-  const { toast } = useToast();
-  const { data: brokers, isLoading, refetch } = useBrokers();
+  const {
+    toast
+  } = useToast();
+  const {
+    data: brokers,
+    isLoading,
+    refetch
+  } = useBrokers();
 
   // Debounce search term to avoid filtering on every keystroke
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   // Memoized filtered brokers with pagination
-  const { filteredBrokers, totalPages, paginatedBrokers } = useMemo(() => {
-    const filtered =
-      brokers?.filter(
-        (broker) =>
-          broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()),
-      ) || [];
-
+  const {
+    filteredBrokers,
+    totalPages,
+    paginatedBrokers
+  } = useMemo(() => {
+    const filtered = brokers?.filter(broker => broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) || [];
     const total = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-    return { filteredBrokers: filtered, totalPages: total, paginatedBrokers: paginated };
+    return {
+      filteredBrokers: filtered,
+      totalPages: total,
+      paginatedBrokers: paginated
+    };
   }, [brokers, debouncedSearchTerm, currentPage]);
 
   // Reset to page 1 when search term changes
   useMemo(() => {
     setCurrentPage(1);
   }, [debouncedSearchTerm]);
-
   const resetForm = () => {
     setFormData({
       name: "",
       mc_number: "",
-      address: "",
+      address: ""
     });
     setEditingBroker(null);
   };
-
   const handleAddBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
       toast({
         title: "Error",
         description: "Name, MC Number, and Address are required",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsSubmitting(true);
-
     try {
-      const { error } = await supabase.from("brokers").insert([formData]);
-
+      const {
+        error
+      } = await supabase.from("brokers").insert([formData]);
       if (error) {
         if (error.code === "23505") {
           toast({
             title: "Error",
             description: "A broker with this MC Number already exists",
-            variant: "destructive",
+            variant: "destructive"
           });
         } else {
           throw error;
         }
         return;
       }
-
       toast({
         title: "Success",
-        description: "Broker added successfully",
+        description: "Broker added successfully"
       });
-
       resetForm();
       setIsAddDialogOpen(false);
       refetch();
@@ -122,48 +108,43 @@ const Brokers = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to add broker",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleEditBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!editingBroker || !formData.name.trim() || !formData.mc_number.trim() || !formData.address.trim()) {
       toast({
         title: "Error",
         description: "Name, MC Number, and Address are required",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsSubmitting(true);
-
     try {
-      const { error } = await supabase.from("brokers").update(formData).eq("id", editingBroker.id);
-
+      const {
+        error
+      } = await supabase.from("brokers").update(formData).eq("id", editingBroker.id);
       if (error) {
         if (error.code === "23505") {
           toast({
             title: "Error",
             description: "A broker with this MC Number already exists",
-            variant: "destructive",
+            variant: "destructive"
           });
         } else {
           throw error;
         }
         return;
       }
-
       toast({
         title: "Success",
-        description: "Broker updated successfully",
+        description: "Broker updated successfully"
       });
-
       resetForm();
       setIsEditDialogOpen(false);
       refetch();
@@ -171,58 +152,50 @@ const Brokers = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to update broker",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const handleDeleteBroker = async (brokerId: string) => {
     try {
-      const { error } = await supabase.from("brokers").delete().eq("id", brokerId);
-
+      const {
+        error
+      } = await supabase.from("brokers").delete().eq("id", brokerId);
       if (error) throw error;
-
       toast({
         title: "Success",
-        description: "Broker deleted successfully",
+        description: "Broker deleted successfully"
       });
-
       refetch();
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to delete broker",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const openEditDialog = (broker: any) => {
     setEditingBroker(broker);
     setFormData({
       name: broker.name || "",
       mc_number: broker.mc_number || "",
-      address: broker.address || "",
+      address: broker.address || ""
     });
     setIsEditDialogOpen(true);
   };
-
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-foreground">Brokers</h1>
+        <h1 className="text-3xl font-semibold text-foreground px-[10px]">Brokers</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm}>
@@ -237,35 +210,26 @@ const Brokers = () => {
             <form onSubmit={handleAddBroker} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="ABC Logistics"
-                  required
-                />
+                <Input id="name" value={formData.name} onChange={e => setFormData({
+                ...formData,
+                name: e.target.value
+              })} placeholder="ABC Logistics" required />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="mc_number">MC Number *</Label>
-                <Input
-                  id="mc_number"
-                  value={formData.mc_number}
-                  onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                  placeholder="MC123456"
-                  required
-                />
+                <Input id="mc_number" value={formData.mc_number} onChange={e => setFormData({
+                ...formData,
+                mc_number: e.target.value
+              })} placeholder="MC123456" required />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="address">Full Address *</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="123 Main St, City, State ZIP"
-                  required
-                />
+                <Input id="address" value={formData.address} onChange={e => setFormData({
+                ...formData,
+                address: e.target.value
+              })} placeholder="123 Main St, City, State ZIP" required />
               </div>
 
               <div className="flex justify-end gap-3">
@@ -288,12 +252,7 @@ const Brokers = () => {
             <CardTitle>Broker Directory</CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search brokers..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <Input placeholder="Search brokers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -309,16 +268,12 @@ const Brokers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody className="h-full">
-                {paginatedBrokers.length === 0 ? (
-                  <TableRow>
+                {paginatedBrokers.length === 0 ? <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground h-[500px]">
                       {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  <>
-                    {paginatedBrokers.map((broker) => (
-                      <TableRow key={broker.id}>
+                  </TableRow> : <>
+                    {paginatedBrokers.map(broker => <TableRow key={broker.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Building className="h-4 w-4 text-muted-foreground" />
@@ -355,52 +310,38 @@ const Brokers = () => {
                             </AlertDialog>
                           </div>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                      </TableRow>)}
                     {/* Add empty rows to maintain consistent height */}
-                    {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length) }).map((_, i) => (
-                      <TableRow key={`empty-${i}`} className="h-[57px]">
+                    {Array.from({
+                  length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length)
+                }).map((_, i) => <TableRow key={`empty-${i}`} className="h-[57px]">
                         <TableCell colSpan={4}>&nbsp;</TableCell>
-                      </TableRow>
-                    ))}
-                  </>
-                )}
+                      </TableRow>)}
+                  </>}
               </TableBody>
             </Table>
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-4 border-t">
+          {totalPages > 1 && <div className="flex items-center justify-between px-2 py-4 border-t">
               <div className="text-sm text-muted-foreground">
                 Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
                 {Math.min(currentPage * ITEMS_PER_PAGE, filteredBrokers.length)} of {filteredBrokers.length} brokers
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
                   <ChevronLeft className="h-4 w-4" />
                   Previous
                 </Button>
                 <div className="text-sm">
                   Page {currentPage} of {totalPages}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
                   Next
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-          )}
+            </div>}
         </CardContent>
       </Card>
 
@@ -413,35 +354,26 @@ const Brokers = () => {
           <form onSubmit={handleEditBroker} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="edit_name">Company Name *</Label>
-              <Input
-                id="edit_name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="ABC Logistics"
-                required
-              />
+              <Input id="edit_name" value={formData.name} onChange={e => setFormData({
+              ...formData,
+              name: e.target.value
+            })} placeholder="ABC Logistics" required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit_mc_number">MC Number *</Label>
-              <Input
-                id="edit_mc_number"
-                value={formData.mc_number}
-                onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
-                placeholder="MC123456"
-                required
-              />
+              <Input id="edit_mc_number" value={formData.mc_number} onChange={e => setFormData({
+              ...formData,
+              mc_number: e.target.value
+            })} placeholder="MC123456" required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit_address">Full Address *</Label>
-              <Input
-                id="edit_address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="123 Main St, City, State ZIP"
-                required
-              />
+              <Input id="edit_address" value={formData.address} onChange={e => setFormData({
+              ...formData,
+              address: e.target.value
+            })} placeholder="123 Main St, City, State ZIP" required />
             </div>
 
             <div className="flex justify-end gap-3">
@@ -456,8 +388,6 @@ const Brokers = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>;
 };
-
 export default Brokers;
