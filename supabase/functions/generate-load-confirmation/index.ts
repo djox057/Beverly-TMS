@@ -175,14 +175,14 @@ serve(async (req) => {
     const pickupState = extractState(data.pickupCityStateZip);
     const deliveryState = extractState(data.deliveryCityStateZip);
     
-    // Format today's date as m/d/y
+    // Format today's date as m-d-y (using dashes instead of slashes for valid filename)
     const today = new Date();
-    const todayFormatted = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+    const todayFormatted = `${today.getMonth() + 1}-${today.getDate()}-${today.getFullYear()}`;
     
     // Extract first name from driver name (e.g., "Jimmie Taylor" -> "Jimmie")
     const driverFirstName = data.driverName.split(' ')[0];
     
-    // Format: #3869 Samuel // 9/25/2025 // Load#2002255693 // MO - LA
+    // Format: #3869 Samuel // 9-25-2025 // Load#2002255693 // MO - LA
     const filename = `#${data.truckNumber} ${driverFirstName} // ${todayFormatted} // Load#${data.brokerLoadNumber} // ${pickupState} - ${deliveryState}.pdf`;
 
     return new Response(pdfBytes, {
