@@ -233,6 +233,9 @@ const Fleets = () => {
                     <CardTitle className="flex items-center gap-2">
                       <UserCheck className="h-5 w-5" />
                       {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
+                      {dispatcherFleet.dispatcher.ext && (
+                        <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
+                      )}
                       <Badge variant="secondary">{filteredTrucks.length} trucks</Badge>
                       {snapshot.isDraggingOver && (
                         <Badge variant="outline" className="animate-pulse">Drop here</Badge>
@@ -367,7 +370,12 @@ const Fleets = () => {
                               <div className="flex items-center gap-3">
                                 <UserCheck className="h-4 w-4" />
                                 <div>
-                                  <div className="font-medium">{dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}</div>
+                                  <div className="font-medium">
+                                    {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
+                                    {dispatcherFleet.dispatcher.ext && (
+                                      <span className="text-sm font-normal text-muted-foreground ml-2">ext {dispatcherFleet.dispatcher.ext}</span>
+                                    )}
+                                  </div>
                                   <div className="text-sm text-muted-foreground">
                                     {snapshot.isDraggingOver ? 'Drop truck here' : 'No trucks assigned'}
                                   </div>

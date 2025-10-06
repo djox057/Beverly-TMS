@@ -7,6 +7,7 @@ interface DispatcherFleet {
     id: string;
     full_name: string;
     email: string;
+    ext?: string;
   };
   trucks: any[];
 }
@@ -34,7 +35,7 @@ export const useFleetManagement = () => {
 
       const { data: dispatcherProfiles, error: dispatcherError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email')
+        .select('user_id, full_name, email, ext')
         .in('user_id', dispatcherUserIds.length > 0 ? dispatcherUserIds : ['00000000-0000-0000-0000-000000000000'])
         .order('full_name');
 
@@ -71,7 +72,8 @@ export const useFleetManagement = () => {
         dispatcher: {
           id: dispatcher.user_id,
           full_name: dispatcher.full_name,
-          email: dispatcher.email
+          email: dispatcher.email,
+          ext: dispatcher.ext
         },
         trucks: dispatcherGroups[dispatcher.user_id] || []
       })) || [];
@@ -81,7 +83,8 @@ export const useFleetManagement = () => {
       setAllDispatchers(dispatcherProfiles?.map(d => ({ 
         id: d.user_id, 
         full_name: d.full_name, 
-        email: d.email 
+        email: d.email,
+        ext: d.ext
       })) || []);
       setAvailableTrucks(unassignedTrucks);
     } catch (error: any) {
