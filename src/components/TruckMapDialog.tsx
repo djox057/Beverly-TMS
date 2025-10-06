@@ -298,9 +298,12 @@ export function TruckMapView({
         const shouldRouteToPickup = !hasBOL && !pickupArrived;
         const shouldRouteToDelivery = hasBOL && !hasPOD;
 
-        // Add pickup marker and route if needed
-        if (pickupAddress && shouldRouteToPickup) {
-          const pickupCoords = await geocodeAddress(pickupAddress);
+        let pickupCoords = null;
+        let deliveryCoords = null;
+
+        // Always show pickup marker if address exists
+        if (pickupAddress) {
+          pickupCoords = await geocodeAddress(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
@@ -317,19 +320,12 @@ export function TruckMapView({
               .addTo(map.current);
 
             bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
-
-            // Draw route to pickup
-            await drawRouteToDestination(
-              map.current,
-              [truckLocation.longitude, truckLocation.latitude],
-              [pickupCoords.longitude, pickupCoords.latitude]
-            );
           }
         }
 
-        // Add delivery marker and route if needed
-        if (deliveryAddress && shouldRouteToDelivery) {
-          const deliveryCoords = await geocodeAddress(deliveryAddress);
+        // Always show delivery marker if address exists
+        if (deliveryAddress) {
+          deliveryCoords = await geocodeAddress(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
@@ -346,14 +342,22 @@ export function TruckMapView({
               .addTo(map.current);
 
             bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
-
-            // Draw route to delivery
-            await drawRouteToDestination(
-              map.current,
-              [truckLocation.longitude, truckLocation.latitude],
-              [deliveryCoords.longitude, deliveryCoords.latitude]
-            );
           }
+        }
+
+        // Draw route based on status
+        if (shouldRouteToPickup && pickupCoords) {
+          await drawRouteToDestination(
+            map.current,
+            [truckLocation.longitude, truckLocation.latitude],
+            [pickupCoords.longitude, pickupCoords.latitude]
+          );
+        } else if (shouldRouteToDelivery && deliveryCoords) {
+          await drawRouteToDestination(
+            map.current,
+            [truckLocation.longitude, truckLocation.latitude],
+            [deliveryCoords.longitude, deliveryCoords.latitude]
+          );
         }
 
         // Fit map to bounds
