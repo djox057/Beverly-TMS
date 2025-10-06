@@ -790,6 +790,7 @@ const Reports = () => {
                                   <PopoverContent className="w-auto">
                                     <div className="space-y-1">
                                       <p className="font-semibold text-sm">{truck.driver}</p>
+                                      <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
                                       {truck.trailerNumber && (
                                         <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
                                       )}
