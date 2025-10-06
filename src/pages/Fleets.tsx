@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -266,24 +266,24 @@ const Fleets = () => {
                                       <>
                                         <span className="text-muted-foreground">•</span>
                                         <span className="text-sm font-normal">{truck.driver1.name}</span>
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <div className="space-y-1">
-                                                <p className="font-semibold">{truck.driver1.name}</p>
-                                                {truck.driver1.phone && (
-                                                  <p className="text-sm">📞 {truck.driver1.phone}</p>
-                                                )}
-                                                {truck.driver1.email && (
-                                                  <p className="text-sm">✉️ {truck.driver1.email}</p>
-                                                )}
-                                              </div>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button className="inline-flex">
+                                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto">
+                                            <div className="space-y-1">
+                                              <p className="font-semibold">{truck.driver1.name}</p>
+                                              {truck.driver1.phone && (
+                                                <p className="text-sm">📞 {truck.driver1.phone}</p>
+                                              )}
+                                              {truck.driver1.email && (
+                                                <p className="text-sm">✉️ {truck.driver1.email}</p>
+                                              )}
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
                                       </>
                                     )}
                                   </div>
@@ -436,24 +436,24 @@ const Fleets = () => {
                                     <>
                                       <span className="text-muted-foreground">•</span>
                                       <span className="text-sm font-normal">{truck.driver1.name}</span>
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <div className="space-y-1">
-                                              <p className="font-semibold">{truck.driver1.name}</p>
-                                              {truck.driver1.phone && (
-                                                <p className="text-sm">📞 {truck.driver1.phone}</p>
-                                              )}
-                                              {truck.driver1.email && (
-                                                <p className="text-sm">✉️ {truck.driver1.email}</p>
-                                              )}
-                                            </div>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="inline-flex">
+                                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto">
+                                          <div className="space-y-1">
+                                            <p className="font-semibold">{truck.driver1.name}</p>
+                                            {truck.driver1.phone && (
+                                              <p className="text-sm">📞 {truck.driver1.phone}</p>
+                                            )}
+                                            {truck.driver1.email && (
+                                              <p className="text-sm">✉️ {truck.driver1.email}</p>
+                                            )}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     </>
                                   )}
                                 </div>
