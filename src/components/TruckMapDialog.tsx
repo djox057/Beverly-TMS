@@ -2,42 +2,39 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
 import { geocodeAddress } from '@/utils/geocoding';
 import { Loader2 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 interface TruckMapDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   truckNumber: string;
   truckId: string;
   pickupAddress?: string;
   deliveryAddress?: string;
+  children: React.ReactNode;
 }
 
 export function TruckMapDialog({
-  open,
-  onOpenChange,
   truckNumber,
   truckId,
   pickupAddress,
   deliveryAddress,
+  children,
 }: TruckMapDialogProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>('');
+  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { data: locations } = useSamsaraLocations();
+  
+  const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9udzEyMyIsImEiOiJjbWdmOHE2dnAwNWI0MmpzY3NlOXY5NHBxIn0.sb-KPJmlqi33w5aDMMRPzA';
 
   useEffect(() => {
-    if (!open || !mapContainer.current || !mapboxToken) return;
+    if (!isOpen || !mapContainer.current) return;
 
     const initializeMap = async () => {
       setIsLoading(true);
@@ -55,7 +52,7 @@ export function TruckMapDialog({
         }
 
         // Initialize map
-        mapboxgl.accessToken = mapboxToken;
+        mapboxgl.accessToken = MAPBOX_TOKEN;
         
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
@@ -157,7 +154,7 @@ export function TruckMapDialog({
       map.current?.remove();
       map.current = null;
     };
-  }, [open, mapboxToken, locations, truckId, truckNumber, pickupAddress, deliveryAddress]);
+  }, [isOpen, locations, truckId, truckNumber, pickupAddress, deliveryAddress]);
 
   const drawRoute = async (
     mapInstance: mapboxgl.Map,
@@ -169,7 +166,7 @@ export function TruckMapDialog({
       // Get route from Mapbox Directions API
       const coordinates = `${truckCoords[0]},${truckCoords[1]};${pickupCoords[0]},${pickupCoords[1]};${deliveryCoords[0]},${deliveryCoords[1]}`;
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${mapboxToken}`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
       );
       
       const data = await response.json();
@@ -217,47 +214,29 @@ export function TruckMapDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Truck {truckNumber} - Live Location & Route</DialogTitle>
-        </DialogHeader>
-        
-        {!mapboxToken ? (
-          <div className="space-y-4 p-4">
-            <div className="space-y-2">
-              <Label htmlFor="mapbox-token">Mapbox Access Token</Label>
-              <Input
-                id="mapbox-token"
-                type="text"
-                placeholder="pk.eyJ1IjoiZXhhbXBsZSIsImEiOiJjbG..."
-                value={mapboxToken}
-                onChange={(e) => setMapboxToken(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Get your free token at{' '}
-                <a
-                  href="https://account.mapbox.com/access-tokens/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  mapbox.com
-                </a>
-              </p>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        {children}
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-[800px] h-[600px] p-0" 
+        style={{ zIndex: 101 }}
+        align="start"
+        side="bottom"
+      >
+        <div className="relative w-full h-full">
+          <div className="absolute top-2 left-2 z-10 bg-background/95 px-3 py-1.5 rounded-md shadow-md">
+            <p className="text-sm font-semibold">Truck {truckNumber} - Live Location & Route</p>
+          </div>
+          
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+              <Loader2 className="h-8 w-8 animate-spin" />
             </div>
-          </div>
-        ) : (
-          <div className="relative w-full h-[600px]">
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            )}
-            <div ref={mapContainer} className="w-full h-full rounded-lg" />
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+          <div ref={mapContainer} className="w-full h-full rounded-lg" />
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

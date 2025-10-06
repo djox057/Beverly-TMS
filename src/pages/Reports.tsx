@@ -61,13 +61,6 @@ const Reports = () => {
     [truckId: string]: number;
   }>({});
   const [activeTab, setActiveTab] = useState<string>("Čačak");
-  const [mapDialogOpen, setMapDialogOpen] = useState(false);
-  const [selectedTruck, setSelectedTruck] = useState<{
-    truckNumber: string;
-    truckId: string;
-    pickupAddress?: string;
-    deliveryAddress?: string;
-  } | null>(null);
   const {
     toast
   } = useToast();
@@ -823,44 +816,44 @@ const Reports = () => {
                               display: 'flex',
                               alignItems: 'center'
                             }}>
-                              {!truck.home || truck.home === '—' ? <MapPin 
-                                className="text-red-500 cursor-pointer hover:text-red-700 transition-colors" 
-                                style={{
-                                  width: '12px',
-                                  height: '12px',
-                                  flexShrink: 0
-                                }} 
-                                size={12}
-                                onClick={() => {
-                                  setSelectedTruck({
-                                    truckNumber: truck.truckNumber,
-                                    truckId: truck.id,
-                                    pickupAddress: truck.pickup?.location,
-                                    deliveryAddress: truck.delivery?.location,
-                                  });
-                                  setMapDialogOpen(true);
-                                }}
-                              /> : <>
+                              {!truck.home || truck.home === '—' ? (
+                                <TruckMapDialog
+                                  truckNumber={truck.truckNumber}
+                                  truckId={truck.id}
+                                  pickupAddress={truck.pickup?.location}
+                                  deliveryAddress={truck.delivery?.location}
+                                >
                                   <MapPin 
-                                    className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                                    className="text-red-500 cursor-pointer hover:text-red-700 transition-colors" 
                                     style={{
                                       width: '12px',
                                       height: '12px',
                                       flexShrink: 0
                                     }} 
                                     size={12}
-                                    onClick={() => {
-                                      setSelectedTruck({
-                                        truckNumber: truck.truckNumber,
-                                        truckId: truck.id,
-                                        pickupAddress: truck.pickup?.location,
-                                        deliveryAddress: truck.delivery?.location,
-                                      });
-                                      setMapDialogOpen(true);
-                                    }}
                                   />
+                                </TruckMapDialog>
+                              ) : (
+                                <>
+                                  <TruckMapDialog
+                                    truckNumber={truck.truckNumber}
+                                    truckId={truck.id}
+                                    pickupAddress={truck.pickup?.location}
+                                    deliveryAddress={truck.delivery?.location}
+                                  >
+                                    <MapPin 
+                                      className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                                      style={{
+                                        width: '12px',
+                                        height: '12px',
+                                        flexShrink: 0
+                                      }} 
+                                      size={12}
+                                    />
+                                  </TruckMapDialog>
                                   <span className="text-[10px]">{truck.home}</span>
-                                </>}
+                                </>
+                              )}
                             </div>
                           </td>
                           {modifiedCells}
@@ -914,17 +907,6 @@ const Reports = () => {
             </TabsContent>)}
         </Tabs>
       </div>
-
-      {selectedTruck && (
-        <TruckMapDialog
-          open={mapDialogOpen}
-          onOpenChange={setMapDialogOpen}
-          truckNumber={selectedTruck.truckNumber}
-          truckId={selectedTruck.truckId}
-          pickupAddress={selectedTruck.pickupAddress}
-          deliveryAddress={selectedTruck.deliveryAddress}
-        />
-      )}
     </div>;
 };
 export default Reports;
