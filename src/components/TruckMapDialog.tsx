@@ -10,6 +10,11 @@ interface TruckMapDialogProps {
   truckId: string;
   pickupAddress?: string;
   deliveryAddress?: string;
+  pickupDate?: string;
+  pickupTime?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  loadNumber?: string;
   hasBOL: boolean;
   hasPOD: boolean;
   pickupArrived: boolean;
@@ -23,6 +28,14 @@ export function TruckMapDialog({
   truckId,
   pickupAddress,
   deliveryAddress,
+  pickupDate,
+  pickupTime,
+  deliveryDate,
+  deliveryTime,
+  loadNumber,
+  hasBOL,
+  hasPOD,
+  pickupArrived,
   isOpen,
   onOpenChange,
   children,
@@ -235,6 +248,11 @@ export function TruckMapView({
   truckId,
   pickupAddress,
   deliveryAddress,
+  pickupDate,
+  pickupTime,
+  deliveryDate,
+  deliveryTime,
+  loadNumber,
   hasBOL,
   hasPOD,
   pickupArrived,
@@ -310,12 +328,20 @@ export function TruckMapView({
             pickupEl.innerHTML = '📍';
             pickupEl.style.fontSize = '32px';
             
+            const pickupPopupContent = `
+              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
+                <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Pickup</strong>
+                ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
+                <div style="margin-bottom: 6px; word-wrap: break-word;">${pickupAddress}</div>
+                ${pickupDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${pickupDate}</div>` : ''}
+                ${pickupTime ? `<div><strong>Time:</strong> ${pickupTime}</div>` : ''}
+              </div>
+            `;
+            
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup().setHTML(
-                  `<strong>Pickup</strong><br/>${pickupAddress}`
-                )
+                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(pickupPopupContent)
               )
               .addTo(map.current);
 
@@ -332,12 +358,20 @@ export function TruckMapView({
             deliveryEl.innerHTML = '🎯';
             deliveryEl.style.fontSize = '32px';
             
+            const deliveryPopupContent = `
+              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
+                <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Delivery</strong>
+                ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
+                <div style="margin-bottom: 6px; word-wrap: break-word;">${deliveryAddress}</div>
+                ${deliveryDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${deliveryDate}</div>` : ''}
+                ${deliveryTime ? `<div><strong>Time:</strong> ${deliveryTime}</div>` : ''}
+              </div>
+            `;
+            
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup().setHTML(
-                  `<strong>Delivery</strong><br/>${deliveryAddress}`
-                )
+                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(deliveryPopupContent)
               )
               .addTo(map.current);
 

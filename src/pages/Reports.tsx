@@ -833,6 +833,11 @@ const Reports = () => {
                                   truckId={truck.id}
                                   pickupAddress={truck.pickup?.location}
                                   deliveryAddress={truck.delivery?.location}
+                                  pickupDate={truck.pickup?.date}
+                                  pickupTime={truck.pickup?.time}
+                                  deliveryDate={truck.delivery?.date}
+                                  deliveryTime={truck.delivery?.time}
+                                  loadNumber={currentOrder?.load_number}
                                   hasBOL={hasBOL}
                                   hasPOD={hasPOD}
                                   pickupArrived={pickupArrived}
@@ -856,6 +861,11 @@ const Reports = () => {
                                     truckId={truck.id}
                                     pickupAddress={truck.pickup?.location}
                                     deliveryAddress={truck.delivery?.location}
+                                    pickupDate={truck.pickup?.date}
+                                    pickupTime={truck.pickup?.time}
+                                    deliveryDate={truck.delivery?.date}
+                                    deliveryTime={truck.delivery?.time}
+                                    loadNumber={currentOrder?.load_number}
                                     hasBOL={hasBOL}
                                     hasPOD={hasPOD}
                                     pickupArrived={pickupArrived}
@@ -926,6 +936,11 @@ const Reports = () => {
                                 truckId={truck.id}
                                 pickupAddress={truck.pickup?.location}
                                 deliveryAddress={truck.delivery?.location}
+                                pickupDate={truck.pickup?.date}
+                                pickupTime={truck.pickup?.time}
+                                deliveryDate={truck.delivery?.date}
+                                deliveryTime={truck.delivery?.time}
+                                loadNumber={currentOrder?.load_number}
                                 hasBOL={hasBOL}
                                 hasPOD={hasPOD}
                                 pickupArrived={pickupArrived}
