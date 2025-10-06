@@ -531,11 +531,29 @@ const NewOrder = () => {
       // Save additional extracted data
       if (extractedData.commodity) setCommodity(extractedData.commodity);
       if (extractedData.weight) setWeight(extractedData.weight.toString());
-      if (extractedData.pickupPuNumber) setPickupPuNumber(extractedData.pickupPuNumber);
-      if (extractedData.pickupPoNumber) setPickupPoNumber(extractedData.pickupPoNumber);
-      if (extractedData.pickupShipper) setPickupShipper(extractedData.pickupShipper);
-      if (extractedData.deliveryPoNumber) setDeliveryPoNumber(extractedData.deliveryPoNumber);
-      if (extractedData.deliveryShipper) setDeliveryShipper(extractedData.deliveryShipper);
+      
+      // Handle shipper/receiver names from both formats
+      if (extractedData.pickups && extractedData.pickups.length > 0) {
+        // Multi-drop format
+        if (extractedData.pickups[0].shipper) setPickupShipper(extractedData.pickups[0].shipper);
+        if (extractedData.pickups[0].puNumber) setPickupPuNumber(extractedData.pickups[0].puNumber);
+        if (extractedData.pickups[0].poNumber) setPickupPoNumber(extractedData.pickups[0].poNumber);
+      } else {
+        // Legacy single-drop format
+        if (extractedData.pickupPuNumber) setPickupPuNumber(extractedData.pickupPuNumber);
+        if (extractedData.pickupPoNumber) setPickupPoNumber(extractedData.pickupPoNumber);
+        if (extractedData.pickupShipper) setPickupShipper(extractedData.pickupShipper);
+      }
+      
+      if (extractedData.deliveries && extractedData.deliveries.length > 0) {
+        // Multi-drop format
+        if (extractedData.deliveries[0].shipper) setDeliveryShipper(extractedData.deliveries[0].shipper);
+        if (extractedData.deliveries[0].poNumber) setDeliveryPoNumber(extractedData.deliveries[0].poNumber);
+      } else {
+        // Legacy single-drop format
+        if (extractedData.deliveryPoNumber) setDeliveryPoNumber(extractedData.deliveryPoNumber);
+        if (extractedData.deliveryShipper) setDeliveryShipper(extractedData.deliveryShipper);
+      }
 
       toast({
         title: "Data Extracted Successfully",
