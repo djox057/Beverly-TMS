@@ -323,19 +323,13 @@ export function TruckMapView({
         let deliveryCoords = null;
 
         // Create comprehensive load information popup
-        const documentsStatus = [];
-        if (hasBOL) documentsStatus.push('BOL');
-        if (hasPOD) documentsStatus.push('POD');
-        if (!hasBOL && !hasPOD) documentsStatus.push('RC');
-        
         const loadInfoPopup = `
-          <div style="min-width: 350px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
+          <div style="min-width: 450px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
             <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
             ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
             ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
-            ${pickupAddress ? `<div style="margin-bottom: 8px;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
-            ${deliveryAddress ? `<div style="margin-bottom: 8px;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
-            ${documentsStatus.length > 0 ? `<div style="margin-bottom: 8px;"><strong>Documents:</strong> ${documentsStatus.join(', ')}</div>` : ''}
+            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
+            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
           </div>
         `;
 
@@ -351,7 +345,7 @@ export function TruckMapView({
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(loadInfoPopup)
+                new mapboxgl.Popup({ maxWidth: '550px' }).setHTML(loadInfoPopup)
               )
               .addTo(map.current);
 
@@ -371,7 +365,7 @@ export function TruckMapView({
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(loadInfoPopup)
+                new mapboxgl.Popup({ maxWidth: '550px' }).setHTML(loadInfoPopup)
               )
               .addTo(map.current);
 

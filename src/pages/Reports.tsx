@@ -435,14 +435,48 @@ const Reports = () => {
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
-                                            <PopoverContent className="w-80 z-[101]">
+                        <PopoverContent className="w-80 z-[101]">
                           <div className="space-y-2 text-sm">
                             <h4 className="font-semibold">Load Information</h4>
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                                if (order.loadDetails.pickupInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.pickupInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                                if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
@@ -497,8 +531,42 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                                if (order.loadDetails.pickupInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.pickupInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                                if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
@@ -545,8 +613,42 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {order.loadDetails.pickupInfo.datetime !== '—' && order.loadDetails.pickupInfo.endDatetime !== '—' && format(new Date(order.loadDetails.pickupInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.pickupInfo.endDatetime), 'HH:mm')}` : order.loadDetails.pickupInfo.datetime !== '—' ? format(new Date(order.loadDetails.pickupInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {order.loadDetails.deliveryInfo.datetime !== '—' && order.loadDetails.deliveryInfo.endDatetime !== '—' && format(new Date(order.loadDetails.deliveryInfo.datetime), 'HH:mm') !== format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm') ? `${format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm')} - ${format(new Date(order.loadDetails.deliveryInfo.endDatetime), 'HH:mm')}` : order.loadDetails.deliveryInfo.datetime !== '—' ? format(new Date(order.loadDetails.deliveryInfo.datetime), 'MMM dd, HH:mm') : '—'}</p>}
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                                if (order.loadDetails.pickupInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.pickupInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                                if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
+                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
+                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                const day = String(dt.getUTCDate()).padStart(2, '0');
+                                const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
+                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
+                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  }
+                                }
+                                return timeStr;
+                              })()}</p>}
                               <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
                               {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
                             </div>
