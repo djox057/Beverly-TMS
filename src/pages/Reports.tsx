@@ -933,13 +933,13 @@ const Reports = () => {
                                 <TruckMapDialog
                                   truckNumber={truck.truckNumber}
                                   truckId={truck.id}
-                                  pickupAddress={truck.pickup?.location}
-                                  deliveryAddress={truck.delivery?.location}
-                                  pickupDate={truck.pickup?.date}
-                                  pickupTime={truck.pickup?.time}
-                                  deliveryDate={truck.delivery?.date}
-                                  deliveryTime={truck.delivery?.time}
-                                  loadNumber={currentOrder?.load_number}
+                                  pickupAddress={currentOrder?.pickupStop?.address}
+                                  deliveryAddress={currentOrder?.deliveryStop?.address}
+                                  pickupDate={currentOrder?.pickupStop?.datetime}
+                                  pickupTime={currentOrder?.pickup_end_datetime}
+                                  deliveryDate={currentOrder?.deliveryStop?.datetime}
+                                  deliveryTime={currentOrder?.delivery_end_datetime}
+                                  loadNumber={currentOrder?.internal_load_number?.toString()}
                                   brokerLoadNumber={currentOrder?.broker_load_number}
                                   hasBOL={hasBOL}
                                   hasPOD={hasPOD}
@@ -962,13 +962,13 @@ const Reports = () => {
                                   <TruckMapDialog
                                     truckNumber={truck.truckNumber}
                                     truckId={truck.id}
-                                    pickupAddress={truck.pickup?.location}
-                                    deliveryAddress={truck.delivery?.location}
-                                    pickupDate={truck.pickup?.date}
-                                    pickupTime={truck.pickup?.time}
-                                    deliveryDate={truck.delivery?.date}
-                                    deliveryTime={truck.delivery?.time}
-                                    loadNumber={currentOrder?.load_number}
+                                    pickupAddress={currentOrder?.pickupStop?.address}
+                                    deliveryAddress={currentOrder?.deliveryStop?.address}
+                                    pickupDate={currentOrder?.pickupStop?.datetime}
+                                    pickupTime={currentOrder?.pickup_end_datetime}
+                                    deliveryDate={currentOrder?.deliveryStop?.datetime}
+                                    deliveryTime={currentOrder?.delivery_end_datetime}
+                                    loadNumber={currentOrder?.internal_load_number?.toString()}
                                     brokerLoadNumber={currentOrder?.broker_load_number}
                                     hasBOL={hasBOL}
                                     hasPOD={hasPOD}
@@ -1035,17 +1035,17 @@ const Reports = () => {
                         {isMapExpanded && (
                           <tr key={`${truck.id}-map`}>
                             <td colSpan={13} className="p-4 border-b-[3px] border-gray-400">
-                              <TruckMapView
-                                truckNumber={truck.truckNumber}
-                                truckId={truck.id}
-                                pickupAddress={truck.pickup?.location}
-                                deliveryAddress={truck.delivery?.location}
-                                pickupDate={truck.pickup?.date}
-                                pickupTime={truck.pickup?.time}
-                                deliveryDate={truck.delivery?.date}
-                                deliveryTime={truck.delivery?.time}
-                                loadNumber={currentOrder?.load_number}
-                                brokerLoadNumber={currentOrder?.broker_load_number}
+                                <TruckMapView
+                                  truckNumber={truck.truckNumber}
+                                  truckId={truck.id}
+                                  pickupAddress={currentOrder?.pickupStop?.address}
+                                  deliveryAddress={currentOrder?.deliveryStop?.address}
+                                  pickupDate={currentOrder?.pickupStop?.datetime}
+                                  pickupTime={currentOrder?.pickup_end_datetime}
+                                  deliveryDate={currentOrder?.deliveryStop?.datetime}
+                                  deliveryTime={currentOrder?.delivery_end_datetime}
+                                  loadNumber={currentOrder?.internal_load_number?.toString()}
+                                  brokerLoadNumber={currentOrder?.broker_load_number}
                                 hasBOL={hasBOL}
                                 hasPOD={hasPOD}
                                 pickupArrived={pickupArrived}

@@ -322,14 +322,38 @@ export function TruckMapView({
         let pickupCoords = null;
         let deliveryCoords = null;
 
+        // Format datetime for display
+        const formatDateTime = (datetime?: string, endDatetime?: string) => {
+          if (!datetime) return '';
+          const dt = new Date(datetime);
+          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(dt.getUTCDate()).padStart(2, '0');
+          const year = dt.getUTCFullYear();
+          const hours = String(dt.getUTCHours()).padStart(2, '0');
+          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+          
+          let result = `${month}/${day}/${year}, ${hours}:${minutes}`;
+          
+          if (endDatetime) {
+            const endDt = new Date(endDatetime);
+            const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+            const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+            if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+              result += ` - ${endHours}:${endMinutes}`;
+            }
+          }
+          
+          return result;
+        };
+
         // Create comprehensive load information popup
         const loadInfoPopup = `
-          <div style="min-width: 450px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
+          <div style="min-width: 550px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
             <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
             ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
             ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
-            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
-            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
+            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${formatDateTime(pickupDate, pickupTime)}` : ''}</div>` : ''}
+            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${formatDateTime(deliveryDate, deliveryTime)}` : ''}</div>` : ''}
           </div>
         `;
 
