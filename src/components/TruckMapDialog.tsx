@@ -322,14 +322,24 @@ export function TruckMapView({
         let pickupCoords = null;
         let deliveryCoords = null;
 
+        // Format date/time as MM/DD, HH:mm
+        const formatDateTime = (datetime?: string) => {
+          if (!datetime) return '';
+          const dt = new Date(datetime);
+          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(dt.getUTCDate()).padStart(2, '0');
+          const hours = String(dt.getUTCHours()).padStart(2, '0');
+          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+          return `${month}/${day}, ${hours}:${minutes}`;
+        };
+
         // Create comprehensive load information popup
         const loadInfoPopup = `
-          <div style="min-width: 450px; padding: 12px; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">
-            <strong style="font-size: 17px; display: block; margin-bottom: 10px; color: #1f2937;">Load Information</strong>
-            ${loadNumber ? `<div style="margin-bottom: 8px;"><strong>Load #:</strong> ${loadNumber}</div>` : ''}
-            ${brokerLoadNumber ? `<div style="margin-bottom: 8px;"><strong>Broker Load #:</strong> ${brokerLoadNumber}</div>` : ''}
-            ${pickupAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Pickup:</strong> ${pickupAddress}${pickupDate ? ` at ${pickupDate}${pickupTime ? `, ${pickupTime}` : ''}` : ''}</div>` : ''}
-            ${deliveryAddress ? `<div style="margin-bottom: 8px; word-wrap: break-word;"><strong>Delivery:</strong> ${deliveryAddress}${deliveryDate ? ` at ${deliveryDate}${deliveryTime ? `, ${deliveryTime}` : ''}` : ''}</div>` : ''}
+          <div style="padding: 10px; font-size: 14px; font-family: system-ui, -apple-system, sans-serif; line-height: 1.8;">
+            ${loadNumber ? `<div>• Load #: ${loadNumber}</div>` : ''}
+            ${brokerLoadNumber ? `<div>• Broker Load #: ${brokerLoadNumber}</div>` : ''}
+            ${pickupAddress ? `<div>• Pickup: ${pickupAddress}${pickupDate ? ` at ${formatDateTime(pickupDate)}` : ''}</div>` : ''}
+            ${deliveryAddress ? `<div>• Delivery: ${deliveryAddress}${deliveryDate ? ` at ${formatDateTime(deliveryDate)}` : ''}</div>` : ''}
           </div>
         `;
 
