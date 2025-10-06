@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.samsara-debug]
 verify_jwt = true
+
+[functions.generate-load-confirmation]
+verify_jwt = true

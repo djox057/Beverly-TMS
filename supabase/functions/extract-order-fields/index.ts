@@ -15,6 +15,9 @@ interface PickupDeliveryStop {
   date?: string;
   startTime?: string;
   endTime?: string;
+  puNumber?: string;  // Pickup number
+  poNumber?: string;  // Purchase order number
+  shipper?: string;   // Shipper/Receiver name
 }
 
 interface ExtractedOrderData {
@@ -35,6 +38,9 @@ interface ExtractedOrderData {
   pickupEndDate?: string;
   pickupStartTime?: string;
   pickupEndTime?: string;
+  pickupPuNumber?: string;  // Pickup number
+  pickupPoNumber?: string;  // Purchase order number
+  pickupShipper?: string;   // Shipper name
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryState?: string;
@@ -44,6 +50,8 @@ interface ExtractedOrderData {
   deliveryEndDate?: string;
   deliveryStartTime?: string;
   deliveryEndTime?: string;
+  deliveryPoNumber?: string;  // Purchase order number for delivery
+  deliveryShipper?: string;   // Receiver name
   freightAmount?: number;
   mileage?: number;
   commodity?: string;
@@ -182,7 +190,10 @@ For MULTI-DROP loads, return JSON like:
       "zip": "zip code",
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
-      "endTime": "HH:MM"
+      "endTime": "HH:MM",
+      "puNumber": "pickup/appointment number",
+      "poNumber": "purchase order number",
+      "shipper": "shipper/company name"
     }
   ],
   "deliveries": [
@@ -193,7 +204,9 @@ For MULTI-DROP loads, return JSON like:
       "zip": "zip code",
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
-      "endTime": "HH:MM"
+      "endTime": "HH:MM",
+      "poNumber": "purchase order number",
+      "shipper": "receiver/company name"
     }
   ],
   "freightAmount": number,
@@ -221,6 +234,8 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "deliveryTime": "delivery time (HH:MM format, if only one time is given)",
   "deliveryStartTime": "delivery start time (HH:MM format, if time range is given)",
   "deliveryEndTime": "delivery end time (HH:MM format, if time range is given)",
+  "deliveryPoNumber": "purchase order number for delivery",
+  "deliveryShipper": "receiver/company name",
   "freightAmount": number,
   "mileage": number,
   "commodity": "string",

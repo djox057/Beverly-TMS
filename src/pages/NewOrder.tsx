@@ -48,6 +48,13 @@ const NewOrder = () => {
   const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
+  const [commodity, setCommodity] = useState("");
+  const [weight, setWeight] = useState("");
+  const [pickupPuNumber, setPickupPuNumber] = useState("");
+  const [pickupPoNumber, setPickupPoNumber] = useState("");
+  const [pickupShipper, setPickupShipper] = useState("");
+  const [deliveryPoNumber, setDeliveryPoNumber] = useState("");
+  const [deliveryShipper, setDeliveryShipper] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [rcFiles, setRcFiles] = useState<FileList | null>(null);
   const [bolFiles, setBolFiles] = useState<FileList | null>(null);
@@ -55,6 +62,7 @@ const NewOrder = () => {
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
   const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
   const { toast } = useToast();
@@ -520,6 +528,15 @@ const NewOrder = () => {
         setPickupsDrops(newPickupsDrops);
       }
 
+      // Save additional extracted data
+      if (extractedData.commodity) setCommodity(extractedData.commodity);
+      if (extractedData.weight) setWeight(extractedData.weight.toString());
+      if (extractedData.pickupPuNumber) setPickupPuNumber(extractedData.pickupPuNumber);
+      if (extractedData.pickupPoNumber) setPickupPoNumber(extractedData.pickupPoNumber);
+      if (extractedData.pickupShipper) setPickupShipper(extractedData.pickupShipper);
+      if (extractedData.deliveryPoNumber) setDeliveryPoNumber(extractedData.deliveryPoNumber);
+      if (extractedData.deliveryShipper) setDeliveryShipper(extractedData.deliveryShipper);
+
       toast({
         title: "Data Extracted Successfully",
         description: `Extracted ${response.data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? ' (Multi-drop load detected)' : ''}. Please review and adjust as needed.`
@@ -534,6 +551,97 @@ const NewOrder = () => {
       });
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const handleGenerateConfirmation = async () => {
+    if (!bookedByCompany || !truck || !driver1 || pickupsDrops.length < 2) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingConfirmation(true);
+    try {
+      const selectedTruck = trucks?.find(t => t.id === truck);
+      const selectedDriver = drivers?.find(d => d.id === driver1);
+      const firstPickup = pickupsDrops.find(p => p.type === "pickup");
+      const firstDelivery = pickupsDrops.find(p => p.type === "delivery");
+
+      if (!selectedTruck || !selectedDriver || !firstPickup || !firstDelivery) {
+        throw new Error("Missing required data");
+      }
+
+      // Format dates and times
+      const formatDate = (dateRange?: DateRange) => {
+        if (!dateRange?.from) return "";
+        const date = dateRange.from;
+        return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+      };
+
+      const formatTime = (time?: string) => time || "";
+
+      // Prepare data for load confirmation
+      const confirmationData = {
+        loadNumber: nextInternalLoadNumber ? nextInternalLoadNumber.toString() : "TBD",
+        driverName: selectedDriver.name,
+        truckNumber: selectedTruck.truck_number,
+        trailerNumber: trailer ? trucks?.find(t => t.id === truck)?.trailer?.trailer_number || "" : "",
+        phoneNumber: selectedDriver.phone || "",
+        commodity: commodity || "",
+        weight: weight || "",
+        miles: loadedMiles || "",
+        rate: driverPrice || "",
+        pickupShipper: pickupShipper || "",
+        pickupAddress: firstPickup.address.split(',')[0] || firstPickup.address,
+        pickupCityStateZip: firstPickup.address.split(',').slice(1).join(',').trim() || "",
+        pickupDate: formatDate(firstPickup.dateRange),
+        pickupTime: formatTime(firstPickup.startTime) + (firstPickup.endTime ? ` - ${formatTime(firstPickup.endTime)}` : ""),
+        pickupPuNumber: pickupPuNumber || "",
+        pickupPoNumber: pickupPoNumber || "",
+        deliveryReceiver: deliveryShipper || "",
+        deliveryAddress: firstDelivery.address.split(',')[0] || firstDelivery.address,
+        deliveryCityStateZip: firstDelivery.address.split(',').slice(1).join(',').trim() || "",
+        deliveryDate: formatDate(firstDelivery.dateRange),
+        deliveryTime: formatTime(firstDelivery.startTime) + (firstDelivery.endTime ? ` - ${formatTime(firstDelivery.endTime)}` : ""),
+        deliveryPoNumber: deliveryPoNumber || ""
+      };
+
+      // Generate PDF via edge function
+      const { data: pdfData, error: pdfError } = await supabase.functions.invoke('generate-load-confirmation', {
+        body: confirmationData
+      });
+
+      if (pdfError) throw pdfError;
+
+      // Create a blob and download
+      const blob = new Blob([pdfData], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `load-confirmation-${confirmationData.loadNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Confirmation Generated",
+        description: "Load confirmation PDF has been generated and downloaded."
+      });
+
+    } catch (error: any) {
+      console.error('Confirmation generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate load confirmation",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConfirmation(false);
     }
   };
 
@@ -1356,6 +1464,21 @@ const NewOrder = () => {
                   <p className="text-xs text-orange-600">Other supporting documents</p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Generate Load Confirmation Button */}
+            <div className="flex justify-center mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateConfirmation}
+                disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
+                {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <FileText className="mr-2 h-4 w-4" />
+                Generate Load Confirmation
+              </Button>
             </div>
 
             <div className="flex justify-end gap-3">
