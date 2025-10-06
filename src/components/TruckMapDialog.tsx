@@ -172,42 +172,51 @@ export function TruckMapDialog({
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0].geometry;
         
-        mapInstance.on('load', () => {
-          if (mapInstance.getSource('route')) {
-            (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
-              type: 'Feature',
-              properties: {},
-              geometry: route
-            });
-          } else {
-            mapInstance.addSource('route', {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: route
-              }
-            });
-
-            mapInstance.addLayer({
-              id: 'route',
-              type: 'line',
-              source: 'route',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round'
-              },
-              paint: {
-                'line-color': '#3b82f6',
-                'line-width': 4,
-                'line-opacity': 0.75
-              }
-            });
-          }
-        });
+        // Check if map is already loaded
+        if (mapInstance.isStyleLoaded()) {
+          addRouteToMap(mapInstance, route);
+        } else {
+          mapInstance.once('load', () => {
+            addRouteToMap(mapInstance, route);
+          });
+        }
       }
     } catch (error) {
       console.error('Error drawing route:', error);
+    }
+  };
+
+  const addRouteToMap = (mapInstance: mapboxgl.Map, route: any) => {
+    if (mapInstance.getSource('route')) {
+      (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
+        type: 'Feature',
+        properties: {},
+        geometry: route
+      });
+    } else {
+      mapInstance.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: route
+        }
+      });
+
+      mapInstance.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 4,
+          'line-opacity': 0.75
+        }
+      });
     }
   };
 
@@ -364,42 +373,51 @@ export function TruckMapView({
         if (data.routes && data.routes.length > 0) {
           const route = data.routes[0].geometry;
           
-          mapInstance.on('load', () => {
-            if (mapInstance.getSource('route')) {
-              (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
-                type: 'Feature',
-                properties: {},
-                geometry: route
-              });
-            } else {
-              mapInstance.addSource('route', {
-                type: 'geojson',
-                data: {
-                  type: 'Feature',
-                  properties: {},
-                  geometry: route
-                }
-              });
-
-              mapInstance.addLayer({
-                id: 'route',
-                type: 'line',
-                source: 'route',
-                layout: {
-                  'line-join': 'round',
-                  'line-cap': 'round'
-                },
-                paint: {
-                  'line-color': '#3b82f6',
-                  'line-width': 4,
-                  'line-opacity': 0.75
-                }
-              });
-            }
-          });
+          // Check if map is already loaded
+          if (mapInstance.isStyleLoaded()) {
+            addRouteToMap(mapInstance, route);
+          } else {
+            mapInstance.once('load', () => {
+              addRouteToMap(mapInstance, route);
+            });
+          }
         }
       } catch (error) {
         console.error('Error drawing route:', error);
+      }
+    };
+
+    const addRouteToMap = (mapInstance: mapboxgl.Map, route: any) => {
+      if (mapInstance.getSource('route')) {
+        (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
+          type: 'Feature',
+          properties: {},
+          geometry: route
+        });
+      } else {
+        mapInstance.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: route
+          }
+        });
+
+        mapInstance.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3b82f6',
+            'line-width': 4,
+            'line-opacity': 0.75
+          }
+        });
       }
     };
 
