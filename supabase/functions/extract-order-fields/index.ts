@@ -154,13 +154,23 @@ Multi-drop indicators:
 - Stop numbers (Stop 1, Stop 2, etc.)
 - Multiple dates/times for pickups or deliveries
 
+SHIPPER AND RECEIVER NAME EXTRACTION (CRITICAL):
+- ALWAYS extract the company/facility name for pickup locations (shipper name)
+- ALWAYS extract the company/facility name for delivery locations (receiver name)
+- Look for these in sections labeled: "Shipper", "Pickup Location", "Origin", "From", "Consignor"
+- Look for these in sections labeled: "Receiver", "Consignee", "Delivery Location", "Destination", "To"
+- Company names are often the first line of an address block or appear near location details
+- Examples: "ABC Warehouse", "XYZ Distribution Center", "Walmart DC #1234", "Target Store #567"
+
 If MULTI-DROP is detected:
 - Extract ALL pickup stops into the "pickups" array
 - Extract ALL delivery stops into the "deliveries" array
-- Each stop should have: address, city, state, zip, date, startTime, endTime
+- Each stop should have: address, city, state, zip, date, startTime, endTime, shipper (company name)
 
 If SINGLE-DROP (standard load):
 - Use the legacy single fields: pickupAddress, pickupCity, pickupState, etc.
+- MUST include pickupShipper (company name for pickup)
+- MUST include deliveryShipper (company name for delivery/receiver)
 
 Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
@@ -193,7 +203,7 @@ For MULTI-DROP loads, return JSON like:
       "endTime": "HH:MM",
       "puNumber": "pickup/appointment number",
       "poNumber": "purchase order number",
-      "shipper": "shipper/company name"
+      "shipper": "COMPANY NAME (e.g., 'ABC Warehouse', 'XYZ Distribution')"
     }
   ],
   "deliveries": [
@@ -206,7 +216,7 @@ For MULTI-DROP loads, return JSON like:
       "startTime": "HH:MM",
       "endTime": "HH:MM",
       "poNumber": "purchase order number",
-      "shipper": "receiver/company name"
+      "shipper": "COMPANY NAME (e.g., 'Target DC #123', 'Walmart Store')"
     }
   ],
   "freightAmount": number,
@@ -228,7 +238,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "pickupEndTime": "pickup end time (HH:MM format, if time range is given)",
   "pickupPuNumber": "pickup/appointment number",
   "pickupPoNumber": "purchase order number for pickup",
-  "pickupShipper": "shipper/company name for pickup location",
+  "pickupShipper": "COMPANY NAME for pickup (e.g., 'ABC Warehouse', 'XYZ Distribution Center')",
   "deliveryAddress": "string - complete delivery street address (without city/state/zip)",
   "deliveryCity": "string - ONLY the delivery city name", 
   "deliveryState": "string - ONLY the 2-letter delivery state code",
@@ -238,7 +248,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "deliveryStartTime": "delivery start time (HH:MM format, if time range is given)",
   "deliveryEndTime": "delivery end time (HH:MM format, if time range is given)",
   "deliveryPoNumber": "purchase order number for delivery",
-  "deliveryShipper": "receiver/company name",
+  "deliveryShipper": "COMPANY NAME for delivery/receiver (e.g., 'Target Store #567', 'Costco DC')",
   "freightAmount": number,
   "mileage": number,
   "commodity": "string",
