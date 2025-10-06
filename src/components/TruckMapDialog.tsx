@@ -10,6 +10,9 @@ interface TruckMapDialogProps {
   truckId: string;
   pickupAddress?: string;
   deliveryAddress?: string;
+  hasBOL: boolean;
+  hasPOD: boolean;
+  pickupArrived: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
@@ -232,6 +235,9 @@ export function TruckMapView({
   truckId,
   pickupAddress,
   deliveryAddress,
+  hasBOL,
+  hasPOD,
+  pickupArrived,
 }: Omit<TruckMapDialogProps, 'children' | 'isOpen' | 'onOpenChange'>) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -288,8 +294,12 @@ export function TruckMapView({
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([truckLocation.longitude, truckLocation.latitude]);
 
-        // Geocode and add pickup marker
-        if (pickupAddress) {
+        // Determine routing logic based on order status
+        const shouldRouteToPickup = !hasBOL && !pickupArrived;
+        const shouldRouteToDelivery = hasBOL && !hasPOD;
+
+        // Add pickup marker and route if needed
+        if (pickupAddress && shouldRouteToPickup) {
           const pickupCoords = await geocodeAddress(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
@@ -307,11 +317,18 @@ export function TruckMapView({
               .addTo(map.current);
 
             bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
+
+            // Draw route to pickup
+            await drawRouteToDestination(
+              map.current,
+              [truckLocation.longitude, truckLocation.latitude],
+              [pickupCoords.longitude, pickupCoords.latitude]
+            );
           }
         }
 
-        // Geocode and add delivery marker
-        if (deliveryAddress) {
+        // Add delivery marker and route if needed
+        if (deliveryAddress && shouldRouteToDelivery) {
           const deliveryCoords = await geocodeAddress(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
@@ -330,18 +347,12 @@ export function TruckMapView({
 
             bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
 
-            // If we have both pickup and delivery, draw a route
-            if (pickupAddress) {
-              const pickupCoords = await geocodeAddress(pickupAddress);
-              if (pickupCoords) {
-                await drawRoute(
-                  map.current,
-                  [truckLocation.longitude, truckLocation.latitude],
-                  [pickupCoords.longitude, pickupCoords.latitude],
-                  [deliveryCoords.longitude, deliveryCoords.latitude]
-                );
-              }
-            }
+            // Draw route to delivery
+            await drawRouteToDestination(
+              map.current,
+              [truckLocation.longitude, truckLocation.latitude],
+              [deliveryCoords.longitude, deliveryCoords.latitude]
+            );
           }
         }
 
@@ -355,15 +366,14 @@ export function TruckMapView({
       }
     };
 
-    const drawRoute = async (
+    const drawRouteToDestination = async (
       mapInstance: mapboxgl.Map,
       truckCoords: [number, number],
-      pickupCoords: [number, number],
-      deliveryCoords: [number, number]
+      destinationCoords: [number, number]
     ) => {
       try {
         // Get route from Mapbox Directions API
-        const coordinates = `${truckCoords[0]},${truckCoords[1]};${pickupCoords[0]},${pickupCoords[1]};${deliveryCoords[0]},${deliveryCoords[1]}`;
+        const coordinates = `${truckCoords[0]},${truckCoords[1]};${destinationCoords[0]},${destinationCoords[1]}`;
         const response = await fetch(
           `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
         );
