@@ -610,15 +610,27 @@ const NewOrder = () => {
         deliveryPoNumber: deliveryPoNumber || ""
       };
 
-      // Generate PDF via edge function
-      const { data: pdfData, error: pdfError } = await supabase.functions.invoke('generate-load-confirmation', {
-        body: confirmationData
-      });
+      // Generate PDF via edge function (using fetch for binary data)
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-load-confirmation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(confirmationData)
+        }
+      );
 
-      if (pdfError) throw pdfError;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to generate confirmation');
+      }
 
-      // Create a blob and download
-      const blob = new Blob([pdfData], { type: 'application/pdf' });
+      // Create a blob from the response
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
