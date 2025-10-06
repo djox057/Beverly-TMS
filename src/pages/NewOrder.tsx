@@ -586,7 +586,7 @@ const NewOrder = () => {
 
       // Prepare data for load confirmation
       const confirmationData = {
-        loadNumber: nextInternalLoadNumber ? nextInternalLoadNumber.toString() : "TBD",
+        brokerLoadNumber: brokerLoadNumber || "TBD",
         driverName: selectedDriver.name,
         truckNumber: selectedTruck.truck_number,
         trailerNumber: trailer ? trucks?.find(t => t.id === truck)?.trailer?.trailer_number || "" : "",
@@ -634,7 +634,7 @@ const NewOrder = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `load-confirmation-${confirmationData.loadNumber}.pdf`;
+      a.download = `load-confirmation-${confirmationData.brokerLoadNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

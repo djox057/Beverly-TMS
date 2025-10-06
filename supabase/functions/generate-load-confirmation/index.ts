@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface LoadConfirmationData {
-  loadNumber: string;
+  brokerLoadNumber: string;
   driverName: string;
   truckNumber: string;
   trailerNumber: string;
@@ -70,9 +70,9 @@ serve(async (req) => {
 
     // Fill in the form fields - adjust field names based on what's in your PDF
     try {
-      // Load Number
-      const loadNumberField = form.getTextField('Load number');
-      loadNumberField.setText(data.loadNumber);
+      // Broker Load Number in LOAD ORDER CONFIRMATION field
+      const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRMATION');
+      loadConfirmationField.setText(data.brokerLoadNumber);
 
       // Driver Info
       const driverField = form.getTextField('Driver');
