@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { user, profile, loading, hasRole } = useAuthContext();
+  const { user, loading, hasRole, getPrimaryRole } = useAuthContext();
 
   if (loading) {
     return (
@@ -30,7 +30,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
           <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
           <p className="text-muted-foreground">You don't have permission to access this page.</p>
           <p className="text-sm text-muted-foreground mt-2">Required role: {requiredRole}</p>
-          <p className="text-sm text-muted-foreground">Your role: {profile?.role}</p>
+          <p className="text-sm text-muted-foreground">Your role: {getPrimaryRole() || 'none'}</p>
         </div>
       </div>
     );

@@ -28,7 +28,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety';
+  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety')[];
   created_at: string;
 }
 
@@ -68,13 +68,34 @@ const AdminUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Fetch roles for all users
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      // Combine profiles with their roles
+      const usersWithRoles = (profilesData || []).map(profile => {
+        const userRoles = (rolesData || [])
+          .filter(r => r.user_id === profile.user_id)
+          .map(r => r.role as 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety');
+        
+        return {
+          ...profile,
+          roles: userRoles
+        };
+      });
+
+      setUsers(usersWithRoles);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -390,9 +411,17 @@ const AdminUsers = () => {
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                    </Badge>
+                    {user.roles.length > 0 ? (
+                      <div className="flex gap-1 flex-wrap">
+                        {user.roles.map(role => (
+                          <Badge key={role} variant={getRoleBadgeVariant(role)}>
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <Badge variant="outline">No role</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {new Date(user.created_at).toLocaleDateString()}

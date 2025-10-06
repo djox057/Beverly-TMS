@@ -42,7 +42,7 @@ const navigation = [
 ];
 
 export const Sidebar = () => {
-  const { profile, signOut, hasRole } = useAuthContext();
+  const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
   const { state } = useSidebar();
 
   const handleSignOut = async () => {
@@ -128,7 +128,7 @@ export const Sidebar = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
-                        {profile?.role || 'dispatch'}
+                        {getPrimaryRole() || 'dispatch'}
                       </Badge>
                     </div>
                   </div>

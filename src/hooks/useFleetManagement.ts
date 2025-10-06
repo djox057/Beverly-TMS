@@ -22,11 +22,20 @@ export const useFleetManagement = () => {
     try {
       setLoading(true);
       
-      // Fetch all dispatchers
+      // Fetch all dispatchers from user_roles
+      const { data: dispatchRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'dispatch');
+
+      if (rolesError) throw rolesError;
+
+      const dispatcherUserIds = (dispatchRoles || []).map(r => r.user_id);
+
       const { data: dispatcherProfiles, error: dispatcherError } = await supabase
         .from('profiles')
         .select('user_id, full_name, email')
-        .eq('role', 'dispatch')
+        .in('user_id', dispatcherUserIds.length > 0 ? dispatcherUserIds : ['00000000-0000-0000-0000-000000000000'])
         .order('full_name');
 
       if (dispatcherError) throw dispatcherError;

@@ -8,14 +8,16 @@ export interface UserProfile {
   user_id: string;
   email: string;
   full_name: string | null;
-  role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety';
   avatar_url: string | null;
 }
+
+export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -26,13 +28,15 @@ export const useAuth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch user profile when signed in
+        // Fetch user profile and roles when signed in
         if (session?.user) {
           setTimeout(() => {
             fetchUserProfile(session.user.id);
+            fetchUserRoles(session.user.id);
           }, 0);
         } else {
           setProfile(null);
+          setRoles([]);
         }
         
         setLoading(false);
@@ -46,6 +50,7 @@ export const useAuth = () => {
       
       if (session?.user) {
         fetchUserProfile(session.user.id);
+        fetchUserRoles(session.user.id);
       }
       setLoading(false);
     });
@@ -68,7 +73,22 @@ export const useAuth = () => {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => {
+  const fetchUserRoles = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      setRoles(data?.map(r => r.role as UserRole) || []);
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      setRoles([]);
+    }
+  };
+
+  const signUp = async (email: string, password: string, fullName?: string, role?: UserRole) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -160,30 +180,43 @@ export const useAuth = () => {
     }
   };
 
-  const hasRole = (requiredRole: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety'): boolean => {
-    if (!profile) return false;
+  const hasRole = (requiredRole: UserRole): boolean => {
+    if (roles.length === 0) return false;
     
     // Admin has access to everything except driver-only pages
-    if (profile.role === 'admin' && requiredRole !== 'driver') return true;
+    if (roles.includes('admin') && requiredRole !== 'driver') return true;
     
     // Manager has access to dispatch functions
-    if (profile.role === 'manager' && requiredRole === 'dispatch') return true;
+    if (roles.includes('manager') && requiredRole === 'dispatch') return true;
     
     // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
-    if (profile.role === 'safety' && requiredRole === 'dispatch') return true;
+    if (roles.includes('safety') && requiredRole === 'dispatch') return true;
     
     // Check exact role match
-    return profile.role === requiredRole;
+    return roles.includes(requiredRole);
+  };
+
+  // Helper to get primary role for display
+  const getPrimaryRole = (): UserRole | null => {
+    if (roles.length === 0) return null;
+    if (roles.includes('admin')) return 'admin';
+    if (roles.includes('manager')) return 'manager';
+    if (roles.includes('safety')) return 'safety';
+    if (roles.includes('dispatch')) return 'dispatch';
+    if (roles.includes('driver')) return 'driver';
+    return roles[0];
   };
 
   return {
     user,
     session,
     profile,
+    roles,
     loading,
     signUp,
     signIn,
     signOut,
     hasRole,
+    getPrimaryRole,
   };
 };

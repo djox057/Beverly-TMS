@@ -10,7 +10,7 @@ import { loginSchema } from "@/lib/validation";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
-  const { user, profile, loading, signIn } = useAuthContext();
+  const { user, profile, loading, signIn, hasRole } = useAuthContext();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -28,7 +28,7 @@ const Login = () => {
 
   if (user && profile) {
     // Redirect drivers to driver portal
-    if (profile.role === 'driver') {
+    if (hasRole('driver')) {
       return <Navigate to="/driver" replace />;
     }
     // Redirect other roles to main dashboard
