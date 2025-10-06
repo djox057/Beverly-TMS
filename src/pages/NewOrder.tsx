@@ -65,6 +65,15 @@ const NewOrder = () => {
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
   const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
+  
+  // Driver-specific pickup/delivery times for load confirmation only
+  const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
+  const [driverPickupStartTime, setDriverPickupStartTime] = useState("");
+  const [driverPickupEndTime, setDriverPickupEndTime] = useState("");
+  const [driverDeliveryDateRange, setDriverDeliveryDateRange] = useState<DateRange>();
+  const [driverDeliveryStartTime, setDriverDeliveryStartTime] = useState("");
+  const [driverDeliveryEndTime, setDriverDeliveryEndTime] = useState("");
+  
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -440,6 +449,51 @@ const NewOrder = () => {
         });
       }
       
+      // Auto-fill driver pickup/delivery times from extracted data
+      if (extractedData.pickups && extractedData.pickups.length > 0 && extractedData.pickups[0]) {
+        const firstPickup = extractedData.pickups[0];
+        if (firstPickup.date) {
+          setDriverPickupDateRange({
+            from: new Date(firstPickup.date + 'T12:00:00'),
+            to: new Date(firstPickup.date + 'T12:00:00')
+          });
+        }
+        setDriverPickupStartTime(firstPickup.startTime || "");
+        setDriverPickupEndTime(firstPickup.endTime || "");
+      } else if (extractedData.pickupDate || (extractedData.pickupStartDate && extractedData.pickupEndDate)) {
+        const pickupDate = extractedData.pickupStartDate 
+          ? new Date(extractedData.pickupStartDate + 'T12:00:00')
+          : new Date(extractedData.pickupDate + 'T12:00:00');
+        const pickupEndDate = extractedData.pickupEndDate
+          ? new Date(extractedData.pickupEndDate + 'T12:00:00')
+          : pickupDate;
+        setDriverPickupDateRange({ from: pickupDate, to: pickupEndDate });
+        setDriverPickupStartTime(extractedData.pickupStartTime || "");
+        setDriverPickupEndTime(extractedData.pickupEndTime || "");
+      }
+
+      if (extractedData.deliveries && extractedData.deliveries.length > 0 && extractedData.deliveries[0]) {
+        const firstDelivery = extractedData.deliveries[0];
+        if (firstDelivery.date) {
+          setDriverDeliveryDateRange({
+            from: new Date(firstDelivery.date + 'T12:00:00'),
+            to: new Date(firstDelivery.date + 'T12:00:00')
+          });
+        }
+        setDriverDeliveryStartTime(firstDelivery.startTime || "");
+        setDriverDeliveryEndTime(firstDelivery.endTime || "");
+      } else if (extractedData.deliveryDate || (extractedData.deliveryStartDate && extractedData.deliveryEndDate)) {
+        const deliveryDate = extractedData.deliveryStartDate
+          ? new Date(extractedData.deliveryStartDate + 'T12:00:00')
+          : new Date(extractedData.deliveryDate + 'T12:00:00');
+        const deliveryEndDate = extractedData.deliveryEndDate
+          ? new Date(extractedData.deliveryEndDate + 'T12:00:00')
+          : deliveryDate;
+        setDriverDeliveryDateRange({ from: deliveryDate, to: deliveryEndDate });
+        setDriverDeliveryStartTime(extractedData.deliveryStartTime || "");
+        setDriverDeliveryEndTime(extractedData.deliveryEndTime || "");
+      }
+
       // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       
@@ -602,7 +656,7 @@ const NewOrder = () => {
 
       const formatTime = (time?: string) => time || "";
 
-      // Prepare data for load confirmation
+      // Prepare data for load confirmation - use driver-specific times if available
       const confirmationData = {
         brokerLoadNumber: brokerLoadNumber || "TBD",
         driverName: selectedDriver.name,
@@ -616,15 +670,17 @@ const NewOrder = () => {
         pickupShipper: pickupShipper || "",
         pickupAddress: firstPickup.address.split(',')[0] || firstPickup.address,
         pickupCityStateZip: firstPickup.address.split(',').slice(1).join(',').trim() || "",
-        pickupDate: formatDate(firstPickup.dateRange),
-        pickupTime: formatTime(firstPickup.startTime) + (firstPickup.endTime ? ` - ${formatTime(firstPickup.endTime)}` : ""),
+        pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
+        pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
+                   ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
         pickupPuNumber: pickupPuNumber || "",
         pickupPoNumber: pickupPoNumber || "",
         deliveryReceiver: deliveryShipper || "",
         deliveryAddress: firstDelivery.address.split(',')[0] || firstDelivery.address,
         deliveryCityStateZip: firstDelivery.address.split(',').slice(1).join(',').trim() || "",
-        deliveryDate: formatDate(firstDelivery.dateRange),
-        deliveryTime: formatTime(firstDelivery.startTime) + (firstDelivery.endTime ? ` - ${formatTime(firstDelivery.endTime)}` : ""),
+        deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
+        deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
+                     ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
         deliveryPoNumber: deliveryPoNumber || ""
       };
 
@@ -1495,6 +1551,42 @@ const NewOrder = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
+            <Card className="bg-blue-50/30 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-base">Driver Load Confirmation Times</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  These times are used only for generating the driver's load confirmation PDF (not saved to database)
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Driver Pickup Date & Time</Label>
+                    <DateTimeRangePicker
+                      date={driverPickupDateRange}
+                      onDateChange={setDriverPickupDateRange}
+                      startTime={driverPickupStartTime}
+                      endTime={driverPickupEndTime}
+                      onStartTimeChange={setDriverPickupStartTime}
+                      onEndTimeChange={setDriverPickupEndTime}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Driver Delivery Date & Time</Label>
+                    <DateTimeRangePicker
+                      date={driverDeliveryDateRange}
+                      onDateChange={setDriverDeliveryDateRange}
+                      startTime={driverDeliveryStartTime}
+                      endTime={driverDeliveryEndTime}
+                      onStartTimeChange={setDriverDeliveryStartTime}
+                      onEndTimeChange={setDriverDeliveryEndTime}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Generate Load Confirmation Button */}
             <div className="flex justify-center mt-6">
