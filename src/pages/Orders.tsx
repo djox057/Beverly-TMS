@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
@@ -15,6 +15,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -29,6 +31,7 @@ const getStatusBadge = (status: string) => {
 };
 const Orders = () => {
   const navigate = useNavigate();
+  const { hasRole } = useAuthContext();
   
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -165,6 +168,22 @@ const Orders = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
+  const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ locked: !currentLockStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      toast.success(`Order ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
+    } catch (error) {
+      console.error('Error toggling order lock:', error);
+      toast.error("Failed to update order lock status");
+    }
+  };
+
   const generateInvoices = async () => {
     if (!filteredOrders.length) return;
     try {
@@ -358,9 +377,25 @@ const Orders = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {(hasRole('manager') || hasRole('admin')) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => toggleOrderLock(order.id, order.locked)}
+                                title={order.locked ? 'Unlock order' : 'Lock order'}
+                              >
+                                {order.locked ? (
+                                  <Lock className="h-4 w-4 text-destructive" />
+                                ) : (
+                                  <LockOpen className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>)}
                 </TableBody>

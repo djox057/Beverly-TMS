@@ -378,6 +378,7 @@ export type Database = {
           layover: number | null
           load_number: string
           loaded_miles: number | null
+          locked: boolean
           lumper: number | null
           mileage: number | null
           notes: string | null
@@ -411,6 +412,7 @@ export type Database = {
           layover?: number | null
           load_number: string
           loaded_miles?: number | null
+          locked?: boolean
           lumper?: number | null
           mileage?: number | null
           notes?: string | null
@@ -444,6 +446,7 @@ export type Database = {
           layover?: number | null
           load_number?: string
           loaded_miles?: number | null
+          locked?: boolean
           lumper?: number | null
           mileage?: number | null
           notes?: string | null

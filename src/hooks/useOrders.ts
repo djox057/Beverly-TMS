@@ -164,6 +164,7 @@ export const useOrders = () => {
           notes: order.notes || '',
           bookedBy: order.booked_by || 'N/A',
           companyName: order.company?.name || 'N/A',
+          locked: order.locked || false,
           files: order.order_files || [],
           rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
           bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
