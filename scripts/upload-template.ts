@@ -5,15 +5,24 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 
 const supabaseUrl = 'https://wjkbtagwgjniilmgwutb.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM';
+// Use service role key for private bucket access
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseServiceKey) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY environment variable is required');
+  console.log('💡 Get it from: https://supabase.com/dashboard/project/wjkbtagwgjniilmgwutb/settings/api');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function uploadTemplate() {
   try {
     // Read the template file
     const templatePath = 'src/assets/load-confirmation-template.pdf';
     const fileBuffer = readFileSync(templatePath);
+
+    console.log('📤 Uploading template to Supabase storage...');
 
     // Upload to storage
     const { data, error } = await supabase.storage
@@ -24,16 +33,18 @@ async function uploadTemplate() {
       });
 
     if (error) {
-      console.error('Error uploading template:', error);
-      return;
+      console.error('❌ Error uploading template:', error);
+      process.exit(1);
     }
 
-    console.log('Template uploaded successfully:', data);
-    
-    // Make the file public by updating bucket policies
-    console.log('Note: You may need to make this file publicly accessible in your storage bucket settings.');
+    console.log('✅ Template uploaded successfully!');
+    console.log('📁 File path:', data.path);
+    console.log('');
+    console.log('🔒 The template is stored securely in your order-files bucket');
+    console.log('📄 The edge function will load it using the service role key');
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error:', error);
+    process.exit(1);
   }
 }
 

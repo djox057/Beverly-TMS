@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument, rgb, StandardFonts } from "https://cdn.skypack.dev/pdf-lib@1.17.1";
+import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,171 +42,128 @@ serve(async (req) => {
     const data: LoadConfirmationData = await req.json();
     console.log('Generating load confirmation with data:', data);
 
-    // Create a new PDF document
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const fontSize = 10;
-    const { height, width } = page.getSize();
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Helper function to draw text
-    const drawText = (text: string, x: number, y: number, options = {}) => {
-      page.drawText(text, {
-        x,
-        y: height - y,
-        size: fontSize,
-        font,
-        color: rgb(0, 0, 0),
-        ...options
-      });
-    };
+    // Load the template PDF from storage
+    const { data: templateData, error: downloadError } = await supabase.storage
+      .from('order-files')
+      .download('load-confirmation-template.pdf');
 
-    // Draw header
-    page.drawRectangle({
-      x: 50,
-      y: height - 80,
-      width: width - 100,
-      height: 30,
-      color: rgb(0.2, 0.4, 0.8),
-    });
-    drawText('LOAD ORDER CONFIRMATION', width / 2 - 100, 65, { font: fontBold, size: 16, color: rgb(1, 1, 1) });
-
-    // Draw load number section
-    drawText('Load number:', 60, 100, { font: fontBold });
-    drawText(data.loadNumber, 200, 100);
-
-    // Draw driver/truck info section
-    let yPos = 140;
-    drawText('Driver:', 60, yPos, { font: fontBold });
-    drawText(data.driverName, 200, yPos);
-    drawText('Commodity:', 340, yPos, { font: fontBold });
-    drawText(data.commodity || '', 450, yPos);
-
-    yPos += 20;
-    drawText('Truck #:', 60, yPos, { font: fontBold });
-    drawText(data.truckNumber, 200, yPos);
-    drawText('Weight:', 340, yPos, { font: fontBold });
-    drawText(data.weight || '', 450, yPos);
-
-    yPos += 20;
-    drawText('Trailer #:', 60, yPos, { font: fontBold });
-    drawText(data.trailerNumber, 200, yPos);
-    drawText('Miles:', 340, yPos, { font: fontBold });
-    drawText(data.miles, 450, yPos);
-
-    yPos += 20;
-    drawText('Phone #:', 60, yPos, { font: fontBold });
-    drawText(data.phoneNumber, 200, yPos);
-    drawText('Rate:', 340, yPos, { font: fontBold });
-    drawText('$' + data.rate, 450, yPos);
-
-    // Draw PICK UP INFO section
-    yPos += 40;
-    drawText('PICK UP INFO:', 60, yPos, { font: fontBold, size: 12 });
-
-    yPos += 25;
-    if (data.pickupShipper) {
-      drawText('Shipper:', 60, yPos, { font: fontBold });
-      drawText(data.pickupShipper, 200, yPos);
-      yPos += 20;
-    }
-    drawText('Address:', 60, yPos, { font: fontBold });
-    drawText(data.pickupAddress, 200, yPos);
-
-    yPos += 20;
-    drawText('City, state, zip:', 60, yPos, { font: fontBold });
-    drawText(data.pickupCityStateZip, 200, yPos);
-
-    yPos += 20;
-    drawText('Date:', 60, yPos, { font: fontBold });
-    drawText(data.pickupDate, 200, yPos);
-
-    yPos += 20;
-    drawText('Time:', 60, yPos, { font: fontBold });
-    drawText(data.pickupTime, 200, yPos);
-
-    if (data.pickupPuNumber) {
-      yPos += 20;
-      drawText('PU #:', 60, yPos, { font: fontBold });
-      drawText(data.pickupPuNumber, 200, yPos);
+    if (downloadError) {
+      console.error('Error loading template:', downloadError);
+      throw new Error('Failed to load template PDF');
     }
 
-    if (data.pickupPoNumber) {
-      yPos += 20;
-      drawText('PO #:', 60, yPos, { font: fontBold });
-      drawText(data.pickupPoNumber, 200, yPos);
-    }
-
-    // Draw DELIVERY INFO section
-    yPos += 40;
-    drawText('DELIVERY INFO:', 60, yPos, { font: fontBold, size: 12 });
-
-    yPos += 25;
-    if (data.deliveryReceiver) {
-      drawText('Receiver:', 60, yPos, { font: fontBold });
-      drawText(data.deliveryReceiver, 200, yPos);
-      yPos += 20;
-    }
-    drawText('Address:', 60, yPos, { font: fontBold });
-    drawText(data.deliveryAddress, 200, yPos);
-
-    yPos += 20;
-    drawText('City, state, zip:', 60, yPos, { font: fontBold });
-    drawText(data.deliveryCityStateZip, 200, yPos);
-
-    yPos += 20;
-    drawText('Date:', 60, yPos, { font: fontBold });
-    drawText(data.deliveryDate, 200, yPos);
-
-    yPos += 20;
-    drawText('Time:', 60, yPos, { font: fontBold });
-    drawText(data.deliveryTime, 200, yPos);
-
-    if (data.deliveryPoNumber) {
-      yPos += 20;
-      drawText('PO #:', 60, yPos, { font: fontBold });
-      drawText(data.deliveryPoNumber, 200, yPos);
-    }
-
-    // Add page 2 with additional info
-    const page2 = pdfDoc.addPage([612, 792]);
-    let y2Pos = 100;
+    // Convert blob to array buffer
+    const templateBytes = await templateData.arrayBuffer();
     
-    page2.drawText('Additional Info', {
-      x: 60,
-      y: height - 60,
-      size: 14,
-      font: fontBold,
-      color: rgb(0, 0, 0),
-    });
+    // Load the PDF template
+    const pdfDoc = await PDFDocument.load(templateBytes);
+    const form = pdfDoc.getForm();
+    
+    // Get all form fields to see what's available
+    const fields = form.getFields();
+    console.log('Available form fields:', fields.map(f => f.getName()));
 
-    const additionalInfo = [
-      '• Charges may apply for late pick-ups and deliveries.',
-      '• It is the driver\'s responsibility to ensure that the load is safe, secure and legal for transport.',
-      '• Driver is required to check call daily by 10:00AM.',
-      '• Any deviation from dispatch instructions must be called in immediately.',
-      '• All products SHORTAGES must be reported at time of PICKUP. Failure to report will result in',
-      '  additional charges.',
-      '• BOL must be sent to your dispatcher after pick up immediately for check up.',
-      '• The POD (signed BOL) must be emailed to dispatch immediately after unloading.',
-      '• Scale tickets must be submitted with POD.',
-      '• Penalty for no call/no show missed delivery appointments. This will be deducted from your rate.',
-      '• Driver agrees to leave all sealed loads sealed until broken by the consignee or designated party.',
-    ];
+    // Fill in the form fields - adjust field names based on what's in your PDF
+    try {
+      // Load Number
+      const loadNumberField = form.getTextField('Load number');
+      loadNumberField.setText(data.loadNumber);
 
-    additionalInfo.forEach((line) => {
-      page2.drawText(line, {
-        x: 60,
-        y: height - y2Pos,
-        size: 10,
-        font,
-        color: rgb(0, 0, 0),
-      });
-      y2Pos += 20;
-    });
+      // Driver Info
+      const driverField = form.getTextField('Driver');
+      driverField.setText(data.driverName);
 
-    // Save the PDF
+      const truckField = form.getTextField('Truck');
+      truckField.setText(data.truckNumber);
+
+      const trailerField = form.getTextField('Trailer');
+      trailerField.setText(data.trailerNumber);
+
+      const phoneField = form.getTextField('Phone');
+      phoneField.setText(data.phoneNumber);
+
+      // Optional fields
+      if (data.commodity) {
+        const commodityField = form.getTextField('Commodity');
+        commodityField.setText(data.commodity);
+      }
+
+      if (data.weight) {
+        const weightField = form.getTextField('Weight');
+        weightField.setText(data.weight);
+      }
+
+      const milesField = form.getTextField('Miles');
+      milesField.setText(data.miles);
+
+      const rateField = form.getTextField('Rate');
+      rateField.setText('$' + data.rate);
+
+      // Pickup Info
+      if (data.pickupShipper) {
+        const shipperField = form.getTextField('Shipper');
+        shipperField.setText(data.pickupShipper);
+      }
+
+      const pickupAddressField = form.getTextField('Address_pickup');
+      pickupAddressField.setText(data.pickupAddress);
+
+      const pickupCityField = form.getTextField('City state zip_pickup');
+      pickupCityField.setText(data.pickupCityStateZip);
+
+      const pickupDateField = form.getTextField('Date_pickup');
+      pickupDateField.setText(data.pickupDate);
+
+      const pickupTimeField = form.getTextField('Time_pickup');
+      pickupTimeField.setText(data.pickupTime);
+
+      if (data.pickupPuNumber) {
+        const puField = form.getTextField('PU');
+        puField.setText(data.pickupPuNumber);
+      }
+
+      if (data.pickupPoNumber) {
+        const poPickupField = form.getTextField('PO_pickup');
+        poPickupField.setText(data.pickupPoNumber);
+      }
+
+      // Delivery Info
+      if (data.deliveryReceiver) {
+        const receiverField = form.getTextField('Receiver');
+        receiverField.setText(data.deliveryReceiver);
+      }
+
+      const deliveryAddressField = form.getTextField('Address_delivery');
+      deliveryAddressField.setText(data.deliveryAddress);
+
+      const deliveryCityField = form.getTextField('City state zip_delivery');
+      deliveryCityField.setText(data.deliveryCityStateZip);
+
+      const deliveryDateField = form.getTextField('Date_delivery');
+      deliveryDateField.setText(data.deliveryDate);
+
+      const deliveryTimeField = form.getTextField('Time_delivery');
+      deliveryTimeField.setText(data.deliveryTime);
+
+      if (data.deliveryPoNumber) {
+        const poDeliveryField = form.getTextField('PO_delivery');
+        poDeliveryField.setText(data.deliveryPoNumber);
+      }
+
+    } catch (fieldError) {
+      console.error('Error filling form fields:', fieldError);
+      console.log('Attempting to fill with available fields...');
+    }
+
+    // Flatten the form (make fields non-editable)
+    form.flatten();
+
+    // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
 
     return new Response(pdfBytes, {
