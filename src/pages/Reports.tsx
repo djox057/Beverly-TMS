@@ -777,7 +777,34 @@ const Reports = () => {
                             width: '163px',
                             minWidth: '163px',
                             maxWidth: '163px'
-                          }}>{truck.driver}</td>
+                          }}>
+                            <div className="flex items-center gap-2">
+                              {truck.driver}
+                              {(truck.driverPhone || truck.driverEmail || truck.trailerNumber) && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <button className="inline-flex">
+                                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                    </button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto">
+                                    <div className="space-y-1">
+                                      <p className="font-semibold text-sm">{truck.driver}</p>
+                                      {truck.trailerNumber && (
+                                        <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                      )}
+                                      {truck.driverPhone && (
+                                        <p className="text-xs">📞 {truck.driverPhone}</p>
+                                      )}
+                                      {truck.driverEmail && (
+                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                      )}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              )}
+                            </div>
+                          </td>
                           <td className={`border-r ${isLastTruck ? '' : 'border-b-[3px] border-gray-400'} px-2 py-1 text-xs text-gray-900`} style={{
                             width: '136px',
                             minWidth: '136px',
