@@ -329,10 +329,10 @@ export function TruckMapView({
             pickupEl.style.fontSize = '32px';
             
             const pickupPopupContent = `
-              <div style="min-width: 350px; padding: 10px; font-size: 14px;">
+              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
                 <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Pickup</strong>
                 ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
-                <div style="margin-bottom: 6px; word-wrap: break-word; white-space: normal;">${pickupAddress}</div>
+                <div style="margin-bottom: 6px; word-wrap: break-word;">${pickupAddress}</div>
                 ${pickupDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${pickupDate}</div>` : ''}
                 ${pickupTime ? `<div><strong>Time:</strong> ${pickupTime}</div>` : ''}
               </div>
@@ -341,7 +341,7 @@ export function TruckMapView({
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(pickupPopupContent)
+                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(pickupPopupContent)
               )
               .addTo(map.current);
 
@@ -359,10 +359,10 @@ export function TruckMapView({
             deliveryEl.style.fontSize = '32px';
             
             const deliveryPopupContent = `
-              <div style="min-width: 350px; padding: 10px; font-size: 14px;">
+              <div style="min-width: 250px; padding: 8px; font-size: 14px;">
                 <strong style="font-size: 16px; display: block; margin-bottom: 8px;">Delivery</strong>
                 ${loadNumber ? `<div style="margin-bottom: 6px;"><strong>Load:</strong> ${loadNumber}</div>` : ''}
-                <div style="margin-bottom: 6px; word-wrap: break-word; white-space: normal;">${deliveryAddress}</div>
+                <div style="margin-bottom: 6px; word-wrap: break-word;">${deliveryAddress}</div>
                 ${deliveryDate ? `<div style="margin-bottom: 4px;"><strong>Date:</strong> ${deliveryDate}</div>` : ''}
                 ${deliveryTime ? `<div><strong>Time:</strong> ${deliveryTime}</div>` : ''}
               </div>
@@ -371,7 +371,7 @@ export function TruckMapView({
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
               .setPopup(
-                new mapboxgl.Popup({ maxWidth: '450px' }).setHTML(deliveryPopupContent)
+                new mapboxgl.Popup({ maxWidth: '350px' }).setHTML(deliveryPopupContent)
               )
               .addTo(map.current);
 
