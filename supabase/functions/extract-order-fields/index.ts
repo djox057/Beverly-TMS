@@ -1,7 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createCanvas, loadImage } from "https://deno.land/x/canvas@v1.4.1/mod.ts";
-import { decode } from "https://deno.land/x/pdfjs@2.16.105/mod.js";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -102,34 +100,36 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert PDF to image for Gemini Vision
+    // Upload PDF to Gemini File API first
     const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdfBuffer = new Uint8Array(arrayBuffer);
+    const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
     
-    console.log('PDF buffer size:', pdfBuffer.length);
-    console.log('Converting PDF first page to image...');
+    console.log('Uploading PDF to Gemini File API...');
+    
+    const uploadFormData = new FormData();
+    uploadFormData.append('file', pdfBlob, pdfFile.name);
+    
+    const uploadResponse = await fetch('https://ai.gateway.lovable.dev/v1/files', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+      },
+      body: uploadFormData,
+    });
 
-    // Decode PDF and render first page as PNG
-    const pdf = await decode(pdfBuffer);
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better OCR
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('File upload error:', uploadResponse.status, errorText);
+      throw new Error(`Failed to upload PDF: ${uploadResponse.status}`);
+    }
+
+    const uploadData = await uploadResponse.json();
+    const fileUri = uploadData.file?.uri || uploadData.uri;
     
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext('2d');
-    
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-    }).promise;
-    
-    // Convert canvas to base64 PNG
-    const imageBuffer = canvas.toBuffer('image/png');
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-    
-    console.log('PDF converted to PNG image, base64 length:', base64Image.length);
+    console.log('PDF uploaded successfully, file URI:', fileUri);
 
     // Prepare the system prompt with all extraction instructions
-    const systemPrompt = `You are an expert at extracting shipping/logistics data from images of PDF documents, including scanned images without selectable text. Use OCR capabilities to read all text in the image.
+    const systemPrompt = `You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
 
 CRITICAL: First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.
 
@@ -245,8 +245,8 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "notes": "string"
 }`;
 
-    // Call Gemini 2.5 Flash via Lovable AI Gateway
-    console.log('Calling Gemini 2.5 Flash for image analysis...');
+    // Call Gemini 2.5 Flash via Lovable AI Gateway with uploaded file
+    console.log('Calling Gemini 2.5 Flash for PDF analysis...');
     
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -266,13 +266,11 @@ For SINGLE-DROP loads, return JSON with legacy fields:
             content: [
               {
                 type: 'text',
-                text: 'Please analyze this shipping/logistics document image (scanned PDF page) and extract ALL available order information using OCR. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
+                text: 'Please analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/png;base64,${base64Image}`
-                }
+                type: 'file',
+                file_uri: fileUri
               }
             ]
           }
