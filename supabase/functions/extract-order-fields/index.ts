@@ -59,7 +59,6 @@ interface ExtractedOrderData {
   trailer?: string;
   equipment?: string;
   temperature?: string;
-  notes?: string;
 }
 
 serve(async (req) => {
@@ -197,8 +196,7 @@ For MULTI-DROP loads, return JSON like:
   ],
   "freightAmount": number,
   "mileage": number,
-  "commodity": "string",
-  "notes": "string"
+  "commodity": "string"
 }
 
 For SINGLE-DROP loads, return JSON with legacy fields:
@@ -231,8 +229,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "weight": number,
   "trailer": "string",
   "equipment": "string",
-  "temperature": "string",
-  "notes": "string"
+  "temperature": "string"
 }`;
 
     // Call Gemini 2.5 Flash API with inline PDF data
