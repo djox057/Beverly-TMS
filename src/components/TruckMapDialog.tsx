@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { geocodeAddress } from '@/utils/geocoding';
+import { geocodeAddress } from '@/utils/routeCalculation';
 import { Loader2 } from 'lucide-react';
 
 interface TruckMapDialogProps {
@@ -102,10 +102,10 @@ export function TruckMapDialog({
             pickupEl.style.fontSize = '32px';
             
             new mapboxgl.Marker(pickupEl)
-              .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
+              .setLngLat([pickupCoords.lon, pickupCoords.lat])
               .addTo(map.current);
 
-            bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
+            bounds.extend([pickupCoords.lon, pickupCoords.lat]);
           }
         }
 
@@ -119,10 +119,10 @@ export function TruckMapDialog({
             deliveryEl.style.fontSize = '32px';
             
             new mapboxgl.Marker(deliveryEl)
-              .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
+              .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
               .addTo(map.current);
 
-            bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
+            bounds.extend([deliveryCoords.lon, deliveryCoords.lat]);
 
             // If we have both pickup and delivery, draw a route
             if (pickupAddress) {
@@ -131,8 +131,8 @@ export function TruckMapDialog({
                 await drawRoute(
                   map.current,
                   [truckLocation.longitude, truckLocation.latitude],
-                  [pickupCoords.longitude, pickupCoords.latitude],
-                  [deliveryCoords.longitude, deliveryCoords.latitude]
+                  [pickupCoords.lon, pickupCoords.lat],
+                  [deliveryCoords.lon, deliveryCoords.lat]
                 );
               }
             }
@@ -323,10 +323,10 @@ export function TruckMapView({
             pickupEl.style.fontSize = '32px';
             
             new mapboxgl.Marker(pickupEl)
-              .setLngLat([pickupCoords.longitude, pickupCoords.latitude])
+              .setLngLat([pickupCoords.lon, pickupCoords.lat])
               .addTo(map.current);
 
-            bounds.extend([pickupCoords.longitude, pickupCoords.latitude]);
+            bounds.extend([pickupCoords.lon, pickupCoords.lat]);
           }
         }
 
@@ -340,10 +340,10 @@ export function TruckMapView({
             deliveryEl.style.fontSize = '32px';
             
             new mapboxgl.Marker(deliveryEl)
-              .setLngLat([deliveryCoords.longitude, deliveryCoords.latitude])
+              .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
               .addTo(map.current);
 
-            bounds.extend([deliveryCoords.longitude, deliveryCoords.latitude]);
+            bounds.extend([deliveryCoords.lon, deliveryCoords.lat]);
           }
         }
 
@@ -352,13 +352,13 @@ export function TruckMapView({
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [pickupCoords.longitude, pickupCoords.latitude]
+            [pickupCoords.lon, pickupCoords.lat]
           );
         } else if (shouldRouteToDelivery && deliveryCoords) {
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [deliveryCoords.longitude, deliveryCoords.latitude]
+            [deliveryCoords.lon, deliveryCoords.lat]
           );
         }
 
