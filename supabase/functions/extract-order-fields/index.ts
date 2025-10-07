@@ -100,39 +100,23 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Step 1: Upload PDF to Gemini File API
+    // Convert PDF to base64 for inline transmission
     const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+    const pdfBuffer = new Uint8Array(arrayBuffer);
     
-    console.log('Uploading PDF to Gemini File API...');
-    
-    const uploadFormData = new FormData();
-    uploadFormData.append('file', pdfBlob, pdfFile.name);
-    
-    const uploadResponse = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
-      method: 'POST',
-      headers: {
-        'X-Goog-Upload-Protocol': 'multipart',
-        'X-Goog-Api-Key': geminiApiKey,
-      },
-      body: uploadFormData,
-    });
+    console.log('PDF buffer size:', pdfBuffer.length);
+    console.log('Converting PDF to base64...');
 
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      console.error('File upload error:', uploadResponse.status, errorText);
-      throw new Error(`Failed to upload PDF: ${uploadResponse.status}`);
+    // Convert to base64 in chunks to avoid stack overflow
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
+      const chunk = pdfBuffer.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
     }
-
-    const uploadData = await uploadResponse.json();
-    const fileUri = uploadData.file?.uri;
+    const base64Pdf = btoa(binaryString);
     
-    if (!fileUri) {
-      console.error('No file URI in response:', uploadData);
-      throw new Error('Failed to get file URI from upload response');
-    }
-    
-    console.log('PDF uploaded successfully, file URI:', fileUri);
+    console.log('PDF converted to base64, length:', base64Pdf.length);
 
     // Prepare the system prompt with all extraction instructions
     const systemPrompt = `You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
@@ -251,7 +235,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "notes": "string"
 }`;
 
-    // Step 2: Call Gemini 2.5 Flash API with uploaded file
+    // Call Gemini 2.5 Flash API with inline PDF data
     console.log('Calling Gemini 2.5 Flash for PDF analysis...');
     
     const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
@@ -268,9 +252,9 @@ For SINGLE-DROP loads, return JSON with legacy fields:
                 text: systemPrompt + '\n\nPlease analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
               },
               {
-                file_data: {
+                inline_data: {
                   mime_type: 'application/pdf',
-                  file_uri: fileUri
+                  data: base64Pdf
                 }
               }
             ]
