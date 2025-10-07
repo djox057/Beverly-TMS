@@ -389,8 +389,8 @@ const Analytics = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                dispatcherStats.map((stat) => (
-                  <TableRow key={stat.name}>
+                dispatcherStats.map((stat, index) => (
+                  <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? 'border-b' : ''}>
                     <TableCell className="font-medium">{stat.name}</TableCell>
                     <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
