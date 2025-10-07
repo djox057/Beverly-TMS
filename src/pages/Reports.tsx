@@ -462,8 +462,7 @@ const Reports = () => {
                           </div>
                         </>
                       )}
-                      {!isGameOver && (
-                        <Popover>
+                      <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
                             <Info className="h-2 w-2" />
@@ -527,7 +526,6 @@ const Reports = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      )}
                     </div>;
               })}
                   {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
@@ -562,8 +560,7 @@ const Reports = () => {
                           </div>
                         </>
                       )}
-                      {!isGameOver && (
-                        <Popover>
+                      <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
                             <Info className="h-2 w-2" />
@@ -627,7 +624,6 @@ const Reports = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
-                      )}
                     </div>;
               })}
 
