@@ -363,7 +363,7 @@ const Reports = () => {
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate 
-        ? new Date(truck.twoWeekBlockDate) 
+        ? new Date(truck.twoWeekBlockDate.split('T')[0] + 'T00:00:00') 
         : null;
       
       const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
