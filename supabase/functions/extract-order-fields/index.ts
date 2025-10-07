@@ -262,7 +262,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
         }
       }),
     });
@@ -303,6 +303,9 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       console.warn('Unusual finish reason:', candidate.finishReason);
       if (candidate.finishReason === 'SAFETY') {
         throw new Error('Content generation was blocked by safety filters');
+      }
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        throw new Error('PDF is too complex and exceeded token limit. Try uploading a simpler or shorter PDF.');
       }
     }
     
