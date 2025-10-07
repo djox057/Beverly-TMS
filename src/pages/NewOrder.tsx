@@ -1602,7 +1602,7 @@ const NewOrder = () => {
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => navigate('/orders')}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Order
