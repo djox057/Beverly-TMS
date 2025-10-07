@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
@@ -66,13 +66,9 @@ const Analytics = () => {
     }
     console.log('=== END NAVIGATION DEBUG ===');
   };
-  const [searchTerm, setSearchTerm] = useState("");
-  const [companyFilter, setCompanyFilter] = useState("all-companies");
-  const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
-  const [bookedByFilter, setBookedByFilter] = useState("all-users");
-  const [missingDocsFilter, setMissingDocsFilter] = useState("all");
-  const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [sortBy, setSortBy] = useState<'totalFreight' | 'ratePerMile' | 'cut' | 'cutPercent'>('totalFreight');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const {
     data: orders,
     isLoading,
@@ -96,26 +92,8 @@ const Analytics = () => {
       </div>;
   }
 
-  // Filter orders based on search term and filters
+  // Filter orders based on date
   const filteredOrders = orders?.filter(order => {
-    const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
-    const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
-    const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
-    const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
-    let matchesMissingDocs = true;
-    if (missingDocsFilter !== 'all') {
-      if (missingDocsFilter === 'missing-rc') {
-        matchesMissingDocs = order.rcFiles?.length === 0;
-      } else if (missingDocsFilter === 'missing-bol') {
-        matchesMissingDocs = order.bolFiles?.length === 0;
-      } else if (missingDocsFilter === 'missing-pod') {
-        matchesMissingDocs = order.podFiles?.length === 0;
-      } else if (missingDocsFilter === 'complete') {
-        matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
-      }
-    }
-
     // Date filtering based on delivery date
     let matchesDate = true;
     if (dateRange?.from) {
@@ -132,79 +110,26 @@ const Analytics = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
-    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesMissingDocs && matchesDate;
+    return matchesDate;
   }) || [];
 
-  // Get unique companies and booked by values for filters
-  const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
-  const uniqueTruckCompanies = [...new Set(orders?.map(order => order.truckCompanyName) || [])].filter(Boolean);
-  const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
-  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {
-    numeric: true
-  }));
-  const exportToExcel = () => {
-    if (!filteredOrders.length) return;
-    const exportData = filteredOrders.map(order => ({
-      'Truck #': order.truckNumber,
-      'Load #': order.internalLoadNumber,
-      'Pickup Date': order.pickupDate,
-      'Pickup City': order.pickupCity,
-      'Pickup State': order.pickupState,
-      'Delivery Date': order.deliveryDate,
-      'Delivery City': order.deliveryCity,
-      'Delivery State': order.deliveryState,
-      'Miles': order.mileage,
-      'Driver Rate': order.driverPrice,
-      'Driver': order.driverName,
-      'Broker Name': order.brokerName,
-      'Broker Load #': order.brokerLoadNumber,
-      'Invoiced': order.invoiced,
-      'Total Freight': order.totalFreightAmount,
-      'Notes': order.notes,
-      'Company': order.companyName,
-      'Booked By': order.bookedBy
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
-    XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+  // Helper function to get week start date
+  const getWeekStartDate = (weeksAgo: number) => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday as start of week
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - diff - (weeksAgo * 7));
+    weekStart.setHours(0, 0, 0, 0);
+    return weekStart;
   };
-  const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
-    try {
-      const {
-        error
-      } = await supabase.from('orders').update({
-        locked: !currentLockStatus
-      }).eq('id', orderId);
-      if (error) throw error;
-      toast.success(`Order ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
-    } catch (error) {
-      console.error('Error toggling order lock:', error);
-      toast.error("Failed to update order lock status");
-    }
-  };
-  const generateInvoices = async () => {
-    if (!filteredOrders.length) return;
-    try {
-      await generateInvoicePDF(filteredOrders);
 
-      // Update invoiced status for all orders that were processed
-      const orderIds = filteredOrders.map(order => order.id);
-      const {
-        error
-      } = await supabase.from('orders').update({
-        invoiced: true
-      }).in('id', orderIds);
-      if (error) {
-        console.error('Error updating invoice status:', error);
-      } else {
-        console.log(`Successfully updated ${orderIds.length} orders as invoiced`);
-        // Force refresh of orders data to show updated status
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Error generating invoices:', error);
-    }
+  const setWeekFilter = (weeks: number) => {
+    const startDate = getWeekStartDate(weeks);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+    setDateRange({ from: startDate, to: endDate });
   };
   // Calculate dispatcher analytics
   const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
@@ -238,18 +163,60 @@ const Analytics = () => {
       cutPercent,
       ratePerMile
     };
-  }).sort((a, b) => b.totalFreight - a.totalFreight);
+  }).sort((a, b) => {
+    const aValue = a[sortBy];
+    const bValue = b[sortBy];
+    return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
+  });
+
+  const handleSort = (column: 'totalFreight' | 'ratePerMile' | 'cut' | 'cutPercent') => {
+    if (sortBy === column) {
+      setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(column);
+      setSortDirection('desc');
+    }
+  };
 
   return <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
-        
-      </div>
+        </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Dispatcher Performance</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <CardTitle>Dispatcher Performance</CardTitle>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button variant="outline" size="sm" onClick={() => setWeekFilter(0)}>
+                This Week
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWeekFilter(1)}>
+                Last Week
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWeekFilter(2)}>
+                2 Weeks Ago
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWeekFilter(3)}>
+                3 Weeks Ago
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setWeekFilter(4)}>
+                4 Weeks Ago
+              </Button>
+              <DateRangePicker 
+                date={dateRange} 
+                onDateChange={setDateRange} 
+                placeholder="Custom date range" 
+                className="w-72" 
+              />
+              {dateRange && (
+                <Button variant="outline" size="sm" onClick={() => setDateRange(undefined)}>
+                  Clear Filter
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -257,12 +224,32 @@ const Analytics = () => {
               <TableRow>
                 <TableHead>Dispatcher</TableHead>
                 <TableHead className="text-right">Orders</TableHead>
-                <TableHead className="text-right">Total Freight</TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-muted/50" 
+                  onClick={() => handleSort('totalFreight')}
+                >
+                  Total Freight {sortBy === 'totalFreight' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </TableHead>
                 <TableHead className="text-right">Total Miles</TableHead>
-                <TableHead className="text-right">Rate/Mile</TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-muted/50" 
+                  onClick={() => handleSort('ratePerMile')}
+                >
+                  Rate/Mile {sortBy === 'ratePerMile' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </TableHead>
                 <TableHead className="text-right">Driver Rate</TableHead>
-                <TableHead className="text-right">Cut</TableHead>
-                <TableHead className="text-right">Cut %</TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-muted/50" 
+                  onClick={() => handleSort('cut')}
+                >
+                  Cut {sortBy === 'cut' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-muted/50" 
+                  onClick={() => handleSort('cutPercent')}
+                >
+                  Cut % {sortBy === 'cutPercent' && (sortDirection === 'desc' ? '↓' : '↑')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -288,167 +275,6 @@ const Analytics = () => {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle>All Orders</CardTitle>
-            
-            <div className="flex flex-wrap gap-4 items-center">
-              <DateRangePicker date={dateRange} onDateChange={setDateRange} placeholder="Filter by delivery date" className="w-72" />
-              
-              <Select value={truckFilter} onValueChange={setTruckFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Truck" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-trucks">All Trucks</SelectItem>
-                  {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-companies">All Companies</SelectItem>
-                  {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={truckCompanyFilter} onValueChange={setTruckCompanyFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Truck Company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-truck-companies">All Truck Companies</SelectItem>
-                  {uniqueTruckCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Booked By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-users">All Users</SelectItem>
-                  {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              
-              <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Missing Docs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
-                  <SelectItem value="complete">Complete (RC + POD)</SelectItem>
-                  <SelectItem value="missing-rc">Missing RC</SelectItem>
-                  <SelectItem value="missing-bol">Missing BOL</SelectItem>
-                  <SelectItem value="missing-pod">Missing POD</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <div className="min-w-[1800px] p-6">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-20">Truck #</TableHead>
-                    <TableHead className="w-20">Load #</TableHead>
-                    <TableHead className="w-32">Pickup Date</TableHead>
-                    <TableHead className="w-28">Pickup City</TableHead>
-                    <TableHead className="w-16">Pickup State</TableHead>
-                    <TableHead className="w-32">Delivery Date</TableHead>
-                    <TableHead className="w-28">Delivery City</TableHead>
-                    <TableHead className="w-16">Delivery State</TableHead>
-                    <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-24">Driver Rate</TableHead>
-                    <TableHead className="w-32">Driver</TableHead>
-                    <TableHead className="w-36">Broker Name</TableHead>
-                    <TableHead className="w-28">Broker Load #</TableHead>
-                    <TableHead className="w-20">Invoiced</TableHead>
-                    <TableHead className="w-28">Freight Amount</TableHead>
-                    <TableHead className="w-28">Company</TableHead>
-                    <TableHead className="w-24">Booked By</TableHead>
-                    <TableHead className="w-16">RC</TableHead>
-                    <TableHead className="w-16">POD</TableHead>
-                    <TableHead className="w-16">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.length === 0 ? <TableRow>
-                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
-                        No orders found
-                      </TableCell>
-                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className="h-16">
-                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                        <TableCell>{order.internalLoadNumber}</TableCell>
-                        <TableCell>{order.pickupDate}</TableCell>
-                        <TableCell>{order.pickupCity}</TableCell>
-                        <TableCell>{order.pickupState}</TableCell>
-                        <TableCell>{order.deliveryDate}</TableCell>
-                        <TableCell>{order.deliveryCity}</TableCell>
-                        <TableCell>{order.deliveryState}</TableCell>
-                        <TableCell>{order.mileage.toLocaleString()}</TableCell>
-                        <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
-                        <TableCell>{order.driverName}</TableCell>
-                        <TableCell>{order.brokerName}</TableCell>
-                        <TableCell>{order.brokerLoadNumber}</TableCell>
-                        <TableCell>{order.invoiced}</TableCell>
-                        <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
-                        <TableCell>{order.companyName}</TableCell>
-                        <TableCell>{order.bookedBy}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
-                        }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
-                        }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {(hasRole('manager') || hasRole('admin')) && <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? 'Unlock order' : 'Lock order'}>
-                                {order.locked ? <Lock className="h-4 w-4 text-destructive" /> : <LockOpen className="h-4 w-4 text-muted-foreground" />}
-                              </Button>}
-                          </div>
-                        </TableCell>
-                      </TableRow>)}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
         </CardContent>
       </Card>
       </div>
