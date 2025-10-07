@@ -206,12 +206,90 @@ const Analytics = () => {
       console.error('Error generating invoices:', error);
     }
   };
+  // Calculate dispatcher analytics
+  const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
+    const dispatcher = order.bookedBy || 'Unknown';
+    if (!acc[dispatcher]) {
+      acc[dispatcher] = {
+        totalFreight: 0,
+        totalDriverRate: 0,
+        totalMiles: 0,
+        orderCount: 0
+      };
+    }
+    acc[dispatcher].totalFreight += order.totalFreightAmount;
+    acc[dispatcher].totalDriverRate += order.driverPrice;
+    acc[dispatcher].totalMiles += order.mileage;
+    acc[dispatcher].orderCount += 1;
+    return acc;
+  }, {} as Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>);
+
+  const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]) => {
+    const cut = stats.totalFreight - stats.totalDriverRate;
+    const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
+    const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+    return {
+      name,
+      totalFreight: stats.totalFreight,
+      totalDriverRate: stats.totalDriverRate,
+      totalMiles: stats.totalMiles,
+      orderCount: stats.orderCount,
+      cut,
+      cutPercent,
+      ratePerMile
+    };
+  }).sort((a, b) => b.totalFreight - a.totalFreight);
+
   return <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
         
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dispatcher Performance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Dispatcher</TableHead>
+                <TableHead className="text-right">Orders</TableHead>
+                <TableHead className="text-right">Total Freight</TableHead>
+                <TableHead className="text-right">Total Miles</TableHead>
+                <TableHead className="text-right">Rate/Mile</TableHead>
+                <TableHead className="text-right">Driver Rate</TableHead>
+                <TableHead className="text-right">Cut</TableHead>
+                <TableHead className="text-right">Cut %</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dispatcherStats.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    No data available
+                  </TableCell>
+                </TableRow>
+              ) : (
+                dispatcherStats.map((stat) => (
+                  <TableRow key={stat.name}>
+                    <TableCell className="font-medium">{stat.name}</TableCell>
+                    <TableCell className="text-right">{stat.orderCount}</TableCell>
+                    <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${stat.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">${stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
