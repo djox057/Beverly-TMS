@@ -329,8 +329,9 @@ const Reports = () => {
 
     // Get all orders with their pickup/delivery dates sorted chronologically
     const ordersWithDates = truck.allOrders?.map((order: any) => {
-      const pickupDate = order.pickupStop && order.pickup_datetime ? new Date(order.pickup_datetime) : null;
-      const deliveryDate = order.deliveryStop && order.delivery_datetime ? new Date(order.delivery_datetime) : null;
+      // For GAME-OVER orders without pickup_drops, use datetime fields directly
+      const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
+      const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
       return {
         ...order,
         pickupDate,
