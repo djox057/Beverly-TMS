@@ -281,10 +281,36 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     const aiData = await aiResponse.json();
     console.log('Gemini response received');
     
-    const extractedContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    // Log the full response structure for debugging
+    console.log('Full Gemini response:', JSON.stringify(aiData, null, 2));
+    
+    // Check for prompt feedback (blocked by safety filters)
+    if (aiData.promptFeedback?.blockReason) {
+      console.error('Prompt was blocked:', aiData.promptFeedback);
+      throw new Error(`Gemini blocked the request: ${aiData.promptFeedback.blockReason}`);
+    }
+    
+    // Check if there are candidates
+    if (!aiData.candidates || aiData.candidates.length === 0) {
+      console.error('No candidates in response:', aiData);
+      throw new Error('Gemini returned no candidates. The PDF might be too complex or the content triggered safety filters.');
+    }
+    
+    const candidate = aiData.candidates[0];
+    
+    // Check for finish reason
+    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+      console.warn('Unusual finish reason:', candidate.finishReason);
+      if (candidate.finishReason === 'SAFETY') {
+        throw new Error('Content generation was blocked by safety filters');
+      }
+    }
+    
+    const extractedContent = candidate.content?.parts?.[0]?.text?.trim();
     
     if (!extractedContent) {
-      throw new Error('No content in AI response');
+      console.error('No text content found in candidate:', JSON.stringify(candidate, null, 2));
+      throw new Error('No content in AI response. The PDF might be unreadable or contain no extractable data.');
     }
     
     console.log('Gemini response content:', extractedContent);
