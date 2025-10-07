@@ -328,9 +328,7 @@ const Reports = () => {
     };
 
     // Get all orders with their pickup/delivery dates sorted chronologically
-    // EXCLUDE GAME-OVER orders from regular order processing - they're visual indicators only
-    const ordersWithDates = truck.allOrders?.filter((order: any) => order.notes !== 'GAME|OVER').map((order: any) => {
-      // For regular orders, use datetime fields
+    const ordersWithDates = truck.allOrders?.map((order: any) => {
       const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
       const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
       return {
@@ -348,12 +346,9 @@ const Reports = () => {
       return a.pickupDate.getTime() - b.pickupDate.getTime();
     }) || [];
 
-    // Get GAME-OVER blocks separately for visual rendering only
-    const gameOverBlocks = truck.allOrders?.filter((order: any) => order.notes === 'GAME|OVER').map((order: any) => ({
-      ...order,
-      pickupDate: order.pickup_datetime ? new Date(order.pickup_datetime) : null,
-      deliveryDate: order.delivery_datetime ? new Date(order.delivery_datetime) : null
-    })) || [];
+    // Check if the driver has a 2-week block date set
+    const twoWeekBlockDate = truck.driver?.two_week_block_date ? new Date(truck.driver.two_week_block_date) : null;
+    const twoWeekBlockEndDate = twoWeekBlockDate ? addDays(twoWeekBlockDate, 13) : null; // 14 days total including start date
 
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
@@ -370,12 +365,19 @@ const Reports = () => {
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
-      // Find all REGULAR orders for this day and categorize them (excluding GAME-OVER)
-      const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
+      // Check if this day falls within the 2-week block period
+      const isInTwoWeekBlock = twoWeekBlockDate && twoWeekBlockEndDate && 
+        day >= twoWeekBlockDate && day <= twoWeekBlockEndDate;
 
-      // Check for GAME-OVER blocks on this day
-      const gameOverPickup = gameOverBlocks.find(block => block.pickupDate && isSameDay(day, block.pickupDate));
-      const gameOverDelivery = gameOverBlocks.find(block => block.deliveryDate && isSameDay(day, block.deliveryDate));
+      // If in 2-week block, render a simple black cell
+      if (isInTwoWeekBlock) {
+        return <td key={index} className={`border border-gray-200 p-0 w-[12%] bg-black ${isFirstTruck ? '' : 'border-t-0'} ${isLastTruck ? '' : 'border-b-0'}`}>
+          <div className="h-full min-h-[60px]"></div>
+        </td>;
+      }
+
+      // Find all orders for this day and categorize them
+      const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
 
       // Separate same-day orders from different-day orders
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
@@ -444,11 +446,7 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {gameOverDelivery ? (
-                <div className="flex-1 flex items-center justify-center bg-black text-white rounded border">
-                  <div className="text-sm font-bold">GAME</div>
-                </div>
-              ) : deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
                 const cellColor = getDeliveryCellColor(order);
                 return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
@@ -540,11 +538,7 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {gameOverPickup ? (
-                <div className="flex-1 flex items-center justify-center bg-black text-white rounded border">
-                  <div className="text-sm font-bold">OVER</div>
-                </div>
-              ) : pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
