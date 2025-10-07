@@ -31,30 +31,30 @@ const getStatusBadge = (status: string) => {
 };
 const Analytics = () => {
   const navigate = useNavigate();
-  const { hasRole } = useAuthContext();
-  
+  const {
+    hasRole
+  } = useAuthContext();
+
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
     console.log('=== NAVIGATION DEBUG ===');
     console.log('Order ID to navigate to:', orderId);
     console.log('Order ID type:', typeof orderId);
     console.log('Current location:', window.location.href);
-    
     if (!orderId) {
       console.error('Order ID is missing!');
       return;
     }
-    
+
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(orderId)) {
       console.error('Invalid order ID format:', orderId);
       return;
     }
-    
     const targetUrl = `/edit-order/${orderId}`;
     console.log('Target URL:', targetUrl);
-    
+
     // Try navigation with fallback to window.location
     try {
       console.log('Attempting React Router navigation...');
@@ -121,7 +121,6 @@ const Analytics = () => {
     if (dateRange?.from) {
       const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
       const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
-      
       if (dateRange.to) {
         // Date range filtering
         const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
@@ -140,7 +139,9 @@ const Analytics = () => {
   const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
   const uniqueTruckCompanies = [...new Set(orders?.map(order => order.truckCompanyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
-  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, {
+    numeric: true
+  }));
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
@@ -170,20 +171,18 @@ const Analytics = () => {
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ locked: !currentLockStatus })
-        .eq('id', orderId);
-
+      const {
+        error
+      } = await supabase.from('orders').update({
+        locked: !currentLockStatus
+      }).eq('id', orderId);
       if (error) throw error;
-      
       toast.success(`Order ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
     } catch (error) {
       console.error('Error toggling order lock:', error);
       toast.error("Failed to update order lock status");
     }
   };
-
   const generateInvoices = async () => {
     if (!filteredOrders.length) return;
     try {
@@ -207,25 +206,11 @@ const Analytics = () => {
       console.error('Error generating invoices:', error);
     }
   };
-  return (
-    <div className="h-full w-full">
+  return <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
-            <Download className="mr-2 h-4 w-4" />
-            Export to Excel
-          </Button>
-          <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length}>
-            <FileText className="mr-2 h-4 w-4" />
-            INVOICE
-          </Button>
-          <Button onClick={() => navigate('/new-order')}>
-            <FileText className="mr-2 h-4 w-4" />
-            New Order
-          </Button>
-        </div>
+        
       </div>
 
       <Card>
@@ -234,12 +219,7 @@ const Analytics = () => {
             <CardTitle>All Orders</CardTitle>
             
             <div className="flex flex-wrap gap-4 items-center">
-              <DateRangePicker 
-                date={dateRange} 
-                onDateChange={setDateRange} 
-                placeholder="Filter by delivery date" 
-                className="w-72" 
-              />
+              <DateRangePicker date={dateRange} onDateChange={setDateRange} placeholder="Filter by delivery date" className="w-72" />
               
               <Select value={truckFilter} onValueChange={setTruckFilter}>
                 <SelectTrigger className="w-48">
@@ -381,20 +361,9 @@ const Analytics = () => {
                             <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            {(hasRole('manager') || hasRole('admin')) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleOrderLock(order.id, order.locked)}
-                                title={order.locked ? 'Unlock order' : 'Lock order'}
-                              >
-                                {order.locked ? (
-                                  <Lock className="h-4 w-4 text-destructive" />
-                                ) : (
-                                  <LockOpen className="h-4 w-4 text-muted-foreground" />
-                                )}
-                              </Button>
-                            )}
+                            {(hasRole('manager') || hasRole('admin')) && <Button variant="outline" size="sm" onClick={() => toggleOrderLock(order.id, order.locked)} title={order.locked ? 'Unlock order' : 'Lock order'}>
+                                {order.locked ? <Lock className="h-4 w-4 text-destructive" /> : <LockOpen className="h-4 w-4 text-muted-foreground" />}
+                              </Button>}
                           </div>
                         </TableCell>
                       </TableRow>)}
@@ -405,7 +374,6 @@ const Analytics = () => {
         </CardContent>
       </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
 export default Analytics;
