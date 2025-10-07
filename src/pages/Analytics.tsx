@@ -302,7 +302,7 @@ const Analytics = () => {
                   <SelectValue placeholder="Select week" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="all">All time weekly</SelectItem>
                   {weekOptions.map(week => (
                     <SelectItem key={week.value} value={week.value}>
                       {week.label}
@@ -316,7 +316,7 @@ const Analytics = () => {
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="all">All time monthly</SelectItem>
                   {monthOptions.map(month => (
                     <SelectItem key={month.value} value={month.value}>
                       {month.label}
@@ -353,7 +353,6 @@ const Analytics = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Dispatcher</TableHead>
-                <TableHead className="text-right">Orders</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover:bg-muted/50" 
                   onClick={() => handleSort('totalFreight')}
@@ -385,7 +384,7 @@ const Analytics = () => {
             <TableBody>
               {dispatcherStats.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No data available
                   </TableCell>
                 </TableRow>
@@ -393,7 +392,6 @@ const Analytics = () => {
                 dispatcherStats.map((stat) => (
                   <TableRow key={stat.name}>
                     <TableCell className="font-medium">{stat.name}</TableCell>
-                    <TableCell className="text-right">{stat.orderCount}</TableCell>
                     <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                     <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
@@ -415,32 +413,32 @@ const Analytics = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-8">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Orders</p>
-              <p className="text-3xl font-bold">{totals.orderCount}</p>
+              <p className="text-xs text-muted-foreground">Orders</p>
+              <p className="text-2xl font-bold">{totals.orderCount}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Freight</p>
-              <p className="text-3xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground">Total Freight</p>
+              <p className="text-2xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Miles</p>
-              <p className="text-3xl font-bold">{totals.totalMiles.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Total Miles</p>
+              <p className="text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Rate/Mile</p>
-              <p className="text-3xl font-bold">${totalRatePerMile.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">Rate/Mile</p>
+              <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Driver Rate</p>
-              <p className="text-3xl font-bold">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground">Driver Rate</p>
+              <p className="text-2xl font-bold">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Cut</p>
-              <p className="text-3xl font-bold">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xs text-muted-foreground">Cut</p>
+              <p className="text-2xl font-bold">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Cut %</p>
-              <p className="text-3xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground">Cut %</p>
+              <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
             </div>
           </div>
         </CardContent>
