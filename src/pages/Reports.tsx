@@ -346,21 +346,6 @@ const Reports = () => {
       return a.pickupDate.getTime() - b.pickupDate.getTime();
     }) || [];
 
-    // Check if the driver has a 2-week block date set
-    const twoWeekBlockDate = truck.driver?.two_week_block_date ? new Date(truck.driver.two_week_block_date) : null;
-    const twoWeekBlockEndDate = twoWeekBlockDate ? addDays(twoWeekBlockDate, 13) : null; // 14 days total including start date
-
-    // DEBUG: Log the 2-week block info
-    if (truck.driver?.two_week_block_date) {
-      console.log('🔥 2-WEEK BLOCK DEBUG:', {
-        truckNumber: truck.truckNumber,
-        driverName: truck.driver?.name,
-        blockDateRaw: truck.driver?.two_week_block_date,
-        twoWeekBlockDate: twoWeekBlockDate,
-        twoWeekBlockEndDate: twoWeekBlockEndDate
-      });
-    }
-
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
       const currentIndex = ordersWithDates.findIndex(o => o.id === currentOrder.id);
@@ -376,52 +361,6 @@ const Reports = () => {
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
-      // Check if this day falls within the 2-week block period
-      const isInTwoWeekBlock = twoWeekBlockDate && twoWeekBlockEndDate && 
-        day >= twoWeekBlockDate && day <= twoWeekBlockEndDate;
-
-      // DEBUG: Log each day check for trucks with block dates
-      if (truck.driver?.two_week_block_date && index === 0) {
-        console.log('🔥 DAY CHECK for truck ' + truck.truckNumber + ':', {
-          day: format(day, 'yyyy-MM-dd'),
-          twoWeekBlockDate: twoWeekBlockDate ? format(twoWeekBlockDate, 'yyyy-MM-dd') : null,
-          twoWeekBlockEndDate: twoWeekBlockEndDate ? format(twoWeekBlockEndDate, 'yyyy-MM-dd') : null,
-          isInTwoWeekBlock,
-          dayTime: day.getTime(),
-          blockStartTime: twoWeekBlockDate?.getTime(),
-          blockEndTime: twoWeekBlockEndDate?.getTime()
-        });
-      }
-
-      // If in 2-week block, render GAME/OVER split cell with black background
-      if (isInTwoWeekBlock) {
-        const isToday = isSameDay(day, new Date());
-        return <td key={index} className={`border ${isToday ? 'border-primary border-2' : 'border-gray-200'} p-0 w-[12%] ${isFirstTruck ? '' : 'border-t-0'} ${isLastTruck ? '' : 'border-b-0'}`} style={{
-          minWidth: '120px',
-          maxWidth: '120px',
-          width: '120px',
-          height: '64px'
-        }}>
-            {/* Delivery cell (top half) - GAME */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col items-center justify-center bg-black`} style={{
-            height: '32px',
-            minHeight: '32px',
-            maxHeight: '32px'
-          }}>
-              <div className="text-sm font-bold text-white">GAME</div>
-            </div>
-            
-            {/* Pickup cell (bottom half) - OVER */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col items-center justify-center bg-black`} style={{
-            height: '32px',
-            minHeight: '32px',
-            maxHeight: '32px'
-          }}>
-              <div className="text-sm font-bold text-white">OVER</div>
-            </div>
-        </td>;
-      }
-
       // Find all orders for this day and categorize them
       const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
 

@@ -211,7 +211,7 @@ export const useReports = () => {
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated),
           trailer:trailer_id(trailer_number),
           orders!orders_truck_id_fkey(
             id,
