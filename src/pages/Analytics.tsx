@@ -70,6 +70,8 @@ const Analytics = () => {
   const [sortBy, setSortBy] = useState<'totalFreight' | 'ratePerMile' | 'cut' | 'cutPercent'>('totalFreight');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [filterType, setFilterType] = useState<'week' | 'month' | 'custom'>('week');
   const {
     data: orders,
     isLoading,
@@ -95,11 +97,12 @@ const Analytics = () => {
 
   // Filter orders based on date
   const filteredOrders = orders?.filter(order => {
-    // Date filtering based on pickup date
+    // Date filtering - use pickup date for week filters, delivery date for month filters
     let matchesDate = true;
     if (dateRange?.from) {
-      const orderPickupDate = new Date(order.pickupDate.split(' - ')[0]);
-      const orderDateOnly = new Date(orderPickupDate.getFullYear(), orderPickupDate.getMonth(), orderPickupDate.getDate());
+      const dateToFilter = filterType === 'month' ? order.deliveryDate : order.pickupDate;
+      const orderDate = new Date(dateToFilter.split(' - ')[0]);
+      const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
       if (dateRange.to) {
         // Date range filtering
         const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
@@ -174,10 +177,48 @@ const Analytics = () => {
 
   const handleWeekChange = (value: string) => {
     setSelectedWeek(value);
+    setSelectedMonth("all");
+    setFilterType('week');
     if (value === "all") {
       setDateRange(undefined);
     } else {
       setWeekFilter(parseInt(value));
+    }
+  };
+
+  // Generate month options for the past 12 months
+  const generateMonthOptions = () => {
+    const months = [];
+    const today = new Date();
+    
+    for (let i = 0; i < 12; i++) {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      
+      months.push({
+        value: i.toString(),
+        label: monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        start: monthStart,
+        end: monthEnd
+      });
+    }
+    
+    return months;
+  };
+
+  const monthOptions = generateMonthOptions();
+
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(value);
+    setSelectedWeek("all");
+    setFilterType('month');
+    if (value === "all") {
+      setDateRange(undefined);
+    } else {
+      const monthIndex = parseInt(value);
+      const monthOption = monthOptions[monthIndex];
+      setDateRange({ from: monthOption.start, to: monthOption.end });
     }
   };
   // Calculate dispatcher analytics
@@ -218,6 +259,24 @@ const Analytics = () => {
     return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
   });
 
+  // Calculate totals
+  const totals = dispatcherStats.reduce((acc, stat) => {
+    acc.totalFreight += stat.totalFreight;
+    acc.totalDriverRate += stat.totalDriverRate;
+    acc.totalMiles += stat.totalMiles;
+    acc.orderCount += stat.orderCount;
+    return acc;
+  }, {
+    totalFreight: 0,
+    totalDriverRate: 0,
+    totalMiles: 0,
+    orderCount: 0
+  });
+
+  const totalCut = totals.totalFreight - totals.totalDriverRate;
+  const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
+  const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
+
   const handleSort = (column: 'totalFreight' | 'ratePerMile' | 'cut' | 'cutPercent') => {
     if (sortBy === column) {
       setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
@@ -251,11 +310,28 @@ const Analytics = () => {
                   ))}
                 </SelectContent>
               </Select>
+              
+              <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  {monthOptions.map(month => (
+                    <SelectItem key={month.value} value={month.value}>
+                      {month.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
               <DateRangePicker 
                 date={dateRange} 
                 onDateChange={(range) => {
                   setDateRange(range);
                   setSelectedWeek("all");
+                  setSelectedMonth("all");
+                  setFilterType('custom');
                 }} 
                 placeholder="Custom date range" 
                 className="w-72" 
@@ -264,6 +340,7 @@ const Analytics = () => {
                 <Button variant="outline" size="sm" onClick={() => {
                   setDateRange(undefined);
                   setSelectedWeek("all");
+                  setSelectedMonth("all");
                 }}>
                   Clear Filter
                 </Button>
@@ -313,18 +390,30 @@ const Analytics = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                dispatcherStats.map((stat) => (
-                  <TableRow key={stat.name}>
-                    <TableCell className="font-medium">{stat.name}</TableCell>
-                    <TableCell className="text-right">{stat.orderCount}</TableCell>
-                    <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">${stat.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">${stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                <>
+                  {dispatcherStats.map((stat) => (
+                    <TableRow key={stat.name}>
+                      <TableCell className="font-medium">{stat.name}</TableCell>
+                      <TableCell className="text-right">{stat.orderCount}</TableCell>
+                      <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${stat.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right">${stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">{totals.orderCount}</TableCell>
+                    <TableCell className="text-right">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{totals.totalMiles.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">${totalRatePerMile.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{totalCutPercent.toFixed(1)}%</TableCell>
                   </TableRow>
-                ))
+                </>
               )}
             </TableBody>
           </Table>
