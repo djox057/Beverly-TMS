@@ -834,8 +834,17 @@ const Drivers = () => {
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
-                  </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id}>
-                      <TableCell className="font-medium">{driver.name}</TableCell>
+                  </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {driver.name}
+                          {!driver.is_active && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
                       <TableCell>

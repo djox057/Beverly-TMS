@@ -14,7 +14,6 @@ export const useDrivers = () => {
             trailer:trailers(trailer_number)
           )
         `)
-        .eq('is_active', true)
         .order('name', { ascending: true })
         .limit(1000);
       
