@@ -369,10 +369,32 @@ const Reports = () => {
       const isInTwoWeekBlock = twoWeekBlockDate && twoWeekBlockEndDate && 
         day >= twoWeekBlockDate && day <= twoWeekBlockEndDate;
 
-      // If in 2-week block, render a simple black cell
+      // If in 2-week block, render GAME/OVER split cell with black background
       if (isInTwoWeekBlock) {
-        return <td key={index} className={`border border-gray-200 p-0 w-[12%] bg-black ${isFirstTruck ? '' : 'border-t-0'} ${isLastTruck ? '' : 'border-b-0'}`}>
-          <div className="h-full min-h-[60px]"></div>
+        const isToday = isSameDay(day, new Date());
+        return <td key={index} className={`border ${isToday ? 'border-primary border-2' : 'border-gray-200'} p-0 w-[12%] ${isFirstTruck ? '' : 'border-t-0'} ${isLastTruck ? '' : 'border-b-0'}`} style={{
+          minWidth: '120px',
+          maxWidth: '120px',
+          width: '120px',
+          height: '64px'
+        }}>
+            {/* Delivery cell (top half) - GAME */}
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col items-center justify-center bg-black`} style={{
+            height: '32px',
+            minHeight: '32px',
+            maxHeight: '32px'
+          }}>
+              <div className="text-sm font-bold text-white">GAME</div>
+            </div>
+            
+            {/* Pickup cell (bottom half) - OVER */}
+            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col items-center justify-center bg-black`} style={{
+            height: '32px',
+            minHeight: '32px',
+            maxHeight: '32px'
+          }}>
+              <div className="text-sm font-bold text-white">OVER</div>
+            </div>
         </td>;
       }
 
