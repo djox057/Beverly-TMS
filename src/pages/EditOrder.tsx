@@ -1345,10 +1345,22 @@ const EditOrder = () => {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
-                          const { data } = supabase.storage
+                          const { data, error } = await supabase.storage
                             .from('order-files')
-                            .getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
+                            .createSignedUrl(file.file_path, 60); // 60 second expiry
+                          
+                          if (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to load file: " + error.message,
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          if (data?.signedUrl) {
+                            window.open(data.signedUrl, '_blank');
+                          }
                         }}
                       >
                         View
