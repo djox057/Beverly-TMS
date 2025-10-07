@@ -894,8 +894,8 @@ const Reports = () => {
                         const isLastTruck = truckIndex === group.trucks.length - 1;
                         const isMapExpanded = expandedTruckMap === truck.id;
                         
-                        // Get current order to determine BOL/POD status for routing
-                        const currentOrder = truck.allOrders?.find(order => !order.order_files?.some((file: any) => file.file_category === 'POD'));
+                        // Get current order to determine BOL/POD status for routing (exclude GAME-OVER blocks)
+                        const currentOrder = truck.allOrders?.find(order => order.notes !== 'GAME|OVER' && !order.order_files?.some((file: any) => file.file_category === 'POD'));
                         const hasBOL = currentOrder?.order_files?.some((file: any) => file.file_category === 'BOL') || false;
                         const hasPOD = currentOrder?.order_files?.some((file: any) => file.file_category === 'POD') || false;
                         const pickupArrived = !!currentOrder?.pickupStop?.arrived_at;
