@@ -361,12 +361,15 @@ const Reports = () => {
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
-      // Check if this day matches the 2-week block date
+      // Check if this day is within the 2-week block range (14 days total)
       const twoWeekBlockDate = truck.twoWeekBlockDate 
         ? new Date(truck.twoWeekBlockDate) 
         : null;
       
-      const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
+      const isBlockDay = twoWeekBlockDate && (() => {
+        const blockStart = addDays(twoWeekBlockDate, -13); // 14 days total (block date - 13 days through block date)
+        return day >= blockStart && day <= twoWeekBlockDate;
+      })();
       
       // If this is the block day, render black GAME/OVER cell
       if (isBlockDay) {
