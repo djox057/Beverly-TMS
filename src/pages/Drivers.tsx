@@ -433,20 +433,7 @@ const Drivers = () => {
 
     setIsSubmitting(true);
     try {
-      // Get truck for this driver
-      const { data: truck, error: truckError } = await supabase
-        .from('trucks')
-        .select('id, company_id')
-        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
-        .maybeSingle();
-      
-      if (truckError) throw truckError;
-      
-      if (!truck) {
-        throw new Error("No truck assigned to this driver");
-      }
-
-      // Set the block date
+      // Set the block date (14 days from today)
       const blockDate = new Date().toISOString().split('T')[0];
       const { error: blockError } = await supabase
         .from('drivers')
@@ -454,22 +441,6 @@ const Drivers = () => {
         .eq('id', editingDriver.id);
       
       if (blockError) throw blockError;
-
-      // Get the next internal load number
-      const { data: orderData } = await supabase.rpc('create_order_with_unique_load_number', {
-        order_data: {
-          load_number: 'GAME-OVER',
-          company_id: truck.company_id,
-          truck_id: truck.id,
-          driver1_id: editingDriver.id,
-          pickup_datetime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          delivery_datetime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          notes: 'GAME|OVER',
-          status: 'pending'
-        }
-      });
-
-      if (!orderData) throw new Error("Failed to create blocking order");
 
       toast({
         title: "Success",
