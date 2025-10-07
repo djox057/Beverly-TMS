@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
 import { geocodeAddress } from '@/utils/routeCalculation';
 import { Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface TruckMapDialogProps {
   truckNumber: string;
@@ -224,9 +225,26 @@ export function TruckMapDialog({
   };
 
   return (
-    <div onClick={() => onOpenChange(!isOpen)}>
-      {children}
-    </div>
+    <>
+      <div onClick={() => onOpenChange(true)}>
+        {children}
+      </div>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Truck {truckNumber} - Live Location & Route</DialogTitle>
+          </DialogHeader>
+          <div className="relative w-full h-[500px]">
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            )}
+            <div ref={mapContainer} className="w-full h-full rounded-lg" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
