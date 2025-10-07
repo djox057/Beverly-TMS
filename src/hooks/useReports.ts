@@ -492,6 +492,7 @@ export const useReports = () => {
            cycleMinutes: truck.driver1?.hos_cycle_minutes || 0,
           hosStatus: truck.driver1?.hos_status || null,
           hosLastUpdated: truck.driver1?.hos_last_updated || null,
+          twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
           note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),

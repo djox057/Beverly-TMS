@@ -362,8 +362,8 @@ const Reports = () => {
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
-      const twoWeekBlockDate = truck.driver?.two_week_block_date 
-        ? new Date(truck.driver.two_week_block_date) 
+      const twoWeekBlockDate = truck.twoWeekBlockDate 
+        ? new Date(truck.twoWeekBlockDate) 
         : null;
       
       const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
