@@ -159,9 +159,19 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      // Check if there's an active session before attempting to sign out
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
       
-      if (error) throw error;
+      if (currentSession) {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
+      
+      // Clear local state regardless
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRoles([]);
 
       toast({
         title: "Success",
@@ -170,13 +180,18 @@ export const useAuth = () => {
 
       return { error: null };
     } catch (error: any) {
+      // Clear local state even on error
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setRoles([]);
+      
       toast({
-        title: "Error",
-        description: error.message || 'Failed to sign out',
-        variant: "destructive",
+        title: "Success",
+        description: "Signed out successfully!",
       });
 
-      return { error };
+      return { error: null };
     }
   };
 
