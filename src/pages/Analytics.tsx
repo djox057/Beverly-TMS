@@ -413,34 +413,34 @@ const Analytics = () => {
           <CardTitle>Totals</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-            <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-8">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Orders</p>
-              <p className="text-2xl font-bold">{totals.orderCount}</p>
+              <p className="text-3xl font-bold">{totals.orderCount}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Total Freight</p>
-              <p className="text-2xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-3xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Total Miles</p>
-              <p className="text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{totals.totalMiles.toLocaleString()}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Rate/Mile</p>
-              <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
+              <p className="text-3xl font-bold">${totalRatePerMile.toFixed(2)}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Driver Rate</p>
-              <p className="text-2xl font-bold">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-3xl font-bold">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Cut</p>
-              <p className="text-2xl font-bold">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-3xl font-bold">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Cut %</p>
-              <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+              <p className="text-3xl font-bold">{totalCutPercent.toFixed(1)}%</p>
             </div>
           </div>
         </CardContent>
