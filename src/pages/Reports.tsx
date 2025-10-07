@@ -433,15 +433,24 @@ const Reports = () => {
           }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
-                const cellColor = getDeliveryCellColor(order);
-                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
-                      <div className="text-[10px] font-medium truncate leading-tight">
-                        {order.deliveryLocation}
-                      </div>
-                      <div className="text-[9px] opacity-70 truncate leading-tight">
-                        {order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
-                      </div>
-                      <Popover>
+                // Check if this is a GAME-OVER block
+                const isGameOver = order.notes === 'GAME|OVER';
+                const cellColor = isGameOver ? 'bg-black text-white' : getDeliveryCellColor(order);
+                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1 ${isGameOver ? 'items-center justify-center' : ''}`}>
+                      {isGameOver ? (
+                        <div className="text-sm font-bold">GAME</div>
+                      ) : (
+                        <>
+                          <div className="text-[10px] font-medium truncate leading-tight">
+                            {order.deliveryLocation}
+                          </div>
+                          <div className="text-[9px] opacity-70 truncate leading-tight">
+                            {order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                          </div>
+                        </>
+                      )}
+                      {!isGameOver && (
+                        <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
                             <Info className="h-2 w-2" />
@@ -505,6 +514,7 @@ const Reports = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
+                      )}
                     </div>;
               })}
                   {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
@@ -522,16 +532,25 @@ const Reports = () => {
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
+                // Check if this is a GAME-OVER block
+                const isGameOver = order.notes === 'GAME|OVER';
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
-                const cellColor = getPickupCellColor(order, previousComplete);
-                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
-                      <div className="text-[10px] font-medium truncate leading-tight">
-                        {order.pickupLocation}
-                      </div>
-                      <div className="text-[9px] opacity-70 truncate leading-tight">
-                        {order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
-                      </div>
-                      <Popover>
+                const cellColor = isGameOver ? 'bg-black text-white' : getPickupCellColor(order, previousComplete);
+                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1 ${isGameOver ? 'items-center justify-center' : ''}`}>
+                      {isGameOver ? (
+                        <div className="text-sm font-bold">OVER</div>
+                      ) : (
+                        <>
+                          <div className="text-[10px] font-medium truncate leading-tight">
+                            {order.pickupLocation}
+                          </div>
+                          <div className="text-[9px] opacity-70 truncate leading-tight">
+                            {order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                          </div>
+                        </>
+                      )}
+                      {!isGameOver && (
+                        <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
                             <Info className="h-2 w-2" />
@@ -595,6 +614,7 @@ const Reports = () => {
                           </div>
                         </PopoverContent>
                       </Popover>
+                      )}
                     </div>;
               })}
 
