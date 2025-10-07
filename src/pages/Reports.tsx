@@ -81,6 +81,15 @@ const Reports = () => {
       }
       console.log('🚀 Starting distance calculations...');
       console.log('📍 Available Samsara locations:', samsaraLocations.length);
+      
+      // Log all Samsara locations for debugging
+      console.log('📍 All Samsara locations:', samsaraLocations.map(loc => ({
+        truck_id: loc.truck_id,
+        truck_number: loc.truck_number,
+        lat: loc.latitude,
+        lon: loc.longitude
+      })));
+      
       const distances: {
         [truckId: string]: number;
       } = {};
@@ -90,7 +99,10 @@ const Reports = () => {
           console.log(`\n🚛 Processing truck ${truck.truckNumber}:`, {
             truckId: truck.id,
             hasLocation: !!truckLocation,
-            location: truckLocation,
+            location: truckLocation ? {
+              lat: truckLocation.latitude,
+              lon: truckLocation.longitude
+            } : null,
             ordersCount: truck.allOrders?.length || 0,
             truckStatus: truck.status
           });

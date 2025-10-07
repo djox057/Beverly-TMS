@@ -121,7 +121,13 @@ const tryGeocodingStrategy = async (
   });
   
   try {
-    const response = await fetch(url);
+    // Add User-Agent for public OpenStreetMap Nominatim (required by their usage policy)
+    const headers: HeadersInit = {};
+    if (url.includes('openstreetmap.org')) {
+      headers['User-Agent'] = 'TruckingApp/1.0';
+    }
+    
+    const response = await fetch(url, { headers });
     console.log(`🌍 ${strategyName} response status:`, response.status);
     
     if (!response.ok) {
@@ -221,14 +227,55 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
     }
   }
 
-  // Strategy 5: ZIP code only (final fallback)
+  // Strategy 5: ZIP code only (final fallback for server4beverly)
   if (components.postalcode) {
     try {
       const zipUrl = `https://nominatim.server4beverly.us/search?format=json&postalcode=${components.postalcode}&countrycodes=us&limit=5`;
-      const result = await tryGeocodingStrategy(zipUrl, "ZIP Code Only", address);
+      const result = await tryGeocodingStrategy(zipUrl, "ZIP Code Only (server4beverly)", address);
       if (result) return result;
     } catch (error) {
       console.error('❌ Strategy 5 failed:', error);
+    }
+  }
+
+  // ===== PUBLIC OSM NOMINATIM FALLBACK STRATEGIES =====
+  console.log('⚠️ All server4beverly strategies failed, trying public OpenStreetMap Nominatim...');
+
+  // Strategy 6: Full cleaned address on public OSM
+  try {
+    const cleanedAddress = address.trim().replace(/\b(suite|ste|unit|apt|apartment|#)\s*\w+/gi, '').trim();
+    const encodedAddress = encodeURIComponent(cleanedAddress);
+    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`;
+    
+    const result = await tryGeocodingStrategy(osmUrl, "Full Cleaned Address (OSM Public)", address);
+    if (result) {
+      console.log('✅ GEOCODING SUCCESS with OSM Public - Using coordinates:', result);
+      return result;
+    }
+  } catch (error) {
+    console.error('❌ Strategy 6 (OSM) failed:', error);
+  }
+
+  // Strategy 7: Full address + USA on public OSM
+  try {
+    const addressWithUSA = `${address.trim()}, USA`;
+    const encodedAddress = encodeURIComponent(addressWithUSA);
+    const osmUsaUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`;
+    
+    const result = await tryGeocodingStrategy(osmUsaUrl, "Full Address + USA (OSM Public)", address);
+    if (result) return result;
+  } catch (error) {
+    console.error('❌ Strategy 7 (OSM) failed:', error);
+  }
+
+  // Strategy 8: Structured query on public OSM (city)
+  if (components.street && components.city && components.state) {
+    try {
+      const osmStructuredUrl = `https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(components.street)}&city=${encodeURIComponent(components.city)}&state=${encodeURIComponent(components.state)}&countrycodes=us&limit=5`;
+      const result = await tryGeocodingStrategy(osmStructuredUrl, "Street + City + State (OSM Public)", address);
+      if (result) return result;
+    } catch (error) {
+      console.error('❌ Strategy 8 (OSM) failed:', error);
     }
   }
 
