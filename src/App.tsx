@@ -22,6 +22,7 @@ import Drivers from "./pages/Drivers";
 import Brokers from "./pages/Brokers";
 import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
+import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
 import NotFound from "./pages/NotFound";
 
@@ -89,6 +90,11 @@ const App = () => (
             <Route path="/reports" element={
               <ProtectedRoute>
                 <Layout><Reports /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/analytics" element={
+              <ProtectedRoute requiredRole="manager">
+                <Layout><Analytics /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/samsara-debug" element={

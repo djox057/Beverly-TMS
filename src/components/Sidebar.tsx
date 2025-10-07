@@ -11,7 +11,8 @@ import {
   Plus,
   LogOut,
   User,
-  Settings
+  Settings,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -39,6 +40,7 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Analytics", href: "/analytics", icon: TrendingUp },
 ];
 
 export const Sidebar = () => {
@@ -59,9 +61,9 @@ export const Sidebar = () => {
       ];
     }
     
-    // Manager role: limited navigation
+    // Manager role: limited navigation including Analytics
     if (hasRole('manager')) {
-      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
+      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/analytics'];
       return navigation.filter(item => allowedPages.includes(item.href));
     }
     
@@ -71,8 +73,8 @@ export const Sidebar = () => {
       return navigation.filter(item => safetyPages.includes(item.href));
     }
     
-    // Dispatch role: all navigation except admin pages
-    return navigation;
+    // Dispatch role: all navigation except admin pages and Analytics
+    return navigation.filter(item => item.href !== '/analytics');
   };
 
   const allNavigation = getFilteredNavigation();
