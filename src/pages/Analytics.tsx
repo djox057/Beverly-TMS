@@ -411,11 +411,7 @@ const Analytics = () => {
           <CardTitle>Totals</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-8">
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">Orders</p>
-              <p className="text-2xl font-bold">{totals.orderCount}</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-8">
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">Total Freight</p>
               <p className="text-2xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
