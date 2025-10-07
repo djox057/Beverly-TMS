@@ -100,50 +100,28 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert file to array buffer then Uint8Array
+    // Convert file to base64 for vision API
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfBuffer = new Uint8Array(arrayBuffer);
+    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
     
-    console.log('PDF buffer size:', pdfBuffer.length);
+    console.log('PDF converted to base64, length:', base64Pdf.length);
 
-    // Step 1: Upload PDF to OpenAI Files API
-    const fileFormData = new FormData();
-    fileFormData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), pdfFile.name);
-    fileFormData.append('purpose', 'assistants');
-
-    console.log('Uploading PDF to OpenAI Files API...');
+    // Use GPT-4 Vision to analyze the PDF directly with OCR capabilities
+    console.log('Analyzing PDF with GPT-4 Vision for OCR...');
     
-    const fileUploadResponse = await fetch('https://api.openai.com/v1/files', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-      },
-      body: fileFormData,
-    });
-
-    if (!fileUploadResponse.ok) {
-      const errorText = await fileUploadResponse.text();
-      console.error('File upload failed:', fileUploadResponse.status, errorText);
-      throw new Error(`Failed to upload PDF to OpenAI: ${fileUploadResponse.status}`);
-    }
-
-    const uploadedFile = await fileUploadResponse.json();
-    console.log('File uploaded successfully, ID:', uploadedFile.id);
-
-    // Step 2: Create Assistant and Thread for PDF analysis
-    console.log('Creating OpenAI Assistant for PDF analysis...');
-    
-    // Create an assistant
-    const assistantResponse = await fetch('https://api.openai.com/v1/assistants', {
+    const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
       },
       body: JSON.stringify({
-        name: 'PDF Data Extractor',
-        instructions: `You are an expert at extracting shipping/logistics data from PDF documents. 
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert at extracting shipping/logistics data from PDF documents, including scanned images. 
 
 CRITICAL: First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.
 
@@ -257,148 +235,44 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "equipment": "string",
   "temperature": "string",
   "notes": "string"
-}`,
-        model: 'gpt-4o',
-        tools: [{ type: 'file_search' }],
-      }),
-    });
-
-    if (!assistantResponse.ok) {
-      const errorText = await assistantResponse.text();
-      console.error('Failed to create assistant:', assistantResponse.status, errorText);
-      throw new Error(`Failed to create assistant: ${assistantResponse.status}`);
-    }
-
-    const assistant = await assistantResponse.json();
-    console.log('Assistant created:', assistant.id);
-
-    // Create a thread
-    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({}),
-    });
-
-    if (!threadResponse.ok) {
-      const errorText = await threadResponse.text();
-      console.error('Failed to create thread:', threadResponse.status, errorText);
-      throw new Error(`Failed to create thread: ${threadResponse.status}`);
-    }
-
-    const thread = await threadResponse.json();
-    console.log('Thread created:', thread.id);
-
-    // Create a message with file attachment
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({
-        role: 'user',
-        content: 'Please analyze this shipping/logistics PDF document and extract ALL available order information. Return ONLY the JSON object with the data you can find.',
-        attachments: [
-          {
-            file_id: uploadedFile.id,
-            tools: [{ type: 'file_search' }],
+}`
           },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Please analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${base64Pdf}`
+                }
+              }
+            ]
+          }
         ],
+        max_tokens: 4096,
+        temperature: 0.1
       }),
     });
 
-    if (!messageResponse.ok) {
-      const errorText = await messageResponse.text();
-      console.error('Failed to create message:', messageResponse.status, errorText);
-      throw new Error(`Failed to create message: ${messageResponse.status}`);
+    if (!visionResponse.ok) {
+      const errorText = await visionResponse.text();
+      console.error('Vision API failed:', visionResponse.status, errorText);
+      throw new Error(`Failed to analyze PDF with Vision API: ${visionResponse.status}`);
     }
 
-    const message = await messageResponse.json();
-    console.log('Message created:', message.id);
-
-    // Run the assistant
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({
-        assistant_id: assistant.id,
-      }),
-    });
-
-    if (!runResponse.ok) {
-      const errorText = await runResponse.text();
-      console.error('Failed to start run:', runResponse.status, errorText);
-      throw new Error(`Failed to start run: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    console.log('Run started:', run.id);
-
-    // Poll for completion
-    let runStatus = run;
-    const maxAttempts = 30;
-    let attempts = 0;
-
-    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Assistant run timed out');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-      });
-
-      if (!statusResponse.ok) {
-        throw new Error('Failed to check run status');
-      }
-
-      runStatus = await statusResponse.json();
-      console.log('Run status:', runStatus.status);
-      attempts++;
-    }
-
-    if (runStatus.status !== 'completed') {
-      console.error('Run failed with status:', runStatus.status);
-      throw new Error(`Assistant run failed: ${runStatus.status}`);
-    }
-
-    // Get the messages
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'OpenAI-Beta': 'assistants=v2',
-      },
-    });
-
-    if (!messagesResponse.ok) {
-      const errorText = await messagesResponse.text();
-      console.error('Failed to get messages:', messagesResponse.status, errorText);
-      throw new Error(`Failed to get messages: ${messagesResponse.status}`);
-    }
-
-    const messagesResult = await messagesResponse.json();
-    const assistantMessages = messagesResult.data.filter((msg: any) => msg.role === 'assistant');
+    const visionResult = await visionResponse.json();
+    console.log('Vision API response received');
     
-    if (assistantMessages.length === 0) {
-      throw new Error('No assistant response found');
+    if (!visionResult.choices || visionResult.choices.length === 0) {
+      throw new Error('No response from Vision API');
     }
 
-    const extractedContent = assistantMessages[0].content[0].text.value.trim();
-    console.log('OpenAI Assistant response:', extractedContent);
+    const extractedContent = visionResult.choices[0].message.content.trim();
+    console.log('Extracted content:', extractedContent);
 
     // Parse the JSON response
     let extractedData: ExtractedOrderData;
@@ -422,40 +296,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
       console.error('Content that failed to parse:', extractedContent);
-      throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
-    }
-
-    // Step 3: Clean up resources
-    try {
-      // Delete the thread and assistant
-      await fetch(`https://api.openai.com/v1/threads/${thread.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-      });
-
-      await fetch(`https://api.openai.com/v1/assistants/${assistant.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-      });
-
-      // Delete the uploaded file
-      await fetch(`https://api.openai.com/v1/files/${uploadedFile.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-        },
-      });
-      
-      console.log('Resources cleaned up successfully');
-    } catch (cleanupError) {
-      console.warn('Failed to cleanup resources:', cleanupError);
-      // Don't fail the request if cleanup fails
+      throw new Error(`Failed to parse extraction result. The AI may not have been able to read the document. Please ensure the PDF has clear, readable text or images.`);
     }
 
     // Validate that we extracted some meaningful data
@@ -469,7 +310,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     console.log(`Found ${meaningfulFields.length} fields with data:`, meaningfulFields.map(([key]) => key));
 
     if (meaningfulFields.length === 0) {
-      throw new Error('No meaningful data could be extracted from the PDF');
+      throw new Error('No meaningful data could be extracted from the PDF. The document may be too blurry, low quality, or the text may not be readable.');
     }
 
     return new Response(
@@ -477,7 +318,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
         success: true,
         data: extractedData,
         fieldsExtracted: meaningfulFields.length,
-        message: `Successfully extracted ${meaningfulFields.length} fields from PDF`
+        message: `Successfully extracted ${meaningfulFields.length} fields from PDF using OCR`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -490,7 +331,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        message: 'Failed to extract data from PDF'
+        details: 'If this is a scanned/image PDF, ensure the image quality is sufficient for OCR to work properly.'
       }),
       {
         status: 500,
