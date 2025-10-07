@@ -278,8 +278,11 @@ export const useReports = () => {
       }).map(truck => {
         const now = new Date().getTime();
         
-        // Categorize orders
+        // Categorize orders (exclude GAME-OVER from active orders)
         const activeOrders = truck.orders?.filter(order => {
+          // Skip GAME-OVER orders - they're visual indicators only
+          if (order.notes === 'GAME|OVER') return false;
+          
           const isActiveStatus = order.status === 'pending' || order.status === 'in_transit';
           const hasNoDeliveryDate = !order.delivery_datetime;
           const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
@@ -288,6 +291,9 @@ export const useReports = () => {
         }) || [];
         
         const recentCompletedOrders = truck.orders?.filter(order => {
+          // Skip GAME-OVER orders
+          if (order.notes === 'GAME|OVER') return false;
+          
           if (order.status === 'delivered') return true;
           
           // Consider pending orders past delivery time as recently completed
@@ -300,7 +306,7 @@ export const useReports = () => {
           return false;
         }) || [];
         
-        // Process all orders for this truck instead of selecting just one
+        // Process all orders for this truck (including GAME-OVER for calendar rendering)
         const allOrdersWithStops = truck.orders?.map(order => {
           const pickupStop = order.pickup_drops?.find(stop => stop.type === 'pickup');
           const deliveryStop = order.pickup_drops?.find(stop => stop.type === 'delivery');
@@ -345,13 +351,13 @@ export const useReports = () => {
           };
         }) || [];
 
-        // Select primary order for display (backward compatibility)
+        // Select primary order for display (backward compatibility, exclude GAME-OVER)
         const currentOrder = allOrdersWithStops.length > 0 
           ? (activeOrders.length > 0 
               ? allOrdersWithStops.find(order => order.isActive && activeOrders.some(active => active.id === order.id))
               : recentCompletedOrders.length > 0
                 ? allOrdersWithStops.find(order => order.isRecentCompleted)
-                : allOrdersWithStops[0])
+                : allOrdersWithStops.find(order => order.notes !== 'GAME|OVER') || null)
           : null;
 
         // Ensure pickup and delivery come from the SAME order (data integrity fix)
