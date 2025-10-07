@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState } from "react";
@@ -17,6 +17,16 @@ import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { z } from "zod";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -73,6 +83,13 @@ const Orders = () => {
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [cancelFormData, setCancelFormData] = useState({
+    tonu: "",
+    driverRate: "",
+    dhMiles: ""
+  });
   const {
     data: orders,
     isLoading,
@@ -205,6 +222,54 @@ const Orders = () => {
       }
     } catch (error) {
       console.error('Error generating invoices:', error);
+    }
+  };
+
+  const cancelSchema = z.object({
+    tonu: z.string().min(1, "TONU is required").transform(val => parseFloat(val)),
+    driverRate: z.string().min(1, "Driver rate is required").transform(val => parseFloat(val)),
+    dhMiles: z.string().min(1, "DH miles is required").transform(val => parseInt(val))
+  });
+
+  const openCancelDialog = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setCancelFormData({ tonu: "", driverRate: "", dhMiles: "" });
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrderId) return;
+
+    try {
+      // Validate inputs
+      const validated = cancelSchema.parse(cancelFormData);
+
+      // Update order with cancel values
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          tonu: validated.tonu,
+          driver_price: validated.driverRate,
+          dh_miles: validated.dhMiles,
+          freight_amount: 0,
+          loaded_miles: 0,
+          locked: true
+        })
+        .eq('id', selectedOrderId);
+
+      if (error) throw error;
+
+      toast.success("Order cancelled and locked successfully");
+      setCancelDialogOpen(false);
+      setSelectedOrderId(null);
+      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast.error(error.errors[0].message);
+      } else {
+        console.error('Error cancelling order:', error);
+        toast.error("Failed to cancel order");
+      }
     }
   };
   return (
@@ -382,18 +447,25 @@ const Orders = () => {
                               <Edit className="h-4 w-4" />
                             </Button>
                             {(hasRole('manager') || hasRole('admin')) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleOrderLock(order.id, order.locked)}
-                                title={order.locked ? 'Unlock order' : 'Lock order'}
-                              >
-                                {order.locked ? (
-                                  <Lock className="h-4 w-4 text-destructive" />
-                                ) : (
-                                  <LockOpen className="h-4 w-4 text-muted-foreground" />
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleOrderLock(order.id, order.locked)}
+                                  title={order.locked ? 'Unlock order' : 'Lock order'}
+                                >
+                                  {order.locked ? (
+                                    <Lock className="h-4 w-4 text-destructive" />
+                                  ) : (
+                                    <LockOpen className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                                {!order.locked && (
+                                  <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                  </Button>
                                 )}
-                              </Button>
+                              </>
                             )}
                           </div>
                         </TableCell>
@@ -404,6 +476,35 @@ const Orders = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Enter cancellation details. This will set freight amount and loaded miles to 0, and lock the order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tonu">TONU Amount ($)</Label>
+              <Input id="tonu" type="number" step="0.01" placeholder="0.00" value={cancelFormData.tonu} onChange={(e) => setCancelFormData({ ...cancelFormData, tonu: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="driverRate">Driver Rate ($)</Label>
+              <Input id="driverRate" type="number" step="0.01" placeholder="0.00" value={cancelFormData.driverRate} onChange={(e) => setCancelFormData({ ...cancelFormData, driverRate: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dhMiles">DH Miles</Label>
+              <Input id="dhMiles" type="number" placeholder="0" value={cancelFormData.dhMiles} onChange={(e) => setCancelFormData({ ...cancelFormData, dhMiles: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleCancelOrder}>Confirm Cancellation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
