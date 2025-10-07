@@ -453,7 +453,7 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.pickupInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.pickupInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
@@ -471,7 +471,7 @@ const Reports = () => {
                                 }
                                 return timeStr;
                               })()}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.deliveryInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
@@ -543,7 +543,7 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.pickupInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.pickupInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
@@ -561,7 +561,7 @@ const Reports = () => {
                                 }
                                 return timeStr;
                               })()}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.deliveryInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
@@ -625,7 +625,7 @@ const Reports = () => {
                             <div className="space-y-1">
                               <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} at {(() => {
+                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.pickupInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.pickupInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
@@ -643,7 +643,7 @@ const Reports = () => {
                                 }
                                 return timeStr;
                               })()}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} at {(() => {
+                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
                                 const dt = new Date(order.loadDetails.deliveryInfo.datetime);
                                 const month = String(dt.getUTCMonth() + 1).padStart(2, '0');

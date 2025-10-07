@@ -195,8 +195,8 @@ export const calculateOrderDistance = async (
       return 0;
     }
     
-    // Combine address with city and state for better geocoding
-    const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''}`.trim().replace(/,\s*,/g, ',');
+    // Combine address with city, state, and zip code for better geocoding
+    const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''} ${pickupStop.zip_code || ''}`.trim().replace(/,\s*,/g, ',').replace(/\s+/g, ' ');
     console.log('📦 Full pickup address being geocoded:', fullAddress);
     console.log('📦 COMPARISON - Delivery address (should NOT match above):', deliveryStop?.address);
     
@@ -216,8 +216,8 @@ export const calculateOrderDistance = async (
       return 0;
     }
     
-    // Combine address with city and state for better geocoding
-    const fullAddress = `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''}`.trim().replace(/,\s*,/g, ',');
+    // Combine address with city, state, and zip code for better geocoding
+    const fullAddress = `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''} ${deliveryStop.zip_code || ''}`.trim().replace(/,\s*,/g, ',').replace(/\s+/g, ' ');
     console.log('🚛 Full delivery address:', fullAddress);
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);

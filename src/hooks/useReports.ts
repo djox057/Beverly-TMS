@@ -231,6 +231,7 @@ export const useReports = () => {
              address,
              city,
              state,
+             zip_code,
              datetime,
              arrived_at
            ),
@@ -319,6 +320,7 @@ export const useReports = () => {
                 address: pickupStop.address || '—',
                 city: pickupStop.city || '—',
                 state: pickupStop.state || '—',
+                zipCode: pickupStop.zip_code || '',
                 datetime: pickupStop.datetime || order.pickup_datetime || '—',
                 endDatetime: order.pickup_end_datetime || '—'
               } : null,
@@ -326,6 +328,7 @@ export const useReports = () => {
                 address: deliveryStop.address || '—',
                 city: deliveryStop.city || '—', 
                 state: deliveryStop.state || '—',
+                zipCode: deliveryStop.zip_code || '',
                 datetime: deliveryStop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               } : null,
