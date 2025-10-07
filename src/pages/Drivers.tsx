@@ -385,6 +385,52 @@ const Drivers = () => {
 
   const handleTwoWeekBlock = async () => {
     if (!editingDriver) return;
+    
+    // Check if already blocked
+    if (editingDriver.two_week_block_date) {
+      // Show cancel confirmation
+      if (!confirm("Do you want to cancel the 2-week block?")) {
+        return;
+      }
+      
+      setIsSubmitting(true);
+      try {
+        // Remove the block date
+        const { error } = await supabase
+          .from('drivers')
+          .update({ two_week_block_date: null })
+          .eq('id', editingDriver.id);
+        
+        if (error) throw error;
+
+        // Delete the GAME-OVER order if it exists
+        await supabase
+          .from('orders')
+          .delete()
+          .eq('driver1_id', editingDriver.id)
+          .eq('load_number', 'GAME-OVER');
+
+        toast({
+          title: "Success",
+          description: "2-week block cancelled"
+        });
+        
+        setIsEditDialogOpen(false);
+        setEditingDriver(null);
+        resetForm();
+        refetch();
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to cancel 2-week block",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Get truck for this driver
@@ -399,6 +445,15 @@ const Drivers = () => {
       if (!truck) {
         throw new Error("No truck assigned to this driver");
       }
+
+      // Set the block date
+      const blockDate = new Date().toISOString().split('T')[0];
+      const { error: blockError } = await supabase
+        .from('drivers')
+        .update({ two_week_block_date: blockDate })
+        .eq('id', editingDriver.id);
+      
+      if (blockError) throw blockError;
 
       // Get the next internal load number
       const { data: orderData } = await supabase.rpc('create_order_with_unique_load_number', {
@@ -1174,12 +1229,12 @@ const Drivers = () => {
                     </Button>
                     <Button 
                       type="button" 
-                      variant="secondary" 
+                      variant={editingDriver?.two_week_block_date ? "outline" : "secondary"}
                       onClick={handleTwoWeekBlock}
                       disabled={isSubmitting}
                     >
                       {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      2 Week
+                      {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
                     </Button>
                   </div>
                   <div className="flex gap-3">

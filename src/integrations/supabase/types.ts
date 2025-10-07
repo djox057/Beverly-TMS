@@ -218,6 +218,7 @@ export type Database = {
           name: string
           phone: string | null
           termination_date: string | null
+          two_week_block_date: string | null
           updated_at: string
         }
         Insert: {
@@ -246,6 +247,7 @@ export type Database = {
           name: string
           phone?: string | null
           termination_date?: string | null
+          two_week_block_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -274,6 +276,7 @@ export type Database = {
           name?: string
           phone?: string | null
           termination_date?: string | null
+          two_week_block_date?: string | null
           updated_at?: string
         }
         Relationships: []
