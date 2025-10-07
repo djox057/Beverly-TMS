@@ -271,8 +271,11 @@ export const useReports = () => {
 
       if (lostDayError) throw lostDayError;
 
-      // Filter out trucks without dispatchers and transform the data
-      const reportData = trucks?.filter(truck => truck.dispatcher_id).map(truck => {
+      // Filter trucks - include those with dispatcher OR those with GAME-OVER orders
+      const reportData = trucks?.filter(truck => {
+        const hasGameOverOrder = truck.orders?.some(order => order.notes === 'GAME|OVER');
+        return truck.dispatcher_id || hasGameOverOrder;
+      }).map(truck => {
         const now = new Date().getTime();
         
         // Categorize orders
