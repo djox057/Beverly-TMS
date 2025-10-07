@@ -130,9 +130,10 @@ serve(async (req) => {
     const uploadedFile = await fileUploadResponse.json();
     console.log('File uploaded successfully, ID:', uploadedFile.id);
 
-    // Step 2: Create Assistant with enhanced OCR instructions
-    console.log('Creating OpenAI Assistant for PDF analysis with OCR...');
+    // Step 2: Create Assistant and Thread for PDF analysis
+    console.log('Creating OpenAI Assistant for PDF analysis...');
     
+    // Create an assistant
     const assistantResponse = await fetch('https://api.openai.com/v1/assistants', {
       method: 'POST',
       headers: {
@@ -141,8 +142,8 @@ serve(async (req) => {
         'OpenAI-Beta': 'assistants=v2',
       },
       body: JSON.stringify({
-        name: 'PDF Data Extractor with OCR',
-        instructions: `You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
+        name: 'PDF Data Extractor',
+        instructions: `You are an expert at extracting shipping/logistics data from PDF documents. 
 
 CRITICAL: First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.
 
@@ -301,7 +302,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       },
       body: JSON.stringify({
         role: 'user',
-        content: 'Please analyze this shipping/logistics PDF document (which may be a scanned image without selectable text) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find.',
+        content: 'Please analyze this shipping/logistics PDF document and extract ALL available order information. Return ONLY the JSON object with the data you can find.',
         attachments: [
           {
             file_id: uploadedFile.id,
@@ -399,6 +400,31 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     const extractedContent = assistantMessages[0].content[0].text.value.trim();
     console.log('OpenAI Assistant response:', extractedContent);
 
+    // Parse the JSON response
+    let extractedData: ExtractedOrderData;
+    try {
+      // Clean up the response in case it has markdown formatting
+      let cleanContent = extractedContent;
+      if (extractedContent.includes('```json')) {
+        const match = extractedContent.match(/```json\s*([\s\S]*?)\s*```/);
+        if (match) {
+          cleanContent = match[1];
+        }
+      } else if (extractedContent.includes('```')) {
+        const match = extractedContent.match(/```\s*([\s\S]*?)\s*```/);
+        if (match) {
+          cleanContent = match[1];
+        }
+      }
+      
+      extractedData = JSON.parse(cleanContent);
+      console.log('Successfully parsed extracted data:', extractedData);
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      console.error('Content that failed to parse:', extractedContent);
+      throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+    }
+
     // Step 3: Clean up resources
     try {
       // Delete the thread and assistant
@@ -432,31 +458,6 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       // Don't fail the request if cleanup fails
     }
 
-    // Parse the JSON response
-    let extractedData: ExtractedOrderData;
-    try {
-      // Clean up the response in case it has markdown formatting
-      let cleanContent = extractedContent;
-      if (extractedContent.includes('```json')) {
-        const match = extractedContent.match(/```json\s*([\s\S]*?)\s*```/);
-        if (match) {
-          cleanContent = match[1];
-        }
-      } else if (extractedContent.includes('```')) {
-        const match = extractedContent.match(/```\s*([\s\S]*?)\s*```/);
-        if (match) {
-          cleanContent = match[1];
-        }
-      }
-      
-      extractedData = JSON.parse(cleanContent);
-      console.log('Successfully parsed extracted data:', extractedData);
-    } catch (parseError) {
-      console.error('Failed to parse JSON response:', parseError);
-      console.error('Content that failed to parse:', extractedContent);
-      throw new Error(`Failed to parse extraction result. The AI may not have been able to read the document. Please ensure the PDF has clear, readable text or images.`);
-    }
-
     // Validate that we extracted some meaningful data
     const meaningfulFields = Object.entries(extractedData).filter(([key, value]) => {
       return value !== null && 
@@ -468,7 +469,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     console.log(`Found ${meaningfulFields.length} fields with data:`, meaningfulFields.map(([key]) => key));
 
     if (meaningfulFields.length === 0) {
-      throw new Error('No meaningful data could be extracted from the PDF. The document may be too blurry, low quality, or the text may not be readable.');
+      throw new Error('No meaningful data could be extracted from the PDF');
     }
 
     return new Response(
@@ -476,7 +477,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
         success: true,
         data: extractedData,
         fieldsExtracted: meaningfulFields.length,
-        message: `Successfully extracted ${meaningfulFields.length} fields from PDF using OCR`
+        message: `Successfully extracted ${meaningfulFields.length} fields from PDF`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -489,7 +490,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        details: 'If this is a scanned/image PDF, ensure the image quality is sufficient for OCR to work properly.'
+        message: 'Failed to extract data from PDF'
       }),
       {
         status: 500,
