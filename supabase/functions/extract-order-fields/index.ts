@@ -81,9 +81,9 @@ serve(async (req) => {
   }
 
   try {
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
-      throw new Error('Lovable API key not configured');
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      throw new Error('Gemini API key not configured');
     }
 
     // Parse the multipart form data
@@ -100,7 +100,7 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Upload PDF to Gemini File API first
+    // Step 1: Upload PDF to Gemini File API
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
     
@@ -109,10 +109,11 @@ serve(async (req) => {
     const uploadFormData = new FormData();
     uploadFormData.append('file', pdfBlob, pdfFile.name);
     
-    const uploadResponse = await fetch('https://ai.gateway.lovable.dev/v1/files', {
+    const uploadResponse = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'X-Goog-Upload-Protocol': 'multipart',
+        'X-Goog-Api-Key': geminiApiKey,
       },
       body: uploadFormData,
     });
@@ -124,7 +125,12 @@ serve(async (req) => {
     }
 
     const uploadData = await uploadResponse.json();
-    const fileUri = uploadData.file?.uri || uploadData.uri;
+    const fileUri = uploadData.file?.uri;
+    
+    if (!fileUri) {
+      console.error('No file URI in response:', uploadData);
+      throw new Error('Failed to get file URI from upload response');
+    }
     
     console.log('PDF uploaded successfully, file URI:', fileUri);
 
@@ -245,38 +251,35 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "notes": "string"
 }`;
 
-    // Call Gemini 2.5 Flash via Lovable AI Gateway with uploaded file
+    // Step 2: Call Gemini 2.5 Flash API with uploaded file
     console.log('Calling Gemini 2.5 Flash for PDF analysis...');
     
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
+        'X-Goog-Api-Key': geminiApiKey,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
+        contents: [
           {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: [
+            parts: [
               {
-                type: 'text',
-                text: 'Please analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
+                text: systemPrompt + '\n\nPlease analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
               },
               {
-                type: 'file',
-                file_uri: fileUri
+                file_data: {
+                  mime_type: 'application/pdf',
+                  file_uri: fileUri
+                }
               }
             ]
           }
         ],
-        max_tokens: 4096,
-        temperature: 0.1
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+        }
       }),
     });
 
@@ -287,9 +290,6 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       if (aiResponse.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
       }
-      if (aiResponse.status === 402) {
-        throw new Error('Payment required. Please add credits to your Lovable AI workspace.');
-      }
       
       throw new Error(`Failed to analyze PDF with Gemini: ${aiResponse.status}`);
     }
@@ -297,7 +297,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
     const aiData = await aiResponse.json();
     console.log('Gemini response received');
     
-    const extractedContent = aiData.choices?.[0]?.message?.content?.trim();
+    const extractedContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     
     if (!extractedContent) {
       throw new Error('No content in AI response');
