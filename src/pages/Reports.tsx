@@ -328,8 +328,9 @@ const Reports = () => {
     };
 
     // Get all orders with their pickup/delivery dates sorted chronologically
-    const ordersWithDates = truck.allOrders?.map((order: any) => {
-      // For GAME-OVER orders without pickup_drops, use datetime fields directly
+    // EXCLUDE GAME-OVER orders from regular order processing - they're visual indicators only
+    const ordersWithDates = truck.allOrders?.filter((order: any) => order.notes !== 'GAME|OVER').map((order: any) => {
+      // For regular orders, use datetime fields
       const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
       const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
       return {
@@ -347,6 +348,13 @@ const Reports = () => {
       return a.pickupDate.getTime() - b.pickupDate.getTime();
     }) || [];
 
+    // Get GAME-OVER blocks separately for visual rendering only
+    const gameOverBlocks = truck.allOrders?.filter((order: any) => order.notes === 'GAME|OVER').map((order: any) => ({
+      ...order,
+      pickupDate: order.pickup_datetime ? new Date(order.pickup_datetime) : null,
+      deliveryDate: order.delivery_datetime ? new Date(order.delivery_datetime) : null
+    })) || [];
+
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
       const currentIndex = ordersWithDates.findIndex(o => o.id === currentOrder.id);
@@ -362,8 +370,12 @@ const Reports = () => {
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
-      // Find all orders for this day and categorize them
+      // Find all REGULAR orders for this day and categorize them (excluding GAME-OVER)
       const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
+
+      // Check for GAME-OVER blocks on this day
+      const gameOverPickup = gameOverBlocks.find(block => block.pickupDate && isSameDay(day, block.pickupDate));
+      const gameOverDelivery = gameOverBlocks.find(block => block.deliveryDate && isSameDay(day, block.deliveryDate));
 
       // Separate same-day orders from different-day orders
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
@@ -432,15 +444,15 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {gameOverDelivery ? (
+                <div className="flex-1 flex items-center justify-center bg-black text-white rounded border">
+                  <div className="text-sm font-bold">GAME</div>
+                </div>
+              ) : deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
-                // Check if this is a GAME-OVER block
-                const isGameOver = order.notes === 'GAME|OVER';
-                const cellColor = isGameOver ? 'bg-black text-white' : getDeliveryCellColor(order);
-                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1 ${isGameOver ? 'items-center justify-center' : ''}`}>
-                      {isGameOver ? (
-                        <div className="text-sm font-bold">GAME</div>
-                      ) : (
+                const cellColor = getDeliveryCellColor(order);
+                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                      {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
                             {order.deliveryLocation}
@@ -530,17 +542,17 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {gameOverPickup ? (
+                <div className="flex-1 flex items-center justify-center bg-black text-white rounded border">
+                  <div className="text-sm font-bold">OVER</div>
+                </div>
+              ) : pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
-                // Check if this is a GAME-OVER block
-                const isGameOver = order.notes === 'GAME|OVER';
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
-                const cellColor = isGameOver ? 'bg-black text-white' : getPickupCellColor(order, previousComplete);
-                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1 ${isGameOver ? 'items-center justify-center' : ''}`}>
-                      {isGameOver ? (
-                        <div className="text-sm font-bold">OVER</div>
-                      ) : (
+                const cellColor = getPickupCellColor(order, previousComplete);
+                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                      {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
                             {order.pickupLocation}
