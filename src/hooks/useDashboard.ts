@@ -38,7 +38,8 @@ const fetchDashboardStats = async (): Promise<DashboardStats> => {
   // Get total drivers count
   const { count: activeDriversCount } = await supabase
     .from('drivers')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true);
 
   // Get total brokers count
   const { count: totalBrokersCount } = await supabase

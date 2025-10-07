@@ -15,6 +15,7 @@ export const useDriverData = () => {
         .from('drivers')
         .select('*')
         .eq('email', profile.email)
+        .eq('is_active', true)
         .single();
 
       if (driverError) throw driverError;
