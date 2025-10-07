@@ -100,10 +100,18 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert file to base64 for vision API
+    // Convert file to base64 for vision API in chunks to avoid stack overflow
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfBuffer = new Uint8Array(arrayBuffer);
-    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
+    
+    // Process in 8KB chunks to avoid stack overflow on large files
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
+      const chunk = pdfBuffer.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Pdf = btoa(binaryString);
     
     console.log('PDF converted to base64, length:', base64Pdf.length);
 
