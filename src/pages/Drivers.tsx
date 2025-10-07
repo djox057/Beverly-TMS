@@ -434,7 +434,8 @@ const Drivers = () => {
     setIsSubmitting(true);
     try {
       // Set the block date (14 days from today)
-      const blockDate = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const blockDate = new Date(today.setDate(today.getDate() + 14)).toISOString().split('T')[0];
       const { error: blockError } = await supabase
         .from('drivers')
         .update({ two_week_block_date: blockDate })

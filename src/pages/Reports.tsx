@@ -361,6 +361,54 @@ const Reports = () => {
     const today = new Date();
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
+      // Check if this day matches the 2-week block date
+      const twoWeekBlockDate = truck.driver?.two_week_block_date 
+        ? new Date(truck.driver.two_week_block_date) 
+        : null;
+      
+      const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
+      
+      // If this is the block day, render black GAME/OVER cell
+      if (isBlockDay) {
+        const isToday = isSameDay(day, new Date());
+        return (
+          <td 
+            key={index} 
+            className={`border ${isToday ? 'border-primary border-2' : 'border-gray-200'} p-0 w-[12%] ${isFirstTruck ? '' : 'border-t-0'} ${isLastTruck ? '' : 'border-b-0'}`}
+            style={{
+              minWidth: '120px',
+              maxWidth: '120px',
+              width: '120px',
+              height: '64px'
+            }}
+          >
+            {/* Top half - "GAME" */}
+            <div 
+              className="border-b border-gray-200 flex flex-col items-center justify-center bg-black"
+              style={{
+                height: '32px',
+                minHeight: '32px',
+                maxHeight: '32px'
+              }}
+            >
+              <div className="text-sm font-bold text-white">GAME</div>
+            </div>
+            
+            {/* Bottom half - "OVER" */}
+            <div 
+              className="flex flex-col items-center justify-center bg-black"
+              style={{
+                height: '32px',
+                minHeight: '32px',
+                maxHeight: '32px'
+              }}
+            >
+              <div className="text-sm font-bold text-white">OVER</div>
+            </div>
+          </td>
+        );
+      }
+      
       // Find all orders for this day and categorize them
       const allDayOrders = ordersWithDates.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) || order.deliveryDate && isSameDay(day, order.deliveryDate));
 
