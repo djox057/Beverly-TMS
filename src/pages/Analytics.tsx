@@ -95,11 +95,11 @@ const Analytics = () => {
 
   // Filter orders based on date
   const filteredOrders = orders?.filter(order => {
-    // Date filtering based on delivery date
+    // Date filtering based on pickup date
     let matchesDate = true;
     if (dateRange?.from) {
-      const orderDeliveryDate = new Date(order.deliveryDate.split(' - ')[0]);
-      const orderDateOnly = new Date(orderDeliveryDate.getFullYear(), orderDeliveryDate.getMonth(), orderDeliveryDate.getDate());
+      const orderPickupDate = new Date(order.pickupDate.split(' - ')[0]);
+      const orderDateOnly = new Date(orderPickupDate.getFullYear(), orderPickupDate.getMonth(), orderPickupDate.getDate());
       if (dateRange.to) {
         // Date range filtering
         const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
