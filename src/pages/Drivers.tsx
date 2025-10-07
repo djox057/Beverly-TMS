@@ -323,12 +323,43 @@ const Drivers = () => {
     if (!editingDriver) return;
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      // Set termination date and mark as inactive
+      const { error: driverError } = await supabase
         .from('drivers')
-        .update({ is_active: false })
+        .update({ 
+          is_active: false,
+          termination_date: new Date().toISOString().split('T')[0]
+        })
         .eq('id', editingDriver.id);
       
-      if (error) throw error;
+      if (driverError) throw driverError;
+
+      // Find and disconnect truck/trailer
+      const { data: truck, error: truckFindError } = await supabase
+        .from('trucks')
+        .select('id, driver1_id, driver2_id')
+        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
+        .maybeSingle();
+      
+      if (truckFindError) throw truckFindError;
+
+      if (truck) {
+        // Determine which driver field to clear
+        const updateData: any = { trailer_id: null };
+        if (truck.driver1_id === editingDriver.id) {
+          updateData.driver1_id = null;
+        }
+        if (truck.driver2_id === editingDriver.id) {
+          updateData.driver2_id = null;
+        }
+
+        const { error: truckUpdateError } = await supabase
+          .from('trucks')
+          .update(updateData)
+          .eq('id', truck.id);
+        
+        if (truckUpdateError) throw truckUpdateError;
+      }
       
       toast({
         title: "Success",
