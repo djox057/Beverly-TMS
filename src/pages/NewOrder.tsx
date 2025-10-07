@@ -468,8 +468,16 @@ const NewOrder = () => {
           ? new Date(extractedData.pickupEndDate + 'T12:00:00')
           : pickupDate;
         setDriverPickupDateRange({ from: pickupDate, to: pickupEndDate });
-        setDriverPickupStartTime(extractedData.pickupStartTime || "");
-        setDriverPickupEndTime(extractedData.pickupEndTime || "");
+        
+        // Handle both single time and time range
+        if (extractedData.pickupStartTime || extractedData.pickupEndTime) {
+          setDriverPickupStartTime(extractedData.pickupStartTime || "");
+          setDriverPickupEndTime(extractedData.pickupEndTime || "");
+        } else if (extractedData.pickupTime) {
+          // If only single time provided, use it for both start and end
+          setDriverPickupStartTime(extractedData.pickupTime);
+          setDriverPickupEndTime(extractedData.pickupTime);
+        }
       }
 
       if (extractedData.deliveries && extractedData.deliveries.length > 0 && extractedData.deliveries[0] && extractedData.deliveries[0].date) {
@@ -488,8 +496,16 @@ const NewOrder = () => {
           ? new Date(extractedData.deliveryEndDate + 'T12:00:00')
           : deliveryDate;
         setDriverDeliveryDateRange({ from: deliveryDate, to: deliveryEndDate });
-        setDriverDeliveryStartTime(extractedData.deliveryStartTime || "");
-        setDriverDeliveryEndTime(extractedData.deliveryEndTime || "");
+        
+        // Handle both single time and time range
+        if (extractedData.deliveryStartTime || extractedData.deliveryEndTime) {
+          setDriverDeliveryStartTime(extractedData.deliveryStartTime || "");
+          setDriverDeliveryEndTime(extractedData.deliveryEndTime || "");
+        } else if (extractedData.deliveryTime) {
+          // If only single time provided, use it for both start and end
+          setDriverDeliveryStartTime(extractedData.deliveryTime);
+          setDriverDeliveryEndTime(extractedData.deliveryTime);
+        }
       }
 
       // Handle pickups and deliveries with date ranges
