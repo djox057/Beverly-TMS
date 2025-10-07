@@ -337,15 +337,18 @@ const Drivers = () => {
       // Find and disconnect truck/trailer
       const { data: truck, error: truckFindError } = await supabase
         .from('trucks')
-        .select('id, driver1_id, driver2_id')
+        .select('id, driver1_id, driver2_id, company_id')
         .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
         .maybeSingle();
       
       if (truckFindError) throw truckFindError;
 
       if (truck) {
-        // Determine which driver field to clear
-        const updateData: any = { trailer_id: null };
+        // Determine which driver field to clear and set dispatcher_id to null
+        const updateData: any = { 
+          trailer_id: null,
+          dispatcher_id: null
+        };
         if (truck.driver1_id === editingDriver.id) {
           updateData.driver1_id = null;
         }
@@ -379,6 +382,60 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleTwoWeekBlock = async () => {
+    if (!editingDriver) return;
+    setIsSubmitting(true);
+    try {
+      // Get truck for this driver
+      const { data: truck, error: truckError } = await supabase
+        .from('trucks')
+        .select('id, company_id')
+        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
+        .maybeSingle();
+      
+      if (truckError) throw truckError;
+      
+      if (!truck) {
+        throw new Error("No truck assigned to this driver");
+      }
+
+      // Get the next internal load number
+      const { data: orderData } = await supabase.rpc('create_order_with_unique_load_number', {
+        order_data: {
+          load_number: 'GAME-OVER',
+          company_id: truck.company_id,
+          truck_id: truck.id,
+          driver1_id: editingDriver.id,
+          pickup_datetime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          delivery_datetime: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          notes: 'GAME|OVER',
+          status: 'pending'
+        }
+      });
+
+      if (!orderData) throw new Error("Failed to create blocking order");
+
+      toast({
+        title: "Success",
+        description: "2-week block created successfully"
+      });
+      
+      setIsEditDialogOpen(false);
+      setEditingDriver(null);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create 2-week block",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteDriver = async (driverId: string) => {
     try {
       const {
@@ -1104,16 +1161,27 @@ const Drivers = () => {
                   )}
 
                 <div className="flex justify-between gap-3">
-                  <Button 
-                    type="button" 
-                    variant="destructive" 
-                    onClick={handleMarkDriverDone}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Done
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={handleMarkDriverDone}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Done
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      onClick={handleTwoWeekBlock}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      2 Week
+                    </Button>
+                  </div>
                   <div className="flex gap-3">
                     <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                       Cancel
