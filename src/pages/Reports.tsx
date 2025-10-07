@@ -945,8 +945,8 @@ const Reports = () => {
                                 <TruckMapDialog
                                   truckNumber={truck.truckNumber}
                                   truckId={truck.id}
-                                  pickupAddress={truck.pickup?.location}
-                                  deliveryAddress={truck.delivery?.location}
+                                  pickupAddress={currentOrder?.pickupStop ? `${currentOrder.pickupStop.address || ''}, ${currentOrder.pickupStop.city || ''}, ${currentOrder.pickupStop.state || ''} ${currentOrder.pickupStop.zip_code || ''}`.trim() : undefined}
+                                  deliveryAddress={currentOrder?.deliveryStop ? `${currentOrder.deliveryStop.address || ''}, ${currentOrder.deliveryStop.city || ''}, ${currentOrder.deliveryStop.state || ''} ${currentOrder.deliveryStop.zip_code || ''}`.trim() : undefined}
                                   pickupDate={truck.pickup?.date}
                                   pickupTime={truck.pickup?.time}
                                   deliveryDate={truck.delivery?.date}
@@ -974,8 +974,8 @@ const Reports = () => {
                                   <TruckMapDialog
                                     truckNumber={truck.truckNumber}
                                     truckId={truck.id}
-                                    pickupAddress={truck.pickup?.location}
-                                    deliveryAddress={truck.delivery?.location}
+                                    pickupAddress={currentOrder?.pickupStop ? `${currentOrder.pickupStop.address || ''}, ${currentOrder.pickupStop.city || ''}, ${currentOrder.pickupStop.state || ''} ${currentOrder.pickupStop.zip_code || ''}`.trim() : undefined}
+                                    deliveryAddress={currentOrder?.deliveryStop ? `${currentOrder.deliveryStop.address || ''}, ${currentOrder.deliveryStop.city || ''}, ${currentOrder.deliveryStop.state || ''} ${currentOrder.deliveryStop.zip_code || ''}`.trim() : undefined}
                                     pickupDate={truck.pickup?.date}
                                     pickupTime={truck.pickup?.time}
                                     deliveryDate={truck.delivery?.date}
@@ -1050,8 +1050,8 @@ const Reports = () => {
                               <TruckMapView
                                 truckNumber={truck.truckNumber}
                                 truckId={truck.id}
-                                pickupAddress={truck.pickup?.location}
-                                deliveryAddress={truck.delivery?.location}
+                                pickupAddress={currentOrder?.pickupStop ? `${currentOrder.pickupStop.address || ''}, ${currentOrder.pickupStop.city || ''}, ${currentOrder.pickupStop.state || ''} ${currentOrder.pickupStop.zip_code || ''}`.trim() : undefined}
+                                deliveryAddress={currentOrder?.deliveryStop ? `${currentOrder.deliveryStop.address || ''}, ${currentOrder.deliveryStop.city || ''}, ${currentOrder.deliveryStop.state || ''} ${currentOrder.deliveryStop.zip_code || ''}`.trim() : undefined}
                                 pickupDate={truck.pickup?.date}
                                 pickupTime={truck.pickup?.time}
                                 deliveryDate={truck.delivery?.date}
