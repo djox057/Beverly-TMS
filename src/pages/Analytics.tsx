@@ -390,33 +390,59 @@ const Analytics = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                <>
-                  {dispatcherStats.map((stat) => (
-                    <TableRow key={stat.name}>
-                      <TableCell className="font-medium">{stat.name}</TableCell>
-                      <TableCell className="text-right">{stat.orderCount}</TableCell>
-                      <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">${stat.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">${stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className="font-bold bg-muted/50">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">{totals.orderCount}</TableCell>
-                    <TableCell className="text-right">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{totals.totalMiles.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">${totalRatePerMile.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell className="text-right">{totalCutPercent.toFixed(1)}%</TableCell>
+                dispatcherStats.map((stat) => (
+                  <TableRow key={stat.name}>
+                    <TableCell className="font-medium">{stat.name}</TableCell>
+                    <TableCell className="text-right">{stat.orderCount}</TableCell>
+                    <TableCell className="text-right">${stat.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${stat.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">${stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
                   </TableRow>
-                </>
+                ))
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Totals</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Orders</p>
+              <p className="text-2xl font-bold">{totals.orderCount}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Total Freight</p>
+              <p className="text-2xl font-bold">${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Total Miles</p>
+              <p className="text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Rate/Mile</p>
+              <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Driver Rate</p>
+              <p className="text-2xl font-bold">${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Cut</p>
+              <p className="text-2xl font-bold">${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Cut %</p>
+              <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
       </div>
