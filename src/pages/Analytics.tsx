@@ -69,6 +69,7 @@ const Analytics = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sortBy, setSortBy] = useState<'totalFreight' | 'ratePerMile' | 'cut' | 'cutPercent'>('totalFreight');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const {
     data: orders,
     isLoading,
@@ -131,6 +132,54 @@ const Analytics = () => {
     endDate.setHours(23, 59, 59, 999);
     setDateRange({ from: startDate, to: endDate });
   };
+
+  // Generate all weeks starting from current week
+  const generateWeekOptions = () => {
+    const weeks = [];
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    // Calculate weeks from start of year to current week
+    const startOfYear = new Date(currentYear, 0, 1);
+    const dayOfWeek = startOfYear.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const firstMonday = new Date(startOfYear);
+    firstMonday.setDate(startOfYear.getDate() - diff);
+    
+    // Calculate current week number
+    const currentWeekStart = getWeekStartDate(0);
+    const weeksFromStart = Math.floor((currentWeekStart.getTime() - firstMonday.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    
+    // Generate 52 weeks starting from current week
+    for (let i = 0; i < 52; i++) {
+      const weekStart = getWeekStartDate(i);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      
+      const formatDate = (date: Date) => {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
+      
+      weeks.push({
+        value: i.toString(),
+        label: i === 0 ? 'This Week' : i === 1 ? 'Last Week' : `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
+        weekNumber: weeksFromStart - i
+      });
+    }
+    
+    return weeks;
+  };
+
+  const weekOptions = generateWeekOptions();
+
+  const handleWeekChange = (value: string) => {
+    setSelectedWeek(value);
+    if (value === "all") {
+      setDateRange(undefined);
+    } else {
+      setWeekFilter(parseInt(value));
+    }
+  };
   // Calculate dispatcher analytics
   const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
     const dispatcher = order.bookedBy || 'Unknown';
@@ -189,29 +238,33 @@ const Analytics = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>Dispatcher Performance</CardTitle>
             <div className="flex flex-wrap gap-2 items-center">
-              <Button variant="outline" size="sm" onClick={() => setWeekFilter(0)}>
-                This Week
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekFilter(1)}>
-                Last Week
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekFilter(2)}>
-                2 Weeks Ago
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekFilter(3)}>
-                3 Weeks Ago
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setWeekFilter(4)}>
-                4 Weeks Ago
-              </Button>
+              <Select value={selectedWeek} onValueChange={handleWeekChange}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="Select week" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  {weekOptions.map(week => (
+                    <SelectItem key={week.value} value={week.value}>
+                      {week.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <DateRangePicker 
                 date={dateRange} 
-                onDateChange={setDateRange} 
+                onDateChange={(range) => {
+                  setDateRange(range);
+                  setSelectedWeek("all");
+                }} 
                 placeholder="Custom date range" 
                 className="w-72" 
               />
               {dateRange && (
-                <Button variant="outline" size="sm" onClick={() => setDateRange(undefined)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setDateRange(undefined);
+                  setSelectedWeek("all");
+                }}>
                   Clear Filter
                 </Button>
               )}
