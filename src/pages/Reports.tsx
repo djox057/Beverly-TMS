@@ -350,6 +350,17 @@ const Reports = () => {
     const twoWeekBlockDate = truck.driver?.two_week_block_date ? new Date(truck.driver.two_week_block_date) : null;
     const twoWeekBlockEndDate = twoWeekBlockDate ? addDays(twoWeekBlockDate, 13) : null; // 14 days total including start date
 
+    // DEBUG: Log the 2-week block info
+    if (truck.driver?.two_week_block_date) {
+      console.log('🔥 2-WEEK BLOCK DEBUG:', {
+        truckNumber: truck.truckNumber,
+        driverName: truck.driver?.name,
+        blockDateRaw: truck.driver?.two_week_block_date,
+        twoWeekBlockDate: twoWeekBlockDate,
+        twoWeekBlockEndDate: twoWeekBlockEndDate
+      });
+    }
+
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
       const currentIndex = ordersWithDates.findIndex(o => o.id === currentOrder.id);
@@ -368,6 +379,19 @@ const Reports = () => {
       // Check if this day falls within the 2-week block period
       const isInTwoWeekBlock = twoWeekBlockDate && twoWeekBlockEndDate && 
         day >= twoWeekBlockDate && day <= twoWeekBlockEndDate;
+
+      // DEBUG: Log each day check for trucks with block dates
+      if (truck.driver?.two_week_block_date && index === 0) {
+        console.log('🔥 DAY CHECK for truck ' + truck.truckNumber + ':', {
+          day: format(day, 'yyyy-MM-dd'),
+          twoWeekBlockDate: twoWeekBlockDate ? format(twoWeekBlockDate, 'yyyy-MM-dd') : null,
+          twoWeekBlockEndDate: twoWeekBlockEndDate ? format(twoWeekBlockEndDate, 'yyyy-MM-dd') : null,
+          isInTwoWeekBlock,
+          dayTime: day.getTime(),
+          blockStartTime: twoWeekBlockDate?.getTime(),
+          blockEndTime: twoWeekBlockEndDate?.getTime()
+        });
+      }
 
       // If in 2-week block, render GAME/OVER split cell with black background
       if (isInTwoWeekBlock) {
