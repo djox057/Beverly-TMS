@@ -19,6 +19,7 @@ import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { TruckLocationDebug } from "@/components/TruckLocationDebug";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 interface EditingState {
   truckId: string;
@@ -43,6 +44,19 @@ const getStatusBadge = (status: string) => {
   }
 };
 const Reports = () => {
+  const { profile } = useAuthContext();
+  
+  // Offices list
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"];
+  
+  // Set initial tab based on user's office, default to "Čačak" if not found
+  const getInitialTab = () => {
+    if (profile?.office && offices.includes(profile.office)) {
+      return profile.office;
+    }
+    return "Čačak";
+  };
+  
   const {
     data: groupedReports,
     isLoading,
@@ -63,7 +77,7 @@ const Reports = () => {
   const [truckDistances, setTruckDistances] = useState<{
     [truckId: string]: number;
   }>({});
-  const [activeTab, setActiveTab] = useState<string>("Čačak");
+  const [activeTab, setActiveTab] = useState<string>(getInitialTab());
   const [showDebugDialog, setShowDebugDialog] = useState(false);
   const {
     toast
@@ -809,8 +823,7 @@ const Reports = () => {
     }} placeholder="Add note..." spellCheck={false} />;
   };
 
-  // Filter reports by office
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"];
+  // Filter reports by office (using offices array defined above)
   const filterReportsByOffice = (office: string) => {
     if (!groupedReports) return [];
     return groupedReports.filter(group => group.office === office);

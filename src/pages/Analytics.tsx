@@ -101,9 +101,6 @@ const Analytics = () => {
           return acc;
         }, {} as Record<string, { email: string; office: string | null }>);
         setDispatcherProfiles(profileMap);
-        console.log('Dispatcher profiles loaded:', profileMap);
-        console.log('Current user office:', profile?.office);
-        console.log('Current user role:', hasRole('supervisor') ? 'supervisor' : hasRole('manager') ? 'manager' : hasRole('admin') ? 'admin' : 'other');
       }
     };
     fetchProfiles();
@@ -112,23 +109,13 @@ const Analytics = () => {
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
     const primaryRole = getPrimaryRole();
-    console.log('=== FILTER DEBUG ===');
-    console.log('Orders count:', orders?.length);
-    console.log('Profiles count:', Object.keys(dispatcherProfiles).length);
-    console.log('Primary Role:', primaryRole);
-    console.log('Profile office:', profile?.office);
     
     // Wait for profiles to load for supervisors
     if (primaryRole === 'supervisor' && Object.keys(dispatcherProfiles).length === 0) {
-      console.log('Waiting for dispatcher profiles to load...');
       return [];
     }
 
     const filtered = orders?.filter(order => {
-      console.log(`\n--- Filtering order ${order.id} ---`);
-      console.log('Order bookedBy:', order.bookedBy);
-      console.log('Using Primary Role:', primaryRole);
-      
       // Date filtering - use pickup date for week filters, delivery date for month filters
       let matchesDate = true;
       if (dateRange?.from) {
@@ -149,38 +136,28 @@ const Analytics = () => {
       
       // Filter based on PRIMARY role only
       if (primaryRole === 'admin' || primaryRole === 'manager') {
-        console.log('ADMIN/MANAGER PATH - Returning:', matchesDate);
         return matchesDate;
       }
       
       // Supervisors only see orders from their office dispatchers
       if (primaryRole === 'supervisor') {
-        console.log('SUPERVISOR PATH ENTERED (office:', profile?.office, ')');
         if (!profile?.office) {
-          console.warn('Supervisor has no office set');
           return false;
         }
         if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
-          console.log('Order has no valid bookedBy:', order.bookedBy);
           return false;
         }
         const dispatcherProfile = dispatcherProfiles[order.bookedBy];
         if (!dispatcherProfile) {
-          console.log('No profile found for dispatcher:', order.bookedBy);
           return false;
         }
-        const matches = matchesDate && dispatcherProfile.office === profile.office;
-        console.log(`Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
-        return matches;
+        return matchesDate && dispatcherProfile.office === profile.office;
       }
       
       // Default: no access for other roles
-      console.log('DEFAULT PATH - No access for role:', primaryRole);
       return false;
     }) || [];
     
-    console.log('Filtered orders count:', filtered.length);
-    console.log('=== END FILTER DEBUG ===');
     return filtered;
   }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile]);
   
