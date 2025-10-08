@@ -202,11 +202,11 @@ export const useAuth = () => {
     // Admin has access to everything except driver-only pages
     if (roles.includes('admin') && requiredRole !== 'driver') return true;
     
-    // Manager has access to dispatch functions and manager-level permissions
-    if (roles.includes('manager') && (requiredRole === 'dispatch' || requiredRole === 'manager')) return true;
+    // Manager has same access as admin (except user management which is checked separately)
+    if (roles.includes('manager') && requiredRole !== 'driver') return true;
     
-    // Supervisor has access to dispatch and manager functions
-    if (roles.includes('supervisor') && (requiredRole === 'dispatch' || requiredRole === 'manager' || requiredRole === 'supervisor')) return true;
+    // Supervisor has same access as admin (except user management which is checked separately)
+    if (roles.includes('supervisor') && requiredRole !== 'driver') return true;
     
     // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
     if (roles.includes('safety') && requiredRole === 'dispatch') return true;
