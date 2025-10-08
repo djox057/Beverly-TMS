@@ -734,59 +734,6 @@ export type Database = {
           },
         ]
       }
-      truck_locations: {
-        Row: {
-          created_at: string
-          heading: number | null
-          id: string
-          latitude: number
-          location_timestamp: string
-          longitude: number
-          samsara_vehicle_id: string | null
-          samsara_vehicle_name: string | null
-          speed: number | null
-          truck_id: string | null
-          truck_number: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          heading?: number | null
-          id?: string
-          latitude: number
-          location_timestamp: string
-          longitude: number
-          samsara_vehicle_id?: string | null
-          samsara_vehicle_name?: string | null
-          speed?: number | null
-          truck_id?: string | null
-          truck_number: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          heading?: number | null
-          id?: string
-          latitude?: number
-          location_timestamp?: string
-          longitude?: number
-          samsara_vehicle_id?: string | null
-          samsara_vehicle_name?: string | null
-          speed?: number | null
-          truck_id?: string | null
-          truck_number?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "truck_locations_truck_id_fkey"
-            columns: ["truck_id"]
-            isOneToOne: false
-            referencedRelation: "trucks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       truck_notes: {
         Row: {
           created_at: string
@@ -943,20 +890,6 @@ export type Database = {
         Args: { order_data: Json }
         Returns: Json
       }
-      get_latest_truck_locations: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          heading: number
-          latitude: number
-          location_timestamp: string
-          longitude: number
-          samsara_vehicle_id: string
-          samsara_vehicle_name: string
-          speed: number
-          truck_id: string
-          truck_number: string
-        }[]
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -974,13 +907,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role:
-        | "dispatch"
-        | "admin"
-        | "manager"
-        | "driver"
-        | "safety"
-        | "supervisor"
+      app_role: "dispatch" | "admin" | "manager" | "driver" | "safety"
       office_location: "Čačak" | "KRAGUJEVAC" | "BEOGRAD" | "Recovery drivers"
     }
     CompositeTypes: {
@@ -1109,14 +1036,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: [
-        "dispatch",
-        "admin",
-        "manager",
-        "driver",
-        "safety",
-        "supervisor",
-      ],
+      app_role: ["dispatch", "admin", "manager", "driver", "safety"],
       office_location: ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"],
     },
   },

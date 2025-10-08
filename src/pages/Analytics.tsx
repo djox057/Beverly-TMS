@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
@@ -33,8 +33,7 @@ const getStatusBadge = (status: string) => {
 const Analytics = () => {
   const navigate = useNavigate();
   const {
-    hasRole,
-    profile
+    hasRole
   } = useAuthContext();
 
   // Debug navigation function
@@ -74,8 +73,6 @@ const Analytics = () => {
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [filterType, setFilterType] = useState<'week' | 'month' | 'custom'>('week');
-  const [dispatcherProfiles, setDispatcherProfiles] = useState<Record<string, { email: string; office: string | null }>>({});
-  
   const {
     data: orders,
     isLoading,
@@ -84,26 +81,6 @@ const Analytics = () => {
   const {
     data: companies
   } = useCompanies();
-
-  // Fetch all profiles to get office locations - index by full_name since booked_by uses names
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('email, full_name, office');
-      
-      if (profiles) {
-        const profileMap = profiles.reduce((acc, p) => {
-          if (p.full_name) {
-            acc[p.full_name] = { email: p.email, office: p.office };
-          }
-          return acc;
-        }, {} as Record<string, { email: string; office: string | null }>);
-        setDispatcherProfiles(profileMap);
-      }
-    };
-    fetchProfiles();
-  }, []);
   if (isLoading) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
@@ -277,16 +254,7 @@ const Analytics = () => {
       cutPercent,
       ratePerMile
     };
-  })
-  .filter(stat => {
-    // Supervisors only see dispatchers from their office
-    if (hasRole('supervisor') && profile?.office) {
-      const dispatcherProfile = dispatcherProfiles[stat.name];
-      return dispatcherProfile?.office === profile.office;
-    }
-    return true;
-  })
-  .sort((a, b) => {
+  }).sort((a, b) => {
     const aValue = a[sortBy];
     const bValue = b[sortBy];
     return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
