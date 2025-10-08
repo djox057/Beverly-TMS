@@ -252,15 +252,18 @@ function findMatchingVehicle(vehicles: SamsaraVehicle[], truckNumber: string): S
         return vehicle;
       }
       
-      // Contains match (for cases like "TRUCK 9494 - Driver Name")
-      if (vehicleName.includes(variantUpper)) {
-        console.log(`  ✓ Partial match found: "${vehicle.name}" contains "${variant}"`);
+      // Word boundary match - check if variant appears as a complete word
+      // Match patterns like "TRUCK 0327" or "TRUCK 0327 - Name" but not "TRUCK 70327"
+      const wordBoundaryRegex = new RegExp(`\\b${variantUpper.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (wordBoundaryRegex.test(vehicleName)) {
+        console.log(`  ✓ Word boundary match found: "${vehicle.name}" matches "${variant}"`);
         return vehicle;
       }
       
-      // Check if vehicle name contains the padded number anywhere
-      if (vehicleName.includes(pad4)) {
-        console.log(`  ✓ Number match found: "${vehicle.name}" contains "${pad4}"`);
+      // Check for pattern like "TRUCK 327" or "TRUCK #327" followed by space, dash or end
+      const truckPatternRegex = new RegExp(`TRUCK\\s*#?${norm}(?:\\s|$|-|\\b)`, 'i');
+      if (truckPatternRegex.test(vehicleName)) {
+        console.log(`  ✓ Truck pattern match found: "${vehicle.name}" matches truck ${norm}`);
         return vehicle;
       }
     }
