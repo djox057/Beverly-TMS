@@ -139,12 +139,17 @@ const Analytics = () => {
       }
     }
     
-    // Supervisor office filtering
+    // Role-based filtering - Admins and Managers see everything
+    if (hasRole('admin') || hasRole('manager')) {
+      return matchesDate;
+    }
+    
+    // Supervisors only see orders from their office dispatchers
     if (hasRole('supervisor') && profile?.office) {
-      if (!order.bookedBy) return false;
+      if (!order.bookedBy || order.bookedBy === 'N/A') return false;
       const dispatcherProfile = dispatcherProfiles[order.bookedBy];
-      const matchesOffice = dispatcherProfile?.office === profile.office;
-      return matchesDate && matchesOffice;
+      if (!dispatcherProfile) return false;
+      return matchesDate && dispatcherProfile.office === profile.office;
     }
     
     return matchesDate;
@@ -326,13 +331,14 @@ const Analytics = () => {
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
 
-  const qualifyingLoads = orders?.filter(order => {
+  // Filter loads booked today with rate <= 1.7, respecting role permissions
+  const qualifyingLoads = filteredOrders.filter(order => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
     const meetsRateThreshold = ratePerMile <= 1.7;
     return isToday && meetsRateThreshold;
-  }) || [];
+  });
 
   return <div className="h-full w-full">
       <div className="space-y-6 p-6">
