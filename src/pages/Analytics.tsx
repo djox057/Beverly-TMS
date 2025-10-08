@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -286,12 +287,35 @@ const Analytics = () => {
     }
   };
 
+  // Filter loads booked today with rate >= 1.7
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const qualifyingLoads = orders?.filter(order => {
+    const createdAt = new Date(order.createdAt);
+    const isToday = createdAt >= today && createdAt <= todayEnd;
+    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+    const meetsRateThreshold = ratePerMile >= 1.7;
+    return isToday && meetsRateThreshold;
+  }) || [];
+
   return <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
         </div>
 
+      <Tabs defaultValue="performance" className="w-full">
+        <TabsList>
+          <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
+          <TabsTrigger value="loads">
+            Loads ({qualifyingLoads.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="performance" className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -439,6 +463,57 @@ const Analytics = () => {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
+
+      <TabsContent value="loads" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loads Booked Today (Rate ≥ $1.70/mile)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Load #</TableHead>
+                  <TableHead>Broker</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead className="text-right">Freight Amount</TableHead>
+                  <TableHead className="text-right">Miles</TableHead>
+                  <TableHead className="text-right">Rate/Mile</TableHead>
+                  <TableHead>Booked By</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {qualifyingLoads.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No qualifying loads booked today
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  qualifyingLoads.map((order) => {
+                    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                    const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
+                    const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
+                    return (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                        <TableCell>{order.brokerName}</TableCell>
+                        <TableCell>{pickupLocation} → {deliveryLocation}</TableCell>
+                        <TableCell className="text-right">${order.totalFreightAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right">{order.mileage.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
+                        <TableCell>{order.bookedBy}</TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      </Tabs>
       </div>
     </div>;
 };
