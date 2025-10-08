@@ -125,9 +125,6 @@ const Analytics = () => {
     const filtered = orders?.filter(order => {
       console.log(`\n--- Filtering order ${order.id} ---`);
       console.log('Order bookedBy:', order.bookedBy);
-      console.log('hasRole(admin):', hasRole('admin'));
-      console.log('hasRole(manager):', hasRole('manager'));
-      console.log('hasRole(supervisor):', hasRole('supervisor'));
       
       // Date filtering - use pickup date for week filters, delivery date for month filters
       let matchesDate = true;
@@ -147,19 +144,16 @@ const Analytics = () => {
         }
       }
       
-      // Role-based filtering - Admins and Managers see everything
-      if (hasRole('admin') || hasRole('manager')) {
-        console.log('ADMIN/MANAGER PATH - Returning:', matchesDate);
-        return matchesDate;
-      }
+      // Check roles in order of most restrictive first
+      const isAdmin = hasRole('admin');
+      const isManager = hasRole('manager');
+      const isSupervisor = hasRole('supervisor');
       
-      // Supervisors only see orders from their office dispatchers
-      if (hasRole('supervisor')) {
-        console.log('SUPERVISOR PATH ENTERED');
-        if (!profile?.office) {
-          console.warn('Supervisor has no office set');
-          return false; // Supervisor without office sees nothing
-        }
+      console.log('Roles - Admin:', isAdmin, 'Manager:', isManager, 'Supervisor:', isSupervisor);
+      
+      // Supervisors with office filtering (even if they also have admin/manager roles)
+      if (isSupervisor && !isAdmin && !isManager && profile?.office) {
+        console.log('SUPERVISOR PATH ENTERED (office:', profile.office, ')');
         if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
           console.log('Order has no valid bookedBy:', order.bookedBy);
           return false;
@@ -170,12 +164,18 @@ const Analytics = () => {
           return false;
         }
         const matches = matchesDate && dispatcherProfile.office === profile.office;
-        console.log(`Order ${order.id} - Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
+        console.log(`Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Matches: ${matches}`);
         return matches;
       }
       
+      // Admins and Managers see everything
+      if (isAdmin || isManager) {
+        console.log('ADMIN/MANAGER PATH - Returning:', matchesDate);
+        return matchesDate;
+      }
+      
       // Default: no access
-      console.log('DEFAULT PATH - Returning false');
+      console.log('DEFAULT PATH - No access');
       return false;
     }) || [];
     
