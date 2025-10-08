@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
@@ -122,54 +122,62 @@ const Analytics = () => {
       </div>;
   }
 
-  // Filter orders based on date and role
-  const filteredOrders = orders?.filter(order => {
-    // Date filtering - use pickup date for week filters, delivery date for month filters
-    let matchesDate = true;
-    if (dateRange?.from) {
-      const dateToFilter = filterType === 'month' ? order.deliveryDate : order.pickupDate;
-      const orderDate = new Date(dateToFilter.split(' - ')[0]);
-      const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-      if (dateRange.to) {
-        // Date range filtering
-        const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
-        const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-        matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-      } else {
-        // Single date filtering
-        const selectedDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
-        matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
-      }
+  // Filter orders based on date and role - wait for profiles to load
+  const filteredOrders = useMemo(() => {
+    // Wait for profiles to load for supervisors
+    if (hasRole('supervisor') && Object.keys(dispatcherProfiles).length === 0) {
+      console.log('Waiting for dispatcher profiles to load...');
+      return [];
     }
-    
-    // Role-based filtering - Admins and Managers see everything
-    if (hasRole('admin') || hasRole('manager')) {
-      return matchesDate;
-    }
-    
-    // Supervisors only see orders from their office dispatchers
-    if (hasRole('supervisor')) {
-      if (!profile?.office) {
-        console.warn('Supervisor has no office set');
-        return false; // Supervisor without office sees nothing
+
+    return orders?.filter(order => {
+      // Date filtering - use pickup date for week filters, delivery date for month filters
+      let matchesDate = true;
+      if (dateRange?.from) {
+        const dateToFilter = filterType === 'month' ? order.deliveryDate : order.pickupDate;
+        const orderDate = new Date(dateToFilter.split(' - ')[0]);
+        const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+        if (dateRange.to) {
+          // Date range filtering
+          const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+          matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+        } else {
+          // Single date filtering
+          const selectedDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+          matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+        }
       }
-      if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
-        console.log('Order has no valid bookedBy:', order.bookedBy);
-        return false;
+      
+      // Role-based filtering - Admins and Managers see everything
+      if (hasRole('admin') || hasRole('manager')) {
+        return matchesDate;
       }
-      const dispatcherProfile = dispatcherProfiles[order.bookedBy];
-      if (!dispatcherProfile) {
-        console.log('No profile found for dispatcher:', order.bookedBy);
-        return false;
+      
+      // Supervisors only see orders from their office dispatchers
+      if (hasRole('supervisor')) {
+        if (!profile?.office) {
+          console.warn('Supervisor has no office set');
+          return false; // Supervisor without office sees nothing
+        }
+        if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
+          console.log('Order has no valid bookedBy:', order.bookedBy);
+          return false;
+        }
+        const dispatcherProfile = dispatcherProfiles[order.bookedBy];
+        if (!dispatcherProfile) {
+          console.log('No profile found for dispatcher:', order.bookedBy);
+          return false;
+        }
+        const matches = matchesDate && dispatcherProfile.office === profile.office;
+        console.log(`Order ${order.id} - Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
+        return matches;
       }
-      const matches = matchesDate && dispatcherProfile.office === profile.office;
-      console.log(`Order ${order.id} - Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
-      return matches;
-    }
-    
-    // Default: no access
-    return false;
-  }) || [];
+      
+      // Default: no access
+      return false;
+    }) || [];
+  }, [orders, dateRange, filterType, dispatcherProfiles, hasRole, profile]);
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
