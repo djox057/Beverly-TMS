@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
@@ -284,92 +284,82 @@ const Trucks = () => {
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="company_id">Company</Label>
-                  <Select value={formData.company_id} onValueChange={value => setFormData({
-                  ...formData,
-                  company_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {companyOptions.map(company => <SelectItem key={company.value} value={company.value}>
-                          {company.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={companyOptions}
+                    value={formData.company_id}
+                    onValueChange={value => setFormData({
+                      ...formData,
+                      company_id: value
+                    })}
+                    placeholder="Select company"
+                    searchPlaceholder="Search companies..."
+                    emptyText="No company found."
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dispatcher_id">Dispatcher</Label>
-                  <Select value={formData.dispatcher_id} onValueChange={value => setFormData({
-                  ...formData,
-                  dispatcher_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select dispatcher" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {dispatcherOptions.map(dispatcher => <SelectItem key={dispatcher.value} value={dispatcher.value}>
-                          {dispatcher.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={dispatcherOptions}
+                    value={formData.dispatcher_id}
+                    onValueChange={value => setFormData({
+                      ...formData,
+                      dispatcher_id: value
+                    })}
+                    placeholder="Select dispatcher"
+                    searchPlaceholder="Search dispatchers..."
+                    emptyText="No dispatcher found."
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="driver_id">Driver 1</Label>
-                  <Select value={formData.driver_id} onValueChange={value => setFormData({
-                  ...formData,
-                  driver_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select driver 1" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {driverOptions.map(driver => <SelectItem key={driver.value} value={driver.value}>
-                          {driver.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={driverOptions}
+                    value={formData.driver_id}
+                    onValueChange={value => setFormData({
+                      ...formData,
+                      driver_id: value
+                    })}
+                    placeholder="Select driver 1"
+                    searchPlaceholder="Search drivers..."
+                    emptyText="No driver found."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="driver2_id">Driver 2</Label>
-                  <Select value={formData.driver2_id} onValueChange={value => setFormData({
-                  ...formData,
-                  driver2_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select driver 2" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {driverOptions.map(driver => <SelectItem key={driver.value} value={driver.value}>
-                          {driver.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={driverOptions}
+                    value={formData.driver2_id}
+                    onValueChange={value => setFormData({
+                      ...formData,
+                      driver2_id: value
+                    })}
+                    placeholder="Select driver 2"
+                    searchPlaceholder="Search drivers..."
+                    emptyText="No driver found."
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="trailer_id">Trailer Number</Label>
-                  <Select value={formData.trailer_id} onValueChange={value => setFormData({
-                  ...formData,
-                  trailer_id: value
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select trailer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {trailerOptions.map(trailer => <SelectItem key={trailer.value} value={trailer.value}>
-                          {trailer.label}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={trailerOptions}
+                    value={formData.trailer_id}
+                    onValueChange={value => setFormData({
+                      ...formData,
+                      trailer_id: value
+                    })}
+                    placeholder="Select trailer"
+                    searchPlaceholder="Search trailers..."
+                    emptyText="No trailer found."
+                  />
                 </div>
               </div>
 
@@ -578,92 +568,82 @@ const Trucks = () => {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_company_id">Company</Label>
-                    <Select value={formData.company_id} onValueChange={value => setFormData({
-                    ...formData,
-                    company_id: value
-                  })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companyOptions.map(company => <SelectItem key={company.value} value={company.value}>
-                            {company.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={companyOptions}
+                      value={formData.company_id}
+                      onValueChange={value => setFormData({
+                        ...formData,
+                        company_id: value
+                      })}
+                      placeholder="Select company"
+                      searchPlaceholder="Search companies..."
+                      emptyText="No company found."
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_dispatcher_id">Dispatcher</Label>
-                    <Select value={formData.dispatcher_id} onValueChange={value => setFormData({
-                    ...formData,
-                    dispatcher_id: value
-                  })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select dispatcher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dispatcherOptions.map(dispatcher => <SelectItem key={dispatcher.value} value={dispatcher.value}>
-                            {dispatcher.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={dispatcherOptions}
+                      value={formData.dispatcher_id}
+                      onValueChange={value => setFormData({
+                        ...formData,
+                        dispatcher_id: value
+                      })}
+                      placeholder="Select dispatcher"
+                      searchPlaceholder="Search dispatchers..."
+                      emptyText="No dispatcher found."
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_driver_id">Driver 1</Label>
-                    <Select value={formData.driver_id} onValueChange={value => setFormData({
-                    ...formData,
-                    driver_id: value
-                  })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select driver 1" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {driverOptions.map(driver => <SelectItem key={driver.value} value={driver.value}>
-                            {driver.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={driverOptions}
+                      value={formData.driver_id}
+                      onValueChange={value => setFormData({
+                        ...formData,
+                        driver_id: value
+                      })}
+                      placeholder="Select driver 1"
+                      searchPlaceholder="Search drivers..."
+                      emptyText="No driver found."
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_driver2_id">Driver 2</Label>
-                    <Select value={formData.driver2_id} onValueChange={value => setFormData({
-                    ...formData,
-                    driver2_id: value
-                  })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select driver 2" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {driverOptions.map(driver => <SelectItem key={driver.value} value={driver.value}>
-                            {driver.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={driverOptions}
+                      value={formData.driver2_id}
+                      onValueChange={value => setFormData({
+                        ...formData,
+                        driver2_id: value
+                      })}
+                      placeholder="Select driver 2"
+                      searchPlaceholder="Search drivers..."
+                      emptyText="No driver found."
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_trailer_id">Trailer Number</Label>
-                    <Select value={formData.trailer_id} onValueChange={value => setFormData({
-                    ...formData,
-                    trailer_id: value
-                  })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select trailer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {trailerOptions.map(trailer => <SelectItem key={trailer.value} value={trailer.value}>
-                            {trailer.label}
-                          </SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={trailerOptions}
+                      value={formData.trailer_id}
+                      onValueChange={value => setFormData({
+                        ...formData,
+                        trailer_id: value
+                      })}
+                      placeholder="Select trailer"
+                      searchPlaceholder="Search trailers..."
+                      emptyText="No trailer found."
+                    />
                   </div>
                 </div>
 
