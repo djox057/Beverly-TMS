@@ -196,7 +196,7 @@ For MULTI-DROP loads, return JSON like:
   ],
   "freightAmount": number,
   "mileage": number,
-  "commodity": "string"
+  "commodity": "string - MAXIMUM 4 WORDS, be concise (e.g., 'Auto Parts', 'Fresh Produce', 'Furniture')"
 }
 
 For SINGLE-DROP loads, return JSON with legacy fields:
@@ -225,7 +225,7 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "deliveryShipper": "COMPANY NAME for delivery/receiver (e.g., 'Target Store #567', 'Costco DC')",
   "freightAmount": number,
   "mileage": number,
-  "commodity": "string",
+  "commodity": "string - MAXIMUM 4 WORDS, be concise (e.g., 'Auto Parts', 'Fresh Produce', 'Furniture')",
   "weight": number,
   "trailer": "string",
   "equipment": "string",
