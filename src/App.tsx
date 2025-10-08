@@ -38,7 +38,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/admin/users" element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" excludedRoles={['accounting']}>
                 <Layout><AdminUsers /></Layout>
               </ProtectedRoute>
             } />
@@ -88,12 +88,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/reports" element={
-              <ProtectedRoute>
+              <ProtectedRoute excludedRoles={['accounting']}>
                 <Layout><Reports /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={
-              <ProtectedRoute requiredRole="manager">
+              <ProtectedRoute requiredRole="manager" excludedRoles={['accounting']}>
                 <Layout><Analytics /></Layout>
               </ProtectedRoute>
             } />

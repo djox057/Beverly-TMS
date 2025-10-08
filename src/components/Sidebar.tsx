@@ -53,8 +53,16 @@ export const Sidebar = () => {
 
   // Filter navigation based on role
   const getFilteredNavigation = () => {
-    // Admin and Accounting roles: all navigation + admin pages (check first!)
-    if (hasRole('admin') || hasRole('accounting')) {
+    // Accounting role: exclude Reports, Analytics, and User Management
+    if (hasRole('accounting')) {
+      return navigation.filter(item => 
+        item.href !== '/reports' && 
+        item.href !== '/analytics'
+      );
+    }
+
+    // Admin role: all navigation + admin pages
+    if (hasRole('admin')) {
       return [
         ...navigation,
         { name: "User Management", href: "/admin/users", icon: Settings }
