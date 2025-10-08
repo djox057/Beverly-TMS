@@ -6,10 +6,11 @@ import { Loader2 } from 'lucide-react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting';
+  allowedRoles?: Array<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting'>;
   excludedRoles?: Array<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting'>;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, allowedRoles, excludedRoles }) => {
   const { user, loading, hasRole, getPrimaryRole } = useAuthContext();
 
   if (loading) {
@@ -24,7 +25,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has an excluded role
+  // Check if user has an excluded role (takes precedence)
   if (excludedRoles && excludedRoles.some(role => hasRole(role))) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -37,6 +38,21 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
     );
   }
 
+  // Check if user has any of the allowed roles
+  if (allowedRoles && !allowedRoles.some(role => hasRole(role))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground mt-2">Allowed roles: {allowedRoles.join(', ')}</p>
+          <p className="text-sm text-muted-foreground">Your role: {getPrimaryRole() || 'none'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check single required role (legacy support)
   if (requiredRole && !hasRole(requiredRole)) {
     return (
       <div className="min-h-screen flex items-center justify-center">

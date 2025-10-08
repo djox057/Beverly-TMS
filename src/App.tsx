@@ -93,7 +93,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={
-              <ProtectedRoute requiredRole="manager" excludedRoles={['accounting']}>
+              <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']} excludedRoles={['accounting']}>
                 <Layout><Analytics /></Layout>
               </ProtectedRoute>
             } />
