@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { parseLocalDateTime, toLocalISOString } from "@/utils/dateUtils";
 
 export const useReports = () => {
   const queryClient = useQueryClient();
@@ -410,15 +409,25 @@ export const useReports = () => {
           const endDatetimeToUse = orderEndTime;
           
           if (datetimeToUse) {
-            // Parse datetime without timezone conversion
-            const parsed = parseLocalDateTime(datetimeToUse);
-            date = parsed.dateString;
-            const startTime = parsed.timeString;
+            // Handle the datetime to avoid timezone day shifts
+            const datetime = new Date(datetimeToUse);
+            // Get the date parts directly to avoid timezone issues
+            const year = datetime.getUTCFullYear();
+            const month = String(datetime.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(datetime.getUTCDate()).padStart(2, '0');
+            date = `${month}/${day}/${year}`;
+            
+            // Get the actual stored time (not converted to local timezone)
+            const hours = datetime.getUTCHours();
+            const minutes = datetime.getUTCMinutes();
+            const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             
             // If there's an end time and it's different from start time, show range
             if (endDatetimeToUse) {
-              const parsedEnd = parseLocalDateTime(endDatetimeToUse);
-              const endTime = parsedEnd.timeString;
+              const endDateTime = new Date(endDatetimeToUse);
+              const endHours = endDateTime.getUTCHours();
+              const endMinutes = endDateTime.getUTCMinutes();
+              const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
               
               if (startTime !== endTime) {
                 time = `${startTime} - ${endTime}`;

@@ -21,7 +21,6 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
-import { combineDateAndTime, toLocalISOString } from "@/utils/dateUtils";
 
 interface PickupDrop {
   id: string;
@@ -760,7 +759,15 @@ const NewOrder = () => {
     label: driver.name
   })) || [];
 
-  // Import timezone-agnostic date utilities
+  // Helper function to combine date and time into ISO string
+  const combineDateAndTime = (date: Date, time: string): string => {
+    if (!time) return date.toISOString();
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    const combined = new Date(date);
+    combined.setHours(hours, minutes, 0, 0);
+    return combined.toISOString();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -782,9 +789,9 @@ const NewOrder = () => {
              const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
              console.log('Pickup datetime:', { startTime: firstPickup.startTime, dateFrom: firstPickup.dateRange.from, result });
              return result;
-           }
-           return pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
-         })(),
+          }
+          return pickupDateRange?.from?.toISOString() || null;
+        })(),
         pickup_end_datetime: (() => {
           const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
            if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
@@ -797,18 +804,18 @@ const NewOrder = () => {
                result 
              });
              return result;
-           }
-           return pickupDateRange?.to ? toLocalISOString(pickupDateRange.to) : pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
-         })(),
+          }
+          return pickupDateRange?.to?.toISOString() || pickupDateRange?.from?.toISOString() || null;
+        })(),
         delivery_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
            if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
              const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
              console.log('Delivery datetime:', { startTime: firstDelivery.startTime, dateFrom: firstDelivery.dateRange.from, result });
              return result;
-           }
-           return deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
-         })(),
+          }
+          return deliveryDateRange?.from?.toISOString() || null;
+        })(),
         delivery_end_datetime: (() => {
           const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
            if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
@@ -821,9 +828,9 @@ const NewOrder = () => {
                result 
              });
              return result;
-           }
-           return deliveryDateRange?.to ? toLocalISOString(deliveryDateRange.to) : deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
-         })(),
+          }
+          return deliveryDateRange?.to?.toISOString() || deliveryDateRange?.from?.toISOString() || null;
+        })(),
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
@@ -943,7 +950,7 @@ const NewOrder = () => {
             zip_code: zipCode,
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
-              : item.dateRange?.from ? toLocalISOString(item.dateRange.from) : null
+              : item.dateRange?.from?.toISOString() || null
           };
         });
         if (pickupDropData.length > 0) {

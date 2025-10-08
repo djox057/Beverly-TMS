@@ -19,7 +19,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { combineDateAndTime, toLocalISOString } from "@/utils/dateUtils";
 
 interface PickupDrop {
   id: string;
@@ -737,7 +736,10 @@ const EditOrder = () => {
           // Calculate datetime from date range and time if available
           let datetime = item.datetime || null;
           if (item.dateRange?.from && item.startTime) {
-            datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+            const date = new Date(item.dateRange.from);
+            const [hours, minutes] = item.startTime.split(':').map(Number);
+            date.setHours(hours, minutes, 0, 0);
+            datetime = date.toISOString();
           }
           
           return {
