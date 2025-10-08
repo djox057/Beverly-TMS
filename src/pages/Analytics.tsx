@@ -297,7 +297,7 @@ const Analytics = () => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile >= 1.7;
+    const meetsRateThreshold = ratePerMile <= 1.7;
     return isToday && meetsRateThreshold;
   }) || [];
 
@@ -468,7 +468,7 @@ const Analytics = () => {
       <TabsContent value="loads" className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Loads Booked Today (Rate ≥ $1.70/mile)</CardTitle>
+            <CardTitle>Loads Booked Today (Rate ≤ $1.70/mile)</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
