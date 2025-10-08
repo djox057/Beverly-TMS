@@ -135,7 +135,7 @@ const Analytics = () => {
       }
       
       // Filter based on PRIMARY role only
-      if (primaryRole === 'admin' || primaryRole === 'manager') {
+      if (primaryRole === 'admin' || primaryRole === 'manager' || primaryRole === 'accounting') {
         return matchesDate;
       }
       
@@ -315,8 +315,8 @@ const Analytics = () => {
       };
     })
     .filter(stat => {
-      // Admins and managers see all dispatchers
-      if (hasRole('admin') || hasRole('manager')) {
+      // Admins, managers and accounting see all dispatchers
+      if (hasRole('admin') || hasRole('manager') || hasRole('accounting')) {
         return true;
       }
       // Supervisors only see dispatchers from their office

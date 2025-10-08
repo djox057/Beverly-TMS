@@ -53,8 +53,8 @@ export const Sidebar = () => {
 
   // Filter navigation based on role
   const getFilteredNavigation = () => {
-    // Admin role: all navigation + admin pages (check first!)
-    if (hasRole('admin')) {
+    // Admin and Accounting roles: all navigation + admin pages (check first!)
+    if (hasRole('admin') || hasRole('accounting')) {
       return [
         ...navigation,
         { name: "User Management", href: "/admin/users", icon: Settings }

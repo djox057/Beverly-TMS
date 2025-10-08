@@ -12,7 +12,7 @@ export interface UserProfile {
   office: string | null;
 }
 
-export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor';
+export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -199,8 +199,8 @@ export const useAuth = () => {
   const hasRole = (requiredRole: UserRole): boolean => {
     if (roles.length === 0) return false;
     
-    // Admin has access to everything except driver-only pages
-    if (roles.includes('admin') && requiredRole !== 'driver') return true;
+    // Admin and Accounting have access to everything except driver-only pages
+    if ((roles.includes('admin') || roles.includes('accounting')) && requiredRole !== 'driver') return true;
     
     // Manager has same access as admin (except user management which is checked separately)
     if (roles.includes('manager') && requiredRole !== 'driver') return true;
@@ -219,6 +219,7 @@ export const useAuth = () => {
   const getPrimaryRole = (): UserRole | null => {
     if (roles.length === 0) return null;
     if (roles.includes('admin')) return 'admin';
+    if (roles.includes('accounting')) return 'accounting';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('supervisor')) return 'supervisor';
     if (roles.includes('safety')) return 'safety';

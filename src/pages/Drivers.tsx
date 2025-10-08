@@ -48,7 +48,7 @@ interface DriverFormData {
 }
 const Drivers = () => {
   const { hasRole } = useAuthContext();
-  const canViewSensitiveData = hasRole('manager') || hasRole('admin');
+  const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('accounting');
   
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);

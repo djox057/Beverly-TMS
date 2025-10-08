@@ -28,7 +28,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor')[];
+  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting')[];
   created_at: string;
 }
 
@@ -46,12 +46,12 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting'>('dispatch');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
-  // Security check: Only admins should access this page
+  // Security check: Only admins and accounting should access this page
   useEffect(() => {
-    if (!loading && profile && !hasRole('admin')) {
+    if (!loading && profile && !hasRole('admin') && !hasRole('accounting')) {
       toast({
         title: "Access Denied",
         description: "You don't have permission to manage users",
@@ -61,7 +61,7 @@ const AdminUsers = () => {
   }, [profile, loading, hasRole, toast]);
 
   useEffect(() => {
-    if (hasRole('admin')) {
+    if (hasRole('admin') || hasRole('accounting')) {
       fetchUsers();
     }
   }, [hasRole]);
@@ -83,11 +83,10 @@ const AdminUsers = () => {
 
       if (rolesError) throw rolesError;
 
-      // Combine profiles with their roles
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
-          .map(r => r.role as 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor');
+          .map(r => r.role as 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting');
         
         return {
           ...profile,
@@ -256,13 +255,13 @@ const AdminUsers = () => {
     );
   }
 
-  // Additional security check - only render for admins
-  if (!hasRole('admin')) {
+  // Additional security check - only render for admins and accounting
+  if (!hasRole('admin') && !hasRole('accounting')) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-destructive mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">Admin role required to manage users</p>
+          <p className="text-muted-foreground">Admin or Accounting role required to manage users</p>
         </div>
       </div>
     );
@@ -349,7 +348,7 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => {
+                <Select value={role} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => {
                   setRole(value);
                   setFormErrors(prev => ({ ...prev, role: undefined }));
                 }}>
@@ -362,6 +361,7 @@ const AdminUsers = () => {
                     <SelectItem value="supervisor">Supervisor</SelectItem>
                     <SelectItem value="safety">Safety</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="accounting">Accounting</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
