@@ -100,10 +100,13 @@ const Analytics = () => {
           return acc;
         }, {} as Record<string, { email: string; office: string | null }>);
         setDispatcherProfiles(profileMap);
+        console.log('Dispatcher profiles loaded:', profileMap);
+        console.log('Current user office:', profile?.office);
+        console.log('Current user role:', hasRole('supervisor') ? 'supervisor' : hasRole('manager') ? 'manager' : hasRole('admin') ? 'admin' : 'other');
       }
     };
     fetchProfiles();
-  }, []);
+  }, [profile, hasRole]);
   if (isLoading) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
@@ -145,14 +148,27 @@ const Analytics = () => {
     }
     
     // Supervisors only see orders from their office dispatchers
-    if (hasRole('supervisor') && profile?.office) {
-      if (!order.bookedBy || order.bookedBy === 'N/A') return false;
+    if (hasRole('supervisor')) {
+      if (!profile?.office) {
+        console.warn('Supervisor has no office set');
+        return false; // Supervisor without office sees nothing
+      }
+      if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
+        console.log('Order has no valid bookedBy:', order.bookedBy);
+        return false;
+      }
       const dispatcherProfile = dispatcherProfiles[order.bookedBy];
-      if (!dispatcherProfile) return false;
-      return matchesDate && dispatcherProfile.office === profile.office;
+      if (!dispatcherProfile) {
+        console.log('No profile found for dispatcher:', order.bookedBy);
+        return false;
+      }
+      const matches = matchesDate && dispatcherProfile.office === profile.office;
+      console.log(`Order ${order.id} - Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
+      return matches;
     }
     
-    return matchesDate;
+    // Default: no access
+    return false;
   }) || [];
 
   // Helper function to get week start date
