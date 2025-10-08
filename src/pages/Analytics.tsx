@@ -34,7 +34,8 @@ const Analytics = () => {
   const navigate = useNavigate();
   const {
     hasRole,
-    profile
+    profile,
+    getPrimaryRole
   } = useAuthContext();
 
   // Debug navigation function
@@ -110,14 +111,15 @@ const Analytics = () => {
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
+    const primaryRole = getPrimaryRole();
     console.log('=== FILTER DEBUG ===');
     console.log('Orders count:', orders?.length);
     console.log('Profiles count:', Object.keys(dispatcherProfiles).length);
-    console.log('Is supervisor:', hasRole('supervisor'));
+    console.log('Primary Role:', primaryRole);
     console.log('Profile office:', profile?.office);
     
     // Wait for profiles to load for supervisors
-    if (hasRole('supervisor') && Object.keys(dispatcherProfiles).length === 0) {
+    if (primaryRole === 'supervisor' && Object.keys(dispatcherProfiles).length === 0) {
       console.log('Waiting for dispatcher profiles to load...');
       return [];
     }
@@ -125,6 +127,7 @@ const Analytics = () => {
     const filtered = orders?.filter(order => {
       console.log(`\n--- Filtering order ${order.id} ---`);
       console.log('Order bookedBy:', order.bookedBy);
+      console.log('Using Primary Role:', primaryRole);
       
       // Date filtering - use pickup date for week filters, delivery date for month filters
       let matchesDate = true;
@@ -144,16 +147,19 @@ const Analytics = () => {
         }
       }
       
-      // Check roles in order of most restrictive first
-      const isAdmin = hasRole('admin');
-      const isManager = hasRole('manager');
-      const isSupervisor = hasRole('supervisor');
+      // Filter based on PRIMARY role only
+      if (primaryRole === 'admin' || primaryRole === 'manager') {
+        console.log('ADMIN/MANAGER PATH - Returning:', matchesDate);
+        return matchesDate;
+      }
       
-      console.log('Roles - Admin:', isAdmin, 'Manager:', isManager, 'Supervisor:', isSupervisor);
-      
-      // Supervisors with office filtering (even if they also have admin/manager roles)
-      if (isSupervisor && !isAdmin && !isManager && profile?.office) {
-        console.log('SUPERVISOR PATH ENTERED (office:', profile.office, ')');
+      // Supervisors only see orders from their office dispatchers
+      if (primaryRole === 'supervisor') {
+        console.log('SUPERVISOR PATH ENTERED (office:', profile?.office, ')');
+        if (!profile?.office) {
+          console.warn('Supervisor has no office set');
+          return false;
+        }
         if (!order.bookedBy || order.bookedBy === 'N/A' || order.bookedBy === 'Unknown') {
           console.log('Order has no valid bookedBy:', order.bookedBy);
           return false;
@@ -164,25 +170,19 @@ const Analytics = () => {
           return false;
         }
         const matches = matchesDate && dispatcherProfile.office === profile.office;
-        console.log(`Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Matches: ${matches}`);
+        console.log(`Dispatcher: ${order.bookedBy}, Office: ${dispatcherProfile.office}, Supervisor Office: ${profile.office}, Matches: ${matches}`);
         return matches;
       }
       
-      // Admins and Managers see everything
-      if (isAdmin || isManager) {
-        console.log('ADMIN/MANAGER PATH - Returning:', matchesDate);
-        return matchesDate;
-      }
-      
-      // Default: no access
-      console.log('DEFAULT PATH - No access');
+      // Default: no access for other roles
+      console.log('DEFAULT PATH - No access for role:', primaryRole);
       return false;
     }) || [];
     
     console.log('Filtered orders count:', filtered.length);
     console.log('=== END FILTER DEBUG ===');
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, hasRole, profile]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile]);
   
   if (isLoading) {
     return <div className="space-y-6">
