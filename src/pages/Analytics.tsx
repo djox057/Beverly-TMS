@@ -85,17 +85,17 @@ const Analytics = () => {
     data: companies
   } = useCompanies();
 
-  // Fetch all profiles to get office locations
+  // Fetch all profiles to get office locations - index by full_name since booked_by uses names
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('email, office');
+        .select('email, full_name, office');
       
       if (profiles) {
         const profileMap = profiles.reduce((acc, p) => {
-          if (p.email) {
-            acc[p.email] = { email: p.email, office: p.office };
+          if (p.full_name) {
+            acc[p.full_name] = { email: p.email, office: p.office };
           }
           return acc;
         }, {} as Record<string, { email: string; office: string | null }>);
