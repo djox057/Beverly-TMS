@@ -19,8 +19,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DriverFilesManager } from "@/components/DriverFilesManager";
 
 interface PickupDrop {
   id: string;
@@ -802,13 +800,6 @@ const EditOrder = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="order" className="w-full">
-            <TabsList>
-              <TabsTrigger value="order">Order Details</TabsTrigger>
-              <TabsTrigger value="driver-files">Driver Files</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="order">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
@@ -1450,28 +1441,6 @@ const EditOrder = () => {
               </Button>
             </div>
           </form>
-            </TabsContent>
-            
-            <TabsContent value="driver-files" className="space-y-4">
-              {driver1 && (
-                <DriverFilesManager 
-                  driverId={driver1}
-                  driverName={drivers?.find(d => d.id === driver1)?.name}
-                />
-              )}
-              {driver2 && (
-                <DriverFilesManager 
-                  driverId={driver2}
-                  driverName={drivers?.find(d => d.id === driver2)?.name}
-                />
-              )}
-              {!driver1 && !driver2 && (
-                <div className="text-center p-8 text-muted-foreground">
-                  No drivers assigned to this order
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
     </div>
