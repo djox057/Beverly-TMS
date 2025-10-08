@@ -6,9 +6,10 @@ import { Loader2 } from 'lucide-react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting';
+  excludedRoles?: Array<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting'>;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, excludedRoles }) => {
   const { user, loading, hasRole, getPrimaryRole } = useAuthContext();
 
   if (loading) {
@@ -21,6 +22,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user has an excluded role
+  if (excludedRoles && excludedRoles.some(role => hasRole(role))) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have permission to access this page.</p>
+          <p className="text-sm text-muted-foreground mt-2">Your role: {getPrimaryRole() || 'none'}</p>
+        </div>
+      </div>
+    );
   }
 
   if (requiredRole && !hasRole(requiredRole)) {
