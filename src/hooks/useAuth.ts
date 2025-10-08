@@ -9,9 +9,10 @@ export interface UserProfile {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
+  office: string | null;
 }
 
-export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety';
+export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -201,8 +202,11 @@ export const useAuth = () => {
     // Admin has access to everything except driver-only pages
     if (roles.includes('admin') && requiredRole !== 'driver') return true;
     
-    // Manager has access to dispatch functions
-    if (roles.includes('manager') && requiredRole === 'dispatch') return true;
+    // Manager has same access as admin (except user management which is checked separately)
+    if (roles.includes('manager') && requiredRole !== 'driver') return true;
+    
+    // Supervisor has same access as admin (except user management which is checked separately)
+    if (roles.includes('supervisor') && requiredRole !== 'driver') return true;
     
     // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
     if (roles.includes('safety') && requiredRole === 'dispatch') return true;
@@ -216,6 +220,7 @@ export const useAuth = () => {
     if (roles.length === 0) return null;
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('manager')) return 'manager';
+    if (roles.includes('supervisor')) return 'supervisor';
     if (roles.includes('safety')) return 'safety';
     if (roles.includes('dispatch')) return 'dispatch';
     if (roles.includes('driver')) return 'driver';

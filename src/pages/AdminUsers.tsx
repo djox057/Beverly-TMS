@@ -28,7 +28,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety')[];
+  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor')[];
   created_at: string;
 }
 
@@ -46,7 +46,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor'>('dispatch');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   // Security check: Only admins should access this page
@@ -87,7 +87,7 @@ const AdminUsers = () => {
       const usersWithRoles = (profilesData || []).map(profile => {
         const userRoles = (rolesData || [])
           .filter(r => r.user_id === profile.user_id)
-          .map(r => r.role as 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety');
+          .map(r => r.role as 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor');
         
         return {
           ...profile,
@@ -235,6 +235,8 @@ const AdminUsers = () => {
         return 'destructive';
       case 'manager':
         return 'default';
+      case 'supervisor':
+        return 'default';
       case 'safety':
         return 'default';
       case 'dispatch':
@@ -357,6 +359,7 @@ const AdminUsers = () => {
                   <SelectContent>
                     <SelectItem value="dispatch">Dispatch</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="supervisor">Supervisor</SelectItem>
                     <SelectItem value="safety">Safety</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
