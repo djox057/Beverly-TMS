@@ -23,11 +23,6 @@ interface LocationDebugData {
     identical: boolean;
   }>;
   issue: string | null;
-  webhookStatus?: {
-    active: boolean;
-    lastUpdate: string | null;
-    minutesSinceUpdate: number | null;
-  };
 }
 
 export const TruckLocationDebug = () => {
@@ -39,23 +34,6 @@ export const TruckLocationDebug = () => {
   const analyzeLocation = async () => {
     setLoading(true);
     try {
-      // First check if we have recent webhook data
-      const { data: recentLocations, error: dbError } = await supabase
-        .from('truck_locations')
-        .select('*')
-        .eq('truck_number', truckNumber)
-        .order('location_timestamp', { ascending: false })
-        .limit(1);
-
-      if (dbError) {
-        console.error('Error checking database:', dbError);
-      }
-
-      const hasRecentWebhookData = recentLocations && recentLocations.length > 0;
-      const lastWebhookUpdate = hasRecentWebhookData 
-        ? new Date(recentLocations[0].location_timestamp)
-        : null;
-
       // Make 3 consecutive calls to check for caching
       const calls = [];
       for (let i = 0; i < 3; i++) {
@@ -125,18 +103,7 @@ export const TruckLocationDebug = () => {
         ageMinutes: Math.round(ageMinutes),
         rawVehicleData: firstLocation,
         multipleCallsComparison: comparison,
-        issue,
-        webhookStatus: hasRecentWebhookData ? {
-          active: true,
-          lastUpdate: lastWebhookUpdate?.toISOString(),
-          minutesSinceUpdate: lastWebhookUpdate 
-            ? Math.round((new Date().getTime() - lastWebhookUpdate.getTime()) / 1000 / 60)
-            : null
-        } : {
-          active: false,
-          lastUpdate: null,
-          minutesSinceUpdate: null
-        }
+        issue
       });
 
       console.log('🔍 LOCATION DEBUG COMPLETE:', {
@@ -179,40 +146,6 @@ export const TruckLocationDebug = () => {
 
           {debugData && (
             <div className="space-y-4">
-              {/* Webhook Status Banner */}
-              {debugData.webhookStatus && (
-                <Card className={debugData.webhookStatus.active 
-                  ? "border-green-500 bg-green-50" 
-                  : "border-orange-500 bg-orange-50"}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-2">
-                      {debugData.webhookStatus.active ? (
-                        <>
-                          <div className="h-5 w-5 text-green-600">✅</div>
-                          <div>
-                            <p className="font-semibold text-green-700">Webhooks Active!</p>
-                            <p className="text-sm text-green-600">
-                              Last webhook update: {debugData.webhookStatus.minutesSinceUpdate} minutes ago
-                              ({new Date(debugData.webhookStatus.lastUpdate!).toLocaleString()})
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
-                          <div>
-                            <p className="font-semibold text-orange-700">No Webhook Data</p>
-                            <p className="text-sm text-orange-600">
-                              You're still using polling API. Set up webhooks for real-time updates!
-                            </p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {debugData.issue && (
                 <Card className="border-destructive bg-destructive/10">
                   <CardContent className="pt-6">

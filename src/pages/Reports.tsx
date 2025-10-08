@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
-import { useTruckLocations } from "@/hooks/useTruckLocations";
+import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { calculateOrderDistance } from "@/utils/distanceCalculation";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
@@ -54,9 +54,9 @@ const Reports = () => {
     updatePickupDropArrival
   } = useReports();
   const {
-    data: truckLocations,
-    isLoading: isLoadingLocations
-  } = useTruckLocations();
+    data: samsaraLocations,
+    isLoading: isLoadingSamsara
+  } = useSamsaraLocations();
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
@@ -75,18 +75,18 @@ const Reports = () => {
   // Calculate distances when locations or reports change
   useEffect(() => {
     const calculateDistances = async () => {
-      if (!truckLocations || !groupedReports) {
+      if (!samsaraLocations || !groupedReports) {
         console.log('⚠️ Missing data for distance calculation:', {
-          hasTruckLocations: !!truckLocations,
+          hasSamsaraLocations: !!samsaraLocations,
           hasGroupedReports: !!groupedReports
         });
         return;
       }
       console.log('🚀 Starting distance calculations...');
-      console.log('📍 Available truck locations:', truckLocations.length);
+      console.log('📍 Available Samsara locations:', samsaraLocations.length);
       
-      // Log all truck locations for debugging
-      console.log('📍 All truck locations:', truckLocations.map(loc => ({
+      // Log all Samsara locations for debugging
+      console.log('📍 All Samsara locations:', samsaraLocations.map(loc => ({
         truck_id: loc.truck_id,
         truck_number: loc.truck_number,
         lat: loc.latitude,
@@ -98,7 +98,7 @@ const Reports = () => {
       } = {};
       for (const group of groupedReports) {
         for (const truck of group.trucks) {
-          const truckLocation = truckLocations.find(loc => loc.truck_id === truck.id);
+          const truckLocation = samsaraLocations.find(loc => loc.truck_id === truck.id);
           console.log(`\n🚛 Processing truck ${truck.truckNumber}:`, {
             truckId: truck.id,
             hasLocation: !!truckLocation,
@@ -153,7 +153,7 @@ const Reports = () => {
       setTruckDistances(distances);
     };
     calculateDistances();
-  }, [truckLocations, groupedReports]);
+  }, [samsaraLocations, groupedReports]);
   const handleEdit = (truckId: string, field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note', currentValue: string) => {
     setEditing({
       truckId,
@@ -1081,7 +1081,7 @@ const Reports = () => {
                               {/* Away Days - Show distance in miles if available */}
                               <div className="flex flex-col items-center">
                                 <div className="text-[9px] text-gray-600 mb-0">AWAY (D)</div>
-                                {isLoadingLocations ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : truckDistances[truck.id] > 0 ? <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div> : <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>}
+                                {isLoadingSamsara ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : truckDistances[truck.id] > 0 ? <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div> : <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>}
                               </div>
                               
                               {/* HOS Circular Timers */}
