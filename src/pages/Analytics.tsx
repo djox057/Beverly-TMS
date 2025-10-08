@@ -85,7 +85,7 @@ const Analytics = () => {
     data: companies
   } = useCompanies();
 
-  // Fetch all profiles to get office locations - index by full_name since booked_by uses names
+  // Fetch all profiles to get office locations - create flexible lookup map
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase
@@ -95,11 +95,18 @@ const Analytics = () => {
       if (profiles) {
         const profileMap = profiles.reduce((acc, p) => {
           if (p.full_name) {
+            // Index by full name
             acc[p.full_name] = { email: p.email, office: p.office };
+            // Also index by first name for partial matches
+            const firstName = p.full_name.split(' ')[0];
+            if (firstName && !acc[firstName]) {
+              acc[firstName] = { email: p.email, office: p.office };
+            }
           }
           return acc;
         }, {} as Record<string, { email: string; office: string | null }>);
         setDispatcherProfiles(profileMap);
+        console.log('Dispatcher profiles loaded:', profileMap);
       }
     };
     fetchProfiles();
@@ -279,10 +286,18 @@ const Analytics = () => {
     };
   })
   .filter(stat => {
+    // Admins and managers see all dispatchers
+    if (hasRole('admin') || hasRole('manager')) {
+      return true;
+    }
     // Supervisors only see dispatchers from their office
     if (hasRole('supervisor') && profile?.office) {
       const dispatcherProfile = dispatcherProfiles[stat.name];
-      return dispatcherProfile?.office === profile.office;
+      if (dispatcherProfile) {
+        return dispatcherProfile.office === profile.office;
+      }
+      // If no profile match found, include the dispatcher (could be a partial name match)
+      return true;
     }
     return true;
   })
