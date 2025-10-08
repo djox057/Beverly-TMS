@@ -277,26 +277,39 @@ const Analytics = () => {
     return acc;
   }, {} as Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>);
 
-  const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]) => {
-    const cut = stats.totalFreight - stats.totalDriverRate;
-    const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
-    const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
-    return {
-      name,
-      totalFreight: stats.totalFreight,
-      totalDriverRate: stats.totalDriverRate,
-      totalMiles: stats.totalMiles,
-      orderCount: stats.orderCount,
-      cut,
-      cutPercent,
-      ratePerMile
-    };
-  })
-  .sort((a, b) => {
-    const aValue = a[sortBy];
-    const bValue = b[sortBy];
-    return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
-  });
+  const dispatcherStats = Object.entries(dispatcherAnalytics)
+    .map(([name, stats]) => {
+      const cut = stats.totalFreight - stats.totalDriverRate;
+      const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
+      const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+      return {
+        name,
+        totalFreight: stats.totalFreight,
+        totalDriverRate: stats.totalDriverRate,
+        totalMiles: stats.totalMiles,
+        orderCount: stats.orderCount,
+        cut,
+        cutPercent,
+        ratePerMile
+      };
+    })
+    .filter(stat => {
+      // Admins and managers see all dispatchers
+      if (hasRole('admin') || hasRole('manager')) {
+        return true;
+      }
+      // Supervisors only see dispatchers from their office
+      if (hasRole('supervisor') && profile?.office) {
+        const dispatcherProfile = dispatcherProfiles[stat.name];
+        return dispatcherProfile && dispatcherProfile.office === profile.office;
+      }
+      return false;
+    })
+    .sort((a, b) => {
+      const aValue = a[sortBy];
+      const bValue = b[sortBy];
+      return sortDirection === 'desc' ? bValue - aValue : aValue - bValue;
+    });
 
   // Calculate totals
   const totals = dispatcherStats.reduce((acc, stat) => {
