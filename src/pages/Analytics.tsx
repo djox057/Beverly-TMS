@@ -107,20 +107,6 @@ const Analytics = () => {
     };
     fetchProfiles();
   }, [profile, hasRole]);
-  if (isLoading) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>;
-  }
-  if (error) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <p className="text-destructive">Error loading orders: {error.message}</p>
-        </div>
-      </div>;
-  }
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
@@ -178,6 +164,21 @@ const Analytics = () => {
       return false;
     }) || [];
   }, [orders, dateRange, filterType, dispatcherProfiles, hasRole, profile]);
+  
+  if (isLoading) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>;
+  }
+  if (error) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <p className="text-destructive">Error loading orders: {error.message}</p>
+        </div>
+      </div>;
+  }
 
   // Helper function to get week start date
   const getWeekStartDate = (weeksAgo: number) => {
