@@ -85,7 +85,7 @@ const Analytics = () => {
     data: companies
   } = useCompanies();
 
-  // Fetch all profiles to get office locations - create flexible lookup map
+  // Fetch all profiles to get office locations indexed by full_name
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase
@@ -95,18 +95,11 @@ const Analytics = () => {
       if (profiles) {
         const profileMap = profiles.reduce((acc, p) => {
           if (p.full_name) {
-            // Index by full name
             acc[p.full_name] = { email: p.email, office: p.office };
-            // Also index by first name for partial matches
-            const firstName = p.full_name.split(' ')[0];
-            if (firstName && !acc[firstName]) {
-              acc[firstName] = { email: p.email, office: p.office };
-            }
           }
           return acc;
         }, {} as Record<string, { email: string; office: string | null }>);
         setDispatcherProfiles(profileMap);
-        console.log('Dispatcher profiles loaded:', profileMap);
       }
     };
     fetchProfiles();

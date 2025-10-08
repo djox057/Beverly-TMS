@@ -837,7 +837,7 @@ const NewOrder = () => {
         loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
         dh_miles: dhMiles ? parseInt(dhMiles) : null,
         mileage: ((parseInt(dhMiles) || 0) + (parseInt(loadedMiles) || 0)) || null,
-        booked_by: profile?.full_name || profile?.email || 'Unknown User'
+        booked_by: profile?.full_name || 'Unknown User'
       };
 
       // Use the atomic function to create order with unique internal load number

@@ -93,6 +93,22 @@ const EditOrder = () => {
   const { data: companies } = useCompanies();
   const { data: trucks } = useTrucks();
   const { data: drivers } = useDrivers();
+  const [profiles, setProfiles] = useState<Array<{id: string, full_name: string}>>([]);
+
+  // Fetch profiles for booked by dropdown
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .not('full_name', 'is', null)
+        .order('full_name');
+      if (data) {
+        setProfiles(data);
+      }
+    };
+    fetchProfiles();
+  }, []);
 
   // Load order data
   useEffect(() => {
@@ -1091,16 +1107,17 @@ const EditOrder = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="booked-by">Booked By</Label>
-              <Input 
-                id="booked-by" 
-                placeholder="Person who booked this order" 
-                value={bookedBy} 
-                onChange={e => setBookedBy(e.target.value)} 
-              />
+              
+              <div className="space-y-2">
+                <Label htmlFor="booked-by">Booked By</Label>
+                <Combobox 
+                  options={profiles.map(p => ({ value: p.full_name, label: p.full_name }))} 
+                  value={bookedBy} 
+                  onValueChange={setBookedBy} 
+                  placeholder="Select person" 
+                  searchPlaceholder="Search names..." 
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
