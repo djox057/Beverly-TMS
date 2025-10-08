@@ -235,9 +235,16 @@ const Drivers = () => {
       setIsAddDialogOpen(false);
       refetch();
     } catch (error: any) {
+      let errorMessage = error.message || "Failed to add driver";
+      
+      // Check for duplicate email error
+      if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
+        errorMessage = "A driver with this email already exists. Please use a different email or update the existing driver.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to add driver",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -309,9 +316,16 @@ const Drivers = () => {
       setEditingDriver(null);
       refetch();
     } catch (error: any) {
+      let errorMessage = error.message || "Failed to update driver";
+      
+      // Check for duplicate email error
+      if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
+        errorMessage = "A driver with this email already exists. Please use a different email.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to update driver",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
