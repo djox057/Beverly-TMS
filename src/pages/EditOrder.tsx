@@ -75,6 +75,7 @@ const EditOrder = () => {
   const [invoiced, setInvoiced] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Drag states for file uploads
   const [dragStates, setDragStates] = useState({
@@ -162,6 +163,20 @@ const EditOrder = () => {
 
       if (orderData) {
         console.log('Setting form data with order:', orderData);
+        
+        // Check if order is locked and redirect if it is
+        if (orderData.locked) {
+          console.log('Order is locked, redirecting to orders page');
+          toast({
+            title: "Order Locked",
+            description: "This order is locked and cannot be edited",
+            variant: "destructive",
+          });
+          navigate('/orders');
+          return;
+        }
+        
+        setIsLocked(orderData.locked || false);
         setBookedByCompany(orderData.company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
@@ -1108,7 +1123,14 @@ const EditOrder = () => {
               />
             </div>
 
-            {/* File Upload Sections */}
+            {/* File Upload Sections - Disabled when locked */}
+            {isLocked && (
+              <div className="p-4 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground">File uploads are disabled for locked orders</p>
+              </div>
+            )}
+            {!isLocked && (
+              <>
             {/* RC Upload Section - Top Priority */}
             <Card 
               className={cn(
@@ -1332,6 +1354,8 @@ const EditOrder = () => {
                 </CardContent>
               </Card>
             </div>
+              </>
+            )}
 
             {existingFiles.length > 0 && (
               <div className="space-y-2">
