@@ -41,7 +41,8 @@ const getStatusBadge = (status: string) => {
 };
 const Orders = () => {
   const navigate = useNavigate();
-  const { hasRole } = useAuthContext();
+  const { hasRole, getPrimaryRole } = useAuthContext();
+  const primaryRole = getPrimaryRole();
   
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -283,14 +284,18 @@ const Orders = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
-            <Download className="mr-2 h-4 w-4" />
-            Export to Excel
-          </Button>
-          <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length}>
-            <FileText className="mr-2 h-4 w-4" />
-            INVOICE
-          </Button>
+          {(primaryRole === 'admin' || primaryRole === 'accounting' || primaryRole === 'manager') && (
+            <>
+              <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
+                <Download className="mr-2 h-4 w-4" />
+                Export to Excel
+              </Button>
+              <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length}>
+                <FileText className="mr-2 h-4 w-4" />
+                INVOICE
+              </Button>
+            </>
+          )}
           <Button onClick={() => navigate('/new-order')}>
             <FileText className="mr-2 h-4 w-4" />
             New Order
