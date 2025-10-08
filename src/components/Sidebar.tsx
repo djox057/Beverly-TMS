@@ -53,8 +53,10 @@ export const Sidebar = () => {
 
   // Filter navigation based on role
   const getFilteredNavigation = () => {
+    const primaryRole = getPrimaryRole();
+    
     // Accounting role: exclude Reports, Analytics, and User Management
-    if (hasRole('accounting')) {
+    if (primaryRole === 'accounting') {
       return navigation.filter(item => 
         item.href !== '/reports' && 
         item.href !== '/analytics'
