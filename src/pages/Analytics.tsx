@@ -110,13 +110,19 @@ const Analytics = () => {
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
+    console.log('=== FILTER DEBUG ===');
+    console.log('Orders count:', orders?.length);
+    console.log('Profiles count:', Object.keys(dispatcherProfiles).length);
+    console.log('Is supervisor:', hasRole('supervisor'));
+    console.log('Profile office:', profile?.office);
+    
     // Wait for profiles to load for supervisors
     if (hasRole('supervisor') && Object.keys(dispatcherProfiles).length === 0) {
       console.log('Waiting for dispatcher profiles to load...');
       return [];
     }
 
-    return orders?.filter(order => {
+    const filtered = orders?.filter(order => {
       // Date filtering - use pickup date for week filters, delivery date for month filters
       let matchesDate = true;
       if (dateRange?.from) {
@@ -163,6 +169,10 @@ const Analytics = () => {
       // Default: no access
       return false;
     }) || [];
+    
+    console.log('Filtered orders count:', filtered.length);
+    console.log('=== END FILTER DEBUG ===');
+    return filtered;
   }, [orders, dateRange, filterType, dispatcherProfiles, hasRole, profile]);
   
   if (isLoading) {
