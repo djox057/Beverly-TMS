@@ -61,10 +61,14 @@ export const Sidebar = () => {
       ];
     }
     
-    // Manager role: limited navigation including Analytics
+    // Manager role: all navigation except User Management (same as admin minus user management)
     if (hasRole('manager')) {
-      const allowedPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/analytics'];
-      return navigation.filter(item => allowedPages.includes(item.href));
+      return navigation;
+    }
+    
+    // Supervisor role: all navigation except User Management and Analytics has filtered view
+    if (hasRole('supervisor')) {
+      return navigation;
     }
     
     // Safety role: specific pages only (New Order, Orders, Trucks, Trailers, Drivers)
@@ -73,7 +77,7 @@ export const Sidebar = () => {
       return navigation.filter(item => safetyPages.includes(item.href));
     }
     
-    // Dispatch role: all navigation except admin pages and Analytics
+    // Dispatch role: all navigation except Analytics
     return navigation.filter(item => item.href !== '/analytics');
   };
 

@@ -6,13 +6,13 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
-  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety')[];
+  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor')[];
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor') => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
-  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety') => boolean;
-  getPrimaryRole: () => ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety') | null;
+  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor') => boolean;
+  getPrimaryRole: () => ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor') | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
