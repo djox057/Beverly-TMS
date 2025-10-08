@@ -85,6 +85,8 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [selectedNotes, setSelectedNotes] = useState("");
   const [cancelFormData, setCancelFormData] = useState({
     tonu: "",
     driverRate: "",
@@ -388,7 +390,8 @@ const Orders = () => {
                     <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-36">Broker Name</TableHead>
                     <TableHead className="w-28">Broker Load #</TableHead>
-                    <TableHead className="w-32">Notes</TableHead>
+                    <TableHead className="w-20">Invoiced</TableHead>
+                    <TableHead className="w-20">Notes</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
@@ -416,7 +419,22 @@ const Orders = () => {
                         <TableCell>{order.driverName}</TableCell>
                         <TableCell>{order.brokerName}</TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
-                        <TableCell className="max-w-xs truncate" title={order.notes}>{order.notes}</TableCell>
+                        <TableCell>{order.invoiced}</TableCell>
+                        <TableCell>
+                          {order.notes && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-auto p-1 text-xs font-normal hover:underline"
+                              onClick={() => {
+                                setSelectedNotes(order.notes);
+                                setNotesDialogOpen(true);
+                              }}
+                            >
+                              {order.notes.length > 12 ? order.notes.substring(0, 12) + '...' : order.notes}
+                            </Button>
+                          )}
+                        </TableCell>
                         <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell>{order.bookedBy}</TableCell>
@@ -511,6 +529,20 @@ const Orders = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleCancelOrder}>Confirm Cancellation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Order Notes</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm whitespace-pre-wrap">{selectedNotes}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setNotesDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
