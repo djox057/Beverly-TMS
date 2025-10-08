@@ -119,7 +119,7 @@ const Analytics = () => {
       </div>;
   }
 
-  // Filter orders based on date
+  // Filter orders based on date and role
   const filteredOrders = orders?.filter(order => {
     // Date filtering - use pickup date for week filters, delivery date for month filters
     let matchesDate = true;
@@ -138,6 +138,15 @@ const Analytics = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
+    
+    // Supervisor office filtering
+    if (hasRole('supervisor') && profile?.office) {
+      if (!order.bookedBy) return false;
+      const dispatcherProfile = dispatcherProfiles[order.bookedBy];
+      const matchesOffice = dispatcherProfile?.office === profile.office;
+      return matchesDate && matchesOffice;
+    }
+    
     return matchesDate;
   }) || [];
 
@@ -277,22 +286,6 @@ const Analytics = () => {
       cutPercent,
       ratePerMile
     };
-  })
-  .filter(stat => {
-    // Admins and managers see all dispatchers
-    if (hasRole('admin') || hasRole('manager')) {
-      return true;
-    }
-    // Supervisors only see dispatchers from their office
-    if (hasRole('supervisor') && profile?.office) {
-      const dispatcherProfile = dispatcherProfiles[stat.name];
-      if (dispatcherProfile) {
-        return dispatcherProfile.office === profile.office;
-      }
-      // If no profile match found, include the dispatcher (could be a partial name match)
-      return true;
-    }
-    return true;
   })
   .sort((a, b) => {
     const aValue = a[sortBy];
