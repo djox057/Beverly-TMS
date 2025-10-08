@@ -88,7 +88,8 @@ const Orders = () => {
   const [cancelFormData, setCancelFormData] = useState({
     tonu: "",
     driverRate: "",
-    dhMiles: ""
+    dhMiles: "",
+    notes: ""
   });
   const {
     data: orders,
@@ -228,12 +229,13 @@ const Orders = () => {
   const cancelSchema = z.object({
     tonu: z.string().min(1, "TONU is required").transform(val => parseFloat(val)),
     driverRate: z.string().min(1, "Driver rate is required").transform(val => parseFloat(val)),
-    dhMiles: z.string().min(1, "DH miles is required").transform(val => parseInt(val))
+    dhMiles: z.string().min(1, "DH miles is required").transform(val => parseInt(val)),
+    notes: z.string().min(1, "Notes are required")
   });
 
   const openCancelDialog = (orderId: string) => {
     setSelectedOrderId(orderId);
-    setCancelFormData({ tonu: "", driverRate: "", dhMiles: "" });
+    setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
     setCancelDialogOpen(true);
   };
 
@@ -251,6 +253,7 @@ const Orders = () => {
           tonu: validated.tonu,
           driver_price: validated.driverRate,
           dh_miles: validated.dhMiles,
+          notes: validated.notes,
           freight_amount: 0,
           loaded_miles: 0,
           locked: true
@@ -262,7 +265,7 @@ const Orders = () => {
       toast.success("Order cancelled and locked successfully");
       setCancelDialogOpen(false);
       setSelectedOrderId(null);
-      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "" });
+      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -385,7 +388,7 @@ const Orders = () => {
                     <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-36">Broker Name</TableHead>
                     <TableHead className="w-28">Broker Load #</TableHead>
-                    <TableHead className="w-20">Invoiced</TableHead>
+                    <TableHead className="w-32">Notes</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
@@ -399,7 +402,7 @@ const Orders = () => {
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className="h-16">
+                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${order.tonu > 0 ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' : ''}`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell>{order.pickupDate}</TableCell>
@@ -413,7 +416,7 @@ const Orders = () => {
                         <TableCell>{order.driverName}</TableCell>
                         <TableCell>{order.brokerName}</TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
-                        <TableCell>{order.invoiced}</TableCell>
+                        <TableCell className="max-w-xs truncate" title={order.notes}>{order.notes}</TableCell>
                         <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell>{order.bookedBy}</TableCell>
@@ -499,6 +502,10 @@ const Orders = () => {
             <div className="grid gap-2">
               <Label htmlFor="dhMiles">DH Miles</Label>
               <Input id="dhMiles" type="number" placeholder="0" value={cancelFormData.dhMiles} onChange={(e) => setCancelFormData({ ...cancelFormData, dhMiles: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="notes">Cancellation Notes</Label>
+              <Input id="notes" placeholder="Enter reason for cancellation" value={cancelFormData.notes} onChange={(e) => setCancelFormData({ ...cancelFormData, notes: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
