@@ -981,6 +981,7 @@ export type Database = {
         | "driver"
         | "safety"
         | "supervisor"
+        | "accounting"
       office_location: "Čačak" | "KRAGUJEVAC" | "BEOGRAD" | "Recovery drivers"
     }
     CompositeTypes: {
@@ -1116,6 +1117,7 @@ export const Constants = {
         "driver",
         "safety",
         "supervisor",
+        "accounting",
       ],
       office_location: ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"],
     },
