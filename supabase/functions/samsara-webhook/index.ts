@@ -8,16 +8,23 @@ const corsHeaders = {
 
 interface SamsaraWebhookPayload {
   eventType: string;
-  data: {
-    id: string;
-    name: string;
-    gps?: {
+  eventId: string;
+  eventMs: number;
+  orgId: number;
+  webhookId: string;
+  event: {
+    vehicle?: {
+      id: string;
+      name: string;
+    };
+    location?: {
       latitude: number;
       longitude: number;
-      speed?: number;
+      speedMilesPerHour?: number;
       heading?: number;
-      time: string;
+      time?: string;
     };
+    text?: string; // For Ping events
   };
 }
 
@@ -33,7 +40,7 @@ serve(async (req) => {
     console.log('📦 Webhook payload:', JSON.stringify(payload, null, 2));
 
     // Validate payload
-    if (!payload.eventType || !payload.data) {
+    if (!payload.eventType || !payload.event) {
       console.error('❌ Invalid payload structure');
       return new Response(
         JSON.stringify({ error: 'Invalid payload' }),
@@ -41,12 +48,20 @@ serve(async (req) => {
       );
     }
 
+    // Handle Ping events
+    if (payload.eventType === 'Ping') {
+      console.log('✅ Ping event received');
+      return new Response(
+        JSON.stringify({ message: 'Ping acknowledged' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Only process location events (VehicleUpdated, RouteStopArrival)
     const isLocationEvent = payload.eventType === 'VehicleUpdated' || 
-                           payload.eventType === 'RouteStopArrival' ||
-                           payload.eventType.includes('vehicle.location');
+                           payload.eventType === 'RouteStopArrival';
     
-    if (!isLocationEvent && !payload.data.gps) {
+    if (!isLocationEvent) {
       console.log('ℹ️ Ignoring non-location event:', payload.eventType);
       return new Response(
         JSON.stringify({ message: 'Event type not processed' }),
@@ -54,16 +69,17 @@ serve(async (req) => {
       );
     }
 
-    const vehicle = payload.data;
-    const gps = vehicle.gps;
+    const vehicle = payload.event.vehicle;
+    const location = payload.event.location;
 
-    if (!gps || !gps.latitude || !gps.longitude) {
-      console.log('⚠️ No GPS data in payload');
+    if (!vehicle || !location || !location.latitude || !location.longitude) {
+      console.log('⚠️ No vehicle or location data in payload');
       return new Response(
-        JSON.stringify({ message: 'No GPS data' }),
+        JSON.stringify({ message: 'No location data' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -108,13 +124,13 @@ serve(async (req) => {
     const locationData = {
       truck_id: truck.id,
       truck_number: truck.truck_number,
-      latitude: gps.latitude,
-      longitude: gps.longitude,
-      location_timestamp: gps.time || new Date().toISOString(),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      location_timestamp: location.time || new Date().toISOString(),
       samsara_vehicle_id: vehicle.id,
       samsara_vehicle_name: vehicle.name,
-      speed: gps.speed || null,
-      heading: gps.heading || null,
+      speed: location.speedMilesPerHour || null,
+      heading: location.heading || null,
     };
 
     console.log('💾 Inserting location:', locationData);
@@ -135,14 +151,14 @@ serve(async (req) => {
 
     // Also update miles_away in trucks table (in background)
     EdgeRuntime.waitUntil(
-      updateTruckDistance(supabase, truck.id, gps.latitude, gps.longitude)
+      updateTruckDistance(supabase, truck.id, location.latitude, location.longitude)
     );
 
     return new Response(
       JSON.stringify({ 
         message: 'Location updated',
         truck: truck.truck_number,
-        coordinates: `${gps.latitude}, ${gps.longitude}`
+        coordinates: `${location.latitude}, ${location.longitude}`
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
