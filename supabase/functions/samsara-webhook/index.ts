@@ -41,8 +41,12 @@ serve(async (req) => {
       );
     }
 
-    // Only process location events
-    if (!payload.eventType.includes('vehicle.location') && !payload.data.gps) {
+    // Only process location events (VehicleUpdated, RouteStopArrival)
+    const isLocationEvent = payload.eventType === 'VehicleUpdated' || 
+                           payload.eventType === 'RouteStopArrival' ||
+                           payload.eventType.includes('vehicle.location');
+    
+    if (!isLocationEvent && !payload.data.gps) {
       console.log('ℹ️ Ignoring non-location event:', payload.eventType);
       return new Response(
         JSON.stringify({ message: 'Event type not processed' }),
