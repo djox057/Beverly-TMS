@@ -18,6 +18,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
+import { TruckLocationDebug } from "@/components/TruckLocationDebug";
+
 interface EditingState {
   truckId: string;
   field: 'pickup-location' | 'pickup-datetime' | 'delivery-location' | 'delivery-datetime' | 'note';
@@ -62,6 +64,7 @@ const Reports = () => {
     [truckId: string]: number;
   }>({});
   const [activeTab, setActiveTab] = useState<string>("Čačak");
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
   const {
     toast
   } = useToast();
@@ -812,8 +815,18 @@ const Reports = () => {
     if (!groupedReports) return [];
     return groupedReports.filter(group => group.office === office);
   };
-  return <div className="h-full bg-white overflow-hidden flex flex-col">{/* Google Sheets-style header */}
-      
+  return <div className="h-full bg-white overflow-hidden flex flex-col">
+      {/* Header with Debug Button */}
+      <div className="px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Reports</h1>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowDebugDialog(true)}
+        >
+          🔍 Debug Truck Location
+        </Button>
+      </div>
 
       <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1133,6 +1146,16 @@ const Reports = () => {
             </TabsContent>)}
         </Tabs>
       </div>
+
+      {/* Debug Dialog */}
+      <Dialog open={showDebugDialog} onOpenChange={setShowDebugDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Truck Location Debugger</DialogTitle>
+          </DialogHeader>
+          <TruckLocationDebug />
+        </DialogContent>
+      </Dialog>
     </div>;
 };
 export default Reports;
