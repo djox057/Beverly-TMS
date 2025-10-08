@@ -63,8 +63,8 @@ export const Sidebar = () => {
       );
     }
 
-    // Admin role: all navigation + admin pages
-    if (hasRole('admin')) {
+    // Admin role: all navigation + User Management page
+    if (primaryRole === 'admin') {
       return [
         ...navigation,
         { name: "User Management", href: "/admin/users", icon: Settings }
