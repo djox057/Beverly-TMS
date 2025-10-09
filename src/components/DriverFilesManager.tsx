@@ -79,15 +79,11 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
         const fileExt = file.name.split('.').pop();
         const fileName = `${driverId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('driver-files')
           .upload(fileName, file);
 
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('driver-files')
-          .getPublicUrl(fileName);
 
         const { error: dbError } = await supabase
           .from('driver_files')
@@ -129,11 +125,14 @@ export const DriverFilesManager = ({ driverId, driverName }: DriverFilesManagerP
 
   const handleViewFile = async (file: DriverFile) => {
     try {
-      const { data: { publicUrl } } = supabase.storage
+      const { data, error } = await supabase.storage
         .from('driver-files')
-        .getPublicUrl(file.file_path);
+        .createSignedUrl(file.file_path, 3600); // 1 hour expiry
 
-      window.open(publicUrl, '_blank');
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('No signed URL generated');
+
+      window.open(data.signedUrl, '_blank');
     } catch (error) {
       console.error('Error viewing file:', error);
       toast({

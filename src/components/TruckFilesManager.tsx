@@ -125,11 +125,14 @@ export const TruckFilesManager = ({ truckId, truckNumber }: TruckFilesManagerPro
 
   const handleViewFile = async (file: TruckFile) => {
     try {
-      const { data: { publicUrl } } = supabase.storage
+      const { data, error } = await supabase.storage
         .from('truck-files')
-        .getPublicUrl(file.file_path);
+        .createSignedUrl(file.file_path, 3600); // 1 hour expiry
 
-      window.open(publicUrl, '_blank');
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('No signed URL generated');
+
+      window.open(data.signedUrl, '_blank');
     } catch (error) {
       console.error('Error viewing file:', error);
       toast({
