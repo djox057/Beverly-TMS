@@ -29,6 +29,7 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
   const { profile } = useAuthContext();
 
@@ -174,6 +175,34 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
     }
   };
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      setSelectedFiles(droppedFiles);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -182,30 +211,54 @@ export const TrailerFilesManager = ({ trailerId, trailerNumber }: TrailerFilesMa
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="trailer-file-input">Upload Files</Label>
-          <div className="flex gap-2">
-            <Input
-              id="trailer-file-input"
-              type="file"
-              multiple
-              onChange={(e) => setSelectedFiles(e.target.files)}
-              className="flex-1"
-            />
-            <Button 
-              onClick={handleFileUpload} 
-              disabled={isUploading || !selectedFiles}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload
-                </>
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
+              isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            <div className="flex flex-col items-center gap-4">
+              <Upload className={`h-8 w-8 ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+              <div className="text-center">
+                <p className="text-sm font-medium">
+                  {isDragOver ? 'Drop files here' : 'Drag and drop files here'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">or</p>
+              </div>
+              <div className="flex gap-2 w-full">
+                <Input
+                  id="trailer-file-input"
+                  type="file"
+                  multiple
+                  onChange={(e) => setSelectedFiles(e.target.files)}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleFileUpload} 
+                  disabled={isUploading || !selectedFiles}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload
+                    </>
+                  )}
+                </Button>
+              </div>
+              {selectedFiles && selectedFiles.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedFiles.length} file{selectedFiles.length > 1 ? 's' : ''} selected
+                </p>
               )}
-            </Button>
+            </div>
           </div>
         </div>
 
