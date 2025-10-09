@@ -542,7 +542,7 @@ const Reports = () => {
                         </PopoverTrigger>
                         <PopoverContent className="w-80 z-[101]">
                           <div className="space-y-2 text-sm">
-                            <h4 className="font-semibold">Load Information ({deliveryOnlyOrders.length} {deliveryOnlyOrders.length === 1 ? 'Delivery' : 'Deliveries'})</h4>
+                            <h4 className="font-semibold">Load Information</h4>
                             <div className="space-y-3">
                               {deliveryOnlyOrders.map((deliveryOrder, idx) => (
                                 <div key={`delivery-info-${deliveryOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
@@ -550,33 +550,53 @@ const Reports = () => {
                                   <p className="ml-4">• <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}</p>
                                   {deliveryOrder.loadDetails.allPickupStops && deliveryOrder.loadDetails.allPickupStops.length > 0 && (
                                     <>
-                                      <p className="ml-4 font-semibold">• Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):</p>
-                                      {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                        <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
-                                          if (pickup.datetime === '—') return '—';
-                                          const dt = new Date(pickup.datetime);
-                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                          const day = String(dt.getUTCDate()).padStart(2, '0');
-                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                          return `${month}/${day}, ${hours}:${minutes}`;
-                                        })()}</p>
+                                       <p className="ml-4 font-semibold">• Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):</p>
+                                       {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                         <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
+                                           if (pickup.datetime === '—') return '—';
+                                           const dt = new Date(pickup.datetime);
+                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                           const day = String(dt.getUTCDate()).padStart(2, '0');
+                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                           let result = `${month}/${day}, ${hours}:${minutes}`;
+                                           // Check if there's an end time in the parent order
+                                           if (deliveryOrder.pickup_end_datetime) {
+                                             const endDt = new Date(deliveryOrder.pickup_end_datetime);
+                                             const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                             const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                             if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                               result += ` - ${endHours}:${endMinutes}`;
+                                             }
+                                           }
+                                           return result;
+                                         })()}</p>
                                       ))}
                                     </>
                                   )}
                                   {deliveryOrder.loadDetails.allDeliveryStops && deliveryOrder.loadDetails.allDeliveryStops.length > 0 && (
                                     <>
-                                      <p className="ml-4 font-semibold">• Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):</p>
-                                      {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                        <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
-                                          if (delivery.datetime === '—') return '—';
-                                          const dt = new Date(delivery.datetime);
-                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                          const day = String(dt.getUTCDate()).padStart(2, '0');
-                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                          return `${month}/${day}, ${hours}:${minutes}`;
-                                        })()}</p>
+                                       <p className="ml-4 font-semibold">• Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):</p>
+                                       {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                         <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
+                                           if (delivery.datetime === '—') return '—';
+                                           const dt = new Date(delivery.datetime);
+                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                           const day = String(dt.getUTCDate()).padStart(2, '0');
+                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                           let result = `${month}/${day}, ${hours}:${minutes}`;
+                                           // Check if there's an end time in the parent order
+                                           if (deliveryOrder.delivery_end_datetime) {
+                                             const endDt = new Date(deliveryOrder.delivery_end_datetime);
+                                             const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                             const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                             if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                               result += ` - ${endHours}:${endMinutes}`;
+                                             }
+                                           }
+                                           return result;
+                                         })()}</p>
                                       ))}
                                     </>
                                   )}
@@ -636,7 +656,7 @@ const Reports = () => {
                         </PopoverTrigger>
                         <PopoverContent className="w-80 z-[101]">
                           <div className="space-y-2 text-sm">
-                            <h4 className="font-semibold">Load Information ({pickupOnlyOrders.length} {pickupOnlyOrders.length === 1 ? 'Pickup' : 'Pickups'})</h4>
+                            <h4 className="font-semibold">Load Information</h4>
                             <div className="space-y-3">
                               {pickupOnlyOrders.map((pickupOrder, idx) => (
                                 <div key={`pickup-info-${pickupOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
@@ -644,33 +664,53 @@ const Reports = () => {
                                   <p className="ml-4">• <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}</p>
                                   {pickupOrder.loadDetails.allPickupStops && pickupOrder.loadDetails.allPickupStops.length > 0 && (
                                     <>
-                                      <p className="ml-4 font-semibold">• Pickups ({pickupOrder.loadDetails.allPickupStops.length}):</p>
-                                      {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                        <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
-                                          if (pickup.datetime === '—') return '—';
-                                          const dt = new Date(pickup.datetime);
-                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                          const day = String(dt.getUTCDate()).padStart(2, '0');
-                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                          return `${month}/${day}, ${hours}:${minutes}`;
-                                        })()}</p>
+                                       <p className="ml-4 font-semibold">• Pickups ({pickupOrder.loadDetails.allPickupStops.length}):</p>
+                                       {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                         <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
+                                           if (pickup.datetime === '—') return '—';
+                                           const dt = new Date(pickup.datetime);
+                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                           const day = String(dt.getUTCDate()).padStart(2, '0');
+                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                           let result = `${month}/${day}, ${hours}:${minutes}`;
+                                           // Check if there's an end time in the parent order
+                                           if (pickupOrder.pickup_end_datetime) {
+                                             const endDt = new Date(pickupOrder.pickup_end_datetime);
+                                             const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                             const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                             if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                               result += ` - ${endHours}:${endMinutes}`;
+                                             }
+                                           }
+                                           return result;
+                                         })()}</p>
                                       ))}
                                     </>
                                   )}
                                   {pickupOrder.loadDetails.allDeliveryStops && pickupOrder.loadDetails.allDeliveryStops.length > 0 && (
                                     <>
-                                      <p className="ml-4 font-semibold">• Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):</p>
-                                      {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                        <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
-                                          if (delivery.datetime === '—') return '—';
-                                          const dt = new Date(delivery.datetime);
-                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                          const day = String(dt.getUTCDate()).padStart(2, '0');
-                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                          return `${month}/${day}, ${hours}:${minutes}`;
-                                        })()}</p>
+                                       <p className="ml-4 font-semibold">• Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):</p>
+                                       {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                         <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
+                                           if (delivery.datetime === '—') return '—';
+                                           const dt = new Date(delivery.datetime);
+                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                           const day = String(dt.getUTCDate()).padStart(2, '0');
+                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                           let result = `${month}/${day}, ${hours}:${minutes}`;
+                                           // Check if there's an end time in the parent order
+                                           if (pickupOrder.delivery_end_datetime) {
+                                             const endDt = new Date(pickupOrder.delivery_end_datetime);
+                                             const endHours = String(endDt.getUTCHours()).padStart(2, '0');
+                                             const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
+                                             if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
+                                               result += ` - ${endHours}:${endMinutes}`;
+                                             }
+                                           }
+                                           return result;
+                                         })()}</p>
                                       ))}
                                     </>
                                   )}

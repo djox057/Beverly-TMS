@@ -340,6 +340,25 @@ For SINGLE-DROP loads, return JSON with legacy fields:
       throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
     }
 
+    // Sort pickups and deliveries by datetime
+    if (extractedData.pickups && extractedData.pickups.length > 1) {
+      extractedData.pickups.sort((a: PickupDeliveryStop, b: PickupDeliveryStop) => {
+        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+        return dateA.localeCompare(dateB);
+      });
+      console.log('Sorted pickups by datetime');
+    }
+    
+    if (extractedData.deliveries && extractedData.deliveries.length > 1) {
+      extractedData.deliveries.sort((a: PickupDeliveryStop, b: PickupDeliveryStop) => {
+        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+        return dateA.localeCompare(dateB);
+      });
+      console.log('Sorted deliveries by datetime');
+    }
+
     // Validate that we extracted some meaningful data
     const meaningfulFields = Object.entries(extractedData).filter(([key, value]) => {
       return value !== null && 

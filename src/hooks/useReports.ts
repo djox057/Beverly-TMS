@@ -311,8 +311,10 @@ export const useReports = () => {
         const allOrdersWithStops = truck.orders?.map(order => {
           const pickupStops = order.pickup_drops?.filter(stop => stop.type === 'pickup') || [];
           const deliveryStops = order.pickup_drops?.filter(stop => stop.type === 'delivery') || [];
-          const pickupStop = pickupStops[0]; // Keep for backward compatibility
-          const deliveryStop = deliveryStops[0]; // Keep for backward compatibility
+          
+          // For display: use first pickup and last delivery
+          const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
+          const deliveryStop = deliveryStops.length > 0 ? deliveryStops[deliveryStops.length - 1] : null;
           const documentStatus = getDocumentStatus(order.order_files || []);
           const documentColors = getDocumentColorClass(documentStatus);
           

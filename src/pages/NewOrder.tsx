@@ -512,6 +512,23 @@ const NewOrder = () => {
       // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       
+      // Sort pickups and deliveries by datetime before processing
+      if (extractedData.pickups && extractedData.pickups.length > 1) {
+        extractedData.pickups.sort((a: any, b: any) => {
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          return dateA.localeCompare(dateB);
+        });
+      }
+      
+      if (extractedData.deliveries && extractedData.deliveries.length > 1) {
+        extractedData.deliveries.sort((a: any, b: any) => {
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          return dateA.localeCompare(dateB);
+        });
+      }
+      
       // Check if we have multi-drop data
       if (extractedData.pickups && extractedData.pickups.length > 0) {
         // Multi-drop pickups
