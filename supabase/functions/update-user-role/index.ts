@@ -19,6 +19,12 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
+    // Use service role client for admin operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Create a Supabase client with the Auth context of the user
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -40,8 +46,8 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check if the requesting user has admin or accounting role
-    const { data: userRoles, error: rolesError } = await supabaseClient
+    // Check if the requesting user has admin or accounting role using service role
+    const { data: userRoles, error: rolesError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id);
@@ -71,12 +77,6 @@ serve(async (req) => {
     if (invalidRoles.length > 0) {
       throw new Error(`Invalid roles: ${invalidRoles.join(', ')}`);
     }
-
-    // Use service role client for admin operations
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
 
     // Delete existing roles for the user
     const { error: deleteError } = await supabaseAdmin

@@ -44,6 +44,7 @@ const AdminUsers = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRoles, setEditRoles] = useState<('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting')[]>([]);
+  const [editFullName, setEditFullName] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   
   // Form state
@@ -235,6 +236,7 @@ const AdminUsers = () => {
   const openEditDialog = (user: User) => {
     setUserToEdit(user);
     setEditRoles(user.roles);
+    setEditFullName(user.full_name || '');
     setIsEditDialogOpen(true);
   };
 
@@ -249,6 +251,7 @@ const AdminUsers = () => {
         throw new Error('No active session');
       }
 
+      // Update roles via edge function
       const { data, error } = await supabase.functions.invoke('update-user-role', {
         body: { 
           userId: userToEdit.user_id,
@@ -264,6 +267,16 @@ const AdminUsers = () => {
       if (data?.error) {
         throw new Error(data.error);
       }
+
+      // Update full name if changed
+      if (editFullName !== userToEdit.full_name) {
+        const { error: nameError } = await supabase
+          .from('profiles')
+          .update({ full_name: editFullName })
+          .eq('user_id', userToEdit.user_id);
+
+        if (nameError) throw nameError;
+      }
       
       await fetchUsers();
       setIsEditDialogOpen(false);
@@ -271,13 +284,13 @@ const AdminUsers = () => {
       
       toast({
         title: "Success",
-        description: "User roles updated successfully",
+        description: "User updated successfully",
       });
     } catch (error: any) {
-      console.error('Error updating roles:', error);
+      console.error('Error updating user:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update roles",
+        description: error.message || "Failed to update user",
         variant: "destructive",
       });
     } finally {
@@ -538,13 +551,20 @@ const AdminUsers = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit User Roles</DialogTitle>
+            <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-full-name">Full Name</Label>
+              <Input
+                id="edit-full-name"
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.target.value)}
+                placeholder="Enter full name"
+              />
+            </div>
+
             <div>
-              <p className="text-sm text-muted-foreground mb-2">
-                User: <span className="font-medium text-foreground">{userToEdit?.full_name || userToEdit?.email}</span>
-              </p>
               <p className="text-sm text-muted-foreground mb-4">
                 Email: <span className="font-medium text-foreground">{userToEdit?.email}</span>
               </p>
@@ -591,7 +611,7 @@ const AdminUsers = () => {
                     Updating...
                   </>
                 ) : (
-                  'Update Roles'
+                  'Update User'
                 )}
               </Button>
             </div>
