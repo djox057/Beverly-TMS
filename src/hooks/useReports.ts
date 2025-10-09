@@ -309,8 +309,10 @@ export const useReports = () => {
         
         // Process all orders for this truck (including GAME-OVER for calendar rendering)
         const allOrdersWithStops = truck.orders?.map(order => {
-          const pickupStop = order.pickup_drops?.find(stop => stop.type === 'pickup');
-          const deliveryStop = order.pickup_drops?.find(stop => stop.type === 'delivery');
+          const pickupStops = order.pickup_drops?.filter(stop => stop.type === 'pickup') || [];
+          const deliveryStops = order.pickup_drops?.filter(stop => stop.type === 'delivery') || [];
+          const pickupStop = pickupStops[0]; // Keep for backward compatibility
+          const deliveryStop = deliveryStops[0]; // Keep for backward compatibility
           const documentStatus = getDocumentStatus(order.order_files || []);
           const documentColors = getDocumentColorClass(documentStatus);
           
@@ -318,6 +320,8 @@ export const useReports = () => {
             ...order,
             pickupStop,
             deliveryStop,
+            pickupStops, // All pickups
+            deliveryStops, // All deliveries
             isActive: activeOrders.some(activeOrder => activeOrder.id === order.id),
             isRecentCompleted: recentCompletedOrders.some(completedOrder => completedOrder.id === order.id),
             documentStatus,
@@ -342,6 +346,21 @@ export const useReports = () => {
                 datetime: deliveryStop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               } : null,
+              // Include all pickup and delivery stops
+              allPickupStops: pickupStops.map(stop => ({
+                address: stop.address || '—',
+                city: stop.city || '—',
+                state: stop.state || '—',
+                zipCode: stop.zip_code || '',
+                datetime: stop.datetime || order.pickup_datetime || '—'
+              })),
+              allDeliveryStops: deliveryStops.map(stop => ({
+                address: stop.address || '—',
+                city: stop.city || '—',
+                state: stop.state || '—',
+                zipCode: stop.zip_code || '',
+                datetime: stop.datetime || order.delivery_datetime || '—'
+              })),
               documents: (order.order_files || []).map(file => ({
                 category: file.file_category,
                 name: file.file_name,

@@ -342,24 +342,45 @@ const Reports = () => {
       return order.pickupDate && order.deliveryDate && isSameDay(order.pickupDate, order.deliveryDate);
     };
 
-    // Get all orders with their pickup/delivery dates sorted chronologically
-    const ordersWithDates = truck.allOrders?.map((order: any) => {
-      const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
-      const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
-      return {
-        ...order,
-        pickupDate,
-        deliveryDate,
-        pickupLocation: order.pickupStop ? order.pickupStop.city && order.pickupStop.state ? `${order.pickupStop.city}, ${order.pickupStop.state}` : order.pickupStop.address || '—' : '—',
-        deliveryLocation: order.deliveryStop ? order.deliveryStop.city && order.deliveryStop.state ? `${order.deliveryStop.city}, ${order.deliveryStop.state}` : order.deliveryStop.address || '—' : '—'
-      };
-    }).sort((a, b) => {
-      // Sort by pickup date
-      if (!a.pickupDate && !b.pickupDate) return 0;
-      if (!a.pickupDate) return 1;
-      if (!b.pickupDate) return -1;
-      return a.pickupDate.getTime() - b.pickupDate.getTime();
-    }) || [];
+      // Get all orders with their pickup/delivery dates sorted chronologically
+      const ordersWithDates = truck.allOrders?.map((order: any) => {
+        const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
+        const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
+        
+        // Count pickup and delivery stops for this order on each date
+        const pickupStopsByDate = new Map<string, number>();
+        const deliveryStopsByDate = new Map<string, number>();
+        
+        order.pickupStops?.forEach((stop: any) => {
+          if (stop.datetime) {
+            const stopDate = format(new Date(stop.datetime), 'yyyy-MM-dd');
+            pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+          }
+        });
+        
+        order.deliveryStops?.forEach((stop: any) => {
+          if (stop.datetime) {
+            const stopDate = format(new Date(stop.datetime), 'yyyy-MM-dd');
+            deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+          }
+        });
+        
+        return {
+          ...order,
+          pickupDate,
+          deliveryDate,
+          pickupStopsByDate,
+          deliveryStopsByDate,
+          pickupLocation: order.pickupStop ? order.pickupStop.city && order.pickupStop.state ? `${order.pickupStop.city}, ${order.pickupStop.state}` : order.pickupStop.address || '—' : '—',
+          deliveryLocation: order.deliveryStop ? order.deliveryStop.city && order.deliveryStop.state ? `${order.deliveryStop.city}, ${order.deliveryStop.state}` : order.deliveryStop.address || '—' : '—'
+        };
+      }).sort((a, b) => {
+        // Sort by pickup date
+        if (!a.pickupDate && !b.pickupDate) return 0;
+        if (!a.pickupDate) return 1;
+        if (!b.pickupDate) return -1;
+        return a.pickupDate.getTime() - b.pickupDate.getTime();
+      }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
     const getPreviousLoadDeliveryStatus = (currentOrder: any): boolean => {
@@ -431,6 +452,11 @@ const Reports = () => {
       const sameDayOrders = allDayOrders.filter(order => isSameDayPickupDelivery(order));
       const pickupOnlyOrders = allDayOrders.filter(order => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order));
       const deliveryOnlyOrders = allDayOrders.filter(order => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order));
+      
+      // Count total stops for this day (sum of all pickup/delivery stops from all orders)
+      const dayStr = format(day, 'yyyy-MM-dd');
+      const totalPickupStops = pickupOnlyOrders.reduce((sum, order) => sum + (order.pickupStopsByDate?.get(dayStr) || 0), 0);
+      const totalDeliveryStops = deliveryOnlyOrders.reduce((sum, order) => sum + (order.deliveryStopsByDate?.get(dayStr) || 0), 0);
 
       // Check if this day is in transit (between pickup and delivery) for any order
       const inTransitOrders = ordersWithDates.filter(order => {
@@ -501,7 +527,7 @@ const Reports = () => {
                       {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
-                            {order.deliveryLocation}
+                            {order.deliveryLocation}{totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ''}
                           </div>
                           <div className="text-[9px] opacity-70 truncate leading-tight">
                             {order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
@@ -516,48 +542,48 @@ const Reports = () => {
                         </PopoverTrigger>
                         <PopoverContent className="w-80 z-[101]">
                           <div className="space-y-2 text-sm">
-                            <h4 className="font-semibold">Load Information</h4>
-                            <div className="space-y-1">
-                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
-                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
-                                if (order.loadDetails.pickupInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
-                                if (order.loadDetails.pickupInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
-                                  }
-                                }
-                                return timeStr;
-                              })()}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
-                                if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
-                                if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
-                                  }
-                                }
-                                return timeStr;
-                              })()}</p>}
-                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
-                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            <h4 className="font-semibold">Load Information ({deliveryOnlyOrders.length} {deliveryOnlyOrders.length === 1 ? 'Delivery' : 'Deliveries'})</h4>
+                            <div className="space-y-3">
+                              {deliveryOnlyOrders.map((deliveryOrder, idx) => (
+                                <div key={`delivery-info-${deliveryOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
+                                  <p className="font-semibold">• Load #{idx + 1}: {deliveryOrder.loadDetails.loadNumber}</p>
+                                  <p className="ml-4">• <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}</p>
+                                  {deliveryOrder.loadDetails.allPickupStops && deliveryOrder.loadDetails.allPickupStops.length > 0 && (
+                                    <>
+                                      <p className="ml-4 font-semibold">• Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):</p>
+                                      {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                        <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
+                                          if (pickup.datetime === '—') return '—';
+                                          const dt = new Date(pickup.datetime);
+                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                          const day = String(dt.getUTCDate()).padStart(2, '0');
+                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                          return `${month}/${day}, ${hours}:${minutes}`;
+                                        })()}</p>
+                                      ))}
+                                    </>
+                                  )}
+                                  {deliveryOrder.loadDetails.allDeliveryStops && deliveryOrder.loadDetails.allDeliveryStops.length > 0 && (
+                                    <>
+                                      <p className="ml-4 font-semibold">• Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):</p>
+                                      {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                        <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
+                                          if (delivery.datetime === '—') return '—';
+                                          const dt = new Date(delivery.datetime);
+                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                          const day = String(dt.getUTCDate()).padStart(2, '0');
+                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                          return `${month}/${day}, ${hours}:${minutes}`;
+                                        })()}</p>
+                                      ))}
+                                    </>
+                                  )}
+                                  <p className="ml-4">• <strong>Documents:</strong> {deliveryOrder.loadDetails.documents.length > 0 ? deliveryOrder.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                                  {deliveryOrder.loadDetails.notes !== '—' && <p className="ml-4">• <strong>Notes:</strong> {deliveryOrder.loadDetails.notes}</p>}
+                                </div>
+                              ))}
                             </div>
                             {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && <Button size="sm" onClick={() => {
                           updatePickupDropArrival.mutate({
@@ -595,7 +621,7 @@ const Reports = () => {
                       {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
-                            {order.pickupLocation}
+                            {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ''}
                           </div>
                           <div className="text-[9px] opacity-70 truncate leading-tight">
                             {order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
@@ -610,48 +636,48 @@ const Reports = () => {
                         </PopoverTrigger>
                         <PopoverContent className="w-80 z-[101]">
                           <div className="space-y-2 text-sm">
-                            <h4 className="font-semibold">Load Information</h4>
-                            <div className="space-y-1">
-                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
-                              <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                              {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
-                                if (order.loadDetails.pickupInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
-                                if (order.loadDetails.pickupInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
-                                  }
-                                }
-                                return timeStr;
-                              })()}</p>}
-                              {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
-                                if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
-                                if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
-                                  }
-                                }
-                                return timeStr;
-                              })()}</p>}
-                              <p>• <strong>Documents:</strong> {order.loadDetails.documents.length > 0 ? order.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
-                              {order.loadDetails.notes !== '—' && <p>• <strong>Notes:</strong> {order.loadDetails.notes}</p>}
+                            <h4 className="font-semibold">Load Information ({pickupOnlyOrders.length} {pickupOnlyOrders.length === 1 ? 'Pickup' : 'Pickups'})</h4>
+                            <div className="space-y-3">
+                              {pickupOnlyOrders.map((pickupOrder, idx) => (
+                                <div key={`pickup-info-${pickupOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
+                                  <p className="font-semibold">• Load #{idx + 1}: {pickupOrder.loadDetails.loadNumber}</p>
+                                  <p className="ml-4">• <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}</p>
+                                  {pickupOrder.loadDetails.allPickupStops && pickupOrder.loadDetails.allPickupStops.length > 0 && (
+                                    <>
+                                      <p className="ml-4 font-semibold">• Pickups ({pickupOrder.loadDetails.allPickupStops.length}):</p>
+                                      {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                        <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
+                                          if (pickup.datetime === '—') return '—';
+                                          const dt = new Date(pickup.datetime);
+                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                          const day = String(dt.getUTCDate()).padStart(2, '0');
+                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                          return `${month}/${day}, ${hours}:${minutes}`;
+                                        })()}</p>
+                                      ))}
+                                    </>
+                                  )}
+                                  {pickupOrder.loadDetails.allDeliveryStops && pickupOrder.loadDetails.allDeliveryStops.length > 0 && (
+                                    <>
+                                      <p className="ml-4 font-semibold">• Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):</p>
+                                      {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                        <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
+                                          if (delivery.datetime === '—') return '—';
+                                          const dt = new Date(delivery.datetime);
+                                          const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
+                                          const day = String(dt.getUTCDate()).padStart(2, '0');
+                                          const hours = String(dt.getUTCHours()).padStart(2, '0');
+                                          const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
+                                          return `${month}/${day}, ${hours}:${minutes}`;
+                                        })()}</p>
+                                      ))}
+                                    </>
+                                  )}
+                                  <p className="ml-4">• <strong>Documents:</strong> {pickupOrder.loadDetails.documents.length > 0 ? pickupOrder.loadDetails.documents.map(doc => doc.category).join(', ') : 'None'}</p>
+                                  {pickupOrder.loadDetails.notes !== '—' && <p className="ml-4">• <strong>Notes:</strong> {pickupOrder.loadDetails.notes}</p>}
+                                </div>
+                              ))}
                             </div>
                             {order.pickupStop?.id && !order.pickupStop?.arrived_at && <Button size="sm" onClick={() => {
                           updatePickupDropArrival.mutate({
