@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +41,10 @@ const AdminUsers = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [editRoles, setEditRoles] = useState<('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting')[]>([]);
+  const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   
   // Form state
   const [email, setEmail] = useState("");
@@ -226,6 +230,69 @@ const AdminUsers = () => {
       setIsDeleting(null);
       setUserToDelete(null);
     }
+  };
+
+  const openEditDialog = (user: User) => {
+    setUserToEdit(user);
+    setEditRoles(user.roles);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateRoles = async () => {
+    if (!userToEdit) return;
+
+    setIsUpdatingRoles(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      const { data, error } = await supabase.functions.invoke('update-user-role', {
+        body: { 
+          userId: userToEdit.user_id,
+          roles: editRoles
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      await fetchUsers();
+      setIsEditDialogOpen(false);
+      setUserToEdit(null);
+      
+      toast({
+        title: "Success",
+        description: "User roles updated successfully",
+      });
+    } catch (error: any) {
+      console.error('Error updating roles:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update roles",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingRoles(false);
+    }
+  };
+
+  const toggleRole = (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => {
+    setEditRoles(prev => {
+      if (prev.includes(role)) {
+        return prev.filter(r => r !== role);
+      } else {
+        return [...prev, role];
+      }
+    });
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -430,18 +497,29 @@ const AdminUsers = () => {
                     {new Date(user.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setUserToDelete(user)}
-                      disabled={isDeleting === user.user_id}
-                    >
-                      {isDeleting === user.user_id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(user)}
+                        title="Edit roles"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUserToDelete(user)}
+                        disabled={isDeleting === user.user_id}
+                        title="Delete user"
+                      >
+                        {isDeleting === user.user_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -456,6 +534,70 @@ const AdminUsers = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User Roles</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">
+                User: <span className="font-medium text-foreground">{userToEdit?.full_name || userToEdit?.email}</span>
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Email: <span className="font-medium text-foreground">{userToEdit?.email}</span>
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Roles (select all that apply)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['dispatch', 'manager', 'supervisor', 'safety', 'admin', 'accounting', 'driver'] as const).map(role => (
+                  <label
+                    key={role}
+                    className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={editRoles.includes(role)}
+                      onChange={() => toggleRole(role)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm font-medium capitalize">{role}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setUserToEdit(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateRoles}
+                disabled={isUpdatingRoles || editRoles.length === 0}
+              >
+                {isUpdatingRoles ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Roles'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>
