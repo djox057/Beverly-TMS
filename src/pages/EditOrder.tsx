@@ -241,30 +241,16 @@ const EditOrder = () => {
               fullAddress = addressParts.filter(Boolean).join(', ');
             }
 
-            // Create date range from datetime fields, considering end datetimes
+            // Create date range from datetime field - each stop uses its own datetime
             let dateRange: DateRange | undefined = undefined;
             let startTime = "";
             let endTime = "";
             
             if (pd.datetime) {
-              const startDate = new Date(pd.datetime);
-              startTime = startDate.toTimeString().slice(0, 5);
-              
-              // For pickup items, check if there's a pickup_end_datetime in the order
-              // For delivery items, check if there's a delivery_end_datetime in the order
-              let endDate = startDate; // Default to same date
-              
-              if (pd.type === 'pickup' && orderData.pickup_end_datetime) {
-                endDate = new Date(orderData.pickup_end_datetime);
-                endTime = endDate.toTimeString().slice(0, 5);
-              } else if (pd.type === 'delivery' && orderData.delivery_end_datetime) {
-                endDate = new Date(orderData.delivery_end_datetime);
-                endTime = endDate.toTimeString().slice(0, 5);
-              } else {
-                endTime = startTime; // If no end datetime, use same time
-              }
-              
-              dateRange = { from: startDate, to: endDate };
+              const dateObj = new Date(pd.datetime);
+              startTime = dateObj.toTimeString().slice(0, 5);
+              endTime = startTime; // Each stop uses its own datetime for both start and end
+              dateRange = { from: dateObj, to: dateObj };
             }
 
             console.log(`Loading ${pd.type}:`, {
