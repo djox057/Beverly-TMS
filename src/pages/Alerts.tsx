@@ -53,12 +53,9 @@ export default function Alerts() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Items Expiring Within 60 Days</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Tabs defaultValue="trucks" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="trucks" className="flex items-center gap-2">
