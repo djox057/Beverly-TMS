@@ -152,6 +152,10 @@ Extract ALL available information and return ONLY a valid JSON object with the e
 CRITICAL ADDRESS PARSING RULES:
 - city: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
 - state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY") 
+- zip: Extract zip code with these rules:
+  * If 5 digits or fewer, return as-is (e.g., "77001")
+  * If more than 5 digits, format as ZIP+4 with hyphen (e.g., "77001-1234")
+  * Remove any spaces or extra characters
 - DO NOT include ZIP codes, suite numbers, or other address components in city/state fields
 - DO NOT swap city and state values
 
