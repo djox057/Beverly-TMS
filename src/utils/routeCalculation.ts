@@ -296,39 +296,42 @@ export const calculateRouteDistance = async (
   end: Coordinates
 ): Promise<number | null> => {
   try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`;
+    // Use edge function to avoid CORS issues
+    const url = `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/calculate-route`;
     
     console.log('🚗 =================================');
-    console.log('🚗 OSRM ROUTE CALCULATION');
+    console.log('🚗 ROUTE CALCULATION VIA EDGE FUNCTION');
     console.log('🚗 =================================');
     console.log('🚗 Start Coordinates:', start);
     console.log('🚗 End Coordinates:', end);
-    console.log('🚗 OSRM URL:', url);
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ start, end })
+    });
     
-    console.log('🚗 OSRM response status:', response.status);
+    console.log('🚗 Edge function response status:', response.status);
     
     if (!response.ok) {
-      console.error('❌ OSRM API error:', response.status, response.statusText);
-      throw new Error(`OSRM API error: ${response.status}`);
+      console.error('❌ Edge function error:', response.status, response.statusText);
+      throw new Error(`Route calculation failed: ${response.status}`);
     }
     
-    const data: OSRMRoute = await response.json();
+    const data = await response.json();
     
-    console.log('🚗 OSRM response data:', data);
+    console.log('🚗 Edge function response data:', data);
     
-    if (data.routes && data.routes.length > 0) {
-      const distanceInMeters = data.routes[0].distance;
-      const distanceInMiles = Math.round(distanceInMeters * 0.000621371); // Convert meters to miles
+    if (data.success && data.distance !== undefined) {
       console.log('✅ =================================');
-      console.log('✅ OSRM CALCULATION COMPLETE');
+      console.log('✅ ROUTE CALCULATION COMPLETE');
       console.log('✅ =================================');
-      console.log('✅ Distance in meters:', distanceInMeters);
-      console.log('✅ Distance in miles:', distanceInMiles);
-      console.log('✅ Duration in seconds:', data.routes[0].duration);
+      console.log('✅ Distance in miles:', data.distance);
+      console.log('✅ Duration in seconds:', data.duration);
       console.log('✅ =================================');
-      return distanceInMiles;
+      return data.distance;
     }
     
     console.warn('⚠️ No route found between coordinates');

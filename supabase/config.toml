@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.generate-load-confirmation]
 verify_jwt = true
+
+[functions.calculate-route]
+verify_jwt = false
