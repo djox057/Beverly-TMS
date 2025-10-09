@@ -560,9 +560,9 @@ const Reports = () => {
                                            const hours = String(dt.getUTCHours()).padStart(2, '0');
                                            const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
                                            let result = `${month}/${day}, ${hours}:${minutes}`;
-                                           // Check if there's an end time in the parent order
-                                           if (deliveryOrder.pickup_end_datetime) {
-                                             const endDt = new Date(deliveryOrder.pickup_end_datetime);
+                                           // Check if there's an end time
+                                           if (pickup.endDatetime && pickup.endDatetime !== '—') {
+                                             const endDt = new Date(pickup.endDatetime);
                                              const endHours = String(endDt.getUTCHours()).padStart(2, '0');
                                              const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
                                              if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
@@ -586,9 +586,9 @@ const Reports = () => {
                                            const hours = String(dt.getUTCHours()).padStart(2, '0');
                                            const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
                                            let result = `${month}/${day}, ${hours}:${minutes}`;
-                                           // Check if there's an end time in the parent order
-                                           if (deliveryOrder.delivery_end_datetime) {
-                                             const endDt = new Date(deliveryOrder.delivery_end_datetime);
+                                           // Check if there's an end time
+                                           if (delivery.endDatetime && delivery.endDatetime !== '—') {
+                                             const endDt = new Date(delivery.endDatetime);
                                              const endHours = String(endDt.getUTCHours()).padStart(2, '0');
                                              const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
                                              if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
@@ -674,9 +674,9 @@ const Reports = () => {
                                            const hours = String(dt.getUTCHours()).padStart(2, '0');
                                            const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
                                            let result = `${month}/${day}, ${hours}:${minutes}`;
-                                           // Check if there's an end time in the parent order
-                                           if (pickupOrder.pickup_end_datetime) {
-                                             const endDt = new Date(pickupOrder.pickup_end_datetime);
+                                           // Check if there's an end time
+                                           if (pickup.endDatetime && pickup.endDatetime !== '—') {
+                                             const endDt = new Date(pickup.endDatetime);
                                              const endHours = String(endDt.getUTCHours()).padStart(2, '0');
                                              const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
                                              if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
@@ -700,9 +700,9 @@ const Reports = () => {
                                            const hours = String(dt.getUTCHours()).padStart(2, '0');
                                            const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
                                            let result = `${month}/${day}, ${hours}:${minutes}`;
-                                           // Check if there's an end time in the parent order
-                                           if (pickupOrder.delivery_end_datetime) {
-                                             const endDt = new Date(pickupOrder.delivery_end_datetime);
+                                           // Check if there's an end time
+                                           if (delivery.endDatetime && delivery.endDatetime !== '—') {
+                                             const endDt = new Date(delivery.endDatetime);
                                              const endHours = String(endDt.getUTCHours()).padStart(2, '0');
                                              const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
                                              if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
