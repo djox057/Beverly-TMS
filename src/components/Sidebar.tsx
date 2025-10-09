@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   Settings,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -63,10 +64,11 @@ export const Sidebar = () => {
       );
     }
 
-    // Admin role: all navigation + User Management page
+    // Admin role: all navigation + User Management page + Alerts
     if (primaryRole === 'admin') {
       return [
         ...navigation,
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
@@ -81,10 +83,13 @@ export const Sidebar = () => {
       return navigation;
     }
     
-    // Safety role: specific pages only (New Order, Orders, Trucks, Trailers, Drivers)
+    // Safety role: specific pages only (New Order, Orders, Trucks, Trailers, Drivers, Alerts)
     if (hasRole('safety')) {
       const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
-      return navigation.filter(item => safetyPages.includes(item.href));
+      return [
+        ...navigation.filter(item => safetyPages.includes(item.href)),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+      ];
     }
     
     // Dispatch role: all navigation except Analytics

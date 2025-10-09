@@ -24,6 +24,7 @@ import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
+import Alerts from "./pages/Alerts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,11 @@ const App = () => (
             <Route path="/samsara-debug" element={
               <ProtectedRoute requiredRole="admin">
                 <Layout><SamsaraDebug /></Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/alerts" element={
+              <ProtectedRoute>
+                <Layout><Alerts /></Layout>
               </ProtectedRoute>
             } />
             {/* Driver Portal Routes */}
