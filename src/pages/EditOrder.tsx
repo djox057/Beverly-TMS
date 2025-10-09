@@ -590,7 +590,14 @@ const EditOrder = () => {
     setIsSubmitting(true);
     
     try {
-      // Update order
+      // Update order - Calculate pickup/delivery datetimes from stops
+      const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
+      const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
+      const firstPickup = allPickups[0];
+      const lastPickup = allPickups[allPickups.length - 1];
+      const firstDelivery = allDeliveries[0];
+      const lastDelivery = allDeliveries[allDeliveries.length - 1];
+      
       const { error: orderError } = await supabase
         .from('orders')
         .update({
@@ -601,6 +608,18 @@ const EditOrder = () => {
           trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
           driver1_id: driver1 || null,
           driver2_id: driver2 || null,
+          pickup_datetime: firstPickup?.dateRange?.from && firstPickup?.startTime 
+            ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime) 
+            : null,
+          pickup_end_datetime: lastPickup?.dateRange?.from && lastPickup?.endTime 
+            ? combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime) 
+            : null,
+          delivery_datetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime 
+            ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime) 
+            : null,
+          delivery_end_datetime: lastDelivery?.dateRange?.from && lastDelivery?.endTime 
+            ? combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime) 
+            : null,
           freight_amount: freightAmount ? parseFloat(freightAmount) : null,
           detention: detention ? parseFloat(detention) : null,
           layover: layover ? parseFloat(layover) : null,

@@ -793,54 +793,54 @@ const NewOrder = () => {
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,
-        pickup_datetime: (() => {
-          const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-           if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
-             const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
-             console.log('Pickup datetime:', { startTime: firstPickup.startTime, dateFrom: firstPickup.dateRange.from, result });
-             return result;
-           }
-           return pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
-         })(),
-        pickup_end_datetime: (() => {
-          const firstPickup = pickupsDrops.find(item => item.type === 'pickup');
-           if (firstPickup?.dateRange?.to && firstPickup?.endTime) {
-             const result = combineDateAndTime(firstPickup.dateRange.to, firstPickup.endTime);
-             console.log('Pickup end datetime:', { 
-               endTime: firstPickup.endTime, 
-               dateTo: firstPickup.dateRange.to, 
-               dateFrom: firstPickup.dateRange.from,
-               areSameDate: firstPickup.dateRange.from?.getTime() === firstPickup.dateRange.to?.getTime(),
-               result 
-             });
-             return result;
-           }
-           return pickupDateRange?.to ? toLocalISOString(pickupDateRange.to) : pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
-         })(),
-        delivery_datetime: (() => {
-          const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-           if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
-             const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
-             console.log('Delivery datetime:', { startTime: firstDelivery.startTime, dateFrom: firstDelivery.dateRange.from, result });
-             return result;
-           }
-           return deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
-         })(),
-        delivery_end_datetime: (() => {
-          const firstDelivery = pickupsDrops.find(item => item.type === 'delivery');
-           if (firstDelivery?.dateRange?.to && firstDelivery?.endTime) {
-             const result = combineDateAndTime(firstDelivery.dateRange.to, firstDelivery.endTime);
-             console.log('Delivery end datetime:', { 
-               endTime: firstDelivery.endTime, 
-               dateTo: firstDelivery.dateRange.to, 
-               dateFrom: firstDelivery.dateRange.from,
-               areSameDate: firstDelivery.dateRange.from?.getTime() === firstDelivery.dateRange.to?.getTime(),
-               result 
-             });
-             return result;
-           }
-           return deliveryDateRange?.to ? toLocalISOString(deliveryDateRange.to) : deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
-         })(),
+         pickup_datetime: (() => {
+           const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
+           const firstPickup = allPickups[0];
+            if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
+              const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
+              console.log('Pickup datetime:', { startTime: firstPickup.startTime, dateFrom: firstPickup.dateRange.from, result });
+              return result;
+            }
+            return pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
+          })(),
+         pickup_end_datetime: (() => {
+           const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
+           const lastPickup = allPickups[allPickups.length - 1];
+            if (lastPickup?.dateRange?.from && lastPickup?.endTime) {
+              const result = combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime);
+              console.log('Pickup end datetime (using LAST pickup):', { 
+                endTime: lastPickup.endTime, 
+                dateFrom: lastPickup.dateRange.from,
+                result 
+              });
+              return result;
+            }
+            return pickupDateRange?.to ? toLocalISOString(pickupDateRange.to) : pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
+          })(),
+         delivery_datetime: (() => {
+           const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
+           const firstDelivery = allDeliveries[0];
+            if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
+              const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
+              console.log('Delivery datetime:', { startTime: firstDelivery.startTime, dateFrom: firstDelivery.dateRange.from, result });
+              return result;
+            }
+            return deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
+          })(),
+         delivery_end_datetime: (() => {
+           const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
+           const lastDelivery = allDeliveries[allDeliveries.length - 1];
+            if (lastDelivery?.dateRange?.from && lastDelivery?.endTime) {
+              const result = combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime);
+              console.log('Delivery end datetime (using LAST delivery):', { 
+                endTime: lastDelivery.endTime, 
+                dateFrom: lastDelivery.dateRange.from,
+                result 
+              });
+              return result;
+            }
+            return deliveryDateRange?.to ? toLocalISOString(deliveryDateRange.to) : deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
+          })(),
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
         tonu: tonu ? parseFloat(tonu) : null,
