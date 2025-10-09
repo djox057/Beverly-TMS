@@ -66,6 +66,7 @@ const NewOrder = () => {
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [isCalculatingMiles, setIsCalculatingMiles] = useState(false);
   const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
+  const [hasAutoExtracted, setHasAutoExtracted] = useState(false);
   
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
@@ -101,6 +102,24 @@ const NewOrder = () => {
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find(item => item.type === 'pickup')?.datetime || null;
   const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
+
+  // Auto-extract AI when RC file is uploaded
+  useEffect(() => {
+    // Reset flag when files are cleared
+    if (!rcFiles || rcFiles.length === 0) {
+      setHasAutoExtracted(false);
+      return;
+    }
+
+    // Auto-trigger extraction once when PDF is uploaded
+    if (!hasAutoExtracted && !isExtracting) {
+      const pdfFile = Array.from(rcFiles).find(file => file.type === 'application/pdf');
+      if (pdfFile) {
+        setHasAutoExtracted(true);
+        handleExtractWithAI();
+      }
+    }
+  }, [rcFiles]);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
