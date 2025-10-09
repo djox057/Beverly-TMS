@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { parseLocalDateTime, toLocalISOString } from "@/utils/dateUtils";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 export const useReports = () => {
   const queryClient = useQueryClient();
@@ -434,13 +434,13 @@ export const useReports = () => {
           
           if (datetimeToUse) {
             // Parse datetime without timezone conversion
-            const parsed = parseLocalDateTime(datetimeToUse);
+            const parsed = parseSimpleDateTime(datetimeToUse);
             date = parsed.dateString;
             const startTime = parsed.timeString;
             
             // If there's an end time and it's different from start time, show range
             if (endDatetimeToUse) {
-              const parsedEnd = parseLocalDateTime(endDatetimeToUse);
+              const parsedEnd = parseSimpleDateTime(endDatetimeToUse);
               const endTime = parsedEnd.timeString;
               
               if (startTime !== endTime) {

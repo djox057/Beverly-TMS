@@ -21,7 +21,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
-import { combineDateAndTime, toLocalISOString } from "@/utils/dateUtils";
+import { combineDateAndTime } from "@/utils/dateUtils";
 
 interface PickupDrop {
   id: string;
@@ -797,49 +797,33 @@ const NewOrder = () => {
            const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
            const firstPickup = allPickups[0];
             if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
-              const result = combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
-              console.log('Pickup datetime:', { startTime: firstPickup.startTime, dateFrom: firstPickup.dateRange.from, result });
-              return result;
+              return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
             }
-            return pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
+            return null;
           })(),
          pickup_end_datetime: (() => {
            const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
            const lastPickup = allPickups[allPickups.length - 1];
             if (lastPickup?.dateRange?.from && lastPickup?.endTime) {
-              const result = combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime);
-              console.log('Pickup end datetime (using LAST pickup):', { 
-                endTime: lastPickup.endTime, 
-                dateFrom: lastPickup.dateRange.from,
-                result 
-              });
-              return result;
+              return combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime);
             }
-            return pickupDateRange?.to ? toLocalISOString(pickupDateRange.to) : pickupDateRange?.from ? toLocalISOString(pickupDateRange.from) : null;
+            return null;
           })(),
          delivery_datetime: (() => {
            const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
            const firstDelivery = allDeliveries[0];
             if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
-              const result = combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
-              console.log('Delivery datetime:', { startTime: firstDelivery.startTime, dateFrom: firstDelivery.dateRange.from, result });
-              return result;
+              return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
             }
-            return deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
+            return null;
           })(),
          delivery_end_datetime: (() => {
            const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
            const lastDelivery = allDeliveries[allDeliveries.length - 1];
             if (lastDelivery?.dateRange?.from && lastDelivery?.endTime) {
-              const result = combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime);
-              console.log('Delivery end datetime (using LAST delivery):', { 
-                endTime: lastDelivery.endTime, 
-                dateFrom: lastDelivery.dateRange.from,
-                result 
-              });
-              return result;
+              return combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime);
             }
-            return deliveryDateRange?.to ? toLocalISOString(deliveryDateRange.to) : deliveryDateRange?.from ? toLocalISOString(deliveryDateRange.from) : null;
+            return null;
           })(),
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         driver_price: driverPrice ? parseFloat(driverPrice) : null,
@@ -960,7 +944,7 @@ const NewOrder = () => {
             zip_code: zipCode,
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
-              : item.dateRange?.from ? toLocalISOString(item.dateRange.from) : null
+              : null
           };
         });
         if (pickupDropData.length > 0) {

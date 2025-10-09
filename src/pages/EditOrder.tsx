@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { combineDateAndTime, toLocalISOString } from "@/utils/dateUtils";
+import { combineDateAndTime } from "@/utils/dateUtils";
 
 interface PickupDrop {
   id: string;
