@@ -348,13 +348,13 @@ export const useReports = () => {
                 datetime: deliveryStop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               } : null,
-              // Include all pickup and delivery stops - use order datetime, not stop datetime
+              // Include all pickup and delivery stops - use individual stop datetime for multi-stop loads
               allPickupStops: pickupStops.map(stop => ({
                 address: stop.address || '—',
                 city: stop.city || '—',
                 state: stop.state || '—',
                 zipCode: stop.zip_code || '',
-                datetime: order.pickup_datetime || '—',
+                datetime: stop.datetime || order.pickup_datetime || '—',
                 endDatetime: order.pickup_end_datetime || '—'
               })),
               allDeliveryStops: deliveryStops.map(stop => ({
@@ -362,7 +362,7 @@ export const useReports = () => {
                 city: stop.city || '—',
                 state: stop.state || '—',
                 zipCode: stop.zip_code || '',
-                datetime: order.delivery_datetime || '—',
+                datetime: stop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               })),
               documents: (order.order_files || []).map(file => ({
