@@ -149,9 +149,6 @@ const AdminUsers = () => {
           password, 
           fullName: fullName || email, 
           role 
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
         }
       });
       
@@ -201,10 +198,7 @@ const AdminUsers = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: userToDelete.user_id },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        body: { userId: userToDelete.user_id }
       });
       
       if (error) throw error;
@@ -256,9 +250,6 @@ const AdminUsers = () => {
         body: { 
           userId: userToEdit.user_id,
           roles: editRoles
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
         }
       });
       
