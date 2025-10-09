@@ -422,7 +422,7 @@ const Orders = () => {
                         <TableCell>{order.mileage.toLocaleString()}</TableCell>
                         <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
                         <TableCell>{order.driverName}</TableCell>
-                        <TableCell>{order.brokerName}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>{order.invoiced}</TableCell>
                         <TableCell>
@@ -442,7 +442,7 @@ const Orders = () => {
                         </TableCell>
                         <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
-                        <TableCell>{order.bookedBy}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
