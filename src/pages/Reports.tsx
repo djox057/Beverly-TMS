@@ -19,6 +19,7 @@ import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from 'date-fns';
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 interface EditingState {
   truckId: string;
@@ -44,6 +45,22 @@ const getStatusBadge = (status: string) => {
 };
 const Reports = () => {
   const { profile } = useAuthContext();
+  
+  // Helper to format datetime without timezone conversion
+  const formatDateTime = (datetimeStr: string, formatStr: string) => {
+    if (!datetimeStr || datetimeStr === '—') return '—';
+    const parsed = parseSimpleDateTime(datetimeStr);
+    // Create date from parsed components (no timezone conversion)
+    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+    return format(date, formatStr);
+  };
+  
+  // Helper to format time only
+  const formatTime = (datetimeStr: string) => {
+    if (!datetimeStr || datetimeStr === '—') return '—';
+    const parsed = parseSimpleDateTime(datetimeStr);
+    return parsed.timeString;
+  };
   
   // Offices list
   const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"];
@@ -344,8 +361,15 @@ const Reports = () => {
 
       // Get all orders with their pickup/delivery dates sorted chronologically
       const ordersWithDates = truck.allOrders?.map((order: any) => {
-        const pickupDate = order.pickup_datetime ? new Date(order.pickup_datetime) : null;
-        const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
+        // Parse datetime without timezone conversion
+        const pickupDate = order.pickup_datetime ? (() => {
+          const parsed = parseSimpleDateTime(order.pickup_datetime);
+          return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+        })() : null;
+        const deliveryDate = order.delivery_datetime ? (() => {
+          const parsed = parseSimpleDateTime(order.delivery_datetime);
+          return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+        })() : null;
         
         // Count pickup and delivery stops for this order on each date
         const pickupStopsByDate = new Map<string, number>();
@@ -353,14 +377,14 @@ const Reports = () => {
         
         order.pickupStops?.forEach((stop: any) => {
           if (stop.datetime) {
-            const stopDate = format(new Date(stop.datetime), 'yyyy-MM-dd');
+            const stopDate = formatDateTime(stop.datetime, 'yyyy-MM-dd');
             pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
           }
         });
         
         order.deliveryStops?.forEach((stop: any) => {
           if (stop.datetime) {
-            const stopDate = format(new Date(stop.datetime), 'yyyy-MM-dd');
+            const stopDate = formatDateTime(stop.datetime, 'yyyy-MM-dd');
             deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
           }
         });
@@ -530,7 +554,7 @@ const Reports = () => {
                             {order.deliveryLocation}{totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ''}
                           </div>
                           <div className="text-[9px] opacity-70 truncate leading-tight">
-                            {order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')} - ${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}
+                            {order.delivery_datetime && order.delivery_end_datetime && formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime) ? `${formatTime(order.delivery_datetime)} - ${formatTime(order.delivery_end_datetime)}` : order.delivery_datetime ? formatTime(order.delivery_datetime) : '—'}
                           </div>
                         </>
                       )}
@@ -552,15 +576,7 @@ const Reports = () => {
                                     <>
                                        <p className="ml-4 font-semibold">• Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):</p>
                                        {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                         <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
-                                           if (pickup.datetime === '—') return '—';
-                                           const dt = new Date(pickup.datetime);
-                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                           const day = String(dt.getUTCDate()).padStart(2, '0');
-                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                           return `${month}/${day}, ${hours}:${minutes}`;
-                                         })()}</p>
+                                       <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, 'MM/dd, HH:mm')}</p>
                                       ))}
                                     </>
                                   )}
@@ -568,15 +584,7 @@ const Reports = () => {
                                     <>
                                        <p className="ml-4 font-semibold">• Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):</p>
                                        {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                         <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
-                                           if (delivery.datetime === '—') return '—';
-                                           const dt = new Date(delivery.datetime);
-                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                           const day = String(dt.getUTCDate()).padStart(2, '0');
-                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                           return `${month}/${day}, ${hours}:${minutes}`;
-                                         })()}</p>
+                                       <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, 'MM/dd, HH:mm')}</p>
                                       ))}
                                     </>
                                   )}
@@ -624,7 +632,7 @@ const Reports = () => {
                             {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ''}
                           </div>
                           <div className="text-[9px] opacity-70 truncate leading-tight">
-                            {order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')} - ${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}
+                            {order.pickup_datetime && order.pickup_end_datetime && formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime) ? `${formatTime(order.pickup_datetime)} - ${formatTime(order.pickup_end_datetime)}` : order.pickup_datetime ? formatTime(order.pickup_datetime) : '—'}
                           </div>
                         </>
                       )}
@@ -646,15 +654,7 @@ const Reports = () => {
                                     <>
                                        <p className="ml-4 font-semibold">• Pickups ({pickupOrder.loadDetails.allPickupStops.length}):</p>
                                        {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                         <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {(() => {
-                                           if (pickup.datetime === '—') return '—';
-                                           const dt = new Date(pickup.datetime);
-                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                           const day = String(dt.getUTCDate()).padStart(2, '0');
-                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                           return `${month}/${day}, ${hours}:${minutes}`;
-                                         })()}</p>
+                                       <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, 'MM/dd, HH:mm')}</p>
                                       ))}
                                     </>
                                   )}
@@ -662,15 +662,7 @@ const Reports = () => {
                                     <>
                                        <p className="ml-4 font-semibold">• Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):</p>
                                        {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                         <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {(() => {
-                                           if (delivery.datetime === '—') return '—';
-                                           const dt = new Date(delivery.datetime);
-                                           const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                           const day = String(dt.getUTCDate()).padStart(2, '0');
-                                           const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                           const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                           return `${month}/${day}, ${hours}:${minutes}`;
-                                         })()}</p>
+                                       <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, 'MM/dd, HH:mm')}</p>
                                       ))}
                                     </>
                                   )}
@@ -707,8 +699,8 @@ const Reports = () => {
                         D: {order.deliveryLocation}
                       </div>
                       <div className="text-[9px] opacity-70 truncate flex justify-between leading-tight">
-                        <span>{order.pickup_datetime && order.pickup_end_datetime && format(new Date(order.pickup_datetime), 'HH:mm') !== format(new Date(order.pickup_end_datetime), 'HH:mm') ? `${format(new Date(order.pickup_datetime), 'HH:mm')}-${format(new Date(order.pickup_end_datetime), 'HH:mm')}` : order.pickup_datetime ? format(new Date(order.pickup_datetime), 'HH:mm') : '—'}</span>
-                        <span>{order.delivery_datetime && order.delivery_end_datetime && format(new Date(order.delivery_datetime), 'HH:mm') !== format(new Date(order.delivery_end_datetime), 'HH:mm') ? `${format(new Date(order.delivery_datetime), 'HH:mm')}-${format(new Date(order.delivery_end_datetime), 'HH:mm')}` : order.delivery_datetime ? format(new Date(order.delivery_datetime), 'HH:mm') : '—'}</span>
+                        <span>{order.pickup_datetime && order.pickup_end_datetime && formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime) ? `${formatTime(order.pickup_datetime)}-${formatTime(order.pickup_end_datetime)}` : order.pickup_datetime ? formatTime(order.pickup_datetime) : '—'}</span>
+                        <span>{order.delivery_datetime && order.delivery_end_datetime && formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime) ? `${formatTime(order.delivery_datetime)}-${formatTime(order.delivery_end_datetime)}` : order.delivery_datetime ? formatTime(order.delivery_datetime) : '—'}</span>
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -724,36 +716,24 @@ const Reports = () => {
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
                               {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.pickupInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.pickupInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                let timeStr = formatDateTime(order.loadDetails.pickupInfo.datetime, 'MM/dd, HH:mm');
                                 if (order.loadDetails.pickupInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.pickupInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  const endTime = formatTime(order.loadDetails.pickupInfo.endDatetime);
+                                  const startTime = formatTime(order.loadDetails.pickupInfo.datetime);
+                                  if (startTime !== endTime) {
+                                    timeStr += ` - ${endTime}`;
                                   }
                                 }
                                 return timeStr;
                               })()}</p>}
                               {order.loadDetails.deliveryInfo && <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.deliveryInfo.datetime === '—') return '—';
-                                const dt = new Date(order.loadDetails.deliveryInfo.datetime);
-                                const month = String(dt.getUTCMonth() + 1).padStart(2, '0');
-                                const day = String(dt.getUTCDate()).padStart(2, '0');
-                                const hours = String(dt.getUTCHours()).padStart(2, '0');
-                                const minutes = String(dt.getUTCMinutes()).padStart(2, '0');
-                                let timeStr = `${month}/${day}, ${hours}:${minutes}`;
+                                let timeStr = formatDateTime(order.loadDetails.deliveryInfo.datetime, 'MM/dd, HH:mm');
                                 if (order.loadDetails.deliveryInfo.endDatetime !== '—') {
-                                  const endDt = new Date(order.loadDetails.deliveryInfo.endDatetime);
-                                  const endHours = String(endDt.getUTCHours()).padStart(2, '0');
-                                  const endMinutes = String(endDt.getUTCMinutes()).padStart(2, '0');
-                                  if (`${hours}:${minutes}` !== `${endHours}:${endMinutes}`) {
-                                    timeStr += ` - ${endHours}:${endMinutes}`;
+                                  const endTime = formatTime(order.loadDetails.deliveryInfo.endDatetime);
+                                  const startTime = formatTime(order.loadDetails.deliveryInfo.datetime);
+                                  if (startTime !== endTime) {
+                                    timeStr += ` - ${endTime}`;
                                   }
                                 }
                                 return timeStr;

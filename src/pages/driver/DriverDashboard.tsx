@@ -2,6 +2,7 @@ import { useDriverData } from "@/hooks/useDriverData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Truck, Package, MapPin, DollarSign } from "lucide-react";
 import { format } from "date-fns";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 export default function DriverDashboard() {
   const { data, isLoading } = useDriverData();
@@ -17,7 +18,9 @@ export default function DriverDashboard() {
   const activeOrders = data?.orders?.filter(o => o.status === 'in_transit' || o.status === 'pending') || [];
   const completedThisMonth = data?.orders?.filter(o => {
     if (!o.delivery_datetime) return false;
-    const deliveryDate = new Date(o.delivery_datetime);
+    // Parse without timezone conversion
+    const parsed = parseSimpleDateTime(o.delivery_datetime);
+    const deliveryDate = new Date(parsed.year, parsed.month - 1, parsed.day);
     const now = new Date();
     return deliveryDate.getMonth() === now.getMonth() && 
            deliveryDate.getFullYear() === now.getFullYear() &&
@@ -114,20 +117,28 @@ export default function DriverDashboard() {
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                        <div className="text-xs">
+                          <div className="text-xs">
                           <div className="font-medium text-foreground">{pickup?.city}, {pickup?.state}</div>
                           <div className="text-muted-foreground">
-                            {order.pickup_datetime && format(new Date(order.pickup_datetime), 'MMM dd, h:mm a')}
+                            {order.pickup_datetime && (() => {
+                              const parsed = parseSimpleDateTime(order.pickup_datetime);
+                              const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                              return format(date, 'MMM dd, h:mm a');
+                            })()}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-start gap-2">
                         <MapPin className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                        <div className="text-xs">
+                          <div className="text-xs">
                           <div className="font-medium text-foreground">{delivery?.city}, {delivery?.state}</div>
                           <div className="text-muted-foreground">
-                            {order.delivery_datetime && format(new Date(order.delivery_datetime), 'MMM dd, h:mm a')}
+                            {order.delivery_datetime && (() => {
+                              const parsed = parseSimpleDateTime(order.delivery_datetime);
+                              const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                              return format(date, 'MMM dd, h:mm a');
+                            })()}
                           </div>
                         </div>
                       </div>

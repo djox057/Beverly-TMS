@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { combineDateAndTime } from "@/utils/dateUtils";
+import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
 
 interface PickupDrop {
   id: string;
@@ -247,9 +247,12 @@ const EditOrder = () => {
             let endTime = "";
             
             if (pd.datetime) {
-              const dateObj = new Date(pd.datetime);
-              startTime = dateObj.toTimeString().slice(0, 5);
-              endTime = startTime; // Each stop uses its own datetime for both start and end
+              // Parse without timezone conversion
+              const parsed = parseSimpleDateTime(pd.datetime);
+              startTime = parsed.timeString;
+              endTime = parsed.timeString; // Each stop uses its own datetime for both start and end
+              // Create date object from parsed components (no timezone conversion)
+              const dateObj = new Date(parsed.year, parsed.month - 1, parsed.day);
               dateRange = { from: dateObj, to: dateObj };
             }
 
@@ -266,7 +269,7 @@ const EditOrder = () => {
               id: pd.id,
               type: pd.type,
               address: fullAddress,
-              datetime: pd.datetime ? new Date(pd.datetime).toISOString().slice(0, 16) : "",
+              datetime: pd.datetime || "",
               dateRange,
               startTime,
               endTime,
