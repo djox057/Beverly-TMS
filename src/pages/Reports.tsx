@@ -514,7 +514,7 @@ const Reports = () => {
         maxWidth: '120px',
         verticalAlign: 'top',
         ...(showRightBorder ? {
-          borderRight: '1px solid rgb(209, 213, 219)'
+          borderRight: '1px solid hsl(var(--border))'
         } : {})
       }}>
           {/* Red border overlay for today column - sits on top of everything */}
@@ -523,13 +523,13 @@ const Reports = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          borderLeft: '4px solid rgb(239, 68, 68)',
-          borderRight: '4px solid rgb(239, 68, 68)',
+          borderLeft: '4px solid hsl(var(--destructive))',
+          borderRight: '4px solid hsl(var(--destructive))',
           ...(isFirstTruck ? {
-            borderTop: '4px solid rgb(239, 68, 68)'
+            borderTop: '4px solid hsl(var(--destructive))'
           } : {}),
           ...(isLastTruck ? {
-            borderBottom: '4px solid rgb(239, 68, 68)'
+            borderBottom: '4px solid hsl(var(--destructive))'
           } : {}),
           zIndex: 100
         }} />}
@@ -539,7 +539,7 @@ const Reports = () => {
           height: '64px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
-            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{
+            <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
             height: '32px',
             minHeight: '32px',
             maxHeight: '32px'
@@ -616,7 +616,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-destructive-light' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
+            <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-[hsl(var(--destructive-light))]' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
             height: '32px',
             minHeight: '32px',
             maxHeight: '32px'
@@ -772,7 +772,7 @@ const Reports = () => {
                   {pickupOnlyOrders.length + sameDayOrders.length > 1 && <div className="text-[9px] text-muted-foreground text-center leading-tight">
                       +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-destructive-foreground font-semibold cursor-pointer hover:bg-destructive/30' : isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(var(--destructive))]' : isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`} onClick={isMissingPickup ? e => {
               e.stopPropagation();
               const dateStr = format(day, 'yyyy-MM-dd');
               const currentNote = getLostDayNote(day);
@@ -1101,7 +1101,7 @@ const Reports = () => {
                               label="BREAK" color="#8b5cf6" // purple
                               size={32} strokeWidth={3} />
                               <HosCircularTimer minutes={truck.cycleMinutes} maxMinutes={70 * 60} // 70 hours max cycle time
-                              label="CYCLE" color="#6b7280" // gray
+                              label="CYCLE" color="hsl(var(--muted-foreground))" // muted foreground color
                               size={32} strokeWidth={3} />
                             </div>
                             <div className="h-8 p-0 w-full">
