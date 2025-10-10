@@ -779,7 +779,7 @@ const Analytics = () => {
                               value={stat.grossTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'grossTier', value)}
                             >
-                              <SelectTrigger className="w-28">
+                              <SelectTrigger className="w-22">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -794,7 +794,7 @@ const Analytics = () => {
                               value={stat.safetyTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'safetyTier', value)}
                             >
-                              <SelectTrigger className="w-28">
+                              <SelectTrigger className="w-22">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -809,7 +809,7 @@ const Analytics = () => {
                               value={stat.managementTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'managementTier', value)}
                             >
-                              <SelectTrigger className="w-28">
+                              <SelectTrigger className="w-22">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -829,7 +829,7 @@ const Analytics = () => {
                                   className="h-auto p-2 text-left justify-start"
                                 >
                                   <span className="line-clamp-2 text-xs">
-                                    {stat.notice || 'Click to add note...'}
+                                    {stat.notice ? (stat.notice.length > 44 ? stat.notice.substring(0, 44) + '...' : stat.notice) : 'Click to add note...'}
                                   </span>
                                 </Button>
                               </DialogTrigger>
