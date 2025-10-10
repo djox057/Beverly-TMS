@@ -34,18 +34,18 @@ serve(async (req) => {
     // Verify the user's authentication
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
-    // Use service role client for all operations
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     if (userError || !user) {
       console.error('Auth verification failed:', userError);
       throw new Error('Unauthorized');
     }
 
     console.log('User verified:', user.id);
+
+    // Use service role client for all operations (including role checks)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Check if the requesting user has admin or accounting role
     const { data: userRoles, error: rolesError } = await supabaseAdmin
