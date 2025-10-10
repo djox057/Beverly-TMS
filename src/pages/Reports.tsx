@@ -1093,16 +1093,16 @@ const Reports = () => {
                               {/* HOS Circular Timers */}
                               <HosCircularTimer minutes={truck.driveMinutes} maxMinutes={11 * 60} // 11 hours max drive time
                               label="DRIVE" color="#84cc16" // green
-                              size={32} strokeWidth={3} />
+                              size={31} strokeWidth={3} />
                                <HosCircularTimer minutes={truck.shiftMinutes} maxMinutes={14 * 60} // 14 hours max shift time
                               label="SHIFT" color="#06b6d4" // cyan
-                              size={32} strokeWidth={3} />
+                              size={31} strokeWidth={3} />
                               <HosCircularTimer minutes={truck.breakMinutes} maxMinutes={8 * 60} // 8 hours max break time
                               label="BREAK" color="#8b5cf6" // purple
-                              size={32} strokeWidth={3} />
+                              size={31} strokeWidth={3} />
                               <HosCircularTimer minutes={truck.cycleMinutes} maxMinutes={70 * 60} // 70 hours max cycle time
                               label="CYCLE" color="hsl(var(--muted-foreground))" // muted foreground color
-                              size={32} strokeWidth={3} />
+                              size={31} strokeWidth={3} />
                             </div>
                             <div className="h-8 p-0 w-full">
                               {renderEditableField(truck.id, 'note', truck.note)}
