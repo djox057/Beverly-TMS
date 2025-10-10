@@ -350,15 +350,17 @@ const Orders = () => {
                 </SelectContent>
               </Select>
               
-              <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Booked By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-users">All Users</SelectItem>
-                  {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {primaryRole !== 'dispatch' && (
+                <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filter by Booked By" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all-users">All Users</SelectItem>
+                    {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
               
               <Select value={driverFilter} onValueChange={setDriverFilter}>
                 <SelectTrigger className="w-48">
