@@ -509,9 +509,9 @@ const Reports = () => {
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
       return <td key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
-        width: '120px',
-        minWidth: '120px',
-        maxWidth: '120px',
+        width: isToday ? '116.4px' : '120px',
+        minWidth: isToday ? '116.4px' : '120px',
+        maxWidth: isToday ? '116.4px' : '120px',
         verticalAlign: 'top',
         ...(showRightBorder ? {
           borderRight: '1px solid hsl(var(--border))'
@@ -535,7 +535,7 @@ const Reports = () => {
         }} />}
           
           <div className="flex flex-col relative" style={{
-          width: '120px',
+          width: isToday ? '116.4px' : '120px',
           height: '64px'
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
