@@ -38,7 +38,7 @@ const EditOrder = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1123,13 +1123,22 @@ const EditOrder = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="booked-by">Booked By</Label>
-                <Combobox 
-                  options={profiles.map(p => ({ value: p.full_name, label: p.full_name }))} 
-                  value={bookedBy} 
-                  onValueChange={setBookedBy} 
-                  placeholder="Select person" 
-                  searchPlaceholder="Search names..." 
-                />
+                {hasRole('manager') || hasRole('admin') ? (
+                  <Combobox 
+                    options={profiles.map(p => ({ value: p.full_name, label: p.full_name }))} 
+                    value={bookedBy} 
+                    onValueChange={setBookedBy} 
+                    placeholder="Select person" 
+                    searchPlaceholder="Search names..." 
+                  />
+                ) : (
+                  <Input 
+                    id="booked-by"
+                    value={bookedBy || 'Not assigned'} 
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                  />
+                )}
               </div>
             </div>
 
