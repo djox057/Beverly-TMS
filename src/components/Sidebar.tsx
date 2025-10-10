@@ -13,12 +13,17 @@ import {
   User,
   Settings,
   TrendingUp,
-  AlertTriangle
+  AlertTriangle,
+  Moon,
+  Sun
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -47,6 +52,7 @@ const navigation = [
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
   const { state } = useSidebar();
+  const { theme, setTheme } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -132,9 +138,44 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* User Profile & Logout */}
+        {/* Theme Toggle & User Profile */}
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
+            {/* Theme Toggle */}
+            <div className="px-4 py-3 border-t border-border">
+              <div className="flex items-center justify-between gap-3">
+                {state !== "collapsed" ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="theme-toggle" className="text-sm font-medium cursor-pointer">
+                        Dark Mode
+                      </Label>
+                    </div>
+                    <Switch
+                      id="theme-toggle"
+                      checked={theme === "dark"}
+                      onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 mx-auto"
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  >
+                    {theme === "dark" ? (
+                      <Moon className="h-4 w-4" />
+                    ) : (
+                      <Sun className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            {/* User Profile & Logout */}
             <div className="p-4 border-t border-border">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex-shrink-0">
