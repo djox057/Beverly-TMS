@@ -77,10 +77,12 @@ const Orders = () => {
     }
     console.log('=== END NAVIGATION DEBUG ===');
   };
+  // Auto-set bookedBy filter for dispatchers
+  const isDispatcher = primaryRole === 'dispatch';
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
-  const [bookedByFilter, setBookedByFilter] = useState("all-users");
+  const [bookedByFilter, setBookedByFilter] = useState(isDispatcher && profile?.full_name ? profile.full_name : "all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
@@ -127,10 +129,6 @@ const Orders = () => {
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
     
-    // Dispatcher-specific filtering: only show their own orders
-    const isDispatcher = primaryRole === 'dispatch';
-    const matchesDispatcherFilter = !isDispatcher || order.bookedBy === profile?.full_name;
-    
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
       if (missingDocsFilter === 'missing-rc') {
@@ -161,7 +159,7 @@ const Orders = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
-    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate && matchesDispatcherFilter;
+    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
   }) || [];
 
   // Get unique companies and booked by values for filters
