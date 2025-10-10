@@ -544,11 +544,11 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
                 const cellColor = getDeliveryCellColor(order);
                 const totalDeliveryStops = order.pickupStopsByDate?.get(format(day, 'yyyy-MM-dd')) || 1;
-                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}>
                       {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
@@ -621,12 +621,12 @@ const Reports = () => {
             minHeight: '32px',
             maxHeight: '32px'
           }}>
-              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
                   {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
                 const cellColor = getPickupCellColor(order, previousComplete);
-                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                return <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}>
                       {(
                         <>
                           <div className="text-[10px] font-medium truncate leading-tight">
@@ -692,7 +692,7 @@ const Reports = () => {
                   {sameDayOrders.slice(0, Math.max(0, 1 - pickupOnlyOrders.length)).map((order, idx) => {
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
                 const cellColor = getPickupCellColor(order, previousComplete);
-                return <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
+                return <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}>
                       <div className="text-[10px] font-medium truncate leading-tight">
                         P: {order.pickupLocation}
                       </div>
