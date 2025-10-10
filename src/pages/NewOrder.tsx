@@ -303,24 +303,53 @@ const NewOrder = () => {
   };
 
   const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      [field]: value
-    } : item));
+    setPickupsDrops(pickupsDrops.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        // Auto-update datetime when relevant fields change
+        if (field === 'dateRange' || field === 'startTime') {
+          if (updated.dateRange?.from && updated.startTime) {
+            updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+          } else {
+            updated.datetime = "";
+          }
+        }
+        return updated;
+      }
+      return item;
+    }));
   };
 
   const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      dateRange
-    } : item));
+    setPickupsDrops(pickupsDrops.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, dateRange };
+        // Auto-update datetime when dateRange changes
+        if (updated.dateRange?.from && updated.startTime) {
+          updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+        } else {
+          updated.datetime = "";
+        }
+        return updated;
+      }
+      return item;
+    }));
   };
 
   const updatePickupDropTime = (id: string, timeType: 'startTime' | 'endTime', time: string) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      [timeType]: time
-    } : item));
+    setPickupsDrops(pickupsDrops.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [timeType]: time };
+        // Auto-update datetime when startTime changes
+        if (timeType === 'startTime' && updated.dateRange?.from && updated.startTime) {
+          updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+        } else if (timeType === 'startTime') {
+          updated.datetime = "";
+        }
+        return updated;
+      }
+      return item;
+    }));
   };
 
   const handleDragEnd = (result: DropResult) => {
