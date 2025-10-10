@@ -414,10 +414,10 @@ const Orders = () => {
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell>{order.pickupDate}</TableCell>
-                        <TableCell>{order.pickupCity}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.pickupCity}</div></TableCell>
                         <TableCell>{order.pickupState}</TableCell>
                         <TableCell>{order.deliveryDate}</TableCell>
-                        <TableCell>{order.deliveryCity}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell>{order.deliveryState}</TableCell>
                         <TableCell>{order.mileage.toLocaleString()}</TableCell>
                         <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
