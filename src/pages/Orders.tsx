@@ -413,12 +413,12 @@ const Orders = () => {
                     </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${order.tonu > 0 ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' : ''}`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
-                        <TableCell>{order.pickupDate}</TableCell>
-                        <TableCell><div className="line-clamp-2">{order.pickupCity}</div></TableCell>
-                        <TableCell>{order.pickupState}</TableCell>
-                        <TableCell>{order.deliveryDate}</TableCell>
-                        <TableCell><div className="line-clamp-2">{order.deliveryCity}</div></TableCell>
-                        <TableCell>{order.deliveryState}</TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-success/20">{order.pickupDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-success/20 line-clamp-2">{order.pickupCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-success/20">{order.pickupState}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-primary/20">{order.deliveryDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-primary/20 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 bg-primary/20">{order.deliveryState}</div></TableCell>
                         <TableCell>{order.mileage.toLocaleString()}</TableCell>
                         <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
                         <TableCell>{order.driverName}</TableCell>
