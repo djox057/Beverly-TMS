@@ -858,7 +858,7 @@ const Reports = () => {
               return <div key={group.dispatcherId} className="bg-card">
                 {/* Google Sheets-style table */}
                 <div className="w-full">
-                  <table className="w-full border-collapse bg-card border border-border" style={{
+                  <table className="w-full border-collapse bg-card border-[3px] border-gray-400" style={{
                     tableLayout: 'auto'
                   }}>
                     <thead>
@@ -893,13 +893,13 @@ const Reports = () => {
                       </tr>
                       {/* Column Headers Row */}
                       <tr className="bg-muted/50">
-                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">Truck #</th>
-                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
+                        <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">Truck #</th>
+                        <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '163px',
                           minWidth: '163px',
                           maxWidth: '163px'
                         }}>Driver</th>
-                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
+                        <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '136px',
                           minWidth: '136px',
                           maxWidth: '136px'
@@ -908,7 +908,7 @@ const Reports = () => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
                           const showLeftBorder = index > 0;
-                          return <th key={index} className={`border-b border-border ${showLeftBorder ? 'border-l border-border' : ''} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`} style={{
+                          return <th key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-border' : ''} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`} style={{
                             width: '120px',
                             minWidth: '120px',
                             maxWidth: '120px',
@@ -933,13 +933,13 @@ const Reports = () => {
                             <div className="text-[9px] text-muted-foreground relative z-10">{format(day, 'M/d/yyyy')}</div>
                           </th>;
                         })}
-                        <th colSpan={4} className="border-t border-l border-r border-b border-border px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
+                        <th colSpan={4} className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '220px',
                           minWidth: '220px',
                           maxWidth: '220px'
                         }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
-                         <th className="border-t border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">Last Edit</th>
-                         <th className={`border-t border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? 'border-r border-border' : ''}`}>Date</th>
+                         <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">Last Edit</th>
+                         <th className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? 'border-r border-border' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
