@@ -568,7 +568,7 @@ const Analytics = () => {
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Cut</p>
+                    <p className="text-xs text-muted-foreground">Total Cut</p>
                     <p className="text-2xl font-bold">
                       ${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
