@@ -43,7 +43,7 @@ const AdminUsers = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [editRoles, setEditRoles] = useState<('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting')[]>([]);
+  const [editRole, setEditRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   
@@ -235,7 +235,7 @@ const AdminUsers = () => {
 
   const openEditDialog = (user: User) => {
     setUserToEdit(user);
-    setEditRoles(user.roles);
+    setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
     setIsEditDialogOpen(true);
   };
@@ -251,11 +251,11 @@ const AdminUsers = () => {
         throw new Error('No active session');
       }
 
-      // Update roles via edge function with explicit auth header
+      // Update role via edge function with explicit auth header
       const { data, error } = await supabase.functions.invoke('update-user-role', {
         body: { 
           userId: userToEdit.user_id,
-          roles: editRoles
+          role: editRole
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -298,15 +298,6 @@ const AdminUsers = () => {
     }
   };
 
-  const toggleRole = (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => {
-    setEditRoles(prev => {
-      if (prev.includes(role)) {
-        return prev.filter(r => r !== role);
-      } else {
-        return [...prev, role];
-      }
-    });
-  };
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -571,23 +562,21 @@ const AdminUsers = () => {
             </div>
             
             <div className="space-y-2">
-              <Label>Roles (select all that apply)</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['dispatch', 'manager', 'supervisor', 'safety', 'admin', 'accounting', 'driver'] as const).map(role => (
-                  <label
-                    key={role}
-                    className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={editRoles.includes(role)}
-                      onChange={() => toggleRole(role)}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-sm font-medium capitalize">{role}</span>
-                  </label>
-                ))}
-              </div>
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={editRole} onValueChange={(value: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => setEditRole(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dispatch">Dispatch</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="supervisor">Supervisor</SelectItem>
+                  <SelectItem value="safety">Safety</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="accounting">Accounting</SelectItem>
+                  <SelectItem value="driver">Driver</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
@@ -603,7 +592,7 @@ const AdminUsers = () => {
               </Button>
               <Button 
                 onClick={handleUpdateRoles}
-                disabled={isUpdatingRoles || editRoles.length === 0}
+                disabled={isUpdatingRoles}
               >
                 {isUpdatingRoles ? (
                   <>

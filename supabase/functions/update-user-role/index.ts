@@ -13,28 +13,32 @@ serve(async (req) => {
   }
 
   try {
-    // Use service role client for all operations
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
-    // Extract JWT token from Bearer token
-    const token = authHeader.replace('Bearer ', '');
+    // Create user client to verify auth
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    // Verify the JWT and get user
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    // Verify the user
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
 
     if (userError || !user) {
       console.error('Auth error:', userError);
       throw new Error('Unauthorized');
     }
+
+    // Use service role client for admin operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Check if the requesting user has admin or accounting role
     const { data: userRoles, error: rolesError } = await supabaseAdmin
@@ -56,17 +60,16 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { userId, roles } = await req.json();
+    const { userId, role } = await req.json();
 
-    if (!userId || !roles || !Array.isArray(roles)) {
-      throw new Error('Invalid request. userId and roles array are required.');
+    if (!userId || !role) {
+      throw new Error('Invalid request. userId and role are required.');
     }
 
-    // Validate roles
+    // Validate role
     const validRoles = ['admin', 'manager', 'supervisor', 'safety', 'dispatch', 'driver', 'accounting'];
-    const invalidRoles = roles.filter(role => !validRoles.includes(role));
-    if (invalidRoles.length > 0) {
-      throw new Error(`Invalid roles: ${invalidRoles.join(', ')}`);
+    if (!validRoles.includes(role)) {
+      throw new Error(`Invalid role: ${role}`);
     }
 
     // Delete existing roles for the user
@@ -80,28 +83,24 @@ serve(async (req) => {
       throw new Error('Failed to update roles');
     }
 
-    // Insert new roles
-    if (roles.length > 0) {
-      const roleInserts = roles.map(role => ({
+    // Insert new role
+    const { error: insertError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
         user_id: userId,
         role: role,
-      }));
+      });
 
-      const { error: insertError } = await supabaseAdmin
-        .from('user_roles')
-        .insert(roleInserts);
-
-      if (insertError) {
-        console.error('Error inserting new roles:', insertError);
-        throw new Error('Failed to insert new roles');
-      }
+    if (insertError) {
+      console.error('Error inserting new role:', insertError);
+      throw new Error('Failed to insert new role');
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'User roles updated successfully',
-        roles 
+        message: 'User role updated successfully',
+        role 
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
