@@ -957,7 +957,7 @@ const Reports = () => {
                         return (
                           <>
                             <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-card' : 'bg-muted/20'}>
-                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground font-medium`} style={{
+                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`} style={{
                             width: '64px',
                             minWidth: '64px',
                             maxWidth: '64px'
@@ -974,7 +974,7 @@ const Reports = () => {
                                 </TooltipProvider>}
                             </div>
                           </td>
-                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground`} style={{
+                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground`} style={{
                             width: '163px',
                             minWidth: '163px',
                             maxWidth: '163px'
@@ -1007,7 +1007,7 @@ const Reports = () => {
                               )}
                             </div>
                           </td>
-                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground`} style={{
+                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground`} style={{
                             width: '136px',
                             minWidth: '136px',
                             maxWidth: '136px'
@@ -1080,7 +1080,7 @@ const Reports = () => {
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className={`border-r border-b-[3px] border-border p-0`} style={{
+                          <td colSpan={4} className={`border-r border-b-[3px] border-gray-400 p-0`} style={{
                             height: '64px'
                           }}>
                             <div className="h-8 border-b border-border flex items-center justify-around px-1">
@@ -1108,12 +1108,12 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                            </td>
-                           <td className={`border-b-[3px] border-border px-2 py-1 text-[10px] text-muted-foreground`} style={{
+                           <td className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`} style={{
                             width: '80px',
                             minWidth: '80px',
                             maxWidth: '80px'
                           }}>{truck.lastEdit}</td>
-                           <td className={`border-b-[3px] border-border px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? 'border-r border-border' : ''}`} style={{
+                           <td className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? 'border-r border-border' : ''}`} style={{
                             width: '80px',
                             minWidth: '80px',
                             maxWidth: '80px'
