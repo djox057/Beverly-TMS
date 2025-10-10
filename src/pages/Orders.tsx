@@ -83,6 +83,7 @@ const Orders = () => {
   const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
+  const [driverFilter, setDriverFilter] = useState("all-drivers");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -124,6 +125,7 @@ const Orders = () => {
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
+    const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
       if (missingDocsFilter === 'missing-rc') {
@@ -154,7 +156,7 @@ const Orders = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
-    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesMissingDocs && matchesDate;
+    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
   }) || [];
 
   // Get unique companies and booked by values for filters
@@ -162,6 +164,7 @@ const Orders = () => {
   const uniqueTruckCompanies = [...new Set(orders?.map(order => order.truckCompanyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const uniqueDrivers = [...new Set(orders?.map(order => order.driverName) || [])].filter(Boolean).sort();
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
@@ -353,6 +356,16 @@ const Orders = () => {
                 <SelectContent>
                   <SelectItem value="all-users">All Users</SelectItem>
                   {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              
+              <Select value={driverFilter} onValueChange={setDriverFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by Driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-drivers">All Drivers</SelectItem>
+                  {uniqueDrivers.map(driver => <SelectItem key={driver} value={driver}>{driver}</SelectItem>)}
                 </SelectContent>
               </Select>
               
