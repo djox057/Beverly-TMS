@@ -1282,54 +1282,15 @@ const Reports = () => {
                                   );
                                 })}
                                 <th
-                                  className="border-t border-l border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "44px",
-                                    minWidth: "44px",
-                                    maxWidth: "44px",
-                                  }}
-                                >
-                                  Away (D)
-                                </th>
-                                <th
-                                  className="border-t border-l border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "44px",
-                                    minWidth: "44px",
-                                    maxWidth: "44px",
-                                  }}
-                                >
-                                  Drive
-                                </th>
-                                <th
-                                  className="border-t border-l border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "44px",
-                                    minWidth: "44px",
-                                    maxWidth: "44px",
-                                  }}
-                                >
-                                  Shift
-                                </th>
-                                <th
-                                  className="border-t border-l border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "44px",
-                                    minWidth: "44px",
-                                    maxWidth: "44px",
-                                  }}
-                                >
-                                  Break
-                                </th>
-                                <th
+                                  colSpan={4}
                                   className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
                                   style={{
-                                    width: "44px",
-                                    minWidth: "44px",
-                                    maxWidth: "44px",
+                                    width: "220px",
+                                    minWidth: "220px",
+                                    maxWidth: "220px",
                                   }}
                                 >
-                                  Cycle
+                                  Away (D) | Drive | Shift | Break | Cycle
                                 </th>
                                 <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
                                   Last Edit
@@ -1521,107 +1482,67 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       {modifiedCells}
-                                      {/* Away Days */}
+                                      {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                       <td
-                                        className={`border-l border-b-[3px] border-gray-400 px-1 py-1`}
+                                        colSpan={4}
+                                        className={`border-r border-b-[3px] border-gray-400 p-0`}
                                         style={{
-                                          width: "44px",
-                                          minWidth: "44px",
-                                          maxWidth: "44px",
+                                          height: "64px",
                                         }}
                                       >
-                                        <div className="flex flex-col items-center justify-center h-full">
-                                          {isLoadingSamsara ? (
-                                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                          ) : truckDistances[truck.id] > 0 ? (
-                                            <div className="text-[10px] text-[hsl(var(--info))] font-medium">
-                                              {truckDistances[truck.id]}
-                                            </div>
-                                          ) : (
-                                            <div className="text-[10px] text-foreground font-medium">
-                                              {truck.awayDays}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </td>
-                                      {/* Drive Timer */}
-                                      <td
-                                        className={`border-l border-b-[3px] border-gray-400 px-1 py-1`}
-                                        style={{
-                                          width: "44px",
-                                          minWidth: "44px",
-                                          maxWidth: "44px",
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-center h-full">
+                                        <div className="h-8 border-b border-border flex items-center justify-around px-1">
+                                          {/* Away Days - Show distance in miles if available */}
+                                          <div className="flex flex-col items-center">
+                                            <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
+                                            {isLoadingSamsara ? (
+                                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                            ) : truckDistances[truck.id] > 0 ? (
+                                              <div className="text-[10px] text-[hsl(var(--info))] font-medium">
+                                                {truckDistances[truck.id]}
+                                              </div>
+                                            ) : (
+                                              <div className="text-[10px] text-foreground font-medium">
+                                                {truck.awayDays}
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* HOS Circular Timers */}
                                           <HosCircularTimer
                                             minutes={truck.driveMinutes}
-                                            maxMinutes={11 * 60}
+                                            maxMinutes={11 * 60} // 11 hours max drive time
                                             label="DRIVE"
-                                            color="#84cc16"
+                                            color="#84cc16" // green
                                             size={31}
                                             strokeWidth={3}
                                           />
-                                        </div>
-                                      </td>
-                                      {/* Shift Timer */}
-                                      <td
-                                        className={`border-l border-b-[3px] border-gray-400 px-1 py-1`}
-                                        style={{
-                                          width: "44px",
-                                          minWidth: "44px",
-                                          maxWidth: "44px",
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-center h-full">
                                           <HosCircularTimer
                                             minutes={truck.shiftMinutes}
-                                            maxMinutes={14 * 60}
+                                            maxMinutes={14 * 60} // 14 hours max shift time
                                             label="SHIFT"
-                                            color="#06b6d4"
+                                            color="#06b6d4" // cyan
                                             size={31}
                                             strokeWidth={3}
                                           />
-                                        </div>
-                                      </td>
-                                      {/* Break Timer */}
-                                      <td
-                                        className={`border-l border-b-[3px] border-gray-400 px-1 py-1`}
-                                        style={{
-                                          width: "44px",
-                                          minWidth: "44px",
-                                          maxWidth: "44px",
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-center h-full">
                                           <HosCircularTimer
                                             minutes={truck.breakMinutes}
-                                            maxMinutes={8 * 60}
+                                            maxMinutes={8 * 60} // 8 hours max break time
                                             label="BREAK"
-                                            color="#8b5cf6"
+                                            color="#8b5cf6" // purple
+                                            size={31}
+                                            strokeWidth={3}
+                                          />
+                                          <HosCircularTimer
+                                            minutes={truck.cycleMinutes}
+                                            maxMinutes={70 * 60} // 70 hours max cycle time
+                                            label="CYCLE"
+                                            color="hsl(var(--muted-foreground))" // muted foreground color
                                             size={31}
                                             strokeWidth={3}
                                           />
                                         </div>
-                                      </td>
-                                      {/* Cycle Timer */}
-                                      <td
-                                        className={`border-l border-r border-b-[3px] border-gray-400 px-1 py-1`}
-                                        style={{
-                                          width: "44px",
-                                          minWidth: "44px",
-                                          maxWidth: "44px",
-                                        }}
-                                      >
-                                        <div className="flex items-center justify-center h-full">
-                                          <HosCircularTimer
-                                            minutes={truck.cycleMinutes}
-                                            maxMinutes={70 * 60}
-                                            label="CYCLE"
-                                            color="hsl(var(--muted-foreground))"
-                                            size={31}
-                                            strokeWidth={3}
-                                          />
+                                        <div className="h-8 p-0 w-full">
+                                          {renderEditableField(truck.id, "note", truck.note)}
                                         </div>
                                       </td>
                                       <td
@@ -1647,7 +1568,7 @@ const Reports = () => {
                                     </tr>
                                     {isMapExpanded && (
                                       <tr key={`${truck.id}-map`}>
-                                        <td colSpan={16} className="p-4 border-b-[3px] border-border">
+                                        <td colSpan={13} className="p-4 border-b-[3px] border-border">
                                           <TruckMapView
                                             truckNumber={truck.truckNumber}
                                             truckId={truck.id}
