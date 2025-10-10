@@ -19,6 +19,8 @@ import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -364,6 +366,10 @@ const Analytics = () => {
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
+  // State for driver tiers and notices
+  const [driverTiers, setDriverTiers] = useState<Record<string, { grossTier: string; safetyTier: string; managementTier: string; notice: string }>>({});
+  const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
+
   // Calculate driver analytics
   const driverAnalytics = filteredOrders.reduce(
     (acc, order) => {
@@ -391,12 +397,27 @@ const Analytics = () => {
   const driverStats = Object.entries(driverAnalytics)
     .map(([name, stats]) => {
       const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
+      
+      // Initialize driver tiers if not exists
+      if (!driverTiers[name]) {
+        driverTiers[name] = {
+          grossTier: 'Tier 1',
+          safetyTier: 'Tier 1',
+          managementTier: 'Tier 1',
+          notice: ''
+        };
+      }
+      
       return {
         name,
         totalDriverRate: stats.totalDriverRate,
         totalMiles: stats.totalMiles,
         orderCount: stats.orderCount,
         ratePerMile,
+        grossTier: driverTiers[name]?.grossTier || 'Tier 1',
+        safetyTier: driverTiers[name]?.safetyTier || 'Tier 1',
+        managementTier: driverTiers[name]?.managementTier || 'Tier 1',
+        notice: driverTiers[name]?.notice || ''
       };
     })
     .sort((a, b) => {
@@ -404,6 +425,26 @@ const Analytics = () => {
       const bValue = b.totalDriverRate;
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
     });
+  
+  const handleTierChange = (driverName: string, tierType: 'grossTier' | 'safetyTier' | 'managementTier', value: string) => {
+    setDriverTiers(prev => ({
+      ...prev,
+      [driverName]: {
+        ...prev[driverName],
+        [tierType]: value
+      }
+    }));
+  };
+
+  const handleNoticeChange = (driverName: string, notice: string) => {
+    setDriverTiers(prev => ({
+      ...prev,
+      [driverName]: {
+        ...prev[driverName],
+        notice
+      }
+    }));
+  };
 
   // Calculate driver totals
   const driverTotals = driverStats.reduce(
@@ -712,13 +753,16 @@ const Analytics = () => {
                       <TableHead className="text-right">Total Driver Rate</TableHead>
                       <TableHead className="text-right">Total Miles</TableHead>
                       <TableHead className="text-right">Rate/Mile</TableHead>
-                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead>GROSS Tier</TableHead>
+                      <TableHead>Safety Tier</TableHead>
+                      <TableHead>Management Tier</TableHead>
+                      <TableHead>Notice</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {driverStats.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No data available
                         </TableCell>
                       </TableRow>
@@ -735,7 +779,84 @@ const Analytics = () => {
                           </TableCell>
                           <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{stat.orderCount}</TableCell>
+                          <TableCell>
+                            <Select 
+                              value={stat.grossTier} 
+                              onValueChange={(value) => handleTierChange(stat.name, 'grossTier', value)}
+                            >
+                              <SelectTrigger className="w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                                <SelectItem value="Tier 3">Tier 3</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select 
+                              value={stat.safetyTier} 
+                              onValueChange={(value) => handleTierChange(stat.name, 'safetyTier', value)}
+                            >
+                              <SelectTrigger className="w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                                <SelectItem value="Tier 3">Tier 3</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select 
+                              value={stat.managementTier} 
+                              onValueChange={(value) => handleTierChange(stat.name, 'managementTier', value)}
+                            >
+                              <SelectTrigger className="w-28">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Tier 1">Tier 1</SelectItem>
+                                <SelectItem value="Tier 2">Tier 2</SelectItem>
+                                <SelectItem value="Tier 3">Tier 3</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => setSelectedDriverNotice({ name: stat.name, notice: stat.notice })}
+                                  className="h-auto p-2 text-left justify-start"
+                                >
+                                  <span className="line-clamp-2 text-xs">
+                                    {stat.notice || 'Click to add note...'}
+                                  </span>
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle>Notice for {stat.name}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <Textarea
+                                    value={selectedDriverNotice?.name === stat.name ? selectedDriverNotice.notice : stat.notice}
+                                    onChange={(e) => {
+                                      const newNotice = e.target.value;
+                                      setSelectedDriverNotice({ name: stat.name, notice: newNotice });
+                                      handleNoticeChange(stat.name, newNotice);
+                                    }}
+                                    placeholder="Enter notice for this driver..."
+                                    className="min-h-[200px]"
+                                  />
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
