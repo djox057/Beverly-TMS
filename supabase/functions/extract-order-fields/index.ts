@@ -266,10 +266,10 @@ For SINGLE-DROP loads, return JSON with legacy fields:
   "temperature": "string"
 }`;
 
-    // Call Gemini 2.5 Flash API with inline PDF data
-    console.log('Calling Gemini 2.5 Flash for PDF analysis...');
+    // Call Gemini 2.5 Flash Lite API with inline PDF data
+    console.log('Calling Gemini 2.5 Flash Lite for PDF analysis...');
     
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
