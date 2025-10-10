@@ -41,7 +41,7 @@ const getStatusBadge = (status: string) => {
 };
 const Orders = () => {
   const navigate = useNavigate();
-  const { hasRole, getPrimaryRole } = useAuthContext();
+  const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   
   // Debug navigation function
@@ -126,6 +126,11 @@ const Orders = () => {
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
+    
+    // Dispatcher-specific filtering: only show their own orders
+    const isDispatcher = primaryRole === 'dispatch';
+    const matchesDispatcherFilter = !isDispatcher || order.bookedBy === profile?.full_name;
+    
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
       if (missingDocsFilter === 'missing-rc') {
@@ -156,7 +161,7 @@ const Orders = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
-    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
+    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate && matchesDispatcherFilter;
   }) || [];
 
   // Get unique companies and booked by values for filters
