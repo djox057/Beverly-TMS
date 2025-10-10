@@ -993,8 +993,8 @@ const EditOrder = () => {
                   placeholder="Freight amount" 
                   value={freightAmount} 
                   onChange={e => setFreightAmount(e.target.value)}
-                  disabled={hasRole('dispatch')}
-                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
+                  disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
+                  className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
               <div className="space-y-2">
@@ -1095,8 +1095,8 @@ const EditOrder = () => {
                   placeholder="Loaded miles" 
                   value={loadedMiles} 
                   onChange={e => setLoadedMiles(e.target.value)}
-                  disabled={hasRole('dispatch')}
-                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
+                  disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
+                  className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
               <div className="space-y-2">
@@ -1107,8 +1107,8 @@ const EditOrder = () => {
                   placeholder="Deadhead miles" 
                   value={dhMiles} 
                   onChange={e => setDhMiles(e.target.value)}
-                  disabled={hasRole('dispatch')}
-                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
+                  disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
+                  className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
             </div>
@@ -1116,7 +1116,7 @@ const EditOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="invoiced">Invoiced Status</Label>
-                {hasRole('dispatch') ? (
+                {(hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')) ? (
                   <Input 
                     id="invoiced"
                     value={invoiced === "Done" ? "Done" : "Not Invoiced"}
