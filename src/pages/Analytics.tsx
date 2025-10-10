@@ -558,7 +558,7 @@ const Analytics = () => {
                     <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Driver Rate</p>
+                    <p className="text-xs text-muted-foreground">Total Driver Rate</p>
                     <p className="text-2xl font-bold">
                       $
                       {totals.totalDriverRate.toLocaleString(undefined, {
