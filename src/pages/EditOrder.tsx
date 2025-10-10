@@ -1393,7 +1393,7 @@ const EditOrder = () => {
                           console.log('Requesting signed URL for path:', file.file_path);
                           const { data, error } = await supabase.storage
                             .from('order-files')
-                            .createSignedUrl(file.file_path, 60); // 60 second expiry
+                            .createSignedUrl(file.file_path, 3600); // 1 hour expiry
                           
                           console.log('Signed URL response:', { data, error });
                           
@@ -1406,16 +1406,39 @@ const EditOrder = () => {
                             return;
                           }
                           
-                          // Access the actual runtime property (signedURL with uppercase)
                           const signedUrl = data?.signedUrl || (data as any)?.signedURL;
                           console.log('Extracted signedUrl:', signedUrl);
                           
                           if (signedUrl) {
-                            const fullUrl = signedUrl.startsWith('http') 
-                              ? signedUrl 
-                              : `https://wjkbtagwgjniilmgwutb.supabase.co/storage/v1${signedUrl}`;
-                            console.log('Opening URL:', fullUrl);
-                            window.open(fullUrl, '_blank');
+                            try {
+                              // Fetch the file as a blob to avoid browser blocking
+                              const response = await fetch(signedUrl);
+                              if (!response.ok) throw new Error('Failed to fetch file');
+                              
+                              const blob = await response.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              
+                              // Open in new tab
+                              const newWindow = window.open(blobUrl, '_blank');
+                              
+                              // Clean up blob URL after a delay
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                              
+                              if (!newWindow) {
+                                toast({
+                                  title: "Popup Blocked",
+                                  description: "Please allow popups for this site",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch (err) {
+                              console.error('Error opening file:', err);
+                              toast({
+                                title: "Error",
+                                description: "Failed to open file",
+                                variant: "destructive",
+                              });
+                            }
                           } else {
                             toast({
                               title: "Error",
