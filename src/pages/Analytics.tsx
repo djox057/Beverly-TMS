@@ -77,6 +77,8 @@ const Analytics = () => {
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { email: string; office: string | null }>
   >({});
+  const [driverTiers, setDriverTiers] = useState<Record<string, { grossTier: string; safetyTier: string; managementTier: string; notice: string }>>({});
+  const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
 
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -365,10 +367,6 @@ const Analytics = () => {
   const totalCut = totals.totalFreight - totals.totalDriverRate;
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
-
-  // State for driver tiers and notices
-  const [driverTiers, setDriverTiers] = useState<Record<string, { grossTier: string; safetyTier: string; managementTier: string; notice: string }>>({});
-  const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
 
   // Calculate driver analytics
   const driverAnalytics = filteredOrders.reduce(
