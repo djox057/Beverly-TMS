@@ -121,10 +121,10 @@ export const Sidebar = () => {
                       to={item.href}
                       className={({ isActive }) =>
                         cn(
-                          "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors relative border-b-2",
+                          "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
                           isActive
-                            ? "text-foreground bg-accent/50 border-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted border-transparent"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )
                       }
                     >
