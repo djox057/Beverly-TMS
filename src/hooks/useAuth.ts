@@ -109,7 +109,7 @@ export const useAuth = () => {
 
       toast({
         title: "Success",
-        description: "Account created successfully! Please check your email to confirm your account.",
+        description: "Account created successfully! You can now sign in.",
       });
 
       return { error: null };
