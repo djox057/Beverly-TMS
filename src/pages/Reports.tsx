@@ -508,7 +508,7 @@ const Reports = () => {
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
-      return <td key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative ${isToday ? 'group' : ''}`} style={{
+      return <td key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
         width: isToday ? '116.4px' : '120px',
         minWidth: isToday ? '116.4px' : '120px',
         maxWidth: isToday ? '116.4px' : '120px',
@@ -518,18 +518,18 @@ const Reports = () => {
         } : {})
       }}>
           {/* Red border overlay for today column - sits on top of everything */}
-          {isToday && <div className="absolute pointer-events-none group-hover:opacity-75 transition-opacity" style={{
+          {isToday && <div className="absolute pointer-events-none" style={{
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          borderLeft: '4px solid hsl(0 72% 45%)',
-          borderRight: '4px solid hsl(0 72% 45%)',
+          borderLeft: '4px solid hsl(var(--destructive))',
+          borderRight: '4px solid hsl(var(--destructive))',
           ...(isFirstTruck ? {
-            borderTop: '4px solid hsl(0 72% 45%)'
+            borderTop: '4px solid hsl(var(--destructive))'
           } : {}),
           ...(isLastTruck ? {
-            borderBottom: '4px solid hsl(0 72% 45%)'
+            borderBottom: '4px solid hsl(var(--destructive))'
           } : {}),
           zIndex: 100
         }} />}
