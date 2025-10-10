@@ -106,6 +106,39 @@ export type Database = {
           },
         ]
       }
+      driver_performance: {
+        Row: {
+          created_at: string
+          driver_name: string
+          gross_tier: string
+          id: string
+          management_tier: string
+          notice: string | null
+          safety_tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_name: string
+          gross_tier?: string
+          id?: string
+          management_tier?: string
+          notice?: string | null
+          safety_tier?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_name?: string
+          gross_tier?: string
+          id?: string
+          management_tier?: string
+          notice?: string | null
+          safety_tier?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_pii_audit_log: {
         Row: {
           access_reason: string | null

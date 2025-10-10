@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useDriverPerformance } from "@/hooks/useDriverPerformance";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,12 +78,15 @@ const Analytics = () => {
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
     Record<string, { email: string; office: string | null }>
   >({});
-  const [driverTiers, setDriverTiers] = useState<Record<string, { grossTier: string; safetyTier: string; managementTier: string; notice: string }>>({});
   const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
 
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
+  const { performanceData, updatePerformance } = useDriverPerformance();
+
+  // Merge database data with local state
+  const driverTiers = useMemo(() => performanceData, [performanceData]);
 
   // Fetch all profiles to get office locations indexed by full_name
   useEffect(() => {
@@ -415,28 +419,37 @@ const Analytics = () => {
     });
   
   const handleTierChange = (driverName: string, tierType: 'grossTier' | 'safetyTier' | 'managementTier', value: string) => {
-    setDriverTiers(prev => ({
-      ...prev,
-      [driverName]: {
-        grossTier: prev[driverName]?.grossTier || 'Tier 1',
-        safetyTier: prev[driverName]?.safetyTier || 'Tier 1',
-        managementTier: prev[driverName]?.managementTier || 'Tier 1',
-        notice: prev[driverName]?.notice || '',
-        [tierType]: value
-      }
-    }));
+    const currentData = driverTiers[driverName] || {
+      grossTier: 'Tier 1',
+      safetyTier: 'Tier 1',
+      managementTier: 'Tier 1',
+      notice: ''
+    };
+
+    updatePerformance({
+      driver_name: driverName,
+      gross_tier: tierType === 'grossTier' ? value : currentData.grossTier,
+      safety_tier: tierType === 'safetyTier' ? value : currentData.safetyTier,
+      management_tier: tierType === 'managementTier' ? value : currentData.managementTier,
+      notice: currentData.notice
+    });
   };
 
   const handleNoticeChange = (driverName: string, notice: string) => {
-    setDriverTiers(prev => ({
-      ...prev,
-      [driverName]: {
-        grossTier: prev[driverName]?.grossTier || 'Tier 1',
-        safetyTier: prev[driverName]?.safetyTier || 'Tier 1',
-        managementTier: prev[driverName]?.managementTier || 'Tier 1',
-        notice
-      }
-    }));
+    const currentData = driverTiers[driverName] || {
+      grossTier: 'Tier 1',
+      safetyTier: 'Tier 1',
+      managementTier: 'Tier 1',
+      notice: ''
+    };
+
+    updatePerformance({
+      driver_name: driverName,
+      gross_tier: currentData.grossTier,
+      safety_tier: currentData.safetyTier,
+      management_tier: currentData.managementTier,
+      notice
+    });
   };
 
   // Calculate driver totals
