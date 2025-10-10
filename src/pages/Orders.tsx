@@ -450,7 +450,7 @@ const Orders = () => {
                         order.canceled 
                           ? 'bg-destructive/10 hover:bg-destructive/15' 
                           : hasExtraCharges
-                          ? 'bg-warning-light hover:bg-warning-light/80'
+                          ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
                           : order.tonu > 0
                           ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
                           : ''
