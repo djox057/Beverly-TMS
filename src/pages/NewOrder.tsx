@@ -1110,8 +1110,21 @@ const NewOrder = () => {
               : null
           };
         });
-        if (pickupDropData.length > 0) {
-          const { error: pickupDropError } = await supabase.from('pickup_drops').insert(pickupDropData);
+        
+        // Deduplicate exact matches before inserting
+        const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
+          return index === self.findIndex((t) => (
+            t.type === item.type &&
+            t.address === item.address &&
+            t.city === item.city &&
+            t.state === item.state &&
+            t.zip_code === item.zip_code &&
+            t.datetime === item.datetime
+          ));
+        });
+        
+        if (uniquePickupDropData.length > 0) {
+          const { error: pickupDropError } = await supabase.from('pickup_drops').insert(uniquePickupDropData);
           if (pickupDropError) throw pickupDropError;
         }
       }
