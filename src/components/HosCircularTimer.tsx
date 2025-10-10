@@ -46,6 +46,6 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
       </div>
       
       {/* Label */}
-      <span className="text-[9px] text-muted-foreground mt-0.5">{label}</span>
+      
     </div>;
 };
