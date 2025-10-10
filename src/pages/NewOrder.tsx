@@ -806,6 +806,128 @@ const NewOrder = () => {
       console.log('Form submission already in progress, ignoring duplicate submission');
       return;
     }
+
+    // Validation checks
+    if (!brokerLoadNumber?.trim()) {
+      toast({
+        title: "Broker Load# Required",
+        description: "Please enter a broker load number.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!broker) {
+      toast({
+        title: "Broker Required",
+        description: "Please select a broker.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!truck) {
+      toast({
+        title: "Truck# Required",
+        description: "Please select a truck.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate pickup addresses and date/time ranges
+    const pickups = pickupsDrops.filter(item => item.type === 'pickup');
+    if (pickups.length === 0) {
+      toast({
+        title: "Pickup Required",
+        description: "Please add at least one pickup location.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    for (const pickup of pickups) {
+      if (!pickup.address?.trim()) {
+        toast({
+          title: "Pickup Address Required",
+          description: "Please enter an address for all pickup locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!pickup.dateRange?.from) {
+        toast({
+          title: "Pickup Date Required",
+          description: "Please select a date range for all pickup locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!pickup.startTime?.trim() || !pickup.endTime?.trim()) {
+        toast({
+          title: "Pickup Time Required",
+          description: "Please enter start and end times for all pickup locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Validate delivery addresses and date/time ranges
+    const deliveries = pickupsDrops.filter(item => item.type === 'delivery');
+    if (deliveries.length === 0) {
+      toast({
+        title: "Delivery Required",
+        description: "Please add at least one delivery location.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    for (const delivery of deliveries) {
+      if (!delivery.address?.trim()) {
+        toast({
+          title: "Delivery Address Required",
+          description: "Please enter an address for all delivery locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!delivery.dateRange?.from) {
+        toast({
+          title: "Delivery Date Required",
+          description: "Please select a date range for all delivery locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+      if (!delivery.startTime?.trim() || !delivery.endTime?.trim()) {
+        toast({
+          title: "Delivery Time Required",
+          description: "Please enter start and end times for all delivery locations.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    if (!freightAmount?.trim() || parseFloat(freightAmount) <= 0) {
+      toast({
+        title: "Freight Amount Required",
+        description: "Please enter a valid freight amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!loadedMiles?.trim() || parseInt(loadedMiles) <= 0) {
+      toast({
+        title: "Total Miles Required",
+        description: "Please enter valid total miles (loaded miles).",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
