@@ -32,20 +32,20 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
     }}>
         {/* Background circle */}
         <svg className="transform -rotate-90" width={size} height={size}>
-          <circle cx={size / 2} cy={size / 2} r={radius} stroke="currentColor" strokeWidth={strokeWidth} fill="transparent" className="text-border" />
+          <circle cx={size / 2} cy={size / 2} r={radius} stroke="currentColor" strokeWidth={strokeWidth} fill="transparent" className="text-gray-200" />
           {/* Progress circle */}
           <circle cx={size / 2} cy={size / 2} r={radius} stroke={color} strokeWidth={strokeWidth} fill="transparent" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-300 ease-in-out" />
         </svg>
         
         {/* Time display in center */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className={`font-medium text-muted-foreground ${size < 40 ? 'text-[9px]' : 'text-sm'}`}>
+          <span className={`font-medium text-gray-900 ${size < 40 ? 'text-[9px]' : 'text-sm'}`}>
             {timeDisplay}
           </span>
         </div>
       </div>
       
       {/* Label */}
-      <span className="text-[9px] text-muted-foreground mt-0.5">{label}</span>
+      
     </div>;
 };
