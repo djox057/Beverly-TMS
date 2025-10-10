@@ -1404,7 +1404,10 @@ const EditOrder = () => {
                           }
                           
                           if (data?.signedUrl) {
-                            window.open(data.signedUrl, '_blank');
+                            const fullUrl = data.signedUrl.startsWith('http') 
+                              ? data.signedUrl 
+                              : `https://wjkbtagwgjniilmgwutb.supabase.co/storage/v1${data.signedUrl}`;
+                            window.open(fullUrl, '_blank');
                           }
                         }}
                       >
