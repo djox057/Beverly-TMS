@@ -992,7 +992,9 @@ const EditOrder = () => {
                   type="number" 
                   placeholder="Freight amount" 
                   value={freightAmount} 
-                  onChange={e => setFreightAmount(e.target.value)} 
+                  onChange={e => setFreightAmount(e.target.value)}
+                  disabled={hasRole('dispatch')}
+                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
               <div className="space-y-2">
@@ -1092,7 +1094,9 @@ const EditOrder = () => {
                   type="number" 
                   placeholder="Loaded miles" 
                   value={loadedMiles} 
-                  onChange={e => setLoadedMiles(e.target.value)} 
+                  onChange={e => setLoadedMiles(e.target.value)}
+                  disabled={hasRole('dispatch')}
+                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
               <div className="space-y-2">
@@ -1102,7 +1106,9 @@ const EditOrder = () => {
                   type="number" 
                   placeholder="Deadhead miles" 
                   value={dhMiles} 
-                  onChange={e => setDhMiles(e.target.value)} 
+                  onChange={e => setDhMiles(e.target.value)}
+                  disabled={hasRole('dispatch')}
+                  className={hasRole('dispatch') ? 'bg-muted cursor-not-allowed' : ''}
                 />
               </div>
             </div>
@@ -1110,15 +1116,24 @@ const EditOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="invoiced">Invoiced Status</Label>
-                <Select value={invoiced} onValueChange={setInvoiced}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="false">Not Invoiced</SelectItem>
-                    <SelectItem value="Done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
+                {hasRole('dispatch') ? (
+                  <Input 
+                    id="invoiced"
+                    value={invoiced === "Done" ? "Done" : "Not Invoiced"}
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                  />
+                ) : (
+                  <Select value={invoiced} onValueChange={setInvoiced}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="false">Not Invoiced</SelectItem>
+                      <SelectItem value="Done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               
               <div className="space-y-2">

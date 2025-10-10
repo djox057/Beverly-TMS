@@ -432,19 +432,6 @@ const Orders = () => {
                                              (order.lumper && order.lumper > 0) || 
                                              (order.lateFee && order.lateFee > 0);
                       
-                      // Debug logging for order 70843386
-                      if (order.brokerLoadNumber === '70843386') {
-                        console.log('Order 70843386 debug:', {
-                          detention: order.detention,
-                          layover: order.layover,
-                          extraStop: order.extraStop,
-                          lumper: order.lumper,
-                          lateFee: order.lateFee,
-                          hasExtraCharges,
-                          canceled: order.canceled,
-                          tonu: order.tonu
-                        });
-                      }
                       
                       return <TableRow key={order.id} className={`h-16 ${
                         order.canceled 
