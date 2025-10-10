@@ -536,13 +536,14 @@ const Reports = () => {
           
           <div className="flex flex-col relative" style={{
           width: '120px',
-          height: '64px'
+          height: '64px',
+          ...(isToday ? { padding: '4px' } : {})
         }}>
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div className={`border-b ${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${deliveryOnlyOrders.length > 0 ? '' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
-            height: '32px',
-            minHeight: '32px',
-            maxHeight: '32px'
+            height: isToday ? '28px' : '32px',
+            minHeight: isToday ? '28px' : '32px',
+            maxHeight: isToday ? '28px' : '32px'
           }}>
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
@@ -561,7 +562,7 @@ const Reports = () => {
                       )}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
+                          <Button variant="ghost" size="sm" className="absolute top-1 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
@@ -617,9 +618,9 @@ const Reports = () => {
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-[hsl(var(--destructive-light))]' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
-            height: '32px',
-            minHeight: '32px',
-            maxHeight: '32px'
+            height: isToday ? '28px' : '32px',
+            minHeight: isToday ? '28px' : '32px',
+            maxHeight: isToday ? '28px' : '32px'
           }}>
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {/* Render pickup-only orders first */}
@@ -639,7 +640,7 @@ const Reports = () => {
                       )}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
+                          <Button variant="ghost" size="sm" className="absolute top-1 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
@@ -705,7 +706,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
+                          <Button variant="ghost" size="sm" className="absolute top-1 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
