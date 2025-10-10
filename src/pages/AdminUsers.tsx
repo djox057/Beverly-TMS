@@ -138,7 +138,7 @@ const AdminUsers = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
+      if (!session?.access_token) {
         throw new Error('No active session');
       }
 
@@ -149,6 +149,9 @@ const AdminUsers = () => {
           password, 
           fullName: fullName || email, 
           role 
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
       
@@ -193,12 +196,15 @@ const AdminUsers = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
+      if (!session?.access_token) {
         throw new Error('No active session');
       }
 
       const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: userToDelete.user_id }
+        body: { userId: userToDelete.user_id },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
       
       if (error) throw error;
@@ -241,15 +247,18 @@ const AdminUsers = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
+      if (!session?.access_token) {
         throw new Error('No active session');
       }
 
-      // Update roles via edge function
+      // Update roles via edge function with explicit auth header
       const { data, error } = await supabase.functions.invoke('update-user-role', {
         body: { 
           userId: userToEdit.user_id,
           roles: editRoles
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
       
