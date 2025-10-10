@@ -426,7 +426,11 @@ const Orders = () => {
                       </TableCell>
                     </TableRow> : filteredOrders.map(order => {
                       // Check if order has extra charges
-                      const hasExtraCharges = order.detention > 0 || order.layover > 0 || order.extraStop > 0 || order.lumper > 0 || order.lateFee > 0;
+                      const hasExtraCharges = (order.detention && order.detention > 0) || 
+                                             (order.layover && order.layover > 0) || 
+                                             (order.extraStop && order.extraStop > 0) || 
+                                             (order.lumper && order.lumper > 0) || 
+                                             (order.lateFee && order.lateFee > 0);
                       
                       return <TableRow key={order.id} className={`h-16 ${
                         order.canceled 
