@@ -446,10 +446,35 @@ const Orders = () => {
                         <TableCell>
                           <div className="flex gap-1">
                             {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
+                          const { data, error } = await supabase.storage
+                            .from('order-files')
+                            .createSignedUrl(file.file_path, 3600);
+                          
+                          if (error) {
+                            toast.error(`Failed to load file: ${error.message}`);
+                            return;
+                          }
+                          
+                          const signedUrl = data?.signedUrl;
+                          if (signedUrl) {
+                            try {
+                              const response = await fetch(signedUrl);
+                              if (!response.ok) throw new Error('Failed to fetch file');
+                              
+                              const blob = await response.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              
+                              const newWindow = window.open(blobUrl, '_blank');
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                              
+                              if (!newWindow) {
+                                toast.error("Please allow popups for this site");
+                              }
+                            } catch (err) {
+                              console.error('Error opening file:', err);
+                              toast.error("Failed to open file");
+                            }
+                          }
                         }}>
                                   {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
                                 </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
@@ -458,10 +483,35 @@ const Orders = () => {
                         <TableCell>
                           <div className="flex gap-1">
                             {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const {
-                            data
-                          } = supabase.storage.from('order-files').getPublicUrl(file.file_path);
-                          window.open(data.publicUrl, '_blank');
+                          const { data, error } = await supabase.storage
+                            .from('order-files')
+                            .createSignedUrl(file.file_path, 3600);
+                          
+                          if (error) {
+                            toast.error(`Failed to load file: ${error.message}`);
+                            return;
+                          }
+                          
+                          const signedUrl = data?.signedUrl;
+                          if (signedUrl) {
+                            try {
+                              const response = await fetch(signedUrl);
+                              if (!response.ok) throw new Error('Failed to fetch file');
+                              
+                              const blob = await response.blob();
+                              const blobUrl = URL.createObjectURL(blob);
+                              
+                              const newWindow = window.open(blobUrl, '_blank');
+                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                              
+                              if (!newWindow) {
+                                toast.error("Please allow popups for this site");
+                              }
+                            } catch (err) {
+                              console.error('Error opening file:', err);
+                              toast.error("Failed to open file");
+                            }
+                          }
                         }}>
                                   {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
                                 </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
