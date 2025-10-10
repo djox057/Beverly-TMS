@@ -68,7 +68,7 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
     const pickupDate = truckData.pickup.date !== '—' ? new Date(truckData.pickup.date) : null;
     const deliveryDate = truckData.delivery.date !== '—' ? new Date(truckData.delivery.date) : null;
     const refDate = pickupDate || deliveryDate || new Date();
-    return addDays(refDate, -1); // Start 1 day before to show current day as 2nd column
+    return startOfWeek(refDate, { weekStartsOn: 1 }); // Start week on Monday
   });
 
   const statusColors = getStatusColors(truckData.status);
