@@ -16,29 +16,29 @@ serve(async (req) => {
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       throw new Error('No authorization header');
     }
 
-    // Create user client to verify auth
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // Extract JWT token from Bearer token
+    const token = authHeader.replace('Bearer ', '');
+    console.log('Token received, length:', token.length);
 
-    // Verify the user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-
-    if (userError || !user) {
-      console.error('Auth error:', userError);
-      throw new Error('Unauthorized');
-    }
-
-    // Use service role client for admin operations
+    // Use service role client for all operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Verify the JWT token
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('Auth verification failed:', userError);
+      throw new Error('Unauthorized');
+    }
+
+    console.log('User verified:', user.id);
 
     // Check if the requesting user has admin or accounting role
     const { data: userRoles, error: rolesError } = await supabaseAdmin
