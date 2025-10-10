@@ -79,6 +79,10 @@ const Analytics = () => {
     Record<string, { email: string; office: string | null }>
   >({});
   const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
+  const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
+  const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
+  const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
+  const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
 
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
@@ -412,11 +416,35 @@ const Analytics = () => {
         notice: driverTiers[name]?.notice || ''
       };
     })
+    .filter((stat) => {
+      // Filter by driver name search
+      const matchesSearch = stat.name.toLowerCase().includes(driverSearchQuery.toLowerCase());
+      
+      // Filter by tiers
+      const matchesGrossTier = grossTierFilter === "all" || stat.grossTier === grossTierFilter;
+      const matchesSafetyTier = safetyTierFilter === "all" || stat.safetyTier === safetyTierFilter;
+      const matchesManagementTier = managementTierFilter === "all" || stat.managementTier === managementTierFilter;
+      
+      return matchesSearch && matchesGrossTier && matchesSafetyTier && matchesManagementTier;
+    })
     .sort((a, b) => {
       const aValue = a.totalDriverRate;
       const bValue = b.totalDriverRate;
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
     });
+  
+  const getTierColor = (tier: string) => {
+    switch (tier) {
+      case 'Tier 1':
+        return 'bg-green-500 text-white hover:bg-green-600';
+      case 'Tier 2':
+        return 'bg-yellow-500 text-white hover:bg-yellow-600';
+      case 'Tier 3':
+        return 'bg-red-500 text-white hover:bg-red-600';
+      default:
+        return 'bg-gray-500 text-white hover:bg-gray-600';
+    }
+  };
   
   const handleTierChange = (driverName: string, tierType: 'grossTier' | 'safetyTier' | 'managementTier', value: string) => {
     const currentData = driverTiers[driverName] || {
@@ -693,59 +721,64 @@ const Analytics = () => {
           <TabsContent value="driver-performance" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-col gap-4">
                   <CardTitle>Driver Performance</CardTitle>
                   <div className="flex flex-wrap gap-2 items-center">
-                    <Select value={selectedWeek} onValueChange={handleWeekChange}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue placeholder="Select week" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All time weekly</SelectItem>
-                        {weekOptions.map((week) => (
-                          <SelectItem key={week.value} value={week.value}>
-                            {week.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <Select value={selectedMonth} onValueChange={handleMonthChange}>
-                      <SelectTrigger className="w-64">
-                        <SelectValue placeholder="Select month" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All time monthly</SelectItem>
-                        {monthOptions.map((month) => (
-                          <SelectItem key={month.value} value={month.value}>
-                            {month.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <DateRangePicker
-                      date={dateRange}
-                      onDateChange={(range) => {
-                        setDateRange(range);
-                        setSelectedWeek("all");
-                        setSelectedMonth("all");
-                        setFilterType("custom");
-                      }}
-                      placeholder="Custom date range"
-                      className="w-72"
+                    <Input
+                      placeholder="Search driver name..."
+                      value={driverSearchQuery}
+                      onChange={(e) => setDriverSearchQuery(e.target.value)}
+                      className="w-64"
                     />
-                    {dateRange && (
+                    
+                    <Select value={grossTierFilter} onValueChange={setGrossTierFilter}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="GROSS Tier" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="all">All GROSS Tiers</SelectItem>
+                        <SelectItem value="Tier 1">Tier 1</SelectItem>
+                        <SelectItem value="Tier 2">Tier 2</SelectItem>
+                        <SelectItem value="Tier 3">Tier 3</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={safetyTierFilter} onValueChange={setSafetyTierFilter}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Safety Tier" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="all">All Safety Tiers</SelectItem>
+                        <SelectItem value="Tier 1">Tier 1</SelectItem>
+                        <SelectItem value="Tier 2">Tier 2</SelectItem>
+                        <SelectItem value="Tier 3">Tier 3</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={managementTierFilter} onValueChange={setManagementTierFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Management Tier" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="all">All Management Tiers</SelectItem>
+                        <SelectItem value="Tier 1">Tier 1</SelectItem>
+                        <SelectItem value="Tier 2">Tier 2</SelectItem>
+                        <SelectItem value="Tier 3">Tier 3</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {(driverSearchQuery || grossTierFilter !== "all" || safetyTierFilter !== "all" || managementTierFilter !== "all") && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setDateRange(undefined);
-                          setSelectedWeek("all");
-                          setSelectedMonth("all");
+                          setDriverSearchQuery("");
+                          setGrossTierFilter("all");
+                          setSafetyTierFilter("all");
+                          setManagementTierFilter("all");
                         }}
                       >
-                        Clear Filter
+                        Clear Filters
                       </Button>
                     )}
                   </div>
@@ -790,10 +823,10 @@ const Analytics = () => {
                               value={stat.grossTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'grossTier', value)}
                             >
-                              <SelectTrigger className="w-22">
+                              <SelectTrigger className={`w-22 ${getTierColor(stat.grossTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-background z-50">
                                 <SelectItem value="Tier 1">Tier 1</SelectItem>
                                 <SelectItem value="Tier 2">Tier 2</SelectItem>
                                 <SelectItem value="Tier 3">Tier 3</SelectItem>
@@ -805,10 +838,10 @@ const Analytics = () => {
                               value={stat.safetyTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'safetyTier', value)}
                             >
-                              <SelectTrigger className="w-22">
+                              <SelectTrigger className={`w-22 ${getTierColor(stat.safetyTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-background z-50">
                                 <SelectItem value="Tier 1">Tier 1</SelectItem>
                                 <SelectItem value="Tier 2">Tier 2</SelectItem>
                                 <SelectItem value="Tier 3">Tier 3</SelectItem>
@@ -820,10 +853,10 @@ const Analytics = () => {
                               value={stat.managementTier} 
                               onValueChange={(value) => handleTierChange(stat.name, 'managementTier', value)}
                             >
-                              <SelectTrigger className="w-22">
+                              <SelectTrigger className={`w-22 ${getTierColor(stat.managementTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-background z-50">
                                 <SelectItem value="Tier 1">Tier 1</SelectItem>
                                 <SelectItem value="Tier 2">Tier 2</SelectItem>
                                 <SelectItem value="Tier 3">Tier 3</SelectItem>
