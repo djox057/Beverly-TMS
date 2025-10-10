@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
@@ -82,7 +82,7 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
-  const [bookedByFilter, setBookedByFilter] = useState(isDispatcher && profile?.full_name ? profile.full_name : "all-users");
+  const [bookedByFilter, setBookedByFilter] = useState("all-users");
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
@@ -97,6 +97,13 @@ const Orders = () => {
     dhMiles: "",
     notes: ""
   });
+  
+  // Set bookedBy filter for dispatchers when profile loads
+  useEffect(() => {
+    if (isDispatcher && profile?.full_name) {
+      setBookedByFilter(profile.full_name);
+    }
+  }, [isDispatcher, profile?.full_name]);
   const {
     data: orders,
     isLoading,
