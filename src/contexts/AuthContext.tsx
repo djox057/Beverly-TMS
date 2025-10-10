@@ -6,13 +6,13 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
-  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting')[];
+  roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance')[];
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string, role?: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance') => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
-  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') => boolean;
-  getPrimaryRole: () => ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting') | null;
+  hasRole: (role: 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance') => boolean;
+  getPrimaryRole: () => ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance') | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
