@@ -97,7 +97,12 @@ const NewOrder = () => {
   const { data: companies, isLoading: companiesLoading } = useCompanies();
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
-  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(bookedByCompany);
+  
+  // Get company_id from selected truck
+  const selectedTruck = trucks?.find(t => t.id === truck);
+  const truckCompanyId = selectedTruck?.company_id || bookedByCompany;
+  
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(truckCompanyId);
   
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find(item => item.type === 'pickup')?.datetime || null;
