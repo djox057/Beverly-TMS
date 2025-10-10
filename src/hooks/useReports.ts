@@ -314,8 +314,8 @@ export const useReports = () => {
           return false;
         }) || [];
         
-        // Process all orders for this truck (including GAME-OVER for calendar rendering)
-        const allOrdersWithStops = truck.orders?.map(order => {
+        // Process all orders for this truck (including GAME-OVER for calendar rendering, but excluding canceled orders)
+        const allOrdersWithStops = truck.orders?.filter(order => !order.canceled).map(order => {
           const pickupStops = order.pickup_drops?.filter(stop => stop.type === 'pickup') || [];
           const deliveryStops = order.pickup_drops?.filter(stop => stop.type === 'delivery') || [];
           
