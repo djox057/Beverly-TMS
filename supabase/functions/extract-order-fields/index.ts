@@ -149,15 +149,45 @@ If SINGLE-DROP (standard load):
 
 Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
 
-CRITICAL ADDRESS PARSING RULES:
+CRITICAL ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY:
+
+ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):
+1. BEST: Extract FULL address with ALL components available:
+   - address: Street number + street name (e.g., "123 Main St", "4567 Industrial Blvd")
+   - city: City name only (e.g., "Houston", "Los Angeles")
+   - state: 2-letter state code (e.g., "TX", "CA")
+   - zip: ZIP code (e.g., "77001" or "77001-1234")
+   Example: address="123 Main St", city="Houston", state="TX", zip="77001"
+
+2. GOOD: If street address unavailable, extract city + state + zip:
+   - address: Leave empty or null
+   - city: City name (REQUIRED)
+   - state: 2-letter code (REQUIRED)
+   - zip: ZIP code
+   Example: city="Houston", state="TX", zip="77001"
+
+3. ACCEPTABLE: If only city and state are visible:
+   - address: Leave empty or null
+   - city: City name (REQUIRED)
+   - state: 2-letter code (REQUIRED)
+   - zip: Leave empty if not found
+   Example: city="Houston", state="TX"
+
+4. AVOID: DO NOT return ONLY street address without city/state - this cannot be geocoded
+   - BAD: address="123 Main St" with no city/state
+   - If you see only a street, try to find the city/state elsewhere in the document
+
+CRITICAL PARSING RULES:
 - city: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
-- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY") 
+- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY")
 - zip: Extract zip code with these rules:
   * If 5 digits or fewer, return as-is (e.g., "77001")
   * If more than 5 digits, format as ZIP+4 with hyphen (e.g., "77001-1234")
   * Remove any spaces or extra characters
-- DO NOT include ZIP codes, suite numbers, or other address components in city/state fields
+- DO NOT include country names (USA, United States, etc.) in any address field
+- DO NOT include ZIP codes, suite numbers, or other components in city/state fields
 - DO NOT swap city and state values
+- DO NOT return partial street addresses without city/state
 
 EXAMPLES of correct city/state extraction:
 - "123 Main St, Houston, TX 77001" → city: "Houston", state: "TX"
