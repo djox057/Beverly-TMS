@@ -39,12 +39,38 @@
     /* Status colors */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
+    --success-light: 142 76% 92%;
+    --success-light-foreground: 142 76% 20%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+    --warning-light: 45 93% 90%;
+    --warning-light-foreground: 38 92% 25%;
     --info: 210 100% 50%;
     --info-foreground: 0 0% 100%;
+    --info-light: 210 100% 92%;
+    --info-light-foreground: 210 100% 25%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-light: 0 84% 95%;
+    --destructive-light-foreground: 0 84% 30%;
+    
+    /* Table cell status colors - light mode */
+    --cell-transit: 217 91% 85%;
+    --cell-transit-foreground: 217 91% 25%;
+    --cell-loading: 45 93% 80%;
+    --cell-loading-foreground: 45 93% 20%;
+    --cell-available: 142 76% 85%;
+    --cell-available-foreground: 142 76% 20%;
+    --cell-maintenance: 0 84% 85%;
+    --cell-maintenance-foreground: 0 84% 25%;
+    --cell-complete: 142 76% 25%;
+    --cell-complete-foreground: 142 76% 95%;
+    --cell-active: 217 91% 30%;
+    --cell-active-foreground: 217 91% 95%;
+    --cell-pending: 210 40% 94%;
+    --cell-pending-foreground: 210 40% 30%;
+    --cell-lime: 84 81% 70%;
+    --cell-lime-foreground: 84 81% 15%;
 
     /* Borders and inputs */
     --border: 214 32% 91%;
@@ -101,14 +127,40 @@
     --accent: 212 100% 47%;
     --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 142 76% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --success-light: 142 76% 25%;
+    --success-light-foreground: 142 76% 90%;
+    --warning: 38 92% 60%;
     --warning-foreground: 0 0% 100%;
-    --info: 210 100% 50%;
+    --warning-light: 45 93% 30%;
+    --warning-light-foreground: 45 93% 85%;
+    --info: 210 100% 60%;
     --info-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
+    --info-light: 210 100% 30%;
+    --info-light-foreground: 210 100% 90%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-light: 0 62% 25%;
+    --destructive-light-foreground: 0 62% 90%;
+    
+    /* Table cell status colors - dark mode */
+    --cell-transit: 217 91% 35%;
+    --cell-transit-foreground: 217 91% 95%;
+    --cell-loading: 45 93% 40%;
+    --cell-loading-foreground: 45 93% 95%;
+    --cell-available: 142 76% 35%;
+    --cell-available-foreground: 142 76% 95%;
+    --cell-maintenance: 0 84% 40%;
+    --cell-maintenance-foreground: 0 84% 95%;
+    --cell-complete: 142 76% 25%;
+    --cell-complete-foreground: 142 76% 95%;
+    --cell-active: 217 91% 30%;
+    --cell-active-foreground: 217 91% 95%;
+    --cell-pending: 217 32% 25%;
+    --cell-pending-foreground: 217 32% 85%;
+    --cell-lime: 84 81% 40%;
+    --cell-lime-foreground: 84 81% 95%;
 
     --border: 217 32% 27%;
     --input: 217 32% 27%;

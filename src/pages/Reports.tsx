@@ -32,15 +32,15 @@ interface DispatcherCalendarState {
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
-      return <span className="px-1 py-0.5 text-[10px] bg-blue-100 text-blue-800 border border-blue-200">In Transit</span>;
+      return <span className="px-1 py-0.5 text-[10px] bg-[hsl(var(--cell-transit))] text-[hsl(var(--cell-transit-foreground))] border border-border">In Transit</span>;
     case "Loading":
-      return <span className="px-1 py-0.5 text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200">Loading</span>;
+      return <span className="px-1 py-0.5 text-[10px] bg-[hsl(var(--cell-loading))] text-[hsl(var(--cell-loading-foreground))] border border-border">Loading</span>;
     case "Available":
-      return <span className="px-1 py-0.5 text-[10px] bg-green-100 text-green-800 border border-green-200">Available</span>;
+      return <span className="px-1 py-0.5 text-[10px] bg-[hsl(var(--cell-available))] text-[hsl(var(--cell-available-foreground))] border border-border">Available</span>;
     case "Maintenance":
-      return <span className="px-1 py-0.5 text-[10px] bg-red-100 text-red-800 border border-red-200">Maintenance</span>;
+      return <span className="px-1 py-0.5 text-[10px] bg-[hsl(var(--cell-maintenance))] text-[hsl(var(--cell-maintenance-foreground))] border border-border">Maintenance</span>;
     default:
-      return <span className="px-1 py-0.5 text-[10px] bg-gray-100 text-gray-800 border border-gray-200">{status}</span>;
+      return <span className="px-1 py-0.5 text-[10px] bg-muted text-muted-foreground border border-border">{status}</span>;
   }
 };
 const Reports = () => {
@@ -263,33 +263,33 @@ const Reports = () => {
     switch (status) {
       case "In Transit":
         return {
-          bg: 'bg-blue-100',
-          text: 'text-blue-800',
-          border: 'border-blue-200'
+          bg: 'bg-[hsl(var(--cell-transit))]',
+          text: 'text-[hsl(var(--cell-transit-foreground))]',
+          border: 'border-border'
         };
       case "Loading":
         return {
-          bg: 'bg-yellow-100',
-          text: 'text-yellow-800',
-          border: 'border-yellow-200'
+          bg: 'bg-[hsl(var(--cell-loading))]',
+          text: 'text-[hsl(var(--cell-loading-foreground))]',
+          border: 'border-border'
         };
       case "Available":
         return {
-          bg: 'bg-green-100',
-          text: 'text-green-800',
-          border: 'border-green-200'
+          bg: 'bg-[hsl(var(--cell-available))]',
+          text: 'text-[hsl(var(--cell-available-foreground))]',
+          border: 'border-border'
         };
       case "Maintenance":
         return {
-          bg: 'bg-red-100',
-          text: 'text-red-800',
-          border: 'border-red-200'
+          bg: 'bg-[hsl(var(--cell-maintenance))]',
+          text: 'text-[hsl(var(--cell-maintenance-foreground))]',
+          border: 'border-border'
         };
       default:
         return {
-          bg: 'bg-gray-100',
-          text: 'text-gray-800',
-          border: 'border-gray-200'
+          bg: 'bg-muted',
+          text: 'text-muted-foreground',
+          border: 'border-border'
         };
     }
   };
@@ -313,10 +313,10 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
       const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
       const hasArrived = order.pickupStop?.arrived_at;
-      if (hasBOL || hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
-      if (hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
-      if (previousLoadDeliveryComplete) return 'bg-blue-300 text-blue-900 border-blue-400'; // Light Blue (in transit)
-      return 'bg-gray-100 text-gray-800 border-gray-200'; // Grey
+      if (hasBOL || hasPOD) return 'bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border';
+      if (hasArrived) return 'bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border';
+      if (previousLoadDeliveryComplete) return 'bg-[hsl(var(--cell-transit))] text-[hsl(var(--cell-transit-foreground))] border-border';
+      return 'bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border';
     };
 
     // Helper to get delivery cell color based on status
@@ -324,10 +324,10 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
       const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
       const hasArrived = order.deliveryStop?.arrived_at;
-      if (hasPOD) return 'bg-green-700 text-white border-green-800'; // Dark Green
-      if (hasBOL && hasArrived) return 'bg-blue-900 text-white border-blue-950'; // Dark Blue
-      if (hasBOL) return 'bg-lime-400 text-lime-950 border-lime-500'; // Lime Green
-      return 'bg-gray-100 text-gray-800 border-gray-200'; // Grey
+      if (hasPOD) return 'bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border';
+      if (hasBOL && hasArrived) return 'bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border';
+      if (hasBOL) return 'bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border';
+      return 'bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border';
     };
 
     // Helper function to get lost day note for a specific date
@@ -547,6 +547,7 @@ const Reports = () => {
               {deliveryOnlyOrders.length > 0 ? <div className="space-y-0.5 flex-1 p-0.5 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
                 const cellColor = getDeliveryCellColor(order);
+                const totalDeliveryStops = order.pickupStopsByDate?.get(format(day, 'yyyy-MM-dd')) || 1;
                 return <div key={`delivery-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-0.5 py-0.5 flex-1`}>
                       {(
                         <>
@@ -560,7 +561,7 @@ const Reports = () => {
                       )}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
@@ -608,14 +609,14 @@ const Reports = () => {
                       </Popover>
                     </div>;
               })}
-                  {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
+                  {deliveryOnlyOrders.length > 1 && <div className="text-[9px] text-muted-foreground text-center leading-tight">
                       +{deliveryOnlyOrders.length - 1} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`}>{isInTransit ? '>>>' : '—'}</div>}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}>{isInTransit ? '>>>' : '—'}</div>}
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-gray-200 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-red-200' : isInTransit ? 'bg-yellow-200' : 'bg-gray-50'}`} style={{
+            <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-destructive-light' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
             height: '32px',
             minHeight: '32px',
             maxHeight: '32px'
@@ -638,7 +639,7 @@ const Reports = () => {
                       )}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
@@ -704,7 +705,7 @@ const Reports = () => {
                       </div>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-white/20">
+                          <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-3 w-3 p-0 hover:bg-background/20">
                             <Info className="h-2 w-2" />
                           </Button>
                         </PopoverTrigger>
@@ -768,10 +769,10 @@ const Reports = () => {
               })}
 
                   {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
-                  {pickupOnlyOrders.length + sameDayOrders.length > 1 && <div className="text-[9px] text-gray-600 text-center leading-tight">
+                  {pickupOnlyOrders.length + sameDayOrders.length > 1 && <div className="text-[9px] text-muted-foreground text-center leading-tight">
                       +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-red-700 font-semibold cursor-pointer hover:bg-red-300' : isInTransit ? 'text-gray-700 font-semibold' : 'text-gray-400'}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-destructive-foreground font-semibold cursor-pointer hover:bg-destructive/30' : isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`} onClick={isMissingPickup ? e => {
               e.stopPropagation();
               const dateStr = format(day, 'yyyy-MM-dd');
               const currentNote = getLostDayNote(day);
@@ -832,10 +833,10 @@ const Reports = () => {
     if (!groupedReports) return [];
     return groupedReports.filter(group => group.office === office);
   };
-  return <div className="h-full bg-white overflow-hidden flex flex-col">
+  return <div className="h-full bg-background overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="px-4 pt-2 sticky top-0 bg-white z-10 border-b border-gray-200">
+          <div className="px-4 pt-2 sticky top-0 bg-background z-10 border-b border-border">
             <TabsList className="grid w-full grid-cols-4 mb-2">
               {offices.map(office => <TabsTrigger key={office} value={office}>
                   {office}
@@ -845,7 +846,7 @@ const Reports = () => {
 
           {offices.map(office => <TabsContent key={office} value={office} className="mt-0">
               {filterReportsByOffice(office).length === 0 ? <div className="p-4">
-                  <div className="text-center py-12 text-gray-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     No trucks assigned to dispatchers in {office}
                   </div>
                 </div> : <div className="px-4 py-2">
@@ -854,51 +855,51 @@ const Reports = () => {
               const days = Array.from({
                 length: 5
               }, (_, i) => addDays(startDate, i));
-              return <div key={group.dispatcherId} className="bg-white">
+              return <div key={group.dispatcherId} className="bg-card">
                 {/* Google Sheets-style table */}
                 <div className="w-full">
-                  <table className="w-full border-collapse bg-white border border-gray-300" style={{
+                  <table className="w-full border-collapse bg-card border border-border" style={{
                     tableLayout: 'auto'
                   }}>
                     <thead>
                       {/* Date Range Selector Row with Dispatcher Name */}
-                      <tr className="bg-gray-50">
-                        <th colSpan={3} className="border-r border-b border-gray-300 px-2 py-1 text-left font-bold text-gray-900 bg-gray-50" style={{
+                      <tr className="bg-muted/50">
+                        <th colSpan={3} className="border-r border-b border-border px-2 py-1 text-left font-bold text-foreground bg-muted/50" style={{
                           fontSize: '0.825rem'
                         }}>
                           {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? 's' : ''})
                         </th>
-                        <th colSpan={5} className="border-r border-b border-gray-300 px-2 py-1 bg-gray-50">
+                        <th colSpan={5} className="border-r border-b border-border px-2 py-1 bg-muted/50">
                           <div className="flex items-center justify-center">
-                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-gray-200 rounded">
+                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))} className="p-0.5 hover:bg-muted rounded">
                               <ChevronLeft className="h-3 w-3" />
                             </button>
-                            <div className="text-xs font-medium text-gray-700 mx-2">
+                            <div className="text-xs font-medium text-foreground mx-2">
                               {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
                             </div>
-                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))} className="p-0.5 hover:bg-gray-200 rounded">
+                            <button onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))} className="p-0.5 hover:bg-muted rounded">
                               <ChevronRight className="h-3 w-3" />
                             </button>
                           </div>
                         </th>
-                        <th colSpan={4} className="border-r border-b border-gray-300 bg-gray-50" style={{
+                        <th colSpan={4} className="border-r border-b border-border bg-muted/50" style={{
                           width: '220px',
                           minWidth: '220px',
                           maxWidth: '220px'
                         }}></th>
-                        <th colSpan={2} className={`bg-gray-50 border-l border-b border-gray-300 px-2 py-1 text-center text-[10px] font-medium text-gray-700 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>
+                        <th colSpan={2} className={`bg-muted/50 border-l border-b border-border px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? 'border-r border-border' : ''}`}>
                           Recent Activity
                         </th>
                       </tr>
                       {/* Column Headers Row */}
-                      <tr className="bg-gray-50">
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-16">Truck #</th>
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                      <tr className="bg-muted/50">
+                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">Truck #</th>
+                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '163px',
                           minWidth: '163px',
                           maxWidth: '163px'
                         }}>Driver</th>
-                        <th className="border-r border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                        <th className="border-r border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '136px',
                           minWidth: '136px',
                           maxWidth: '136px'
@@ -907,7 +908,7 @@ const Reports = () => {
                           const isToday = isSameDay(day, new Date());
                           // Apply left border to all cells except the first
                           const showLeftBorder = index > 0;
-                          return <th key={index} className={`border-b border-gray-300 ${showLeftBorder ? 'border-l border-gray-300' : ''} px-2 py-1 text-center text-[10px] font-medium text-gray-700 bg-gray-50 relative`} style={{
+                          return <th key={index} className={`border-b border-border ${showLeftBorder ? 'border-l border-border' : ''} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`} style={{
                             width: '120px',
                             minWidth: '120px',
                             maxWidth: '120px',
@@ -922,23 +923,23 @@ const Reports = () => {
                               left: 0,
                               right: 0,
                               bottom: 0,
-                              borderLeft: '4px solid rgb(239, 68, 68)',
-                              borderRight: '4px solid rgb(239, 68, 68)',
-                              borderTop: '4px solid rgb(239, 68, 68)',
-                              borderBottom: '4px solid rgb(156, 163, 175)',
+                              borderLeft: '4px solid hsl(var(--destructive))',
+                              borderRight: '4px solid hsl(var(--destructive))',
+                              borderTop: '4px solid hsl(var(--destructive))',
+                              borderBottom: '4px solid hsl(var(--border))',
                               zIndex: 100
                             }} />}
                             <div className="relative z-10 text-[10px]">{format(day, 'EEEE')}</div>
-                            <div className="text-[9px] text-gray-600 relative z-10">{format(day, 'M/d/yyyy')}</div>
+                            <div className="text-[9px] text-muted-foreground relative z-10">{format(day, 'M/d/yyyy')}</div>
                           </th>;
                         })}
-                        <th colSpan={4} className="border-t border-l border-r border-b border-gray-300 px-2 py-0.5 text-center text-[10px] font-medium text-gray-700 bg-gray-50" style={{
+                        <th colSpan={4} className="border-t border-l border-r border-b border-border px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50" style={{
                           width: '220px',
                           minWidth: '220px',
                           maxWidth: '220px'
                         }}>Away (D)   |  Drive  |  Shift  |  Break  | Cycle</th>
-                         <th className="border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20">Last Edit</th>
-                         <th className={`border-t border-b border-gray-300 px-2 py-1 text-left text-[10px] font-medium text-gray-700 bg-gray-50 w-20 ${sidebarOpen ? 'border-r border-gray-300' : ''}`}>Date</th>
+                         <th className="border-t border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">Last Edit</th>
+                         <th className={`border-t border-b border-border px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? 'border-r border-border' : ''}`}>Date</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -955,8 +956,8 @@ const Reports = () => {
                         
                         return (
                           <>
-                            <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-gray-900 font-medium`} style={{
+                            <tr key={truck.id} className={truckIndex % 2 === 0 ? 'bg-card' : 'bg-muted/20'}>
+                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground font-medium`} style={{
                             width: '64px',
                             minWidth: '64px',
                             maxWidth: '64px'
@@ -973,7 +974,7 @@ const Reports = () => {
                                 </TooltipProvider>}
                             </div>
                           </td>
-                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-gray-900`} style={{
+                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground`} style={{
                             width: '163px',
                             minWidth: '163px',
                             maxWidth: '163px'
@@ -1006,7 +1007,7 @@ const Reports = () => {
                               )}
                             </div>
                           </td>
-                          <td className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-gray-900`} style={{
+                          <td className={`border-r border-b-[3px] border-border px-2 py-1 text-xs text-foreground`} style={{
                             width: '136px',
                             minWidth: '136px',
                             maxWidth: '136px'
@@ -1034,7 +1035,7 @@ const Reports = () => {
                                   onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
                                 >
                                   <MapPin 
-                                    className="text-red-500 cursor-pointer hover:text-red-700 transition-colors" 
+                                    className="text-destructive cursor-pointer hover:text-destructive/80 transition-colors" 
                                     style={{
                                       width: '12px',
                                       height: '12px',
@@ -1063,7 +1064,7 @@ const Reports = () => {
                                     onOpenChange={(open) => setExpandedTruckMap(open ? truck.id : null)}
                                   >
                                     <MapPin 
-                                      className="text-gray-500 cursor-pointer hover:text-gray-700 transition-colors" 
+                                      className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors" 
                                       style={{
                                         width: '12px',
                                         height: '12px',
@@ -1079,14 +1080,14 @@ const Reports = () => {
                           </td>
                           {modifiedCells}
                           {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
-                          <td colSpan={4} className={`border-r border-b-[3px] border-gray-400 p-0`} style={{
+                          <td colSpan={4} className={`border-r border-b-[3px] border-border p-0`} style={{
                             height: '64px'
                           }}>
-                            <div className="h-8 border-b border-gray-200 flex items-center justify-around px-1">
+                            <div className="h-8 border-b border-border flex items-center justify-around px-1">
                               {/* Away Days - Show distance in miles if available */}
                               <div className="flex flex-col items-center">
-                                <div className="text-[9px] text-gray-600 mb-0">AWAY (D)</div>
-                                {isLoadingSamsara ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : truckDistances[truck.id] > 0 ? <div className="text-[10px] text-blue-600 font-medium">{truckDistances[truck.id]}</div> : <div className="text-[10px] text-gray-900 font-medium">{truck.awayDays}</div>}
+                                <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
+                                {isLoadingSamsara ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /> : truckDistances[truck.id] > 0 ? <div className="text-[10px] text-[hsl(var(--info))] font-medium">{truckDistances[truck.id]}</div> : <div className="text-[10px] text-foreground font-medium">{truck.awayDays}</div>}
                               </div>
                               
                               {/* HOS Circular Timers */}
@@ -1107,12 +1108,12 @@ const Reports = () => {
                               {renderEditableField(truck.id, 'note', truck.note)}
                             </div>
                            </td>
-                           <td className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-gray-600`} style={{
+                           <td className={`border-b-[3px] border-border px-2 py-1 text-[10px] text-muted-foreground`} style={{
                             width: '80px',
                             minWidth: '80px',
                             maxWidth: '80px'
                           }}>{truck.lastEdit}</td>
-                           <td className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-gray-600 ${sidebarOpen ? 'border-r border-gray-300' : ''}`} style={{
+                           <td className={`border-b-[3px] border-border px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? 'border-r border-border' : ''}`} style={{
                             width: '80px',
                             minWidth: '80px',
                             maxWidth: '80px'
@@ -1120,7 +1121,7 @@ const Reports = () => {
                         </tr>
                         {isMapExpanded && (
                           <tr key={`${truck.id}-map`}>
-                            <td colSpan={13} className="p-4 border-b-[3px] border-gray-400">
+                            <td colSpan={13} className="p-4 border-b-[3px] border-border">
                               <TruckMapView
                                 truckNumber={truck.truckNumber}
                                 truckId={truck.id}
