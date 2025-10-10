@@ -812,9 +812,7 @@ const Reports = () => {
                                     key={`pickup-info-${pickupOrder.id}`}
                                     className={`${idx > 0 ? "border-t pt-2" : ""}`}
                                   >
-                                    <p className="font-semibold">
-                                      • Load #{idx + 1}: {pickupOrder.loadDetails.loadNumber}
-                                    </p>
+                                    <p className="font-semibold">• Load #: {pickupOrder.loadDetails.loadNumber}</p>
                                     <p className="ml-4">
                                       • <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}
                                     </p>
