@@ -262,7 +262,8 @@ const Orders = () => {
           notes: validated.notes,
           freight_amount: 0,
           loaded_miles: 0,
-          locked: true
+          locked: true,
+          canceled: true
         })
         .eq('id', selectedOrderId);
 
@@ -424,9 +425,9 @@ const Orders = () => {
                         No orders found
                       </TableCell>
                     </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${
-                      order.status?.toLowerCase() === 'canceled' 
+                      order.canceled 
                         ? 'bg-destructive/10 hover:bg-destructive/15' 
-                        : order.tonu > 0 
+                        : order.tonu > 0
                         ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
                         : ''
                     }`}>

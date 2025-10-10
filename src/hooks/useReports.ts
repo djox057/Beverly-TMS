@@ -226,6 +226,7 @@ export const useReports = () => {
             pickup_end_datetime,
             delivery_datetime,
             delivery_end_datetime,
+            canceled,
            pickup_drops(
              id,
              type,
@@ -285,7 +286,7 @@ export const useReports = () => {
           if (order.notes === 'GAME|OVER') return false;
           
           // Skip canceled orders
-          if (order.status?.toLowerCase() === 'canceled') return false;
+          if (order.canceled) return false;
           
           const isActiveStatus = order.status === 'pending' || order.status === 'in_transit';
           const hasNoDeliveryDate = !order.delivery_datetime;
@@ -299,7 +300,7 @@ export const useReports = () => {
           if (order.notes === 'GAME|OVER') return false;
           
           // Skip canceled orders
-          if (order.status?.toLowerCase() === 'canceled') return false;
+          if (order.canceled) return false;
           
           if (order.status === 'delivered') return true;
           

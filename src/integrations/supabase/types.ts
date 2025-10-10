@@ -396,6 +396,7 @@ export type Database = {
           booked_by: string | null
           broker_id: string | null
           broker_load_number: string | null
+          canceled: boolean
           company_id: string
           created_at: string
           delivery_datetime: string | null
@@ -430,6 +431,7 @@ export type Database = {
           booked_by?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
+          canceled?: boolean
           company_id: string
           created_at?: string
           delivery_datetime?: string | null
@@ -464,6 +466,7 @@ export type Database = {
           booked_by?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
+          canceled?: boolean
           company_id?: string
           created_at?: string
           delivery_datetime?: string | null

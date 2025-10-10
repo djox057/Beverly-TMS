@@ -70,8 +70,7 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
         type
       )
     `)
-    .neq('status', 'Canceled')
-    .neq('status', 'canceled')
+    .eq('canceled', false)
     .order('updated_at', { ascending: false })
     .limit(5);
 

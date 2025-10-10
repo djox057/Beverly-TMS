@@ -125,7 +125,7 @@ const Analytics = () => {
     const filtered =
       orders?.filter((order) => {
         // Exclude canceled orders from analytics
-        if (order.status?.toLowerCase() === 'canceled') {
+        if (order.canceled) {
           return false;
         }
 
