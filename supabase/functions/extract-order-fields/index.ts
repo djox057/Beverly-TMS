@@ -153,11 +153,11 @@ CRITICAL ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY:
 
 ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):
 1. BEST: Extract FULL address with ALL components available:
-   - address: Street number + street name (e.g., "123 Main St", "4567 Industrial Blvd")
-   - city: City name only (e.g., "Houston", "Los Angeles")
-   - state: 2-letter state code (e.g., "TX", "CA")
+   - address: Street number + street name + building/plant/gate identifier (e.g., "123 Main St", "4567 Industrial Blvd Building A", "2707 N Barnes Ave Plant 5")
+   - city: City name only (e.g., "Houston", "Los Angeles", "Springfield")
+   - state: 2-letter state code (e.g., "TX", "CA", "MO")
    - zip: ZIP code (e.g., "77001" or "77001-1234")
-   Example: address="123 Main St", city="Houston", state="TX", zip="77001"
+   Example: address="2707 N Barnes Ave Plant 5", city="Springfield", state="MO", zip="65803"
 
 2. GOOD: If street address unavailable, extract city + state + zip:
    - address: Leave empty or null
@@ -177,21 +177,46 @@ ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):
    - BAD: address="123 Main St" with no city/state
    - If you see only a street, try to find the city/state elsewhere in the document
 
-CRITICAL PARSING RULES:
-- city: Extract ONLY the city name (e.g., "Houston", "Los Angeles", "New York")
-- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY")
+CRITICAL PARSING RULES FOR BUILDING/PLANT/GATE IDENTIFIERS:
+- address: MUST include building/plant/gate/dock/suite identifiers as part of the street address
+  * CORRECT: "2707 N Barnes Ave Plant 5" (Plant 5 stays with street address)
+  * CORRECT: "123 Industrial Blvd Building A" (Building A stays with street address)
+  * CORRECT: "456 Warehouse Dr Gate 3" (Gate 3 stays with street address)
+  * CORRECT: "789 Dock Rd Suite 200" (Suite 200 stays with street address)
+  * WRONG: address="2707 N Barnes Ave", city="Plant 5" (Plant 5 is NOT a city!)
+
+- Common identifiers that belong in the address field (NOT in city):
+  * Plant [number/letter] (e.g., "Plant 5", "Plant A")
+  * Building [number/letter] (e.g., "Building 2", "Building B")
+  * Gate [number/letter] (e.g., "Gate 3", "Gate A")
+  * Dock [number/letter] (e.g., "Dock 1", "Dock C")
+  * Suite [number] (e.g., "Suite 200")
+  * Unit [number] (e.g., "Unit 15")
+  * Bay [number] (e.g., "Bay 4")
+  * Warehouse [number] (e.g., "Warehouse 3")
+
+- city: Extract ONLY the actual city name (e.g., "Houston", "Los Angeles", "Springfield", "New York")
+  * DO NOT include Plant/Building/Gate/Dock/Suite numbers in city field
+  * If you see "Plant 5" followed by "Springfield", Springfield is the city, not Plant 5
+  
+- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY", "MO")
+  * DO NOT mistake city names for state codes
+  
 - zip: Extract zip code with these rules:
-  * If 5 digits or fewer, return as-is (e.g., "77001")
+  * If 5 digits or fewer, return as-is (e.g., "77001", "65803")
   * If more than 5 digits, format as ZIP+4 with hyphen (e.g., "77001-1234")
   * Remove any spaces or extra characters
+  
 - DO NOT include country names (USA, United States, etc.) in any address field
 - DO NOT include ZIP codes, suite numbers, or other components in city/state fields
 - DO NOT swap city and state values
 - DO NOT return partial street addresses without city/state
 
-EXAMPLES of correct city/state extraction:
-- "123 Main St, Houston, TX 77001" → city: "Houston", state: "TX"
-- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → city: "Los Angeles", state: "CA"
+EXAMPLES of correct address extraction:
+- "2707 N Barnes Ave, Plant 5, Springfield, MO 65803" → address: "2707 N Barnes Ave Plant 5", city: "Springfield", state: "MO", zip: "65803"
+- "123 Main St Building A, Houston, TX 77001" → address: "123 Main St Building A", city: "Houston", state: "TX", zip: "77001"
+- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → address: "456 Oak Ave Suite 200", city: "Los Angeles", state: "CA", zip: "90210"
+- "789 Industrial Blvd Gate 3, Dallas, TX 75201" → address: "789 Industrial Blvd Gate 3", city: "Dallas", state: "TX", zip: "75201"
 
 IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. For example:
 - 09/24/25 becomes 2025-09-24
