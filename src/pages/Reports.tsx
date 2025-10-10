@@ -616,7 +616,7 @@ const Reports = () => {
             </div>
             
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-[hsl(var(--destructive-light))]' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
+            <div className={`${isToday ? '' : 'border-l border-r'} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? '' : isMissingPickup ? 'bg-[hsl(0_72%_45%)] dark:bg-[hsl(var(--destructive-light))]' : isInTransit ? 'bg-[hsl(var(--cell-loading))]' : 'bg-muted'}`} style={{
             height: '32px',
             minHeight: '32px',
             maxHeight: '32px'
@@ -772,7 +772,7 @@ const Reports = () => {
                   {pickupOnlyOrders.length + sameDayOrders.length > 1 && <div className="text-[9px] text-muted-foreground text-center leading-tight">
                       +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
                     </div>}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(var(--destructive))]' : isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? 'text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_55%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors' : isInTransit ? 'text-foreground font-semibold' : 'text-muted-foreground'}`} onClick={isMissingPickup ? e => {
               e.stopPropagation();
               const dateStr = format(day, 'yyyy-MM-dd');
               const currentNote = getLostDayNote(day);
