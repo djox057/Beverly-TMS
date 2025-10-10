@@ -424,13 +424,19 @@ const Orders = () => {
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${
-                      order.canceled 
-                        ? 'bg-destructive/10 hover:bg-destructive/15' 
-                        : order.tonu > 0
-                        ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
-                        : ''
-                    }`}>
+                    </TableRow> : filteredOrders.map(order => {
+                      // Check if order has extra charges
+                      const hasExtraCharges = order.detention > 0 || order.layover > 0 || order.extraStop > 0 || order.lumper > 0 || order.lateFee > 0;
+                      
+                      return <TableRow key={order.id} className={`h-16 ${
+                        order.canceled 
+                          ? 'bg-destructive/10 hover:bg-destructive/15' 
+                          : hasExtraCharges
+                          ? 'bg-warning-light hover:bg-warning-light/80'
+                          : order.tonu > 0
+                          ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
+                          : ''
+                      }`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
@@ -567,7 +573,8 @@ const Orders = () => {
                             )}
                           </div>
                         </TableCell>
-                      </TableRow>)}
+                      </TableRow>
+                    })}
                 </TableBody>
               </Table>
             </div>
