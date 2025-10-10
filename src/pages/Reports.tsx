@@ -508,7 +508,7 @@ const Reports = () => {
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
-      return <td key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-gray-300' : ''} p-0 relative`} style={{
+      return <td key={index} className={`border-b-[3px] border-gray-400 ${showLeftBorder ? 'border-l border-border' : ''} p-0 relative`} style={{
         width: isToday ? '116.4px' : '120px',
         minWidth: isToday ? '116.4px' : '120px',
         maxWidth: isToday ? '116.4px' : '120px',
