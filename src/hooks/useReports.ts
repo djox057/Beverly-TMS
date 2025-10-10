@@ -279,10 +279,13 @@ export const useReports = () => {
       }).map(truck => {
         const now = new Date().getTime();
         
-        // Categorize orders (exclude GAME-OVER from active orders)
+        // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
         const activeOrders = truck.orders?.filter(order => {
           // Skip GAME-OVER orders - they're visual indicators only
           if (order.notes === 'GAME|OVER') return false;
+          
+          // Skip canceled orders
+          if (order.status?.toLowerCase() === 'canceled') return false;
           
           const isActiveStatus = order.status === 'pending' || order.status === 'in_transit';
           const hasNoDeliveryDate = !order.delivery_datetime;
@@ -294,6 +297,9 @@ export const useReports = () => {
         const recentCompletedOrders = truck.orders?.filter(order => {
           // Skip GAME-OVER orders
           if (order.notes === 'GAME|OVER') return false;
+          
+          // Skip canceled orders
+          if (order.status?.toLowerCase() === 'canceled') return false;
           
           if (order.status === 'delivered') return true;
           

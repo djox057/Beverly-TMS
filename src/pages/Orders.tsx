@@ -424,7 +424,7 @@ const Orders = () => {
                         No orders found
                       </TableCell>
                     </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${
-                      order.status === 'canceled' 
+                      order.status?.toLowerCase() === 'canceled' 
                         ? 'bg-destructive/10 hover:bg-destructive/15' 
                         : order.tonu > 0 
                         ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
