@@ -98,9 +98,9 @@ const NewOrder = () => {
   const { data: trucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
   
-  // Get company_id from selected truck
+  // Get company_id from selected truck only (not from booked by company)
   const selectedTruck = trucks?.find(t => t.id === truck);
-  const truckCompanyId = selectedTruck?.company_id || bookedByCompany;
+  const truckCompanyId = selectedTruck?.company_id;
   
   const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(truckCompanyId);
   
@@ -125,6 +125,16 @@ const NewOrder = () => {
       }
     }
   }, [rcFiles]);
+
+  // Pre-select BF Prime company as default
+  useEffect(() => {
+    if (companies && companies.length > 0 && !bookedByCompany) {
+      const bfPrime = companies.find(c => c.name === 'BF Prime');
+      if (bfPrime) {
+        setBookedByCompany(bfPrime.id);
+      }
+    }
+  }, [companies, bookedByCompany]);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
