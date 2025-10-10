@@ -1403,10 +1403,12 @@ const EditOrder = () => {
                             return;
                           }
                           
-                          if (data?.signedUrl) {
-                            const fullUrl = data.signedUrl.startsWith('http') 
-                              ? data.signedUrl 
-                              : `https://wjkbtagwgjniilmgwutb.supabase.co/storage/v1${data.signedUrl}`;
+                          // Access the actual runtime property (signedURL with uppercase)
+                          const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+                          if (signedUrl) {
+                            const fullUrl = signedUrl.startsWith('http') 
+                              ? signedUrl 
+                              : `https://wjkbtagwgjniilmgwutb.supabase.co/storage/v1${signedUrl}`;
                             window.open(fullUrl, '_blank');
                           }
                         }}
