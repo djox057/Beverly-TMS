@@ -398,16 +398,6 @@ const Analytics = () => {
     .map(([name, stats]) => {
       const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
       
-      // Initialize driver tiers if not exists
-      if (!driverTiers[name]) {
-        driverTiers[name] = {
-          grossTier: 'Tier 1',
-          safetyTier: 'Tier 1',
-          managementTier: 'Tier 1',
-          notice: ''
-        };
-      }
-      
       return {
         name,
         totalDriverRate: stats.totalDriverRate,
@@ -430,7 +420,10 @@ const Analytics = () => {
     setDriverTiers(prev => ({
       ...prev,
       [driverName]: {
-        ...prev[driverName],
+        grossTier: prev[driverName]?.grossTier || 'Tier 1',
+        safetyTier: prev[driverName]?.safetyTier || 'Tier 1',
+        managementTier: prev[driverName]?.managementTier || 'Tier 1',
+        notice: prev[driverName]?.notice || '',
         [tierType]: value
       }
     }));
@@ -440,7 +433,9 @@ const Analytics = () => {
     setDriverTiers(prev => ({
       ...prev,
       [driverName]: {
-        ...prev[driverName],
+        grossTier: prev[driverName]?.grossTier || 'Tier 1',
+        safetyTier: prev[driverName]?.safetyTier || 'Tier 1',
+        managementTier: prev[driverName]?.managementTier || 'Tier 1',
         notice
       }
     }));
