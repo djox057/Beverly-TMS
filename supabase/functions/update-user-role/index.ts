@@ -24,14 +24,21 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     console.log('Token received, length:', token.length);
 
+    // Create a client with the user's token to verify authentication
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify the user's authentication
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
     // Use service role client for all operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    // Verify the JWT token
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
       console.error('Auth verification failed:', userError);
