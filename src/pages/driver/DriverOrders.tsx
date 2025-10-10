@@ -17,37 +17,27 @@ export default function DriverOrders() {
     );
   }
 
-  const activeOrders = data?.orders?.filter(o => 
-    o.status === 'in_transit' || o.status === 'pending'
-  ) || [];
-  
-  const completedOrders = data?.orders?.filter(o => 
-    o.status === 'delivered'
-  ) || [];
+  const activeOrders = data?.orders?.filter((o) => o.status === "in_transit" || o.status === "pending") || [];
+
+  const completedOrders = data?.orders?.filter((o) => o.status === "delivered") || [];
 
   const OrderCard = ({ order }: { order: any }) => {
-    const pickup = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-    const delivery = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
-    
+    const pickup = order.pickup_drops?.find((pd: any) => pd.type === "pickup");
+    const delivery = order.pickup_drops?.find((pd: any) => pd.type === "delivery");
+
     return (
       <Card className="border-primary/20">
         <CardContent className="pt-4">
           <div className="flex justify-between items-start mb-3">
             <div>
-              <div className="text-sm font-medium text-foreground mb-1">
-                Load #{order.load_number}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {order.broker?.name}
-              </div>
+              <div className="text-sm font-medium text-foreground mb-1">Load#{order.load_number}</div>
+              <div className="text-xs text-muted-foreground">{order.broker?.name}</div>
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold text-primary">
                 ${Number(order.driver_price || 0).toLocaleString()}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {order.loaded_miles} mi
-              </div>
+              <div className="text-xs text-muted-foreground">{order.loaded_miles} mi</div>
             </div>
           </div>
 
@@ -55,13 +45,16 @@ export default function DriverOrders() {
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
               <div className="text-xs">
-                <div className="font-medium text-foreground">{pickup?.city}, {pickup?.state}</div>
+                <div className="font-medium text-foreground">
+                  {pickup?.city}, {pickup?.state}
+                </div>
                 <div className="text-muted-foreground">
-                  {order.pickup_datetime && (() => {
-                    const parsed = parseSimpleDateTime(order.pickup_datetime);
-                    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-                    return format(date, 'MMM dd, h:mm a');
-                  })()}
+                  {order.pickup_datetime &&
+                    (() => {
+                      const parsed = parseSimpleDateTime(order.pickup_datetime);
+                      const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                      return format(date, "MMM dd, h:mm a");
+                    })()}
                 </div>
               </div>
             </div>
@@ -69,23 +62,22 @@ export default function DriverOrders() {
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
               <div className="text-xs">
-                <div className="font-medium text-foreground">{delivery?.city}, {delivery?.state}</div>
+                <div className="font-medium text-foreground">
+                  {delivery?.city}, {delivery?.state}
+                </div>
                 <div className="text-muted-foreground">
-                  {order.delivery_datetime && (() => {
-                    const parsed = parseSimpleDateTime(order.delivery_datetime);
-                    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-                    return format(date, 'MMM dd, h:mm a');
-                  })()}
+                  {order.delivery_datetime &&
+                    (() => {
+                      const parsed = parseSimpleDateTime(order.delivery_datetime);
+                      const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                      return format(date, "MMM dd, h:mm a");
+                    })()}
                 </div>
               </div>
             </div>
           </div>
 
-          {order.notes && (
-            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-              {order.notes}
-            </div>
-          )}
+          {order.notes && <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">{order.notes}</div>}
         </CardContent>
       </Card>
     );
@@ -99,12 +91,8 @@ export default function DriverOrders() {
 
       <Tabs defaultValue="active" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="active">
-            Active ({activeOrders.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completed ({completedOrders.length})
-          </TabsTrigger>
+          <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
+          <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="space-y-3">
