@@ -165,6 +165,7 @@ export const useOrders = () => {
           bookedBy: order.booked_by || 'N/A',
           companyName: order.company?.name || 'N/A',
           locked: order.locked || false,
+          status: order.status || 'pending',
           createdAt: order.created_at,
           files: order.order_files || [],
           rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],

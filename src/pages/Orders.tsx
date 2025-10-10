@@ -423,7 +423,13 @@ const Orders = () => {
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${order.tonu > 0 ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' : ''}`}>
+                    </TableRow> : filteredOrders.map(order => <TableRow key={order.id} className={`h-16 ${
+                      order.status === 'canceled' 
+                        ? 'bg-destructive/10 hover:bg-destructive/15' 
+                        : order.tonu > 0 
+                        ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
+                        : ''
+                    }`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>

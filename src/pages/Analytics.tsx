@@ -124,6 +124,11 @@ const Analytics = () => {
 
     const filtered =
       orders?.filter((order) => {
+        // Exclude canceled orders from analytics
+        if (order.status?.toLowerCase() === 'canceled') {
+          return false;
+        }
+
         // Date filtering - use pickup date for week filters, delivery date for month filters
         let matchesDate = true;
         if (dateRange?.from) {
