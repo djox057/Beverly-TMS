@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useDrivers } from "@/hooks/useDrivers";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +78,7 @@ const Analytics = () => {
 
   const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
+  const { data: drivers } = useDrivers();
 
   // Fetch all profiles to get office locations indexed by full_name
   useEffect(() => {
@@ -362,6 +364,64 @@ const Analytics = () => {
   const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
+  // Calculate driver analytics
+  const driverAnalytics = filteredOrders.reduce(
+    (acc, order) => {
+      // Get driver name from the order (already transformed)
+      const driverName = order.driverName;
+      
+      if (driverName && driverName !== 'N/A') {
+        if (!acc[driverName]) {
+          acc[driverName] = {
+            totalDriverRate: 0,
+            totalMiles: 0,
+            orderCount: 0,
+          };
+        }
+        acc[driverName].totalDriverRate += order.driverPrice;
+        acc[driverName].totalMiles += order.mileage;
+        acc[driverName].orderCount += 1;
+      }
+      
+      return acc;
+    },
+    {} as Record<string, { totalDriverRate: number; totalMiles: number; orderCount: number }>,
+  );
+
+  const driverStats = Object.entries(driverAnalytics)
+    .map(([name, stats]) => {
+      const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
+      return {
+        name,
+        totalDriverRate: stats.totalDriverRate,
+        totalMiles: stats.totalMiles,
+        orderCount: stats.orderCount,
+        ratePerMile,
+      };
+    })
+    .sort((a, b) => {
+      const aValue = a.totalDriverRate;
+      const bValue = b.totalDriverRate;
+      return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
+    });
+
+  // Calculate driver totals
+  const driverTotals = driverStats.reduce(
+    (acc, stat) => {
+      acc.totalDriverRate += stat.totalDriverRate;
+      acc.totalMiles += stat.totalMiles;
+      acc.orderCount += stat.orderCount;
+      return acc;
+    },
+    {
+      totalDriverRate: 0,
+      totalMiles: 0,
+      orderCount: 0,
+    },
+  );
+
+  const driverTotalRatePerMile = driverTotals.totalMiles > 0 ? driverTotals.totalDriverRate / driverTotals.totalMiles : 0;
+
   const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
@@ -396,6 +456,7 @@ const Analytics = () => {
         <Tabs defaultValue="performance" className="w-full">
           <TabsList>
             <TabsTrigger value="performance">Dispatcher Performance</TabsTrigger>
+            <TabsTrigger value="driver-performance">Driver Performance</TabsTrigger>
             <TabsTrigger value="loads">Loads ({qualifyingLoads.length})</TabsTrigger>
           </TabsList>
 
@@ -576,6 +637,140 @@ const Analytics = () => {
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">Cut %</p>
                     <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="driver-performance" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <CardTitle>Driver Performance</CardTitle>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Select value={selectedWeek} onValueChange={handleWeekChange}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder="Select week" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All time weekly</SelectItem>
+                        {weekOptions.map((week) => (
+                          <SelectItem key={week.value} value={week.value}>
+                            {week.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder="Select month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All time monthly</SelectItem>
+                        {monthOptions.map((month) => (
+                          <SelectItem key={month.value} value={month.value}>
+                            {month.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <DateRangePicker
+                      date={dateRange}
+                      onDateChange={(range) => {
+                        setDateRange(range);
+                        setSelectedWeek("all");
+                        setSelectedMonth("all");
+                        setFilterType("custom");
+                      }}
+                      placeholder="Custom date range"
+                      className="w-72"
+                    />
+                    {dateRange && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          setSelectedWeek("all");
+                          setSelectedMonth("all");
+                        }}
+                      >
+                        Clear Filter
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Driver Name</TableHead>
+                      <TableHead className="text-right">Total Driver Rate</TableHead>
+                      <TableHead className="text-right">Total Miles</TableHead>
+                      <TableHead className="text-right">Rate/Mile</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {driverStats.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No data available
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      driverStats.map((stat, index) => (
+                        <TableRow key={stat.name} className={index === driverStats.length - 1 ? "border-b" : ""}>
+                          <TableCell className="font-medium">{stat.name}</TableCell>
+                          <TableCell className="text-right">
+                            $
+                            {stat.totalDriverRate.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{stat.orderCount}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Totals</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Total Driver Rate</p>
+                    <p className="text-2xl font-bold">
+                      $
+                      {driverTotals.totalDriverRate.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Total Miles</p>
+                    <p className="text-2xl font-bold">{driverTotals.totalMiles.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Rate/Mile</p>
+                    <p className="text-2xl font-bold">${driverTotalRatePerMile.toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Total Orders</p>
+                    <p className="text-2xl font-bold">{driverTotals.orderCount}</p>
                   </div>
                 </div>
               </CardContent>
