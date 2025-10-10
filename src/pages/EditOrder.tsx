@@ -590,6 +590,13 @@ const EditOrder = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      console.log('Form submission already in progress, ignoring duplicate submission');
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
