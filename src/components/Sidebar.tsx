@@ -123,7 +123,7 @@ export const Sidebar = () => {
                         cn(
                           "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
                           isActive
-                            ? "bg-primary text-primary-foreground shadow-sm"
+                            ? "text-foreground bg-muted"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )
                       }
@@ -131,7 +131,7 @@ export const Sidebar = () => {
                       {({ isActive }) => (
                         <>
                           {isActive && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full" />
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
                           )}
                           <item.icon className={cn("h-4 w-4", state === "collapsed" ? "mx-auto" : "")} />
                           {state !== "collapsed" && <span>{item.name}</span>}
