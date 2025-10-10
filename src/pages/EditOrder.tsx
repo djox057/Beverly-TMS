@@ -1390,9 +1390,12 @@ const EditOrder = () => {
                         variant="outline"
                         size="sm"
                         onClick={async () => {
+                          console.log('Requesting signed URL for path:', file.file_path);
                           const { data, error } = await supabase.storage
                             .from('order-files')
                             .createSignedUrl(file.file_path, 60); // 60 second expiry
+                          
+                          console.log('Signed URL response:', { data, error });
                           
                           if (error) {
                             toast({
@@ -1405,11 +1408,20 @@ const EditOrder = () => {
                           
                           // Access the actual runtime property (signedURL with uppercase)
                           const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+                          console.log('Extracted signedUrl:', signedUrl);
+                          
                           if (signedUrl) {
                             const fullUrl = signedUrl.startsWith('http') 
                               ? signedUrl 
                               : `https://wjkbtagwgjniilmgwutb.supabase.co/storage/v1${signedUrl}`;
+                            console.log('Opening URL:', fullUrl);
                             window.open(fullUrl, '_blank');
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: "No signed URL received from server",
+                              variant: "destructive",
+                            });
                           }
                         }}
                       >
