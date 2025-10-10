@@ -571,7 +571,7 @@ const Reports = () => {
                             <div className="space-y-3">
                               {deliveryOnlyOrders.map((deliveryOrder, idx) => (
                                 <div key={`delivery-info-${deliveryOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
-                                  <p className="font-semibold">• Load: {deliveryOrder.loadDetails.loadNumber}</p>
+                                  <p className="font-semibold">• Load #{idx + 1}: {deliveryOrder.loadDetails.loadNumber}</p>
                                   <p className="ml-4">• <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}</p>
                                   {deliveryOrder.loadDetails.allPickupStops && deliveryOrder.loadDetails.allPickupStops.length > 0 && (
                                     <>
@@ -649,7 +649,7 @@ const Reports = () => {
                             <div className="space-y-3">
                               {pickupOnlyOrders.map((pickupOrder, idx) => (
                                 <div key={`pickup-info-${pickupOrder.id}`} className={`${idx > 0 ? 'border-t pt-2' : ''}`}>
-                                  <p className="font-semibold">• Load: {pickupOrder.loadDetails.loadNumber}</p>
+                                  <p className="font-semibold">• Load #{idx + 1}: {pickupOrder.loadDetails.loadNumber}</p>
                                   <p className="ml-4">• <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}</p>
                                   {pickupOrder.loadDetails.allPickupStops && pickupOrder.loadDetails.allPickupStops.length > 0 && (
                                     <>
@@ -713,7 +713,7 @@ const Reports = () => {
                           <div className="space-y-2 text-sm">
                             <h4 className="font-semibold">Same-Day Load Information</h4>
                             <div className="space-y-1">
-                              <p>• <strong>Load:</strong> {order.loadDetails.loadNumber}</p>
+                              <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                               <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
                               {order.loadDetails.pickupInfo && <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ''} at {(() => {
                                 if (order.loadDetails.pickupInfo.datetime === '—') return '—';
