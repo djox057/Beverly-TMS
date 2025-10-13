@@ -14,10 +14,7 @@ export const useTrailers = () => {
       while (hasMore) {
         const { data, error } = await supabase
           .from('trailers')
-          .select(`
-            *,
-            trucks!trucks_trailer_id_fkey(truck_number)
-          `)
+          .select('*')
           .order('trailer_number', { ascending: true })
           .range(from, from + batchSize - 1);
         
@@ -36,7 +33,28 @@ export const useTrailers = () => {
       }
       
       console.log(`✅ Total trailers fetched: ${allTrailers.length}`);
-      console.log('Sample trailer:', allTrailers[0]);
+      
+      // Fetch trucks separately to avoid RLS issues with reverse joins
+      const { data: trucksData, error: trucksError } = await supabase
+        .from('trucks')
+        .select('id, truck_number, trailer_id');
+      
+      if (trucksError) {
+        console.error('❌ Error fetching trucks for trailers:', trucksError);
+      } else {
+        console.log(`✅ Fetched ${trucksData?.length || 0} trucks for trailer mapping`);
+        
+        // Map trucks to trailers
+        allTrailers = allTrailers.map(trailer => {
+          const trucks = trucksData?.filter(truck => truck.trailer_id === trailer.id) || [];
+          return {
+            ...trailer,
+            trucks: trucks
+          };
+        });
+      }
+      
+      console.log('Sample trailer with trucks:', allTrailers[0]);
       return allTrailers;
     },
     refetchOnWindowFocus: true,

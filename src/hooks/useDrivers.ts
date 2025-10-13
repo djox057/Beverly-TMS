@@ -8,13 +8,7 @@ export const useDrivers = () => {
       console.log('👤 Fetching drivers with relationships...');
       const { data, error } = await supabase
         .from('drivers')
-        .select(`
-          *,
-          trucks_driver1:trucks!trucks_driver1_id_fkey(
-            truck_number,
-            trailer:trailers!trailer_id(trailer_number)
-          )
-        `)
+        .select('*')
         .order('name', { ascending: true })
         .limit(1000);
       
@@ -24,6 +18,23 @@ export const useDrivers = () => {
       }
       
       console.log(`✅ Fetched ${data?.length || 0} drivers`);
+      
+      // Fetch trucks separately to avoid RLS issues with reverse joins
+      const { data: trucksData, error: trucksError } = await supabase
+        .from('trucks')
+        .select(`
+          id, 
+          truck_number, 
+          driver1_id, 
+          driver2_id,
+          trailer:trailers!trailer_id(trailer_number)
+        `);
+      
+      if (trucksError) {
+        console.error('❌ Error fetching trucks for drivers:', trucksError);
+      }
+      
+      console.log(`✅ Fetched ${trucksData?.length || 0} trucks for driver mapping`);
       
       // First, get all user_ids with driver role
       const { data: driverRoles } = await supabase
@@ -48,7 +59,10 @@ export const useDrivers = () => {
       
       // Transform the data to flatten truck/trailer info
       const transformedData = data?.map(driver => {
-        const truck = driver.trucks_driver1?.[0];
+        // Find truck where this driver is driver1
+        const truck = trucksData?.find(t => t.driver1_id === driver.id || t.driver2_id === driver.id);
+        
+        console.log(`Driver ${driver.name} truck:`, truck);
         
         return {
           ...driver,
@@ -60,7 +74,7 @@ export const useDrivers = () => {
         };
       });
       
-      console.log('Sample driver:', transformedData?.[0]);
+      console.log('Sample transformed driver:', transformedData?.[0]);
       return transformedData;
     },
     refetchOnWindowFocus: true,
