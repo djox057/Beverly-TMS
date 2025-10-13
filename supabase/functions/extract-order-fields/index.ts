@@ -321,24 +321,21 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 
 After cleaning, your address JSON should look like:
 
-\`\`\`json
 {
   "address": "STREET_NUMBER STREET_NAME [SUITE/BUILDING/PLANT]",
   "city": "CITY_NAME",
   "state": "ST",
   "zip": "12345"
 }
-\`\`\`
 
 **Example of CORRECT output:**
-```json
+
 {
   "address": "1000 KREIDER DRIVE STE 200",
   "city": "MIDDLETOWN", 
   "state": "PA",
   "zip": "17057"
 }
-```
 
 **ZIP CODE EXTRACTION EXAMPLES:**
 - "MIDDLETOWN, PA 17057" → zip: "17057"
