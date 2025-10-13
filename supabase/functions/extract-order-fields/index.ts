@@ -118,184 +118,281 @@ serve(async (req) => {
     console.log('PDF converted to base64, length:', base64Pdf.length);
 
     // Prepare the system prompt with all extraction instructions
-    const systemPrompt = `You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
+    const systemPrompt = `# Enhanced AI Extraction Prompt for Shipping/Logistics Documents
 
-CRITICAL: First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.
+You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
 
-Multi-drop indicators:
+## STEP 1: DETERMINE LOAD TYPE
+
+**First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.**
+
+**Multi-drop indicators:**
 - Multiple pickup addresses listed
-- Multiple delivery addresses listed  
+- Multiple delivery addresses listed
 - Words like "multi-stop", "multi-drop", "multiple stops"
 - Stop numbers (Stop 1, Stop 2, etc.)
 - Multiple dates/times for pickups or deliveries
 
-SHIPPER AND RECEIVER NAME EXTRACTION (CRITICAL):
-- ALWAYS extract the company/facility name for pickup locations (shipper name)
-- ALWAYS extract the company/facility name for delivery locations (receiver name)
-- Look for these in sections labeled: "Shipper", "Pickup Location", "Origin", "From", "Consignor"
-- Look for these in sections labeled: "Receiver", "Consignee", "Delivery Location", "Destination", "To"
-- Company names are often the first line of an address block or appear near location details
-- Examples: "ABC Warehouse", "XYZ Distribution Center", "Walmart DC #1234", "Target Store #567"
+---
 
-If MULTI-DROP is detected:
-- Extract ALL pickup stops into the "pickups" array
-- Extract ALL delivery stops into the "deliveries" array
-- Each stop should have: address, city, state, zip, date, startTime, endTime, shipper (company name)
+## STEP 2: EXTRACT ALL REQUIRED FIELDS
 
-If SINGLE-DROP (standard load):
-- Use the legacy single fields: pickupAddress, pickupCity, pickupState, etc.
-- MUST include pickupShipper (company name for pickup)
-- MUST include deliveryShipper (company name for delivery/receiver)
+### CRITICAL FIELDS THAT MUST ALWAYS BE EXTRACTED:
 
-Extract ALL available information and return ONLY a valid JSON object with the exact field names specified. Do not include any markdown formatting or explanations.
+**For EVERY load (single or multi-drop):**
+- ✅ **brokerLoadNumber** - Load/order reference number
+- ✅ **freightAmount** - Payment amount (extract number only, remove $ and commas)
+- ✅ **mileage** - Total miles (extract number only)
+- ✅ **commodity** - Description of goods (MAXIMUM 4 WORDS)
+- ✅ **weight** - Total weight in pounds (extract number only)
+- ✅ **trailer** - Trailer type/number if specified
+- ✅ **equipment** - Equipment type (e.g., "53' Dry Van", "Reefer", "Flatbed")
+- ✅ **temperature** - Temperature requirements if applicable (e.g., "55-60°F", "Frozen", "Ambient")
 
-CRITICAL ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY:
+**For SINGLE-DROP loads:**
+- ✅ **pickupShipper** - Company name at pickup (e.g., "ABC Warehouse", "Walmart DC #1234")
+- ✅ **pickupPuNumber** - Pickup/appointment number
+- ✅ **pickupPoNumber** - Purchase order number for pickup
+- ✅ **deliveryShipper** - Company name at delivery (e.g., "Target Store #567", "XYZ Distribution")
+- ✅ **deliveryPoNumber** - Purchase order number for delivery
 
-ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):
-1. BEST: Extract FULL address with ALL components available:
-   - address: Street number + street name + building/plant/gate identifier (e.g., "123 Main St", "4567 Industrial Blvd Building A", "2707 N Barnes Ave Plant 5")
-   - city: City name only (e.g., "Houston", "Los Angeles", "Springfield")
-   - state: 2-letter state code (e.g., "TX", "CA", "MO")
-   - zip: ZIP code (e.g., "77001" or "77001-1234")
-   Example: address="2707 N Barnes Ave Plant 5", city="Springfield", state="MO", zip="65803"
+**For MULTI-DROP loads:**
+- ✅ **shipper** - Company name for EACH pickup stop
+- ✅ **puNumber** - Pickup number for EACH pickup stop
+- ✅ **poNumber** - PO number for EACH pickup stop
+- ✅ **shipper** - Company name for EACH delivery stop
+- ✅ **poNumber** - PO number for EACH delivery stop
 
-2. GOOD: If street address unavailable, extract city + state + zip:
-   - address: Leave empty or null
-   - city: City name (REQUIRED)
-   - state: 2-letter code (REQUIRED)
-   - zip: ZIP code
-   Example: city="Houston", state="TX", zip="77001"
+---
 
-3. ACCEPTABLE: If only city and state are visible:
-   - address: Leave empty or null
-   - city: City name (REQUIRED)
-   - state: 2-letter code (REQUIRED)
-   - zip: Leave empty if not found
-   Example: city="Houston", state="TX"
+## STEP 3: SHIPPER AND RECEIVER NAME EXTRACTION (CRITICAL)
 
-4. AVOID: DO NOT return ONLY street address without city/state - this cannot be geocoded
-   - BAD: address="123 Main St" with no city/state
-   - If you see only a street, try to find the city/state elsewhere in the document
+**ALWAYS extract company/facility names - these are REQUIRED fields:**
 
-CRITICAL PARSING RULES FOR BUILDING/PLANT/GATE IDENTIFIERS:
-- address: MUST include building/plant/gate/dock/suite identifiers as part of the street address
-  * CORRECT: "2707 N Barnes Ave Plant 5" (Plant 5 stays with street address)
-  * CORRECT: "123 Industrial Blvd Building A" (Building A stays with street address)
-  * CORRECT: "456 Warehouse Dr Gate 3" (Gate 3 stays with street address)
-  * CORRECT: "789 Dock Rd Suite 200" (Suite 200 stays with street address)
-  * WRONG: address="2707 N Barnes Ave", city="Plant 5" (Plant 5 is NOT a city!)
+**For Pickup Locations (Shipper):**
+- Look in sections labeled: "Shipper", "Pickup Location", "Origin", "From", "Consignor", "Pick Up From"
+- Company names are typically the FIRST line of an address block
+- May include facility identifiers: "Walmart DC #1234", "Target RDC #8172", "Amazon Fulfillment Center PHX5"
+- Extract the FULL company name including any DC/store/facility numbers
 
-- Common identifiers that belong in the address field (NOT in city):
-  * Plant [number/letter] (e.g., "Plant 5", "Plant A")
-  * Building [number/letter] (e.g., "Building 2", "Building B")
-  * Gate [number/letter] (e.g., "Gate 3", "Gate A")
-  * Dock [number/letter] (e.g., "Dock 1", "Dock C")
-  * Suite [number] (e.g., "Suite 200")
-  * Unit [number] (e.g., "Unit 15")
-  * Bay [number] (e.g., "Bay 4")
-  * Warehouse [number] (e.g., "Warehouse 3")
+**For Delivery Locations (Receiver):**
+- Look in sections labeled: "Receiver", "Consignee", "Delivery Location", "Destination", "To", "Deliver To"
+- Company names are typically the FIRST line of an address block
+- May include store/location numbers: "Target Store #567", "Home Depot #2891"
+- Extract the FULL company name including any store/location numbers
 
-- city: Extract ONLY the actual city name (e.g., "Houston", "Los Angeles", "Springfield", "New York")
-  * DO NOT include Plant/Building/Gate/Dock/Suite numbers in city field
-  * If you see "Plant 5" followed by "Springfield", Springfield is the city, not Plant 5
-  
-- state: Extract ONLY the 2-letter state code (e.g., "TX", "CA", "NY", "MO")
-  * DO NOT mistake city names for state codes
-  
-- zip: Extract zip code with these rules:
-  * If 5 digits or fewer, return as-is (e.g., "77001", "65803")
-  * If more than 5 digits, format as ZIP+4 with hyphen (e.g., "77001-1234")
-  * Remove any spaces or extra characters
-  
-- DO NOT include country names (USA, United States, etc.) in any address field
-- DO NOT include ZIP codes, suite numbers, or other components in city/state fields
-- DO NOT swap city and state values
-- DO NOT return partial street addresses without city/state
+**If company name is not clearly visible:**
+- Look for business names near the address
+- Check for company names in headers or footers
+- If absolutely no company name found, use "Unknown Shipper" or "Unknown Receiver"
 
-EXAMPLES of correct address extraction:
-- "2707 N Barnes Ave, Plant 5, Springfield, MO 65803" → address: "2707 N Barnes Ave Plant 5", city: "Springfield", state: "MO", zip: "65803"
-- "123 Main St Building A, Houston, TX 77001" → address: "123 Main St Building A", city: "Houston", state: "TX", zip: "77001"
-- "Suite 200, 456 Oak Ave, Los Angeles, CA 90210" → address: "456 Oak Ave Suite 200", city: "Los Angeles", state: "CA", zip: "90210"
-- "789 Industrial Blvd Gate 3, Dallas, TX 75201" → address: "789 Industrial Blvd Gate 3", city: "Dallas", state: "TX", zip: "75201"
+---
 
-IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. For example:
-- 09/24/25 becomes 2025-09-24
-- 9/24/2025 becomes 2025-09-24  
-- Sep 24, 2025 becomes 2025-09-24
+## STEP 4: ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY
 
-IMPORTANT: When extracting times for pickup and delivery:
+**ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):**
+
+### 1. BEST: Extract FULL address with ALL components
+\`\`\`
+address: Street number + street name + building/plant/gate identifier
+city: City name only
+state: 2-letter state code
+zip: ZIP code
+\`\`\`
+**Example:** \`address="2707 N Barnes Ave Plant 5", city="Springfield", state="MO", zip="65803"\`
+
+### 2. GOOD: If street address unavailable, extract city + state + zip
+\`\`\`
+address: "" or null
+city: City name (REQUIRED)
+state: 2-letter code (REQUIRED)
+zip: ZIP code
+\`\`\`
+**Example:** \`city="Houston", state="TX", zip="77001"\`
+
+### 3. ACCEPTABLE: If only city and state are visible
+\`\`\`
+address: "" or null
+city: City name (REQUIRED)
+state: 2-letter code (REQUIRED)
+zip: "" or null
+\`\`\`
+**Example:** \`city="Houston", state="TX"\`
+
+### 4. AVOID: DO NOT return ONLY street address without city/state
+- ❌ BAD: \`address="123 Main St"\` with no city/state
+- If you see only a street, try to find the city/state elsewhere in the document
+
+---
+
+## STEP 5: PARSING RULES FOR BUILDING/PLANT/GATE IDENTIFIERS
+
+**address field MUST include building/plant/gate/dock/suite identifiers:**
+
+✅ **CORRECT Examples:**
+- \`address: "2707 N Barnes Ave Plant 5"\` (Plant 5 stays with street)
+- \`address: "123 Industrial Blvd Building A"\` (Building A stays with street)
+- \`address: "456 Warehouse Dr Gate 3"\` (Gate 3 stays with street)
+- \`address: "789 Dock Rd Suite 200"\` (Suite 200 stays with street)
+
+❌ **WRONG Examples:**
+- \`address: "2707 N Barnes Ave", city: "Plant 5"\` (Plant 5 is NOT a city!)
+
+**Common identifiers that belong in the address field (NOT in city):**
+- Plant [number/letter] → "Plant 5", "Plant A"
+- Building [number/letter] → "Building 2", "Building B"
+- Gate [number/letter] → "Gate 3", "Gate A"
+- Dock [number/letter] → "Dock 1", "Dock C"
+- Suite [number] → "Suite 200"
+- Unit [number] → "Unit 15"
+- Bay [number] → "Bay 4"
+- Warehouse [number] → "Warehouse 3"
+- Door [number] → "Door 12"
+
+**city field:** Extract ONLY the actual city name
+- ✅ CORRECT: "Houston", "Los Angeles", "Springfield", "New York"
+- ❌ WRONG: "Plant 5", "Building A", "DC 1234"
+
+**state field:** Extract ONLY the 2-letter state code
+- ✅ CORRECT: "TX", "CA", "NY", "MO"
+- ❌ WRONG: "Texas", "California", city names
+
+**zip field:** Extract zip code with these rules:
+- If 5 digits or fewer, return as-is: "77001", "65803"
+- If more than 5 digits, format as ZIP+4 with hyphen: "77001-1234"
+- Remove any spaces or extra characters
+
+**DO NOT:**
+- Include country names (USA, United States, etc.) in any address field
+- Include ZIP codes in city/state fields
+- Swap city and state values
+- Return partial street addresses without city/state
+
+---
+
+## STEP 6: DATE AND TIME EXTRACTION
+
+**DATES - Convert to YYYY-MM-DD format:**
+- \`09/24/25\` → \`2025-09-24\`
+- \`9/24/2025\` → \`2025-09-24\`
+- \`Sep 24, 2025\` → \`2025-09-24\`
+- \`24-Sep-25\` → \`2025-09-24\`
+
+**TIMES - Convert to HH:MM 24-hour format:**
+- \`2:00 PM\` → \`14:00\`
+- \`8:00 AM\` → \`08:00\`
+- \`1400\` → \`14:00\`
+
+**IMPORTANT: When extracting times for pickup and delivery:**
 - If only ONE time is provided (no time range), use that single time for BOTH startTime AND endTime
-- Example: If pickup time is "14:00", set both pickupStartTime="14:00" and pickupEndTime="14:00"
-- Example: If delivery time is "08:00", set both deliveryStartTime="08:00" and deliveryEndTime="08:00"
+- Example: If pickup time is "14:00", set both \`pickupStartTime="14:00"\` and \`pickupEndTime="14:00"\`
+- Example: If delivery time is "08:00", set both \`deliveryStartTime="08:00"\` and \`deliveryEndTime="08:00"\`
+- If a time range is given (e.g., "8:00 AM - 12:00 PM"), extract both start and end times
 - This applies to both multi-drop stops and single-drop loads
 
-For MULTI-DROP loads, return JSON like:
+---
+
+## STEP 7: NUMBER EXTRACTION
+
+**For numeric fields, extract ONLY the number:**
+- \`freightAmount: $1,250.00\` → Extract as \`1250\` (number, no $ or commas)
+- \`mileage: 450 miles\` → Extract as \`450\` (number only)
+- \`weight: 42,000 lbs\` → Extract as \`42000\` (number only)
+
+---
+
+## STEP 8: OUTPUT FORMAT
+
+### IF SINGLE-DROP LOAD:
+Return this JSON structure with ALL fields:
+
+\`\`\`json
+{
+  "brokerLoadNumber": "string",
+  "pickupAddress": "street address with building/plant/gate",
+  "pickupCity": "city name only",
+  "pickupState": "2-letter state code",
+  "pickupZip": "zip code",
+  "pickupDate": "YYYY-MM-DD",
+  "pickupStartTime": "HH:MM",
+  "pickupEndTime": "HH:MM",
+  "pickupPuNumber": "pickup/appointment number",
+  "pickupPoNumber": "purchase order number",
+  "pickupShipper": "COMPANY NAME - REQUIRED",
+  "deliveryAddress": "street address with building/plant/gate",
+  "deliveryCity": "city name only",
+  "deliveryState": "2-letter state code",
+  "deliveryZip": "zip code",
+  "deliveryDate": "YYYY-MM-DD",
+  "deliveryStartTime": "HH:MM",
+  "deliveryEndTime": "HH:MM",
+  "deliveryPoNumber": "purchase order number",
+  "deliveryShipper": "COMPANY NAME - REQUIRED",
+  "freightAmount": 1250,
+  "mileage": 450,
+  "commodity": "maximum 4 words",
+  "weight": 42000,
+  "trailer": "string",
+  "equipment": "string",
+  "temperature": "string"
+}
+\`\`\`
+
+### IF MULTI-DROP LOAD:
+Return this JSON structure with ALL fields:
+
+\`\`\`json
 {
   "brokerLoadNumber": "string",
   "pickups": [
     {
-      "address": "street address only",
+      "address": "street address with building/plant/gate",
       "city": "city name only",
       "state": "2-letter code",
       "zip": "zip code",
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
       "endTime": "HH:MM",
-      "puNumber": "pickup/appointment number",
-      "poNumber": "purchase order number",
-      "shipper": "COMPANY NAME (e.g., 'ABC Warehouse', 'XYZ Distribution')"
+      "puNumber": "pickup number",
+      "poNumber": "purchase order",
+      "shipper": "COMPANY NAME - REQUIRED"
     }
   ],
   "deliveries": [
     {
-      "address": "street address only",
-      "city": "city name only", 
+      "address": "street address with building/plant/gate",
+      "city": "city name only",
       "state": "2-letter code",
       "zip": "zip code",
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
       "endTime": "HH:MM",
-      "poNumber": "purchase order number",
-      "shipper": "COMPANY NAME (e.g., 'Target DC #123', 'Walmart Store')"
+      "poNumber": "purchase order",
+      "shipper": "COMPANY NAME - REQUIRED"
     }
   ],
-  "freightAmount": number,
-  "mileage": number,
-  "commodity": "string - MAXIMUM 4 WORDS, be concise (e.g., 'Auto Parts', 'Fresh Produce', 'Furniture')"
-}
-
-For SINGLE-DROP loads, return JSON with legacy fields:
-{
-  "brokerLoadNumber": "string",
-  "pickupAddress": "string - complete pickup street address (without city/state/zip)",
-  "pickupCity": "string - ONLY the pickup city name",
-  "pickupState": "string - ONLY the 2-letter pickup state code",
-  "pickupZip": "string - pickup ZIP code",
-  "pickupDate": "string - pickup date in YYYY-MM-DD format",
-  "pickupTime": "pickup time (HH:MM format, if only one time is given)",
-  "pickupStartTime": "pickup start time (HH:MM format, if time range is given)",
-  "pickupEndTime": "pickup end time (HH:MM format, if time range is given)",
-  "pickupPuNumber": "pickup/appointment number",
-  "pickupPoNumber": "purchase order number for pickup",
-  "pickupShipper": "COMPANY NAME for pickup (e.g., 'ABC Warehouse', 'XYZ Distribution Center')",
-  "deliveryAddress": "string - complete delivery street address (without city/state/zip)",
-  "deliveryCity": "string - ONLY the delivery city name", 
-  "deliveryState": "string - ONLY the 2-letter delivery state code",
-  "deliveryZip": "string - delivery ZIP code",
-  "deliveryDate": "string - delivery date in YYYY-MM-DD format",
-  "deliveryTime": "delivery time (HH:MM format, if only one time is given)",
-  "deliveryStartTime": "delivery start time (HH:MM format, if time range is given)",
-  "deliveryEndTime": "delivery end time (HH:MM format, if time range is given)",
-  "deliveryPoNumber": "purchase order number for delivery",
-  "deliveryShipper": "COMPANY NAME for delivery/receiver (e.g., 'Target Store #567', 'Costco DC')",
-  "freightAmount": number,
-  "mileage": number,
-  "commodity": "string - MAXIMUM 4 WORDS, be concise (e.g., 'Auto Parts', 'Fresh Produce', 'Furniture')",
-  "weight": number,
+  "freightAmount": 1250,
+  "mileage": 450,
+  "commodity": "maximum 4 words",
+  "weight": 42000,
   "trailer": "string",
   "equipment": "string",
   "temperature": "string"
-}`;
+}
+\`\`\`
+
+---
+
+## FINAL INSTRUCTIONS
+
+1. **Extract ALL available information** - do not leave fields empty if data exists in the document
+2. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
+3. **Use null for missing fields** - if a field cannot be found, use \`null\` or empty string \`""\`
+4. **Company names are REQUIRED** - always extract shipper/receiver company names
+5. **Validate addresses** - ensure city and state are always included for geocoding
+6. **Double-check parsing** - ensure Plant/Building/Gate identifiers are in the address field, not city field
+
+**If a required field is unclear or missing from the document, still include it in the JSON with null or empty value rather than omitting it entirely.**`;
 
     // Call Gemini 2.5 Flash Lite API with inline PDF data
     console.log('Calling Gemini 2.5 Flash Lite for PDF analysis...');
