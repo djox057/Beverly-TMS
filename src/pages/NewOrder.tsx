@@ -168,10 +168,17 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
+        // Autofill trailer number for display
         setTrailer(selectedTruck.trailer?.trailer_number || '');
+        // Autofill driver IDs
         setDriver1(selectedTruck.driver1?.id || '');
         setDriver2(selectedTruck.driver2?.id || '');
       }
+    } else {
+      // Clear fields when truck is deselected
+      setTrailer('');
+      setDriver1('');
+      setDriver2('');
     }
   }, [truck, trucks]);
 
