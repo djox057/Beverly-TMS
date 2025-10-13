@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Home, Package, User } from 'lucide-react';
+import { useDragPan } from '@/hooks/useDragPan';
 
 interface DriverLayoutProps {
   children: React.ReactNode;
@@ -8,6 +9,7 @@ interface DriverLayoutProps {
 
 export const DriverLayout: React.FC<DriverLayoutProps> = ({ children }) => {
   const location = useLocation();
+  useDragPan();
 
   const navItems = [
     { path: '/driver', icon: Home, label: 'Home' },

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { useDragPan } from "@/hooks/useDragPan";
 
 interface LayoutProps {
   children: ReactNode;
@@ -8,6 +9,7 @@ interface LayoutProps {
 
 const LayoutContent = ({ children }: LayoutProps) => {
   const { state } = useSidebar();
+  useDragPan();
   
   return (
     <div className="flex h-screen bg-background w-full">

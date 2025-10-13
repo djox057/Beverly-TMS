@@ -8,10 +8,12 @@ import { Loader2, LogIn, Truck, UserPlus } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { loginSchema, createUserSchema } from "@/lib/validation";
 import { useToast } from "@/hooks/use-toast";
+import { useDragPan } from "@/hooks/useDragPan";
 
 const Login = () => {
   const { user, profile, loading, signIn, signUp, hasRole } = useAuthContext();
   const { toast } = useToast();
+  useDragPan();
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
