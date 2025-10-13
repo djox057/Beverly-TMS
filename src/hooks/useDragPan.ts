@@ -2,8 +2,12 @@ import { useEffect, useRef } from 'react';
 
 export const useDragPan = () => {
   const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 });
   const containerRef = useRef<HTMLElement | null>(null);
+  
+  // Movement threshold in pixels before drag starts
+  const DRAG_THRESHOLD = 5;
 
   useEffect(() => {
     // Set initial cursor
@@ -20,23 +24,30 @@ export const useDragPan = () => {
       if (e.button !== 0) return;
 
       isDraggingRef.current = true;
+      hasMovedRef.current = false;
       dragStartPos.current = {
         x: e.clientX,
         y: e.clientY,
         scrollX: window.scrollX,
         scrollY: window.scrollY,
       };
-
-      // Apply cursor and prevent selection immediately (no lag)
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-      e.preventDefault();
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return;
 
       const dx = dragStartPos.current.x - e.clientX;
+      const dy = dragStartPos.current.y - e.clientY;
+      
+      // Only start dragging if moved beyond threshold
+      if (!hasMovedRef.current) {
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < DRAG_THRESHOLD) return;
+        
+        hasMovedRef.current = true;
+        document.body.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none';
+      }
 
       window.scrollTo(
         dragStartPos.current.scrollX + dx,
@@ -47,6 +58,7 @@ export const useDragPan = () => {
     const handleMouseUp = () => {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
+        hasMovedRef.current = false;
         document.body.style.cursor = 'grab';
         document.body.style.userSelect = '';
       }
