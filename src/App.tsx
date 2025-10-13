@@ -47,7 +47,7 @@ const prefetchData = async () => {
       queryFn: async () => {
         const { data } = await supabase
           .from('orders')
-          .select('*, brokers(name), trucks(truck_number), drivers(name), trailers(trailer_number)')
+          .select('*, brokers(name), trucks(truck_number), trailers(trailer_number)')
           .order('created_at', { ascending: false })
           .limit(100);
         return data || [];
