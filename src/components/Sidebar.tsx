@@ -51,8 +51,11 @@ const navigation = [
 
 export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
+  
+  // On mobile, always show text when sidebar is open
+  const showText = isMobile ? true : state !== "collapsed";
 
   const handleSignOut = async () => {
     await signOut();
@@ -110,7 +113,7 @@ export const Sidebar = () => {
         <SidebarGroup>
           <div className="flex items-center justify-between">
             <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-            {state !== "collapsed" && <SidebarTrigger className="ml-auto" />}
+            {showText && <SidebarTrigger className="ml-auto" />}
           </div>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -133,8 +136,8 @@ export const Sidebar = () => {
                           {isActive && (
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
                           )}
-                          <item.icon className={cn("h-4 w-4", state === "collapsed" ? "mx-auto" : "")} />
-                          {state !== "collapsed" && <span>{item.name}</span>}
+                          <item.icon className={cn("h-4 w-4", !showText ? "mx-auto" : "")} />
+                          {showText && <span>{item.name}</span>}
                         </>
                       )}
                     </NavLink>
@@ -151,7 +154,7 @@ export const Sidebar = () => {
             {/* Theme Toggle */}
             <div className="px-4 py-3 border-t border-border">
               <div className="flex items-center justify-between gap-3">
-                {state !== "collapsed" ? (
+                {showText ? (
                   <>
                     <div className="flex items-center gap-2">
                       <Sun className="h-4 w-4 text-muted-foreground" />
@@ -190,7 +193,7 @@ export const Sidebar = () => {
                     <User className="h-4 w-4 text-primary-foreground" />
                   </div>
                 </div>
-                {state !== "collapsed" && (
+                {showText && (
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">
                       {profile?.full_name || profile?.email || 'User'}
@@ -205,12 +208,12 @@ export const Sidebar = () => {
               </div>
               <Button 
                 variant="outline" 
-                size={state === "collapsed" ? "icon" : "sm"}
-                className={state === "collapsed" ? "w-8 h-8" : "w-full"}
+                size={!showText ? "icon" : "sm"}
+                className={!showText ? "w-8 h-8" : "w-full"}
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />
-                {state !== "collapsed" && <span className="ml-2">Sign Out</span>}
+                {showText && <span className="ml-2">Sign Out</span>}
               </Button>
             </div>
           </SidebarGroupContent>
