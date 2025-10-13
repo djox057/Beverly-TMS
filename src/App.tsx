@@ -51,12 +51,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/new-order" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><NewOrder /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/edit-order/:id" element={
-              <ProtectedRoute requiredRole="dispatch">
+              <ProtectedRoute>
                 <Layout><EditOrder /></Layout>
               </ProtectedRoute>
             } />
