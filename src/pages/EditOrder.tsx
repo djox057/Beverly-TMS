@@ -701,19 +701,19 @@ const EditOrder = () => {
         }
       }
 
-      // SIMPLIFIED APPROACH: Delete all existing pickup_drops and insert fresh ones
-      // This avoids unique constraint violations completely
+      // CRITICAL: Keep at least one pickup_drop at all times
+      // The DB has a trigger that deletes orders when all pickup_drops are deleted
       
       if (pickupsDrops.length > 0) {
-        // First, delete all existing pickup_drops for this order
-        const { error: deleteError } = await supabase
+        // Get existing pickup_drop IDs to delete later
+        const { data: existingPickupDrops } = await supabase
           .from('pickup_drops')
-          .delete()
+          .select('id')
           .eq('order_id', id);
         
-        if (deleteError) throw deleteError;
+        const existingIds = existingPickupDrops?.map(pd => pd.id) || [];
 
-        // Prepare pickup_drop data with proper sequence numbers
+        // Prepare new pickup_drop data with proper sequence numbers
         const pickupDropData = pickupsDrops
           .filter(item => item.address)
           .map((item, index) => {
@@ -747,12 +747,22 @@ const EditOrder = () => {
             };
           });
 
-        // Insert all pickup_drops fresh
+        // STEP 1: Insert all NEW pickup_drops first
         const { error: insertError } = await supabase
           .from('pickup_drops')
           .insert(pickupDropData);
         
         if (insertError) throw insertError;
+        
+        // STEP 2: Now safely delete the OLD pickup_drops
+        if (existingIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('pickup_drops')
+            .delete()
+            .in('id', existingIds);
+          
+          if (deleteError) throw deleteError;
+        }
       }
 
       toast({
