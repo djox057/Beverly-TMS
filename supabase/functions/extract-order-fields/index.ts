@@ -230,6 +230,7 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 ## STEP 4: ADDRESS EXTRACTION AND CLEANING (CRITICAL FOR GEOCODING)
 
 **🚨 MANDATORY: You MUST clean ALL addresses before extracting them into the JSON output.**
+**🚨 CRITICAL: You MUST extract ZIP CODES - look carefully for 5 or 9-digit numbers near addresses.**
 
 **STEP-BY-STEP ADDRESS CLEANING PROCESS:**
 
@@ -237,7 +238,7 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 2. **Remove everything after a dash (-)** if it contains instructions
 3. **Remove dock/door numbers and instructions**
 4. **Keep ONLY: street number, street name, suite/unit/building identifiers**
-5. **Extract city, state, zip separately**
+5. **Extract city, state, zip separately** (ZIP CODE IS MANDATORY - search thoroughly)
 
 ---
 
@@ -330,14 +331,20 @@ After cleaning, your address JSON should look like:
 \`\`\`
 
 **Example of CORRECT output:**
-\`\`\`json
+```json
 {
   "address": "1000 KREIDER DRIVE STE 200",
   "city": "MIDDLETOWN", 
   "state": "PA",
   "zip": "17057"
 }
-\`\`\`
+```
+
+**ZIP CODE EXTRACTION EXAMPLES:**
+- "MIDDLETOWN, PA 17057" → zip: "17057"
+- "HOUSTON TX 77001-1234" → zip: "77001-1234"
+- "CHICAGO, IL 60601" → zip: "60601"
+- If zip truly missing → zip: null (but search thoroughly first!)
 
 ---
 
@@ -349,6 +356,7 @@ Before returning your JSON, verify EACH address:
 - ❓ Does address mention "GATE"? → If yes, remove that part
 - ❓ Does address have instructions? → If yes, remove them
 - ✅ Address should be: street number + street name + suite/building/plant ONLY
+- ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits
 
 ### 2. GOOD: If street address unavailable, extract city + state + zip
 \`\`\`
@@ -406,10 +414,14 @@ zip: "" or null
 - ✅ CORRECT: "TX", "CA", "NY", "MO"
 - ❌ WRONG: "Texas", "California", city names
 
-**zip field:** Extract zip code with these rules:
-- If 5 digits or fewer, return as-is: "77001", "65803"
-- If more than 5 digits, format as ZIP+4 with hyphen: "77001-1234"
-- Remove any spaces or extra characters
+**zip field:** Extract zip code with these rules (CRITICAL - DO NOT SKIP):
+- ALWAYS look for zip codes near the city and state
+- Format: 5 digits (like "77434") OR ZIP+4 with hyphen (like "77434-1234")
+- If you find 9 consecutive digits, format as ZIP+4: "774341234" → "77434-1234"
+- If you find 5 digits, keep as-is: "77434"
+- Remove any spaces: "77434 1234" → "77434-1234"
+- Common locations: After state code, at end of address line, on separate line
+- If missing, set to null (but try very hard to find it)
 
 **DO NOT:**
 - Include country names (USA, United States, etc.) in any address field
