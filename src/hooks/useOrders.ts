@@ -123,14 +123,10 @@ export const useOrders = () => {
         const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
         const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
         
-        // Format date ranges
+        // Format date ranges - always show only the start date
         const formatDateRange = (startDate: string, endDate: string) => {
           if (!startDate) return 'N/A';
-          const start = new Date(startDate).toLocaleDateString();
-          if (!endDate) return start;
-          const end = new Date(endDate).toLocaleDateString();
-          if (start === end) return start;
-          return `${start} - ${end}`;
+          return new Date(startDate).toLocaleDateString();
         };
         
         // Calculate total mileage from loaded_miles + dh_miles or use legacy mileage
