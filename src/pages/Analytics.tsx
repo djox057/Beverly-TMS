@@ -952,7 +952,7 @@ const Analytics = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Load #</TableHead>
-                      <TableHead>Broker</TableHead>
+                      <TableHead>Broker load#</TableHead>
                       <TableHead>Route</TableHead>
                       <TableHead className="text-right">Freight Amount</TableHead>
                       <TableHead className="text-right">Miles</TableHead>
@@ -975,7 +975,7 @@ const Analytics = () => {
                         return (
                           <TableRow key={order.id}>
                             <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                            <TableCell>{order.brokerName}</TableCell>
+                            <TableCell>{order.brokerLoadNumber}</TableCell>
                             <TableCell>
                               {pickupLocation} → {deliveryLocation}
                             </TableCell>
