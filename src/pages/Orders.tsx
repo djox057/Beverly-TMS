@@ -324,7 +324,7 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card>
+      <Card className="w-fit min-w-full">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Orders</CardTitle>
@@ -410,9 +410,8 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <div className="p-6">
-              <Table>
+          <div className="p-6">
+            <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-20">Truck #</TableHead>
@@ -606,7 +605,6 @@ const Orders = () => {
                     })}
                 </TableBody>
               </Table>
-            </div>
           </div>
         </CardContent>
       </Card>
