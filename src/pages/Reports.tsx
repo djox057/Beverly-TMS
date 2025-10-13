@@ -1172,6 +1172,9 @@ const Reports = () => {
                                   }}
                                 >
                                   {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                  {group.ext && (
+                                    <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
+                                  )}
                                 </th>
                                 <th colSpan={5} className="border-r border-b border-border px-2 py-1 bg-muted/50">
                                   <div className="flex items-center justify-center">

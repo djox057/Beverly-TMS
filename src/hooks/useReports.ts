@@ -252,7 +252,7 @@ export const useReports = () => {
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, email, office')
+        .select('user_id, full_name, email, office, ext')
         .order('user_id', { ascending: true });
 
       if (dispatchersError) throw dispatchersError;
@@ -527,7 +527,7 @@ export const useReports = () => {
       }) || [];
 
       // Group trucks by dispatcher - use array to maintain stable order
-      const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; office: string | null; trucks: typeof reportData }>();
+      const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; office: string | null; ext: string | null; trucks: typeof reportData }>();
       
       for (const truck of reportData) {
         if (!dispatcherMap.has(truck.dispatcherId)) {
@@ -536,6 +536,7 @@ export const useReports = () => {
             dispatcher: truck.dispatcher,
             dispatcherId: truck.dispatcherId,
             office: dispatcherInfo?.office || null,
+            ext: dispatcherInfo?.ext || null,
             trucks: []
           });
         }
