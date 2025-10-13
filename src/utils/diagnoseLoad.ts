@@ -14,6 +14,22 @@ export async function diagnoseLoadMiles(internalLoadNumber: number) {
     }
     
     console.log('📊 Diagnosis results:', data);
+    
+    // Update the order with the correct miles
+    if (data.success && data.calculatedMiles !== data.currentMiles) {
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ loaded_miles: data.calculatedMiles })
+        .eq('internal_load_number', internalLoadNumber);
+      
+      if (updateError) {
+        console.error('❌ Error updating miles:', updateError);
+        throw updateError;
+      }
+      
+      console.log('✅ Updated miles in database');
+    }
+    
     return data;
   } catch (error) {
     console.error('❌ Failed to diagnose load:', error);

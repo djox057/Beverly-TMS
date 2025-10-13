@@ -5,68 +5,108 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface AddressComponents {
-  street?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
-}
-
-// Parse address into components
-function parseAddress(address: string, city?: string, state?: string, zip?: string): AddressComponents {
-  return {
-    street: address || undefined,
-    city: city || undefined,
-    state: state || undefined,
-    zip: zip || undefined,
-    country: 'United States'
-  };
-}
-
-// Build Nominatim geocoding URL
-function buildGeocodingUrl(components: AddressComponents): string {
-  const parts: string[] = [];
-  
-  if (components.street) parts.push(components.street);
-  if (components.city) parts.push(components.city);
-  if (components.state) parts.push(components.state);
-  if (components.zip) parts.push(components.zip);
-  if (components.country) parts.push(components.country);
-  
-  const query = parts.join(', ');
-  return `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-}
-
-// Geocode an address
+// Geocode an address with multiple fallback strategies
 async function geocodeAddress(address: string, city?: string, state?: string, zip?: string) {
-  const components = parseAddress(address, city, state, zip);
-  const url = buildGeocodingUrl(components);
-  
   console.log('🔍 Geocoding:', { address, city, state, zip });
-  console.log('🔍 URL:', url);
   
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'TruckingApp/1.0' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Geocoding failed: ${response.status}`);
+  // Strategy 1: Try full address with primary Nominatim server
+  try {
+    const fullAddress = [address, city, state, zip].filter(Boolean).join(', ');
+    const url1 = `https://nominatim.server4beverly.us/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=5&countrycodes=us`;
+    console.log('🔍 Strategy 1 URL:', url1);
+    
+    const response1 = await fetch(url1);
+    if (response1.ok) {
+      const data1 = await response1.json();
+      if (data1 && data1.length > 0) {
+        const result = {
+          lat: parseFloat(data1[0].lat),
+          lon: parseFloat(data1[0].lon),
+          display_name: data1[0].display_name
+        };
+        console.log('✅ Strategy 1 success:', result);
+        return result;
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Strategy 1 failed:', error);
   }
   
-  const data = await response.json();
-  
-  if (data && data.length > 0) {
-    const result = {
-      lat: parseFloat(data[0].lat),
-      lon: parseFloat(data[0].lon),
-      display_name: data[0].display_name
-    };
-    console.log('✅ Geocoded to:', result);
-    return result;
+  // Strategy 2: Try structured query
+  if (address && city && state && zip) {
+    try {
+      const url2 = `https://nominatim.server4beverly.us/search?format=json&limit=5&countrycodes=us&street=${encodeURIComponent(address)}&city=${encodeURIComponent(city)}&state=${encodeURIComponent(state)}&postalcode=${encodeURIComponent(zip)}`;
+      console.log('🔍 Strategy 2 URL:', url2);
+      
+      const response2 = await fetch(url2);
+      if (response2.ok) {
+        const data2 = await response2.json();
+        if (data2 && data2.length > 0) {
+          const result = {
+            lat: parseFloat(data2[0].lat),
+            lon: parseFloat(data2[0].lon),
+            display_name: data2[0].display_name
+          };
+          console.log('✅ Strategy 2 success:', result);
+          return result;
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Strategy 2 failed:', error);
+    }
   }
   
-  throw new Error('No geocoding results found');
+  // Strategy 3: Try ZIP code only
+  if (zip) {
+    try {
+      const url3 = `https://nominatim.server4beverly.us/search?format=json&postalcode=${encodeURIComponent(zip)}&countrycodes=us&limit=5`;
+      console.log('🔍 Strategy 3 (ZIP only) URL:', url3);
+      
+      const response3 = await fetch(url3);
+      if (response3.ok) {
+        const data3 = await response3.json();
+        if (data3 && data3.length > 0) {
+          const result = {
+            lat: parseFloat(data3[0].lat),
+            lon: parseFloat(data3[0].lon),
+            display_name: data3[0].display_name
+          };
+          console.log('✅ Strategy 3 (ZIP only) success:', result);
+          return result;
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Strategy 3 failed:', error);
+    }
+  }
+  
+  // Strategy 4: Fallback to OpenStreetMap public Nominatim
+  try {
+    const fullAddress = [address, city, state, zip].filter(Boolean).join(', ');
+    const url4 = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1&countrycodes=us`;
+    console.log('🔍 Strategy 4 (OSM Public) URL:', url4);
+    
+    const response4 = await fetch(url4, {
+      headers: { 'User-Agent': 'TruckingApp/1.0' }
+    });
+    
+    if (response4.ok) {
+      const data4 = await response4.json();
+      if (data4 && data4.length > 0) {
+        const result = {
+          lat: parseFloat(data4[0].lat),
+          lon: parseFloat(data4[0].lon),
+          display_name: data4[0].display_name
+        };
+        console.log('✅ Strategy 4 (OSM Public) success:', result);
+        return result;
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Strategy 4 failed:', error);
+  }
+  
+  throw new Error(`All geocoding strategies failed for: ${address}, ${city}, ${state} ${zip}`);
 }
 
 // Calculate route distance using OSRM
