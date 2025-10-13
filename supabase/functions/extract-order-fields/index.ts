@@ -227,46 +227,128 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 
 ---
 
-## STEP 4: ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY
+## STEP 4: ADDRESS EXTRACTION AND CLEANING (CRITICAL FOR GEOCODING)
 
-**CRITICAL: Addresses must be clean and geocodable. Remove ALL instructions, notes, and non-address details.**
+**🚨 MANDATORY: You MUST clean ALL addresses before extracting them into the JSON output.**
 
-**ADDRESS CLEANING RULES (APPLY BEFORE EXTRACTING):**
+**STEP-BY-STEP ADDRESS CLEANING PROCESS:**
 
-**❌ REMOVE these from address field (they prevent geocoding):**
-- Dock/door instructions: "- AROUND BACK DOCK DOORS 3, 4 & 5", "- REAR DOCK", "- LOADING DOCK 12"
-- Gate instructions: "- USE GATE B", "- ENTER THROUGH SOUTH GATE"
-- Special instructions: "- SEE NOTES", "- CALL AHEAD", "- APPOINTMENT REQUIRED"
-- Delivery notes: "- LEAVE AT BACK", "- RING BELL", "- NO LIFT GATE"
-- Contact details: "- ASK FOR JOHN", "- CALL 555-1234"
-- Multiple commas without content: ", , ,"
-- Trailing punctuation: ", -"
+1. **Identify the raw address** in the document
+2. **Remove everything after a dash (-)** if it contains instructions
+3. **Remove dock/door numbers and instructions**
+4. **Keep ONLY: street number, street name, suite/unit/building identifiers**
+5. **Extract city, state, zip separately**
 
-**✅ KEEP in address field:**
-- Street number and name: "2707 N Barnes Ave"
-- Suite/Building/Plant identifiers: "Suite 200", "Plant 5", "Building A"
-- Unit numbers: "Unit 15"
+---
 
-**CLEANING EXAMPLES:**
-- ❌ "1000 KREIDER DRIVE STE 200 - AROUND BACK DOCK DOORS 3, 4 & 5"
-- ✅ "1000 KREIDER DRIVE STE 200"
+## WHAT TO REMOVE FROM ADDRESSES (CRITICAL)
 
-- ❌ "500 Industrial Blvd Building B - See shipping clerk"
-- ✅ "500 Industrial Blvd Building B"
+**🚫 DELETE IMMEDIATELY - These patterns MUST be removed:**
 
-- ❌ "2707 N Barnes Ave Plant 5 - Loading Dock 3"
-- ✅ "2707 N Barnes Ave Plant 5"
+### Pattern 1: Anything after " - " (dash with spaces)
+- If you see " - " followed by instructions, DELETE everything from the dash onward
+- Example: "123 Main St - AROUND BACK" → Keep only "123 Main St"
 
-**ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):**
+### Pattern 2: Dock/Door Instructions (ALWAYS REMOVE)
+**Remove these EXACT phrases and similar variations:**
+- "AROUND BACK DOCK DOORS" + any numbers
+- "AROUND BACK DOCK DOOR" + any numbers
+- "REAR DOCK DOORS" + any numbers
+- "DOCK DOORS" + any numbers
+- "LOADING DOCK" + any numbers
+- "RECEIVING DOCK" + any numbers
+- "USE DOCK" + any numbers
+- "DOORS" + any numbers (when after address)
 
-### 1. BEST: Extract FULL clean address with components
+### Pattern 3: Gate Instructions
+- "USE GATE" + letter/number
+- "ENTER THROUGH" + any text
+- "SOUTH GATE", "NORTH GATE", "EAST GATE", "WEST GATE"
+
+### Pattern 4: Delivery Instructions
+- "SEE NOTES"
+- "CALL AHEAD"
+- "APPOINTMENT REQUIRED"
+- "ASK FOR" + name
+- "CONTACT" + name/phone
+
+---
+
+## REAL EXAMPLES - STUDY THESE CAREFULLY
+
+**Example 1 (MOST COMMON ERROR):**
+❌ RAW: "1000 KREIDER DRIVE STE 200 - AROUND BACK DOCK DOORS 3, 4 & 5"
+✅ CLEAN: "1000 KREIDER DRIVE STE 200"
+- You MUST remove everything from " - " onward
+- Final JSON: `"address": "1000 KREIDER DRIVE STE 200"`
+
+**Example 2:**
+❌ RAW: "2707 N BARNES AVE PLANT 5 - LOADING DOCK 12"
+✅ CLEAN: "2707 N BARNES AVE PLANT 5"
+- Keep Plant 5 (it's a building identifier)
+- Remove " - LOADING DOCK 12" (it's an instruction)
+- Final JSON: `"address": "2707 N BARNES AVE PLANT 5"`
+
+**Example 3:**
+❌ RAW: "500 INDUSTRIAL BLVD BUILDING B - USE SOUTH GATE - CALL AHEAD"
+✅ CLEAN: "500 INDUSTRIAL BLVD BUILDING B"
+- Keep Building B (it's part of address)
+- Remove both instructions after dashes
+- Final JSON: `"address": "500 INDUSTRIAL BLVD BUILDING B"`
+
+**Example 4:**
+❌ RAW: "123 MAIN ST REAR DOCK DOORS 5 & 6"
+✅ CLEAN: "123 MAIN ST"
+- Remove "REAR DOCK DOORS 5 & 6" completely
+- Final JSON: `"address": "123 MAIN ST"`
+
+---
+
+## WHAT TO KEEP IN ADDRESSES
+
+**✅ These ARE part of the address - DO NOT remove:**
+- Street numbers: "123", "2707", "1000"
+- Street names: "Main St", "Barnes Ave", "Kreider Drive"
+- Suite identifiers: "STE 200", "Suite 200", "Suite 5"
+- Building identifiers: "Building A", "Building B", "Bldg 3"
+- Plant identifiers: "Plant 5", "Plant A"
+- Unit numbers: "Unit 15", "Unit A"
+
+---
+
+## FINAL ADDRESS FORMAT
+
+After cleaning, your address JSON should look like:
+
+\`\`\`json
+{
+  "address": "STREET_NUMBER STREET_NAME [SUITE/BUILDING/PLANT]",
+  "city": "CITY_NAME",
+  "state": "ST",
+  "zip": "12345"
+}
 \`\`\`
-address: Street number + street name + suite/building/plant (CLEANED)
-city: City name only
-state: 2-letter state code
-zip: ZIP code
+
+**Example of CORRECT output:**
+\`\`\`json
+{
+  "address": "1000 KREIDER DRIVE STE 200",
+  "city": "MIDDLETOWN", 
+  "state": "PA",
+  "zip": "17057"
+}
 \`\`\`
-**Example:** \`address="2707 N Barnes Ave Plant 5", city="Springfield", state="MO", zip="65803"\`
+
+---
+
+## VALIDATION CHECKLIST
+
+Before returning your JSON, verify EACH address:
+- ❓ Does address contain " - " ? → If yes, remove everything after it
+- ❓ Does address mention "DOCK" or "DOORS"? → If yes, remove that part
+- ❓ Does address mention "GATE"? → If yes, remove that part
+- ❓ Does address have instructions? → If yes, remove them
+- ✅ Address should be: street number + street name + suite/building/plant ONLY
 
 ### 2. GOOD: If street address unavailable, extract city + state + zip
 \`\`\`
