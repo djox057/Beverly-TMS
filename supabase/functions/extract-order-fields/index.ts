@@ -223,6 +223,12 @@ IMPORTANT: When extracting dates, convert them to YYYY-MM-DD format correctly. F
 - 9/24/2025 becomes 2025-09-24  
 - Sep 24, 2025 becomes 2025-09-24
 
+IMPORTANT: When extracting times for pickup and delivery:
+- If only ONE time is provided (no time range), use that single time for BOTH startTime AND endTime
+- Example: If pickup time is "14:00", set both pickupStartTime="14:00" and pickupEndTime="14:00"
+- Example: If delivery time is "08:00", set both deliveryStartTime="08:00" and deliveryEndTime="08:00"
+- This applies to both multi-drop stops and single-drop loads
+
 For MULTI-DROP loads, return JSON like:
 {
   "brokerLoadNumber": "string",
