@@ -229,11 +229,39 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 
 ## STEP 4: ADDRESS EXTRACTION RULES FOR GEOCODING COMPATIBILITY
 
+**CRITICAL: Addresses must be clean and geocodable. Remove ALL instructions, notes, and non-address details.**
+
+**ADDRESS CLEANING RULES (APPLY BEFORE EXTRACTING):**
+
+**❌ REMOVE these from address field (they prevent geocoding):**
+- Dock/door instructions: "- AROUND BACK DOCK DOORS 3, 4 & 5", "- REAR DOCK", "- LOADING DOCK 12"
+- Gate instructions: "- USE GATE B", "- ENTER THROUGH SOUTH GATE"
+- Special instructions: "- SEE NOTES", "- CALL AHEAD", "- APPOINTMENT REQUIRED"
+- Delivery notes: "- LEAVE AT BACK", "- RING BELL", "- NO LIFT GATE"
+- Contact details: "- ASK FOR JOHN", "- CALL 555-1234"
+- Multiple commas without content: ", , ,"
+- Trailing punctuation: ", -"
+
+**✅ KEEP in address field:**
+- Street number and name: "2707 N Barnes Ave"
+- Suite/Building/Plant identifiers: "Suite 200", "Plant 5", "Building A"
+- Unit numbers: "Unit 15"
+
+**CLEANING EXAMPLES:**
+- ❌ "1000 KREIDER DRIVE STE 200 - AROUND BACK DOCK DOORS 3, 4 & 5"
+- ✅ "1000 KREIDER DRIVE STE 200"
+
+- ❌ "500 Industrial Blvd Building B - See shipping clerk"
+- ✅ "500 Industrial Blvd Building B"
+
+- ❌ "2707 N Barnes Ave Plant 5 - Loading Dock 3"
+- ✅ "2707 N Barnes Ave Plant 5"
+
 **ADDRESS PRIORITY (ALWAYS TRY FOR FULL ADDRESS FIRST):**
 
-### 1. BEST: Extract FULL address with ALL components
+### 1. BEST: Extract FULL clean address with components
 \`\`\`
-address: Street number + street name + building/plant/gate identifier
+address: Street number + street name + suite/building/plant (CLEANED)
 city: City name only
 state: 2-letter state code
 zip: ZIP code
