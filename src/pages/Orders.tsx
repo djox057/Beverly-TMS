@@ -596,7 +596,7 @@ const Orders = () => {
                                 )}
                               </>
                             )}
-                            {isDispatchOnly && !order.locked && (
+                            {hasRole('dispatch') && !order.locked && (
                               <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
                                 <XCircle className="h-4 w-4 text-destructive" />
                               </Button>
