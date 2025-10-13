@@ -575,7 +575,7 @@ const Orders = () => {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             )}
-                            {(hasRole('manager') || hasRole('admin') || hasRole('accounting')) && (
+                            {(hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor')) && (
                               <>
                                 <Button
                                   variant="outline"
