@@ -11,6 +11,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useAuth } from "@/hooks/useAuth";
 interface BrokerFormData {
   name: string;
   mc_number: string;
@@ -37,6 +38,14 @@ const Brokers = () => {
     isLoading,
     refetch
   } = useBrokers();
+  const { roles } = useAuth();
+
+  // Check if user is dispatch-only (has dispatch role but not admin/manager/accounting/supervisor)
+  const isDispatchOnly = roles.includes('dispatch') && 
+    !roles.includes('admin') && 
+    !roles.includes('manager') && 
+    !roles.includes('accounting') &&
+    !roles.includes('supervisor');
 
   // Debounce search term to avoid filtering on every keystroke
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -264,12 +273,12 @@ const Brokers = () => {
                   <TableHead>Company Name</TableHead>
                   <TableHead>MC Number</TableHead>
                   <TableHead>Address</TableHead>
-                  <TableHead>Actions</TableHead>
+                  {!isDispatchOnly && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody className="h-full">
                 {paginatedBrokers.length === 0 ? <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground h-[500px]">
+                    <TableCell colSpan={isDispatchOnly ? 3 : 4} className="text-center py-8 text-muted-foreground h-[500px]">
                       {isLoading ? "Loading..." : "No brokers found"}
                     </TableCell>
                   </TableRow> : <>
@@ -282,40 +291,42 @@ const Brokers = () => {
                         </TableCell>
                         <TableCell className="font-mono">{broker.mc_number}</TableCell>
                         <TableCell className="max-w-xs">{broker.address}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openEditDialog(broker)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete broker {broker.name}. This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteBroker(broker.id)}>
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
+                        {!isDispatchOnly && (
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openEditDialog(broker)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete broker {broker.name}. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteBroker(broker.id)}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>)}
                     {/* Add empty rows to maintain consistent height */}
                     {Array.from({
                   length: Math.max(0, ITEMS_PER_PAGE - paginatedBrokers.length)
                 }).map((_, i) => <TableRow key={`empty-${i}`} className="h-[57px]">
-                        <TableCell colSpan={4}>&nbsp;</TableCell>
+                        <TableCell colSpan={isDispatchOnly ? 3 : 4}>&nbsp;</TableCell>
                       </TableRow>)}
                   </>}
               </TableBody>
