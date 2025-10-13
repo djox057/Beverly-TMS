@@ -79,6 +79,13 @@ const Orders = () => {
   };
   // Auto-set bookedBy filter for dispatchers
   const isDispatcher = primaryRole === 'dispatch';
+  
+  // Check if user has only dispatch role
+  const isDispatchOnly = hasRole('dispatch') && 
+    !hasRole('admin') && 
+    !hasRole('manager') && 
+    !hasRole('accounting') && 
+    !hasRole('supervisor');
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("all-companies");
   const [truckCompanyFilter, setTruckCompanyFilter] = useState("all-truck-companies");
@@ -587,6 +594,11 @@ const Orders = () => {
                                   </Button>
                                 )}
                               </>
+                            )}
+                            {isDispatchOnly && !order.locked && (
+                              <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
