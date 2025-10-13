@@ -16,6 +16,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
 import { supabase } from "@/integrations/supabase/client";
+import { parseAddress } from "@/utils/addressParser";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -31,6 +32,9 @@ interface PickupDrop {
   dateRange?: DateRange;
   startTime?: string;
   endTime?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 const NewOrder = () => {
@@ -1072,56 +1076,14 @@ const NewOrder = () => {
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0) {
         const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
-          // Parse city, state, and zip from address
-          let city = null;
-          let state = null;
-          let zipCode = null;
-          let cleanAddress = item.address;
+          // Use the robust address parser
+          const parsed = parseAddress(item.address);
           
-          // Check if address has newline format: "Street Address\nCity, State Zip"
-          if (item.address.includes('\n')) {
-            const lines = item.address.split('\n');
-            cleanAddress = lines[0].trim();
-            
-            if (lines[1]) {
-              const cityStateZip = lines[1].trim();
-              const match = cityStateZip.match(/^(.+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
-              if (match) {
-                city = match[1].trim();
-                state = match[2].trim();
-                zipCode = match[3].trim();
-              }
-            }
-          } else {
-            // Fallback to comma-separated parsing
-            const addressParts = item.address.split(',').map(part => part.trim());
-            
-            if (addressParts.length >= 3) {
-              // Format: "Street Address, City, State Zip" or "Street Address, City, State"
-              cleanAddress = addressParts[0];
-              city = addressParts[1];
-              const stateZip = addressParts[2];
-              const stateZipMatch = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
-              if (stateZipMatch) {
-                state = stateZipMatch[1];
-                zipCode = stateZipMatch[2];
-              } else {
-                state = stateZip;
-              }
-            } else if (addressParts.length === 2) {
-              // Format: "Street Address, City State Zip"
-              cleanAddress = addressParts[0];
-              const cityState = addressParts[1];
-              const cityStateMatch = cityState.match(/^(.+?)\s+([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/);
-              if (cityStateMatch) {
-                city = cityStateMatch[1];
-                state = cityStateMatch[2];
-                zipCode = cityStateMatch[3] || null;
-              } else {
-                city = cityState;
-              }
-            }
-          }
+          // Prefer explicit city/state/zip from item if provided, otherwise use parsed
+          const city = item.city || parsed.city;
+          const state = item.state || parsed.state;
+          const zipCode = item.zipCode || parsed.zipCode;
+          const cleanAddress = parsed.address;
           
           return {
             order_id: orderId,
