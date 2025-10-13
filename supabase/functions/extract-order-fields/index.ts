@@ -138,13 +138,12 @@ You are an expert at extracting shipping/logistics data from PDF documents, incl
 - Temporal: Later date/time in the document (after pickup chronologically)
 
 **🔍 EXAMPLE FROM REAL DOCUMENT:**
-```
+
 PU 1  Name: Azteca Milling LP  Date: 10/13/2025 0900
       ↑ This is a PICKUP (has "PU 1" label)
 
 SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
       ↑ This is a DELIVERY (has "SO 2" label, later date)
-```
 
 **STEP-BY-STEP EXTRACTION PROCESS:**
 1. **Find ALL labeled locations** in the document (look for PU, SO, Stop, Pickup, Delivery labels)
