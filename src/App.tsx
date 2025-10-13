@@ -43,17 +43,6 @@ const queryClient = new QueryClient({
 const prefetchData = async () => {
   const prefetchPromises = [
     queryClient.prefetchQuery({
-      queryKey: ['orders'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('orders')
-          .select('*, brokers(name), trucks(truck_number), trailers(trailer_number)')
-          .order('created_at', { ascending: false })
-          .limit(100);
-        return data || [];
-      },
-    }),
-    queryClient.prefetchQuery({
       queryKey: ['trucks'],
       queryFn: async () => {
         const { data } = await supabase
