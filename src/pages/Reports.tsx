@@ -12,7 +12,7 @@ import { useReports } from "@/hooks/useReports";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { calculateOrderDistance } from "@/utils/distanceCalculation";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
@@ -1114,11 +1114,19 @@ const Reports = () => {
     );
   };
 
-  // Filter reports by office (using offices array defined above)
-  const filterReportsByOffice = (office: string) => {
-    if (!groupedReports) return [];
-    return groupedReports.filter((group) => group.office === office);
-  };
+  // Filter reports by office (using offices array defined above) - memoized
+  const filterReportsByOffice = useMemo(() => {
+    return (office: string) => {
+      if (!groupedReports) return [];
+      return groupedReports.filter((group) => group.office === office);
+    };
+  }, [groupedReports]);
+  
+  // Only get filtered reports for the active tab
+  const activeOfficeReports = useMemo(() => {
+    return filterReportsByOffice(activeTab);
+  }, [activeTab, filterReportsByOffice]);
+  
   return (
     <div className="h-full bg-background overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
@@ -1133,17 +1141,17 @@ const Reports = () => {
             </TabsList>
           </div>
 
-          {offices.map((office) => (
-            <TabsContent key={office} value={office} className="mt-0">
-              {filterReportsByOffice(office).length === 0 ? (
-                <div className="p-4">
-                  <div className="text-center py-12 text-muted-foreground">
-                    No trucks assigned to dispatchers in {office}
-                  </div>
+          {/* Only render the active tab content */}
+          <TabsContent value={activeTab} className="mt-0">
+            {activeOfficeReports.length === 0 ? (
+              <div className="p-4">
+                <div className="text-center py-12 text-muted-foreground">
+                  No trucks assigned to dispatchers in {activeTab}
                 </div>
-              ) : (
-                <div className="px-4 py-2">
-                  {filterReportsByOffice(office).map((group) => {
+              </div>
+            ) : (
+              <div className="px-4 py-2">
+                {activeOfficeReports.map((group) => {
                     const startDate = getCalendarStartDate(group.dispatcherId);
                     const days = Array.from(
                       {
@@ -1610,10 +1618,9 @@ const Reports = () => {
                 </div>
               )}
             </TabsContent>
-          ))}
-        </Tabs>
+          </Tabs>
+        </div>
       </div>
-    </div>
-  );
-};
-export default Reports;
+    );
+  };
+  export default Reports;
