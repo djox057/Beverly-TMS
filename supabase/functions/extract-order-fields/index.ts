@@ -341,7 +341,9 @@ After cleaning, your address JSON should look like:
 - "MIDDLETOWN, PA 17057" → zip: "17057"
 - "HOUSTON TX 77001-1234" → zip: "77001-1234"
 - "CHICAGO, IL 60601" → zip: "60601"
-- If zip truly missing → zip: null (but search thoroughly first!)
+- "EAGLE LAKE, TX" (no zip in doc) → Use your knowledge: zip: "77434" (central zip for Eagle Lake, TX)
+- "CHICAGO, IL" (no zip in doc) → Use your knowledge: zip: "60601" (central/downtown Chicago zip)
+- **CRITICAL**: If zip not found in document, USE YOUR AI KNOWLEDGE to infer a common/central zip code for that city and state. ALWAYS provide a zip when city and state are available.
 
 ---
 
@@ -353,7 +355,7 @@ Before returning your JSON, verify EACH address:
 - ❓ Does address mention "GATE"? → If yes, remove that part
 - ❓ Does address have instructions? → If yes, remove them
 - ✅ Address should be: street number + street name + suite/building/plant ONLY
-- ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits
+- ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits. If not found, infer from city/state using your knowledge.
 
 ### 2. GOOD: If street address unavailable, extract city + state + zip
 \`\`\`
@@ -418,7 +420,8 @@ zip: "" or null
 - If you find 5 digits, keep as-is: "77434"
 - Remove any spaces: "77434 1234" → "77434-1234"
 - Common locations: After state code, at end of address line, on separate line
-- If missing, set to null (but try very hard to find it)
+- **IF NOT FOUND IN DOCUMENT**: Use your AI knowledge to provide a common/central zip code for the given city and state (e.g., Eagle Lake, TX → "77434", Chicago, IL → "60601")
+- Only set to null if you have no city/state information at all
 
 **DO NOT:**
 - Include country names (USA, United States, etc.) in any address field
