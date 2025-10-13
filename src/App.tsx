@@ -4,10 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { DriverLayout } from "./components/DriverLayout";
+import { supabase } from "./integrations/supabase/client";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import DriverDashboard from "./pages/driver/DriverDashboard";
@@ -28,114 +30,200 @@ import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+    },
+  },
+});
+
+// Prefetch common data on app load
+const prefetchData = async () => {
+  const prefetchPromises = [
+    queryClient.prefetchQuery({
+      queryKey: ['orders'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('orders')
+          .select('*, brokers(name), trucks(truck_number), drivers(name), trailers(trailer_number)')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        return data || [];
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['trucks'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('trucks')
+          .select('*')
+          .order('truck_number');
+        return data || [];
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['trailers'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('trailers')
+          .select('*')
+          .order('trailer_number');
+        return data || [];
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['drivers'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('drivers')
+          .select('*')
+          .order('name');
+        return data || [];
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['brokers'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('brokers')
+          .select('*')
+          .order('name');
+        return data || [];
+      },
+    }),
+    queryClient.prefetchQuery({
+      queryKey: ['companies'],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('companies')
+          .select('*')
+          .order('name');
+        return data || [];
+      },
+    }),
+  ];
+
+  await Promise.allSettled(prefetchPromises);
+};
+
+const AppContent = () => {
+  useEffect(() => {
+    prefetchData();
+  }, []);
+
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin/users" element={
+          <ProtectedRoute requiredRole="admin">
+            <Layout><AdminUsers /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout><Index /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/new-order" element={
+          <ProtectedRoute>
+            <Layout><NewOrder /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/edit-order/:id" element={
+          <ProtectedRoute>
+            <Layout><EditOrder /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/orders" element={
+          <ProtectedRoute>
+            <Layout><Orders /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/trucks" element={
+          <ProtectedRoute>
+            <Layout><Trucks /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/trailers" element={
+          <ProtectedRoute>
+            <Layout><Trailers /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/drivers" element={
+          <ProtectedRoute>
+            <Layout><Drivers /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/brokers" element={
+          <ProtectedRoute>
+            <Layout><Brokers /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/fleets" element={
+          <ProtectedRoute>
+            <Layout><Fleets /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/reports" element={
+          <ProtectedRoute excludedRoles={['accounting']}>
+            <Layout><Reports /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute excludedRoles={['accounting']}>
+            <Layout><Analytics /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/samsara-debug" element={
+          <ProtectedRoute requiredRole="admin">
+            <Layout><SamsaraDebug /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/alerts" element={
+          <ProtectedRoute>
+            <Layout><Alerts /></Layout>
+          </ProtectedRoute>
+        } />
+        {/* Driver Portal Routes */}
+        <Route path="/driver" element={
+          <ProtectedRoute requiredRole="driver">
+            <DriverLayout><DriverDashboard /></DriverLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/driver/orders" element={
+          <ProtectedRoute requiredRole="driver">
+            <DriverLayout><DriverOrders /></DriverLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/driver/info" element={
+          <ProtectedRoute requiredRole="driver">
+            <DriverLayout><DriverInfo /></DriverLayout>
+          </ProtectedRoute>
+        } />
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={
+          <ProtectedRoute>
+            <NotFound />
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </TooltipProvider>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>
         <BrowserRouter>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/admin/users" element={
-              <ProtectedRoute requiredRole="admin">
-                <Layout><AdminUsers /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Layout><Index /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/new-order" element={
-              <ProtectedRoute>
-                <Layout><NewOrder /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/edit-order/:id" element={
-              <ProtectedRoute>
-                <Layout><EditOrder /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <Layout><Orders /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/trucks" element={
-              <ProtectedRoute>
-                <Layout><Trucks /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/trailers" element={
-              <ProtectedRoute>
-                <Layout><Trailers /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/drivers" element={
-              <ProtectedRoute>
-                <Layout><Drivers /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/brokers" element={
-              <ProtectedRoute>
-                <Layout><Brokers /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/fleets" element={
-              <ProtectedRoute>
-                <Layout><Fleets /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-              <ProtectedRoute excludedRoles={['accounting']}>
-                <Layout><Reports /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/analytics" element={
-              <ProtectedRoute excludedRoles={['accounting']}>
-                <Layout><Analytics /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/samsara-debug" element={
-              <ProtectedRoute requiredRole="admin">
-                <Layout><SamsaraDebug /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/alerts" element={
-              <ProtectedRoute>
-                <Layout><Alerts /></Layout>
-              </ProtectedRoute>
-            } />
-            {/* Driver Portal Routes */}
-            <Route path="/driver" element={
-              <ProtectedRoute requiredRole="driver">
-                <DriverLayout><DriverDashboard /></DriverLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/driver/orders" element={
-              <ProtectedRoute requiredRole="driver">
-                <DriverLayout><DriverOrders /></DriverLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/driver/info" element={
-              <ProtectedRoute requiredRole="driver">
-                <DriverLayout><DriverInfo /></DriverLayout>
-              </ProtectedRoute>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={
-              <ProtectedRoute>
-                <NotFound />
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </TooltipProvider>
-      </BrowserRouter>
-    </AuthProvider>
+          <AppContent />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
