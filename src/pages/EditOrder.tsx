@@ -701,6 +701,14 @@ const EditOrder = () => {
         }
       }
 
+      // Get existing pickup_drop IDs before making changes
+      const { data: existingPickupDrops } = await supabase
+        .from('pickup_drops')
+        .select('id')
+        .eq('order_id', id);
+
+      const existingIds = existingPickupDrops?.map(pd => pd.id) || [];
+
       // Insert updated pickup/drops FIRST (before deleting old ones)
       // This prevents the order from being deleted by the trigger
       if (pickupsDrops.length > 0) {
@@ -753,15 +761,16 @@ const EditOrder = () => {
             .insert(uniquePickupDropData);
           if (pickupDropError) throw pickupDropError;
           
-          // After successful insert, delete old pickup_drops
+          // After successful insert, delete old pickup_drops by their specific IDs
           // This ensures there's always at least one pickup_drop in the database
-          const { error: deleteError } = await supabase
-            .from('pickup_drops')
-            .delete()
-            .eq('order_id', id)
-            .lt('created_at', new Date().toISOString());
-            
-          if (deleteError) throw deleteError;
+          if (existingIds.length > 0) {
+            const { error: deleteError } = await supabase
+              .from('pickup_drops')
+              .delete()
+              .in('id', existingIds);
+              
+            if (deleteError) throw deleteError;
+          }
         }
       }
 
