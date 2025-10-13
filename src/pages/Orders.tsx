@@ -332,6 +332,11 @@ const Orders = () => {
             <CardTitle>All Orders</CardTitle>
             
             <div className="flex flex-wrap gap-4 items-center">
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
+              
               <DateRangePicker 
                 date={dateRange} 
                 onDateChange={setDateRange} 
@@ -403,11 +408,6 @@ const Orders = () => {
                   <SelectItem value="missing-pod">Missing POD</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <div className="relative w-72">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-              </div>
             </div>
           </div>
         </CardHeader>
