@@ -1064,6 +1064,20 @@ const Reports = () => {
       );
     });
   };
+
+  // Filter reports by office - memoized (must be before any early returns)
+  const filterReportsByOffice = useMemo(() => {
+    return (office: string) => {
+      if (!groupedReports) return [];
+      return groupedReports.filter((group) => group.office === office);
+    };
+  }, [groupedReports]);
+  
+  // Only get filtered reports for the active tab
+  const activeOfficeReports = useMemo(() => {
+    return filterReportsByOffice(activeTab);
+  }, [activeTab, filterReportsByOffice]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -1114,19 +1128,6 @@ const Reports = () => {
     );
   };
 
-  // Filter reports by office (using offices array defined above) - memoized
-  const filterReportsByOffice = useMemo(() => {
-    return (office: string) => {
-      if (!groupedReports) return [];
-      return groupedReports.filter((group) => group.office === office);
-    };
-  }, [groupedReports]);
-  
-  // Only get filtered reports for the active tab
-  const activeOfficeReports = useMemo(() => {
-    return filterReportsByOffice(activeTab);
-  }, [activeTab, filterReportsByOffice]);
-  
   return (
     <div className="h-full bg-background overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
