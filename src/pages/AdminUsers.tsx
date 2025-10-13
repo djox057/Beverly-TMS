@@ -28,7 +28,6 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  office: 'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery drivers' | null;
   roles: ('dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance')[];
   created_at: string;
 }
@@ -46,7 +45,6 @@ const AdminUsers = () => {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
-  const [editOffice, setEditOffice] = useState<'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery drivers' | ''>('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   
   // Form state
@@ -239,7 +237,6 @@ const AdminUsers = () => {
     setUserToEdit(user);
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
-    setEditOffice(user.office || '');
     setIsEditDialogOpen(true);
   };
 
@@ -271,27 +268,14 @@ const AdminUsers = () => {
         throw new Error(data.error);
       }
 
-      // Update full name or office if changed
-      if (editFullName !== userToEdit.full_name || editOffice !== userToEdit.office) {
-        const updateData: { 
-          full_name?: string; 
-          office?: 'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery drivers' | null 
-        } = {};
-        
-        if (editFullName !== userToEdit.full_name) {
-          updateData.full_name = editFullName;
-        }
-        
-        if (editOffice !== userToEdit.office) {
-          updateData.office = editOffice || null;
-        }
-
-        const { error: profileError } = await supabase
+      // Update full name if changed
+      if (editFullName !== userToEdit.full_name) {
+        const { error: nameError } = await supabase
           .from('profiles')
-          .update(updateData)
+          .update({ full_name: editFullName })
           .eq('user_id', userToEdit.user_id);
 
-        if (profileError) throw profileError;
+        if (nameError) throw nameError;
       }
       
       await fetchUsers();
@@ -578,22 +562,6 @@ const AdminUsers = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Email: <span className="font-medium text-foreground">{userToEdit?.email}</span>
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-office">Office</Label>
-              <Select value={editOffice} onValueChange={(value: 'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery drivers' | '') => setEditOffice(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select office" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">None</SelectItem>
-                  <SelectItem value="Čačak">Čačak</SelectItem>
-                  <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
-                  <SelectItem value="BEOGRAD">Beograd</SelectItem>
-                  <SelectItem value="Recovery drivers">Recovery drivers</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             
             <div className="space-y-2">
