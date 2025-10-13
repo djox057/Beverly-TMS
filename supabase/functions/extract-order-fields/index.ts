@@ -676,6 +676,45 @@ Return this JSON structure with ALL fields:
       throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
     }
 
+    // Auto-convert legacy single-stop format to array format
+    if (!extractedData.pickups && !extractedData.deliveries) {
+      console.log('🔄 Detected legacy single-stop format, converting to array format...');
+      
+      // Check if we have legacy pickup fields
+      if (extractedData.pickupCity || extractedData.pickupAddress) {
+        extractedData.pickups = [{
+          address: extractedData.pickupAddress,
+          city: extractedData.pickupCity,
+          state: extractedData.pickupState,
+          zip: extractedData.pickupZip,
+          date: extractedData.pickupDate || extractedData.pickupStartDate,
+          startTime: extractedData.pickupStartTime,
+          endTime: extractedData.pickupEndTime,
+          puNumber: extractedData.pickupPuNumber,
+          poNumber: extractedData.pickupPoNumber,
+          shipper: extractedData.pickupShipper
+        }];
+        console.log('✅ Converted legacy pickup to array format');
+      }
+      
+      // Check if we have legacy delivery fields
+      if (extractedData.deliveryCity || extractedData.deliveryAddress) {
+        extractedData.deliveries = [{
+          address: extractedData.deliveryAddress,
+          city: extractedData.deliveryCity,
+          state: extractedData.deliveryState,
+          zip: extractedData.deliveryZip,
+          date: extractedData.deliveryDate || extractedData.deliveryStartDate,
+          startTime: extractedData.deliveryStartTime,
+          endTime: extractedData.deliveryEndTime,
+          puNumber: undefined,
+          poNumber: extractedData.deliveryPoNumber,
+          shipper: extractedData.deliveryShipper
+        }];
+        console.log('✅ Converted legacy delivery to array format');
+      }
+    }
+
     // Sort pickups and deliveries by datetime
     if (extractedData.pickups && extractedData.pickups.length > 1) {
       extractedData.pickups.sort((a: PickupDeliveryStop, b: PickupDeliveryStop) => {
