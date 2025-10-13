@@ -280,27 +280,27 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 ❌ RAW: "1000 KREIDER DRIVE STE 200 - AROUND BACK DOCK DOORS 3, 4 & 5"
 ✅ CLEAN: "1000 KREIDER DRIVE STE 200"
 - You MUST remove everything from " - " onward
-- Final JSON: `"address": "1000 KREIDER DRIVE STE 200"`
+- Final JSON: "address": "1000 KREIDER DRIVE STE 200"
 
 **Example 2:**
 ❌ RAW: "2707 N BARNES AVE PLANT 5 - LOADING DOCK 12"
 ✅ CLEAN: "2707 N BARNES AVE PLANT 5"
 - Keep Plant 5 (it's a building identifier)
 - Remove " - LOADING DOCK 12" (it's an instruction)
-- Final JSON: `"address": "2707 N BARNES AVE PLANT 5"`
+- Final JSON: "address": "2707 N BARNES AVE PLANT 5"
 
 **Example 3:**
 ❌ RAW: "500 INDUSTRIAL BLVD BUILDING B - USE SOUTH GATE - CALL AHEAD"
 ✅ CLEAN: "500 INDUSTRIAL BLVD BUILDING B"
 - Keep Building B (it's part of address)
 - Remove both instructions after dashes
-- Final JSON: `"address": "500 INDUSTRIAL BLVD BUILDING B"`
+- Final JSON: "address": "500 INDUSTRIAL BLVD BUILDING B"
 
 **Example 4:**
 ❌ RAW: "123 MAIN ST REAR DOCK DOORS 5 & 6"
 ✅ CLEAN: "123 MAIN ST"
 - Remove "REAR DOCK DOORS 5 & 6" completely
-- Final JSON: `"address": "123 MAIN ST"`
+- Final JSON: "address": "123 MAIN ST"
 
 ---
 
@@ -357,7 +357,7 @@ city: City name (REQUIRED)
 state: 2-letter code (REQUIRED)
 zip: ZIP code
 \`\`\`
-**Example:** \`city="Houston", state="TX", zip="77001"\`
+**Example:** city="Houston", state="TX", zip="77001"
 
 ### 3. ACCEPTABLE: If only city and state are visible
 \`\`\`
@@ -366,10 +366,10 @@ city: City name (REQUIRED)
 state: 2-letter code (REQUIRED)
 zip: "" or null
 \`\`\`
-**Example:** \`city="Houston", state="TX"\`
+**Example:** city="Houston", state="TX"
 
 ### 4. AVOID: DO NOT return ONLY street address without city/state
-- ❌ BAD: \`address="123 Main St"\` with no city/state
+- ❌ BAD: address="123 Main St" with no city/state
 - If you see only a street, try to find the city/state elsewhere in the document
 
 ---
@@ -379,13 +379,13 @@ zip: "" or null
 **address field MUST include building/plant/gate/dock/suite identifiers:**
 
 ✅ **CORRECT Examples:**
-- \`address: "2707 N Barnes Ave Plant 5"\` (Plant 5 stays with street)
-- \`address: "123 Industrial Blvd Building A"\` (Building A stays with street)
-- \`address: "456 Warehouse Dr Gate 3"\` (Gate 3 stays with street)
-- \`address: "789 Dock Rd Suite 200"\` (Suite 200 stays with street)
+- address: "2707 N Barnes Ave Plant 5" (Plant 5 stays with street)
+- address: "123 Industrial Blvd Building A" (Building A stays with street)
+- address: "456 Warehouse Dr Gate 3" (Gate 3 stays with street)
+- address: "789 Dock Rd Suite 200" (Suite 200 stays with street)
 
 ❌ **WRONG Examples:**
-- \`address: "2707 N Barnes Ave", city: "Plant 5"\` (Plant 5 is NOT a city!)
+- address: "2707 N Barnes Ave", city: "Plant 5" (Plant 5 is NOT a city!)
 
 **Common identifiers that belong in the address field (NOT in city):**
 - Plant [number/letter] → "Plant 5", "Plant A"
@@ -452,14 +452,14 @@ zip: "" or null
 - STEP 4: Return as number (not multiplied by 100)
 
 **Examples:**
-- \`$1,300.00\` → Remove $ → \`1,300.00\` → Remove commas → \`1300.00\` → Parse as number → \`1300\`
-- \`$1,250.50\` → \`1250.50\` (NOT 125050!)
-- \`$850\` → \`850\`
-- \`$2,500.25\` → \`2500.25\` (NOT 250025!)
+- $1,300.00 → Remove $ → 1,300.00 → Remove commas → 1300.00 → Parse as number → 1300
+- $1,250.50 → 1250.50 (NOT 125050!)
+- $850 → 850
+- $2,500.25 → 2500.25 (NOT 250025!)
 
 **Other numeric fields:**
-- \`mileage: 450 miles\` → Extract as \`450\` (number only, remove text)
-- \`weight: 42,000 lbs\` → Remove commas → \`42000\` (number only, remove text and commas)
+- mileage: 450 miles → Extract as 450 (number only, remove text)
+- weight: 42,000 lbs → Remove commas → 42000 (number only, remove text and commas)
 
 ---
 
@@ -549,7 +549,7 @@ Return this JSON structure with ALL fields:
 
 1. **Extract ALL available information** - do not leave fields empty if data exists in the document
 2. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
-3. **Use null for missing fields** - if a field cannot be found, use \`null\` or empty string \`""\`
+3. **Use null for missing fields** - if a field cannot be found, use null or empty string ""
 4. **Company names are REQUIRED** - always extract shipper/receiver company names
 5. **Validate addresses** - ensure city and state are always included for geocoding
 6. **Double-check parsing** - ensure Plant/Building/Gate identifiers are in the address field, not city field
