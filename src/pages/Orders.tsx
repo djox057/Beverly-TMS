@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
 import {
   Dialog,
   DialogContent,
@@ -106,6 +107,7 @@ const Orders = () => {
     dhMiles: "",
     notes: ""
   });
+  const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   
   // Set bookedBy filter for dispatchers when profile loads
   useEffect(() => {
@@ -224,6 +226,27 @@ const Orders = () => {
     } catch (error) {
       console.error('Error toggling order lock:', error);
       toast.error("Failed to update order lock status");
+    }
+  };
+
+  const recalculateMiles = async (internalLoadNumber: number, orderId: string) => {
+    setRecalculatingOrder(orderId);
+    try {
+      const result = await diagnoseLoadMiles(internalLoadNumber);
+      
+      if (result.success) {
+        toast.success(
+          `Recalculated: ${result.currentMiles} → ${result.calculatedMiles} miles (diff: ${result.difference})`
+        );
+        window.location.reload();
+      } else {
+        toast.error("Failed to recalculate miles");
+      }
+    } catch (error) {
+      console.error('Error recalculating miles:', error);
+      toast.error("Failed to recalculate miles");
+    } finally {
+      setRecalculatingOrder(null);
     }
   };
 
