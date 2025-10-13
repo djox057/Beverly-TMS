@@ -701,74 +701,104 @@ const EditOrder = () => {
         }
       }
 
-      // Get existing pickup_drop IDs before making changes
+      // UPSERT APPROACH: Update existing pickup_drops or insert new ones
+      // This avoids unique constraint violations and keeps at least one pickup_drop at all times
+      
+      // Fetch existing pickup_drops with their sequence numbers
       const { data: existingPickupDrops } = await supabase
         .from('pickup_drops')
-        .select('id')
+        .select('id, sequence_number')
         .eq('order_id', id);
 
-      const existingIds = existingPickupDrops?.map(pd => pd.id) || [];
+      const existingBySequence = new Map(
+        existingPickupDrops?.map(pd => [pd.sequence_number, pd.id]) || []
+      );
 
-      // Insert updated pickup/drops FIRST (before deleting old ones)
-      // This prevents the order from being deleted by the trigger
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
-          // Use the robust address parser
-          const parsed = parseAddress(item.address);
+        // Prepare pickup_drop data with proper sequence numbers
+        const pickupDropData = pickupsDrops
+          .filter(item => item.address)
+          .map((item, index) => {
+            // Use the robust address parser
+            const parsed = parseAddress(item.address);
+            
+            // Prefer explicit city/state/zip from item if provided, otherwise use parsed
+            const city = item.city || parsed.city;
+            const state = item.state || parsed.state;
+            const zipCode = item.zipCode || parsed.zipCode;
+            const cleanAddress = parsed.address;
+            
+            // Calculate datetime from date range and time if available
+            let datetime = item.datetime || null;
+            if (item.dateRange?.from && item.startTime) {
+              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+            }
+            
+            return {
+              order_id: id,
+              type: item.type,
+              address: cleanAddress,
+              city,
+              state,
+              zip_code: zipCode,
+              datetime,
+              sequence_number: index + 1, // Assign proper sequence numbers
+              contact_name: null,
+              contact_phone: null,
+              special_instructions: null
+            };
+          });
+
+        // Track which sequence numbers are in the new data
+        const newSequenceNumbers = new Set(pickupDropData.map(pd => pd.sequence_number));
+
+        // Update or insert each pickup_drop
+        for (const pickupDrop of pickupDropData) {
+          const existingId = existingBySequence.get(pickupDrop.sequence_number);
           
-          // Prefer explicit city/state/zip from item if provided, otherwise use parsed
-          const city = item.city || parsed.city;
-          const state = item.state || parsed.state;
-          const zipCode = item.zipCode || parsed.zipCode;
-          const cleanAddress = parsed.address;
-          
-          // Calculate datetime from date range and time if available
-          let datetime = item.datetime || null;
-          if (item.dateRange?.from && item.startTime) {
-            datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+          if (existingId) {
+            // UPDATE existing pickup_drop
+            const { error: updateError } = await supabase
+              .from('pickup_drops')
+              .update({
+                type: pickupDrop.type,
+                address: pickupDrop.address,
+                city: pickupDrop.city,
+                state: pickupDrop.state,
+                zip_code: pickupDrop.zip_code,
+                datetime: pickupDrop.datetime,
+                contact_name: pickupDrop.contact_name,
+                contact_phone: pickupDrop.contact_phone,
+                special_instructions: pickupDrop.special_instructions
+              })
+              .eq('id', existingId);
+            
+            if (updateError) throw updateError;
+          } else {
+            // INSERT new pickup_drop
+            const { error: insertError } = await supabase
+              .from('pickup_drops')
+              .insert(pickupDrop);
+            
+            if (insertError) throw insertError;
           }
-          
-          return {
-            order_id: id,
-            type: item.type,
-            address: cleanAddress,
-            city,
-            state,
-            zip_code: zipCode,
-            datetime,
-            sequence_number: 1,
-            contact_name: null,
-            contact_phone: null,
-            special_instructions: null
-          };
-        });
+        }
+
+        // Delete pickup_drops that are no longer in the form
+        const sequencesToDelete = Array.from(existingBySequence.keys())
+          .filter(seq => !newSequenceNumbers.has(seq));
         
-        // Deduplicate exact matches before inserting
-        const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
-          return index === self.findIndex((t) => (
-            t.type === item.type &&
-            t.address === item.address &&
-            t.city === item.city &&
-            t.state === item.state &&
-            t.zip_code === item.zip_code &&
-            t.datetime === item.datetime
-          ));
-        });
-        
-        if (uniquePickupDropData.length > 0) {
-          const { error: pickupDropError } = await supabase
-            .from('pickup_drops')
-            .insert(uniquePickupDropData);
-          if (pickupDropError) throw pickupDropError;
+        if (sequencesToDelete.length > 0) {
+          const idsToDelete = sequencesToDelete
+            .map(seq => existingBySequence.get(seq))
+            .filter((id): id is string => id !== undefined);
           
-          // After successful insert, delete old pickup_drops by their specific IDs
-          // This ensures there's always at least one pickup_drop in the database
-          if (existingIds.length > 0) {
+          if (idsToDelete.length > 0) {
             const { error: deleteError } = await supabase
               .from('pickup_drops')
               .delete()
-              .in('id', existingIds);
-              
+              .in('id', idsToDelete);
+            
             if (deleteError) throw deleteError;
           }
         }
