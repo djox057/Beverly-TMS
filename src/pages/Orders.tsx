@@ -499,8 +499,8 @@ const Orders = () => {
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
-                        <TableCell>{order.mileage.toLocaleString()}</TableCell>
-                        <TableCell>${order.driverPrice.toLocaleString()}</TableCell>
+                        <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>${order.driverPrice?.toLocaleString() || '0'}</TableCell>
                         <TableCell>{order.driverName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
@@ -520,7 +520,7 @@ const Orders = () => {
                             </Button>
                           )}
                         </TableCell>
-                        <TableCell>${order.totalFreightAmount.toLocaleString()}</TableCell>
+                        <TableCell>${order.totalFreightAmount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
