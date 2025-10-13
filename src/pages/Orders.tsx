@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { z } from "zod";
+import { useDragPan } from "@/hooks/useDragPan";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -40,6 +41,7 @@ const getStatusBadge = (status: string) => {
   }
 };
 const Orders = () => {
+  useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
