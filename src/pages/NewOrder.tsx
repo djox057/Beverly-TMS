@@ -381,12 +381,10 @@ const NewOrder = () => {
     return {
       onDragEnter: (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         setDragStates(prev => ({ ...prev, [fileType]: true }));
       },
       onDragLeave: (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         // Only set drag state to false if we're leaving the drop zone entirely
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX;
@@ -397,11 +395,9 @@ const NewOrder = () => {
       },
       onDragOver: (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
       },
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         setDragStates(prev => ({ ...prev, [fileType]: false }));
         
         const files = e.dataTransfer.files;
