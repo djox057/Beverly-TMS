@@ -29,7 +29,7 @@ const LayoutContent = ({ children }: LayoutProps) => {
 
 export const Layout = ({ children }: LayoutProps) => {
   return (
-    <SidebarProvider defaultOpen={false}>
+    <SidebarProvider defaultOpen={true}>
       <LayoutContent>{children}</LayoutContent>
     </SidebarProvider>
   );
