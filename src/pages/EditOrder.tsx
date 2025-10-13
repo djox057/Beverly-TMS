@@ -701,20 +701,18 @@ const EditOrder = () => {
         }
       }
 
-      // UPSERT APPROACH: Update existing pickup_drops or insert new ones
-      // This avoids unique constraint violations and keeps at least one pickup_drop at all times
+      // SIMPLIFIED APPROACH: Delete all existing pickup_drops and insert fresh ones
+      // This avoids unique constraint violations completely
       
-      // Fetch existing pickup_drops with their sequence numbers
-      const { data: existingPickupDrops } = await supabase
-        .from('pickup_drops')
-        .select('id, sequence_number')
-        .eq('order_id', id);
-
-      const existingBySequence = new Map(
-        existingPickupDrops?.map(pd => [pd.sequence_number, pd.id]) || []
-      );
-
       if (pickupsDrops.length > 0) {
+        // First, delete all existing pickup_drops for this order
+        const { error: deleteError } = await supabase
+          .from('pickup_drops')
+          .delete()
+          .eq('order_id', id);
+        
+        if (deleteError) throw deleteError;
+
         // Prepare pickup_drop data with proper sequence numbers
         const pickupDropData = pickupsDrops
           .filter(item => item.address)
@@ -749,59 +747,12 @@ const EditOrder = () => {
             };
           });
 
-        // Track which sequence numbers are in the new data
-        const newSequenceNumbers = new Set(pickupDropData.map(pd => pd.sequence_number));
-
-        // Update or insert each pickup_drop
-        for (const pickupDrop of pickupDropData) {
-          const existingId = existingBySequence.get(pickupDrop.sequence_number);
-          
-          if (existingId) {
-            // UPDATE existing pickup_drop
-            const { error: updateError } = await supabase
-              .from('pickup_drops')
-              .update({
-                type: pickupDrop.type,
-                address: pickupDrop.address,
-                city: pickupDrop.city,
-                state: pickupDrop.state,
-                zip_code: pickupDrop.zip_code,
-                datetime: pickupDrop.datetime,
-                contact_name: pickupDrop.contact_name,
-                contact_phone: pickupDrop.contact_phone,
-                special_instructions: pickupDrop.special_instructions
-              })
-              .eq('id', existingId);
-            
-            if (updateError) throw updateError;
-          } else {
-            // INSERT new pickup_drop
-            const { error: insertError } = await supabase
-              .from('pickup_drops')
-              .insert(pickupDrop);
-            
-            if (insertError) throw insertError;
-          }
-        }
-
-        // Delete pickup_drops that are no longer in the form
-        const sequencesToDelete = Array.from(existingBySequence.keys())
-          .filter(seq => !newSequenceNumbers.has(seq));
+        // Insert all pickup_drops fresh
+        const { error: insertError } = await supabase
+          .from('pickup_drops')
+          .insert(pickupDropData);
         
-        if (sequencesToDelete.length > 0) {
-          const idsToDelete = sequencesToDelete
-            .map(seq => existingBySequence.get(seq))
-            .filter((id): id is string => id !== undefined);
-          
-          if (idsToDelete.length > 0) {
-            const { error: deleteError } = await supabase
-              .from('pickup_drops')
-              .delete()
-              .in('id', idsToDelete);
-            
-            if (deleteError) throw deleteError;
-          }
-        }
+        if (insertError) throw insertError;
       }
 
       toast({
