@@ -1,6 +1,7 @@
 /**
- * Address parsing utility with validation
+ * Address parsing utility with validation and geocoding-friendly cleaning
  * Prevents incorrect parsing of building/plant/gate identifiers as city names
+ * Removes instructions and details that prevent geocoding services from working
  */
 
 export interface ParsedAddress {
@@ -9,6 +10,31 @@ export interface ParsedAddress {
   state: string | null;
   zipCode: string | null;
 }
+
+/**
+ * Patterns to remove from addresses (they prevent geocoding)
+ * These are instructions/details, not actual address components
+ */
+const NOISE_PATTERNS = [
+  // Dock/door instructions
+  /\s*-\s*around\s+back\s+dock\s+doors?\s+[\d\s,&]+/gi,
+  /\s*-\s*rear\s+dock\s+doors?\s+[\d\s,&]+/gi,
+  /\s*-\s*dock\s+doors?\s+[\d\s,&]+/gi,
+  /\s*-\s*doors?\s+[\d\s,&]+/gi,
+  /\s*-\s*loading\s+dock\s+[\d\s,&]+/gi,
+  /\s*-\s*receiving\s+dock\s+[\d\s,&]+/gi,
+  /\s*around\s+back\s+dock\s+doors?\s+[\d\s,&]+/gi,
+  /\s*rear\s+dock\s+doors?\s+[\d\s,&]+/gi,
+  /\s*dock\s+doors?\s+[\d\s,&]+/gi,
+  
+  // Generic instructions after dash
+  /\s*-\s*see\s+notes/gi,
+  /\s*-\s*call\s+ahead/gi,
+  /\s*-\s*appointment\s+required/gi,
+  
+  // Multiple consecutive spaces
+  /\s{2,}/g,
+];
 
 /**
  * Keywords that indicate building/facility identifiers (NOT city names)
@@ -32,6 +58,27 @@ const US_STATES = new Set([
 ]);
 
 /**
+ * Cleans an address string by removing geocoding-incompatible instructions
+ */
+function cleanAddressForGeocoding(address: string): string {
+  let cleaned = address;
+  
+  // Remove all noise patterns
+  NOISE_PATTERNS.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, ' ');
+  });
+  
+  // Clean up extra spaces and commas
+  cleaned = cleaned
+    .replace(/\s*,\s*,\s*/g, ', ') // Multiple commas
+    .replace(/,\s*$/g, '') // Trailing comma
+    .replace(/\s{2,}/g, ' ') // Multiple spaces
+    .trim();
+  
+  return cleaned;
+}
+
+/**
  * Checks if a string is likely a facility identifier, not a city
  */
 function isFacilityIdentifier(text: string): boolean {
@@ -49,13 +96,16 @@ function isValidState(state: string): boolean {
 /**
  * Parses an address string into components with validation
  * Returns null values for city/state/zip if parsing fails or is ambiguous
+ * Cleans address to be geocoding-friendly
  */
 export function parseAddress(addressString: string): ParsedAddress {
   if (!addressString || typeof addressString !== 'string') {
     return { address: '', city: null, state: null, zipCode: null };
   }
 
-  let cleanAddress = addressString.trim();
+  // First, clean the address to remove geocoding-incompatible details
+  const cleanedInput = cleanAddressForGeocoding(addressString);
+  let cleanAddress = cleanedInput.trim();
   let city: string | null = null;
   let state: string | null = null;
   let zipCode: string | null = null;
