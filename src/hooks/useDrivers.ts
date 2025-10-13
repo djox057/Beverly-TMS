@@ -5,19 +5,25 @@ export const useDrivers = () => {
   return useQuery({
     queryKey: ['drivers'],
     queryFn: async () => {
+      console.log('👤 Fetching drivers with relationships...');
       const { data, error } = await supabase
         .from('drivers')
         .select(`
           *,
           trucks_driver1:trucks!trucks_driver1_id_fkey(
             truck_number,
-            trailer:trailers(trailer_number)
+            trailer:trailers!trailer_id(trailer_number)
           )
         `)
         .order('name', { ascending: true })
         .limit(1000);
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching drivers:', error);
+        throw error;
+      }
+      
+      console.log(`✅ Fetched ${data?.length || 0} drivers`);
       
       // First, get all user_ids with driver role
       const { data: driverRoles } = await supabase
@@ -41,7 +47,7 @@ export const useDrivers = () => {
       }
       
       // Transform the data to flatten truck/trailer info
-      return data?.map(driver => {
+      const transformedData = data?.map(driver => {
         const truck = driver.trucks_driver1?.[0];
         
         return {
@@ -53,6 +59,11 @@ export const useDrivers = () => {
           has_account: driver.email ? driverEmails.has(driver.email.toLowerCase()) : false
         };
       });
+      
+      console.log('Sample driver:', transformedData?.[0]);
+      return transformedData;
     },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 };

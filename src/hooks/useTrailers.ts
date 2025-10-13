@@ -5,6 +5,7 @@ export const useTrailers = () => {
   return useQuery({
     queryKey: ['trailers'],
     queryFn: async () => {
+      console.log('🚛 Fetching trailers with relationships...');
       let allTrailers: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -20,7 +21,10 @@ export const useTrailers = () => {
           .order('trailer_number', { ascending: true })
           .range(from, from + batchSize - 1);
         
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error fetching trailers:', error);
+          throw error;
+        }
         
         if (data) {
           allTrailers = [...allTrailers, ...data];
@@ -31,7 +35,11 @@ export const useTrailers = () => {
         }
       }
       
+      console.log(`✅ Total trailers fetched: ${allTrailers.length}`);
+      console.log('Sample trailer:', allTrailers[0]);
       return allTrailers;
     },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 };
