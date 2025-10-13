@@ -525,7 +525,7 @@ const Orders = () => {
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
                         <TableCell>${order.driverPrice?.toLocaleString() || '0'}</TableCell>
-                        <TableCell>{order.driverName}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>{order.invoiced}</TableCell>
