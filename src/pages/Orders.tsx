@@ -140,7 +140,13 @@ const Orders = () => {
 
   // Filter orders based on search term and filters
   const filteredOrders = orders?.filter(order => {
-    const matchesSearch = order.internalLoadNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.truckNumber.toLowerCase().includes(searchTerm.toLowerCase()) || order.driverName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerName.toLowerCase().includes(searchTerm.toLowerCase()) || order.brokerLoadNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (order.internalLoadNumber?.toLowerCase() || '').includes(searchLower) || 
+      (order.truckNumber?.toLowerCase() || '').includes(searchLower) || 
+      (order.driverName?.toLowerCase() || '').includes(searchLower) || 
+      (order.brokerName?.toLowerCase() || '').includes(searchLower) || 
+      (order.brokerLoadNumber?.toLowerCase() || '').includes(searchLower);
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
     const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
