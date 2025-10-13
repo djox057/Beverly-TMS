@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.calculate-route]
 verify_jwt = false
+
+[functions.recalculate-load-miles]
+verify_jwt = false
