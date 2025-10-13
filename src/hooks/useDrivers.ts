@@ -19,15 +19,26 @@ export const useDrivers = () => {
       
       if (error) throw error;
       
-      // Get all profiles with driver role to check which drivers have accounts
-      const { data: driverProfiles } = await supabase
-        .from('profiles')
-        .select('email, user_roles!inner(role)')
-        .eq('user_roles.role', 'driver');
+      // First, get all user_ids with driver role
+      const { data: driverRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'driver');
       
-      const driverEmails = new Set(
-        driverProfiles?.map((p: any) => p.email.toLowerCase()) || []
-      );
+      const driverUserIds = driverRoles?.map(r => r.user_id) || [];
+      
+      // Then get emails for those users if we have any
+      let driverEmails = new Set<string>();
+      if (driverUserIds.length > 0) {
+        const { data: driverProfiles } = await supabase
+          .from('profiles')
+          .select('email')
+          .in('user_id', driverUserIds);
+        
+        driverEmails = new Set(
+          driverProfiles?.map((p: any) => p.email.toLowerCase()) || []
+        );
+      }
       
       // Transform the data to flatten truck/trailer info
       return data?.map(driver => {
