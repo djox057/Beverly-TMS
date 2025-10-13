@@ -122,37 +122,43 @@ serve(async (req) => {
 
 You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
 
-## STEP 1: DISTINGUISH PICKUPS FROM DELIVERIES (CRITICAL)
+## STEP 1: DISTINGUISH PICKUPS FROM DELIVERIES (CRITICAL - READ THIS CAREFULLY!)
 
-**BEFORE extracting any locations, you MUST correctly identify which are PICKUPS and which are DELIVERIES.**
+**⚠️ ABSOLUTE REQUIREMENT: Every load MUST have AT LEAST 1 pickup AND 1 delivery. NO EXCEPTIONS!**
 
 **PICKUP Location Indicators (Origin/Shipper/From):**
-- Section headers: "Pick Up", "Pickup", "PU", "PU 1", "PU 2", "Origin", "Shipper", "From", "Load At", "Loading Point", "Consignor"
-- Temporal indicators: "First stop", "Starting point"
-- Directional: "From:", "Leaving from"
-- Action words: "Pick up at", "Collect from", "Load from"
-- Label patterns: "PU 1", "P1", "PICKUP 1"
+- **Label patterns (MOST RELIABLE)**: "PU", "PU 1", "PU 2", "P1", "P2", "PICKUP", "PICKUP 1"
+- Section headers: "Pick Up", "Pickup", "Origin", "Shipper", "From", "Load At", "Loading Point", "Consignor"
+- Temporal: Earlier date/time in the document (first chronologically)
 
 **DELIVERY Location Indicators (Destination/Consignee/To):**
-- Section headers: "Delivery", "Deliver", "SO", "SO 1", "SO 2", "Stop", "Destination", "Consignee", "To", "Deliver To", "Unload At", "Final Destination"
-- Temporal indicators: "Final stop", "End point", "Last stop"
-- Directional: "To:", "Going to", "Ship to"
-- Action words: "Deliver to", "Drop off at", "Unload at"
-- Label patterns: "SO 1", "SO 2", "S1", "S2", "STOP 1", "STOP 2" (SO = Stop Order = DELIVERY)
+- **Label patterns (MOST RELIABLE)**: "SO", "SO 1", "SO 2", "S1", "S2", "STOP", "STOP 1", "STOP 2", "DELIVERY", "DEL"
+- **CRITICAL**: "SO" = "Stop Order" = DELIVERY (NOT a pickup!)
+- Section headers: "Delivery", "Deliver", "Destination", "Consignee", "To", "Deliver To", "Unload At"
+- Temporal: Later date/time in the document (after pickup chronologically)
 
-**⚠️ COMMON MISTAKES TO AVOID:**
-- "SO" means "Stop Order" or "Stop" which is a DELIVERY, NOT a pickup
-- "SO 1", "SO 2" are delivery stops, even if they come after "PU 1"
-- If you see "PU" followed by "SO", the SO is ALWAYS a delivery
-- Chronological order matters: Earlier dates/times are usually pickups, later ones are deliveries
+**🔍 EXAMPLE FROM REAL DOCUMENT:**
+```
+PU 1  Name: Azteca Milling LP  Date: 10/13/2025 0900
+      ↑ This is a PICKUP (has "PU 1" label)
 
-**VALIDATION RULES (MUST FOLLOW):**
-- Every load MUST have AT LEAST 1 pickup AND 1 delivery
-- If you extract 2 pickups and 0 deliveries → STOP! Re-examine labels (check for "SO", "Stop", etc.)
-- If you extract 0 pickups and 2 deliveries → STOP! Re-examine labels (check for "PU", "Pickup", etc.)
-- Pickups typically occur BEFORE deliveries chronologically
-- If dates/times show a location happening AFTER another, the later one is the delivery
-- When in doubt, use temporal order: earliest date/time = pickup, latest date/time = delivery
+SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
+      ↑ This is a DELIVERY (has "SO 2" label, later date)
+```
+
+**STEP-BY-STEP EXTRACTION PROCESS:**
+1. **Find ALL labeled locations** in the document (look for PU, SO, Stop, Pickup, Delivery labels)
+2. **Classify each location:**
+   - If label contains "PU", "PICKUP", or is the FIRST location chronologically → It's a PICKUP
+   - If label contains "SO", "STOP", "DELIVERY", or is AFTER pickups chronologically → It's a DELIVERY
+3. **Verify you have at least 1 pickup AND 1 delivery** before returning the JSON
+4. **If you only find 1 location total**: The document is invalid/incomplete. Return an error.
+5. **If you find 2+ locations but all seem like same type**: Re-examine the labels and dates carefully
+
+**MANDATORY VALIDATION BEFORE RETURNING JSON:**
+- ✅ At least 1 entry in "pickups" array
+- ✅ At least 1 entry in "deliveries" array
+- ❌ If validation fails: DO NOT return the JSON. Re-examine the document.
 
 ---
 
@@ -572,53 +578,59 @@ Return this JSON structure with ALL fields:
     const pickupCount = extractedData.pickups?.length || 0;
     const deliveryCount = extractedData.deliveries?.length || 0;
     
-    console.log(`Validation: Found ${pickupCount} pickups and ${deliveryCount} deliveries`);
+    console.log('=== EXTRACTION VALIDATION ===');
+    console.log(`Found ${pickupCount} pickup(s) and ${deliveryCount} delivery(ies)`);
+    console.log('Pickups:', JSON.stringify(extractedData.pickups || [], null, 2));
+    console.log('Deliveries:', JSON.stringify(extractedData.deliveries || [], null, 2));
     
     // Auto-correction if validation fails
     if (pickupCount === 0 || deliveryCount === 0) {
       console.warn('⚠️ VALIDATION FAILED: Missing pickups or deliveries. Attempting auto-correction...');
       
-      // If we have 2+ pickups but 0 deliveries, convert the later one(s) to delivery
-      if (pickupCount >= 2 && deliveryCount === 0) {
-        console.log('Auto-correction: Converting later pickup(s) to delivery based on chronological order');
+      // Combine all stops and sort by date/time
+      const allStops = [
+        ...(extractedData.pickups || []).map(s => ({ ...s, type: 'pickup' })),
+        ...(extractedData.deliveries || []).map(s => ({ ...s, type: 'delivery' }))
+      ].sort((a, b) => {
+        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+        return dateA.localeCompare(dateB);
+      });
+      
+      console.log('All stops sorted by date:', JSON.stringify(allStops, null, 2));
+      
+      if (allStops.length >= 2) {
+        // If we have 2+ stops, split them: first = pickup, rest = deliveries
+        const { type: _, ...firstStop } = allStops[0];
+        const remainingStops = allStops.slice(1).map(({ type: _, ...stop }) => stop);
         
-        // Sort pickups by date/time
-        const sortedPickups = [...(extractedData.pickups || [])].sort((a, b) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
-          return dateA.localeCompare(dateB);
-        });
-        
-        // Keep first as pickup, move rest to deliveries
-        extractedData.pickups = [sortedPickups[0]];
-        extractedData.deliveries = sortedPickups.slice(1);
+        extractedData.pickups = [firstStop];
+        extractedData.deliveries = remainingStops;
         
         console.log(`✅ Auto-corrected: ${extractedData.pickups.length} pickup(s), ${extractedData.deliveries.length} delivery(ies)`);
-      }
-      
-      // If we have 2+ deliveries but 0 pickups, convert the earlier one(s) to pickup
-      if (deliveryCount >= 2 && pickupCount === 0) {
-        console.log('Auto-correction: Converting earlier delivery(ies) to pickup based on chronological order');
-        
-        // Sort deliveries by date/time
-        const sortedDeliveries = [...(extractedData.deliveries || [])].sort((a, b) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
-          return dateA.localeCompare(dateB);
-        });
-        
-        // Move first to pickups, keep rest as deliveries
-        extractedData.pickups = [sortedDeliveries[0]];
-        extractedData.deliveries = sortedDeliveries.slice(1);
-        
-        console.log(`✅ Auto-corrected: ${extractedData.pickups.length} pickup(s), ${extractedData.deliveries.length} delivery(ies)`);
-      }
-      
-      // Final validation check
-      if ((extractedData.pickups?.length || 0) === 0 || (extractedData.deliveries?.length || 0) === 0) {
-        throw new Error('Unable to extract valid pickup and delivery information. Every load must have at least 1 pickup and 1 delivery.');
+      } else if (allStops.length === 1) {
+        // Only 1 stop found - document is incomplete
+        console.error('❌ Only 1 stop found in document. Cannot create valid load.');
+        throw new Error('Document contains only 1 location. A valid load requires at least 1 pickup and 1 delivery location. Please check the document and try again.');
+      } else {
+        // No stops found at all
+        console.error('❌ No location stops found in document.');
+        throw new Error('No pickup or delivery locations could be found in the document. Please ensure the document contains location information and try again.');
       }
     }
+    
+    // Final validation check
+    const finalPickupCount = extractedData.pickups?.length || 0;
+    const finalDeliveryCount = extractedData.deliveries?.length || 0;
+    
+    console.log(`Final validation: ${finalPickupCount} pickup(s), ${finalDeliveryCount} delivery(ies)`);
+    
+    if (finalPickupCount === 0 || finalDeliveryCount === 0) {
+      console.error('❌ Auto-correction failed. Still missing pickups or deliveries.');
+      throw new Error('Unable to extract valid pickup and delivery information. Every load must have at least 1 pickup and 1 delivery. The document may be incomplete or in an unsupported format.');
+    }
+    
+    console.log('✅ Validation passed!');
 
     // Validate that we extracted some meaningful data
     const meaningfulFields = Object.entries(extractedData).filter(([key, value]) => {
