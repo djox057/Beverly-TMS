@@ -118,8 +118,32 @@ const Orders = () => {
   const {
     data: orders,
     isLoading,
-    error
+    error,
+    refetch
   } = useOrders();
+  
+  // Refetch data when returning to this page or when window gains focus
+  useEffect(() => {
+    refetch();
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refetch();
+      }
+    };
+    
+    const handleFocus = () => {
+      refetch();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refetch]);
   const {
     data: companies
   } = useCompanies();
