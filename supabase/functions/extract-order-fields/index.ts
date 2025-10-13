@@ -127,23 +127,32 @@ You are an expert at extracting shipping/logistics data from PDF documents, incl
 **BEFORE extracting any locations, you MUST correctly identify which are PICKUPS and which are DELIVERIES.**
 
 **PICKUP Location Indicators (Origin/Shipper/From):**
-- Section headers: "Pick Up", "Pickup", "Origin", "Shipper", "From", "Load At", "Loading Point", "Consignor"
+- Section headers: "Pick Up", "Pickup", "PU", "PU 1", "PU 2", "Origin", "Shipper", "From", "Load At", "Loading Point", "Consignor"
 - Temporal indicators: "First stop", "Starting point"
 - Directional: "From:", "Leaving from"
 - Action words: "Pick up at", "Collect from", "Load from"
+- Label patterns: "PU 1", "P1", "PICKUP 1"
 
 **DELIVERY Location Indicators (Destination/Consignee/To):**
-- Section headers: "Delivery", "Deliver", "Destination", "Consignee", "To", "Deliver To", "Unload At", "Final Destination"
+- Section headers: "Delivery", "Deliver", "SO", "SO 1", "SO 2", "Stop", "Destination", "Consignee", "To", "Deliver To", "Unload At", "Final Destination"
 - Temporal indicators: "Final stop", "End point", "Last stop"
 - Directional: "To:", "Going to", "Ship to"
 - Action words: "Deliver to", "Drop off at", "Unload at"
+- Label patterns: "SO 1", "SO 2", "S1", "S2", "STOP 1", "STOP 2" (SO = Stop Order = DELIVERY)
 
-**VALIDATION RULES:**
+**⚠️ COMMON MISTAKES TO AVOID:**
+- "SO" means "Stop Order" or "Stop" which is a DELIVERY, NOT a pickup
+- "SO 1", "SO 2" are delivery stops, even if they come after "PU 1"
+- If you see "PU" followed by "SO", the SO is ALWAYS a delivery
+- Chronological order matters: Earlier dates/times are usually pickups, later ones are deliveries
+
+**VALIDATION RULES (MUST FOLLOW):**
 - Every load MUST have AT LEAST 1 pickup AND 1 delivery
-- If you find 2 pickups and 0 deliveries → YOU MADE AN ERROR, re-examine the document
-- If you find 0 pickups and 2 deliveries → YOU MADE AN ERROR, re-examine the document
+- If you extract 2 pickups and 0 deliveries → STOP! Re-examine labels (check for "SO", "Stop", etc.)
+- If you extract 0 pickups and 2 deliveries → STOP! Re-examine labels (check for "PU", "Pickup", etc.)
 - Pickups typically occur BEFORE deliveries chronologically
-- If dates/times show a location happening AFTER another, the later one is likely the delivery
+- If dates/times show a location happening AFTER another, the later one is the delivery
+- When in doubt, use temporal order: earliest date/time = pickup, latest date/time = delivery
 
 ---
 
@@ -557,6 +566,58 @@ Return this JSON structure with ALL fields:
         return dateA.localeCompare(dateB);
       });
       console.log('Sorted deliveries by datetime');
+    }
+
+    // CRITICAL VALIDATION: Ensure at least 1 pickup and 1 delivery
+    const pickupCount = extractedData.pickups?.length || 0;
+    const deliveryCount = extractedData.deliveries?.length || 0;
+    
+    console.log(`Validation: Found ${pickupCount} pickups and ${deliveryCount} deliveries`);
+    
+    // Auto-correction if validation fails
+    if (pickupCount === 0 || deliveryCount === 0) {
+      console.warn('⚠️ VALIDATION FAILED: Missing pickups or deliveries. Attempting auto-correction...');
+      
+      // If we have 2+ pickups but 0 deliveries, convert the later one(s) to delivery
+      if (pickupCount >= 2 && deliveryCount === 0) {
+        console.log('Auto-correction: Converting later pickup(s) to delivery based on chronological order');
+        
+        // Sort pickups by date/time
+        const sortedPickups = [...(extractedData.pickups || [])].sort((a, b) => {
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          return dateA.localeCompare(dateB);
+        });
+        
+        // Keep first as pickup, move rest to deliveries
+        extractedData.pickups = [sortedPickups[0]];
+        extractedData.deliveries = sortedPickups.slice(1);
+        
+        console.log(`✅ Auto-corrected: ${extractedData.pickups.length} pickup(s), ${extractedData.deliveries.length} delivery(ies)`);
+      }
+      
+      // If we have 2+ deliveries but 0 pickups, convert the earlier one(s) to pickup
+      if (deliveryCount >= 2 && pickupCount === 0) {
+        console.log('Auto-correction: Converting earlier delivery(ies) to pickup based on chronological order');
+        
+        // Sort deliveries by date/time
+        const sortedDeliveries = [...(extractedData.deliveries || [])].sort((a, b) => {
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          return dateA.localeCompare(dateB);
+        });
+        
+        // Move first to pickups, keep rest as deliveries
+        extractedData.pickups = [sortedDeliveries[0]];
+        extractedData.deliveries = sortedDeliveries.slice(1);
+        
+        console.log(`✅ Auto-corrected: ${extractedData.pickups.length} pickup(s), ${extractedData.deliveries.length} delivery(ies)`);
+      }
+      
+      // Final validation check
+      if ((extractedData.pickups?.length || 0) === 0 || (extractedData.deliveries?.length || 0) === 0) {
+        throw new Error('Unable to extract valid pickup and delivery information. Every load must have at least 1 pickup and 1 delivery.');
+      }
     }
 
     // Validate that we extracted some meaningful data
