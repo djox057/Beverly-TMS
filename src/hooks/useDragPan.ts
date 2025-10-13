@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 export const useDragPan = () => {
-  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
   const dragStartPos = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 });
   const containerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    // Set initial cursor
+    document.body.style.cursor = 'grab';
+
     const handleMouseDown = (e: MouseEvent) => {
       // Don't pan if clicking on interactive elements
       const target = e.target as HTMLElement;
@@ -16,7 +19,7 @@ export const useDragPan = () => {
       // Only pan on left mouse button
       if (e.button !== 0) return;
 
-      setIsDragging(true);
+      isDraggingRef.current = true;
       dragStartPos.current = {
         x: e.clientX,
         y: e.clientY,
@@ -24,12 +27,14 @@ export const useDragPan = () => {
         scrollY: window.scrollY,
       };
 
-      // Prevent text selection while dragging
+      // Apply cursor and prevent selection immediately (no lag)
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
       e.preventDefault();
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       const dx = dragStartPos.current.x - e.clientX;
 
@@ -40,7 +45,11 @@ export const useDragPan = () => {
     };
 
     const handleMouseUp = () => {
-      setIsDragging(false);
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        document.body.style.cursor = 'grab';
+        document.body.style.userSelect = '';
+      }
     };
 
     window.addEventListener('mousedown', handleMouseDown);
@@ -51,24 +60,10 @@ export const useDragPan = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  // Apply cursor styles
-  useEffect(() => {
-    if (isDragging) {
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-    } else {
-      document.body.style.cursor = 'grab';
-      document.body.style.userSelect = '';
-    }
-
-    return () => {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
-  }, [isDragging]);
+  }, []);
 
-  return { isDragging, containerRef };
+  return { containerRef };
 };
