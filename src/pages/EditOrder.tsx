@@ -701,15 +701,8 @@ const EditOrder = () => {
         }
       }
 
-      // Delete existing pickup_drops
-      const { error: deleteError } = await supabase
-        .from('pickup_drops')
-        .delete()
-        .eq('order_id', id);
-
-      if (deleteError) throw deleteError;
-
-      // Insert updated pickup/drops
+      // Insert updated pickup/drops FIRST (before deleting old ones)
+      // This prevents the order from being deleted by the trigger
       if (pickupsDrops.length > 0) {
         const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
           // Use the robust address parser
@@ -759,6 +752,16 @@ const EditOrder = () => {
             .from('pickup_drops')
             .insert(uniquePickupDropData);
           if (pickupDropError) throw pickupDropError;
+          
+          // After successful insert, delete old pickup_drops
+          // This ensures there's always at least one pickup_drop in the database
+          const { error: deleteError } = await supabase
+            .from('pickup_drops')
+            .delete()
+            .eq('order_id', id)
+            .lt('created_at', new Date().toISOString());
+            
+          if (deleteError) throw deleteError;
         }
       }
 
