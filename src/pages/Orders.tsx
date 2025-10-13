@@ -410,7 +410,7 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="min-w-[1800px] p-6">
+          <div className="w-max min-w-full p-6">
             <Table>
                 <TableHeader>
                   <TableRow>

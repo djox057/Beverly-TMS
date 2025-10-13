@@ -32,11 +32,10 @@ export const useDragPan = () => {
       if (!isDragging) return;
 
       const dx = dragStartPos.current.x - e.clientX;
-      const dy = dragStartPos.current.y - e.clientY;
 
       window.scrollTo(
         dragStartPos.current.scrollX + dx,
-        dragStartPos.current.scrollY + dy
+        window.scrollY
       );
     };
 
