@@ -122,20 +122,45 @@ serve(async (req) => {
 
 You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
 
-## STEP 1: DETERMINE LOAD TYPE
+## STEP 1: DISTINGUISH PICKUPS FROM DELIVERIES (CRITICAL)
 
-**First, analyze the document to determine if this is a SINGLE-DROP or MULTI-DROP load.**
+**BEFORE extracting any locations, you MUST correctly identify which are PICKUPS and which are DELIVERIES.**
 
-**Multi-drop indicators:**
-- Multiple pickup addresses listed
-- Multiple delivery addresses listed
-- Words like "multi-stop", "multi-drop", "multiple stops"
-- Stop numbers (Stop 1, Stop 2, etc.)
-- Multiple dates/times for pickups or deliveries
+**PICKUP Location Indicators (Origin/Shipper/From):**
+- Section headers: "Pick Up", "Pickup", "Origin", "Shipper", "From", "Load At", "Loading Point", "Consignor"
+- Temporal indicators: "First stop", "Starting point"
+- Directional: "From:", "Leaving from"
+- Action words: "Pick up at", "Collect from", "Load from"
+
+**DELIVERY Location Indicators (Destination/Consignee/To):**
+- Section headers: "Delivery", "Deliver", "Destination", "Consignee", "To", "Deliver To", "Unload At", "Final Destination"
+- Temporal indicators: "Final stop", "End point", "Last stop"
+- Directional: "To:", "Going to", "Ship to"
+- Action words: "Deliver to", "Drop off at", "Unload at"
+
+**VALIDATION RULES:**
+- Every load MUST have AT LEAST 1 pickup AND 1 delivery
+- If you find 2 pickups and 0 deliveries → YOU MADE AN ERROR, re-examine the document
+- If you find 0 pickups and 2 deliveries → YOU MADE AN ERROR, re-examine the document
+- Pickups typically occur BEFORE deliveries chronologically
+- If dates/times show a location happening AFTER another, the later one is likely the delivery
 
 ---
 
-## STEP 2: EXTRACT ALL REQUIRED FIELDS
+## STEP 2: DETERMINE LOAD TYPE
+
+**After identifying pickups vs deliveries, determine if this is a SINGLE-DROP or MULTI-DROP load.**
+
+**Multi-drop indicators:**
+- Multiple pickup addresses listed (2+ origins)
+- Multiple delivery addresses listed (2+ destinations)
+- Words like "multi-stop", "multi-drop", "multiple stops"
+- Stop numbers (Stop 1, Stop 2, etc.)
+- Multiple dates/times for pickups or multiple dates/times for deliveries
+
+---
+
+## STEP 3: EXTRACT ALL REQUIRED FIELDS
 
 ### CRITICAL FIELDS THAT MUST ALWAYS BE EXTRACTED:
 
@@ -292,12 +317,25 @@ zip: "" or null
 
 ---
 
-## STEP 7: NUMBER EXTRACTION
+## STEP 7: NUMBER EXTRACTION (CRITICAL FOR CURRENCY)
 
-**For numeric fields, extract ONLY the number:**
-- \`freightAmount: $1,250.00\` → Extract as \`1250\` (number, no $ or commas)
-- \`mileage: 450 miles\` → Extract as \`450\` (number only)
-- \`weight: 42,000 lbs\` → Extract as \`42000\` (number only)
+**For numeric fields, extract ONLY the number, but handle decimals correctly:**
+
+**Currency/Money (freightAmount):**
+- STEP 1: Remove dollar sign ($)
+- STEP 2: Remove commas (,)
+- STEP 3: Parse as decimal number (keep decimal point)
+- STEP 4: Return as number (not multiplied by 100)
+
+**Examples:**
+- \`$1,300.00\` → Remove $ → \`1,300.00\` → Remove commas → \`1300.00\` → Parse as number → \`1300\`
+- \`$1,250.50\` → \`1250.50\` (NOT 125050!)
+- \`$850\` → \`850\`
+- \`$2,500.25\` → \`2500.25\` (NOT 250025!)
+
+**Other numeric fields:**
+- \`mileage: 450 miles\` → Extract as \`450\` (number only, remove text)
+- \`weight: 42,000 lbs\` → Remove commas → \`42000\` (number only, remove text and commas)
 
 ---
 
