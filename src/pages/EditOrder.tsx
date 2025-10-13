@@ -729,13 +729,16 @@ const EditOrder = () => {
               datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
             }
 
+            // Parse address to extract street address only (avoid duplication)
+            const parsedAddress = parseAddress(item.address);
+
             return {
               order_id: id,
               type: item.type,
-              address: item.address,
-              city: item.city || null,
-              state: item.state || null,
-              zip_code: item.zipCode || null,
+              address: parsedAddress.address,
+              city: parsedAddress.city || null,
+              state: parsedAddress.state || null,
+              zip_code: parsedAddress.zipCode || null,
               datetime: datetime?.toISOString() || null,
               sequence_number: index + 1,
               contact_name: item.contactName || null,
