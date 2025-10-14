@@ -175,11 +175,32 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Autofill trailer number for display
-        setTrailer(selectedTruck.trailer?.trailer_number || '');
-        // Autofill driver IDs
-        setDriver1(selectedTruck.driver1?.id || '');
-        setDriver2(selectedTruck.driver2?.id || '');
+        // Autofill trailer number for display (use nested object if available, otherwise empty)
+        if (selectedTruck.trailer?.trailer_number) {
+          setTrailer(selectedTruck.trailer.trailer_number);
+        } else if (selectedTruck.trailer_id) {
+          // If we only have ID, try to find trailer number from trailers list
+          setTrailer('');
+        } else {
+          setTrailer('');
+        }
+        
+        // Autofill driver IDs (use nested object if available, otherwise use direct ID)
+        if (selectedTruck.driver1?.id) {
+          setDriver1(selectedTruck.driver1.id);
+        } else if (selectedTruck.driver1_id) {
+          setDriver1(selectedTruck.driver1_id);
+        } else {
+          setDriver1('');
+        }
+        
+        if (selectedTruck.driver2?.id) {
+          setDriver2(selectedTruck.driver2.id);
+        } else if (selectedTruck.driver2_id) {
+          setDriver2(selectedTruck.driver2_id);
+        } else {
+          setDriver2('');
+        }
       }
     } else {
       // Clear fields when truck is deselected
