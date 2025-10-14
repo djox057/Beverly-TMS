@@ -4,22 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, LogIn, Truck, UserPlus } from "lucide-react";
+import { Loader2, LogIn, Truck } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { loginSchema, createUserSchema } from "@/lib/validation";
+import { loginSchema } from "@/lib/validation";
 import { useToast } from "@/hooks/use-toast";
 import { useDragPan } from "@/hooks/useDragPan";
 
 const Login = () => {
-  const { user, profile, loading, signIn, signUp, hasRole } = useAuthContext();
+  const { user, profile, loading, signIn, hasRole } = useAuthContext();
   const { toast } = useToast();
   useDragPan();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   // Redirect if already authenticated
   if (loading) {
@@ -66,47 +64,6 @@ const Login = () => {
     setIsLoading(false);
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    
-    // Validate input - only dispatch role allowed
-    const result = createUserSchema.safeParse({ 
-      email, 
-      password, 
-      fullName,
-      role: 'dispatch'
-    });
-    
-    if (!result.success) {
-      const fieldErrors: { email?: string; password?: string; fullName?: string } = {};
-      result.error.errors.forEach((err) => {
-        const field = err.path[0] as string;
-        if (field === 'email') fieldErrors.email = err.message;
-        if (field === 'password') fieldErrors.password = err.message;
-        if (field === 'fullName') fieldErrors.fullName = err.message;
-      });
-      setErrors(fieldErrors);
-      toast({
-        title: "Validation Error",
-        description: "Please correct the errors in the form",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    const { error } = await signUp(email, password, fullName, 'dispatch');
-    setIsLoading(false);
-    
-    if (!error) {
-      // Switch back to sign in mode after successful signup
-      setIsSignUp(false);
-      setEmail("");
-      setPassword("");
-      setFullName("");
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -120,34 +77,13 @@ const Login = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>{isSignUp ? 'Create Account' : 'Sign In'}</CardTitle>
+            <CardTitle>Sign In</CardTitle>
             <CardDescription>
-              {isSignUp 
-                ? 'Create a new dispatch account to access the system.'
-                : 'Enter your credentials to access the dispatch system.'}
+              Enter your credentials to access the dispatch system.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-              {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={fullName}
-                    onChange={(e) => {
-                      setFullName(e.target.value);
-                      setErrors(prev => ({ ...prev, fullName: undefined }));
-                    }}
-                    required
-                  />
-                  {errors.fullName && (
-                    <p className="text-sm text-destructive">{errors.fullName}</p>
-                  )}
-                </div>
-              )}
+            <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -186,39 +122,15 @@ const Login = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                    Signing In...
                   </>
                 ) : (
                   <>
-                    {isSignUp ? (
-                      <>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Create Account
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Sign In
-                      </>
-                    )}
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
                   </>
                 )}
               </Button>
-              <div className="text-center mt-4">
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setErrors({});
-                  }}
-                  className="text-sm"
-                >
-                  {isSignUp 
-                    ? 'Already have an account? Sign in' 
-                    : "Don't have an account? Sign up"}
-                </Button>
-              </div>
             </form>
           </CardContent>
         </Card>
