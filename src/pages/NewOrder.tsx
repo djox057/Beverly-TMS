@@ -820,7 +820,7 @@ const NewOrder = () => {
         rate: driverPrice || "",
         pickupShipper: pickupShipper || "",
         pickupAddress: firstPickup.address,
-        pickupCityStateZip: firstPickup.address.split(',').slice(1).join(',').trim() || "",
+        pickupCityStateZip: [firstPickup.city, firstPickup.state, firstPickup.zipCode].filter(Boolean).join(', '),
         pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
         pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
                    ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
@@ -828,7 +828,7 @@ const NewOrder = () => {
         pickupPoNumber: pickupPoNumber || "",
         deliveryReceiver: deliveryShipper || "",
         deliveryAddress: firstDelivery.address,
-        deliveryCityStateZip: firstDelivery.address.split(',').slice(1).join(',').trim() || "",
+        deliveryCityStateZip: [firstDelivery.city, firstDelivery.state, firstDelivery.zipCode].filter(Boolean).join(', '),
         deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
         deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
                      ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
