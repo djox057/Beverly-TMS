@@ -116,7 +116,7 @@ export const useOrders = () => {
           order_files(id, file_name, file_path, file_size, content_type, file_category)
         `)
         .order('created_at', { ascending: false })
-        .limit(300);
+        .limit(2000);
       
       if (error) throw error;
       
