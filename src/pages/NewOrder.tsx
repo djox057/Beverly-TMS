@@ -1231,6 +1231,9 @@ const NewOrder = () => {
             company_name: item.type === 'pickup' ? pickupShipper : deliveryShipper,
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
+              : null,
+            end_datetime: item.dateRange?.from && item.endTime 
+              ? combineDateAndTime(item.dateRange.from, item.endTime)
               : null
           };
         });

@@ -604,6 +604,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           datetime: string | null
+          end_datetime: string | null
           id: string
           order_id: string
           sequence_number: number | null
@@ -622,6 +623,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           datetime?: string | null
+          end_datetime?: string | null
           id?: string
           order_id: string
           sequence_number?: number | null
@@ -640,6 +642,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           datetime?: string | null
+          end_datetime?: string | null
           id?: string
           order_id?: string
           sequence_number?: number | null

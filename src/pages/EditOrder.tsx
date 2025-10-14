@@ -275,10 +275,18 @@ const EditOrder = () => {
               // Parse without timezone conversion
               const parsed = parseSimpleDateTime(pd.datetime);
               startTime = parsed.timeString;
-              endTime = parsed.timeString; // Each stop uses its own datetime for both start and end
               // Create date object from parsed components (no timezone conversion)
               const dateObj = new Date(parsed.year, parsed.month - 1, parsed.day);
               dateRange = { from: dateObj, to: dateObj };
+            }
+            
+            // Load end time from end_datetime if available
+            if (pd.end_datetime) {
+              const parsedEnd = parseSimpleDateTime(pd.end_datetime);
+              endTime = parsedEnd.timeString;
+            } else if (pd.datetime) {
+              // Fallback to start time if no end_datetime
+              endTime = startTime;
             }
 
             console.log(`Loading ${pd.type}:`, {
@@ -855,10 +863,19 @@ const EditOrder = () => {
           .filter(item => item.address)
           .map((item, index) => {
             let datetime = null;
+            let endDatetime = null;
+            
             if (item.dateRange?.from && item.startTime) {
               const [hours, minutes] = item.startTime.split(':');
               datetime = new Date(item.dateRange.from);
               datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            }
+
+            // Also save end time if provided
+            if (item.dateRange?.from && item.endTime) {
+              const [hours, minutes] = item.endTime.split(':');
+              endDatetime = new Date(item.dateRange.from);
+              endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
             }
 
             // Parse address to extract street address only (avoid duplication)
@@ -873,6 +890,7 @@ const EditOrder = () => {
               zip_code: parsedAddress.zipCode || null,
               company_name: (item as any).companyName || null,
               datetime: datetime?.toISOString() || null,
+              end_datetime: endDatetime?.toISOString() || null,
               sequence_number: index + 1,
               contact_name: item.contactName || null,
               contact_phone: item.contactPhone || null,
