@@ -24,6 +24,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface PickupDrop {
   id: string;
@@ -80,6 +81,10 @@ const NewOrder = () => {
   const [driverDeliveryDateRange, setDriverDeliveryDateRange] = useState<DateRange>();
   const [driverDeliveryStartTime, setDriverDeliveryStartTime] = useState("");
   const [driverDeliveryEndTime, setDriverDeliveryEndTime] = useState("");
+  
+  // Duplicate order warning
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateOrders, setDuplicateOrders] = useState<any[]>([]);
   
   const { toast } = useToast();
   const { profile } = useAuthContext();
@@ -867,8 +872,42 @@ const NewOrder = () => {
   })) || [];
 
   // Import timezone-agnostic date utilities
+  
+  // Check for duplicate orders with same broker load# and pickup date
+  const checkForDuplicates = async () => {
+    if (!brokerLoadNumber?.trim()) return [];
+    
+    const pickups = pickupsDrops.filter(item => item.type === 'pickup');
+    if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
+    
+    const pickupDate = pickups[0].dateRange.from;
+    const pickupDateStr = pickupDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Query for orders with same broker load number
+    const { data: existingOrders, error } = await supabase
+      .from('orders')
+      .select('id, internal_load_number, broker_load_number, pickup_datetime, status')
+      .eq('broker_load_number', brokerLoadNumber.trim())
+      .not('status', 'eq', 'canceled');
+    
+    if (error) {
+      console.error('Error checking for duplicate orders:', error);
+      return [];
+    }
+    
+    if (!existingOrders || existingOrders.length === 0) return [];
+    
+    // Filter orders with the same pickup date
+    const duplicates = existingOrders.filter(order => {
+      if (!order.pickup_datetime) return false;
+      const orderPickupDate = new Date(order.pickup_datetime).toISOString().split('T')[0];
+      return orderPickupDate === pickupDateStr;
+    });
+    
+    return duplicates;
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false) => {
     e.preventDefault();
     
     // Prevent duplicate submissions
@@ -1006,6 +1045,16 @@ const NewOrder = () => {
         variant: "destructive"
       });
       return;
+    }
+    
+    // Check for duplicates unless explicitly skipped
+    if (!skipDuplicateCheck) {
+      const duplicates = await checkForDuplicates();
+      if (duplicates.length > 0) {
+        setDuplicateOrders(duplicates);
+        setShowDuplicateWarning(true);
+        return;
+      }
     }
     
     setIsSubmitting(true);
@@ -1823,6 +1872,44 @@ const NewOrder = () => {
           </form>
         </CardContent>
       </Card>
+      
+      {/* Duplicate Order Warning Dialog */}
+      <AlertDialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Order Warning</AlertDialogTitle>
+            <AlertDialogDescription>
+              An order with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in the system:
+              <div className="mt-3 space-y-2">
+                {duplicateOrders.map((order) => (
+                  <div key={order.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <div className="font-medium">Internal Load #{order.internal_load_number}</div>
+                    <div className="text-sm">Status: {order.status}</div>
+                    <div className="text-sm">Pickup: {order.pickup_datetime ? new Date(order.pickup_datetime).toLocaleDateString() : 'N/A'}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3">
+                Are you sure you want to create this order anyway?
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowDuplicateWarning(false);
+              setDuplicateOrders([]);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => {
+              setShowDuplicateWarning(false);
+              handleSubmit(e as any, true);
+            }}>
+              Create Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
