@@ -1082,16 +1082,45 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           };
         };
         
-        // Fetch ALL brokers (no limit)
-        const { data: brokers, error: brokersError } = await supabaseAdmin
-          .from('brokers')
-          .select('id, name, address, mc_number')
-          .order('name');
+        // Fetch ALL brokers with pagination to avoid 1000-row limit
+        console.log('🔍 Fetching all brokers from database...');
+        let allBrokers: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
         
-        if (brokersError) {
-          console.error('Error fetching brokers:', brokersError);
-        } else if (brokers && brokers.length > 0) {
-          console.log(`Found ${brokers.length} brokers in database`);
+        while (true) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+          
+          const { data, error } = await supabaseAdmin
+            .from('brokers')
+            .select('id, name, address, mc_number')
+            .order('name')
+            .range(from, to);
+          
+          if (error) {
+            console.error(`Error fetching brokers page ${page + 1}:`, error);
+            break;
+          }
+          
+          if (data && data.length > 0) {
+            allBrokers = [...allBrokers, ...data];
+            console.log(`   Fetched page ${page + 1}: ${data.length} brokers (total: ${allBrokers.length})`);
+            
+            if (data.length < pageSize) {
+              break;
+            }
+            page++;
+          } else {
+            break;
+          }
+        }
+        
+        const brokers = allBrokers;
+        const brokersError = null;
+        
+        if (brokers && brokers.length > 0) {
+          console.log(`✅ Total brokers loaded: ${brokers.length}`);
           
           // Try to match using the weighted matching function
           if (extractedData.brokerName) {
