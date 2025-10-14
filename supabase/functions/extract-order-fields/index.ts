@@ -859,14 +859,18 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         // Helper function for stricter fuzzy name matching
         const fuzzyNameMatch = (name1: string, name2: string): number => {
           const normalize = (str: string) => str.toLowerCase()
+            // Remove common corporate/logistics terms
             .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
+            .replace(/\b(logistics|freight|trucking|transport|transportation|shipping|express|carrier|delivery|hauling|distribution)\b/gi, '')
             .replace(/[^\w\s]/g, '')
             .trim();
           
           const n1 = normalize(name1);
           const n2 = normalize(name2);
           
-          // Split into words and check if significant words match
+          console.log(`   Comparing normalized names: "${n1}" vs "${n2}"`);
+          
+          // Split into words and filter out very short/common words
           const words1 = n1.split(/\s+/).filter(w => w.length > 2);
           const words2 = n2.split(/\s+/).filter(w => w.length > 2);
           
