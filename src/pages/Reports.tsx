@@ -683,7 +683,7 @@ const Reports = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="h-6 px-2"
-                                        onClick={() => navigate(`/orders/edit/${deliveryOrder.id}`)}
+                                        onClick={() => navigate(`/edit-order/${deliveryOrder.id}`)}
                                       >
                                         <Edit3 className="h-3 w-3" />
                                       </Button>
@@ -834,7 +834,7 @@ const Reports = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="h-6 px-2"
-                                        onClick={() => navigate(`/orders/edit/${pickupOrder.id}`)}
+                                        onClick={() => navigate(`/edit-order/${pickupOrder.id}`)}
                                       >
                                         <Edit3 className="h-3 w-3" />
                                       </Button>
@@ -956,7 +956,7 @@ const Reports = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2"
-                                  onClick={() => navigate(`/orders/edit/${order.id}`)}
+                                  onClick={() => navigate(`/edit-order/${order.id}`)}
                                 >
                                   <Edit3 className="h-3 w-3" />
                                 </Button>
