@@ -28,6 +28,7 @@ const Fleets = () => {
   const [selectedDispatcher, setSelectedDispatcher] = useState("");
   const [isAssignTruckOpen, setIsAssignTruckOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dispatcherFilter, setDispatcherFilter] = useState("");
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [truckToRemove, setTruckToRemove] = useState<string | null>(null);
   const [truckToSwitch, setTruckToSwitch] = useState<{ truckId: string; currentDispatcherId: string } | null>(null);
@@ -40,6 +41,15 @@ const Fleets = () => {
     return trucks.filter(truck => 
       truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase())
     );
+  };
+
+  // Filter dispatchers by name
+  const filterDispatchers = (dispatcherFleets: any[]) => {
+    if (!dispatcherFilter) return dispatcherFleets;
+    return dispatcherFleets.filter(fleet => {
+      const name = fleet.dispatcher.full_name || fleet.dispatcher.email || '';
+      return name.toLowerCase().includes(dispatcherFilter.toLowerCase());
+    });
   };
 
   // Get paginated trucks
@@ -182,14 +192,25 @@ const Fleets = () => {
               </Dialog>
             </div>
           </div>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input 
-              placeholder="Search trucks by number..." 
-              className="pl-10" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-            />
+          <div className="flex gap-3 max-w-2xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input 
+                placeholder="Search trucks by number..." 
+                className="pl-10" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+              />
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input 
+                placeholder="Filter by dispatcher name..." 
+                className="pl-10" 
+                value={dispatcherFilter} 
+                onChange={(e) => setDispatcherFilter(e.target.value)} 
+              />
+            </div>
           </div>
         </div>
 
@@ -235,7 +256,7 @@ const Fleets = () => {
             </div>
 
             {/* Dispatcher Fleets */}
-            {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => {
+            {filterDispatchers(dispatchers.filter(d => d.trucks.length > 0)).map((dispatcherFleet) => {
               const filteredTrucks = filterTrucks(dispatcherFleet.trucks);
               
               // Hide dispatcher if searching and no matching trucks
@@ -385,14 +406,14 @@ const Fleets = () => {
             )}
 
             {/* Dispatchers with no trucks */}
-            {dispatchers.filter(d => d.trucks.length === 0).length > 0 && (
+            {filterDispatchers(dispatchers.filter(d => d.trucks.length === 0)).length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Available Dispatchers
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {dispatchers.filter(d => d.trucks.length === 0).map((dispatcherFleet) => (
+                  {filterDispatchers(dispatchers.filter(d => d.trucks.length === 0)).map((dispatcherFleet) => (
                     <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
                       {(provided, snapshot) => (
                         <Card 
