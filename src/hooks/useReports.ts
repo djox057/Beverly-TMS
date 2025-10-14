@@ -6,10 +6,19 @@ import { parseSimpleDateTime } from "@/utils/dateUtils";
 export const useReports = () => {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscriptions
+  // Set up real-time subscriptions with debouncing
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const debouncedInvalidate = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['reports'] });
+      }, 500); // Debounce 500ms to batch updates
+    };
+
     const channel = supabase
-      .channel('reports-updates')
+      .channel('reports-consolidated')
       .on(
         'postgres_changes',
         {
@@ -17,9 +26,7 @@ export const useReports = () => {
           schema: 'public',
           table: 'trucks'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -28,10 +35,7 @@ export const useReports = () => {
           schema: 'public',
           table: 'orders'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -40,10 +44,7 @@ export const useReports = () => {
           schema: 'public',
           table: 'pickup_drops'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -52,9 +53,7 @@ export const useReports = () => {
           schema: 'public',
           table: 'truck_notes'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -63,13 +62,12 @@ export const useReports = () => {
           schema: 'public',
           table: 'lost_day_notes'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .subscribe();
 
     return () => {
+      clearTimeout(timeoutId);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
@@ -208,6 +206,7 @@ export const useReports = () => {
     queryKey: ['reports'],
     queryFn: async () => {
       // Fetch trucks with their drivers and current orders
+      // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
@@ -237,14 +236,13 @@ export const useReports = () => {
              datetime,
              arrived_at
            ),
-           order_files(
+           order_files!left(
              id,
-             file_category,
-             file_name,
-             content_type
+             file_category
            )
           )
         `)
+        .not('dispatcher_id', 'is', null)
         .order('id', { ascending: true });
 
       if (trucksError) throw trucksError;
@@ -273,11 +271,8 @@ export const useReports = () => {
 
       if (lostDayError) throw lostDayError;
 
-      // Filter trucks - include those with dispatcher OR those with GAME-OVER orders
-      const reportData = trucks?.filter(truck => {
-        const hasGameOverOrder = truck.orders?.some(order => order.notes === 'GAME|OVER');
-        return truck.dispatcher_id || hasGameOverOrder;
-      }).map(truck => {
+      // Process trucks - server-side filtered, so no need to filter again
+      const reportData = trucks?.map(truck => {
         const now = new Date().getTime();
         
         // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
@@ -372,11 +367,8 @@ export const useReports = () => {
                 datetime: stop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               })),
-              documents: (order.order_files || []).map(file => ({
-                category: file.file_category,
-                name: file.file_name,
-                type: file.content_type
-              })),
+              // Simplified document info - only categories needed for calendar
+              documentCategories: (order.order_files || []).map(file => file.file_category),
               notes: order.notes || '—'
             }
           };
@@ -564,7 +556,10 @@ export const useReports = () => {
       
       return groupedData;
     },
-    refetchInterval: 10000, // Refetch every 10 seconds for real-time updates
+    staleTime: 2 * 60 * 1000, // 2 minutes - data is fresh for this period
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache
+    refetchInterval: 30000, // Refetch every 30 seconds (real-time handles most updates)
+    refetchOnWindowFocus: false, // Prevent aggressive refetching
   });
 
   return {
