@@ -481,6 +481,23 @@ const NewOrder = () => {
       const extractedData = response.data.data;
       console.log('Successfully extracted data:', extractedData);
       
+      // Auto-fill broker if matched
+      if (extractedData.matchedBrokerId) {
+        console.log('✅ Auto-filling broker with matched ID:', extractedData.matchedBrokerId);
+        setBroker(extractedData.matchedBrokerId);
+        toast({
+          title: "Broker Matched",
+          description: `Automatically matched broker: ${extractedData.brokerName || 'from database'}`,
+        });
+      } else if (extractedData.brokerName) {
+        console.log('⚠️ Broker extracted but not matched:', extractedData.brokerName);
+        toast({
+          title: "Broker Not Matched",
+          description: `Extracted broker "${extractedData.brokerName}" but couldn't find a match in database. Please select manually.`,
+          variant: "destructive",
+        });
+      }
+      
       // Populate form fields with extracted data
       if (extractedData.brokerLoadNumber) {
         setBrokerLoadNumber(extractedData.brokerLoadNumber);

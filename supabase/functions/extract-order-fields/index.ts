@@ -24,6 +24,9 @@ interface ExtractedOrderData {
   brokerLoadNumber?: string;
   internalLoadNumber?: string;
   broker?: string;
+  brokerName?: string;
+  brokerAddress?: string;
+  matchedBrokerId?: string;
   // Support for multiple pickups
   pickups?: PickupDeliveryStop[];
   // Support for multiple deliveries
@@ -121,6 +124,41 @@ serve(async (req) => {
     const systemPrompt = `# Enhanced AI Extraction Prompt for Shipping/Logistics Documents
 
 You are an expert at extracting shipping/logistics data from PDF documents, including scanned images and PDFs without selectable text. Use OCR capabilities to read any text in images.
+
+## STEP 0: EXTRACT BROKER INFORMATION FIRST (HIGHEST PRIORITY!)
+
+**⚠️ THIS IS THE MOST IMPORTANT INFORMATION - EXTRACT THIS BEFORE ANYTHING ELSE!**
+
+**Broker Name Indicators (Company issuing the rate confirmation/load):**
+- Look at the TOP of the document (header area, letterhead)
+- Section headers: "Broker", "Carrier Agreement", "Rate Confirmation", "Load Confirmation", "From:", company logo/name at top
+- This is usually the company sending you the load, NOT the shipper or receiver
+- Common broker names: "TQL", "CH Robinson", "Coyote Logistics", "XPO Logistics", "Landstar", etc.
+- Extract the FULL company name as it appears
+
+**Broker Address Indicators:**
+- Look near the broker name in the header
+- Typically includes: street address, city, state, ZIP
+- Format: Complete address (e.g., "6275 Hazeltine National Dr, Orlando, FL 32822")
+- This is the broker's office address, NOT pickup/delivery locations
+
+**CRITICAL: You MUST extract brokerName and brokerAddress and include them at the TOP of your JSON response before any other fields!**
+
+Example of what to look for:
+```
+═══════════════════════════════════
+ACME LOGISTICS LLC
+6275 Hazeltine National Dr
+Orlando, FL 32822
+Phone: (407) 555-1234
+═══════════════════════════════════
+RATE CONFIRMATION
+Load #: 12345
+...
+```
+→ Extract: brokerName: "ACME LOGISTICS LLC", brokerAddress: "6275 Hazeltine National Dr, Orlando, FL 32822"
+
+---
 
 ## STEP 1: DISTINGUISH PICKUPS FROM DELIVERIES (CRITICAL - READ THIS CAREFULLY!)
 
@@ -478,10 +516,12 @@ zip: "" or null
 ## STEP 8: OUTPUT FORMAT
 
 ### IF SINGLE-DROP LOAD:
-Return this JSON structure with ALL fields:
+Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
 \`\`\`json
 {
+  "brokerName": "BROKER COMPANY NAME - EXTRACT FIRST!",
+  "brokerAddress": "Broker's full address - EXTRACT FIRST!",
   "brokerLoadNumber": "string",
   "pickupAddress": "street address with building/plant/gate",
   "pickupCity": "city name only",
@@ -513,10 +553,12 @@ Return this JSON structure with ALL fields:
 \`\`\`
 
 ### IF MULTI-DROP LOAD:
-Return this JSON structure with ALL fields:
+Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
 \`\`\`json
 {
+  "brokerName": "BROKER COMPANY NAME - EXTRACT FIRST!",
+  "brokerAddress": "Broker's full address - EXTRACT FIRST!",
   "brokerLoadNumber": "string",
   "pickups": [
     {
@@ -791,6 +833,76 @@ Return this JSON structure with ALL fields:
     }
     
     console.log('✅ Validation passed!');
+
+    // Try to match broker from database
+    console.log('🔍 Attempting to match broker from database...');
+    console.log('Extracted broker name:', extractedData.brokerName);
+    console.log('Extracted broker address:', extractedData.brokerAddress);
+    
+    if (extractedData.brokerName || extractedData.brokerAddress) {
+      try {
+        // Import Supabase client
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.58.0');
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        
+        // Fetch all brokers
+        const { data: brokers, error: brokersError } = await supabaseAdmin
+          .from('brokers')
+          .select('id, name, address');
+        
+        if (brokersError) {
+          console.error('Error fetching brokers:', brokersError);
+        } else if (brokers && brokers.length > 0) {
+          console.log(`Found ${brokers.length} brokers in database`);
+          
+          // Try to match by name first (case-insensitive, partial match)
+          let matchedBroker = null;
+          
+          if (extractedData.brokerName) {
+            const normalizedExtractedName = extractedData.brokerName.toLowerCase().trim();
+            matchedBroker = brokers.find(b => {
+              const normalizedDbName = b.name.toLowerCase().trim();
+              return normalizedDbName.includes(normalizedExtractedName) || 
+                     normalizedExtractedName.includes(normalizedDbName);
+            });
+            
+            if (matchedBroker) {
+              console.log(`✅ Matched broker by name: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+            }
+          }
+          
+          // If no name match, try address match (case-insensitive, partial)
+          if (!matchedBroker && extractedData.brokerAddress) {
+            const normalizedExtractedAddress = extractedData.brokerAddress.toLowerCase().trim();
+            matchedBroker = brokers.find(b => {
+              if (!b.address) return false;
+              const normalizedDbAddress = b.address.toLowerCase().trim();
+              return normalizedDbAddress.includes(normalizedExtractedAddress) || 
+                     normalizedExtractedAddress.includes(normalizedDbAddress);
+            });
+            
+            if (matchedBroker) {
+              console.log(`✅ Matched broker by address: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+            }
+          }
+          
+          if (matchedBroker) {
+            extractedData.matchedBrokerId = matchedBroker.id;
+            console.log('✅ Broker matched successfully!');
+          } else {
+            console.log('⚠️ No matching broker found in database');
+          }
+        }
+      } catch (brokerMatchError) {
+        console.error('Error matching broker:', brokerMatchError);
+        // Don't fail the whole operation if broker matching fails
+      }
+    } else {
+      console.log('⚠️ No broker name or address extracted, skipping broker matching');
+    }
 
     // Validate that we extracted some meaningful data
     const meaningfulFields = Object.entries(extractedData).filter(([key, value]) => {
