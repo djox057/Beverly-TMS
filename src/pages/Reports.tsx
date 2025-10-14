@@ -634,7 +634,7 @@ const Reports = () => {
                                         : "None"}
                                     </p>
                                     {deliveryOrder.loadDetails.notes !== "—" && (
-                                      <p className="ml-4">
+                                      <p className="ml-4 text-sm font-bold">
                                         • <strong>Notes:</strong> {deliveryOrder.loadDetails.notes}
                                       </p>
                                     )}
@@ -785,7 +785,7 @@ const Reports = () => {
                                         : "None"}
                                     </p>
                                     {pickupOrder.loadDetails.notes !== "—" && (
-                                      <p className="ml-4">
+                                      <p className="ml-4 text-sm font-bold">
                                         • <strong>Notes:</strong> {pickupOrder.loadDetails.notes}
                                       </p>
                                     )}
@@ -927,7 +927,7 @@ const Reports = () => {
                                     : "None"}
                                 </p>
                                 {order.loadDetails.notes !== "—" && (
-                                  <p>
+                                  <p className="text-sm font-bold">
                                     • <strong>Notes:</strong> {order.loadDetails.notes}
                                   </p>
                                 )}
@@ -1059,7 +1059,7 @@ const Reports = () => {
       <Textarea
         defaultValue={value || ""}
         onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-        className="text-[10px] border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight"
+        className="text-sm font-bold border-none rounded-none resize-none text-left bg-transparent focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight"
         style={{
           height: "32px",
           minHeight: "32px",
