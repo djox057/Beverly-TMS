@@ -367,8 +367,10 @@ export const useReports = () => {
                 datetime: stop.datetime || order.delivery_datetime || '—',
                 endDatetime: order.delivery_end_datetime || '—'
               })),
-              // Simplified document info - only categories needed for calendar
-              documentCategories: (order.order_files || []).map(file => file.file_category),
+              // Simplified document info - only categories needed
+              documents: (order.order_files || []).map(file => ({
+                category: file.file_category
+              })),
               notes: order.notes || '—'
             }
           };
