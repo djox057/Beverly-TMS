@@ -10,6 +10,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
+import { useOrderDetails } from "@/hooks/useOrderDetails";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -119,11 +120,12 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name]);
   const {
-    data: orders,
+    data: ordersData,
     isLoading,
     error,
     refetch
   } = useOrders();
+  const orders = ordersData?.orders || [];
   
   // Refetch data when returning to this page or when window gains focus
   useEffect(() => {
@@ -166,7 +168,7 @@ const Orders = () => {
   }
 
   // Filter orders based on search term and filters
-  const filteredOrders = orders?.filter(order => {
+  const filteredOrders = orders.filter((order: any) => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
       (order.internalLoadNumber?.toLowerCase() || '').includes(searchLower) || 
@@ -182,15 +184,8 @@ const Orders = () => {
     
     let matchesMissingDocs = true;
     if (missingDocsFilter !== 'all') {
-      if (missingDocsFilter === 'missing-rc') {
-        matchesMissingDocs = order.rcFiles?.length === 0;
-      } else if (missingDocsFilter === 'missing-bol') {
-        matchesMissingDocs = order.bolFiles?.length === 0;
-      } else if (missingDocsFilter === 'missing-pod') {
-        matchesMissingDocs = order.podFiles?.length === 0;
-      } else if (missingDocsFilter === 'complete') {
-        matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
-      }
+      // Note: File data not available in list view for performance
+      matchesMissingDocs = true;
     }
 
     // Date filtering based on delivery date
@@ -214,11 +209,11 @@ const Orders = () => {
   }) || [];
 
   // Get unique companies and booked by values for filters
-  const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
-  const uniqueTruckCompanies = [...new Set(orders?.map(order => order.truckCompanyName) || [])].filter(Boolean);
-  const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
-  const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const uniqueDrivers = [...new Set(orders?.map(order => order.driverName) || [])].filter(Boolean).sort();
+  const uniqueCompanies = [...new Set(orders.map((order: any) => order.companyName) || [])].filter(Boolean);
+  const uniqueTruckCompanies = [...new Set(orders.map((order: any) => order.truckCompanyName) || [])].filter(Boolean);
+  const uniqueBookedBy = [...new Set(orders.map((order: any) => order.bookedBy) || [])].filter(Boolean);
+  const uniqueTrucks = [...new Set(orders.map((order: any) => order.truckNumber) || [])].filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true }));
+  const uniqueDrivers = [...new Set(orders.map((order: any) => order.driverName) || [])].filter(Boolean).sort();
   const exportToExcel = useCallback(() => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
@@ -571,78 +566,12 @@ const Orders = () => {
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell className="max-w-24">
                           <div className="flex gap-1 flex-wrap">
-                            {order.rcFiles && order.rcFiles.length > 0 ? <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const file = order.rcFiles[0];
-                          const { data, error } = await supabase.storage
-                            .from('order-files')
-                            .createSignedUrl(file.file_path, 3600);
-                          
-                          if (error) {
-                            toast.error(`Failed to load file: ${error.message}`);
-                            return;
-                          }
-                          
-                          const signedUrl = data?.signedUrl;
-                          if (signedUrl) {
-                            try {
-                              const response = await fetch(signedUrl);
-                              if (!response.ok) throw new Error('Failed to fetch file');
-                              
-                              const blob = await response.blob();
-                              const blobUrl = URL.createObjectURL(blob);
-                              
-                              const newWindow = window.open(blobUrl, '_blank');
-                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                              
-                              if (!newWindow) {
-                                toast.error("Please allow popups for this site");
-                              }
-                            } catch (err) {
-                              console.error('Error opening file:', err);
-                              toast.error("Failed to open file");
-                            }
-                          }
-                        }}>
-                                  {order.rcFiles[0].file_name.length > 8 ? order.rcFiles[0].file_name.substring(0, 8) + '...' : order.rcFiles[0].file_name}
-                                </Button> : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                            <Badge variant="secondary" className="text-xs">View Order</Badge>
                           </div>
                         </TableCell>
                         <TableCell className="max-w-24">
                           <div className="flex gap-1 flex-wrap">
-                            {order.podFiles && order.podFiles.length > 0 ? <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
-                          const file = order.podFiles[0];
-                          const { data, error } = await supabase.storage
-                            .from('order-files')
-                            .createSignedUrl(file.file_path, 3600);
-                          
-                          if (error) {
-                            toast.error(`Failed to load file: ${error.message}`);
-                            return;
-                          }
-                          
-                          const signedUrl = data?.signedUrl;
-                          if (signedUrl) {
-                            try {
-                              const response = await fetch(signedUrl);
-                              if (!response.ok) throw new Error('Failed to fetch file');
-                              
-                              const blob = await response.blob();
-                              const blobUrl = URL.createObjectURL(blob);
-                              
-                              const newWindow = window.open(blobUrl, '_blank');
-                              setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                              
-                              if (!newWindow) {
-                                toast.error("Please allow popups for this site");
-                              }
-                            } catch (err) {
-                              console.error('Error opening file:', err);
-                              toast.error("Failed to open file");
-                            }
-                          }
-                        }}>
-                                  {order.podFiles[0].file_name.length > 8 ? order.podFiles[0].file_name.substring(0, 8) + '...' : order.podFiles[0].file_name}
-                                </Button> : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                            <Badge variant="secondary" className="text-xs">View Order</Badge>
                           </div>
                         </TableCell>
                         <TableCell>

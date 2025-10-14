@@ -84,7 +84,8 @@ const Analytics = () => {
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
 
-  const { data: orders, isLoading, error } = useOrders();
+  const { data: ordersData, isLoading, error } = useOrders(1, 1000); // Load more for analytics
+  const orders = ordersData?.orders || [];
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();
@@ -122,8 +123,7 @@ const Analytics = () => {
       return [];
     }
 
-    const filtered =
-      orders?.filter((order) => {
+    const filtered = orders.filter((order: any) => {
         // Exclude canceled orders from analytics
         if (order.canceled) {
           return false;
@@ -177,7 +177,7 @@ const Analytics = () => {
 
         // Default: no access for other roles
         return false;
-      }) || [];
+      });
 
     return filtered;
   }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile]);
@@ -307,7 +307,7 @@ const Analytics = () => {
   };
   // Calculate dispatcher analytics
   const dispatcherAnalytics = filteredOrders.reduce(
-    (acc, order) => {
+    (acc: Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>, order: any) => {
       const dispatcher = order.bookedBy || "Unknown";
       if (!acc[dispatcher]) {
         acc[dispatcher] = {
@@ -323,11 +323,10 @@ const Analytics = () => {
       acc[dispatcher].orderCount += 1;
       return acc;
     },
-    {} as Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>,
+    {} as Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>
   );
 
-  const dispatcherStats = Object.entries(dispatcherAnalytics)
-    .map(([name, stats]) => {
+  const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]) => {
       const cut = stats.totalFreight - stats.totalDriverRate;
       const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
       const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
