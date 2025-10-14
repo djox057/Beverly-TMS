@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -1280,6 +1280,10 @@ const Reports = () => {
                                 const hasPOD =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "POD") || false;
                                 const pickupArrived = !!currentOrder?.pickupStop?.arrived_at;
+                                
+                                // Check if any HOS timer is 0 or below
+                                const hasExpiredHOS = truck.driveMinutes <= 0 || truck.shiftMinutes <= 0 || 
+                                                     truck.breakMinutes <= 0 || truck.cycleMinutes <= 0;
 
                                 return (
                                   <>
@@ -1294,6 +1298,9 @@ const Reports = () => {
                                       >
                                         <div className="flex items-center gap-1">
                                           {truck.truckNumber}
+                                          {hasExpiredHOS && (
+                                            <Clock className="h-3 w-3 text-destructive" />
+                                          )}
                                           {truck.hasMultipleOrders && (
                                             <TooltipProvider>
                                               <Tooltip>
@@ -1441,12 +1448,12 @@ const Reports = () => {
                                       {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                       <td
                                         colSpan={4}
-                                        className={`border-r border-b-[3px] border-gray-400 p-0`}
+                                        className={`border-r border-b-[3px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/20' : ''}`}
                                         style={{
                                           height: "64px",
                                         }}
                                       >
-                                        <div className="h-8 border-b border-border flex items-center justify-around px-1">
+                                        <div className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? 'bg-destructive/20' : ''}`}>
                                            {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
                                             <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
