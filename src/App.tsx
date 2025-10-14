@@ -159,7 +159,7 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
         <Route path="/reports" element={
-          <ProtectedRoute excludedRoles={['accounting']}>
+          <ProtectedRoute>
             <Layout><Reports /></Layout>
           </ProtectedRoute>
         } />
