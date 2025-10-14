@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info } from "lucide-react";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -27,6 +29,8 @@ const Fleets = () => {
   const [isAssignTruckOpen, setIsAssignTruckOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
+  const [truckToRemove, setTruckToRemove] = useState<string | null>(null);
+  const [truckToSwitch, setTruckToSwitch] = useState<{ truckId: string; currentDispatcherId: string } | null>(null);
 
   const itemsPerPage = 10;
 
@@ -64,7 +68,22 @@ const Fleets = () => {
   };
 
   const handleRemoveTruck = async (truckId: string) => {
-    await removeTruckFromDispatcher(truckId);
+    setTruckToRemove(truckId);
+  };
+
+  const confirmRemoveTruck = async () => {
+    if (truckToRemove) {
+      await removeTruckFromDispatcher(truckToRemove);
+      setTruckToRemove(null);
+    }
+  };
+
+  const handleSwitchDispatcher = async () => {
+    if (truckToSwitch && selectedDispatcher) {
+      await assignTruckToDispatcher(truckToSwitch.truckId, selectedDispatcher);
+      setTruckToSwitch(null);
+      setSelectedDispatcher("");
+    }
   };
 
   const handleDragEnd = async (result: DropResult) => {
@@ -301,14 +320,24 @@ const Fleets = () => {
                                   </div>
                                 </div>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleRemoveTruck(truck.id)}
-                              >
-                                <Minus className="h-4 w-4 mr-1" />
-                                Remove
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                >
+                                  <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                  Switch
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveTruck(truck.id)}
+                                >
+                                  <Minus className="h-4 w-4 mr-1" />
+                                  Remove
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -525,6 +554,59 @@ const Fleets = () => {
           </div>
         </div>
       </div>
+
+      {/* Remove Confirmation Dialog */}
+      <AlertDialog open={truckToRemove !== null} onOpenChange={(open) => !open && setTruckToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Truck from Dispatcher</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this truck from its dispatcher? The truck will be moved to the unassigned trucks list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveTruck}>
+              Remove Truck
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Switch Dispatcher Dialog */}
+      <Dialog open={truckToSwitch !== null} onOpenChange={(open) => !open && setTruckToSwitch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch Dispatcher</DialogTitle>
+            <DialogDescription>
+              Select a new dispatcher for this truck
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select New Dispatcher</Label>
+              <Select value={selectedDispatcher} onValueChange={setSelectedDispatcher}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a dispatcher" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allDispatchers
+                    .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
+                    .map((dispatcher) => (
+                      <SelectItem key={dispatcher.id} value={dispatcher.id}>
+                        {dispatcher.full_name || dispatcher.email}
+                        {dispatcher.ext && ` (ext ${dispatcher.ext})`}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleSwitchDispatcher} className="w-full" disabled={!selectedDispatcher}>
+              Switch Dispatcher
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DragDropContext>
   );
 };
