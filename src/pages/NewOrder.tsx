@@ -998,13 +998,22 @@ const NewOrder = () => {
       });
       return;
     }
+
+    if (!truck) {
+      toast({
+        title: "Truck Required",
+        description: "Please select a truck. The internal load number is based on the truck's company.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
       // Create order data object for the atomic function
       const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
-        company_id: bookedByCompany,
+        company_id: truckCompanyId,
         broker_id: broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
