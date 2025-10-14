@@ -917,6 +917,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           }
           
           return null;
+        };
+        
         // Fetch ALL brokers (no limit)
         const { data: brokers, error: brokersError } = await supabaseAdmin
           .from('brokers')
