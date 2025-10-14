@@ -761,28 +761,24 @@ const Fleets = () => {
                           )}
                         </div>
                       </div>
-                      <Select 
+                      <Combobox
                         value={truckCoverAssignments[truck.id] || ''}
                         onValueChange={(value) => setTruckCoverAssignments(prev => ({
                           ...prev,
                           [truck.id]: value
                         }))}
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Select cover..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allDispatchers
-                            .filter(d => d.id !== dispatcherToToggle?.id)
-                            .map(dispatcher => (
-                              <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                                {dispatcher.full_name || dispatcher.email}
-                                {dispatcher.ext && ` (ext ${dispatcher.ext})`}
-                              </SelectItem>
-                            ))
-                          }
-                        </SelectContent>
-                      </Select>
+                        options={allDispatchers
+                          .filter(d => d.id !== dispatcherToToggle?.id)
+                          .map(dispatcher => ({
+                            value: dispatcher.id,
+                            label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
+                          }))
+                        }
+                        placeholder="Select cover..."
+                        emptyText="No dispatchers found"
+                        searchPlaceholder="Search dispatchers..."
+                        className="w-[250px]"
+                      />
                     </div>
                   ))}
                 </div>
