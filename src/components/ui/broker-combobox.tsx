@@ -28,16 +28,14 @@ export function BrokerCombobox({
   
   const { data: allBrokers } = useBrokers();
 
-  // Filter brokers based on search term, limit to 50 results
+  // Filter brokers based on search term
   const filteredBrokers = React.useMemo(() => {
     if (!allBrokers) return [];
     
-    const filtered = allBrokers.filter(broker =>
+    return allBrokers.filter(broker =>
       broker.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       broker.mc_number?.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
-    
-    return filtered.slice(0, 50); // Only show first 50 matches
   }, [allBrokers, debouncedSearch]);
 
   const selectedBroker = React.useMemo(
