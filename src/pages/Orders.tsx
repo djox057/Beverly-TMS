@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -113,11 +112,7 @@ const Orders = () => {
   });
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   
-  // Pagination state - only for dispatch role
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  
-  // Set bookedBy filter for dispatchers when profile loads - and prevent changing it
+  // Set bookedBy filter for dispatchers when profile loads
   useEffect(() => {
     if (isDispatcher && profile?.full_name) {
       setBookedByFilter(profile.full_name);
@@ -170,22 +165,6 @@ const Orders = () => {
       </div>;
   }
 
-  // For dispatchers, prevent them from seeing orders until their profile loads
-  // This ensures they never see other dispatcher's loads
-  if (isDispatcher && !profile?.full_name) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground mt-2">Loading your orders...</p>
-        </div>
-      </div>;
-  }
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, missingDocsFilter, dateRange]);
-
   // Filter orders based on search term and filters
   const filteredOrders = orders?.filter(order => {
     const searchLower = searchTerm.toLowerCase();
@@ -197,13 +176,7 @@ const Orders = () => {
       (order.brokerLoadNumber?.toLowerCase() || '').includes(searchLower);
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
-    
-    // For dispatchers, ALWAYS filter by their name (strict filtering)
-    // For other roles, use the normal filter logic
-    const matchesBookedBy = isDispatcher 
-      ? order.bookedBy === bookedByFilter 
-      : (!bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter);
-    
+    const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
     
@@ -239,13 +212,6 @@ const Orders = () => {
     }
     return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
   }) || [];
-
-  // Apply pagination only for dispatch role
-  const paginatedOrders = isDispatcher 
-    ? filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
-    : filteredOrders;
-  
-  const totalPages = isDispatcher ? Math.ceil(filteredOrders.length / ITEMS_PER_PAGE) : 1;
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
@@ -546,13 +512,13 @@ const Orders = () => {
                     <TableHead className="w-24">POD</TableHead>
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
-                 </TableHeader>
-                 <TableBody>
-                   {paginatedOrders.length === 0 ? <TableRow>
-                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
-                         No orders found
-                       </TableCell>
-                     </TableRow> : paginatedOrders.map(order => {
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.length === 0 ? <TableRow>
+                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                        No orders found
+                      </TableCell>
+                    </TableRow> : filteredOrders.map(order => {
                       // Check if order has extra charges
                       const hasExtraCharges = (order.detention && order.detention > 0) || 
                                              (order.layover && order.layover > 0) || 
@@ -715,50 +681,11 @@ const Orders = () => {
                         </TableCell>
                       </TableRow>
                     })}
-                 </TableBody>
-               </Table>
-           </div>
-           
-           {/* Pagination - only for dispatch role */}
-           {isDispatcher && totalPages > 1 && (
-             <div className="flex justify-center items-center gap-2 py-4 border-t">
-               <Pagination>
-                 <PaginationContent>
-                   <PaginationItem>
-                     <PaginationPrevious 
-                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                       className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                     />
-                   </PaginationItem>
-                   
-                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                     <PaginationItem key={page}>
-                       <PaginationLink
-                         onClick={() => setCurrentPage(page)}
-                         isActive={currentPage === page}
-                         className="cursor-pointer"
-                       >
-                         {page}
-                       </PaginationLink>
-                     </PaginationItem>
-                   ))}
-                   
-                   <PaginationItem>
-                     <PaginationNext 
-                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                       className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                     />
-                   </PaginationItem>
-                 </PaginationContent>
-               </Pagination>
-               
-               <span className="text-sm text-muted-foreground ml-4">
-                 Page {currentPage} of {totalPages} ({filteredOrders.length} total orders)
-               </span>
-             </div>
-           )}
-         </CardContent>
-       </Card>
+                </TableBody>
+              </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
