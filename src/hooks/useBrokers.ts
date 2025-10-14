@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const useBrokers = () => {
   return useQuery({
-    queryKey: ['brokers'],
+    queryKey: ['brokers', 'v2'], // Added version to bust cache
     queryFn: async () => {
       console.log('🔍 Starting to fetch all brokers...');
       
@@ -18,9 +18,9 @@ export const useBrokers = () => {
         
         console.log(`🔍 Fetching batch ${page + 1}: range ${from}-${to}`);
         
-        const { data, error, count } = await supabase
+        const { data, error } = await supabase
           .from('brokers')
-          .select('*', { count: 'exact' })
+          .select('*')
           .order('name')
           .range(from, to);
         
@@ -42,15 +42,16 @@ export const useBrokers = () => {
           page++;
         } else {
           // No more data
+          console.log('✅ No more data to fetch');
           break;
         }
       }
       
-      console.log(`✅ Total brokers fetched: ${allBrokers.length}`);
+      console.log(`✅ TOTAL BROKERS FETCHED: ${allBrokers.length}`);
       
       // Check if the specific broker exists
       const testBroker = allBrokers.find(b => b.id === '1dda8956-e4c2-45b1-904c-d763a7d55f1b');
-      console.log('🔍 Test broker (TRANSPORTATION ONE, LLC) found:', testBroker ? 'YES' : 'NO');
+      console.log('🔍 Test broker (TRANSPORTATION ONE, LLC) found:', testBroker ? 'YES ✅' : 'NO ❌');
       if (testBroker) {
         console.log('📋 Test broker data:', testBroker);
       }
