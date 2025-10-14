@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
@@ -606,21 +607,18 @@ const Fleets = () => {
           <div className="space-y-4">
             <div>
               <Label>Select New Dispatcher</Label>
-              <Select value={selectedDispatcher} onValueChange={setSelectedDispatcher}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a dispatcher" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allDispatchers
-                    .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
-                    .map((dispatcher) => (
-                      <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                        {dispatcher.full_name || dispatcher.email}
-                        {dispatcher.ext && ` (ext ${dispatcher.ext})`}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                options={allDispatchers
+                  .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
+                  .map((dispatcher) => ({
+                    value: dispatcher.id,
+                    label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
+                  }))}
+                value={selectedDispatcher}
+                onValueChange={setSelectedDispatcher}
+                placeholder="Search dispatchers..."
+                emptyText="No dispatcher found."
+              />
             </div>
             <Button onClick={handleSwitchDispatcher} className="w-full" disabled={!selectedDispatcher}>
               Switch Dispatcher
