@@ -557,7 +557,8 @@ const Orders = () => {
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell className="max-w-24">
                           <div className="flex gap-1 flex-wrap">
-                            {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                            {order.rcFiles && order.rcFiles.length > 0 ? <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const file = order.rcFiles[0];
                           const { data, error } = await supabase.storage
                             .from('order-files')
                             .createSignedUrl(file.file_path, 3600);
@@ -588,13 +589,14 @@ const Orders = () => {
                             }
                           }
                         }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                                  {order.rcFiles[0].file_name.length > 8 ? order.rcFiles[0].file_name.substring(0, 8) + '...' : order.rcFiles[0].file_name}
+                                </Button> : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                           </div>
                         </TableCell>
                         <TableCell className="max-w-24">
                           <div className="flex gap-1 flex-wrap">
-                            {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
+                            {order.podFiles && order.podFiles.length > 0 ? <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
+                          const file = order.podFiles[0];
                           const { data, error } = await supabase.storage
                             .from('order-files')
                             .createSignedUrl(file.file_path, 3600);
@@ -625,8 +627,8 @@ const Orders = () => {
                             }
                           }
                         }}>
-                                  {file.file_name.length > 8 ? file.file_name.substring(0, 8) + '...' : file.file_name}
-                                </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
+                                  {order.podFiles[0].file_name.length > 8 ? order.podFiles[0].file_name.substring(0, 8) + '...' : order.podFiles[0].file_name}
+                                </Button> : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                           </div>
                         </TableCell>
                         <TableCell>
