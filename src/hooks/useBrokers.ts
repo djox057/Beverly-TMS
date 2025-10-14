@@ -5,20 +5,24 @@ export const useBrokers = () => {
   return useQuery({
     queryKey: ['brokers'],
     queryFn: async () => {
-      let allBrokers: any[] = [];
-      let from = 0;
-      const limit = 1000;
-      let hasMore = true;
-
       console.log('🔍 Starting to fetch all brokers...');
-
-      // Fetch all brokers in batches to avoid Supabase limits
-      while (hasMore) {
-        const { data, error } = await supabase
+      
+      let allBrokers: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      
+      // Keep fetching until we get less than a full page
+      while (true) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        
+        console.log(`🔍 Fetching batch ${page + 1}: range ${from}-${to}`);
+        
+        const { data, error, count } = await supabase
           .from('brokers')
-          .select('*')
+          .select('*', { count: 'exact' })
           .order('name')
-          .range(from, from + limit - 1);
+          .range(from, to);
         
         if (error) {
           console.error('❌ Error fetching brokers:', error);
@@ -26,12 +30,19 @@ export const useBrokers = () => {
         }
         
         if (data && data.length > 0) {
-          console.log(`✅ Fetched ${data.length} brokers (batch ${Math.floor(from / limit) + 1})`);
+          console.log(`✅ Fetched ${data.length} brokers in batch ${page + 1}`);
           allBrokers = [...allBrokers, ...data];
-          from += limit;
-          hasMore = data.length === limit;
+          
+          // If we got less than a full page, we're done
+          if (data.length < pageSize) {
+            console.log(`✅ Last batch - got ${data.length} brokers`);
+            break;
+          }
+          
+          page++;
         } else {
-          hasMore = false;
+          // No more data
+          break;
         }
       }
       
