@@ -484,9 +484,9 @@ const Reports = () => {
           key={index}
           className={`border-b-[3px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`}
           style={{
-            width: isToday ? "114px" : "120px",
-            minWidth: isToday ? "114px" : "120px",
-            maxWidth: isToday ? "114px" : "120px",
+            width: "120px",
+            minWidth: "120px",
+            maxWidth: "120px",
             verticalAlign: "top",
             ...(showRightBorder
               ? {
@@ -524,13 +524,13 @@ const Reports = () => {
           <div
             className="flex flex-col relative"
             style={{
-              width: isToday ? "114px" : "120px",
+              width: "120px",
               height: "64px",
             }}
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[5%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -680,7 +680,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[5%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1200,9 +1200,9 @@ const Reports = () => {
                                       key={index}
                                       className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                       style={{
-                                        width: isToday ? "114px" : "120px",
-                                        minWidth: isToday ? "114px" : "120px",
-                                        maxWidth: isToday ? "114px" : "120px",
+                                        width: "120px",
+                                        minWidth: "120px",
+                                        maxWidth: "120px",
                                         ...(isToday
                                           ? {
                                               position: "relative",
