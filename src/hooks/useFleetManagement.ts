@@ -170,111 +170,101 @@ export const useFleetManagement = () => {
     }
   };
 
-  const toggleDispatcherStatus = async (dispatcherId: string, setActive: boolean) => {
+  const setDispatcherOffDuty = async (dispatcherId: string, truckAssignments: Record<string, string>) => {
     try {
-      if (!setActive) {
-        // Going OFF DUTY: Store truck IDs and unassign them
-        const { data: trucks } = await supabase
-          .from('trucks')
-          .select('id')
-          .eq('dispatcher_id', dispatcherId);
-
-        const truckIds = trucks?.map(t => t.id) || [];
-
-        // Unassign all trucks
-        if (truckIds.length > 0) {
-          const { error: unassignError } = await supabase
-            .from('trucks')
-            .update({ dispatcher_id: null })
-            .in('id', truckIds);
-
-          if (unassignError) throw unassignError;
-        }
-
-        // Update or create dispatcher status
-        const { error: statusError } = await supabase
-          .from('dispatcher_status')
-          .upsert({
-            dispatcher_id: dispatcherId,
-            is_active: false,
-            inactive_trucks: truckIds,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'dispatcher_id'
-          });
-
-        if (statusError) throw statusError;
-
-        toast({
-          title: "Success",
-          description: `Dispatcher set to Off Duty. ${truckIds.length} trucks unassigned.`,
+      const truckIds = Object.keys(truckAssignments);
+      
+      // Store original truck assignments before going off duty
+      const { error: statusError } = await supabase
+        .from('dispatcher_status')
+        .upsert({
+          dispatcher_id: dispatcherId,
+          is_active: false,
+          inactive_trucks: truckIds,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dispatcher_id'
         });
-      } else {
-        // Going ACTIVE: Retrieve and reassign trucks that are still unassigned
-        const { data: status } = await supabase
-          .from('dispatcher_status')
-          .select('inactive_trucks')
-          .eq('dispatcher_id', dispatcherId)
-          .maybeSingle();
 
-        const inactiveTruckIds = (status?.inactive_trucks as string[]) || [];
+      if (statusError) throw statusError;
 
-        if (inactiveTruckIds.length > 0) {
-          // Only reassign trucks that are still unassigned
-          const { data: unassignedTrucks } = await supabase
-            .from('trucks')
-            .select('id')
-            .in('id', inactiveTruckIds)
-            .is('dispatcher_id', null);
+      // Assign each truck to its cover dispatcher
+      for (const [truckId, coverId] of Object.entries(truckAssignments)) {
+        const { error: assignError } = await supabase
+          .from('trucks')
+          .update({ dispatcher_id: coverId })
+          .eq('id', truckId);
 
-          const trucksToReassign = unassignedTrucks?.map(t => t.id) || [];
-
-          if (trucksToReassign.length > 0) {
-            const { error: reassignError } = await supabase
-              .from('trucks')
-              .update({ dispatcher_id: dispatcherId })
-              .in('id', trucksToReassign);
-
-            if (reassignError) throw reassignError;
-
-            toast({
-              title: "Success",
-              description: `Dispatcher set to Active. ${trucksToReassign.length} trucks reassigned.`,
-            });
-          } else {
-            toast({
-              title: "Success",
-              description: "Dispatcher set to Active.",
-            });
-          }
-        } else {
-          toast({
-            title: "Success",
-            description: "Dispatcher set to Active.",
-          });
-        }
-
-        // Update dispatcher status
-        const { error: statusError } = await supabase
-          .from('dispatcher_status')
-          .upsert({
-            dispatcher_id: dispatcherId,
-            is_active: true,
-            inactive_trucks: null,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'dispatcher_id'
-          });
-
-        if (statusError) throw statusError;
+        if (assignError) throw assignError;
       }
+
+      toast({
+        title: "Success",
+        description: `Dispatcher set to Off Duty. ${truckIds.length} trucks reassigned to cover dispatchers.`,
+      });
 
       fetchFleetData();
     } catch (error: any) {
-      console.error('Error toggling dispatcher status:', error);
+      console.error('Error setting dispatcher off duty:', error);
       toast({
         title: "Error",
-        description: "Failed to update dispatcher status",
+        description: "Failed to set dispatcher off duty",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const setDispatcherActive = async (dispatcherId: string) => {
+    try {
+      // Get the stored truck IDs from when dispatcher went off duty
+      const { data: status } = await supabase
+        .from('dispatcher_status')
+        .select('inactive_trucks')
+        .eq('dispatcher_id', dispatcherId)
+        .maybeSingle();
+
+      const originalTruckIds = (status?.inactive_trucks as string[]) || [];
+
+      if (originalTruckIds.length > 0) {
+        // Reassign all original trucks back to this dispatcher
+        const { error: reassignError } = await supabase
+          .from('trucks')
+          .update({ dispatcher_id: dispatcherId })
+          .in('id', originalTruckIds);
+
+        if (reassignError) throw reassignError;
+
+        toast({
+          title: "Success",
+          description: `Dispatcher set to Active. ${originalTruckIds.length} trucks returned.`,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Dispatcher set to Active.",
+        });
+      }
+
+      // Update dispatcher status to active
+      const { error: statusError } = await supabase
+        .from('dispatcher_status')
+        .upsert({
+          dispatcher_id: dispatcherId,
+          is_active: true,
+          inactive_trucks: null,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dispatcher_id'
+        });
+
+      if (statusError) throw statusError;
+
+      fetchFleetData();
+    } catch (error: any) {
+      console.error('Error setting dispatcher active:', error);
+      toast({
+        title: "Error",
+        description: "Failed to set dispatcher active",
         variant: "destructive",
       });
     }
@@ -293,6 +283,7 @@ export const useFleetManagement = () => {
     fetchFleetData,
     assignTruckToDispatcher,
     removeTruckFromDispatcher,
-    toggleDispatcherStatus,
+    setDispatcherOffDuty,
+    setDispatcherActive,
   };
 };

@@ -25,7 +25,8 @@ const Fleets = () => {
     loading, 
     assignTruckToDispatcher, 
     removeTruckFromDispatcher,
-    toggleDispatcherStatus
+    setDispatcherOffDuty,
+    setDispatcherActive
   } = useFleetManagement();
 
   const [selectedTruck, setSelectedTruck] = useState("");
@@ -39,8 +40,9 @@ const Fleets = () => {
   const [dispatcherToToggle, setDispatcherToToggle] = useState<{
     id: string;
     name: string;
-    coverId?: string;
+    trucks: any[];
   } | null>(null);
+  const [truckCoverAssignments, setTruckCoverAssignments] = useState<Record<string, string>>({});
 
   const itemsPerPage = 10;
 
@@ -128,29 +130,34 @@ const Fleets = () => {
     }
   };
 
-  const handleToggleDispatcher = (dispatcherId: string, dispatcherName: string) => {
+  const handleToggleDispatcher = (dispatcherId: string, dispatcherName: string, trucks: any[]) => {
+    // Initialize cover assignments to empty
+    const initialAssignments: Record<string, string> = {};
+    trucks.forEach(truck => {
+      initialAssignments[truck.id] = '';
+    });
+    setTruckCoverAssignments(initialAssignments);
+    
     // Show confirmation dialog for setting OFF DUTY
     setDispatcherToToggle({
       id: dispatcherId,
-      name: dispatcherName
+      name: dispatcherName,
+      trucks: trucks
     });
   };
 
   const confirmToggleOffDuty = async () => {
-    if (!dispatcherToToggle || !dispatcherToToggle.coverId) return;
+    if (!dispatcherToToggle) return;
     
-    // First unassign trucks from the dispatcher going off duty
-    await toggleDispatcherStatus(dispatcherToToggle.id, false);
-    
-    // Then reassign all those trucks to the cover dispatcher
-    const dispatcherFleet = dispatchers.find(d => d.dispatcher.id === dispatcherToToggle.id);
-    if (dispatcherFleet) {
-      for (const truck of dispatcherFleet.trucks) {
-        await assignTruckToDispatcher(truck.id, dispatcherToToggle.coverId);
-      }
+    // Validate all trucks have cover dispatchers assigned
+    const hasUnassigned = Object.values(truckCoverAssignments).some(v => !v);
+    if (hasUnassigned) {
+      return; // Don't proceed if not all trucks have cover
     }
     
+    await setDispatcherOffDuty(dispatcherToToggle.id, truckCoverAssignments);
     setDispatcherToToggle(null);
+    setTruckCoverAssignments({});
   };
 
   if (loading) {
@@ -338,9 +345,10 @@ const Fleets = () => {
                               size="sm"
                               onClick={() => handleToggleDispatcher(
                                 dispatcherFleet.dispatcher.id,
-                                dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email
+                                dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email,
+                                dispatcherFleet.trucks
                               )}
-                              disabled={loading}
+                              disabled={loading || dispatcherFleet.trucks.length === 0}
                             >
                               Set Off Duty
                             </Button>
@@ -348,7 +356,7 @@ const Fleets = () => {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => toggleDispatcherStatus(dispatcherFleet.dispatcher.id, true)}
+                              onClick={() => setDispatcherActive(dispatcherFleet.dispatcher.id)}
                               disabled={loading}
                             >
                               Set Active
@@ -361,22 +369,24 @@ const Fleets = () => {
                   <CardContent>
                     <div className="grid gap-2">
                       {paginatedTrucks.map((truck, index) => (
-                        <Draggable key={truck.id} draggableId={truck.id} index={index}>
+                        <Draggable key={truck.id} draggableId={truck.id} index={index} isDragDisabled={!dispatcherFleet.isActive}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
                                 snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
-                              }`}
+                              } ${!dispatcherFleet.isActive ? 'opacity-50 bg-muted/30' : ''}`}
                             >
                               <div className="flex items-center gap-3">
-                                <div 
-                                  {...provided.dragHandleProps}
-                                  className="cursor-grab active:cursor-grabbing"
-                                >
-                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                </div>
+                                {dispatcherFleet.isActive && (
+                                  <div 
+                                    {...provided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing"
+                                  >
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
                                 <Truck className="h-4 w-4" />
                                 <div>
                                   <div className="font-medium flex items-center gap-2">
@@ -412,22 +422,26 @@ const Fleets = () => {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                >
-                                  <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                  Switch
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRemoveTruck(truck.id)}
-                                >
-                                  <Minus className="h-4 w-4 mr-1" />
-                                  Remove
-                                </Button>
+                                {dispatcherFleet.isActive && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                    >
+                                      <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                      Switch
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRemoveTruck(truck.id)}
+                                    >
+                                      <Minus className="h-4 w-4 mr-1" />
+                                      Remove
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           )}
@@ -694,40 +708,57 @@ const Fleets = () => {
       </Dialog>
 
       {/* Off Duty Confirmation Dialog */}
-      <AlertDialog open={dispatcherToToggle !== null} onOpenChange={(open) => !open && setDispatcherToToggle(null)}>
-        <AlertDialogContent>
+      <AlertDialog open={dispatcherToToggle !== null} onOpenChange={(open) => {
+        if (!open) {
+          setDispatcherToToggle(null);
+          setTruckCoverAssignments({});
+        }
+      }}>
+        <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
             <AlertDialogDescription>
-              <div className="space-y-3">
-                <p>This will temporarily unassign all trucks from {dispatcherToToggle?.name}.</p>
-                <div>
-                  <label className="text-sm font-medium">Who will cover for this dispatcher?</label>
-                  <Select 
-                    value={dispatcherToToggle?.coverId || ''}
-                    onValueChange={(value) => setDispatcherToToggle(prev => 
-                      prev ? {...prev, coverId: value} : null
-                    )}
-                  >
-                    <SelectTrigger className="w-full mt-1">
-                      <SelectValue placeholder="Select a dispatcher..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allDispatchers
-                        .filter(d => d.id !== dispatcherToToggle?.id)
-                        .map(dispatcher => (
-                          <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                            {dispatcher.full_name || dispatcher.email}
-                            {dispatcher.ext && ` (ext ${dispatcher.ext})`}
-                          </SelectItem>
-                        ))
-                      }
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-4">
+                <p>Assign a cover dispatcher for each truck currently assigned to {dispatcherToToggle?.name}.</p>
+                <div className="space-y-3">
+                  {dispatcherToToggle?.trucks.map((truck) => (
+                    <div key={truck.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Truck className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">{truck.truck_number}</div>
+                          {truck.driver1 && (
+                            <div className="text-xs text-muted-foreground">{truck.driver1.name}</div>
+                          )}
+                        </div>
+                      </div>
+                      <Select 
+                        value={truckCoverAssignments[truck.id] || ''}
+                        onValueChange={(value) => setTruckCoverAssignments(prev => ({
+                          ...prev,
+                          [truck.id]: value
+                        }))}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Select cover..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allDispatchers
+                            .filter(d => d.id !== dispatcherToToggle?.id)
+                            .map(dispatcher => (
+                              <SelectItem key={dispatcher.id} value={dispatcher.id}>
+                                {dispatcher.full_name || dispatcher.email}
+                                {dispatcher.ext && ` (ext ${dispatcher.ext})`}
+                              </SelectItem>
+                            ))
+                          }
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  All trucks will be assigned to the cover dispatcher. When you set this dispatcher back to active, 
-                  any trucks that are still unassigned will be automatically returned to them.
+                  When you set this dispatcher back to active, all their original trucks will be automatically returned to them.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -736,7 +767,7 @@ const Fleets = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmToggleOffDuty}
-              disabled={!dispatcherToToggle?.coverId}
+              disabled={Object.values(truckCoverAssignments).some(v => !v)}
             >
               Set Off Duty
             </AlertDialogAction>
