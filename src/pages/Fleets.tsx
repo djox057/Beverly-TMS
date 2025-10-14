@@ -367,27 +367,17 @@ const Fleets = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-2">
-                      {paginatedTrucks.map((truck, index) => (
-                        <Draggable key={truck.id} draggableId={truck.id} index={index} isDragDisabled={!dispatcherFleet.isActive}>
-                          {(provided, snapshot) => (
+                    {!dispatcherFleet.isActive ? (
+                      /* Placeholder trucks for inactive dispatchers */
+                      <div className="grid gap-2">
+                        {paginatedTrucks.length > 0 ? (
+                          paginatedTrucks.map((truck) => (
                             <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
-                                snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
-                              } ${!dispatcherFleet.isActive ? 'opacity-50 bg-muted/30' : ''}`}
+                              key={truck.id}
+                              className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
                             >
                               <div className="flex items-center gap-3">
-                                {dispatcherFleet.isActive && (
-                                  <div 
-                                    {...provided.dragHandleProps}
-                                    className="cursor-grab active:cursor-grabbing"
-                                  >
-                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <Truck className="h-4 w-4" />
+                                <Truck className="h-4 w-4 text-muted-foreground" />
                                 <div>
                                   <div className="font-medium flex items-center gap-2">
                                     {truck.truck_number}
@@ -395,60 +385,99 @@ const Fleets = () => {
                                       <>
                                         <span className="text-muted-foreground">•</span>
                                         <span className="text-sm font-normal">{truck.driver1.name}</span>
-                                        <Popover>
-                                          <PopoverTrigger asChild>
-                                            <button className="inline-flex">
-                                              <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                            </button>
-                                          </PopoverTrigger>
-                                          <PopoverContent className="w-auto">
-                                            <div className="space-y-1">
-                                              <p className="font-semibold">{truck.driver1.name}</p>
-                                              {truck.driver1.phone && (
-                                                <p className="text-sm">📞 {truck.driver1.phone}</p>
-                                              )}
-                                              {truck.driver1.email && (
-                                                <p className="text-sm">✉️ {truck.driver1.email}</p>
-                                              )}
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
                                       </>
                                     )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {truck.make} {truck.model} {truck.year}
+                                  <div className="text-xs text-muted-foreground">
+                                    Temporarily reassigned
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex gap-2">
-                                {dispatcherFleet.isActive && (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                    >
-                                      <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                      Switch
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleRemoveTruck(truck.id)}
-                                    >
-                                      <Minus className="h-4 w-4 mr-1" />
-                                      Remove
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
                             </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground p-3">No trucks were assigned</p>
+                        )}
+                      </div>
+                    ) : (
+                      /* Active dispatcher trucks with full functionality */
+                      <div className="grid gap-2">
+                        {paginatedTrucks.map((truck, index) => (
+                          <Draggable key={truck.id} draggableId={truck.id} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                  snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div 
+                                    {...provided.dragHandleProps}
+                                    className="cursor-grab active:cursor-grabbing"
+                                  >
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                  <Truck className="h-4 w-4" />
+                                  <div>
+                                    <div className="font-medium flex items-center gap-2">
+                                      {truck.truck_number}
+                                      {truck.driver1 && (
+                                        <>
+                                          <span className="text-muted-foreground">•</span>
+                                          <span className="text-sm font-normal">{truck.driver1.name}</span>
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <button className="inline-flex">
+                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto">
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{truck.driver1.name}</p>
+                                                {truck.driver1.phone && (
+                                                  <p className="text-sm">📞 {truck.driver1.phone}</p>
+                                                )}
+                                                {truck.driver1.email && (
+                                                  <p className="text-sm">✉️ {truck.driver1.email}</p>
+                                                )}
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {truck.make} {truck.model} {truck.year}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                  >
+                                    <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                    Switch
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRemoveTruck(truck.id)}
+                                  >
+                                    <Minus className="h-4 w-4 mr-1" />
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                     )}
                     {totalPages > 1 && (
                       <div className="mt-4 pt-4 border-t">
                         <Pagination>
