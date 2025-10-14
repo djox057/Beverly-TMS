@@ -843,152 +843,243 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.58.0');
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         
-        // Helper function to extract city from address
-        const extractCity = (address: string): string => {
-          // Try to extract city (usually before state abbreviation)
-          const cityMatch = address.match(/,\s*([^,]+?)\s*,?\s*[A-Z]{2}\s*\d{5}/i);
-          if (cityMatch) return cityMatch[1].toLowerCase().trim();
-          
-          // Fallback: look for pattern like "City, ST"
-          const simpleCityMatch = address.match(/,\s*([^,]+?)\s*,\s*[A-Z]{2}/i);
-          if (simpleCityMatch) return simpleCityMatch[1].toLowerCase().trim();
-          
-          return '';
-        };
-
-        // Split concatenated words (e.g., "TRANSPORTATIONONE" -> ["TRANSPORTATION", "ONE"])
-        const splitConcatenated = (text: string): string[] => {
-          const commonWords = [
-            'transportation', 'logistics', 'freight', 'trucking', 'express',
-            'delivery', 'shipping', 'transport', 'cargo', 'haul', 'one', 'two',
-            'three', 'first', 'global', 'national', 'international', 'american',
-            'united', 'premier', 'elite', 'pro', 'solutions', 'services'
-          ];
-          
-          let result = text.toLowerCase();
-          // Try to split by finding known words (longest first to avoid partial matches)
-          for (const word of commonWords.sort((a, b) => b.length - a.length)) {
-            const regex = new RegExp(`\\b${word}\\b|(?<![a-z])${word}(?![a-z])`, 'gi');
-            result = result.replace(regex, ` ${word} `);
+        // Levenshtein distance for fuzzy matching
+        const levenshtein = (a: string, b: string): number => {
+          if (a.length === 0) return b.length;
+          if (b.length === 0) return a.length;
+          const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+          for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+          for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+          for (let j = 1; j <= b.length; j++) {
+            for (let i = 1; i <= a.length; i++) {
+              const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+              matrix[j][i] = Math.min(
+                matrix[j][i - 1] + 1,
+                matrix[j - 1][i] + 1,
+                matrix[j - 1][i - 1] + cost
+              );
+            }
           }
-          
-          // Clean up and return unique words only
-          const words = result.trim().split(/\s+/).filter(w => w.length > 1);
-          return [...new Set(words)]; // Remove duplicates
+          return matrix[b.length][a.length];
         };
 
-        // Extract email domain from address
-        const extractDomain = (address: string): string | null => {
-          const emailMatch = address.match(/@([a-z0-9.-]+\.[a-z]{2,})/i);
-          return emailMatch ? emailMatch[1].toLowerCase().replace(/\./g, '') : null;
+        // Token sort ratio (sort words alphabetically then compare)
+        const tokenSortRatio = (a: string, b: string): number => {
+          const normalize = (s: string) => s.toLowerCase().split(/\s+/).filter(w => w.length > 0).sort().join(' ');
+          const aNorm = normalize(a);
+          const bNorm = normalize(b);
+          const distance = levenshtein(aNorm, bNorm);
+          const maxLen = Math.max(aNorm.length, bNorm.length);
+          return maxLen === 0 ? 100 : ((maxLen - distance) / maxLen) * 100;
         };
 
-        // Normalize company name for comparison
-        const normalizeName = (name: string): string => {
-          return name
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, ' ')
+        // Partial ratio (best substring match)
+        const partialRatio = (a: string, b: string): number => {
+          const shorter = a.length <= b.length ? a : b;
+          const longer = a.length > b.length ? a : b;
+          let bestRatio = 0;
+          for (let i = 0; i <= longer.length - shorter.length; i++) {
+            const substring = longer.substring(i, i + shorter.length);
+            const distance = levenshtein(shorter, substring);
+            const ratio = ((shorter.length - distance) / shorter.length) * 100;
+            if (ratio > bestRatio) bestRatio = ratio;
+          }
+          return bestRatio;
+        };
+
+        // Normalize text: uppercase, remove punctuation, remove common suffixes
+        const normalizeText = (text: string): string => {
+          return text
+            .toUpperCase()
+            .replace(/[^\w\s@.-]/g, ' ')
+            .replace(/\b(INC|LLC|LTD|CO|COMPANY|CORP|CORPORATION|DBA|THE)\b/g, '')
             .replace(/\s+/g, ' ')
             .trim();
         };
 
-        // Check if domain matches company name
-        const domainMatchesName = (domain: string, companyName: string): boolean => {
-          const normalized = normalizeName(companyName).replace(/\s/g, '');
-          const domainBase = domain.split('com')[0].split('net')[0].split('org')[0];
-          return normalized.includes(domainBase) || domainBase.includes(normalized);
+        // Extract MC number from text
+        const extractMC = (text: string): string | null => {
+          const match = text.match(/\bMC[#:\s-]*(\d+)/i);
+          return match ? match[1] : null;
         };
 
-        // Broker matching with email domain priority and consecutive word matching
-        const matchBroker = (extractedName: string, extractedAddress: string, brokers: any[]): any => {
-          console.log(`🔍 Matching with name: "${extractedName}"`);
-          
-          // Extract domain from address if present
-          const extractedDomain = extractDomain(extractedAddress);
-          if (extractedDomain) {
-            console.log(`   Extracted domain: "${extractedDomain}"`);
-            
-            // First priority: Direct domain matching
-            for (const broker of brokers) {
-              if (broker.address) {
-                const brokerDomain = extractDomain(broker.address);
-                if (brokerDomain && extractedDomain === brokerDomain) {
-                  console.log(`✅ PERFECT MATCH via domain: "${broker.name}"`);
-                  return broker;
-                }
-              }
-              
-              // Second priority: Domain name matches company name
-              if (domainMatchesName(extractedDomain, broker.name)) {
-                console.log(`✅ STRONG MATCH via domain-to-name: "${broker.name}"`);
-                return broker;
-              }
-            }
+        // Extract email domain
+        const extractEmailDomain = (text: string): string | null => {
+          const match = text.match(/@([a-z0-9.-]+\.[a-z]{2,})/i);
+          return match ? match[1].toLowerCase() : null;
+        };
+
+        // Extract phone area code
+        const extractAreaCode = (text: string): string | null => {
+          const match = text.match(/\((\d{3})\)|(\d{3})[-.]\d{3}[-.]\d{4}/);
+          return match ? (match[1] || match[2]) : null;
+        };
+
+        // Extract city, state, zip from address
+        const parseAddress = (address: string): { city: string; state: string; zip: string } => {
+          const cityMatch = address.match(/,\s*([^,]+?)\s*,?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/i);
+          if (cityMatch) {
+            return { 
+              city: cityMatch[1].toUpperCase().trim(), 
+              state: cityMatch[2].toUpperCase(), 
+              zip: cityMatch[3] 
+            };
           }
-          
-          // Split extracted name into words
-          const extractedWords = splitConcatenated(extractedName);
-          console.log(`   Split extracted words: ${JSON.stringify(extractedWords)}`);
-          
-          if (extractedWords.length === 0) {
-            console.log('   ⚠️ No words extracted after splitting');
-            return null;
+          const simpleMatch = address.match(/,\s*([^,]+?)\s*,\s*([A-Z]{2})/i);
+          if (simpleMatch) {
+            return { 
+              city: simpleMatch[1].toUpperCase().trim(), 
+              state: simpleMatch[2].toUpperCase(), 
+              zip: '' 
+            };
           }
+          return { city: '', state: '', zip: '' };
+        };
+
+        // Weighted broker matching with scoring
+        interface MatchResult {
+          matchedBrokerId: string | null;
+          matchedCompanyName: string;
+          confidence: 'AUTO_MATCH' | 'REVIEW' | 'NO_MATCH';
+          score: number;
+        }
+
+        const matchBroker = (
+          extractedName: string, 
+          extractedAddress: string, 
+          brokers: any[]
+        ): MatchResult => {
+          console.log(`🔍 Starting weighted broker matching...`);
+          console.log(`   Extracted name: "${extractedName}"`);
+          console.log(`   Extracted address: "${extractedAddress}"`);
           
-          // Try to find matches
-          const matches: Array<{broker: any, score: number, reason: string}> = [];
+          const extractedMC = extractMC(extractedName + ' ' + extractedAddress);
+          const extractedDomain = extractEmailDomain(extractedAddress);
+          const extractedAreaCode = extractAreaCode(extractedAddress);
+          const extractedLocation = parseAddress(extractedAddress);
+          const normalizedExtractedName = normalizeText(extractedName);
+          
+          console.log(`   MC: ${extractedMC || 'none'}`);
+          console.log(`   Email domain: ${extractedDomain || 'none'}`);
+          console.log(`   Area code: ${extractedAreaCode || 'none'}`);
+          console.log(`   Location: ${extractedLocation.city}, ${extractedLocation.state} ${extractedLocation.zip}`);
+          
+          let bestMatch: any = null;
+          let bestScore = 0;
           
           for (const broker of brokers) {
-            const brokerNormalized = normalizeName(broker.name);
-            const brokerWords = brokerNormalized.split(/\s+/).filter(w => w.length > 1);
+            let score = 0;
+            const reasons: string[] = [];
             
-            // Check if all extracted words appear in broker name in the same order
-            let allWordsFound = true;
-            let lastIndex = -1;
-            for (const ew of extractedWords) {
-              const foundIndex = brokerWords.findIndex((bw, idx) => 
-                idx > lastIndex && (bw === ew || bw.includes(ew) || ew.includes(bw))
-              );
-              if (foundIndex === -1) {
-                allWordsFound = false;
-                break;
-              }
-              lastIndex = foundIndex;
+            const brokerMC = broker.mc_number || extractMC(broker.name + ' ' + (broker.address || ''));
+            const normalizedBrokerName = normalizeText(broker.name);
+            
+            // 1. MC number exact match → 1000 points (AUTO_MATCH)
+            if (extractedMC && brokerMC && extractedMC === brokerMC) {
+              score += 1000;
+              reasons.push(`MC match (+1000)`);
+              console.log(`   ✅ MC MATCH: ${broker.name} (MC ${brokerMC})`);
             }
             
-            if (allWordsFound && extractedWords.length >= 2) {
-              // Perfect match: all words in correct order
-              const score = 1.0;
-              matches.push({ broker, score, reason: 'consecutive word match' });
-              console.log(`   ✅ CONSECUTIVE match: "${broker.name}" (all ${extractedWords.length} words in order)`);
-            } else {
-              // Partial word matching
-              const matchedWords = extractedWords.filter(ew => 
-                brokerWords.some(bw => bw === ew || bw.includes(ew) || ew.includes(bw))
-              );
-              
-              if (matchedWords.length >= Math.ceil(extractedWords.length * 0.7)) {
-                const score = matchedWords.length / extractedWords.length * 0.8;
-                matches.push({ broker, score, reason: 'partial word match' });
+            // 2. Company name exact match → +60
+            if (normalizedExtractedName === normalizedBrokerName) {
+              score += 60;
+              reasons.push(`exact name (+60)`);
+            }
+            
+            // 3. Fuzzy name similarity (token_sort_ratio) × 0.4 → up to +40
+            const nameSimilarity = tokenSortRatio(normalizedExtractedName, normalizedBrokerName);
+            const nameFuzzyScore = Math.round((nameSimilarity / 100) * 40);
+            if (nameFuzzyScore > 0) {
+              score += nameFuzzyScore;
+              reasons.push(`name similarity (+${nameFuzzyScore})`);
+            }
+            
+            // 4. Email domain match → +25
+            if (extractedDomain && broker.address) {
+              const brokerDomain = extractEmailDomain(broker.address);
+              if (brokerDomain && extractedDomain === brokerDomain) {
+                score += 25;
+                reasons.push(`email domain (+25)`);
               }
+            }
+            
+            // 5. Address city/state/zip overlap → +15
+            if (broker.address) {
+              const brokerLocation = parseAddress(broker.address);
+              let locationScore = 0;
+              if (extractedLocation.city && brokerLocation.city === extractedLocation.city) locationScore += 5;
+              if (extractedLocation.state && brokerLocation.state === extractedLocation.state) locationScore += 5;
+              if (extractedLocation.zip && brokerLocation.zip === extractedLocation.zip) locationScore += 5;
+              if (locationScore > 0) {
+                score += locationScore;
+                reasons.push(`location overlap (+${locationScore})`);
+              }
+            }
+            
+            // 6. Address partial similarity (partial_ratio) × 0.15 → up to +15
+            if (broker.address) {
+              const addressSimilarity = partialRatio(
+                normalizeText(extractedAddress), 
+                normalizeText(broker.address)
+              );
+              const addressFuzzyScore = Math.round((addressSimilarity / 100) * 15);
+              if (addressFuzzyScore > 0) {
+                score += addressFuzzyScore;
+                reasons.push(`address similarity (+${addressFuzzyScore})`);
+              }
+            }
+            
+            // 7. Phone area code overlap → +10
+            if (extractedAreaCode && broker.address) {
+              const brokerAreaCode = extractAreaCode(broker.address);
+              if (brokerAreaCode && extractedAreaCode === brokerAreaCode) {
+                score += 10;
+                reasons.push(`area code (+10)`);
+              }
+            }
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = { broker, reasons };
+            }
+            
+            if (score > 0) {
+              console.log(`   ${broker.name}: ${score} pts [${reasons.join(', ')}]`);
             }
           }
           
-          // Sort by score and return best match
-          if (matches.length > 0) {
-            matches.sort((a, b) => b.score - a.score);
-            const best = matches[0];
-            
-            if (best.score >= 0.7) {
-              console.log(`✅ Best match: "${best.broker.name}" (${best.reason}, score: ${(best.score * 100).toFixed(0)}%)`);
-              return best.broker;
+          // Determine confidence
+          let confidence: 'AUTO_MATCH' | 'REVIEW' | 'NO_MATCH' = 'NO_MATCH';
+          let matchedBrokerId: string | null = null;
+          let matchedCompanyName = '';
+          
+          if (bestMatch) {
+            if (bestScore >= 100) {
+              confidence = 'AUTO_MATCH';
+              matchedBrokerId = bestMatch.broker.id;
+              matchedCompanyName = bestMatch.broker.name;
+              console.log(`✅ AUTO_MATCH: ${bestMatch.broker.name} (score: ${bestScore})`);
+              console.log(`   Reasons: ${bestMatch.reasons.join(', ')}`);
+            } else if (bestScore >= 70) {
+              confidence = 'REVIEW';
+              matchedBrokerId = bestMatch.broker.id;
+              matchedCompanyName = bestMatch.broker.name;
+              console.log(`⚠️ REVIEW: ${bestMatch.broker.name} (score: ${bestScore})`);
+              console.log(`   Reasons: ${bestMatch.reasons.join(', ')}`);
             } else {
-              console.log(`❌ Best match score too low: ${(best.score * 100).toFixed(0)}%`);
+              console.log(`❌ NO_MATCH: Best score ${bestScore} below threshold (70)`);
             }
+          } else {
+            console.log(`❌ NO_MATCH: No brokers scored any points`);
           }
           
-          console.log('   ❌ No suitable matches found');
-          return null;
+          return {
+            matchedBrokerId,
+            matchedCompanyName,
+            confidence,
+            score: bestScore
+          };
         };
         
         // Fetch ALL brokers (no limit)
@@ -1002,24 +1093,23 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         } else if (brokers && brokers.length > 0) {
           console.log(`Found ${brokers.length} brokers in database`);
           
-          let matchedBroker = null;
-          
-          // Try to match using the simple matching function
+          // Try to match using the weighted matching function
           if (extractedData.brokerName) {
-            matchedBroker = matchBroker(
+            const matchResult = matchBroker(
               extractedData.brokerName,
               extractedData.brokerAddress || '',
               brokers
             );
-          }
-          
-          if (matchedBroker) {
-            extractedData.matchedBrokerId = matchedBroker.id;
-            console.log(`✅ Broker matched: ${matchedBroker.name} (ID: ${matchedBroker.id}, MC: ${matchedBroker.mc_number})`);
-          } else {
-            console.log('⚠️ No matching broker found in database');
-            if (extractedData.brokerName) console.log(`   Extracted name: "${extractedData.brokerName}"`);
-            if (extractedData.brokerAddress) console.log(`   Extracted address: "${extractedData.brokerAddress}"`);
+            
+            if (matchResult.matchedBrokerId) {
+              extractedData.matchedBrokerId = matchResult.matchedBrokerId;
+              console.log(`✅ Broker ${matchResult.confidence}: ${matchResult.matchedCompanyName}`);
+              console.log(`   Score: ${matchResult.score}`);
+            } else {
+              console.log('⚠️ No matching broker found in database');
+              if (extractedData.brokerName) console.log(`   Extracted name: "${extractedData.brokerName}"`);
+              if (extractedData.brokerAddress) console.log(`   Extracted address: "${extractedData.brokerAddress}"`);
+            }
           }
         }
       } catch (brokerMatchError) {
