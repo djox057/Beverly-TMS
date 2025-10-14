@@ -1045,7 +1045,12 @@ const EditOrder = () => {
                 <Droppable droppableId="pickups-drops">
                   {(provided) => (
                     <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                      {pickupsDrops.map((item, index) => (
+                      {[...pickupsDrops].sort((a, b) => {
+                        // Sort pickups before deliveries
+                        if (a.type === 'pickup' && b.type === 'delivery') return -1;
+                        if (a.type === 'delivery' && b.type === 'pickup') return 1;
+                        return 0;
+                      }).map((item, index) => (
                         <Draggable key={item.id} draggableId={item.id} index={index}>
                           {(provided, snapshot) => (
                             <Card 
