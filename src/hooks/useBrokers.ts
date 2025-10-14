@@ -58,7 +58,5 @@ export const useBrokers = () => {
       
       return allBrokers;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - static data
-    refetchOnWindowFocus: false,
   });
 };

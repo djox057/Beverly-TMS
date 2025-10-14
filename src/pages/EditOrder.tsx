@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useOrderDetails } from "@/hooks/useOrderDetails";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,8 +45,7 @@ const EditOrder = () => {
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
   
-  // Use optimized order details hook
-  const { data: orderDetails, isLoading: isLoadingDetails } = useOrderDetails(id);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form states
@@ -132,81 +130,123 @@ const EditOrder = () => {
     fetchProfiles();
   }, []);
 
-  // Load order data from hook
+  // Load order data
   useEffect(() => {
-    if (!id || id === ':id') {
+    console.log('EditOrder useEffect - id parameter:', id);
+    console.log('Current window location:', window.location.href);
+    
+    if (id && id !== ':id') {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        console.error('Invalid order ID format:', id);
+        toast({
+          title: "Error",
+          description: "Invalid order ID format",
+          variant: "destructive",
+        });
+        navigate('/orders');
+        return;
+      }
+      loadOrderData();
+    } else {
+      console.error('No valid order ID provided. Received:', id);
       toast({
         title: "Error",
         description: "No valid order ID provided in URL",
         variant: "destructive",
       });
       navigate('/orders');
-      return;
     }
+  }, [id]);
 
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(id)) {
+  const loadOrderData = async () => {
+    console.log('Loading order data for ID:', id);
+    console.log('Current URL:', window.location.href);
+    
+    // Check if id is valid UUID format
+    if (!id || id === ':id' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      console.error('Invalid or missing order ID:', id);
       toast({
-        title: "Error",
-        description: "Invalid order ID format",
-        variant: "destructive",
-      });
-      navigate('/orders');
-      return;
-    }
-  }, [id, navigate, toast]);
-
-  useEffect(() => {
-    if (!orderDetails || isLoadingDetails) return;
-
-    const orderData = orderDetails as any;
-    // Check if order is locked and redirect if it is
-    if (orderData.locked) {
-      toast({
-        title: "Order Locked",
-        description: "This order is locked and cannot be edited",
+        title: "Invalid Order ID",
+        description: "The order ID in the URL is invalid or missing",
         variant: "destructive",
       });
       navigate('/orders');
       return;
     }
     
-    setIsLocked(orderData.locked || false);
-    setBookedByCompany(orderData.company_id || "");
-    setBroker(orderData.broker_id || "");
-    setTruck(orderData.truck_id || "");
-    setTrailer(orderData.trailer?.trailer_number || "");
-    setDriver1(orderData.driver1_id || "");
-    setDriver2(orderData.driver2_id || "");
-    setBrokerLoadNumber(orderData.broker_load_number || "");
-    setFreightAmount(orderData.freight_amount?.toString() || "");
-    setDetention((orderData as any).detention?.toString() || "");
-    setLayover((orderData as any).layover?.toString() || "");
-    setExtraStop((orderData as any).extra_stop?.toString() || "");
-    setLumper((orderData as any).lumper?.toString() || "");
-    setLateFee((orderData as any).late_fee?.toString() || "");
-    setDriverPrice(orderData.driver_price?.toString() || "");
-    setTonu((orderData as any).tonu?.toString() || "");
-    setCommodity((orderData as any).commodity || "");
-    setWeight((orderData as any).weight?.toString() || "");
-    setReferenceNumber((orderData as any).reference_number || "");
-    setPoNumber((orderData as any).po_number || "");
-    setPuNumber((orderData as any).pu_number || "");
-    setNotes(orderData.notes || "");
-    setBookedBy(orderData.booked_by || "");
-    setInvoiced(orderData.invoiced ? "Done" : "false");
-    setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+    try {
+      const { data: orderData, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          pickup_drops!inner(*),
+          order_files(*),
+          trailer:trailer_id(trailer_number)
+        `)
+        .eq('id', id)
+        .order('sequence_number', { foreignTable: 'pickup_drops', ascending: true })
+        .single();
 
-    // Calculate miles from loaded_miles and dh_miles or use legacy mileage
-    const loadedMilesValue = (orderData as any).loaded_miles || 0;
-    const dhMilesValue = (orderData as any).dh_miles || 0;
-    const totalMiles = loadedMilesValue + dhMilesValue || orderData.mileage || 0;
-    
-    setLoadedMiles(loadedMilesValue.toString());
-    setDhMiles(dhMilesValue.toString());
+      console.log('Order data response:', { orderData, error });
 
-    // Load pickup/drops
-    if (orderData.pickup_drops) {
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      if (orderData) {
+        console.log('Setting form data with order:', orderData);
+        
+        // Check if order is locked and redirect if it is
+        if (orderData.locked) {
+          console.log('Order is locked, redirecting to orders page');
+          toast({
+            title: "Order Locked",
+            description: "This order is locked and cannot be edited",
+            variant: "destructive",
+          });
+          navigate('/orders');
+          return;
+        }
+        
+        setIsLocked(orderData.locked || false);
+        setBookedByCompany(orderData.company_id || "");
+        setBroker(orderData.broker_id || "");
+        setTruck(orderData.truck_id || "");
+        setTrailer(orderData.trailer?.trailer_number || "");
+        setDriver1(orderData.driver1_id || "");
+        setDriver2(orderData.driver2_id || "");
+        setBrokerLoadNumber(orderData.broker_load_number || "");
+        setFreightAmount(orderData.freight_amount?.toString() || "");
+        setDetention((orderData as any).detention?.toString() || "");
+        setLayover((orderData as any).layover?.toString() || "");
+        setExtraStop((orderData as any).extra_stop?.toString() || "");
+        setLumper((orderData as any).lumper?.toString() || "");
+        setLateFee((orderData as any).late_fee?.toString() || "");
+        setDriverPrice(orderData.driver_price?.toString() || "");
+        setTonu((orderData as any).tonu?.toString() || "");
+        setCommodity((orderData as any).commodity || "");
+        setWeight((orderData as any).weight?.toString() || "");
+        setReferenceNumber((orderData as any).reference_number || "");
+        setPoNumber((orderData as any).po_number || "");
+        setPuNumber((orderData as any).pu_number || "");
+        setNotes(orderData.notes || "");
+        setBookedBy(orderData.booked_by || "");
+        setInvoiced(orderData.invoiced ? "Done" : "false");
+        setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+
+        // Calculate miles from loaded_miles and dh_miles or use legacy mileage
+        const loadedMilesValue = (orderData as any).loaded_miles || 0;
+        const dhMilesValue = (orderData as any).dh_miles || 0;
+        const totalMiles = loadedMilesValue + dhMilesValue || orderData.mileage || 0;
+        
+        setLoadedMiles(loadedMilesValue.toString());
+        setDhMiles(dhMilesValue.toString());
+
+        // Load pickup/drops
+        if (orderData.pickup_drops) {
           console.log('Processing pickup_drops:', orderData.pickup_drops);
           const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => {
             // Reconstruct full address from parts
@@ -241,7 +281,16 @@ const EditOrder = () => {
               dateRange = { from: dateObj, to: dateObj };
             }
 
-        return {
+            console.log(`Loading ${pd.type}:`, {
+              startTime,
+              endTime,
+              dateRange,
+              raw_datetime: pd.datetime,
+              pickup_end_datetime: orderData.pickup_end_datetime,
+              delivery_end_datetime: orderData.delivery_end_datetime
+            });
+
+            return {
               id: pd.id,
               type: pd.type,
               address: fullAddress,
@@ -255,30 +304,46 @@ const EditOrder = () => {
               contactName: pd.contact_name || "",
               contactPhone: pd.contact_phone || "",
               specialInstructions: pd.special_instructions || "",
-          companyName: pd.company_name || ""
-        };
-      });
-      
-      // Deduplicate exact matches when loading
-      const uniquePickupsDrops = transformedPickupsDrops.filter((item: any, index: number, self: any[]) => {
-        return index === self.findIndex((t: any) => (
-          t.type === item.type &&
-          t.address === item.address &&
-          t.city === item.city &&
-          t.state === item.state &&
-          t.zipCode === item.zipCode &&
-          t.datetime === item.datetime
-        ));
-      });
-      
-      setPickupsDrops(uniquePickupsDrops);
-    }
+              companyName: pd.company_name || ""
+            };
+          });
+          
+          // Deduplicate exact matches when loading
+          const uniquePickupsDrops = transformedPickupsDrops.filter((item: any, index: number, self: any[]) => {
+            return index === self.findIndex((t: any) => (
+              t.type === item.type &&
+              t.address === item.address &&
+              t.city === item.city &&
+              t.state === item.state &&
+              t.zipCode === item.zipCode &&
+              t.datetime === item.datetime
+            ));
+          });
+          
+          setPickupsDrops(uniquePickupsDrops);
+          console.log('Set pickupsDrops to:', uniquePickupsDrops);
+        }
 
-    // Load existing files
-    if (orderData.order_files) {
-      setExistingFiles(orderData.order_files);
+        // Load existing files
+        if (orderData.order_files) {
+          setExistingFiles(orderData.order_files);
+        }
+        
+        console.log('Data loading completed successfully');
+      }
+    } catch (error) {
+      console.error('Error loading order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load order data",
+        variant: "destructive",
+      });
+      navigate('/orders');
+    } finally {
+      console.log('Setting loading to false');
+      setIsLoading(false);
     }
-  }, [orderDetails, isLoadingDetails, navigate, toast]);
+  };
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
@@ -865,7 +930,7 @@ const EditOrder = () => {
     }
   };
 
-  if (isLoadingDetails) {
+  if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center py-8">

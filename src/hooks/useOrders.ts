@@ -1,24 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-export const useOrders = (page: number = 1, pageSize: number = 50) => {
+export const useOrders = () => {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscriptions with debouncing
+  // Set up real-time subscriptions for orders and related tables
   useEffect(() => {
-    let debounceTimer: NodeJS.Timeout;
-    
-    const debouncedInvalidate = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['orders'] });
-        queryClient.invalidateQueries({ queryKey: ['reports'] });
-      }, 500);
-    };
-
     const channel = supabase
-      .channel('orders-realtime')
+      .channel('orders-updates')
       .on(
         'postgres_changes',
         {
@@ -26,7 +16,10 @@ export const useOrders = (page: number = 1, pageSize: number = 50) => {
           schema: 'public',
           table: 'orders'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -35,7 +28,10 @@ export const useOrders = (page: number = 1, pageSize: number = 50) => {
           schema: 'public',
           table: 'pickup_drops'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -44,65 +40,87 @@ export const useOrders = (page: number = 1, pageSize: number = 50) => {
           schema: 'public',
           table: 'order_files'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trucks'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'drivers'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'brokers'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'companies'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .subscribe();
 
     return () => {
-      clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['orders', page, pageSize],
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchOnWindowFocus: false,
+    queryKey: ['orders'],
     queryFn: async () => {
-      // Minimal data for list view - no files, minimal joins
-      const from = (page - 1) * pageSize;
-      const to = from + pageSize - 1;
-      
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('orders')
         .select(`
-          id,
-          internal_load_number,
-          broker_load_number,
-          status,
-          canceled,
-          locked,
-          invoiced,
-          freight_amount,
-          detention,
-          layover,
-          extra_stop,
-          lumper,
-          late_fee,
-          tonu,
-          loaded_miles,
-          dh_miles,
-          mileage,
-          driver_price,
-          pickup_datetime,
-          pickup_end_datetime,
-          delivery_datetime,
-          delivery_end_datetime,
-          notes,
-          booked_by,
-          created_at,
+          *,
           truck:trucks!orders_truck_id_fkey(truck_number, company:companies(name)),
           driver1:drivers!orders_driver1_id_fkey(name),
           broker:brokers!orders_broker_id_fkey(name, address),
           company:companies!orders_company_id_fkey(name),
-          pickup_drops(type, city, state, datetime, address)
-        `, { count: 'exact' })
+          booked_by_company:companies!orders_booked_by_company_id_fkey(name),
+          pickup_drops(type, city, state, datetime, address),
+          order_files(id, file_name, file_path, file_size, content_type, file_category)
+        `)
         .order('created_at', { ascending: false })
-        .range(from, to);
+        .limit(300);
       
       if (error) throw error;
       
-      const transformedOrders = (data || []).map((order: any) => {
+      const transformedOrders = data.map((order: any) => {
         const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
         const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
         
@@ -147,17 +165,16 @@ export const useOrders = (page: number = 1, pageSize: number = 50) => {
           locked: order.locked || false,
           canceled: order.canceled || false,
           status: order.status || 'pending',
-          createdAt: order.created_at
+          createdAt: order.created_at,
+          files: order.order_files || [],
+          rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
+          bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
+          podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
+          additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || []
         };
       });
 
-      return {
-        orders: transformedOrders,
-        totalCount: count || 0,
-        hasMore: (count || 0) > to + 1,
-        currentPage: page,
-        pageSize
-      };
+        return transformedOrders;
     },
   });
 };

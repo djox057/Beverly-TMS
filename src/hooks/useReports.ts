@@ -6,19 +6,10 @@ import { parseSimpleDateTime } from "@/utils/dateUtils";
 export const useReports = () => {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscriptions with debouncing
+  // Set up real-time subscriptions
   useEffect(() => {
-    let debounceTimer: NodeJS.Timeout;
-    
-    const debouncedInvalidate = () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['reports'] });
-      }, 500);
-    };
-
     const channel = supabase
-      .channel('reports-realtime')
+      .channel('reports-updates')
       .on(
         'postgres_changes',
         {
@@ -26,7 +17,9 @@ export const useReports = () => {
           schema: 'public',
           table: 'trucks'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -35,7 +28,10 @@ export const useReports = () => {
           schema: 'public',
           table: 'orders'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -44,7 +40,10 @@ export const useReports = () => {
           schema: 'public',
           table: 'pickup_drops'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -53,7 +52,9 @@ export const useReports = () => {
           schema: 'public',
           table: 'truck_notes'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .on(
         'postgres_changes',
@@ -62,12 +63,13 @@ export const useReports = () => {
           schema: 'public',
           table: 'lost_day_notes'
         },
-        debouncedInvalidate
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['reports'] });
+        }
       )
       .subscribe();
 
     return () => {
-      clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
