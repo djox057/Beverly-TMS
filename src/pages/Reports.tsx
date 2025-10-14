@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
@@ -63,6 +64,7 @@ const getStatusBadge = (status: string) => {
 };
 const Reports = () => {
   const { profile } = useAuthContext();
+  const navigate = useNavigate();
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -666,14 +668,26 @@ const Reports = () => {
                           </PopoverTrigger>
                           <PopoverContent className="w-80 z-[101]">
                             <div className="space-y-2 text-sm">
-                              <h4 className="font-semibold">Load Information</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold">Load Information</h4>
+                              </div>
                               <div className="space-y-3">
                                 {deliveryOnlyOrders.map((deliveryOrder, idx) => (
                                   <div
                                     key={`delivery-info-${deliveryOrder.id}`}
                                     className={`${idx > 0 ? "border-t pt-2" : ""}`}
                                   >
-                                    <p className="font-semibold">• Load #: {deliveryOrder.loadDetails.loadNumber}</p>
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold">• Load #: {deliveryOrder.loadDetails.loadNumber}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2"
+                                        onClick={() => navigate(`/orders/edit/${deliveryOrder.id}`)}
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
                                     <p className="ml-4">
                                       • <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}
                                     </p>
@@ -805,14 +819,26 @@ const Reports = () => {
                           </PopoverTrigger>
                           <PopoverContent className="w-80 z-[101]">
                             <div className="space-y-2 text-sm">
-                              <h4 className="font-semibold">Load Information</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold">Load Information</h4>
+                              </div>
                               <div className="space-y-3">
                                 {pickupOnlyOrders.map((pickupOrder, idx) => (
                                   <div
                                     key={`pickup-info-${pickupOrder.id}`}
                                     className={`${idx > 0 ? "border-t pt-2" : ""}`}
                                   >
-                                    <p className="font-semibold">• Load #: {pickupOrder.loadDetails.loadNumber}</p>
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold">• Load #: {pickupOrder.loadDetails.loadNumber}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2"
+                                        onClick={() => navigate(`/orders/edit/${pickupOrder.id}`)}
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
                                     <p className="ml-4">
                                       • <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}
                                     </p>
@@ -924,7 +950,17 @@ const Reports = () => {
                           </PopoverTrigger>
                           <PopoverContent className="w-80 z-[101]">
                             <div className="space-y-2 text-sm">
-                              <h4 className="font-semibold">Same-Day Load Information</h4>
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold">Same-Day Load Information</h4>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => navigate(`/orders/edit/${order.id}`)}
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
                               <div className="space-y-1">
                                 <p>
                                   • <strong>Load #:</strong> {order.loadDetails.loadNumber}
