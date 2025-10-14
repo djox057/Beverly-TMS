@@ -12,7 +12,7 @@ import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
@@ -107,8 +107,33 @@ const Reports = () => {
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
+  const [visibleTrucks, setVisibleTrucks] = useState<{ [dispatcherId: string]: number }>({});
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
+
+  const INITIAL_TRUCK_COUNT = 12;
+  const LOAD_MORE_COUNT = 6;
+
+  // Initialize visible trucks count when data loads
+  useEffect(() => {
+    if (groupedReports) {
+      const initialCounts: { [key: string]: number } = {};
+      groupedReports.forEach(group => {
+        initialCounts[group.dispatcherId] = INITIAL_TRUCK_COUNT;
+      });
+      setVisibleTrucks(initialCounts);
+    }
+  }, [groupedReports]);
+
+  // Setup intersection observer for lazy loading
+  const handleLoadMore = useCallback((dispatcherId: string) => {
+    setVisibleTrucks(prev => ({
+      ...prev,
+      [dispatcherId]: (prev[dispatcherId] || INITIAL_TRUCK_COUNT) + LOAD_MORE_COUNT
+    }));
+  }, []);
 
   // Miles away are now calculated by a background job every 10 minutes
   
@@ -1257,7 +1282,7 @@ const Reports = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {group.trucks.map((truck, truckIndex) => {
+                              {group.trucks.slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT).map((truck, truckIndex) => {
                                 const modifiedCells = renderTruckCalendarCells(
                                   truck,
                                   startDate,
@@ -1559,6 +1584,19 @@ const Reports = () => {
                               })}
                             </tbody>
                           </table>
+                          
+                          {/* Load More Trigger */}
+                          {group.trucks.length > (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT) && (
+                            <div className="flex justify-center py-4">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleLoadMore(group.dispatcherId)}
+                                className="w-full max-w-md"
+                              >
+                                Load More Trucks ({group.trucks.length - (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)} remaining)
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
