@@ -32,10 +32,24 @@ export function BrokerCombobox({
   const filteredBrokers = React.useMemo(() => {
     if (!allBrokers) return [];
     
-    return allBrokers.filter(broker =>
+    console.log(`🔍 BrokerCombobox: Filtering ${allBrokers.length} brokers with search: "${debouncedSearch}"`);
+    
+    const filtered = allBrokers.filter(broker =>
       broker.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       broker.mc_number?.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
+    
+    console.log(`✅ BrokerCombobox: Filtered to ${filtered.length} brokers`);
+    
+    // Check if test broker is in filtered results
+    const testBroker = filtered.find(b => b.id === '1dda8956-e4c2-45b1-904c-d763a7d55f1b');
+    if (debouncedSearch && testBroker) {
+      console.log('✅ Test broker (TRANSPORTATION ONE, LLC) is in filtered results');
+    } else if (debouncedSearch && !testBroker) {
+      console.log('❌ Test broker (TRANSPORTATION ONE, LLC) NOT in filtered results');
+    }
+    
+    return filtered;
   }, [allBrokers, debouncedSearch]);
 
   const selectedBroker = React.useMemo(

@@ -56,10 +56,20 @@ const Brokers = () => {
     totalPages,
     paginatedBrokers
   } = useMemo(() => {
+    console.log(`🔍 Brokers Page: Starting with ${brokers?.length || 0} brokers, search: "${debouncedSearchTerm}"`);
+    
     const filtered = brokers?.filter(broker => broker.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || broker.mc_number?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || broker.address?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) || [];
+    
+    console.log(`✅ Brokers Page: Filtered to ${filtered.length} brokers`);
+    
+    // Check if test broker is in filtered results
+    const testBroker = filtered.find(b => b.id === '1dda8956-e4c2-45b1-904c-d763a7d55f1b');
+    console.log('🔍 Test broker (TRANSPORTATION ONE, LLC) in Brokers page:', testBroker ? 'YES' : 'NO');
+    
     const total = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const paginated = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    
     return {
       filteredBrokers: filtered,
       totalPages: total,
