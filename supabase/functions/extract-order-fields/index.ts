@@ -856,8 +856,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Helper function for fuzzy name matching
-        const fuzzyNameMatch = (name1: string, name2: string): boolean => {
+        // Helper function for stricter fuzzy name matching
+        const fuzzyNameMatch = (name1: string, name2: string): number => {
           const normalize = (str: string) => str.toLowerCase()
             .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
             .replace(/[^\w\s]/g, '')
@@ -870,9 +870,9 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           const words1 = n1.split(/\s+/).filter(w => w.length > 2);
           const words2 = n2.split(/\s+/).filter(w => w.length > 2);
           
-          if (words1.length === 0 || words2.length === 0) return false;
+          if (words1.length === 0 || words2.length === 0) return 0;
           
-          // Check if at least 60% of words from the shorter name appear in the longer one
+          // Calculate match score for both directions
           const shorter = words1.length <= words2.length ? words1 : words2;
           const longer = words1.length > words2.length ? words1 : words2;
           
@@ -880,7 +880,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
             longer.some(w => w.includes(word) || word.includes(w))
           ).length;
           
-          return matchCount / shorter.length >= 0.6;
+          return matchCount / shorter.length;
         };
 
         // Fetch ALL brokers (no limit)
@@ -895,31 +895,56 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           console.log(`Found ${brokers.length} brokers in database`);
           
           let matchedBroker = null;
+          let bestMatchScore = 0;
+          const MIN_NAME_MATCH_SCORE = 0.8; // Require 80% word match
+          const MIN_CITY_NAME_MATCH_SCORE = 0.5; // Require 50% name match when matching by city
           
-          // Try to match by name first (fuzzy matching)
+          // Try to match by name first (strict fuzzy matching)
           if (extractedData.brokerName) {
             console.log(`🔍 Attempting fuzzy name match for: "${extractedData.brokerName}"`);
-            matchedBroker = brokers.find(b => fuzzyNameMatch(b.name, extractedData.brokerName!));
+            
+            for (const broker of brokers) {
+              const nameScore = fuzzyNameMatch(broker.name, extractedData.brokerName);
+              if (nameScore >= MIN_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
+                matchedBroker = broker;
+                bestMatchScore = nameScore;
+                console.log(`   Candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
+              }
+            }
             
             if (matchedBroker) {
-              console.log(`✅ Matched broker by name: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+              console.log(`✅ Matched broker by name: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
+            } else {
+              console.log(`❌ No name match found (threshold: ${MIN_NAME_MATCH_SCORE * 100}%)`);
             }
           }
           
-          // If no name match, try city-based address match
-          if (!matchedBroker && extractedData.brokerAddress) {
+          // If no name match, try city-based address match WITH name similarity check
+          if (!matchedBroker && extractedData.brokerAddress && extractedData.brokerName) {
             const extractedCity = extractCity(extractedData.brokerAddress);
-            console.log(`🔍 Attempting city-based address match for city: "${extractedCity}"`);
+            console.log(`🔍 Attempting city + name match for city: "${extractedCity}"`);
             
             if (extractedCity) {
-              matchedBroker = brokers.find(b => {
-                if (!b.address) return false;
-                const dbCity = extractCity(b.address);
-                return dbCity && dbCity === extractedCity;
-              });
+              for (const broker of brokers) {
+                if (!broker.address) continue;
+                
+                const dbCity = extractCity(broker.address);
+                if (dbCity && dbCity === extractedCity) {
+                  // City matches, now check if name has at least some similarity
+                  const nameScore = fuzzyNameMatch(broker.name, extractedData.brokerName);
+                  console.log(`   City match candidate: ${broker.name} - Name similarity: ${(nameScore * 100).toFixed(0)}%`);
+                  
+                  if (nameScore >= MIN_CITY_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
+                    matchedBroker = broker;
+                    bestMatchScore = nameScore;
+                  }
+                }
+              }
               
               if (matchedBroker) {
-                console.log(`✅ Matched broker by city: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+                console.log(`✅ Matched broker by city+name: ${matchedBroker.name} (Name Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
+              } else {
+                console.log(`❌ No city+name match found (city must match + name similarity >= ${MIN_CITY_NAME_MATCH_SCORE * 100}%)`);
               }
             }
           }
