@@ -62,6 +62,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_status: {
+        Row: {
+          created_at: string
+          dispatcher_id: string
+          id: string
+          inactive_trucks: Json | null
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dispatcher_id: string
+          id?: string
+          inactive_trucks?: Json | null
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dispatcher_id?: string
+          id?: string
+          inactive_trucks?: Json | null
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_files: {
         Row: {
           content_type: string | null

@@ -14,15 +14,18 @@ import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const Fleets = () => {
+  const { hasRole } = useAuthContext();
   const { 
     dispatchers, 
     availableTrucks,
     allDispatchers,
     loading, 
     assignTruckToDispatcher, 
-    removeTruckFromDispatcher
+    removeTruckFromDispatcher,
+    toggleDispatcherStatus
   } = useFleetManagement();
 
   const [selectedTruck, setSelectedTruck] = useState("");
@@ -33,6 +36,7 @@ const Fleets = () => {
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [truckToRemove, setTruckToRemove] = useState<string | null>(null);
   const [truckToSwitch, setTruckToSwitch] = useState<{ truckId: string; currentDispatcherId: string } | null>(null);
+  const [dispatcherToToggle, setDispatcherToToggle] = useState<{ id: string; name: string; truckCount: number; currentStatus: boolean } | null>(null);
 
   const itemsPerPage = 10;
 
@@ -117,6 +121,28 @@ const Fleets = () => {
       // Assign truck to dispatcher
       const dispatcherId = destination.droppableId.replace('dispatcher-', '');
       await assignTruckToDispatcher(truckId, dispatcherId);
+    }
+  };
+
+  const handleToggleDispatcher = (dispatcherId: string, dispatcherName: string, truckCount: number, currentStatus: boolean) => {
+    if (currentStatus) {
+      // Trying to set OFF DUTY - show confirmation dialog
+      setDispatcherToToggle({
+        id: dispatcherId,
+        name: dispatcherName,
+        truckCount,
+        currentStatus
+      });
+    } else {
+      // Setting back to ACTIVE - do it directly
+      toggleDispatcherStatus(dispatcherId, true);
+    }
+  };
+
+  const confirmToggleOffDuty = () => {
+    if (dispatcherToToggle) {
+      toggleDispatcherStatus(dispatcherToToggle.id, false);
+      setDispatcherToToggle(null);
     }
   };
 
@@ -274,18 +300,38 @@ const Fleets = () => {
                 <Card 
                   ref={provided.innerRef}
                   {...provided.droppableProps}
-                  className={`transition-colors ${snapshot.isDraggingOver ? 'bg-primary/5 border-primary' : ''}`}
+                  className={`transition-colors ${snapshot.isDraggingOver ? 'bg-primary/5 border-primary' : ''} ${!dispatcherFleet.isActive ? 'opacity-60' : ''}`}
                 >
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <UserCheck className="h-5 w-5" />
-                      {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
-                      {dispatcherFleet.dispatcher.ext && (
-                        <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
-                      )}
-                      <Badge variant="secondary">{filteredTrucks.length} trucks</Badge>
-                      {snapshot.isDraggingOver && (
-                        <Badge variant="outline" className="animate-pulse">Drop here</Badge>
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-5 w-5" />
+                        {dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email}
+                        {dispatcherFleet.dispatcher.ext && (
+                          <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
+                        )}
+                        <Badge variant="secondary">{filteredTrucks.length} trucks</Badge>
+                        {snapshot.isDraggingOver && (
+                          <Badge variant="outline" className="animate-pulse">Drop here</Badge>
+                        )}
+                      </div>
+                      
+                      {/* Off Duty Toggle - Only visible to managers and admins */}
+                      {(hasRole('manager') || hasRole('admin')) && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant={dispatcherFleet.isActive ? "default" : "destructive"}>
+                            {dispatcherFleet.isActive ? "Active" : "Off Duty"}
+                          </Badge>
+                          <Switch
+                            checked={dispatcherFleet.isActive}
+                            onCheckedChange={() => handleToggleDispatcher(
+                              dispatcherFleet.dispatcher.id,
+                              dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email,
+                              filteredTrucks.length,
+                              dispatcherFleet.isActive
+                            )}
+                          />
+                        </div>
                       )}
                     </CardTitle>
                   </CardHeader>
@@ -623,6 +669,26 @@ const Fleets = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Off Duty Confirmation Dialog */}
+      <AlertDialog open={dispatcherToToggle !== null} onOpenChange={(open) => !open && setDispatcherToToggle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will unassign all {dispatcherToToggle?.truckCount} trucks from {dispatcherToToggle?.name}. 
+              The trucks will need to be reassigned to other dispatchers.
+              When you set this dispatcher back to active, the trucks can be automatically returned to them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmToggleOffDuty}>
+              Set Off Duty
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DragDropContext>
   );
 };
