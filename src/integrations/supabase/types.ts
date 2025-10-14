@@ -425,6 +425,7 @@ export type Database = {
           broker_id: string | null
           broker_load_number: string | null
           canceled: boolean
+          commodity: string | null
           company_id: string
           created_at: string
           delivery_datetime: string | null
@@ -449,11 +450,15 @@ export type Database = {
           notes: string | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
+          po_number: string | null
+          pu_number: string | null
+          reference_number: string | null
           status: string | null
           tonu: number | null
           trailer_id: string | null
           truck_id: string | null
           updated_at: string
+          weight: number | null
         }
         Insert: {
           booked_by?: string | null
@@ -461,6 +466,7 @@ export type Database = {
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
+          commodity?: string | null
           company_id: string
           created_at?: string
           delivery_datetime?: string | null
@@ -485,11 +491,15 @@ export type Database = {
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
+          po_number?: string | null
+          pu_number?: string | null
+          reference_number?: string | null
           status?: string | null
           tonu?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           booked_by?: string | null
@@ -497,6 +507,7 @@ export type Database = {
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
+          commodity?: string | null
           company_id?: string
           created_at?: string
           delivery_datetime?: string | null
@@ -521,11 +532,15 @@ export type Database = {
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
+          po_number?: string | null
+          pu_number?: string | null
+          reference_number?: string | null
           status?: string | null
           tonu?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -584,6 +599,7 @@ export type Database = {
           address: string
           arrived_at: string | null
           city: string | null
+          company_name: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
@@ -601,6 +617,7 @@ export type Database = {
           address: string
           arrived_at?: string | null
           city?: string | null
+          company_name?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -618,6 +635,7 @@ export type Database = {
           address?: string
           arrived_at?: string | null
           city?: string | null
+          company_name?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
