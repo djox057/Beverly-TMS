@@ -145,7 +145,6 @@ You are an expert at extracting shipping/logistics data from PDF documents, incl
 **CRITICAL: You MUST extract brokerName and brokerAddress and include them at the TOP of your JSON response before any other fields!**
 
 Example of what to look for:
-```
 =====================================
 ACME LOGISTICS LLC
 6275 Hazeltine National Dr
@@ -155,8 +154,8 @@ Phone: (407) 555-1234
 RATE CONFIRMATION
 Load #: 12345
 ...
-```
-→ Extract: brokerName: "ACME LOGISTICS LLC", brokerAddress: "6275 Hazeltine National Dr, Orlando, FL 32822"
+
+Extract: brokerName: "ACME LOGISTICS LLC", brokerAddress: "6275 Hazeltine National Dr, Orlando, FL 32822"
 
 ---
 
@@ -396,21 +395,21 @@ Before returning your JSON, verify EACH address:
 - ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits. If not found, infer from city/state using your knowledge.
 
 ### 2. GOOD: If street address unavailable, extract city + state + zip
-\`\`\`
+
 address: "" or null
 city: City name (REQUIRED)
 state: 2-letter code (REQUIRED)
 zip: ZIP code
-\`\`\`
+
 **Example:** city="Houston", state="TX", zip="77001"
 
 ### 3. ACCEPTABLE: If only city and state are visible
-\`\`\`
+
 address: "" or null
 city: City name (REQUIRED)
 state: 2-letter code (REQUIRED)
 zip: "" or null
-\`\`\`
+
 **Example:** city="Houston", state="TX"
 
 ### 4. AVOID: DO NOT return ONLY street address without city/state
@@ -518,7 +517,6 @@ zip: "" or null
 ### IF SINGLE-DROP LOAD:
 Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
-\`\`\`json
 {
   "brokerName": "BROKER COMPANY NAME - EXTRACT FIRST!",
   "brokerAddress": "Broker's full address - EXTRACT FIRST!",
@@ -550,12 +548,10 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
   "equipment": "string",
   "temperature": "string"
 }
-\`\`\`
 
 ### IF MULTI-DROP LOAD:
 Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
-\`\`\`json
 {
   "brokerName": "BROKER COMPANY NAME - EXTRACT FIRST!",
   "brokerAddress": "Broker's full address - EXTRACT FIRST!",
@@ -595,7 +591,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
   "equipment": "string",
   "temperature": "string"
 }
-\`\`\`
 
 ---
 
