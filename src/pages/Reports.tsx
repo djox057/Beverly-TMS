@@ -183,7 +183,7 @@ const Reports = () => {
     if (calendarDates[dispatcherId]) {
       return calendarDates[dispatcherId];
     }
-    // Default to 2 days before current day to show 5 days
+    // Default to 2 days before current day to show 6 days
     return addDays(new Date(), -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
@@ -231,7 +231,7 @@ const Reports = () => {
     const isLastTruck = truckIndex === totalTrucks - 1;
     const days = Array.from(
       {
-        length: 5,
+        length: 6,
       },
       (_, i) => addDays(startDate, i),
     );
@@ -1100,7 +1100,7 @@ const Reports = () => {
                     const startDate = getCalendarStartDate(group.dispatcherId);
                     const days = Array.from(
                       {
-                        length: 5,
+                        length: 6,
                       },
                       (_, i) => addDays(startDate, i),
                     );

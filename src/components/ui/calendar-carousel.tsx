@@ -73,8 +73,8 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
 
   const statusColors = getStatusColors(truckData.status);
 
-  // Generate 5 consecutive days starting from startDate
-  const days = Array.from({ length: 5 }, (_, i) => addDays(startDate, i));
+  // Generate 6 consecutive days starting from startDate
+  const days = Array.from({ length: 6 }, (_, i) => addDays(startDate, i));
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     setStartDate(prev => addDays(prev, direction === 'next' ? 7 : -7));
@@ -197,7 +197,7 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="text-xs font-medium text-gray-700">
-          {format(startDate, 'MMM dd')} - {format(addDays(startDate, 4), 'MMM dd, yyyy')}
+          {format(startDate, 'MMM dd')} - {format(addDays(startDate, 5), 'MMM dd, yyyy')}
         </div>
         <button
           onClick={() => navigateWeek('next')}
