@@ -36,6 +36,7 @@ interface PickupDrop {
   contactName?: string;
   contactPhone?: string;
   specialInstructions?: string;
+  companyName?: string;
 }
 
 const EditOrder = () => {
@@ -67,6 +68,11 @@ const EditOrder = () => {
   const [tonu, setTonu] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
+  const [commodity, setCommodity] = useState("");
+  const [weight, setWeight] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [puNumber, setPuNumber] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
   const [rcFiles, setRcFiles] = useState<FileList | null>(null);
   const [bolFiles, setBolFiles] = useState<FileList | null>(null);
@@ -221,6 +227,11 @@ const EditOrder = () => {
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
+        setCommodity((orderData as any).commodity || "");
+        setWeight((orderData as any).weight?.toString() || "");
+        setReferenceNumber((orderData as any).reference_number || "");
+        setPoNumber((orderData as any).po_number || "");
+        setPuNumber((orderData as any).pu_number || "");
         setNotes(orderData.notes || "");
         setBookedBy(orderData.booked_by || "");
         setInvoiced(orderData.invoiced ? "Done" : "false");
@@ -292,7 +303,8 @@ const EditOrder = () => {
               zipCode: pd.zip_code || "",
               contactName: pd.contact_name || "",
               contactPhone: pd.contact_phone || "",
-              specialInstructions: pd.special_instructions || ""
+              specialInstructions: pd.special_instructions || "",
+              companyName: pd.company_name || ""
             };
           });
           
@@ -776,6 +788,11 @@ const EditOrder = () => {
           loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
           dh_miles: dhMiles ? parseInt(dhMiles) : null,
           mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
+          commodity: commodity || null,
+          weight: weight ? parseFloat(weight) : null,
+          reference_number: referenceNumber || null,
+          po_number: poNumber || null,
+          pu_number: puNumber || null,
           notes: notes || null,
           booked_by: bookedBy || null,
           invoiced: invoiced === "Done"
@@ -854,6 +871,7 @@ const EditOrder = () => {
               city: parsedAddress.city || null,
               state: parsedAddress.state || null,
               zip_code: parsedAddress.zipCode || null,
+              company_name: (item as any).companyName || null,
               datetime: datetime?.toISOString() || null,
               sequence_number: index + 1,
               contact_name: item.contactName || null,

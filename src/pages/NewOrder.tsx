@@ -1133,6 +1133,11 @@ const NewOrder = () => {
         loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
         dh_miles: dhMiles ? parseInt(dhMiles) : null,
         mileage: ((parseInt(dhMiles) || 0) + (parseInt(loadedMiles) || 0)) || null,
+        commodity: commodity || null,
+        weight: weight ? parseFloat(weight) : null,
+        reference_number: pickupPuNumber || null,
+        po_number: pickupPoNumber || deliveryPoNumber || null,
+        pu_number: pickupPuNumber || null,
         booked_by: profile?.full_name || 'Unknown User'
       };
 
@@ -1202,6 +1207,7 @@ const NewOrder = () => {
             city,
             state,
             zip_code: zipCode,
+            company_name: item.type === 'pickup' ? pickupShipper : deliveryShipper,
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
               : null
