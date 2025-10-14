@@ -843,44 +843,84 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.58.0');
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         
-        // Fetch all brokers
+        // Helper function to extract city from address
+        const extractCity = (address: string): string => {
+          // Try to extract city (usually before state abbreviation)
+          const cityMatch = address.match(/,\s*([^,]+?)\s*,?\s*[A-Z]{2}\s*\d{5}/i);
+          if (cityMatch) return cityMatch[1].toLowerCase().trim();
+          
+          // Fallback: look for pattern like "City, ST"
+          const simpleCityMatch = address.match(/,\s*([^,]+?)\s*,\s*[A-Z]{2}/i);
+          if (simpleCityMatch) return simpleCityMatch[1].toLowerCase().trim();
+          
+          return '';
+        };
+
+        // Helper function for fuzzy name matching
+        const fuzzyNameMatch = (name1: string, name2: string): boolean => {
+          const normalize = (str: string) => str.toLowerCase()
+            .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
+            .replace(/[^\w\s]/g, '')
+            .trim();
+          
+          const n1 = normalize(name1);
+          const n2 = normalize(name2);
+          
+          // Split into words and check if significant words match
+          const words1 = n1.split(/\s+/).filter(w => w.length > 2);
+          const words2 = n2.split(/\s+/).filter(w => w.length > 2);
+          
+          if (words1.length === 0 || words2.length === 0) return false;
+          
+          // Check if at least 60% of words from the shorter name appear in the longer one
+          const shorter = words1.length <= words2.length ? words1 : words2;
+          const longer = words1.length > words2.length ? words1 : words2;
+          
+          const matchCount = shorter.filter(word => 
+            longer.some(w => w.includes(word) || word.includes(w))
+          ).length;
+          
+          return matchCount / shorter.length >= 0.6;
+        };
+
+        // Fetch ALL brokers (no limit)
         const { data: brokers, error: brokersError } = await supabaseAdmin
           .from('brokers')
-          .select('id, name, address');
+          .select('id, name, address')
+          .order('name');
         
         if (brokersError) {
           console.error('Error fetching brokers:', brokersError);
         } else if (brokers && brokers.length > 0) {
           console.log(`Found ${brokers.length} brokers in database`);
           
-          // Try to match by name first (case-insensitive, partial match)
           let matchedBroker = null;
           
+          // Try to match by name first (fuzzy matching)
           if (extractedData.brokerName) {
-            const normalizedExtractedName = extractedData.brokerName.toLowerCase().trim();
-            matchedBroker = brokers.find(b => {
-              const normalizedDbName = b.name.toLowerCase().trim();
-              return normalizedDbName.includes(normalizedExtractedName) || 
-                     normalizedExtractedName.includes(normalizedDbName);
-            });
+            console.log(`🔍 Attempting fuzzy name match for: "${extractedData.brokerName}"`);
+            matchedBroker = brokers.find(b => fuzzyNameMatch(b.name, extractedData.brokerName!));
             
             if (matchedBroker) {
               console.log(`✅ Matched broker by name: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
             }
           }
           
-          // If no name match, try address match (case-insensitive, partial)
+          // If no name match, try city-based address match
           if (!matchedBroker && extractedData.brokerAddress) {
-            const normalizedExtractedAddress = extractedData.brokerAddress.toLowerCase().trim();
-            matchedBroker = brokers.find(b => {
-              if (!b.address) return false;
-              const normalizedDbAddress = b.address.toLowerCase().trim();
-              return normalizedDbAddress.includes(normalizedExtractedAddress) || 
-                     normalizedExtractedAddress.includes(normalizedDbAddress);
-            });
+            const extractedCity = extractCity(extractedData.brokerAddress);
+            console.log(`🔍 Attempting city-based address match for city: "${extractedCity}"`);
             
-            if (matchedBroker) {
-              console.log(`✅ Matched broker by address: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+            if (extractedCity) {
+              matchedBroker = brokers.find(b => {
+                if (!b.address) return false;
+                const dbCity = extractCity(b.address);
+                return dbCity && dbCity === extractedCity;
+              });
+              
+              if (matchedBroker) {
+                console.log(`✅ Matched broker by city: ${matchedBroker.name} (ID: ${matchedBroker.id})`);
+              }
             }
           }
           
@@ -889,6 +929,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
             console.log('✅ Broker matched successfully!');
           } else {
             console.log('⚠️ No matching broker found in database');
+            if (extractedData.brokerName) console.log(`   Extracted name: "${extractedData.brokerName}"`);
+            if (extractedData.brokerAddress) console.log(`   Extracted address: "${extractedData.brokerAddress}"`);
           }
         }
       } catch (brokerMatchError) {
