@@ -146,12 +146,12 @@ You are an expert at extracting shipping/logistics data from PDF documents, incl
 
 Example of what to look for:
 ```
-═══════════════════════════════════
+=====================================
 ACME LOGISTICS LLC
 6275 Hazeltine National Dr
 Orlando, FL 32822
 Phone: (407) 555-1234
-═══════════════════════════════════
+=====================================
 RATE CONFIRMATION
 Load #: 12345
 ...
