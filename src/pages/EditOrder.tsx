@@ -166,11 +166,12 @@ const EditOrder = () => {
         .from('orders')
         .select(`
           *,
-          pickup_drops(*),
+          pickup_drops!inner(*),
           order_files(*),
           trailer:trailer_id(trailer_number)
         `)
         .eq('id', id)
+        .order('sequence_number', { foreignTable: 'pickup_drops', ascending: true })
         .single();
 
       console.log('Order data response:', { orderData, error });
