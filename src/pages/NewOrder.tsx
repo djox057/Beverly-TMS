@@ -634,9 +634,10 @@ const NewOrder = () => {
           newPickupsDrops.push({
             id: `pickup-${index + 1}`,
             type: "pickup",
-            address: pickup.zip 
-              ? `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}`
-              : `${pickup.address}${pickup.city ? `, ${pickup.city}` : ''}${pickup.state ? `, ${pickup.state}` : ''}`,
+            address: pickup.address || "",
+            city: pickup.city || "",
+            state: pickup.state || "",
+            zipCode: pickup.zip || "",
             datetime: pickup.date || "",
             dateRange: pickupDateRange,
             startTime: pickup.startTime || "",
@@ -673,10 +674,11 @@ const NewOrder = () => {
 
           newPickupsDrops.push({
             id: `delivery-${index + 1}`,
-            type: "delivery", 
-            address: delivery.zip 
-              ? `${delivery.address}, ${delivery.city}, ${delivery.state} ${delivery.zip}`
-              : `${delivery.address}${delivery.city ? `, ${delivery.city}` : ''}${delivery.state ? `, ${delivery.state}` : ''}`,
+            type: "delivery",
+            address: delivery.address || "",
+            city: delivery.city || "",
+            state: delivery.state || "",
+            zipCode: delivery.zip || "",
             datetime: delivery.date || "",
             dateRange: deliveryDateRange,
             startTime: delivery.startTime || "",
