@@ -1119,7 +1119,7 @@ const Reports = () => {
                               <tr className="bg-muted/50">
                                 <th
                                   colSpan={3}
-                                  className="border-r border-b border-border px-2 py-1 text-left font-bold text-foreground bg-muted/50"
+                                  className="border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold text-foreground bg-muted/50"
                                   style={{
                                     fontSize: "0.825rem",
                                   }}
@@ -1129,7 +1129,7 @@ const Reports = () => {
                                     <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
                                   )}
                                 </th>
-                                <th colSpan={6} className="border-r border-b border-border px-2 py-1 bg-muted/50">
+                                <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
                                   <div className="flex items-center justify-center">
                                     <button
                                       onClick={() =>
@@ -1154,7 +1154,7 @@ const Reports = () => {
                                 </th>
                                 <th
                                   colSpan={4}
-                                  className="border-r border-b border-border bg-muted/50"
+                                  className="border-r border-b-[2px] border-gray-400 bg-muted/50"
                                   style={{
                                     width: "220px",
                                     minWidth: "220px",
@@ -1163,7 +1163,7 @@ const Reports = () => {
                                 ></th>
                                 <th
                                   colSpan={2}
-                                  className={`bg-muted/50 border-l border-b border-border px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
+                                  className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
                                 >
                                   Recent Activity
                                 </th>
