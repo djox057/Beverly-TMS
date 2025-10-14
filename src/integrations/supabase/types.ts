@@ -394,6 +394,7 @@ export type Database = {
       orders: {
         Row: {
           booked_by: string | null
+          booked_by_company_id: string | null
           broker_id: string | null
           broker_load_number: string | null
           canceled: boolean
@@ -429,6 +430,7 @@ export type Database = {
         }
         Insert: {
           booked_by?: string | null
+          booked_by_company_id?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
@@ -464,6 +466,7 @@ export type Database = {
         }
         Update: {
           booked_by?: string | null
+          booked_by_company_id?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
@@ -498,6 +501,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_booked_by_company_id_fkey"
+            columns: ["booked_by_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_broker_id_fkey"
             columns: ["broker_id"]

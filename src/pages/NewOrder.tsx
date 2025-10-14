@@ -1013,7 +1013,8 @@ const NewOrder = () => {
       // Create order data object for the atomic function
       const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
-        company_id: truckCompanyId,
+        company_id: truckCompanyId, // Truck's company for internal load numbering
+        booked_by_company_id: bookedByCompany, // Company that booked the order
         broker_id: broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,

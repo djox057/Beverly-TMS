@@ -111,6 +111,7 @@ export const useOrders = () => {
           driver1:drivers!orders_driver1_id_fkey(name),
           broker:brokers!orders_broker_id_fkey(name, address),
           company:companies!orders_company_id_fkey(name),
+          booked_by_company:companies!orders_booked_by_company_id_fkey(name),
           pickup_drops(type, city, state, datetime, address),
           order_files(id, file_name, file_path, file_size, content_type, file_category)
         `)
@@ -160,7 +161,7 @@ export const useOrders = () => {
           totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0),
           notes: order.notes || '',
           bookedBy: order.booked_by || 'N/A',
-          companyName: order.company?.name || 'N/A',
+          companyName: order.booked_by_company?.name || 'N/A', // Show booked by company
           locked: order.locked || false,
           canceled: order.canceled || false,
           status: order.status || 'pending',
