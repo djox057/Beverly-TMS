@@ -117,12 +117,22 @@ const Orders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   
-  // Set bookedBy filter for dispatchers when profile loads
+  // Set bookedBy filter for dispatchers when profile loads - and prevent changing it
   useEffect(() => {
     if (isDispatcher && profile?.full_name) {
       setBookedByFilter(profile.full_name);
     }
   }, [isDispatcher, profile?.full_name]);
+
+  // For dispatchers, prevent them from seeing orders until their profile loads
+  // This ensures they never see other dispatcher's loads
+  if (isDispatcher && !profile?.full_name) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>;
+  }
   const {
     data: orders,
     isLoading,
@@ -186,7 +196,13 @@ const Orders = () => {
       (order.brokerLoadNumber?.toLowerCase() || '').includes(searchLower);
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
-    const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
+    
+    // For dispatchers, ALWAYS filter by their name (strict filtering)
+    // For other roles, use the normal filter logic
+    const matchesBookedBy = isDispatcher 
+      ? order.bookedBy === bookedByFilter 
+      : (!bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter);
+    
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
     
