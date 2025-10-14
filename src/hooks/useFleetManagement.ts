@@ -215,7 +215,7 @@ export const useFleetManagement = () => {
           .from('dispatcher_status')
           .select('inactive_trucks')
           .eq('dispatcher_id', dispatcherId)
-          .single();
+          .maybeSingle();
 
         const inactiveTruckIds = (status?.inactive_trucks as string[]) || [];
 
@@ -236,12 +236,17 @@ export const useFleetManagement = () => {
               .in('id', trucksToReassign);
 
             if (reassignError) throw reassignError;
-          }
 
-          toast({
-            title: "Success",
-            description: `Dispatcher set to Active. ${trucksToReassign.length} trucks reassigned.`,
-          });
+            toast({
+              title: "Success",
+              description: `Dispatcher set to Active. ${trucksToReassign.length} trucks reassigned.`,
+            });
+          } else {
+            toast({
+              title: "Success",
+              description: "Dispatcher set to Active.",
+            });
+          }
         } else {
           toast({
             title: "Success",
