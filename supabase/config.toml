@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.recalculate-load-miles]
 verify_jwt = false
+
+[functions.update-user-role]
+verify_jwt = false
