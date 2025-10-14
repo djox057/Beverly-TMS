@@ -977,55 +977,64 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           
           let matchedBroker = null;
           let bestMatchScore = 0;
-          const MIN_NAME_MATCH_SCORE = 0.85; // Require 85% word match (lowered from 90% since we have better splitting)
-          const MIN_CITY_NAME_MATCH_SCORE = 0.7; // Require 70% name match when matching by city (increased from 50%)
+          let matchMethod = '';
+          const MIN_NAME_MATCH_SCORE = 0.85; // Require 85% word match
+          const MIN_ADDRESS_MATCH_SCORE = 0.8; // Require 80% for address-only match
           
-          // Try to match by name first (strict exact word matching)
+          // Strategy 1: Try to match by name
           if (extractedData.brokerName) {
-            console.log(`🔍 Attempting strict name match for: "${extractedData.brokerName}"`);
+            console.log(`🔍 Attempting name match for: "${extractedData.brokerName}"`);
             
             for (const broker of brokers) {
               const nameScore = strictNameMatch(broker.name, extractedData.brokerName);
               if (nameScore >= MIN_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
                 matchedBroker = broker;
                 bestMatchScore = nameScore;
-                console.log(`   ✅ Candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
+                matchMethod = 'name';
+                console.log(`   ✅ Name match candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
               }
             }
             
             if (matchedBroker) {
-              console.log(`✅ Matched broker by name: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
+              console.log(`✅ Matched broker by NAME: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
             } else {
-              console.log(`❌ No name match found (threshold: ${MIN_NAME_MATCH_SCORE * 100}%)`);
+              console.log(`❌ No name-only match found (threshold: ${MIN_NAME_MATCH_SCORE * 100}%)`);
             }
           }
           
-          // If no name match, try city-based address match WITH name similarity check
-          if (!matchedBroker && extractedData.brokerAddress && extractedData.brokerName) {
+          // Strategy 2: Try to match by address (independent of name)
+          if (!matchedBroker && extractedData.brokerAddress) {
             const extractedCity = extractCity(extractedData.brokerAddress);
-            console.log(`🔍 Attempting city + name match for city: "${extractedCity}"`);
+            console.log(`🔍 Attempting address match for city: "${extractedCity}"`);
             
             if (extractedCity) {
+              let addressMatchCandidates: Array<{broker: any, score: number}> = [];
+              
               for (const broker of brokers) {
                 if (!broker.address) continue;
                 
                 const dbCity = extractCity(broker.address);
                 if (dbCity && dbCity === extractedCity) {
-                  // City matches, now check if name has at least some similarity
-                  const nameScore = strictNameMatch(broker.name, extractedData.brokerName);
-                  console.log(`   City match candidate: ${broker.name} - Name similarity: ${(nameScore * 100).toFixed(0)}%`);
-                  
-                  if (nameScore >= MIN_CITY_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
-                    matchedBroker = broker;
-                    bestMatchScore = nameScore;
-                  }
+                  // City matches - calculate address similarity score
+                  const addressScore = strictNameMatch(broker.address, extractedData.brokerAddress);
+                  addressMatchCandidates.push({ broker, score: addressScore });
+                  console.log(`   Address candidate: ${broker.name} (${dbCity}) - Address score: ${(addressScore * 100).toFixed(0)}%`);
                 }
               }
               
-              if (matchedBroker) {
-                console.log(`✅ Matched broker by city+name: ${matchedBroker.name} (Name Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
+              // Find best address match
+              for (const candidate of addressMatchCandidates) {
+                if (candidate.score >= MIN_ADDRESS_MATCH_SCORE && candidate.score > bestMatchScore) {
+                  matchedBroker = candidate.broker;
+                  bestMatchScore = candidate.score;
+                  matchMethod = 'address';
+                }
+              }
+              
+              if (matchedBroker && matchMethod === 'address') {
+                console.log(`✅ Matched broker by ADDRESS: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
               } else {
-                console.log(`❌ No city+name match found (city must match + name similarity >= ${MIN_CITY_NAME_MATCH_SCORE * 100}%)`);
+                console.log(`❌ No address match found (city must match + address similarity >= ${MIN_ADDRESS_MATCH_SCORE * 100}%)`);
               }
             }
           }
