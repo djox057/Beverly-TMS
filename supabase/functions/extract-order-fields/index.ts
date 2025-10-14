@@ -866,12 +866,15 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           ];
           
           let result = text.toLowerCase();
-          // Try to split by finding known words
+          // Try to split by finding known words (longest first to avoid partial matches)
           for (const word of commonWords.sort((a, b) => b.length - a.length)) {
-            const regex = new RegExp(word, 'g');
+            const regex = new RegExp(`\\b${word}\\b|(?<![a-z])${word}(?![a-z])`, 'gi');
             result = result.replace(regex, ` ${word} `);
           }
-          return result.trim().split(/\s+/).filter(w => w.length > 0);
+          
+          // Clean up and return unique words only
+          const words = result.trim().split(/\s+/).filter(w => w.length > 1);
+          return [...new Set(words)]; // Remove duplicates
         };
 
         // Extract email domain from address
@@ -880,64 +883,93 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return emailMatch ? emailMatch[1].toLowerCase().replace(/\./g, '') : null;
         };
 
-        // Simple broker matching using word-based matching and email domain
+        // Normalize company name for comparison
+        const normalizeName = (name: string): string => {
+          return name
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
+        // Check if domain matches company name
+        const domainMatchesName = (domain: string, companyName: string): boolean => {
+          const normalized = normalizeName(companyName).replace(/\s/g, '');
+          const domainBase = domain.split('com')[0].split('net')[0].split('org')[0];
+          return normalized.includes(domainBase) || domainBase.includes(normalized);
+        };
+
+        // Broker matching with email domain priority and consecutive word matching
         const matchBroker = (extractedName: string, extractedAddress: string, brokers: any[]): any => {
           console.log(`🔍 Matching with name: "${extractedName}"`);
-          
-          // Split extracted name into words
-          const extractedWords = splitConcatenated(extractedName);
-          console.log(`   Split extracted words: ${JSON.stringify(extractedWords)}`);
           
           // Extract domain from address if present
           const extractedDomain = extractDomain(extractedAddress);
           if (extractedDomain) {
             console.log(`   Extracted domain: "${extractedDomain}"`);
+            
+            // First priority: Direct domain matching
+            for (const broker of brokers) {
+              if (broker.address) {
+                const brokerDomain = extractDomain(broker.address);
+                if (brokerDomain && extractedDomain === brokerDomain) {
+                  console.log(`✅ PERFECT MATCH via domain: "${broker.name}"`);
+                  return broker;
+                }
+              }
+              
+              // Second priority: Domain name matches company name
+              if (domainMatchesName(extractedDomain, broker.name)) {
+                console.log(`✅ STRONG MATCH via domain-to-name: "${broker.name}"`);
+                return broker;
+              }
+            }
+          }
+          
+          // Split extracted name into words
+          const extractedWords = splitConcatenated(extractedName);
+          console.log(`   Split extracted words: ${JSON.stringify(extractedWords)}`);
+          
+          if (extractedWords.length === 0) {
+            console.log('   ⚠️ No words extracted after splitting');
+            return null;
           }
           
           // Try to find matches
           const matches: Array<{broker: any, score: number, reason: string}> = [];
           
           for (const broker of brokers) {
-            // Try domain matching first (if available) - very strong signal
-            if (extractedDomain && broker.address) {
-              const brokerDomain = extractDomain(broker.address);
-              if (brokerDomain && extractedDomain === brokerDomain) {
-                matches.push({
-                  broker,
-                  score: 1.0,
-                  reason: 'domain match'
-                });
-                console.log(`   ✅ Domain match: "${broker.name}"`);
-                continue;
+            const brokerNormalized = normalizeName(broker.name);
+            const brokerWords = brokerNormalized.split(/\s+/).filter(w => w.length > 1);
+            
+            // Check if all extracted words appear in broker name in the same order
+            let allWordsFound = true;
+            let lastIndex = -1;
+            for (const ew of extractedWords) {
+              const foundIndex = brokerWords.findIndex((bw, idx) => 
+                idx > lastIndex && (bw === ew || bw.includes(ew) || ew.includes(bw))
+              );
+              if (foundIndex === -1) {
+                allWordsFound = false;
+                break;
               }
+              lastIndex = foundIndex;
             }
             
-            // Split broker name into words (remove common suffixes)
-            const brokerNameClean = broker.name
-              .replace(/,?\s*(LLC|INC|CORP|LTD|LIMITED|COMPANY|CO)\.?\s*$/i, '')
-              .replace(/[^a-z0-9\s]/gi, ' ');
-            const brokerWords = brokerNameClean.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-            
-            // Word-based matching: count how many extracted words appear in broker name
-            const matchedWords = extractedWords.filter(ew => 
-              brokerWords.some(bw => bw.includes(ew) || ew.includes(bw))
-            );
-            
-            if (matchedWords.length > 0) {
-              // Score based on:
-              // 1. Percentage of extracted words matched
-              // 2. Penalty for extra words in broker name
-              const extractedMatchRatio = matchedWords.length / extractedWords.length;
-              const brokerWordsPenalty = Math.max(0, (brokerWords.length - extractedWords.length)) * 0.05;
-              const score = Math.max(0, extractedMatchRatio - brokerWordsPenalty);
+            if (allWordsFound && extractedWords.length >= 2) {
+              // Perfect match: all words in correct order
+              const score = 1.0;
+              matches.push({ broker, score, reason: 'consecutive word match' });
+              console.log(`   ✅ CONSECUTIVE match: "${broker.name}" (all ${extractedWords.length} words in order)`);
+            } else {
+              // Partial word matching
+              const matchedWords = extractedWords.filter(ew => 
+                brokerWords.some(bw => bw === ew || bw.includes(ew) || ew.includes(bw))
+              );
               
-              if (score >= 0.6) {
-                matches.push({
-                  broker,
-                  score,
-                  reason: 'word-based match'
-                });
-                console.log(`   ✅ Word match: "${broker.name}" (matched: ${matchedWords.length}/${extractedWords.length} words, score: ${(score * 100).toFixed(0)}%)`);
+              if (matchedWords.length >= Math.ceil(extractedWords.length * 0.7)) {
+                const score = matchedWords.length / extractedWords.length * 0.8;
+                matches.push({ broker, score, reason: 'partial word match' });
               }
             }
           }
@@ -955,6 +987,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
             }
           }
           
+          console.log('   ❌ No suitable matches found');
           return null;
         };
         
