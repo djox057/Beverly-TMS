@@ -484,9 +484,9 @@ const Reports = () => {
           key={index}
           className={`border-b-[3px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`}
           style={{
-            width: isToday ? "116.4px" : "120px",
-            minWidth: isToday ? "116.4px" : "120px",
-            maxWidth: isToday ? "116.4px" : "120px",
+            width: isToday ? "114px" : "120px",
+            minWidth: isToday ? "114px" : "120px",
+            maxWidth: isToday ? "114px" : "120px",
             verticalAlign: "top",
             ...(showRightBorder
               ? {
@@ -524,7 +524,7 @@ const Reports = () => {
           <div
             className="flex flex-col relative"
             style={{
-              width: "120px",
+              width: isToday ? "114px" : "120px",
               height: "64px",
             }}
           >
@@ -1200,9 +1200,9 @@ const Reports = () => {
                                       key={index}
                                       className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                       style={{
-                                        width: "120px",
-                                        minWidth: "120px",
-                                        maxWidth: "120px",
+                                        width: isToday ? "114px" : "120px",
+                                        minWidth: isToday ? "114px" : "120px",
+                                        maxWidth: isToday ? "114px" : "120px",
                                         ...(isToday
                                           ? {
                                               position: "relative",
