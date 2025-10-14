@@ -891,7 +891,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const normalizeText = (text: string): string => {
           return text
             .toUpperCase()
-            .replace(/[^\w\s@.-]/g, ' ')
+            .replace(/[.,;:!?'"()\[\]{}]/g, ' ')  // Remove common punctuation including periods
             .replace(/\b(INC|LLC|LTD|CO|COMPANY|CORP|CORPORATION|DBA|THE)\b/g, '')
             .replace(/\s+/g, ' ')
             .trim();
@@ -959,6 +959,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           const extractedLocation = parseAddress(extractedAddress);
           const normalizedExtractedName = normalizeText(extractedName);
           
+          console.log(`   Normalized extracted name: "${normalizedExtractedName}"`);
           console.log(`   MC: ${extractedMC || 'none'}`);
           console.log(`   Email domain: ${extractedDomain || 'none'}`);
           console.log(`   Area code: ${extractedAreaCode || 'none'}`);
@@ -985,6 +986,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
             if (normalizedExtractedName === normalizedBrokerName) {
               score += 60;
               reasons.push(`exact name (+60)`);
+              console.log(`   🎯 EXACT NAME MATCH: ${broker.name}`);
             }
             
             // 3. Fuzzy name similarity (token_sort_ratio) × 0.4 → up to +40
@@ -1053,6 +1055,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           let confidence: 'AUTO_MATCH' | 'REVIEW' | 'NO_MATCH' = 'NO_MATCH';
           let matchedBrokerId: string | null = null;
           let matchedCompanyName = '';
+          
+          console.log(`\n🏁 Matching complete. Best match: ${bestMatch ? bestMatch.broker.name : 'none'}, score: ${bestScore}`);
           
           if (bestMatch) {
             if (bestScore >= 100) {
