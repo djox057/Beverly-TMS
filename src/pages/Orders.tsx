@@ -176,7 +176,12 @@ const Orders = () => {
       (order.brokerLoadNumber?.toLowerCase() || '').includes(searchLower);
     const matchesCompany = !companyFilter || companyFilter === 'all-companies' || order.companyName === companyFilter;
     const matchesTruckCompany = !truckCompanyFilter || truckCompanyFilter === 'all-truck-companies' || order.truckCompanyName === truckCompanyFilter;
-    const matchesBookedBy = !bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter;
+    
+    // For dispatch-only users, STRICTLY filter by their name
+    const matchesBookedBy = isDispatchOnly && profile?.full_name 
+      ? order.bookedBy === profile.full_name 
+      : (!bookedByFilter || bookedByFilter === 'all-users' || order.bookedBy === bookedByFilter);
+    
     const matchesTruck = !truckFilter || truckFilter === 'all-trucks' || order.truckNumber === truckFilter;
     const matchesDriver = !driverFilter || driverFilter === 'all-drivers' || order.driverName === driverFilter;
     
@@ -442,7 +447,7 @@ const Orders = () => {
                 className="w-48"
               />
               
-              {primaryRole !== 'dispatch' && (
+              {!isDispatchOnly && (
                 <Combobox
                   value={bookedByFilter}
                   onValueChange={setBookedByFilter}
