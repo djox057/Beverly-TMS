@@ -856,15 +856,59 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Simple broker matching - prioritize MC number, then use flexible name matching
+        // Levenshtein distance for fuzzy matching
+        const levenshtein = (a: string, b: string): number => {
+          const matrix = [];
+          for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+          }
+          for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+          }
+          for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+              if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+              } else {
+                matrix[i][j] = Math.min(
+                  matrix[i - 1][j - 1] + 1,
+                  matrix[i][j - 1] + 1,
+                  matrix[i - 1][j] + 1
+                );
+              }
+            }
+          }
+          return matrix[b.length][a.length];
+        };
+
+        // Calculate similarity score (0-1)
+        const similarity = (a: string, b: string): number => {
+          const distance = levenshtein(a, b);
+          const maxLen = Math.max(a.length, b.length);
+          return maxLen === 0 ? 1 : 1 - distance / maxLen;
+        };
+
+        // Extract email domain from address
+        const extractDomain = (address: string): string | null => {
+          const emailMatch = address.match(/@([a-z0-9.-]+\.[a-z]{2,})/i);
+          return emailMatch ? emailMatch[1].toLowerCase().replace(/\./g, '') : null;
+        };
+
+        // Simple broker matching using fuzzy matching and email domain
         const matchBroker = (extractedName: string, extractedAddress: string, brokers: any[]): any => {
           console.log(`🔍 Matching with name: "${extractedName}"`);
           
-          // Normalize function - just lowercase and remove spaces/punctuation
+          // Normalize function
           const simplify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
           
           const simplifiedExtracted = simplify(extractedName);
           console.log(`   Simplified extracted: "${simplifiedExtracted}"`);
+          
+          // Extract domain from address if present
+          const extractedDomain = extractDomain(extractedAddress);
+          if (extractedDomain) {
+            console.log(`   Extracted domain: "${extractedDomain}"`);
+          }
           
           // Try to find matches
           const matches: Array<{broker: any, score: number, reason: string}> = [];
@@ -872,43 +916,55 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           for (const broker of brokers) {
             const simplifiedBroker = simplify(broker.name);
             
-            // Check if one contains the other (after simplification)
-            if (simplifiedExtracted.includes(simplifiedBroker) || simplifiedBroker.includes(simplifiedExtracted)) {
-              const score = Math.min(simplifiedExtracted.length, simplifiedBroker.length) / 
-                           Math.max(simplifiedExtracted.length, simplifiedBroker.length);
+            // Try domain matching first (if available) - very strong signal
+            if (extractedDomain && broker.address) {
+              const brokerDomain = extractDomain(broker.address);
+              if (brokerDomain && extractedDomain === brokerDomain) {
+                matches.push({
+                  broker,
+                  score: 1.0,
+                  reason: 'domain match'
+                });
+                console.log(`   ✅ Domain match: "${broker.name}"`);
+                continue;
+              }
+            }
+            
+            // Fuzzy match on simplified names
+            const score = similarity(simplifiedExtracted, simplifiedBroker);
+            if (score >= 0.75) {
               matches.push({
                 broker,
                 score,
-                reason: 'substring match'
+                reason: 'fuzzy name match'
               });
-              console.log(`   ✅ Substring match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
+              console.log(`   ✅ Fuzzy match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
             }
-            // Also check if removing common words helps (transportation, logistics, llc, etc)
-            else {
-              const removeCommon = (s: string) => s.replace(/(transportation|logistics|freight|trucking|express|llc|inc|company|corp)/g, '');
-              const cleanExtracted = removeCommon(simplifiedExtracted);
-              const cleanBroker = removeCommon(simplifiedBroker);
-              
-              if (cleanExtracted.length >= 3 && cleanBroker.length >= 3 &&
-                  (cleanExtracted.includes(cleanBroker) || cleanBroker.includes(cleanExtracted))) {
-                const score = Math.min(cleanExtracted.length, cleanBroker.length) / 
-                             Math.max(cleanExtracted.length, cleanBroker.length) * 0.9; // Slightly lower score
+            
+            // Try removing common words and fuzzy match again
+            const removeCommon = (s: string) => s.replace(/(transportation|logistics|freight|trucking|express|llc|inc|company|corp|limited|ltd)/g, '');
+            const cleanExtracted = removeCommon(simplifiedExtracted);
+            const cleanBroker = removeCommon(simplifiedBroker);
+            
+            if (cleanExtracted.length >= 3 && cleanBroker.length >= 3) {
+              const cleanScore = similarity(cleanExtracted, cleanBroker);
+              if (cleanScore >= 0.7) {
                 matches.push({
                   broker,
-                  score,
-                  reason: 'cleaned substring match'
+                  score: cleanScore * 0.95, // Slightly lower score
+                  reason: 'fuzzy cleaned match'
                 });
-                console.log(`   ✅ Cleaned match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
+                console.log(`   ✅ Cleaned fuzzy match: "${broker.name}" (score: ${(cleanScore * 100).toFixed(0)}%)`);
               }
             }
           }
           
-          // Sort by score and return best match if score is good enough
+          // Sort by score and return best match
           if (matches.length > 0) {
             matches.sort((a, b) => b.score - a.score);
             const best = matches[0];
             
-            if (best.score >= 0.6) { // 60% threshold
+            if (best.score >= 0.7) {
               console.log(`✅ Best match: "${best.broker.name}" (${best.reason}, score: ${(best.score * 100).toFixed(0)}%)`);
               return best.broker;
             } else {
