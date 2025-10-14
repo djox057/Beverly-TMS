@@ -856,36 +856,22 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Levenshtein distance for fuzzy matching
-        const levenshtein = (a: string, b: string): number => {
-          const matrix = [];
-          for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
+        // Split concatenated words (e.g., "TRANSPORTATIONONE" -> ["TRANSPORTATION", "ONE"])
+        const splitConcatenated = (text: string): string[] => {
+          const commonWords = [
+            'transportation', 'logistics', 'freight', 'trucking', 'express',
+            'delivery', 'shipping', 'transport', 'cargo', 'haul', 'one', 'two',
+            'three', 'first', 'global', 'national', 'international', 'american',
+            'united', 'premier', 'elite', 'pro', 'solutions', 'services'
+          ];
+          
+          let result = text.toLowerCase();
+          // Try to split by finding known words
+          for (const word of commonWords.sort((a, b) => b.length - a.length)) {
+            const regex = new RegExp(word, 'g');
+            result = result.replace(regex, ` ${word} `);
           }
-          for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-          }
-          for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-              if (b.charAt(i - 1) === a.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-              } else {
-                matrix[i][j] = Math.min(
-                  matrix[i - 1][j - 1] + 1,
-                  matrix[i][j - 1] + 1,
-                  matrix[i - 1][j] + 1
-                );
-              }
-            }
-          }
-          return matrix[b.length][a.length];
-        };
-
-        // Calculate similarity score (0-1)
-        const similarity = (a: string, b: string): number => {
-          const distance = levenshtein(a, b);
-          const maxLen = Math.max(a.length, b.length);
-          return maxLen === 0 ? 1 : 1 - distance / maxLen;
+          return result.trim().split(/\s+/).filter(w => w.length > 0);
         };
 
         // Extract email domain from address
@@ -894,15 +880,13 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return emailMatch ? emailMatch[1].toLowerCase().replace(/\./g, '') : null;
         };
 
-        // Simple broker matching using fuzzy matching and email domain
+        // Simple broker matching using word-based matching and email domain
         const matchBroker = (extractedName: string, extractedAddress: string, brokers: any[]): any => {
           console.log(`🔍 Matching with name: "${extractedName}"`);
           
-          // Normalize function
-          const simplify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          const simplifiedExtracted = simplify(extractedName);
-          console.log(`   Simplified extracted: "${simplifiedExtracted}"`);
+          // Split extracted name into words
+          const extractedWords = splitConcatenated(extractedName);
+          console.log(`   Split extracted words: ${JSON.stringify(extractedWords)}`);
           
           // Extract domain from address if present
           const extractedDomain = extractDomain(extractedAddress);
@@ -914,8 +898,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           const matches: Array<{broker: any, score: number, reason: string}> = [];
           
           for (const broker of brokers) {
-            const simplifiedBroker = simplify(broker.name);
-            
             // Try domain matching first (if available) - very strong signal
             if (extractedDomain && broker.address) {
               const brokerDomain = extractDomain(broker.address);
@@ -930,31 +912,32 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
               }
             }
             
-            // Fuzzy match on simplified names
-            const score = similarity(simplifiedExtracted, simplifiedBroker);
-            if (score >= 0.75) {
-              matches.push({
-                broker,
-                score,
-                reason: 'fuzzy name match'
-              });
-              console.log(`   ✅ Fuzzy match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
-            }
+            // Split broker name into words (remove common suffixes)
+            const brokerNameClean = broker.name
+              .replace(/,?\s*(LLC|INC|CORP|LTD|LIMITED|COMPANY|CO)\.?\s*$/i, '')
+              .replace(/[^a-z0-9\s]/gi, ' ');
+            const brokerWords = brokerNameClean.toLowerCase().split(/\s+/).filter(w => w.length > 1);
             
-            // Try removing common words and fuzzy match again
-            const removeCommon = (s: string) => s.replace(/(transportation|logistics|freight|trucking|express|llc|inc|company|corp|limited|ltd)/g, '');
-            const cleanExtracted = removeCommon(simplifiedExtracted);
-            const cleanBroker = removeCommon(simplifiedBroker);
+            // Word-based matching: count how many extracted words appear in broker name
+            const matchedWords = extractedWords.filter(ew => 
+              brokerWords.some(bw => bw.includes(ew) || ew.includes(bw))
+            );
             
-            if (cleanExtracted.length >= 3 && cleanBroker.length >= 3) {
-              const cleanScore = similarity(cleanExtracted, cleanBroker);
-              if (cleanScore >= 0.7) {
+            if (matchedWords.length > 0) {
+              // Score based on:
+              // 1. Percentage of extracted words matched
+              // 2. Penalty for extra words in broker name
+              const extractedMatchRatio = matchedWords.length / extractedWords.length;
+              const brokerWordsPenalty = Math.max(0, (brokerWords.length - extractedWords.length)) * 0.05;
+              const score = Math.max(0, extractedMatchRatio - brokerWordsPenalty);
+              
+              if (score >= 0.6) {
                 matches.push({
                   broker,
-                  score: cleanScore * 0.95, // Slightly lower score
-                  reason: 'fuzzy cleaned match'
+                  score,
+                  reason: 'word-based match'
                 });
-                console.log(`   ✅ Cleaned fuzzy match: "${broker.name}" (score: ${(cleanScore * 100).toFixed(0)}%)`);
+                console.log(`   ✅ Word match: "${broker.name}" (matched: ${matchedWords.length}/${extractedWords.length} words, score: ${(score * 100).toFixed(0)}%)`);
               }
             }
           }
