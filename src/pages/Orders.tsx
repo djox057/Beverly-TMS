@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -219,7 +219,7 @@ const Orders = () => {
   const uniqueBookedBy = [...new Set(orders?.map(order => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = [...new Set(orders?.map(order => order.truckNumber) || [])].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const uniqueDrivers = [...new Set(orders?.map(order => order.driverName) || [])].filter(Boolean).sort();
-  const exportToExcel = () => {
+  const exportToExcel = useCallback(() => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map(order => ({
       'Truck #': order.truckNumber,
@@ -245,8 +245,8 @@ const Orders = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
     XLSX.writeFile(workbook, `orders_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-  const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
+  }, [filteredOrders]);
+  const toggleOrderLock = useCallback(async (orderId: string, currentLockStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -263,9 +263,9 @@ const Orders = () => {
       console.error('Error toggling order lock:', error);
       toast.error("Failed to update order lock status");
     }
-  };
+  }, [queryClient, toast]);
 
-  const recalculateMiles = async (internalLoadNumber: number, orderId: string) => {
+  const recalculateMiles = useCallback(async (internalLoadNumber: number, orderId: string) => {
     setRecalculatingOrder(orderId);
     try {
       const result = await diagnoseLoadMiles(internalLoadNumber);
@@ -284,9 +284,9 @@ const Orders = () => {
     } finally {
       setRecalculatingOrder(null);
     }
-  };
+  }, [toast]);
 
-  const generateInvoices = async () => {
+  const generateInvoices = useCallback(async () => {
     if (!filteredOrders.length) return;
     try {
       await generateInvoicePDF(filteredOrders);
@@ -308,7 +308,7 @@ const Orders = () => {
     } catch (error) {
       console.error('Error generating invoices:', error);
     }
-  };
+  }, [filteredOrders]);
 
   const cancelSchema = z.object({
     tonu: z.string().min(1, "TONU is required").transform(val => parseFloat(val)),
@@ -317,13 +317,13 @@ const Orders = () => {
     notes: z.string().min(1, "Notes are required")
   });
 
-  const openCancelDialog = (orderId: string) => {
+  const openCancelDialog = useCallback((orderId: string) => {
     setSelectedOrderId(orderId);
     setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
     setCancelDialogOpen(true);
-  };
+  }, []);
 
-  const handleCancelOrder = async () => {
+  const handleCancelOrder = useCallback(async () => {
     if (!selectedOrderId) return;
 
     try {
@@ -362,7 +362,8 @@ const Orders = () => {
         toast.error("Failed to cancel order");
       }
     }
-  };
+  }, [selectedOrderId, cancelFormData, queryClient, toast]);
+  
   return (
     <div className="h-full w-full">
       <div className="space-y-6 p-6 max-w-none">
