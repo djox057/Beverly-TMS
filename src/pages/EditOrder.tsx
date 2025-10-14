@@ -79,6 +79,15 @@ const EditOrder = () => {
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
+  
+  // Driver-specific pickup/delivery times for load confirmation only
+  const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
+  const [driverPickupStartTime, setDriverPickupStartTime] = useState("");
+  const [driverPickupEndTime, setDriverPickupEndTime] = useState("");
+  const [driverDeliveryDateRange, setDriverDeliveryDateRange] = useState<DateRange>();
+  const [driverDeliveryStartTime, setDriverDeliveryStartTime] = useState("");
+  const [driverDeliveryEndTime, setDriverDeliveryEndTime] = useState("");
 
   // Drag states for file uploads
   const [dragStates, setDragStates] = useState({
@@ -530,6 +539,111 @@ const EditOrder = () => {
     items.splice(result.destination.index, 0, reorderedItem);
 
     setPickupsDrops(items);
+  };
+
+  const handleGenerateConfirmation = async () => {
+    if (!bookedByCompany || !truck || !driver1 || pickupsDrops.length < 2) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingConfirmation(true);
+    try {
+      const selectedTruck = trucks?.find(t => t.id === truck);
+      const selectedDriver = drivers?.find(d => d.id === driver1);
+      const firstPickup = pickupsDrops.find(p => p.type === "pickup");
+      const firstDelivery = pickupsDrops.find(p => p.type === "delivery");
+
+      if (!selectedTruck || !selectedDriver || !firstPickup || !firstDelivery) {
+        throw new Error("Missing required data");
+      }
+
+      // Format dates and times
+      const formatDate = (dateRange?: DateRange) => {
+        if (!dateRange?.from) return "";
+        const date = dateRange.from;
+        return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+      };
+
+      const formatTime = (time?: string) => time || "";
+
+      // Prepare data for load confirmation - use driver-specific times if available
+      const confirmationData = {
+        brokerLoadNumber: brokerLoadNumber || "TBD",
+        driverName: selectedDriver.name,
+        truckNumber: selectedTruck.truck_number,
+        trailerNumber: trailer || "",
+        phoneNumber: selectedDriver.phone || "",
+        commodity: "",
+        weight: "",
+        miles: loadedMiles || "",
+        rate: driverPrice || "",
+        pickupShipper: "",
+        pickupAddress: firstPickup.address,
+        pickupCityStateZip: firstPickup.address.split(',').slice(1).join(',').trim() || "",
+        pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
+        pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
+                   ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
+        pickupPuNumber: "",
+        pickupPoNumber: "",
+        deliveryReceiver: "",
+        deliveryAddress: firstDelivery.address,
+        deliveryCityStateZip: firstDelivery.address.split(',').slice(1).join(',').trim() || "",
+        deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
+        deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
+                     ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
+        deliveryPoNumber: ""
+      };
+
+      // Generate PDF via edge function (using fetch for binary data)
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/generate-load-confirmation`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: JSON.stringify(confirmationData)
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to generate confirmation');
+      }
+
+      // Create a blob from the response
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `load-confirmation-${confirmationData.brokerLoadNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Confirmation Generated",
+        description: "Load confirmation PDF has been generated and downloaded."
+      });
+
+    } catch (error: any) {
+      console.error('Confirmation generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate load confirmation",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingConfirmation(false);
+    }
   };
 
   // File drag and drop handlers
@@ -1516,6 +1630,57 @@ const EditOrder = () => {
                 </div>
               </div>
             )}
+
+            {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
+            <Card className="bg-blue-50/30 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-base">Driver Load Confirmation Times</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  These times are used only for generating the driver's load confirmation PDF (not saved to database)
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Driver Pickup Date & Time</Label>
+                    <DateTimeRangePicker
+                      date={driverPickupDateRange}
+                      onDateChange={setDriverPickupDateRange}
+                      startTime={driverPickupStartTime}
+                      endTime={driverPickupEndTime}
+                      onStartTimeChange={setDriverPickupStartTime}
+                      onEndTimeChange={setDriverPickupEndTime}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Driver Delivery Date & Time</Label>
+                    <DateTimeRangePicker
+                      date={driverDeliveryDateRange}
+                      onDateChange={setDriverDeliveryDateRange}
+                      startTime={driverDeliveryStartTime}
+                      endTime={driverDeliveryEndTime}
+                      onStartTimeChange={setDriverDeliveryStartTime}
+                      onEndTimeChange={setDriverDeliveryEndTime}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Generate Load Confirmation Button */}
+            <div className="flex justify-center mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateConfirmation}
+                disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
+                {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <FileText className="mr-2 h-4 w-4" />
+                Generate Load Confirmation
+              </Button>
+            </div>
 
             <div className="flex justify-end gap-4">
               <Button 
