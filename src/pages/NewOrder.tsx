@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ const NewOrder = () => {
   
   const { toast } = useToast();
   const { profile } = useAuthContext();
+  const queryClient = useQueryClient();
 
   // Drag states for file uploads
   const [dragStates, setDragStates] = useState({
@@ -1144,6 +1146,9 @@ const NewOrder = () => {
         title: "Order Created",
         description: `Order ${newInternalLoadNumber} has been successfully created.`
       });
+
+      // Invalidate query cache to refetch next internal load number
+      queryClient.invalidateQueries({ queryKey: ['nextInternalLoadNumber'] });
 
       // Reset form and refetch next internal load number
       setBrokerLoadNumber('');
