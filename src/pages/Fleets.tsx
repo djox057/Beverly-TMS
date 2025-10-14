@@ -218,6 +218,12 @@ const Fleets = () => {
             {/* Dispatcher Fleets */}
             {dispatchers.filter(d => d.trucks.length > 0).map((dispatcherFleet) => {
               const filteredTrucks = filterTrucks(dispatcherFleet.trucks);
+              
+              // Hide dispatcher if searching and no matching trucks
+              if (searchTerm && filteredTrucks.length === 0) {
+                return null;
+              }
+              
               const pageKey = `dispatcher-${dispatcherFleet.dispatcher.id}`;
               const { trucks: paginatedTrucks, totalPages, currentPage } = getPaginatedTrucks(filteredTrucks, pageKey);
               
