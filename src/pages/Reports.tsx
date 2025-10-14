@@ -11,7 +11,6 @@ import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
-import { calculateOrderDistance } from "@/utils/distanceCalculation";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo, memo } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -107,103 +106,12 @@ const Reports = () => {
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
-  const [truckDistances, setTruckDistances] = useState<{
-    [truckId: string]: number;
-  }>({});
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
 
-  // Calculate distances when locations or reports change
-  useEffect(() => {
-    const calculateDistances = async () => {
-      if (!samsaraLocations || !groupedReports) {
-        console.log("⚠️ Missing data for distance calculation:", {
-          hasSamsaraLocations: !!samsaraLocations,
-          hasGroupedReports: !!groupedReports,
-        });
-        return;
-      }
-      console.log("🚀 Starting distance calculations...");
-      console.log("📍 Available Samsara locations:", samsaraLocations.length);
-
-      // Log all Samsara locations for debugging
-      console.log(
-        "📍 All Samsara locations:",
-        samsaraLocations.map((loc) => ({
-          truck_id: loc.truck_id,
-          truck_number: loc.truck_number,
-          lat: loc.latitude,
-          lon: loc.longitude,
-        })),
-      );
-
-      const distances: {
-        [truckId: string]: number;
-      } = {};
-      for (const group of groupedReports) {
-        for (const truck of group.trucks) {
-          const truckLocation = samsaraLocations.find((loc) => loc.truck_id === truck.id);
-          console.log(`\n🚛 Processing truck ${truck.truckNumber}:`, {
-            truckId: truck.id,
-            hasLocation: !!truckLocation,
-            location: truckLocation
-              ? {
-                  lat: truckLocation.latitude,
-                  lon: truckLocation.longitude,
-                }
-              : null,
-            ordersCount: truck.allOrders?.length || 0,
-            truckStatus: truck.status,
-          });
-
-          // Get current load (first non-completed order without POD)
-          const currentOrder = truck.allOrders?.find(
-            (order) => !order.order_files?.some((file: any) => file.file_category === "POD"),
-          );
-          if (truckLocation && currentOrder) {
-            console.log("📦 Order details:", {
-              loadNumber: currentOrder.load_number,
-              status: currentOrder.status,
-              pickupStop: currentOrder.pickupStop,
-              deliveryStop: currentOrder.deliveryStop,
-              hasBOL: currentOrder.order_files?.some((file: any) => file.file_category === "BOL"),
-              hasPOD: currentOrder.order_files?.some((file: any) => file.file_category === "POD"),
-              pickupArrived: currentOrder.pickupStop?.arrived_at,
-            });
-            console.log("📦 VERIFICATION - PickupStop address:", currentOrder.pickupStop?.address);
-            console.log("📦 VERIFICATION - DeliveryStop address:", currentOrder.deliveryStop?.address);
-            const distance = await calculateOrderDistance(truckLocation, currentOrder, truck.status);
-            console.log(`✅ Calculated distance for truck ${truck.truckNumber}:`, distance);
-            if (distance > 0) {
-              distances[truck.id] = distance;
-
-              // Save to database
-              const { error } = await supabase
-                .from("trucks")
-                .update({
-                  miles_away: distance,
-                } as any)
-                .eq("id", truck.id);
-              if (error) {
-                console.error("❌ Error saving miles_away:", error);
-              } else {
-                console.log(`💾 Saved ${distance} miles to database for truck ${truck.truckNumber}`);
-              }
-            }
-          } else {
-            console.log(`⚠️ Skipping truck ${truck.truckNumber}:`, {
-              hasLocation: !!truckLocation,
-              hasOrder: !!currentOrder,
-            });
-          }
-        }
-      }
-      console.log("✅ Distance calculation complete:", distances);
-      setTruckDistances(distances);
-    };
-    calculateDistances();
-  }, [samsaraLocations, groupedReports]);
+  // Miles away are now calculated by a background job every 10 minutes
+  
   const handleEdit = (
     truckId: string,
     field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note",
@@ -1539,14 +1447,12 @@ const Reports = () => {
                                         }}
                                       >
                                         <div className="h-8 border-b border-border flex items-center justify-around px-1">
-                                          {/* Away Days - Show distance in miles if available */}
+                                           {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
                                             <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
-                                            {isLoadingSamsara ? (
-                                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                            ) : truckDistances[truck.id] > 0 ? (
+                                            {truck.milesAway > 0 ? (
                                               <div className="text-[10px] text-[hsl(var(--info))] font-medium">
-                                                {truckDistances[truck.id]}
+                                                {truck.milesAway}
                                               </div>
                                             ) : (
                                               <div className="text-[10px] text-foreground font-medium">

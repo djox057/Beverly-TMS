@@ -522,7 +522,8 @@ export const useReports = () => {
           activeOrdersCount: activeOrders.length,
           totalOrdersCount: truck.orders?.length || 0,
           hasMultipleOrders: (truck.orders?.length || 0) > 1,
-          lostDayNotes: truckLostDayNotes
+          lostDayNotes: truckLostDayNotes,
+          milesAway: truck.miles_away || 0
         };
       }) || [];
 
