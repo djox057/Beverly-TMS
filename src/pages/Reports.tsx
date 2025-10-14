@@ -164,7 +164,8 @@ const Reports = () => {
         if (editing.field === "pickup-location") {
           updates.address = editing.value;
         } else if (editing.field === "pickup-datetime") {
-          updates.datetime = new Date(editing.value).toISOString();
+          const dt = new Date(editing.value);
+          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:00`;
         }
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.pickup.id,
@@ -178,7 +179,8 @@ const Reports = () => {
         if (editing.field === "delivery-location") {
           updates.address = editing.value;
         } else if (editing.field === "delivery-datetime") {
-          updates.datetime = new Date(editing.value).toISOString();
+          const dt = new Date(editing.value);
+          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:00`;
         }
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.delivery.id,

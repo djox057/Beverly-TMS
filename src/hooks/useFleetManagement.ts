@@ -198,13 +198,16 @@ export const useFleetManagement = () => {
       }));
       
       // Store original truck assignments before going off duty
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      
       const { error: statusError } = await supabase
         .from('dispatcher_status')
         .upsert({
           dispatcher_id: dispatcherId,
           is_active: false,
           inactive_trucks: inactiveTrucksData,
-          updated_at: new Date().toISOString()
+          updated_at: timestamp
         }, {
           onConflict: 'dispatcher_id'
         });
@@ -272,13 +275,16 @@ export const useFleetManagement = () => {
       }
 
       // Update dispatcher status to active
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      
       const { error: statusError } = await supabase
         .from('dispatcher_status')
         .upsert({
           dispatcher_id: dispatcherId,
           is_active: true,
           inactive_trucks: null,
-          updated_at: new Date().toISOString()
+          updated_at: timestamp
         }, {
           onConflict: 'dispatcher_id'
         });

@@ -160,12 +160,14 @@ serve(async (req) => {
           console.log(`  Fresh: ${isFresh}`);
           
           if (isValid) {
+            const now = new Date();
+            const timestamp = location.time || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
             allLocations.push({
               truck_id: truck.id,
               truck_number: truck.truck_number,
               latitude: location.latitude,
               longitude: location.longitude,
-              timestamp: location.time || new Date().toISOString(),
+              timestamp: timestamp,
               speed: location.speed || 0,
               ageMinutes: ageMinutes,
               isValid: isFresh

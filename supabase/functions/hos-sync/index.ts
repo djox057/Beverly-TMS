@@ -238,6 +238,9 @@ serve(async (req) => {
           if (driver && typeof driver === 'object' && 'id' in driver && 'name' in driver) {
             console.log(`Updating driver: ${driver.name} (ID: ${driver.id}) for truck ${truck.truck_number}`);
             
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            
             const { error: updateError } = await supabase
               .from('drivers')
               .update({
@@ -246,7 +249,7 @@ serve(async (req) => {
                 hos_break_minutes: hosData.minsTillBreak || 0,
                 hos_cycle_minutes: hosData.minsTillCycle || 0,
                 hos_status: hosData.statusAbbreviation || null,
-                hos_last_updated: new Date().toISOString()
+                hos_last_updated: timestamp
               })
               .eq('id', driver.id);
             

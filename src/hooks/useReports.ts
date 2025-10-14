@@ -163,9 +163,12 @@ export const useReports = () => {
 
   const updatePickupDropArrival = useMutation({
     mutationFn: async ({ pickupDropId }: { pickupDropId: string }) => {
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      
       const { error } = await supabase
         .from('pickup_drops')
-        .update({ arrived_at: new Date().toISOString() })
+        .update({ arrived_at: timestamp })
         .eq('id', pickupDropId);
       if (error) throw error;
     },

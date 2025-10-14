@@ -39,7 +39,9 @@ export const TruckLocationDebug = () => {
       for (let i = 0; i < 3; i++) {
         const { data, error } = await supabase.functions.invoke('samsara-locations');
         if (error) throw error;
-        calls.push({ callNumber: i + 1, data, timestamp: new Date().toISOString() });
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        calls.push({ callNumber: i + 1, data, timestamp });
         // Small delay between calls
         if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
       }
