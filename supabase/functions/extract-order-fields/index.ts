@@ -858,30 +858,53 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
         // Helper function for stricter fuzzy name matching
         const fuzzyNameMatch = (name1: string, name2: string): number => {
-          const normalize = (str: string) => str.toLowerCase()
-            // Remove common corporate/logistics terms
-            .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
-            .replace(/\b(logistics|freight|trucking|transport|transportation|shipping|express|carrier|delivery|hauling|distribution)\b/gi, '')
-            .replace(/[^\w\s]/g, '')
-            .trim();
+          const normalize = (str: string) => {
+            // First, extract just the company name part (before LLC, Inc, etc)
+            const mainName = str
+              .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
+              .toLowerCase()
+              .replace(/[^\w\s]/g, '')
+              .trim();
+            
+            const words = mainName.split(/\s+/).filter(w => w.length > 0);
+            
+            // If the first word is a logistics term, keep it (e.g., "TRANSPORTATION ONE")
+            // Only remove logistics terms if they appear AFTER the first significant word
+            const filteredWords = words.map((word, idx) => {
+              // Keep the first word regardless
+              if (idx === 0) return word;
+              
+              // Remove common logistics terms that appear later
+              const genericTerms = /^(logistics|freight|trucking|transport|transportation|shipping|express|carrier|delivery|hauling|distribution)$/i;
+              if (genericTerms.test(word)) return '';
+              
+              return word;
+            }).filter(w => w.length > 0);
+            
+            return filteredWords.join(' ');
+          };
           
           const n1 = normalize(name1);
           const n2 = normalize(name2);
           
           console.log(`   Comparing normalized names: "${n1}" vs "${n2}"`);
           
-          // Split into words and filter out very short/common words
-          const words1 = n1.split(/\s+/).filter(w => w.length > 2);
-          const words2 = n2.split(/\s+/).filter(w => w.length > 2);
+          // Split into words and filter out very short words (but keep all significant ones)
+          const words1 = n1.split(/\s+/).filter(w => w.length > 1);
+          const words2 = n2.split(/\s+/).filter(w => w.length > 1);
           
           if (words1.length === 0 || words2.length === 0) return 0;
           
-          // Calculate match score for both directions
+          // Calculate match score - require all words from shorter name to match
           const shorter = words1.length <= words2.length ? words1 : words2;
           const longer = words1.length > words2.length ? words1 : words2;
           
           const matchCount = shorter.filter(word => 
-            longer.some(w => w.includes(word) || word.includes(w))
+            longer.some(w => 
+              // Exact match or one contains the other (min 3 chars)
+              (w === word) || 
+              (w.length >= 3 && word.length >= 3 && (w.includes(word) || word.includes(w)))
+            )
           ).length;
           
           return matchCount / shorter.length;
