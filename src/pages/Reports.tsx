@@ -504,16 +504,16 @@ const Reports = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                borderLeft: "4px solid hsl(var(--destructive))",
-                borderRight: "4px solid hsl(var(--destructive))",
+                borderLeft: "6px solid #dc2626",
+                borderRight: "6px solid #dc2626",
                 ...(isFirstTruck
                   ? {
-                      borderTop: "4px solid hsl(var(--destructive))",
+                      borderTop: "6px solid #dc2626",
                     }
                   : {}),
                 ...(isLastTruck
                   ? {
-                      borderBottom: "4px solid hsl(var(--destructive))",
+                      borderBottom: "6px solid #dc2626",
                     }
                   : {}),
                 zIndex: 100,
@@ -1220,10 +1220,10 @@ const Reports = () => {
                                             left: 0,
                                             right: 0,
                                             bottom: 0,
-                                            borderLeft: "4px solid hsl(var(--destructive))",
-                                            borderRight: "4px solid hsl(var(--destructive))",
-                                            borderTop: "4px solid hsl(var(--destructive))",
-                                            borderBottom: "4px solid hsl(var(--border))",
+                                            borderLeft: "6px solid #dc2626",
+                                            borderRight: "6px solid #dc2626",
+                                            borderTop: "6px solid #dc2626",
+                                            borderBottom: "6px solid hsl(var(--border))",
                                             zIndex: 100,
                                           }}
                                         />
