@@ -856,58 +856,56 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Helper function for stricter fuzzy name matching
-        const fuzzyNameMatch = (name1: string, name2: string): number => {
+        // Helper function for strict exact word matching (no fuzzy)
+        const strictNameMatch = (name1: string, name2: string): number => {
           const normalize = (str: string) => {
-            // First, extract just the company name part (before LLC, Inc, etc)
-            const mainName = str
+            // Remove corporate terms but keep everything else
+            return str
               .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
               .toLowerCase()
               .replace(/[^\w\s]/g, '')
               .trim();
-            
-            const words = mainName.split(/\s+/).filter(w => w.length > 0);
-            
-            // If the first word is a logistics term, keep it (e.g., "TRANSPORTATION ONE")
-            // Only remove logistics terms if they appear AFTER the first significant word
-            const filteredWords = words.map((word, idx) => {
-              // Keep the first word regardless
-              if (idx === 0) return word;
-              
-              // Remove common logistics terms that appear later
-              const genericTerms = /^(logistics|freight|trucking|transport|transportation|shipping|express|carrier|delivery|hauling|distribution)$/i;
-              if (genericTerms.test(word)) return '';
-              
-              return word;
-            }).filter(w => w.length > 0);
-            
-            return filteredWords.join(' ');
           };
           
           const n1 = normalize(name1);
           const n2 = normalize(name2);
           
-          console.log(`   Comparing normalized names: "${n1}" vs "${n2}"`);
+          console.log(`   Comparing: "${n1}" vs "${n2}"`);
           
-          // Split into words and filter out very short words (but keep all significant ones)
-          const words1 = n1.split(/\s+/).filter(w => w.length > 1);
-          const words2 = n2.split(/\s+/).filter(w => w.length > 1);
+          // Split into words, keep all words 2+ chars
+          const words1 = n1.split(/\s+/).filter(w => w.length >= 2);
+          const words2 = n2.split(/\s+/).filter(w => w.length >= 2);
           
           if (words1.length === 0 || words2.length === 0) return 0;
           
-          // Calculate match score - require all words from shorter name to match
+          // Count EXACT word matches only (no partial matches)
           const shorter = words1.length <= words2.length ? words1 : words2;
           const longer = words1.length > words2.length ? words1 : words2;
           
-          const matchCount = shorter.filter(word => 
-            longer.some(w => 
-              // Exact match or one contains the other (min 3 chars)
-              (w === word) || 
-              (w.length >= 3 && word.length >= 3 && (w.includes(word) || word.includes(w)))
-            )
-          ).length;
+          let matchCount = 0;
+          let firstWordMatch = false;
           
-          return matchCount / shorter.length;
+          for (let i = 0; i < shorter.length; i++) {
+            const word = shorter[i];
+            // Must be exact match, not partial
+            if (longer.includes(word)) {
+              matchCount++;
+              // Check if first significant word matches
+              if (i === 0 && word.length >= 4) {
+                firstWordMatch = true;
+              }
+            }
+          }
+          
+          // If first word doesn't match and it's significant (4+ chars), score is 0
+          if (shorter.length > 0 && shorter[0].length >= 4 && !firstWordMatch) {
+            console.log(`   ❌ First word mismatch: "${shorter[0]}" not in [${longer.join(', ')}]`);
+            return 0;
+          }
+          
+          const score = matchCount / shorter.length;
+          console.log(`   Score: ${(score * 100).toFixed(0)}% (${matchCount}/${shorter.length} words matched)`);
+          return score;
         };
 
         // Fetch ALL brokers (no limit)
@@ -926,16 +924,16 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           const MIN_NAME_MATCH_SCORE = 0.9; // Require 90% word match (increased from 80%)
           const MIN_CITY_NAME_MATCH_SCORE = 0.7; // Require 70% name match when matching by city (increased from 50%)
           
-          // Try to match by name first (strict fuzzy matching)
+          // Try to match by name first (strict exact word matching)
           if (extractedData.brokerName) {
-            console.log(`🔍 Attempting fuzzy name match for: "${extractedData.brokerName}"`);
+            console.log(`🔍 Attempting strict name match for: "${extractedData.brokerName}"`);
             
             for (const broker of brokers) {
-              const nameScore = fuzzyNameMatch(broker.name, extractedData.brokerName);
+              const nameScore = strictNameMatch(broker.name, extractedData.brokerName);
               if (nameScore >= MIN_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
                 matchedBroker = broker;
                 bestMatchScore = nameScore;
-                console.log(`   Candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
+                console.log(`   ✅ Candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
               }
             }
             
@@ -958,7 +956,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
                 const dbCity = extractCity(broker.address);
                 if (dbCity && dbCity === extractedCity) {
                   // City matches, now check if name has at least some similarity
-                  const nameScore = fuzzyNameMatch(broker.name, extractedData.brokerName);
+                  const nameScore = strictNameMatch(broker.name, extractedData.brokerName);
                   console.log(`   City match candidate: ${broker.name} - Name similarity: ${(nameScore * 100).toFixed(0)}%`);
                   
                   if (nameScore >= MIN_CITY_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
