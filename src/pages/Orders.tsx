@@ -499,10 +499,10 @@ const Orders = () => {
                     <TableHead className="w-20">Load #</TableHead>
                     <TableHead className="w-32">Pickup Date</TableHead>
                     <TableHead className="w-28">Pickup City</TableHead>
-                    <TableHead className="w-16">Pickup State</TableHead>
+                    <TableHead className="w-20">Pickup State</TableHead>
                     <TableHead className="w-32">Delivery Date</TableHead>
                     <TableHead className="w-28">Delivery City</TableHead>
-                    <TableHead className="w-16">Delivery State</TableHead>
+                    <TableHead className="w-20">Delivery State</TableHead>
                     <TableHead className="w-16">Miles</TableHead>
                     <TableHead className="w-24">Driver Rate</TableHead>
                     <TableHead className="w-32">Driver</TableHead>
