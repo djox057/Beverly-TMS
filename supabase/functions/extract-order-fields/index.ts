@@ -856,56 +856,74 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Helper function for strict exact word matching with smart splitting
+        // Helper function for strict exact word matching with aggressive splitting
         const strictNameMatch = (name1: string, name2: string): number => {
           const normalize = (str: string) => {
             // Remove corporate terms
-            const cleaned = str
+            return str
               .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
               .toLowerCase()
               .replace(/[^\w\s]/g, '')
               .trim();
-            
-            return cleaned;
           };
           
-          // Helper to try splitting concatenated words
-          const smartSplit = (text: string): string[] => {
-            const words = text.split(/\s+/);
+          // Aggressive word splitting for concatenated names
+          const aggressiveSplit = (text: string): string[] => {
+            // First split by spaces
+            let words = text.split(/\s+/).filter(w => w.length > 0);
+            
+            // Dictionary of known transport/logistics terms to split
+            const splitDictionary = [
+              'transportation', 'logistics', 'freight', 'trucking', 'express', 
+              'transport', 'services', 'service', 'global', 'international',
+              'national', 'america', 'american', 'united', 'western', 'eastern',
+              'central', 'southern', 'northern', 'expedite', 'dedicated',
+              'one', 'two', 'three', 'four', 'five', 'first', 'second', 'plus',
+              'pro', 'quick', 'fast', 'speed', 'rapid', 'swift', 'super'
+            ];
+            
             const result: string[] = [];
             
             for (const word of words) {
-              if (word.length <= 2) {
+              if (word.length <= 4) {
                 result.push(word);
                 continue;
               }
               
-              // Check if this might be a concatenated word by looking for common patterns
-              // e.g., "transportationone" -> ["transportation", "one"]
-              const knownWords = [
-                'transportation', 'logistics', 'freight', 'trucking', 'express', 
-                'services', 'transport', 'global', 'international', 'one', 'two', 
-                'three', 'plus', 'pro', 'quick', 'fast', 'speed', 'rapid'
-              ];
+              // Try to find known words within this word
+              let remaining = word;
+              let foundMatch = true;
               
-              let splitAttempt = word;
-              let foundSplit = false;
-              
-              // Try to find if word starts with a known word
-              for (const known of knownWords) {
-                if (word.startsWith(known) && word.length > known.length) {
-                  const remainder = word.slice(known.length);
-                  if (remainder.length >= 2) {
+              while (remaining.length > 2 && foundMatch) {
+                foundMatch = false;
+                
+                // Check if remaining starts with any known word
+                for (const known of splitDictionary) {
+                  if (remaining.startsWith(known) && remaining.length > known.length) {
                     result.push(known);
-                    result.push(remainder);
-                    foundSplit = true;
+                    remaining = remaining.slice(known.length);
+                    foundMatch = true;
                     break;
                   }
                 }
+                
+                // If we found no match but have remaining text, push it and break
+                if (!foundMatch && remaining.length > 0) {
+                  // Check if remaining itself is a known word
+                  if (splitDictionary.includes(remaining)) {
+                    result.push(remaining);
+                  } else if (remaining.length >= 2) {
+                    result.push(remaining);
+                  }
+                  break;
+                }
               }
               
-              if (!foundSplit) {
-                result.push(word);
+              // If we never found any splits, just push the original word
+              if (result.length === 0 || result[result.length - 1] !== word) {
+                if (!foundMatch && remaining === word) {
+                  result.push(word);
+                }
               }
             }
             
@@ -915,41 +933,34 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           const n1 = normalize(name1);
           const n2 = normalize(name2);
           
-          // Try smart splitting on both
-          const words1 = smartSplit(n1);
-          const words2 = smartSplit(n2);
+          const words1 = aggressiveSplit(n1);
+          const words2 = aggressiveSplit(n2);
           
-          console.log(`   Comparing: "${words1.join(' ')}" vs "${words2.join(' ')}"`);
+          console.log(`   Comparing split: "${words1.join(' ')}" (${words1.length} words) vs "${words2.join(' ')}" (${words2.length} words)`);
           
           if (words1.length === 0 || words2.length === 0) return 0;
           
-          // Count EXACT word matches only
+          // Count EXACT word matches
           const shorter = words1.length <= words2.length ? words1 : words2;
           const longer = words1.length > words2.length ? words1 : words2;
           
           let matchCount = 0;
-          let firstWordMatch = false;
+          const matched: boolean[] = new Array(longer.length).fill(false);
           
           for (let i = 0; i < shorter.length; i++) {
             const word = shorter[i];
-            // Must be exact match
-            if (longer.includes(word)) {
-              matchCount++;
-              // Check if first significant word matches
-              if (i === 0 && word.length >= 4) {
-                firstWordMatch = true;
+            // Find exact match in longer that hasn't been matched yet
+            for (let j = 0; j < longer.length; j++) {
+              if (!matched[j] && longer[j] === word) {
+                matchCount++;
+                matched[j] = true;
+                break;
               }
             }
           }
           
-          // If first word doesn't match and it's significant (4+ chars), score is 0
-          if (shorter.length > 0 && shorter[0].length >= 4 && !firstWordMatch) {
-            console.log(`   ❌ First word mismatch: "${shorter[0]}" not in [${longer.join(', ')}]`);
-            return 0;
-          }
-          
           const score = matchCount / shorter.length;
-          console.log(`   Score: ${(score * 100).toFixed(0)}% (${matchCount}/${shorter.length} words matched)`);
+          console.log(`   ✅ Matched ${matchCount}/${shorter.length} words = ${(score * 100).toFixed(0)}% score`);
           return score;
         };
 
@@ -966,7 +977,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           
           let matchedBroker = null;
           let bestMatchScore = 0;
-          const MIN_NAME_MATCH_SCORE = 0.9; // Require 90% word match (increased from 80%)
+          const MIN_NAME_MATCH_SCORE = 0.85; // Require 85% word match (lowered from 90% since we have better splitting)
           const MIN_CITY_NAME_MATCH_SCORE = 0.7; // Require 70% name match when matching by city (increased from 50%)
           
           // Try to match by name first (strict exact word matching)
