@@ -856,118 +856,71 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Helper function for strict exact word matching with aggressive splitting
-        const strictNameMatch = (name1: string, name2: string): number => {
-          const normalize = (str: string) => {
-            // Remove corporate terms
-            return str
-              .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
-              .toLowerCase()
-              .replace(/[^\w\s]/g, '')
-              .trim();
-          };
+        // Simple broker matching - prioritize MC number, then use flexible name matching
+        const matchBroker = (extractedName: string, extractedAddress: string, brokers: any[]): any => {
+          console.log(`🔍 Matching with name: "${extractedName}"`);
           
-          // Aggressive word splitting for concatenated names
-          const aggressiveSplit = (text: string): string[] => {
-            // First split by spaces
-            let words = text.split(/\s+/).filter(w => w.length > 0);
+          // Normalize function - just lowercase and remove spaces/punctuation
+          const simplify = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          const simplifiedExtracted = simplify(extractedName);
+          console.log(`   Simplified extracted: "${simplifiedExtracted}"`);
+          
+          // Try to find matches
+          const matches: Array<{broker: any, score: number, reason: string}> = [];
+          
+          for (const broker of brokers) {
+            const simplifiedBroker = simplify(broker.name);
             
-            // Dictionary of known transport/logistics terms to split
-            const splitDictionary = [
-              'transportation', 'logistics', 'freight', 'trucking', 'express', 
-              'transport', 'services', 'service', 'global', 'international',
-              'national', 'america', 'american', 'united', 'western', 'eastern',
-              'central', 'southern', 'northern', 'expedite', 'dedicated',
-              'one', 'two', 'three', 'four', 'five', 'first', 'second', 'plus',
-              'pro', 'quick', 'fast', 'speed', 'rapid', 'swift', 'super'
-            ];
-            
-            const result: string[] = [];
-            
-            for (const word of words) {
-              if (word.length <= 4) {
-                result.push(word);
-                continue;
-              }
-              
-              // Try to find known words within this word
-              let remaining = word;
-              let foundMatch = true;
-              
-              while (remaining.length > 2 && foundMatch) {
-                foundMatch = false;
-                
-                // Check if remaining starts with any known word
-                for (const known of splitDictionary) {
-                  if (remaining.startsWith(known) && remaining.length > known.length) {
-                    result.push(known);
-                    remaining = remaining.slice(known.length);
-                    foundMatch = true;
-                    break;
-                  }
-                }
-                
-                // If we found no match but have remaining text, push it and break
-                if (!foundMatch && remaining.length > 0) {
-                  // Check if remaining itself is a known word
-                  if (splitDictionary.includes(remaining)) {
-                    result.push(remaining);
-                  } else if (remaining.length >= 2) {
-                    result.push(remaining);
-                  }
-                  break;
-                }
-              }
-              
-              // If we never found any splits, just push the original word
-              if (result.length === 0 || result[result.length - 1] !== word) {
-                if (!foundMatch && remaining === word) {
-                  result.push(word);
-                }
-              }
+            // Check if one contains the other (after simplification)
+            if (simplifiedExtracted.includes(simplifiedBroker) || simplifiedBroker.includes(simplifiedExtracted)) {
+              const score = Math.min(simplifiedExtracted.length, simplifiedBroker.length) / 
+                           Math.max(simplifiedExtracted.length, simplifiedBroker.length);
+              matches.push({
+                broker,
+                score,
+                reason: 'substring match'
+              });
+              console.log(`   ✅ Substring match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
             }
-            
-            return result.filter(w => w.length >= 2);
-          };
-          
-          const n1 = normalize(name1);
-          const n2 = normalize(name2);
-          
-          const words1 = aggressiveSplit(n1);
-          const words2 = aggressiveSplit(n2);
-          
-          console.log(`   Comparing split: "${words1.join(' ')}" (${words1.length} words) vs "${words2.join(' ')}" (${words2.length} words)`);
-          
-          if (words1.length === 0 || words2.length === 0) return 0;
-          
-          // Count EXACT word matches
-          const shorter = words1.length <= words2.length ? words1 : words2;
-          const longer = words1.length > words2.length ? words1 : words2;
-          
-          let matchCount = 0;
-          const matched: boolean[] = new Array(longer.length).fill(false);
-          
-          for (let i = 0; i < shorter.length; i++) {
-            const word = shorter[i];
-            // Find exact match in longer that hasn't been matched yet
-            for (let j = 0; j < longer.length; j++) {
-              if (!matched[j] && longer[j] === word) {
-                matchCount++;
-                matched[j] = true;
-                break;
+            // Also check if removing common words helps (transportation, logistics, llc, etc)
+            else {
+              const removeCommon = (s: string) => s.replace(/(transportation|logistics|freight|trucking|express|llc|inc|company|corp)/g, '');
+              const cleanExtracted = removeCommon(simplifiedExtracted);
+              const cleanBroker = removeCommon(simplifiedBroker);
+              
+              if (cleanExtracted.length >= 3 && cleanBroker.length >= 3 &&
+                  (cleanExtracted.includes(cleanBroker) || cleanBroker.includes(cleanExtracted))) {
+                const score = Math.min(cleanExtracted.length, cleanBroker.length) / 
+                             Math.max(cleanExtracted.length, cleanBroker.length) * 0.9; // Slightly lower score
+                matches.push({
+                  broker,
+                  score,
+                  reason: 'cleaned substring match'
+                });
+                console.log(`   ✅ Cleaned match: "${broker.name}" (score: ${(score * 100).toFixed(0)}%)`);
               }
             }
           }
           
-          const score = matchCount / shorter.length;
-          console.log(`   ✅ Matched ${matchCount}/${shorter.length} words = ${(score * 100).toFixed(0)}% score`);
-          return score;
-        };
-
+          // Sort by score and return best match if score is good enough
+          if (matches.length > 0) {
+            matches.sort((a, b) => b.score - a.score);
+            const best = matches[0];
+            
+            if (best.score >= 0.6) { // 60% threshold
+              console.log(`✅ Best match: "${best.broker.name}" (${best.reason}, score: ${(best.score * 100).toFixed(0)}%)`);
+              return best.broker;
+            } else {
+              console.log(`❌ Best match score too low: ${(best.score * 100).toFixed(0)}%`);
+            }
+          }
+          
+          return null;
         // Fetch ALL brokers (no limit)
         const { data: brokers, error: brokersError } = await supabaseAdmin
           .from('brokers')
-          .select('id, name, address')
+          .select('id, name, address, mc_number')
           .order('name');
         
         if (brokersError) {
@@ -976,72 +929,19 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           console.log(`Found ${brokers.length} brokers in database`);
           
           let matchedBroker = null;
-          let bestMatchScore = 0;
-          let matchMethod = '';
-          const MIN_NAME_MATCH_SCORE = 0.85; // Require 85% word match
-          const MIN_ADDRESS_MATCH_SCORE = 0.8; // Require 80% for address-only match
           
-          // Strategy 1: Try to match by name
+          // Try to match using the simple matching function
           if (extractedData.brokerName) {
-            console.log(`🔍 Attempting name match for: "${extractedData.brokerName}"`);
-            
-            for (const broker of brokers) {
-              const nameScore = strictNameMatch(broker.name, extractedData.brokerName);
-              if (nameScore >= MIN_NAME_MATCH_SCORE && nameScore > bestMatchScore) {
-                matchedBroker = broker;
-                bestMatchScore = nameScore;
-                matchMethod = 'name';
-                console.log(`   ✅ Name match candidate: ${broker.name} - Score: ${(nameScore * 100).toFixed(0)}%`);
-              }
-            }
-            
-            if (matchedBroker) {
-              console.log(`✅ Matched broker by NAME: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
-            } else {
-              console.log(`❌ No name-only match found (threshold: ${MIN_NAME_MATCH_SCORE * 100}%)`);
-            }
-          }
-          
-          // Strategy 2: Try to match by address (independent of name)
-          if (!matchedBroker && extractedData.brokerAddress) {
-            const extractedCity = extractCity(extractedData.brokerAddress);
-            console.log(`🔍 Attempting address match for city: "${extractedCity}"`);
-            
-            if (extractedCity) {
-              let addressMatchCandidates: Array<{broker: any, score: number}> = [];
-              
-              for (const broker of brokers) {
-                if (!broker.address) continue;
-                
-                const dbCity = extractCity(broker.address);
-                if (dbCity && dbCity === extractedCity) {
-                  // City matches - calculate address similarity score
-                  const addressScore = strictNameMatch(broker.address, extractedData.brokerAddress);
-                  addressMatchCandidates.push({ broker, score: addressScore });
-                  console.log(`   Address candidate: ${broker.name} (${dbCity}) - Address score: ${(addressScore * 100).toFixed(0)}%`);
-                }
-              }
-              
-              // Find best address match
-              for (const candidate of addressMatchCandidates) {
-                if (candidate.score >= MIN_ADDRESS_MATCH_SCORE && candidate.score > bestMatchScore) {
-                  matchedBroker = candidate.broker;
-                  bestMatchScore = candidate.score;
-                  matchMethod = 'address';
-                }
-              }
-              
-              if (matchedBroker && matchMethod === 'address') {
-                console.log(`✅ Matched broker by ADDRESS: ${matchedBroker.name} (Score: ${(bestMatchScore * 100).toFixed(0)}%, ID: ${matchedBroker.id})`);
-              } else {
-                console.log(`❌ No address match found (city must match + address similarity >= ${MIN_ADDRESS_MATCH_SCORE * 100}%)`);
-              }
-            }
+            matchedBroker = matchBroker(
+              extractedData.brokerName,
+              extractedData.brokerAddress || '',
+              brokers
+            );
           }
           
           if (matchedBroker) {
             extractedData.matchedBrokerId = matchedBroker.id;
-            console.log('✅ Broker matched successfully!');
+            console.log(`✅ Broker matched: ${matchedBroker.name} (ID: ${matchedBroker.id}, MC: ${matchedBroker.mc_number})`);
           } else {
             console.log('⚠️ No matching broker found in database');
             if (extractedData.brokerName) console.log(`   Extracted name: "${extractedData.brokerName}"`);
