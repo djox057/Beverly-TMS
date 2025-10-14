@@ -5,10 +5,20 @@ import { useEffect } from "react";
 export const useOrders = () => {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscriptions for orders and related tables
+  // Set up real-time subscriptions with debouncing
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout;
+    
+    const debouncedInvalidate = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        queryClient.invalidateQueries({ queryKey: ['reports'] });
+      }, 500);
+    };
+
     const channel = supabase
-      .channel('orders-updates')
+      .channel('orders-realtime')
       .on(
         'postgres_changes',
         {
@@ -16,10 +26,7 @@ export const useOrders = () => {
           schema: 'public',
           table: 'orders'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -28,10 +35,7 @@ export const useOrders = () => {
           schema: 'public',
           table: 'pickup_drops'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .on(
         'postgres_changes',
@@ -40,68 +44,20 @@ export const useOrders = () => {
           schema: 'public',
           table: 'order_files'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trucks'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'drivers'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'brokers'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'companies'
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders'] });
-          queryClient.invalidateQueries({ queryKey: ['reports'] });
-        }
+        debouncedInvalidate
       )
       .subscribe();
 
     return () => {
+      clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
   return useQuery({
     queryKey: ['orders'],
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')

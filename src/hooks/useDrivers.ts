@@ -77,7 +77,7 @@ export const useDrivers = () => {
       console.log('Sample transformed driver:', transformedData?.[0]);
       return transformedData;
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
   });
 };

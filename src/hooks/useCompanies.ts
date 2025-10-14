@@ -19,5 +19,7 @@ export const useCompanies = () => {
       }
       return data;
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes - static data
+    refetchOnWindowFocus: false,
   });
 };
