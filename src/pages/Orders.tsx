@@ -495,8 +495,8 @@ const Orders = () => {
                     <TableHead className="w-28">Freight Amount</TableHead>
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
-                    <TableHead className="w-16">RC</TableHead>
-                    <TableHead className="w-16">POD</TableHead>
+                    <TableHead className="w-24">RC</TableHead>
+                    <TableHead className="w-24">POD</TableHead>
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -555,8 +555,8 @@ const Orders = () => {
                         <TableCell>${order.totalFreightAmount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
+                        <TableCell className="max-w-24">
+                          <div className="flex gap-1 flex-wrap">
                             {order.rcFiles && order.rcFiles.length > 0 ? order.rcFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
                           const { data, error } = await supabase.storage
                             .from('order-files')
@@ -592,8 +592,8 @@ const Orders = () => {
                                 </Button>) : <Badge variant="destructive" className="text-xs">Missing</Badge>}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
+                        <TableCell className="max-w-24">
+                          <div className="flex gap-1 flex-wrap">
                             {order.podFiles && order.podFiles.length > 0 ? order.podFiles.map((file: any) => <Button key={file.id} variant="outline" size="sm" className="text-xs" onClick={async () => {
                           const { data, error } = await supabase.storage
                             .from('order-files')
