@@ -605,21 +605,18 @@ const Fleets = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Select New Dispatcher</Label>
-              <Combobox
-                options={allDispatchers
-                  .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
-                  .map((dispatcher) => ({
-                    value: dispatcher.id,
-                    label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
-                  }))}
-                value={selectedDispatcher}
-                onValueChange={setSelectedDispatcher}
-                placeholder="Search dispatchers..."
-                emptyText="No dispatcher found."
-              />
-            </div>
+            <Combobox
+              options={allDispatchers
+                .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
+                .map((dispatcher) => ({
+                  value: dispatcher.id,
+                  label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
+                }))}
+              value={selectedDispatcher}
+              onValueChange={setSelectedDispatcher}
+              placeholder="Search dispatchers..."
+              emptyText="No dispatcher found."
+            />
             <Button onClick={handleSwitchDispatcher} className="w-full" disabled={!selectedDispatcher}>
               Switch Dispatcher
             </Button>
