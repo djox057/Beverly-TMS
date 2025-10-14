@@ -25,6 +25,10 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   const timeDisplay = `${hours}:${remainingMinutes.toString().padStart(2, '0')}`;
+  
+  // Turn red if time is 0 or below
+  const circleColor = minutes <= 0 ? '#ef4444' : color;
+  
   return <div className="flex flex-col items-center">
       <div className="relative" style={{
       width: size,
@@ -34,7 +38,7 @@ export const HosCircularTimer: React.FC<HosCircularTimerProps> = ({
         <svg className="transform -rotate-90" width={size} height={size}>
           <circle cx={size / 2} cy={size / 2} r={radius} stroke="currentColor" strokeWidth={strokeWidth} fill="transparent" className="text-border" />
           {/* Progress circle */}
-          <circle cx={size / 2} cy={size / 2} r={radius} stroke={color} strokeWidth={strokeWidth} fill="transparent" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-300 ease-in-out" />
+          <circle cx={size / 2} cy={size / 2} r={radius} stroke={circleColor} strokeWidth={strokeWidth} fill="transparent" strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-300 ease-in-out" />
         </svg>
         
         {/* Time display in center */}
