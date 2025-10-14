@@ -13,6 +13,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import * as XLSX from 'xlsx';
 import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -46,6 +47,7 @@ const Orders = () => {
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
+  const queryClient = useQueryClient();
   
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -253,6 +255,9 @@ const Orders = () => {
       if (error) throw error;
       
       toast.success(`Order ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
+      
+      // Refresh orders list
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
       console.error('Error toggling order lock:', error);
       toast.error("Failed to update order lock status");
@@ -345,6 +350,9 @@ const Orders = () => {
       setCancelDialogOpen(false);
       setSelectedOrderId(null);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      
+      // Refresh orders list
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
