@@ -856,29 +856,74 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           return '';
         };
 
-        // Helper function for strict exact word matching (no fuzzy)
+        // Helper function for strict exact word matching with smart splitting
         const strictNameMatch = (name1: string, name2: string): number => {
           const normalize = (str: string) => {
-            // Remove corporate terms but keep everything else
-            return str
+            // Remove corporate terms
+            const cleaned = str
               .replace(/\b(llc|inc|incorporated|company|co|corp|corporation|ltd|limited)\b/gi, '')
               .toLowerCase()
               .replace(/[^\w\s]/g, '')
               .trim();
+            
+            return cleaned;
+          };
+          
+          // Helper to try splitting concatenated words
+          const smartSplit = (text: string): string[] => {
+            const words = text.split(/\s+/);
+            const result: string[] = [];
+            
+            for (const word of words) {
+              if (word.length <= 2) {
+                result.push(word);
+                continue;
+              }
+              
+              // Check if this might be a concatenated word by looking for common patterns
+              // e.g., "transportationone" -> ["transportation", "one"]
+              const knownWords = [
+                'transportation', 'logistics', 'freight', 'trucking', 'express', 
+                'services', 'transport', 'global', 'international', 'one', 'two', 
+                'three', 'plus', 'pro', 'quick', 'fast', 'speed', 'rapid'
+              ];
+              
+              let splitAttempt = word;
+              let foundSplit = false;
+              
+              // Try to find if word starts with a known word
+              for (const known of knownWords) {
+                if (word.startsWith(known) && word.length > known.length) {
+                  const remainder = word.slice(known.length);
+                  if (remainder.length >= 2) {
+                    result.push(known);
+                    result.push(remainder);
+                    foundSplit = true;
+                    break;
+                  }
+                }
+              }
+              
+              if (!foundSplit) {
+                result.push(word);
+              }
+            }
+            
+            return result.filter(w => w.length >= 2);
           };
           
           const n1 = normalize(name1);
           const n2 = normalize(name2);
           
-          console.log(`   Comparing: "${n1}" vs "${n2}"`);
+          // Try smart splitting on both
+          const words1 = smartSplit(n1);
+          const words2 = smartSplit(n2);
           
-          // Split into words, keep all words 2+ chars
-          const words1 = n1.split(/\s+/).filter(w => w.length >= 2);
-          const words2 = n2.split(/\s+/).filter(w => w.length >= 2);
+          console.log(`   Comparing: "${words1.join(' ')}" vs "${words2.join(' ')}"`);
           
           if (words1.length === 0 || words2.length === 0) return 0;
           
-          // Count EXACT word matches only (no partial matches)
+          // Count EXACT word matches only
           const shorter = words1.length <= words2.length ? words1 : words2;
           const longer = words1.length > words2.length ? words1 : words2;
           
@@ -887,7 +932,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           
           for (let i = 0; i < shorter.length; i++) {
             const word = shorter[i];
-            // Must be exact match, not partial
+            // Must be exact match
             if (longer.includes(word)) {
               matchCount++;
               // Check if first significant word matches
