@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
@@ -405,70 +406,82 @@ const Orders = () => {
                 className="w-72" 
               />
               
-              <Select value={truckFilter} onValueChange={setTruckFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Truck" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-trucks">All Trucks</SelectItem>
-                  {uniqueTrucks.map(truck => <SelectItem key={truck} value={truck}>{truck}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={truckFilter}
+                onValueChange={setTruckFilter}
+                placeholder="Filter by Truck"
+                searchPlaceholder="Search trucks..."
+                options={[
+                  { value: "all-trucks", label: "All Trucks" },
+                  ...uniqueTrucks.map(truck => ({ value: truck, label: truck }))
+                ]}
+                className="w-48"
+              />
               
-              <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-companies">All Companies</SelectItem>
-                  {uniqueCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={companyFilter}
+                onValueChange={setCompanyFilter}
+                placeholder="Filter by Company"
+                searchPlaceholder="Search companies..."
+                options={[
+                  { value: "all-companies", label: "All Companies" },
+                  ...uniqueCompanies.map(company => ({ value: company, label: company }))
+                ]}
+                className="w-48"
+              />
               
-              <Select value={truckCompanyFilter} onValueChange={setTruckCompanyFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Truck Company" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-truck-companies">All Truck Companies</SelectItem>
-                  {uniqueTruckCompanies.map(company => <SelectItem key={company} value={company}>{company}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={truckCompanyFilter}
+                onValueChange={setTruckCompanyFilter}
+                placeholder="Filter by Truck Company"
+                searchPlaceholder="Search truck companies..."
+                options={[
+                  { value: "all-truck-companies", label: "All Truck Companies" },
+                  ...uniqueTruckCompanies.map(company => ({ value: company, label: company }))
+                ]}
+                className="w-48"
+              />
               
               {primaryRole !== 'dispatch' && (
-                <Select value={bookedByFilter} onValueChange={setBookedByFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filter by Booked By" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all-users">All Users</SelectItem>
-                    {uniqueBookedBy.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  value={bookedByFilter}
+                  onValueChange={setBookedByFilter}
+                  placeholder="Filter by Booked By"
+                  searchPlaceholder="Search users..."
+                  options={[
+                    { value: "all-users", label: "All Users" },
+                    ...uniqueBookedBy.map(user => ({ value: user, label: user }))
+                  ]}
+                  className="w-48"
+                />
               )}
               
-              <Select value={driverFilter} onValueChange={setDriverFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-drivers">All Drivers</SelectItem>
-                  {uniqueDrivers.map(driver => <SelectItem key={driver} value={driver}>{driver}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={driverFilter}
+                onValueChange={setDriverFilter}
+                placeholder="Filter by Driver"
+                searchPlaceholder="Search drivers..."
+                options={[
+                  { value: "all-drivers", label: "All Drivers" },
+                  ...uniqueDrivers.map(driver => ({ value: driver, label: driver }))
+                ]}
+                className="w-48"
+              />
               
-              <Select value={missingDocsFilter} onValueChange={setMissingDocsFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by Missing Docs" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
-                  <SelectItem value="complete">Complete (RC + POD)</SelectItem>
-                  <SelectItem value="missing-rc">Missing RC</SelectItem>
-                  <SelectItem value="missing-bol">Missing BOL</SelectItem>
-                  <SelectItem value="missing-pod">Missing POD</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={missingDocsFilter}
+                onValueChange={setMissingDocsFilter}
+                placeholder="Filter by Missing Docs"
+                searchPlaceholder="Search status..."
+                options={[
+                  { value: "all", label: "All Orders" },
+                  { value: "complete", label: "Complete (RC + POD)" },
+                  { value: "missing-rc", label: "Missing RC" },
+                  { value: "missing-bol", label: "Missing BOL" },
+                  { value: "missing-pod", label: "Missing POD" }
+                ]}
+                className="w-48"
+              />
             </div>
           </div>
         </CardHeader>
