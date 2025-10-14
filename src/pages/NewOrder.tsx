@@ -195,9 +195,15 @@ const NewOrder = () => {
       if (pickupsDrops.length < 2) return;
 
       // Get all addresses in order (all pickups first, then all deliveries)
+      // Combine address components for better geocoding accuracy
       const addresses = pickupsDrops
         .filter(item => item.address.trim())
-        .map(item => item.address);
+        .map(item => {
+          if (item.city || item.state || item.zipCode) {
+            return `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}`;
+          }
+          return item.address;
+        });
 
       if (addresses.length < 2) {
         return;
@@ -253,18 +259,23 @@ const NewOrder = () => {
         return;
       }
 
+      // Build full address for better geocoding accuracy
+      const pickupAddress = firstPickup.city || firstPickup.state || firstPickup.zipCode
+        ? `${firstPickup.address}${firstPickup.city ? `, ${firstPickup.city}` : ''}${firstPickup.state ? `, ${firstPickup.state}` : ''}${firstPickup.zipCode ? ` ${firstPickup.zipCode}` : ''}`
+        : firstPickup.address;
+
       console.log('🚚 =================================');
       console.log('🚚 DH MILES AUTO-CALCULATION');
       console.log('🚚 =================================');
       console.log('🚚 Truck ID:', truck);
       console.log('🚚 Last Delivery Address:', lastDelivery.deliveryAddress);
-      console.log('🚚 Current Pickup Address:', firstPickup.address);
+      console.log('🚚 Current Pickup Address:', pickupAddress);
       console.log('🚚 Last Order ID:', lastDelivery.orderId);
       console.log('🚚 =================================');
 
       setIsCalculatingDhMiles(true);
       try {
-        const miles = await calculateDhMiles(lastDelivery.deliveryAddress, firstPickup.address);
+        const miles = await calculateDhMiles(lastDelivery.deliveryAddress, pickupAddress);
         if (miles !== null) {
           setDhMiles(miles.toString());
           toast({
@@ -324,6 +335,16 @@ const NewOrder = () => {
     setPickupsDrops(pickupsDrops.map(item => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
+        
+        // If updating address field, parse it into components
+        if (field === 'address' && typeof value === 'string' && value.trim()) {
+          const parsed = parseAddress(value);
+          updated.address = parsed.address || value;
+          updated.city = parsed.city || undefined;
+          updated.state = parsed.state || undefined;
+          updated.zipCode = parsed.zipCode || undefined;
+        }
+        
         // Auto-update datetime when relevant fields change
         if (field === 'dateRange' || field === 'startTime') {
           if (updated.dateRange?.from && updated.startTime) {
@@ -655,9 +676,10 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
-          address: extractedData.pickupZip 
-            ? `${extractedData.pickupAddress}, ${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
-            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ''}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ''}`,
+          address: extractedData.pickupAddress || "",
+          city: extractedData.pickupCity || "",
+          state: extractedData.pickupState || "",
+          zipCode: extractedData.pickupZip || "",
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
@@ -696,9 +718,10 @@ const NewOrder = () => {
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery", 
-          address: extractedData.deliveryZip 
-            ? `${extractedData.deliveryAddress}, ${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
-            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ''}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ''}`,
+          address: extractedData.deliveryAddress || "",
+          city: extractedData.deliveryCity || "",
+          state: extractedData.deliveryState || "",
+          zipCode: extractedData.deliveryZip || "",
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
@@ -1498,11 +1521,20 @@ const NewOrder = () => {
                                   <Label htmlFor={`address-${item.id}`}>Address</Label>
                                   <Textarea
                                     id={`address-${item.id}`}
-                                    placeholder="Full address"
-                                    value={item.address}
+                                    placeholder="Full address (e.g., 123 Main St, Springfield, IL 62701)"
+                                    value={
+                                      item.city || item.state || item.zipCode
+                                        ? `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}`
+                                        : item.address
+                                    }
                                     onChange={(e) => updatePickupDrop(item.id, 'address', e.target.value)}
                                     className="min-h-[60px]"
                                   />
+                                  {(item.city || item.state || item.zipCode) && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Parsed: {item.address} | {item.city || '—'}, {item.state || '—'} {item.zipCode || '—'}
+                                    </p>
+                                  )}
                                 </div>
                                 
                                 <div className="space-y-1">
