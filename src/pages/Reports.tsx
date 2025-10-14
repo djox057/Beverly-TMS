@@ -1291,9 +1291,9 @@ const Reports = () => {
                                       <td
                                         className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
                                         style={{
-                                          width: "64px",
-                                          minWidth: "64px",
-                                          maxWidth: "64px",
+                                          width: "77px",
+                                          minWidth: "77px",
+                                          maxWidth: "77px",
                                         }}
                                       >
                                         <div className="flex items-center gap-1">
@@ -1448,12 +1448,12 @@ const Reports = () => {
                                       {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                       <td
                                         colSpan={4}
-                                        className={`border-r border-b-[3px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/20' : ''}`}
+                                        className={`border-r border-b-[3px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}
                                         style={{
                                           height: "64px",
                                         }}
                                       >
-                                        <div className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? 'bg-destructive/20' : ''}`}>
+                                        <div className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}>
                                            {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
                                             <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
