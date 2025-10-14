@@ -530,7 +530,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b border-l border-r border-border flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${index > 0 ? 'border-l-2' : ''} border-r border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -680,7 +680,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`border-l border-r border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`${index > 0 ? 'border-l-2' : ''} border-r border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1198,7 +1198,7 @@ const Reports = () => {
                                   return (
                                     <th
                                       key={index}
-                                      className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l" : ""} border-border px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
+                                      className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l-2 border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                       style={{
                                         width: "120px",
                                         minWidth: "120px",
