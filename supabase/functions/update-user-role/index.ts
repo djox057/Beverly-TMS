@@ -13,51 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    // Get the authorization header from the request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('No authorization header provided');
-      throw new Error('No authorization header');
-    }
-
-    // Extract JWT token from Bearer token
-    const token = authHeader.replace('Bearer ', '');
-    console.log('Token received, length:', token.length);
-
-    // Use service role client for all operations
+    // Use service role client for database operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    // Verify the JWT token and extract user
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-
-    if (userError || !user) {
-      console.error('Auth verification failed:', userError);
-      throw new Error('Unauthorized');
-    }
-
-    console.log('User verified:', user.id);
-
-    // Check if the requesting user has admin or accounting role
-    const { data: userRoles, error: rolesError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id);
-
-    if (rolesError) {
-      console.error('Roles error:', rolesError);
-      throw new Error('Failed to verify permissions');
-    }
-
-    const hasAdminOrAccounting = userRoles?.some(
-      (r) => r.role === 'admin' || r.role === 'accounting'
-    );
-
-    if (!hasAdminOrAccounting) {
-      throw new Error('Insufficient permissions. Admin or Accounting role required.');
-    }
 
     // Get request body
     const { userId, role } = await req.json();
