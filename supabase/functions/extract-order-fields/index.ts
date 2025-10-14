@@ -923,8 +923,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           
           let matchedBroker = null;
           let bestMatchScore = 0;
-          const MIN_NAME_MATCH_SCORE = 0.8; // Require 80% word match
-          const MIN_CITY_NAME_MATCH_SCORE = 0.5; // Require 50% name match when matching by city
+          const MIN_NAME_MATCH_SCORE = 0.9; // Require 90% word match (increased from 80%)
+          const MIN_CITY_NAME_MATCH_SCORE = 0.7; // Require 70% name match when matching by city (increased from 50%)
           
           // Try to match by name first (strict fuzzy matching)
           if (extractedData.brokerName) {
