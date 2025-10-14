@@ -123,16 +123,6 @@ const Orders = () => {
       setBookedByFilter(profile.full_name);
     }
   }, [isDispatcher, profile?.full_name]);
-
-  // For dispatchers, prevent them from seeing orders until their profile loads
-  // This ensures they never see other dispatcher's loads
-  if (isDispatcher && !profile?.full_name) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>;
-  }
   const {
     data: orders,
     isLoading,
@@ -176,6 +166,17 @@ const Orders = () => {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <p className="text-destructive">Error loading orders: {error.message}</p>
+        </div>
+      </div>;
+  }
+
+  // For dispatchers, prevent them from seeing orders until their profile loads
+  // This ensures they never see other dispatcher's loads
+  if (isDispatcher && !profile?.full_name) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground mt-2">Loading your orders...</p>
         </div>
       </div>;
   }
