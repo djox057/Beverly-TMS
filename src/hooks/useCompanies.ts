@@ -5,12 +5,18 @@ export const useCompanies = () => {
   return useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
+      console.log('🏢 Fetching companies...');
       const { data, error } = await supabase
         .from('companies')
         .select('*')
         .order('name');
       
-      if (error) throw error;
+      console.log('🏢 Companies query result:', { data, error, count: data?.length });
+      
+      if (error) {
+        console.error('🏢 Error fetching companies:', error);
+        throw error;
+      }
       return data;
     },
   });
