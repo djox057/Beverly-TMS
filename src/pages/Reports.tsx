@@ -524,13 +524,13 @@ const Reports = () => {
           <div
             className="flex flex-col relative"
             style={{
-              width: isToday ? "116.4px" : "120px",
+              width: "120px",
               height: "64px",
             }}
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${isToday ? "" : "border-l border-r"} border-border flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b border-l border-r border-border flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -680,7 +680,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${isToday ? "" : "border-l border-r"} border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-l border-r border-border flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1129,7 +1129,7 @@ const Reports = () => {
                                     <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
                                   )}
                                 </th>
-                                <th colSpan={5} className="border-r border-b border-border px-2 py-1 bg-muted/50">
+                                <th colSpan={6} className="border-r border-b border-border px-2 py-1 bg-muted/50">
                                   <div className="flex items-center justify-center">
                                     <button
                                       onClick={() =>
@@ -1140,7 +1140,7 @@ const Reports = () => {
                                       <ChevronLeft className="h-3 w-3" />
                                     </button>
                                     <div className="text-xs font-medium text-foreground mx-2">
-                                      {format(startDate, "MMM dd")} - {format(addDays(startDate, 4), "MMM dd, yyyy")}
+                                      {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
                                     </div>
                                     <button
                                       onClick={() =>
@@ -1195,12 +1195,10 @@ const Reports = () => {
                                 </th>
                                 {days.map((day, index) => {
                                   const isToday = isSameDay(day, new Date());
-                                  // Apply left border to all cells except the first
-                                  const showLeftBorder = index > 0;
                                   return (
                                     <th
                                       key={index}
-                                      className={`border-b-[3px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
+                                      className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l" : ""} border-border px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
                                       style={{
                                         width: "120px",
                                         minWidth: "120px",
