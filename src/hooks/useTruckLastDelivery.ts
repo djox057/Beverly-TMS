@@ -21,6 +21,7 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
         .from('orders')
         .select('id, delivery_datetime')
         .eq('truck_id', truckId)
+        .eq('canceled', false)
         .not('delivery_datetime', 'is', null)
         .order('delivery_datetime', { ascending: false });
 
