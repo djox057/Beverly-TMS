@@ -509,7 +509,7 @@ const Reports = () => {
       return (
         <td
           key={index}
-          className={`border-b-[3px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`}
+          className={`border-b-[6px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`}
           style={{
             width: "120px",
             minWidth: "120px",
@@ -1312,9 +1312,9 @@ const Reports = () => {
 
                                 return (
                                   <>
-                                    <tr key={truck.id} className={`${truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"} border-b-4 border-background`}>
+                                    <tr key={truck.id} className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
-                                        className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
                                         style={{
                                           width: "77px",
                                           minWidth: "77px",
@@ -1341,7 +1341,7 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
@@ -1377,7 +1377,7 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
                                         style={{
                                           width: "136px",
                                           minWidth: "136px",
@@ -1473,7 +1473,7 @@ const Reports = () => {
                                       {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                       <td
                                         colSpan={4}
-                                        className={`border-r border-b-[3px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}
                                         style={{
                                           height: "64px",
                                         }}
@@ -1532,7 +1532,7 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
@@ -1542,7 +1542,7 @@ const Reports = () => {
                                         {truck.lastEdit}
                                       </td>
                                       <td
-                                        className={`border-b-[3px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
