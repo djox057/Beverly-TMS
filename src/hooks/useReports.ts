@@ -511,7 +511,7 @@ export const useReports = () => {
           hosStatus: truck.driver1?.hos_status || null,
           hosLastUpdated: truck.driver1?.hos_last_updated || null,
           twoWeekBlockDate: truck.driver1?.two_week_block_date || null,
-          note: truckNote?.note || (status === "Available" ? "Ready for dispatch" : "On assignment"),
+          note: truckNote?.note || "",
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
           // Multi-load support
