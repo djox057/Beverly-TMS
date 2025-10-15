@@ -6,6 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious,
+  PaginationEllipsis
+} from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
@@ -111,6 +120,8 @@ const Orders = () => {
     notes: ""
   });
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ORDERS_PER_PAGE = 100;
   
   // Set bookedBy filter for dispatchers when profile loads
   useEffect(() => {
@@ -217,6 +228,17 @@ const Orders = () => {
     }
     return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
   }) || [];
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, missingDocsFilter, dateRange]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
+  const endIndex = startIndex + ORDERS_PER_PAGE;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
   // Get unique companies and booked by values for filters
   const uniqueCompanies = [...new Set(orders?.map(order => order.companyName) || [])].filter(Boolean);
@@ -517,13 +539,13 @@ const Orders = () => {
                     <TableHead className="w-24">POD</TableHead>
                     <TableHead className="w-16">Actions</TableHead>
                   </TableRow>
-                </TableHeader>
+                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.length === 0 ? <TableRow>
+                  {paginatedOrders.length === 0 ? <TableRow>
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : filteredOrders.map(order => {
+                    </TableRow> : paginatedOrders.map(order => {
                       // Check if order has extra charges
                       const hasExtraCharges = (order.detention && order.detention > 0) || 
                                              (order.layover && order.layover > 0) || 
@@ -686,9 +708,92 @@ const Orders = () => {
                         </TableCell>
                       </TableRow>
                     })}
-                </TableBody>
+                 </TableBody>
               </Table>
           </div>
+          
+          {/* Pagination Controls */}
+          {filteredOrders.length > ORDERS_PER_PAGE && (
+            <div className="flex items-center justify-between px-6 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} orders
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {/* First page */}
+                  {currentPage > 2 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
+                        1
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis before current */}
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Previous page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current page */}
+                  <PaginationItem>
+                    <PaginationLink isActive className="cursor-default">
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis after current */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
