@@ -31,31 +31,8 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
         return null;
       }
 
-      let lastOrder = orders[0];
-
-      // If pickup datetime is provided, find the most recent delivery at or before pickup
-      if (pickupDatetime) {
-        const pickupTime = new Date(pickupDatetime).getTime();
-        
-        console.log('🔍 Looking for deliveries at or before:', pickupDatetime);
-
-        // Filter orders to only those delivered at or before the pickup time
-        const validOrders = orders.filter(order => {
-          const deliveryTime = new Date(order.delivery_datetime!).getTime();
-          return deliveryTime <= pickupTime;
-        });
-
-        if (validOrders.length > 0) {
-          // Use the most recent valid delivery (first in DESC ordered list)
-          lastOrder = validOrders[0];
-          console.log('✅ Found delivery at or before pickup:', lastOrder.id, new Date(lastOrder.delivery_datetime!).toISOString());
-        } else {
-          // No deliveries before pickup, use the most recent one overall
-          console.log('⚠️ No deliveries before pickup, using most recent:', lastOrder.id);
-        }
-      } else {
-        console.log('✅ Using most recent delivery:', lastOrder.id);
-      }
+      const lastOrder = orders[0];
+      console.log('✅ Using most recent delivery:', lastOrder.id);
 
       // Get the final delivery address (highest sequence_number with type = 'delivery')
       const { data: pickupDrops, error: pickupDropsError } = await supabase
