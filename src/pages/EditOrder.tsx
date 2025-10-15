@@ -1341,6 +1341,14 @@ const EditOrder = () => {
                 dragStates.rc && "border-blue-400 bg-blue-50/50 scale-[1.02]"
               )}
               {...rcDragHandlers}
+              onClick={(e) => {
+                // Don't trigger if clicking on the Extract with AI button
+                if ((e.target as HTMLElement).closest('button[data-ai-extract]')) {
+                  return;
+                }
+                e.preventDefault();
+                rcFileInputRef.current?.click();
+              }}
             >
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
@@ -1410,6 +1418,10 @@ const EditOrder = () => {
                   dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]"
                 )}
                 {...bolDragHandlers}
+                onClick={(e) => {
+                  e.preventDefault();
+                  bolFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-green-700 flex items-center gap-2">
@@ -1461,6 +1473,10 @@ const EditOrder = () => {
                   dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]"
                 )}
                 {...podDragHandlers}
+                onClick={(e) => {
+                  e.preventDefault();
+                  podFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
@@ -1512,6 +1528,10 @@ const EditOrder = () => {
                   dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]"
                 )}
                 {...additionalDragHandlers}
+                onClick={(e) => {
+                  e.preventDefault();
+                  additionalFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
