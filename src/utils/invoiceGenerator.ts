@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 
 // Helper function to load file from Supabase storage
@@ -388,51 +389,50 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     'InvAmt': `$${order.totalFreightAmount.toLocaleString()}`
   }));
 
-  // Use edge function to handle folder creation (always create ZIP)
+  // Create ZIP file client-side to avoid server memory limits
   try {
-    console.log(`Sending ${invoiceData.length} invoices and XLSX data to create-invoice-folder function`);
-    const { data: result, error } = await supabase.functions.invoke('create-invoice-folder', {
-      body: {
-        invoices: invoiceData,
-        xlsxData: xlsxData,
-        folderName: 'invoices'
-      }
+    console.log(`Creating ZIP with ${invoiceData.length} invoices client-side`);
+    const zip = new JSZip();
+    
+    // Add each invoice PDF to the ZIP
+    for (const invoice of invoiceData) {
+      zip.file(invoice.filename, new Uint8Array(invoice.pdfBytes));
+    }
+    
+    // Add XLSX file as CSV (Excel can open CSV files)
+    if (xlsxData.length > 0) {
+      const headers = ['ClientNo', 'Invoice#', 'Debtor Debtor Name', 'Pono', 'InvDate', 'InvAmt'];
+      const csvRows = [
+        headers.join('\t'),
+        ...xlsxData.map(row => 
+          headers.map(h => row[h as keyof typeof row] || '').join('\t')
+        )
+      ];
+      const csvContent = csvRows.join('\n');
+      zip.file('invoice_data.xls', csvContent);
+    }
+    
+    // Generate the ZIP file
+    console.log('Generating ZIP file...');
+    const zipBlob = await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
     });
-
-    if (error) {
-      console.error('Error creating invoice folder:', error);
-      // Fallback: download files individually
-      invoiceData.forEach((invoice, index) => {
-        const blob = new Blob([new Uint8Array(invoice.pdfBytes)], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = invoice.filename;
-        document.body.appendChild(link);
-        setTimeout(() => {
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        }, index * 200);
-      });
-      return;
-    }
-
-    // Handle the result from edge function
-    if (result.zipFile) {
-      // ZIP file download
-      const blob = new Blob([new Uint8Array(result.zipFile.zipBytes)], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.zipFile.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
+    
+    // Download the ZIP file
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'invoices.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log('ZIP file downloaded successfully');
   } catch (error) {
-    console.error('Error in invoice generation:', error);
+    console.error('Error creating ZIP file:', error);
     // Fallback: download files individually
     invoiceData.forEach((invoice, index) => {
       const blob = new Blob([new Uint8Array(invoice.pdfBytes)], { type: 'application/pdf' });
