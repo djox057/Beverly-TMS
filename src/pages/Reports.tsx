@@ -1312,7 +1312,7 @@ const Reports = () => {
 
                                 return (
                                   <>
-                                    <tr key={truck.id} className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                                    <tr key={truck.id} className={`${truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"} border-b-4 border-background`}>
                                       <td
                                         className={`border-r border-b-[3px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
                                         style={{
