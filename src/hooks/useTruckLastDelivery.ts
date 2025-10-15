@@ -33,31 +33,25 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
 
       let lastOrder = orders[0];
 
-      // If pickup datetime is provided, find deliveries on same date or before pickup
+      // If pickup datetime is provided, find the most recent delivery at or before pickup
       if (pickupDatetime) {
-        const pickupDate = new Date(pickupDatetime);
-        const pickupDateOnly = pickupDate.toISOString().split('T')[0];
-        const pickupTime = pickupDate.getTime();
+        const pickupTime = new Date(pickupDatetime).getTime();
         
-        console.log('🔍 Looking for deliveries on or before:', pickupDatetime);
+        console.log('🔍 Looking for deliveries at or before:', pickupDatetime);
 
-        // Filter orders to those on same date OR before pickup
+        // Filter orders to only those delivered at or before the pickup time
         const validOrders = orders.filter(order => {
-          const deliveryDate = new Date(order.delivery_datetime!);
-          const deliveryDateOnly = deliveryDate.toISOString().split('T')[0];
-          const deliveryTime = deliveryDate.getTime();
-          
-          // Include if same date OR before pickup datetime
-          return deliveryDateOnly === pickupDateOnly || deliveryTime < pickupTime;
+          const deliveryTime = new Date(order.delivery_datetime!).getTime();
+          return deliveryTime <= pickupTime;
         });
 
         if (validOrders.length > 0) {
-          // Use the most recent valid delivery
+          // Use the most recent valid delivery (first in DESC ordered list)
           lastOrder = validOrders[0];
-          console.log('✅ Found valid delivery:', lastOrder.id, new Date(lastOrder.delivery_datetime!).toISOString());
+          console.log('✅ Found delivery at or before pickup:', lastOrder.id, new Date(lastOrder.delivery_datetime!).toISOString());
         } else {
-          // No valid deliveries, use the most recent one overall
-          console.log('⚠️ No valid deliveries, using most recent:', lastOrder.id);
+          // No deliveries before pickup, use the most recent one overall
+          console.log('⚠️ No deliveries before pickup, using most recent:', lastOrder.id);
         }
       } else {
         console.log('✅ Using most recent delivery:', lastOrder.id);
