@@ -129,12 +129,17 @@ const Orders = () => {
       setBookedByFilter(profile.full_name);
     }
   }, [isDispatcher, profile?.full_name]);
+  
   const {
     data: orders,
     isLoading,
     error,
     refetch
   } = useOrders();
+  
+  const {
+    data: companies
+  } = useCompanies();
   
   // Refetch data when returning to this page or when window gains focus
   useEffect(() => {
@@ -158,23 +163,6 @@ const Orders = () => {
       window.removeEventListener('focus', handleFocus);
     };
   }, [refetch]);
-  const {
-    data: companies
-  } = useCompanies();
-  if (isLoading) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>;
-  }
-  if (error) {
-    return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <p className="text-destructive">Error loading orders: {error.message}</p>
-        </div>
-      </div>;
-  }
 
   // Filter orders based on search term and filters
   const filteredOrders = orders?.filter(order => {
@@ -233,6 +221,22 @@ const Orders = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, missingDocsFilter, dateRange]);
+
+  // Early returns after all hooks
+  if (isLoading) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </div>;
+  }
+  if (error) {
+    return <div className="space-y-6">
+        <div className="flex items-center justify-center py-8">
+          <p className="text-destructive">Error loading orders: {error.message}</p>
+        </div>
+      </div>;
+  }
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
