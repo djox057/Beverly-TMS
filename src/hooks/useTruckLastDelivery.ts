@@ -21,6 +21,7 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
         .from('orders')
         .select('id, delivery_datetime')
         .eq('truck_id', truckId)
+        .eq('canceled', false)
         .not('delivery_datetime', 'is', null)
         .order('delivery_datetime', { ascending: false });
 
@@ -84,7 +85,26 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
       if (!pickupDrops || pickupDrops.length === 0) return null;
 
       const pickup = pickupDrops[0];
-      const fullAddress = `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip_code}`;
+      
+      // Handle cases where address is already complete or fields are separated
+      let fullAddress: string;
+      if (!pickup.city && !pickup.state && !pickup.zip_code) {
+        // Address field already contains complete address
+        fullAddress = pickup.address;
+      } else {
+        // Build address from separate fields
+        const parts = [pickup.address];
+        if (pickup.city) parts.push(pickup.city);
+        if (pickup.state) {
+          const stateZip = pickup.zip_code 
+            ? `${pickup.state} ${pickup.zip_code}` 
+            : pickup.state;
+          parts.push(stateZip);
+        } else if (pickup.zip_code) {
+          parts.push(pickup.zip_code);
+        }
+        fullAddress = parts.join(', ');
+      }
 
       return {
         orderId: lastOrder.id,
