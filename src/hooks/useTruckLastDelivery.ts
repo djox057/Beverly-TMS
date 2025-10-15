@@ -33,40 +33,25 @@ export const useTruckLastDelivery = (truckId: string | null, pickupDatetime?: st
 
       let lastOrder = orders[0];
 
-      // If pickup datetime is provided, try to find delivery on same date
+      // If pickup datetime is provided, find the most recent delivery BEFORE the pickup
       if (pickupDatetime) {
-        const pickupDate = new Date(pickupDatetime);
-        const pickupDateOnly = pickupDate.toISOString().split('T')[0];
+        const pickupTime = new Date(pickupDatetime).getTime();
         
-        console.log('🔍 Looking for delivery on date:', pickupDateOnly);
+        console.log('🔍 Looking for last delivery before:', pickupDatetime);
 
-        // Find order with delivery on the same date as pickup
-        const sameDate = orders.find(order => {
-          const deliveryDate = new Date(order.delivery_datetime!);
-          const deliveryDateOnly = deliveryDate.toISOString().split('T')[0];
-          return deliveryDateOnly === pickupDateOnly;
+        // Filter orders to only those delivered BEFORE the pickup time
+        const ordersBeforePickup = orders.filter(order => {
+          const deliveryTime = new Date(order.delivery_datetime!).getTime();
+          return deliveryTime < pickupTime;
         });
 
-        if (sameDate) {
-          lastOrder = sameDate;
-          console.log('✅ Found delivery on same date:', sameDate.id);
+        if (ordersBeforePickup.length > 0) {
+          // Use the most recent delivery before pickup
+          lastOrder = ordersBeforePickup[0];
+          console.log('✅ Found last delivery before pickup:', lastOrder.id, new Date(lastOrder.delivery_datetime!).toISOString());
         } else {
-          // Find the closest delivery date to the pickup date
-          const pickupTime = pickupDate.getTime();
-          let closestOrder = orders[0];
-          let smallestDiff = Math.abs(new Date(orders[0].delivery_datetime!).getTime() - pickupTime);
-
-          for (const order of orders) {
-            const deliveryTime = new Date(order.delivery_datetime!).getTime();
-            const diff = Math.abs(deliveryTime - pickupTime);
-            if (diff < smallestDiff) {
-              smallestDiff = diff;
-              closestOrder = order;
-            }
-          }
-
-          lastOrder = closestOrder;
-          console.log('✅ Found closest delivery:', closestOrder.id, new Date(closestOrder.delivery_datetime!).toISOString());
+          // No deliveries before pickup, use the most recent one overall
+          console.log('⚠️ No deliveries before pickup, using most recent:', lastOrder.id);
         }
       } else {
         console.log('✅ Using most recent delivery:', lastOrder.id);
