@@ -712,41 +712,16 @@ const EditOrder = () => {
         if (files && files.length > 0) {
           setFiles(files);
         }
+      },
+      onClick: (e: React.MouseEvent) => {
+        // Don't trigger if clicking on the Extract with AI button
+        if (fileType === 'rc' && (e.target as HTMLElement).closest('button[data-ai-extract]')) {
+          return;
+        }
+        e.preventDefault();
+        fileInputRef.current?.click();
       }
     };
-  };
-
-  // Click handler for file upload cards
-  const handleCardClick = (fileType: 'rc' | 'bol' | 'pod' | 'additional') => (e: React.MouseEvent) => {
-    console.log(`[DEBUG] Card clicked for ${fileType}`);
-    
-    // Don't trigger if clicking on the Extract with AI button
-    if (fileType === 'rc' && (e.target as HTMLElement).closest('button[data-ai-extract]')) {
-      console.log('[DEBUG] Clicked on Extract AI button, skipping file input');
-      return;
-    }
-    
-    // Don't trigger if clicking on view/delete buttons
-    if ((e.target as HTMLElement).closest('button')) {
-      console.log('[DEBUG] Clicked on a button, skipping file input');
-      return;
-    }
-    
-    const fileInputRef = {
-      rc: rcFileInputRef,
-      bol: bolFileInputRef,
-      pod: podFileInputRef,
-      additional: additionalFileInputRef
-    }[fileType];
-    
-    console.log('[DEBUG] File input ref:', fileInputRef.current);
-    
-    if (fileInputRef.current) {
-      console.log('[DEBUG] Triggering file input click');
-      fileInputRef.current.click();
-    } else {
-      console.error('[DEBUG] File input ref is null!');
-    }
   };
 
   const rcDragHandlers = createFileDragHandlers('rc');
@@ -1366,7 +1341,14 @@ const EditOrder = () => {
                 dragStates.rc && "border-blue-400 bg-blue-50/50 scale-[1.02]"
               )}
               {...rcDragHandlers}
-              onClick={handleCardClick('rc')}
+              onClick={(e) => {
+                // Don't trigger if clicking on the Extract with AI button
+                if ((e.target as HTMLElement).closest('button[data-ai-extract]')) {
+                  return;
+                }
+                e.preventDefault();
+                rcFileInputRef.current?.click();
+              }}
             >
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
@@ -1436,7 +1418,10 @@ const EditOrder = () => {
                   dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]"
                 )}
                 {...bolDragHandlers}
-                onClick={handleCardClick('bol')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  bolFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-green-700 flex items-center gap-2">
@@ -1488,7 +1473,10 @@ const EditOrder = () => {
                   dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]"
                 )}
                 {...podDragHandlers}
-                onClick={handleCardClick('pod')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  podFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
@@ -1540,7 +1528,10 @@ const EditOrder = () => {
                   dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]"
                 )}
                 {...additionalDragHandlers}
-                onClick={handleCardClick('additional')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  additionalFileInputRef.current?.click();
+                }}
               >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
