@@ -115,7 +115,8 @@ export const useOrders = () => {
           pickup_drops(type, city, state, datetime, address),
           order_files(id, file_name, file_path, file_size, content_type, file_category)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000);
       
       if (error) throw error;
       
