@@ -212,7 +212,7 @@ const EditOrder = () => {
         }
         
         setIsLocked(orderData.locked || false);
-        setBookedByCompany(orderData.company_id || "");
+        setBookedByCompany(orderData.booked_by_company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
         setTrailer(orderData.trailer?.trailer_number || "");
@@ -767,7 +767,8 @@ const EditOrder = () => {
         .from('orders')
         .update({
           broker_load_number: brokerLoadNumber || null,
-          company_id: bookedByCompany || null,
+          booked_by_company_id: bookedByCompany || null,
+          company_id: truck && trucks ? trucks.find(t => t.id === truck)?.company_id || null : null,
           broker_id: broker || null,
           truck_id: truck || null,
           trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
