@@ -1082,7 +1082,7 @@ const Reports = () => {
     }
   };
   const renderEditableField = (truckId: string, field: "note", value: string, displayValue?: React.ReactNode) => {
-    const hasContent = value && value.trim().length > 0;
+    const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
     return (
       <Textarea
         defaultValue={value || ""}
