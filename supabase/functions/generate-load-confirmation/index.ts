@@ -33,6 +33,18 @@ interface LoadConfirmationData {
   deliveryPoNumber?: string;
 }
 
+// Sanitize text to remove characters that can't be encoded in WinAnsi (PDF standard encoding)
+function sanitizeText(text: string): string {
+  if (!text) return '';
+  // Replace common problematic characters and remove any non-ASCII characters
+  return text
+    .replace(/[^\x00-\x7F]/g, '') // Remove all non-ASCII characters
+    .replace(/\u2018|\u2019/g, "'") // Smart single quotes to regular
+    .replace(/\u201C|\u201D/g, '"') // Smart double quotes to regular
+    .replace(/\u2013|\u2014/g, '-') // En/em dashes to hyphen
+    .trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -72,87 +84,87 @@ serve(async (req) => {
     try {
       // Broker Load Number in LOAD ORDER CONFIRAMTION field (note: typo in PDF)
       const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRAMTION');
-      loadConfirmationField.setText(data.brokerLoadNumber);
+      loadConfirmationField.setText(sanitizeText(data.brokerLoadNumber));
 
       // Driver Info
       const driverField = form.getTextField('Driver');
-      driverField.setText(data.driverName);
+      driverField.setText(sanitizeText(data.driverName));
 
       const truckField = form.getTextField('Truck');
-      truckField.setText(data.truckNumber);
+      truckField.setText(sanitizeText(data.truckNumber));
 
       const trailerField = form.getTextField('Trailer');
-      trailerField.setText(data.trailerNumber);
+      trailerField.setText(sanitizeText(data.trailerNumber));
 
       const phoneField = form.getTextField('Phone');
-      phoneField.setText(data.phoneNumber);
+      phoneField.setText(sanitizeText(data.phoneNumber));
 
       // Optional fields
       if (data.commodity) {
         const commodityField = form.getTextField('Commodity');
-        commodityField.setText(data.commodity);
+        commodityField.setText(sanitizeText(data.commodity));
       }
 
       if (data.weight) {
         const weightField = form.getTextField('Weight');
-        weightField.setText(data.weight);
+        weightField.setText(sanitizeText(data.weight));
       }
 
       const milesField = form.getTextField('Miles');
-      milesField.setText(data.miles);
+      milesField.setText(sanitizeText(data.miles));
 
       const rateField = form.getTextField('Rate');
-      rateField.setText('$' + data.rate);
+      rateField.setText('$' + sanitizeText(data.rate));
 
       // Pickup Info (first location)
       if (data.pickupShipper) {
         const shipperField = form.getTextField('Shipper');
-        shipperField.setText(data.pickupShipper);
+        shipperField.setText(sanitizeText(data.pickupShipper));
       }
 
       const pickupAddressField = form.getTextField('Address');
-      pickupAddressField.setText(data.pickupAddress);
+      pickupAddressField.setText(sanitizeText(data.pickupAddress));
 
       const pickupCityField = form.getTextField('City state zip');
-      pickupCityField.setText(data.pickupCityStateZip);
+      pickupCityField.setText(sanitizeText(data.pickupCityStateZip));
 
       const pickupDateField = form.getTextField('Date');
-      pickupDateField.setText(data.pickupDate);
+      pickupDateField.setText(sanitizeText(data.pickupDate));
 
       const pickupTimeField = form.getTextField('Time');
-      pickupTimeField.setText(data.pickupTime);
+      pickupTimeField.setText(sanitizeText(data.pickupTime));
 
       if (data.pickupPuNumber) {
         const puField = form.getTextField('PU');
-        puField.setText(data.pickupPuNumber);
+        puField.setText(sanitizeText(data.pickupPuNumber));
       }
 
       if (data.pickupPoNumber) {
         const poPickupField = form.getTextField('PO');
-        poPickupField.setText(data.pickupPoNumber);
+        poPickupField.setText(sanitizeText(data.pickupPoNumber));
       }
 
       // Delivery Info (second location - _2 suffix)
       if (data.deliveryReceiver) {
         const receiverField = form.getTextField('Shipper_2');
-        receiverField.setText(data.deliveryReceiver);
+        receiverField.setText(sanitizeText(data.deliveryReceiver));
       }
 
       const deliveryAddressField = form.getTextField('Address_2');
-      deliveryAddressField.setText(data.deliveryAddress);
+      deliveryAddressField.setText(sanitizeText(data.deliveryAddress));
 
       const deliveryCityField = form.getTextField('City state zip_2');
-      deliveryCityField.setText(data.deliveryCityStateZip);
+      deliveryCityField.setText(sanitizeText(data.deliveryCityStateZip));
 
       const deliveryDateField = form.getTextField('Date_2');
-      deliveryDateField.setText(data.deliveryDate);
+      deliveryDateField.setText(sanitizeText(data.deliveryDate));
 
       const deliveryTimeField = form.getTextField('Time_2');
-      deliveryTimeField.setText(data.deliveryTime);
+      deliveryTimeField.setText(sanitizeText(data.deliveryTime));
 
       if (data.deliveryPoNumber) {
         const poDeliveryField = form.getTextField('PO_2');
-        poDeliveryField.setText(data.deliveryPoNumber);
+        poDeliveryField.setText(sanitizeText(data.deliveryPoNumber));
       }
 
     } catch (fieldError) {
