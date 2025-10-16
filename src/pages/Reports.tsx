@@ -1085,6 +1085,7 @@ const Reports = () => {
   };
   const renderEditableField = (truckId: string, field: "note", value: string, displayValue?: React.ReactNode) => {
     const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
+    const [isEditing, setIsEditing] = useState(false);
     
     return (
       <div 
@@ -1094,26 +1095,51 @@ const Reports = () => {
           setNoteDialogOpen(truckId);
         }}
       >
-        <Textarea
-          defaultValue={value || ""}
-          onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight overflow-hidden`}
-          style={{
-            height: "32px",
-            minHeight: "32px",
-            maxHeight: "32px",
-            boxShadow: "none",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            lineHeight: "14px",
-          }}
-          placeholder="Add note..."
-          spellCheck={false}
-        />
-        {hasContent && (
+        {isEditing ? (
+          <Textarea
+            defaultValue={value || ""}
+            autoFocus
+            onBlur={(e) => {
+              handleNoteChange(truckId, e.target.value);
+              setIsEditing(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsEditing(false);
+              }
+            }}
+            className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
+            style={{
+              height: "32px",
+              minHeight: "32px",
+              maxHeight: "32px",
+              boxShadow: "none",
+              lineHeight: "14px",
+            }}
+            placeholder="Add note..."
+            spellCheck={false}
+          />
+        ) : (
+          <div
+            onClick={() => setIsEditing(true)}
+            className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2`}
+            style={{
+              height: "32px",
+              minHeight: "32px",
+              maxHeight: "32px",
+              lineHeight: "14px",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+            title={value || ""}
+          >
+            {hasContent ? value : <span className="text-muted-foreground">Add note...</span>}
+          </div>
+        )}
+        {hasContent && !isEditing && (
           <Maximize2 
-            className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={() => {
               setNoteDialogContent(value || "");
               setNoteDialogOpen(truckId);
@@ -1638,7 +1664,7 @@ const Reports = () => {
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl z-[100]">
           <DialogHeader>
             <DialogTitle>Full Note</DialogTitle>
           </DialogHeader>
