@@ -561,9 +561,9 @@ export const useReports = () => {
       
       return groupedData;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes - data is fresh for this period
-    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache
-    refetchInterval: 30000, // Refetch every 30 seconds (real-time handles most updates)
+    staleTime: 3 * 60 * 1000, // Increased to 3 minutes - data is fresh for longer
+    gcTime: 10 * 60 * 1000, // Increased to 10 minutes - keep in cache longer
+    refetchInterval: 60000, // Increased to 60 seconds - reduce query frequency
     refetchOnWindowFocus: false, // Prevent aggressive refetching
   });
 

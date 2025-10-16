@@ -183,5 +183,9 @@ export const useOrders = () => {
 
         return transformedOrders;
     },
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchOnWindowFocus: false,
   });
 };

@@ -57,7 +57,8 @@ export const useTrailers = () => {
       console.log('Sample trailer with trucks:', allTrailers[0]);
       return allTrailers;
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 60000,
   });
 };

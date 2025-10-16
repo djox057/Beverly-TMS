@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const useBrokers = () => {
   return useQuery({
-    queryKey: ['brokers', 'v2'], // Added version to bust cache
+    queryKey: ['brokers', 'v2'],
     queryFn: async () => {
       console.log('🔍 Starting to fetch all brokers...');
       
@@ -58,5 +58,8 @@ export const useBrokers = () => {
       
       return allBrokers;
     },
+    staleTime: 60000, // Cache for 1 minute - brokers don't change frequently
+    gcTime: 300000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false,
   });
 };
