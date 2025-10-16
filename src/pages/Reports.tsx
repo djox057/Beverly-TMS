@@ -61,6 +61,81 @@ const getStatusBadge = (status: string) => {
       );
   }
 };
+
+// EditableNoteField component to avoid hooks violation
+const EditableNoteField = ({ 
+  truckId, 
+  value, 
+  handleNoteChange,
+  setNoteDialogContent,
+  setNoteDialogOpen
+}: { 
+  truckId: string; 
+  value: string; 
+  handleNoteChange: (truckId: string, value: string) => Promise<void>;
+  setNoteDialogContent: (value: string) => void;
+  setNoteDialogOpen: (truckId: string | null) => void;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
+  
+  return (
+    <div className="relative w-full h-full group">
+      {isEditing ? (
+        <Textarea
+          defaultValue={value || ""}
+          autoFocus
+          onBlur={(e) => {
+            handleNoteChange(truckId, e.target.value);
+            setIsEditing(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setIsEditing(false);
+            }
+          }}
+          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
+          style={{
+            height: "32px",
+            minHeight: "32px",
+            maxHeight: "32px",
+            boxShadow: "none",
+            lineHeight: "14px",
+          }}
+          placeholder="Add note..."
+          spellCheck={false}
+        />
+      ) : (
+        <div
+          onClick={() => setIsEditing(true)}
+          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2`}
+          style={{
+            height: "32px",
+            minHeight: "32px",
+            maxHeight: "32px",
+            lineHeight: "14px",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
+          title={value || ""}
+        >
+          {hasContent ? value : <span className="text-muted-foreground">Add note...</span>}
+        </div>
+      )}
+      {hasContent && !isEditing && (
+        <Maximize2 
+          className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          onClick={() => {
+            setNoteDialogContent(value || "");
+            setNoteDialogOpen(truckId);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 const Reports = () => {
   const { profile } = useAuthContext();
   const navigate = useNavigate();
@@ -1083,68 +1158,6 @@ const Reports = () => {
       });
     }
   };
-  const renderEditableField = (truckId: string, field: "note", value: string, displayValue?: React.ReactNode) => {
-    const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
-    const [isEditing, setIsEditing] = useState(false);
-    
-    return (
-      <div 
-        className="relative w-full h-full group"
-      >
-        {isEditing ? (
-          <Textarea
-            defaultValue={value || ""}
-            autoFocus
-            onBlur={(e) => {
-              handleNoteChange(truckId, e.target.value);
-              setIsEditing(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setIsEditing(false);
-              }
-            }}
-            className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
-            style={{
-              height: "32px",
-              minHeight: "32px",
-              maxHeight: "32px",
-              boxShadow: "none",
-              lineHeight: "14px",
-            }}
-            placeholder="Add note..."
-            spellCheck={false}
-          />
-        ) : (
-          <div
-            onClick={() => setIsEditing(true)}
-            className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2`}
-            style={{
-              height: "32px",
-              minHeight: "32px",
-              maxHeight: "32px",
-              lineHeight: "14px",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-            title={value || ""}
-          >
-            {hasContent ? value : <span className="text-muted-foreground">Add note...</span>}
-          </div>
-        )}
-        {hasContent && !isEditing && (
-          <Maximize2 
-            className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            onClick={() => {
-              setNoteDialogContent(value || "");
-              setNoteDialogOpen(truckId);
-            }}
-          />
-        )}
-      </div>
-    );
-  };
 
   return (
     <>
@@ -1576,7 +1589,13 @@ const Reports = () => {
                                           />
                                         </div>
                                         <div className="h-8 p-0 w-full">
-                                          {renderEditableField(truck.id, "note", truck.note)}
+                                          <EditableNoteField 
+                                            truckId={truck.id}
+                                            value={truck.note}
+                                            handleNoteChange={handleNoteChange}
+                                            setNoteDialogContent={setNoteDialogContent}
+                                            setNoteDialogOpen={setNoteDialogOpen}
+                                          />
                                         </div>
                                       </td>
                                       <td
