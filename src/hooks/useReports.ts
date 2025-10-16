@@ -207,9 +207,6 @@ export const useReports = () => {
 
   const reportsQuery = useQuery({
     queryKey: ['reports'],
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
-    refetchOnWindowFocus: false,
     queryFn: async () => {
       // Fetch trucks with their drivers and current orders
       // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
@@ -564,6 +561,10 @@ export const useReports = () => {
       
       return groupedData;
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes - data is fresh for this period
+    gcTime: 5 * 60 * 1000, // 5 minutes - keep in cache
+    refetchInterval: 30000, // Refetch every 30 seconds (real-time handles most updates)
+    refetchOnWindowFocus: false, // Prevent aggressive refetching
   });
 
   return {
