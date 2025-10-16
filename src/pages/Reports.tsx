@@ -563,10 +563,8 @@ const Reports = () => {
         const pickupTime = order.pickupDate.getTime();
         const deliveryTime = order.deliveryDate.getTime();
         // Day is in transit if it's after pickup and before delivery
-        // AND the load has been picked up (has BOL or arrived at pickup)
-        const hasPickedUp =
-          order.order_files?.some((file: any) => file.file_category === "BOL") || order.pickupStop?.arrived_at;
-        return dayTime > pickupTime && dayTime < deliveryTime && hasPickedUp;
+        // This includes future loads that haven't been picked up yet (2-3 day loads)
+        return dayTime > pickupTime && dayTime < deliveryTime;
       });
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
