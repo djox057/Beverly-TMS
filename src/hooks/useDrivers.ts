@@ -57,12 +57,18 @@ export const useDrivers = () => {
         );
       }
       
+      // Create a Map for faster truck lookups
+      const trucksByDriverId = new Map();
+      if (trucksData) {
+        trucksData.forEach(truck => {
+          if (truck.driver1_id) trucksByDriverId.set(truck.driver1_id, truck);
+          if (truck.driver2_id) trucksByDriverId.set(truck.driver2_id, truck);
+        });
+      }
+      
       // Transform the data to flatten truck/trailer info
       const transformedData = data?.map(driver => {
-        // Find truck where this driver is driver1
-        const truck = trucksData?.find(t => t.driver1_id === driver.id || t.driver2_id === driver.id);
-        
-        console.log(`Driver ${driver.name} truck:`, truck);
+        const truck = trucksByDriverId.get(driver.id);
         
         return {
           ...driver,
@@ -78,7 +84,7 @@ export const useDrivers = () => {
       return transformedData;
     },
     refetchOnWindowFocus: false,
-    staleTime: 60000, // Cache for 1 minute
-    gcTime: 300000,
+    staleTime: 30000, // Cache for 30 seconds (same as trucks/trailers)
+    gcTime: 60000, // Keep in cache for 1 minute (same as trucks/trailers)
   });
 };

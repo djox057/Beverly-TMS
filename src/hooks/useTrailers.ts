@@ -44,14 +44,24 @@ export const useTrailers = () => {
       } else {
         console.log(`✅ Fetched ${trucksData?.length || 0} trucks for trailer mapping`);
         
-        // Map trucks to trailers
-        allTrailers = allTrailers.map(trailer => {
-          const trucks = trucksData?.filter(truck => truck.trailer_id === trailer.id) || [];
-          return {
-            ...trailer,
-            trucks: trucks
-          };
-        });
+        // Create a Map for faster truck lookups by trailer_id
+        const trucksByTrailerId = new Map();
+        if (trucksData) {
+          trucksData.forEach(truck => {
+            if (truck.trailer_id) {
+              if (!trucksByTrailerId.has(truck.trailer_id)) {
+                trucksByTrailerId.set(truck.trailer_id, []);
+              }
+              trucksByTrailerId.get(truck.trailer_id).push(truck);
+            }
+          });
+        }
+        
+        // Map trucks to trailers using the Map
+        allTrailers = allTrailers.map(trailer => ({
+          ...trailer,
+          trucks: trucksByTrailerId.get(trailer.id) || []
+        }));
       }
       
       console.log('Sample trailer with trucks:', allTrailers[0]);
