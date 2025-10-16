@@ -262,7 +262,7 @@ const Orders = () => {
       'Delivery City': order.deliveryCity,
       'Delivery State': order.deliveryState,
       'Miles': order.mileage,
-      'Driver Rate': order.driverPrice,
+      'Driver Pay': (order as any).totalDriverPay,
       'Driver': order.driverName,
       'Broker Name': order.brokerName,
       'Broker Load #': order.brokerLoadNumber,
@@ -530,7 +530,7 @@ const Orders = () => {
                     <TableHead className="w-28">Delivery City</TableHead>
                     <TableHead className="w-20">Delivery State</TableHead>
                     <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-24">Driver Rate</TableHead>
+                    <TableHead className="w-24">Driver Pay</TableHead>
                     <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-36">Broker Name</TableHead>
                     <TableHead className="w-28">Broker Load #</TableHead>
@@ -576,7 +576,11 @@ const Orders = () => {
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
-                        <TableCell>${order.driverPrice?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${(order as any).totalDriverPay?.toLocaleString() || '0'}
+                          </div>
+                        </TableCell>
                         <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
