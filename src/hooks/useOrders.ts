@@ -113,7 +113,9 @@ export const useOrders = () => {
           company:companies!orders_company_id_fkey(name),
           booked_by_company:companies!orders_booked_by_company_id_fkey(name),
           pickup_drops(type, city, state, datetime, address),
-          order_files(id, file_name, file_path, file_size, content_type, file_category)
+          order_files(id, file_name, file_path, file_size, content_type, file_category),
+          escort_fee,
+          escort_fee_broker_paid
         `)
         .order('created_at', { ascending: false })
         .limit(100000);
@@ -165,7 +167,9 @@ export const useOrders = () => {
           lumper: order.lumper || 0,
           lateFee: order.late_fee || 0,
           tonu: order.tonu || 0,
-          totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0),
+          escortFee: order.escort_fee || 0,
+          escortFeeBrokerPaid: order.escort_fee_broker_paid || false,
+          totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0) + (order.escort_fee_broker_paid ? (order.escort_fee || 0) : 0),
           notes: order.notes || '',
           bookedBy: order.booked_by || 'N/A',
           companyName: order.booked_by_company?.name || 'N/A',
