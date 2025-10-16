@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,30 @@ const EditOrder = () => {
   const [tonuDriver, setTonuDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
+  
+  // Calculate total company revenue and total driver pay
+  const totalCompanyRevenue = useMemo(() => {
+    const base = parseFloat(freightAmount) || 0;
+    const det = parseFloat(detention) || 0;
+    const lay = parseFloat(layover) || 0;
+    const extra = parseFloat(extraStop) || 0;
+    const lump = parseFloat(lumper) || 0;
+    const late = parseFloat(lateFee) || 0;
+    const ton = parseFloat(tonu) || 0;
+    return base + det + lay + extra + lump + late + ton;
+  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu]);
+
+  const totalDriverPay = useMemo(() => {
+    const base = parseFloat(driverPrice) || 0;
+    const det = parseFloat(detentionDriver) || 0;
+    const lay = parseFloat(layoverDriver) || 0;
+    const extra = parseFloat(extraStopDriver) || 0;
+    const lump = parseFloat(lumperDriver) || 0;
+    const late = parseFloat(lateFeeDriver) || 0;
+    const ton = parseFloat(tonuDriver) || 0;
+    return base + det + lay + extra + lump + late + ton;
+  }, [driverPrice, detentionDriver, layoverDriver, extraStopDriver, lumperDriver, lateFeeDriver, tonuDriver]);
+  
   const [commodity, setCommodity] = useState("");
   const [weight, setWeight] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -1187,7 +1211,7 @@ const EditOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="freight-amount">Freight Amount</Label>
+                <Label htmlFor="freight-amount">Freight Amount (Base)</Label>
                 <Input 
                   id="freight-amount" 
                   type="number" 
@@ -1197,9 +1221,12 @@ const EditOrder = () => {
                   disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
                   className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
+                <p className="text-sm text-muted-foreground">
+                  Total Company Revenue: <span className="font-semibold text-primary">${totalCompanyRevenue.toFixed(2)}</span>
+                </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="driver-price">Driver Rate</Label>
+                <Label htmlFor="driver-price">Driver Rate (Base)</Label>
                 <Input 
                   id="driver-price" 
                   type="number" 
@@ -1207,6 +1234,9 @@ const EditOrder = () => {
                   value={driverPrice} 
                   onChange={e => setDriverPrice(e.target.value)} 
                 />
+                <p className="text-sm text-muted-foreground">
+                  Total Driver Pay: <span className="font-semibold text-green-600 dark:text-green-400">${totalDriverPay.toFixed(2)}</span>
+                </p>
               </div>
             </div>
 
