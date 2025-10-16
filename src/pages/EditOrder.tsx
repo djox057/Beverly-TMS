@@ -120,6 +120,10 @@ const EditOrder = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   
+  // Track original delivery date and date change notes for audit trail
+  const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
+  const [dateChangeNotes, setDateChangeNotes] = useState("");
+  
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
   const [driverPickupStartTime, setDriverPickupStartTime] = useState("");
@@ -276,6 +280,12 @@ const EditOrder = () => {
         setEscortFee((orderData as any).escort_fee?.toString() || "");
         setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+        
+        // Load date change notes and original delivery date for tracking changes
+        setDateChangeNotes((orderData as any).date_change_notes || "");
+        if (orderData.delivery_datetime) {
+          setOriginalDeliveryDate(new Date(orderData.delivery_datetime));
+        }
 
         // Calculate miles from loaded_miles and dh_miles or use legacy mileage
         const loadedMilesValue = (orderData as any).loaded_miles || 0;
@@ -828,6 +838,32 @@ const EditOrder = () => {
       const firstDelivery = allDeliveries[0];
       const lastDelivery = allDeliveries[allDeliveries.length - 1];
       
+      // Calculate new delivery datetime for comparison
+      const newDeliveryDatetime = firstDelivery?.dateRange?.from && firstDelivery?.startTime 
+        ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime) 
+        : null;
+      
+      // Check if delivery date changed and append to date change notes
+      let updatedDateChangeNotes = dateChangeNotes;
+      if (originalDeliveryDate && newDeliveryDatetime) {
+        const originalTime = originalDeliveryDate.getTime();
+        const newTime = new Date(newDeliveryDatetime).getTime();
+        
+        if (originalTime !== newTime) {
+          const oldDateStr = originalDeliveryDate.toLocaleString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const changeNote = `Supposed to deliver on ${oldDateStr}`;
+          updatedDateChangeNotes = dateChangeNotes 
+            ? `${dateChangeNotes}\n${changeNote}` 
+            : changeNote;
+        }
+      }
+      
       const { error: orderError } = await supabase
         .from('orders')
         .update({
@@ -876,7 +912,8 @@ const EditOrder = () => {
           notes: notes || null,
           booked_by: bookedBy || null,
           escort_fee: escortFee ? parseFloat(escortFee) : null,
-          escort_fee_broker_paid: escortFeeBrokerPaid
+          escort_fee_broker_paid: escortFeeBrokerPaid,
+          date_change_notes: updatedDateChangeNotes || null
         })
         .eq('id', id);
 
@@ -1473,6 +1510,20 @@ const EditOrder = () => {
                 rows={4} 
               />
             </div>
+
+            {dateChangeNotes && (
+              <div className="space-y-2">
+                <Label htmlFor="date-change-notes" className="text-muted-foreground">Date Change History</Label>
+                <Textarea 
+                  id="date-change-notes" 
+                  value={dateChangeNotes} 
+                  disabled
+                  rows={3}
+                  className="bg-muted cursor-not-allowed text-sm font-mono whitespace-pre-wrap"
+                />
+                <p className="text-xs text-muted-foreground">Historical record of delivery date changes</p>
+              </div>
+            )}
 
             {/* File Upload Sections - Disabled when locked */}
             {isLocked && (

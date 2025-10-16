@@ -428,6 +428,7 @@ export type Database = {
           commodity: string | null
           company_id: string
           created_at: string
+          date_change_notes: string | null
           delivery_datetime: string | null
           delivery_end_datetime: string | null
           detention: number | null
@@ -477,6 +478,7 @@ export type Database = {
           commodity?: string | null
           company_id: string
           created_at?: string
+          date_change_notes?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
@@ -526,6 +528,7 @@ export type Database = {
           commodity?: string | null
           company_id?: string
           created_at?: string
+          date_change_notes?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
