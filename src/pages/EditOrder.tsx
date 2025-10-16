@@ -103,7 +103,7 @@ const EditOrder = () => {
     const ton = parseFloat(tonuDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton - noTracking - wrongAddr;
+    return base + det + lay - late - ton - noTracking - wrongAddr;
   }, [driverPrice, detentionDriver, layoverDriver, lateFeeDriver, tonuDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
   
   const [commodity, setCommodity] = useState("");
@@ -284,14 +284,14 @@ const EditOrder = () => {
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
-        setDetentionDriver((orderData as any).detention_driver?.toString() || "");
-        setLayoverDriver((orderData as any).layover_driver?.toString() || "");
-        setLateFeeDriver((orderData as any).late_fee_driver?.toString() || "");
-        setTonuDriver((orderData as any).tonu_driver?.toString() || "");
+        setDetentionDriver((orderData as any).detention_driver > 0 ? (orderData as any).detention_driver.toString() : "");
+        setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
+        setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
+        setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
         setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
-        setNoTrackingFeeDriver((orderData as any).no_tracking_fee_driver?.toString() || "");
+        setNoTrackingFeeDriver((orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "");
         setWrongAddressFee((orderData as any).wrong_address_fee?.toString() || "");
-        setWrongAddressFeeDriver((orderData as any).wrong_address_fee_driver?.toString() || "");
+        setWrongAddressFeeDriver((orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "");
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
