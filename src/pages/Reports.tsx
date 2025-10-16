@@ -1090,10 +1090,6 @@ const Reports = () => {
     return (
       <div 
         className="relative w-full h-full group"
-        onDoubleClick={() => {
-          setNoteDialogContent(value || "");
-          setNoteDialogOpen(truckId);
-        }}
       >
         {isEditing ? (
           <Textarea
