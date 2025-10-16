@@ -9,6 +9,7 @@ import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,8 @@ const EditOrder = () => {
   const [tonuDriver, setTonuDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
+  const [escortFee, setEscortFee] = useState("");
+  const [escortFeeBrokerPaid, setEscortFeeBrokerPaid] = useState(false);
   
   // Calculate total company revenue and total driver pay
   const totalCompanyRevenue = useMemo(() => {
@@ -84,8 +87,9 @@ const EditOrder = () => {
     const lump = parseFloat(lumper) || 0;
     const late = parseFloat(lateFee) || 0;
     const ton = parseFloat(tonu) || 0;
-    return base + det + lay + extra + lump + late + ton;
-  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu]);
+    const escort = escortFeeBrokerPaid ? (parseFloat(escortFee) || 0) : 0;
+    return base + det + lay + extra + lump + late + ton + escort;
+  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, escortFee, escortFeeBrokerPaid]);
 
   const totalDriverPay = useMemo(() => {
     const base = parseFloat(driverPrice) || 0;
@@ -111,7 +115,6 @@ const EditOrder = () => {
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [notes, setNotes] = useState("");
   const [bookedBy, setBookedBy] = useState("");
-  const [invoiced, setInvoiced] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -270,7 +273,8 @@ const EditOrder = () => {
         setPuNumber((orderData as any).pu_number || "");
         setNotes(orderData.notes || "");
         setBookedBy(orderData.booked_by || "");
-        setInvoiced(orderData.invoiced ? "Done" : "false");
+        setEscortFee((orderData as any).escort_fee?.toString() || "");
+        setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
 
         // Calculate miles from loaded_miles and dh_miles or use legacy mileage
@@ -871,7 +875,8 @@ const EditOrder = () => {
           pu_number: puNumber || null,
           notes: notes || null,
           booked_by: bookedBy || null,
-          invoiced: invoiced === "Done"
+          escort_fee: escortFee ? parseFloat(escortFee) : null,
+          escort_fee_broker_paid: escortFeeBrokerPaid
         })
         .eq('id', id);
 
@@ -1433,27 +1438,34 @@ const EditOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="invoiced">Invoiced Status</Label>
-                {(hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')) ? (
-                  <Input 
-                    id="invoiced"
-                    value={invoiced === "Done" ? "Done" : "Not Invoiced"}
-                    disabled
-                    className="bg-muted cursor-not-allowed"
-                  />
-                ) : (
-                  <Select value={invoiced} onValueChange={setInvoiced}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="false">Not Invoiced</SelectItem>
-                      <SelectItem value="Done">Done</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                <Label htmlFor="escort-fee">Escort Fee</Label>
+                <Input 
+                  id="escort-fee" 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="0.00" 
+                  value={escortFee} 
+                  onChange={e => setEscortFee(e.target.value)}
+                  className="bg-blue-50/50 dark:bg-blue-950/20"
+                />
               </div>
               
+              <div className="space-y-2">
+                <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
+                <div className="flex items-center gap-3 h-10">
+                  <Switch
+                    id="escort-broker-paid"
+                    checked={escortFeeBrokerPaid}
+                    onCheckedChange={setEscortFeeBrokerPaid}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="booked-by">Booked By</Label>
                 {hasRole('manager') || hasRole('admin') ? (
