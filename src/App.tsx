@@ -12,6 +12,7 @@ import { DriverLayout } from "./components/DriverLayout";
 import { supabase } from "./integrations/supabase/client";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import DriverDashboard from "./pages/driver/DriverDashboard";
 import DriverOrders from "./pages/driver/DriverOrders";
 import DriverInfo from "./pages/driver/DriverInfo";
@@ -108,6 +109,7 @@ const AppContent = () => {
       <Sonner />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin/users" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><AdminUsers /></Layout>
