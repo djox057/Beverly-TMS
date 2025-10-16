@@ -600,7 +600,11 @@ const Orders = () => {
                             </Button>
                           )}
                         </TableCell>
-                        <TableCell>${order.totalFreightAmount?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${order.totalFreightAmount?.toLocaleString() || '0'}
+                          </div>
+                        </TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell className="max-w-24">
