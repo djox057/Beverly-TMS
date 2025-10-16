@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -108,6 +108,8 @@ const Reports = () => {
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>(getInitialTab());
   const [visibleTrucks, setVisibleTrucks] = useState<{ [dispatcherId: string]: number }>({});
+  const [noteDialogOpen, setNoteDialogOpen] = useState<string | null>(null);
+  const [noteDialogContent, setNoteDialogContent] = useState<string>("");
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -1083,25 +1085,48 @@ const Reports = () => {
   };
   const renderEditableField = (truckId: string, field: "note", value: string, displayValue?: React.ReactNode) => {
     const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
+    
     return (
-      <Textarea
-        defaultValue={value || ""}
-        onBlur={(e) => handleNoteChange(truckId, e.target.value)}
-        className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-yellow-300' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
-        style={{
-          height: "32px",
-          minHeight: "32px",
-          maxHeight: "32px",
-          boxShadow: "none",
+      <div 
+        className="relative w-full h-full group"
+        onDoubleClick={() => {
+          setNoteDialogContent(value || "");
+          setNoteDialogOpen(truckId);
         }}
-        placeholder="Add note..."
-        spellCheck={false}
-      />
+      >
+        <Textarea
+          defaultValue={value || ""}
+          onBlur={(e) => handleNoteChange(truckId, e.target.value)}
+          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight overflow-hidden`}
+          style={{
+            height: "32px",
+            minHeight: "32px",
+            maxHeight: "32px",
+            boxShadow: "none",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            lineHeight: "14px",
+          }}
+          placeholder="Add note..."
+          spellCheck={false}
+        />
+        {hasContent && (
+          <Maximize2 
+            className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => {
+              setNoteDialogContent(value || "");
+              setNoteDialogOpen(truckId);
+            }}
+          />
+        )}
+      </div>
     );
   };
 
   return (
-    <div className="h-full bg-background overflow-hidden flex flex-col">
+    <>
+      <div className="h-full bg-background overflow-hidden flex flex-col">
       <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-10 border-b border-border">
@@ -1610,6 +1635,40 @@ const Reports = () => {
           </Tabs>
         </div>
       </div>
-    );
-  };
-  export default Reports;
+
+      {/* Note Dialog */}
+      <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Full Note</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Textarea
+              value={noteDialogContent}
+              onChange={(e) => setNoteDialogContent(e.target.value)}
+              className="min-h-[200px] w-full"
+              placeholder="Add note..."
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setNoteDialogOpen(null)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={async () => {
+                  if (noteDialogOpen) {
+                    await handleNoteChange(noteDialogOpen, noteDialogContent);
+                    setNoteDialogOpen(null);
+                  }
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default Reports;
