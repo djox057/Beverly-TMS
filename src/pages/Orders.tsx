@@ -558,7 +558,7 @@ const Orders = () => {
                       const hasGreenFees = ((order as any).detentionDriver > 0) || 
                                           ((order as any).layoverDriver > 0);
                       
-                      const hasYellowFees = (order.escortFee > 0);
+                      const hasYellowFees = (order.escortFee > 0) || ((order as any).lumper > 0);
                       
                       const hasOrangeCondition = order.canceled || ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== '');
                       
