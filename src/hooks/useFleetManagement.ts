@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,17 +14,13 @@ interface DispatcherFleet {
 }
 
 export const useFleetManagement = () => {
-  const [dispatchers, setDispatchers] = useState<DispatcherFleet[]>([]);
-  const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
-  const [allDispatchers, setAllDispatchers] = useState<any[]>([]);
-  const [dispatcherStatuses, setDispatcherStatuses] = useState<Map<string, boolean>>(new Map());
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const fetchFleetData = async () => {
-    try {
-      setLoading(true);
-      
+  // Use React Query to cache fleet data
+  const { data: fleetData, isLoading: loading, refetch: fetchFleetData } = useQuery({
+    queryKey: ['fleet-management'],
+    queryFn: async () => {
       // Fetch all dispatchers, managers, and supervisors from user_roles (exclude accounting)
       const { data: dispatchRoles, error: rolesError } = await supabase
         .from('user_roles')
@@ -107,26 +103,26 @@ export const useFleetManagement = () => {
         };
       }) || [];
 
-      // Filter out dispatchers with no trucks for the main list, but keep all for assignment  
-      setDispatchers(dispatcherFleets);
-      setAllDispatchers(dispatcherProfiles?.map(d => ({ 
-        id: d.user_id, 
-        full_name: d.full_name, 
-        email: d.email,
-        ext: d.ext
-      })) || []);
-      setAvailableTrucks(unassignedTrucks);
-    } catch (error: any) {
-      console.error('Error fetching fleet data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch fleet data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return {
+        dispatchers: dispatcherFleets,
+        allDispatchers: dispatcherProfiles?.map(d => ({ 
+          id: d.user_id, 
+          full_name: d.full_name, 
+          email: d.email,
+          ext: d.ext
+        })) || [],
+        availableTrucks: unassignedTrucks
+      };
+    },
+    staleTime: 3 * 60 * 1000, // Cache for 3 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  const dispatchers = fleetData?.dispatchers || [];
+  const allDispatchers = fleetData?.allDispatchers || [];
+  const availableTrucks = fleetData?.availableTrucks || [];
+  const dispatcherStatuses = new Map<string, boolean>();
 
   const assignTruckToDispatcher = async (truckId: string, dispatcherId: string) => {
     try {
@@ -146,7 +142,7 @@ export const useFleetManagement = () => {
         description: `Truck assigned to ${dispatcherName} successfully`,
       });
 
-      fetchFleetData();
+      queryClient.invalidateQueries({ queryKey: ['fleet-management'] });
     } catch (error: any) {
       console.error('Error assigning truck to dispatcher:', error);
       toast({
@@ -171,7 +167,7 @@ export const useFleetManagement = () => {
         description: "Truck removed from dispatcher successfully",
       });
 
-      fetchFleetData();
+      queryClient.invalidateQueries({ queryKey: ['fleet-management'] });
     } catch (error: any) {
       console.error('Error removing truck from dispatcher:', error);
       toast({
@@ -229,7 +225,7 @@ export const useFleetManagement = () => {
         description: `Dispatcher set to Off Duty. ${Object.keys(truckAssignments).length} trucks reassigned to cover dispatchers.`,
       });
 
-      fetchFleetData();
+      queryClient.invalidateQueries({ queryKey: ['fleet-management'] });
     } catch (error: any) {
       console.error('Error setting dispatcher off duty:', error);
       toast({
@@ -291,7 +287,7 @@ export const useFleetManagement = () => {
 
       if (statusError) throw statusError;
 
-      fetchFleetData();
+      queryClient.invalidateQueries({ queryKey: ['fleet-management'] });
     } catch (error: any) {
       console.error('Error setting dispatcher active:', error);
       toast({
@@ -301,10 +297,6 @@ export const useFleetManagement = () => {
       });
     }
   };
-
-  useEffect(() => {
-    fetchFleetData();
-  }, []);
 
   return {
     dispatchers,

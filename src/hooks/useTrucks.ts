@@ -43,7 +43,8 @@ export const useTrucks = () => {
       console.log('Sample truck:', allTrucks[0]);
       return allTrucks;
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Always refetch to ensure fresh data
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 };
