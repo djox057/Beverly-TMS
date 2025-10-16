@@ -1415,7 +1415,7 @@ const EditOrder = () => {
                     value={lumper} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setLumper)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
+                    className={parseFloat(lumper) > 0 ? "bg-yellow-50/50 dark:bg-yellow-950/20" : "bg-green-50/50 dark:bg-green-950/20"}
                   />
                 </div>
               </div>
