@@ -73,26 +73,27 @@ export const generateInvoicePDF = async (orders: Order[]) => {
 
   console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
 
-  // Group orders by broker and company
-  const groupedOrders = orders.reduce((acc, order) => {
-    const key = `${order.brokerName}-${order.companyName}`;
-    if (!acc[key]) {
-      acc[key] = {
+  // Group orders by company first, then by broker within each company
+  const companiesMap = orders.reduce((acc, order) => {
+    if (!acc[order.companyName]) {
+      acc[order.companyName] = {};
+    }
+    if (!acc[order.companyName][order.brokerName]) {
+      acc[order.companyName][order.brokerName] = {
         brokerName: order.brokerName,
         companyName: order.companyName,
         orders: []
       };
     }
-    acc[key].orders.push(order);
+    acc[order.companyName][order.brokerName].orders.push(order);
     return acc;
-  }, {} as Record<string, { brokerName: string; companyName: string; orders: Order[] }>);
+  }, {} as Record<string, Record<string, { brokerName: string; companyName: string; orders: Order[] }>>);
 
-  console.log(`Grouped orders into ${Object.keys(groupedOrders).length} broker-company combinations:`, Object.keys(groupedOrders));
+  console.log(`Grouped orders into ${Object.keys(companiesMap).length} companies with invoices`);
 
-  const groupValues = Object.values(groupedOrders);
-
-  // Collect all invoice data for edge function
-  const invoiceData = [];
+  // Collect all invoice data organized by company
+  const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[] }>> = {};
+  const xlsxDataByCompany: Record<string, any[]> = {};
 
   // Fetch broker MC numbers for all orders
   const brokerNames = [...new Set(orders.map(o => o.brokerName))];
@@ -102,54 +103,58 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     .in('name', brokerNames);
   
   const brokerMcMap = new Map(brokersData?.map(b => [b.name, b.mc_number]) || []);
+  const currentDate = new Date().toLocaleDateString();
 
   // Generate PDF for each broker/company combination
-  for (const group of groupValues) {
-    const doc = new jsPDF();
-    
-    // Header - Company name and INVOICE
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text(group.companyName, 20, 25);
-    doc.text('INVOICE', 150, 25);
-    
-    // Bill To section
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.rect(20, 40, 100, 30);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Bill To:', 22, 48);
-    doc.setFont('helvetica', 'normal');
-    doc.text(group.brokerName, 22, 55);
-    
-    // Add broker address if available
-    const firstOrder = group.orders[0];
-    let yPos = 61;
-    if (firstOrder.brokerAddress) {
-      // Split long address into multiple lines within the box
-      const addressLines = doc.splitTextToSize(firstOrder.brokerAddress, 95); // Max width of 95 units
-      for (let i = 0; i < Math.min(addressLines.length, 2); i++) { // Limit to 2 lines for address
-        doc.text(addressLines[i], 22, yPos);
-        yPos += 5;
+  for (const [companyName, brokerGroups] of Object.entries(companiesMap)) {
+    const sanitizedCompanyName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
+    invoicesByCompany[sanitizedCompanyName] = [];
+    xlsxDataByCompany[sanitizedCompanyName] = [];
+
+    for (const group of Object.values(brokerGroups)) {
+      const doc = new jsPDF();
+      
+      // Header - Company name and INVOICE
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(group.companyName, 20, 25);
+      doc.text('INVOICE', 150, 25);
+      
+      // Bill To section
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.rect(20, 40, 100, 30);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bill To:', 22, 48);
+      doc.setFont('helvetica', 'normal');
+      doc.text(group.brokerName, 22, 55);
+      
+      // Add broker address if available
+      const firstOrder = group.orders[0];
+      let yPos = 61;
+      if (firstOrder.brokerAddress) {
+        // Split long address into multiple lines within the box
+        const addressLines = doc.splitTextToSize(firstOrder.brokerAddress, 95);
+        for (let i = 0; i < Math.min(addressLines.length, 2); i++) {
+          doc.text(addressLines[i], 22, yPos);
+          yPos += 5;
+        }
       }
-    }
-    if (firstOrder.brokerCity || firstOrder.brokerState || firstOrder.brokerZipCode) {
-      const cityStateZip = [firstOrder.brokerCity, firstOrder.brokerState, firstOrder.brokerZipCode]
-        .filter(Boolean)
-        .join(', ');
-      if (cityStateZip) {
-        doc.text(cityStateZip, 22, yPos);
+      if (firstOrder.brokerCity || firstOrder.brokerState || firstOrder.brokerZipCode) {
+        const cityStateZip = [firstOrder.brokerCity, firstOrder.brokerState, firstOrder.brokerZipCode]
+          .filter(Boolean)
+          .join(', ');
+        if (cityStateZip) {
+          doc.text(cityStateZip, 22, yPos);
+        }
       }
-    }
-    
-    // Invoice details table (right side)
-    const currentDate = new Date().toLocaleDateString();
-    const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
-    
-    // Generate filename with new format - make it unique by including company name
-    const sanitizedCompanyName = group.companyName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
-    const baseFilename = `${sanitizedCompanyName}_${invoiceNumber}.pdf`;
-    console.log(`Generated filename for group ${group.brokerName}-${group.companyName}: ${baseFilename}`);
+      
+      // Invoice details table (right side)
+      const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
+      
+      // Simple filename - just the load number
+      const baseFilename = `${invoiceNumber}.pdf`;
+      console.log(`Generated invoice ${baseFilename} for company ${companyName}`);
     
     doc.rect(130, 40, 30, 8);
     doc.rect(160, 40, 30, 8);
@@ -332,84 +337,93 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     doc.text('Beverly Trucking Software', 105, 280, { align: 'center' });
     doc.text('Page 1 Of 1', 190, 280);
     
-    // Get PDF bytes and collect RC/POD files
-    const invoicePdfBytes = doc.output('arraybuffer');
-    const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
-    const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
-    
-    // If we have RC or POD files, merge them first
-    if (allRcFiles.length > 0 || allPodFiles.length > 0) {
-      try {
-        const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
-          body: {
-            invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
-            rcFiles: allRcFiles,
-            podFiles: allPodFiles
-          }
-        });
-        
-        if (!mergeError && mergeResult?.pdfBytes) {
-          invoiceData.push({
-            filename: baseFilename,
-            pdfBytes: mergeResult.pdfBytes
+      // Get PDF bytes and collect RC/POD files
+      const invoicePdfBytes = doc.output('arraybuffer');
+      const allRcFiles = group.orders.flatMap(order => order.rcFiles || []);
+      const allPodFiles = group.orders.flatMap(order => order.podFiles || []);
+      
+      // If we have RC or POD files, merge them first
+      if (allRcFiles.length > 0 || allPodFiles.length > 0) {
+        try {
+          const { data: mergeResult, error: mergeError } = await supabase.functions.invoke('merge-pdfs', {
+            body: {
+              invoicePdfBytes: Array.from(new Uint8Array(invoicePdfBytes)),
+              rcFiles: allRcFiles,
+              podFiles: allPodFiles
+            }
           });
-        } else {
+          
+          if (!mergeError && mergeResult?.pdfBytes) {
+            invoicesByCompany[sanitizedCompanyName].push({
+              filename: baseFilename,
+              pdfBytes: mergeResult.pdfBytes
+            });
+          } else {
+            // Fallback to just the invoice
+            invoicesByCompany[sanitizedCompanyName].push({
+              filename: baseFilename,
+              pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
+            });
+          }
+        } catch (error) {
           // Fallback to just the invoice
-          invoiceData.push({
+          invoicesByCompany[sanitizedCompanyName].push({
             filename: baseFilename,
             pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
           });
         }
-      } catch (error) {
-        // Fallback to just the invoice
-        invoiceData.push({
+      } else {
+        // No additional files, just use the invoice
+        invoicesByCompany[sanitizedCompanyName].push({
           filename: baseFilename,
           pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
         });
       }
-    } else {
-      // No additional files, just use the invoice
-      invoiceData.push({
-        filename: baseFilename,
-        pdfBytes: Array.from(new Uint8Array(invoicePdfBytes))
+
+      // Add order data to company's XLSX data
+      group.orders.forEach(order => {
+        xlsxDataByCompany[sanitizedCompanyName].push({
+          'ClientNo': brokerMcMap.get(order.brokerName) || '',
+          'Invoice#': order.internalLoadNumber,
+          'Debtor Debtor Name': order.brokerName,
+          'Pono': order.brokerLoadNumber,
+          'InvDate': currentDate,
+          'InvAmt': `$${order.totalFreightAmount.toLocaleString()}`
+        });
       });
     }
   }
 
-  console.log(`Collected ${invoiceData.length} invoices for processing:`, invoiceData.map(inv => ({ filename: inv.filename, bytesLength: inv.pdfBytes.length })));
+  console.log(`Collected invoices for ${Object.keys(invoicesByCompany).length} companies`);
 
-  // Generate XLSX file with order data
-  const currentDate = new Date().toLocaleDateString();
-  const xlsxData = orders.map(order => ({
-    'ClientNo': brokerMcMap.get(order.brokerName) || '',
-    'Invoice#': order.internalLoadNumber,
-    'Debtor Debtor Name': order.brokerName,
-    'Pono': order.brokerLoadNumber,
-    'InvDate': currentDate,
-    'InvAmt': `$${order.totalFreightAmount.toLocaleString()}`
-  }));
-
-  // Create ZIP file client-side to avoid server memory limits
+  // Create ZIP file with company folders
   try {
-    console.log(`Creating ZIP with ${invoiceData.length} invoices client-side`);
+    console.log('Creating ZIP with company folders');
     const zip = new JSZip();
     
-    // Add each invoice PDF to the ZIP
-    for (const invoice of invoiceData) {
-      zip.file(invoice.filename, new Uint8Array(invoice.pdfBytes));
-    }
-    
-    // Add XLSX file as CSV (Excel can open CSV files)
-    if (xlsxData.length > 0) {
-      const headers = ['ClientNo', 'Invoice#', 'Debtor Debtor Name', 'Pono', 'InvDate', 'InvAmt'];
-      const csvRows = [
-        headers.join('\t'),
-        ...xlsxData.map(row => 
-          headers.map(h => row[h as keyof typeof row] || '').join('\t')
-        )
-      ];
-      const csvContent = csvRows.join('\n');
-      zip.file('invoice_data.xls', csvContent);
+    // Create a folder for each company
+    for (const [companyFolder, invoices] of Object.entries(invoicesByCompany)) {
+      const folder = zip.folder(companyFolder);
+      if (!folder) continue;
+
+      // Add invoices to company folder
+      for (const invoice of invoices) {
+        folder.file(invoice.filename, new Uint8Array(invoice.pdfBytes));
+      }
+      
+      // Add company-specific XLSX file
+      const xlsxData = xlsxDataByCompany[companyFolder];
+      if (xlsxData && xlsxData.length > 0) {
+        const headers = ['ClientNo', 'Invoice#', 'Debtor Debtor Name', 'Pono', 'InvDate', 'InvAmt'];
+        const csvRows = [
+          headers.join('\t'),
+          ...xlsxData.map(row => 
+            headers.map(h => row[h as keyof typeof row] || '').join('\t')
+          )
+        ];
+        const csvContent = csvRows.join('\n');
+        folder.file('invoice_data.xls', csvContent);
+      }
     }
     
     // Generate the ZIP file
@@ -433,19 +447,5 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     console.log('ZIP file downloaded successfully');
   } catch (error) {
     console.error('Error creating ZIP file:', error);
-    // Fallback: download files individually
-    invoiceData.forEach((invoice, index) => {
-      const blob = new Blob([new Uint8Array(invoice.pdfBytes)], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = invoice.filename;
-      document.body.appendChild(link);
-      setTimeout(() => {
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, index * 200);
-    });
   }
 };
