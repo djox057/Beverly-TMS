@@ -140,6 +140,22 @@ const EditOrder = () => {
   const [driverDeliveryStartTime, setDriverDeliveryStartTime] = useState("");
   const [driverDeliveryEndTime, setDriverDeliveryEndTime] = useState("");
 
+  // Handlers for numeric input validation
+  const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent '-', 'e', 'E', and '+' characters
+    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+      e.preventDefault();
+    }
+  };
+
+  const handleNumericChange = (setter: (value: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow empty string or non-negative numbers
+    if (value === '' || parseFloat(value) >= 0) {
+      setter(value);
+    }
+  };
+
   // Drag states for file uploads
   const [dragStates, setDragStates] = useState({
     rc: false,
@@ -1293,7 +1309,8 @@ const EditOrder = () => {
                   min="0"
                   placeholder="Freight amount" 
                   value={freightAmount} 
-                  onChange={e => setFreightAmount(e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setFreightAmount)}
                   disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
                   className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
@@ -1310,7 +1327,8 @@ const EditOrder = () => {
                   min="0"
                   placeholder="Driver Rate" 
                   value={driverPrice} 
-                  onChange={e => setDriverPrice(e.target.value)} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setDriverPrice)} 
                 />
                 <p className="text-sm text-muted-foreground">
                   Total Driver Pay: <span className="font-semibold text-green-600 dark:text-green-400">${totalDriverPay.toFixed(2)}</span>
@@ -1330,7 +1348,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={detention} 
-                    onChange={e => setDetention(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setDetention)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
                   />
                 </div>
@@ -1343,7 +1362,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={detentionDriver} 
-                    onChange={e => setDetentionDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setDetentionDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1356,7 +1376,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={layover} 
-                    onChange={e => setLayover(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLayover)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
                   />
                 </div>
@@ -1369,13 +1390,14 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={layoverDriver} 
-                    onChange={e => setLayoverDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLayoverDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="extra-stop" className="text-sm">Extra Stop - Company</Label>
                   <Input 
@@ -1385,8 +1407,23 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={extraStop} 
-                    onChange={e => setExtraStop(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setExtraStop)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="extra-stop-driver" className="text-sm">Extra Stop - Driver</Label>
+                  <Input 
+                    id="extra-stop-driver" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={extraStopDriver} 
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setExtraStopDriver)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1398,8 +1435,23 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={lumper} 
-                    onChange={e => setLumper(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLumper)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lumper-driver" className="text-sm">Lumper - Driver</Label>
+                  <Input 
+                    id="lumper-driver" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={lumperDriver} 
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLumperDriver)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
               </div>
@@ -1414,7 +1466,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={lateFee} 
-                    onChange={e => setLateFee(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLateFee)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
                   />
                 </div>
@@ -1427,7 +1480,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={lateFeeDriver} 
-                    onChange={e => setLateFeeDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setLateFeeDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1440,7 +1494,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={noTrackingFee} 
-                    onChange={e => setNoTrackingFee(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setNoTrackingFee)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
                   />
                 </div>
@@ -1453,7 +1508,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={noTrackingFeeDriver} 
-                    onChange={e => setNoTrackingFeeDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setNoTrackingFeeDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1469,7 +1525,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={wrongAddressFee} 
-                    onChange={e => setWrongAddressFee(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setWrongAddressFee)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
                   />
                 </div>
@@ -1482,7 +1539,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={wrongAddressFeeDriver} 
-                    onChange={e => setWrongAddressFeeDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setWrongAddressFeeDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1495,13 +1553,18 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={tonu} 
-                    onChange={e => {
-                      setTonu(e.target.value);
-                      // If TONU has a value, set freight amount, loaded miles, and driver price to 0
-                      if (e.target.value && parseFloat(e.target.value) > 0) {
-                        setFreightAmount("0");
-                        setLoadedMiles("0");
-                        setDriverPrice("0");
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty string or non-negative numbers
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setTonu(value);
+                        // If TONU has a value, set freight amount, loaded miles, and driver price to 0
+                        if (value && parseFloat(value) > 0) {
+                          setFreightAmount("0");
+                          setLoadedMiles("0");
+                          setDriverPrice("0");
+                        }
                       }
                     }}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
@@ -1516,7 +1579,8 @@ const EditOrder = () => {
                     min="0"
                     placeholder="0.00" 
                     value={tonuDriver} 
-                    onChange={e => setTonuDriver(e.target.value)}
+                    onKeyDown={handleNumericKeyDown}
+                    onChange={handleNumericChange(setTonuDriver)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1532,7 +1596,8 @@ const EditOrder = () => {
                   min="0"
                   placeholder="Loaded miles" 
                   value={loadedMiles} 
-                  onChange={e => setLoadedMiles(e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLoadedMiles)}
                   disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
                   className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
@@ -1545,7 +1610,8 @@ const EditOrder = () => {
                   min="0"
                   placeholder="Deadhead miles" 
                   value={dhMiles} 
-                  onChange={e => setDhMiles(e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setDhMiles)}
                   disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
                   className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
@@ -1562,7 +1628,8 @@ const EditOrder = () => {
                   min="0"
                   placeholder="0.00" 
                   value={escortFee} 
-                  onChange={e => setEscortFee(e.target.value)}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setEscortFee)}
                   className="bg-blue-50/50 dark:bg-blue-950/20"
                 />
               </div>
