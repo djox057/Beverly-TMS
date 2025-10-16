@@ -1298,7 +1298,7 @@ const EditOrder = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="extra-stop" className="text-sm">Extra Stop - Company</Label>
                   <Input 
@@ -1312,18 +1312,6 @@ const EditOrder = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="extra-stop-driver" className="text-sm">Extra Stop - Driver</Label>
-                  <Input 
-                    id="extra-stop-driver" 
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00" 
-                    value={extraStopDriver} 
-                    onChange={e => setExtraStopDriver(e.target.value)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="lumper" className="text-sm">Lumper - Company</Label>
                   <Input 
                     id="lumper" 
@@ -1333,18 +1321,6 @@ const EditOrder = () => {
                     value={lumper} 
                     onChange={e => setLumper(e.target.value)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lumper-driver" className="text-sm">Lumper - Driver</Label>
-                  <Input 
-                    id="lumper-driver" 
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00" 
-                    value={lumperDriver} 
-                    onChange={e => setLumperDriver(e.target.value)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
               </div>
