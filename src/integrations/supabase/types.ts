@@ -436,6 +436,8 @@ export type Database = {
           driver_price: number | null
           driver1_id: string | null
           driver2_id: string | null
+          escort_fee: number | null
+          escort_fee_broker_paid: boolean | null
           extra_stop: number | null
           extra_stop_driver: number | null
           freight_amount: number | null
@@ -483,6 +485,8 @@ export type Database = {
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
+          escort_fee?: number | null
+          escort_fee_broker_paid?: boolean | null
           extra_stop?: number | null
           extra_stop_driver?: number | null
           freight_amount?: number | null
@@ -530,6 +534,8 @@ export type Database = {
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
+          escort_fee?: number | null
+          escort_fee_broker_paid?: boolean | null
           extra_stop?: number | null
           extra_stop_driver?: number | null
           freight_amount?: number | null
