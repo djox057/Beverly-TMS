@@ -1181,6 +1181,19 @@ const EditOrder = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="driver-price">Driver Rate</Label>
+                <Input 
+                  id="driver-price" 
+                  type="number" 
+                  placeholder="Driver Rate" 
+                  value={driverPrice} 
+                  onChange={e => setDriverPrice(e.target.value)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="detention">Detention</Label>
                 <Input 
                   id="detention" 
@@ -1190,9 +1203,6 @@ const EditOrder = () => {
                   onChange={e => setDetention(e.target.value)} 
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="layover">Layover</Label>
                 <Input 
@@ -1203,6 +1213,9 @@ const EditOrder = () => {
                   onChange={e => setLayover(e.target.value)} 
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="extra-stop">Extra Stop</Label>
                 <Input 
@@ -1213,9 +1226,6 @@ const EditOrder = () => {
                   onChange={e => setExtraStop(e.target.value)} 
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="lumper">Lumper</Label>
                 <Input 
@@ -1226,6 +1236,9 @@ const EditOrder = () => {
                   onChange={e => setLumper(e.target.value)} 
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="late-fee">Late Fee</Label>
                 <Input 
@@ -1234,19 +1247,6 @@ const EditOrder = () => {
                   placeholder="Late fee amount" 
                   value={lateFee} 
                   onChange={e => setLateFee(e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="driver-price">Driver Rate</Label>
-                <Input 
-                  id="driver-price" 
-                  type="number" 
-                  placeholder="Driver Rate" 
-                  value={driverPrice} 
-                  onChange={e => setDriverPrice(e.target.value)} 
                 />
               </div>
               <div className="space-y-2">
