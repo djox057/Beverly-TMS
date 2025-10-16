@@ -102,6 +102,9 @@ export const useOrders = () => {
 
   return useQuery({
     queryKey: ['orders'],
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
