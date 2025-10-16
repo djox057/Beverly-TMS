@@ -69,8 +69,6 @@ const EditOrder = () => {
   const [tonu, setTonu] = useState("");
   const [detentionDriver, setDetentionDriver] = useState("");
   const [layoverDriver, setLayoverDriver] = useState("");
-  const [extraStopDriver, setExtraStopDriver] = useState("");
-  const [lumperDriver, setLumperDriver] = useState("");
   const [lateFeeDriver, setLateFeeDriver] = useState("");
   const [tonuDriver, setTonuDriver] = useState("");
   const [noTrackingFee, setNoTrackingFee] = useState("");
@@ -101,14 +99,12 @@ const EditOrder = () => {
     const base = parseFloat(driverPrice) || 0;
     const det = parseFloat(detentionDriver) || 0;
     const lay = parseFloat(layoverDriver) || 0;
-    const extra = parseFloat(extraStopDriver) || 0;
-    const lump = parseFloat(lumperDriver) || 0;
     const late = parseFloat(lateFeeDriver) || 0;
     const ton = parseFloat(tonuDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay + extra + lump - late + ton - noTracking - wrongAddr;
-  }, [driverPrice, detentionDriver, layoverDriver, extraStopDriver, lumperDriver, lateFeeDriver, tonuDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
+    return base + det + lay - late + ton - noTracking - wrongAddr;
+  }, [driverPrice, detentionDriver, layoverDriver, lateFeeDriver, tonuDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
   
   const [commodity, setCommodity] = useState("");
   const [weight, setWeight] = useState("");
@@ -290,8 +286,6 @@ const EditOrder = () => {
         setTonu((orderData as any).tonu?.toString() || "");
         setDetentionDriver((orderData as any).detention_driver?.toString() || "");
         setLayoverDriver((orderData as any).layover_driver?.toString() || "");
-        setExtraStopDriver((orderData as any).extra_stop_driver?.toString() || "");
-        setLumperDriver((orderData as any).lumper_driver?.toString() || "");
         setLateFeeDriver((orderData as any).late_fee_driver?.toString() || "");
         setTonuDriver((orderData as any).tonu_driver?.toString() || "");
         setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
@@ -933,8 +927,6 @@ const EditOrder = () => {
           tonu: tonu ? parseFloat(tonu) : null,
           detention_driver: detentionDriver ? parseFloat(detentionDriver) : null,
           layover_driver: layoverDriver ? parseFloat(layoverDriver) : null,
-          extra_stop_driver: extraStopDriver ? parseFloat(extraStopDriver) : null,
-          lumper_driver: lumperDriver ? parseFloat(lumperDriver) : null,
           late_fee_driver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
           tonu_driver: tonuDriver ? parseFloat(tonuDriver) : null,
           no_tracking_fee: noTrackingFee ? parseFloat(noTrackingFee) : null,
@@ -1397,7 +1389,7 @@ const EditOrder = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="extra-stop" className="text-sm">Extra Stop - Company</Label>
                   <Input 
@@ -1413,20 +1405,6 @@ const EditOrder = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="extra-stop-driver" className="text-sm">Extra Stop - Driver</Label>
-                  <Input 
-                    id="extra-stop-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={extraStopDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setExtraStopDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="lumper" className="text-sm">Lumper - Company</Label>
                   <Input 
                     id="lumper" 
@@ -1438,20 +1416,6 @@ const EditOrder = () => {
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setLumper)}
                     className="bg-blue-50/50 dark:bg-blue-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lumper-driver" className="text-sm">Lumper - Driver</Label>
-                  <Input 
-                    id="lumper-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={lumperDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setLumperDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
               </div>
