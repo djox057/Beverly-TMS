@@ -549,24 +549,33 @@ const Orders = () => {
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
-                    </TableRow> : paginatedOrders.map(order => {
-                      // Check if order has extra charges
-                      const hasExtraCharges = (order.detention && order.detention > 0) || 
-                                             (order.layover && order.layover > 0) || 
-                                             (order.extraStop && order.extraStop > 0) || 
-                                             (order.lumper && order.lumper > 0) || 
-                                             (order.lateFee && order.lateFee > 0);
+                     </TableRow> : paginatedOrders.map(order => {
+                      // New background color rules (priority order: Red > Green > Yellow > Orange)
+                      const hasRedFees = ((order as any).lateFeeDriver > 0) || 
+                                        ((order as any).noTrackingFeeDriver > 0) || 
+                                        ((order as any).wrongAddressFeeDriver > 0);
                       
+                      const hasGreenFees = ((order as any).detentionDriver > 0) || 
+                                          ((order as any).layoverDriver > 0);
                       
-                      return <TableRow key={order.id} className={`h-16 ${
-                        order.canceled 
-                          ? 'bg-destructive/10 hover:bg-destructive/15' 
-                          : hasExtraCharges
-                          ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
-                          : order.tonu > 0
-                          ? 'bg-[hsl(0_84%_95%)] dark:bg-[hsl(0_62%_20%)]' 
-                          : ''
-                      }`}>
+                      const hasYellowFees = (order.escortFee > 0);
+                      
+                      const hasOrangeCondition = order.canceled || 
+                                                ((order as any).deliveryDatetime && 
+                                                 (order as any).deliveryEndDatetime && 
+                                                 (order as any).deliveryDatetime !== (order as any).deliveryEndDatetime);
+                      
+                      const rowClassName = hasRedFees 
+                        ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
+                        : hasGreenFees
+                        ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
+                        : hasYellowFees
+                        ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
+                        : hasOrangeCondition
+                        ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]'
+                        : '';
+                      
+                      return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
                         <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
