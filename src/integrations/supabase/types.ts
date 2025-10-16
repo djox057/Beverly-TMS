@@ -455,6 +455,8 @@ export type Database = {
           lumper: number | null
           lumper_driver: number | null
           mileage: number | null
+          no_tracking_fee: number | null
+          no_tracking_fee_driver: number | null
           notes: string | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
@@ -468,6 +470,8 @@ export type Database = {
           truck_id: string | null
           updated_at: string
           weight: number | null
+          wrong_address_fee: number | null
+          wrong_address_fee_driver: number | null
         }
         Insert: {
           booked_by?: string | null
@@ -505,6 +509,8 @@ export type Database = {
           lumper?: number | null
           lumper_driver?: number | null
           mileage?: number | null
+          no_tracking_fee?: number | null
+          no_tracking_fee_driver?: number | null
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
@@ -518,6 +524,8 @@ export type Database = {
           truck_id?: string | null
           updated_at?: string
           weight?: number | null
+          wrong_address_fee?: number | null
+          wrong_address_fee_driver?: number | null
         }
         Update: {
           booked_by?: string | null
@@ -555,6 +563,8 @@ export type Database = {
           lumper?: number | null
           lumper_driver?: number | null
           mileage?: number | null
+          no_tracking_fee?: number | null
+          no_tracking_fee_driver?: number | null
           notes?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
@@ -568,6 +578,8 @@ export type Database = {
           truck_id?: string | null
           updated_at?: string
           weight?: number | null
+          wrong_address_fee?: number | null
+          wrong_address_fee_driver?: number | null
         }
         Relationships: [
           {

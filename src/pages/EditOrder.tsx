@@ -73,6 +73,10 @@ const EditOrder = () => {
   const [lumperDriver, setLumperDriver] = useState("");
   const [lateFeeDriver, setLateFeeDriver] = useState("");
   const [tonuDriver, setTonuDriver] = useState("");
+  const [noTrackingFee, setNoTrackingFee] = useState("");
+  const [noTrackingFeeDriver, setNoTrackingFeeDriver] = useState("");
+  const [wrongAddressFee, setWrongAddressFee] = useState("");
+  const [wrongAddressFeeDriver, setWrongAddressFeeDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [escortFee, setEscortFee] = useState("");
@@ -88,8 +92,10 @@ const EditOrder = () => {
     const late = parseFloat(lateFee) || 0;
     const ton = parseFloat(tonu) || 0;
     const escort = escortFeeBrokerPaid ? (parseFloat(escortFee) || 0) : 0;
-    return base + det + lay + extra + lump + late + ton + escort;
-  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, escortFee, escortFeeBrokerPaid]);
+    const noTracking = parseFloat(noTrackingFee) || 0;
+    const wrongAddr = parseFloat(wrongAddressFee) || 0;
+    return base + det + lay + extra + lump - late + ton + escort - noTracking - wrongAddr;
+  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, escortFee, escortFeeBrokerPaid, noTrackingFee, wrongAddressFee]);
 
   const totalDriverPay = useMemo(() => {
     const base = parseFloat(driverPrice) || 0;
@@ -99,8 +105,10 @@ const EditOrder = () => {
     const lump = parseFloat(lumperDriver) || 0;
     const late = parseFloat(lateFeeDriver) || 0;
     const ton = parseFloat(tonuDriver) || 0;
-    return base + det + lay + extra + lump + late + ton;
-  }, [driverPrice, detentionDriver, layoverDriver, extraStopDriver, lumperDriver, lateFeeDriver, tonuDriver]);
+    const noTracking = parseFloat(noTrackingFeeDriver) || 0;
+    const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
+    return base + det + lay + extra + lump - late + ton - noTracking - wrongAddr;
+  }, [driverPrice, detentionDriver, layoverDriver, extraStopDriver, lumperDriver, lateFeeDriver, tonuDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
   
   const [commodity, setCommodity] = useState("");
   const [weight, setWeight] = useState("");
@@ -270,6 +278,10 @@ const EditOrder = () => {
         setLumperDriver((orderData as any).lumper_driver?.toString() || "");
         setLateFeeDriver((orderData as any).late_fee_driver?.toString() || "");
         setTonuDriver((orderData as any).tonu_driver?.toString() || "");
+        setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
+        setNoTrackingFeeDriver((orderData as any).no_tracking_fee_driver?.toString() || "");
+        setWrongAddressFee((orderData as any).wrong_address_fee?.toString() || "");
+        setWrongAddressFeeDriver((orderData as any).wrong_address_fee_driver?.toString() || "");
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
@@ -909,6 +921,10 @@ const EditOrder = () => {
           lumper_driver: lumperDriver ? parseFloat(lumperDriver) : null,
           late_fee_driver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
           tonu_driver: tonuDriver ? parseFloat(tonuDriver) : null,
+          no_tracking_fee: noTrackingFee ? parseFloat(noTrackingFee) : null,
+          no_tracking_fee_driver: noTrackingFeeDriver ? parseFloat(noTrackingFeeDriver) : null,
+          wrong_address_fee: wrongAddressFee ? parseFloat(wrongAddressFee) : null,
+          wrong_address_fee_driver: wrongAddressFeeDriver ? parseFloat(wrongAddressFeeDriver) : null,
           loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
           dh_miles: dhMiles ? parseInt(dhMiles) : null,
           mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
@@ -1272,7 +1288,9 @@ const EditOrder = () => {
                 <Label htmlFor="freight-amount">Freight Amount (Base)</Label>
                 <Input 
                   id="freight-amount" 
-                  type="number" 
+                  type="number"
+                  step="0.01"
+                  min="0"
                   placeholder="Freight amount" 
                   value={freightAmount} 
                   onChange={e => setFreightAmount(e.target.value)}
@@ -1287,7 +1305,9 @@ const EditOrder = () => {
                 <Label htmlFor="driver-price">Driver Rate (Base)</Label>
                 <Input 
                   id="driver-price" 
-                  type="number" 
+                  type="number"
+                  step="0.01"
+                  min="0"
                   placeholder="Driver Rate" 
                   value={driverPrice} 
                   onChange={e => setDriverPrice(e.target.value)} 
@@ -1307,6 +1327,7 @@ const EditOrder = () => {
                     id="detention" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={detention} 
                     onChange={e => setDetention(e.target.value)}
@@ -1319,6 +1340,7 @@ const EditOrder = () => {
                     id="detention-driver" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={detentionDriver} 
                     onChange={e => setDetentionDriver(e.target.value)}
@@ -1331,6 +1353,7 @@ const EditOrder = () => {
                     id="layover" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={layover} 
                     onChange={e => setLayover(e.target.value)}
@@ -1343,6 +1366,7 @@ const EditOrder = () => {
                     id="layover-driver" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={layoverDriver} 
                     onChange={e => setLayoverDriver(e.target.value)}
@@ -1358,6 +1382,7 @@ const EditOrder = () => {
                     id="extra-stop" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={extraStop} 
                     onChange={e => setExtraStop(e.target.value)}
@@ -1370,6 +1395,7 @@ const EditOrder = () => {
                     id="lumper" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={lumper} 
                     onChange={e => setLumper(e.target.value)}
@@ -1385,6 +1411,7 @@ const EditOrder = () => {
                     id="late-fee" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={lateFee} 
                     onChange={e => setLateFee(e.target.value)}
@@ -1397,9 +1424,65 @@ const EditOrder = () => {
                     id="late-fee-driver" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={lateFeeDriver} 
                     onChange={e => setLateFeeDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="no-tracking-fee" className="text-sm">No Tracking Fee - Company</Label>
+                  <Input 
+                    id="no-tracking-fee" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={noTrackingFee} 
+                    onChange={e => setNoTrackingFee(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="no-tracking-fee-driver" className="text-sm">No Tracking Fee - Driver</Label>
+                  <Input 
+                    id="no-tracking-fee-driver" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={noTrackingFeeDriver} 
+                    onChange={e => setNoTrackingFeeDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="wrong-address-fee" className="text-sm">Wrong Address Fee - Company</Label>
+                  <Input 
+                    id="wrong-address-fee" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={wrongAddressFee} 
+                    onChange={e => setWrongAddressFee(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wrong-address-fee-driver" className="text-sm">Wrong Address Fee - Driver</Label>
+                  <Input 
+                    id="wrong-address-fee-driver" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00" 
+                    value={wrongAddressFeeDriver} 
+                    onChange={e => setWrongAddressFeeDriver(e.target.value)}
                     className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
@@ -1409,6 +1492,7 @@ const EditOrder = () => {
                     id="tonu" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={tonu} 
                     onChange={e => {
@@ -1429,6 +1513,7 @@ const EditOrder = () => {
                     id="tonu-driver" 
                     type="number"
                     step="0.01"
+                    min="0"
                     placeholder="0.00" 
                     value={tonuDriver} 
                     onChange={e => setTonuDriver(e.target.value)}
@@ -1443,7 +1528,8 @@ const EditOrder = () => {
                 <Label htmlFor="loaded-miles">Loaded Miles</Label>
                 <Input 
                   id="loaded-miles" 
-                  type="number" 
+                  type="number"
+                  min="0"
                   placeholder="Loaded miles" 
                   value={loadedMiles} 
                   onChange={e => setLoadedMiles(e.target.value)}
@@ -1455,7 +1541,8 @@ const EditOrder = () => {
                 <Label htmlFor="dh-miles">DH Miles</Label>
                 <Input 
                   id="dh-miles" 
-                  type="number" 
+                  type="number"
+                  min="0"
                   placeholder="Deadhead miles" 
                   value={dhMiles} 
                   onChange={e => setDhMiles(e.target.value)}
@@ -1471,7 +1558,8 @@ const EditOrder = () => {
                 <Input 
                   id="escort-fee" 
                   type="number" 
-                  step="0.01" 
+                  step="0.01"
+                  min="0"
                   placeholder="0.00" 
                   value={escortFee} 
                   onChange={e => setEscortFee(e.target.value)}
