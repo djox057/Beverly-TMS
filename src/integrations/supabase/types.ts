@@ -431,21 +431,26 @@ export type Database = {
           delivery_datetime: string | null
           delivery_end_datetime: string | null
           detention: number | null
+          detention_driver: number | null
           dh_miles: number | null
           driver_price: number | null
           driver1_id: string | null
           driver2_id: string | null
           extra_stop: number | null
+          extra_stop_driver: number | null
           freight_amount: number | null
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
           late_fee: number | null
+          late_fee_driver: number | null
           layover: number | null
+          layover_driver: number | null
           load_number: string
           loaded_miles: number | null
           locked: boolean
           lumper: number | null
+          lumper_driver: number | null
           mileage: number | null
           notes: string | null
           pickup_datetime: string | null
@@ -455,6 +460,7 @@ export type Database = {
           reference_number: string | null
           status: string | null
           tonu: number | null
+          tonu_driver: number | null
           trailer_id: string | null
           truck_id: string | null
           updated_at: string
@@ -472,21 +478,26 @@ export type Database = {
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
+          detention_driver?: number | null
           dh_miles?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
           extra_stop?: number | null
+          extra_stop_driver?: number | null
           freight_amount?: number | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
           late_fee?: number | null
+          late_fee_driver?: number | null
           layover?: number | null
+          layover_driver?: number | null
           load_number: string
           loaded_miles?: number | null
           locked?: boolean
           lumper?: number | null
+          lumper_driver?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
@@ -496,6 +507,7 @@ export type Database = {
           reference_number?: string | null
           status?: string | null
           tonu?: number | null
+          tonu_driver?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string
@@ -513,21 +525,26 @@ export type Database = {
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
+          detention_driver?: number | null
           dh_miles?: number | null
           driver_price?: number | null
           driver1_id?: string | null
           driver2_id?: string | null
           extra_stop?: number | null
+          extra_stop_driver?: number | null
           freight_amount?: number | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
           late_fee?: number | null
+          late_fee_driver?: number | null
           layover?: number | null
+          layover_driver?: number | null
           load_number?: string
           loaded_miles?: number | null
           locked?: boolean
           lumper?: number | null
+          lumper_driver?: number | null
           mileage?: number | null
           notes?: string | null
           pickup_datetime?: string | null
@@ -537,6 +554,7 @@ export type Database = {
           reference_number?: string | null
           status?: string | null
           tonu?: number | null
+          tonu_driver?: number | null
           trailer_id?: string | null
           truck_id?: string | null
           updated_at?: string

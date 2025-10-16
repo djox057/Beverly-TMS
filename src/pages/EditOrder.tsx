@@ -66,6 +66,12 @@ const EditOrder = () => {
   const [lateFee, setLateFee] = useState("");
   const [driverPrice, setDriverPrice] = useState("");
   const [tonu, setTonu] = useState("");
+  const [detentionDriver, setDetentionDriver] = useState("");
+  const [layoverDriver, setLayoverDriver] = useState("");
+  const [extraStopDriver, setExtraStopDriver] = useState("");
+  const [lumperDriver, setLumperDriver] = useState("");
+  const [lateFeeDriver, setLateFeeDriver] = useState("");
+  const [tonuDriver, setTonuDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
   const [commodity, setCommodity] = useState("");
@@ -227,6 +233,12 @@ const EditOrder = () => {
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
+        setDetentionDriver((orderData as any).detention_driver?.toString() || "");
+        setLayoverDriver((orderData as any).layover_driver?.toString() || "");
+        setExtraStopDriver((orderData as any).extra_stop_driver?.toString() || "");
+        setLumperDriver((orderData as any).lumper_driver?.toString() || "");
+        setLateFeeDriver((orderData as any).late_fee_driver?.toString() || "");
+        setTonuDriver((orderData as any).tonu_driver?.toString() || "");
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
@@ -819,6 +831,12 @@ const EditOrder = () => {
           late_fee: lateFee ? parseFloat(lateFee) : null,
           driver_price: driverPrice ? parseFloat(driverPrice) : null,
           tonu: tonu ? parseFloat(tonu) : null,
+          detention_driver: detentionDriver ? parseFloat(detentionDriver) : null,
+          layover_driver: layoverDriver ? parseFloat(layoverDriver) : null,
+          extra_stop_driver: extraStopDriver ? parseFloat(extraStopDriver) : null,
+          lumper_driver: lumperDriver ? parseFloat(lumperDriver) : null,
+          late_fee_driver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
+          tonu_driver: tonuDriver ? parseFloat(tonuDriver) : null,
           loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
           dh_miles: dhMiles ? parseInt(dhMiles) : null,
           mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
@@ -1192,80 +1210,167 @@ const EditOrder = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="detention">Detention</Label>
-                <Input 
-                  id="detention" 
-                  type="number" 
-                  placeholder="Detention amount" 
-                  value={detention} 
-                  onChange={e => setDetention(e.target.value)} 
-                />
+            {/* Accessorial Charges - Company/Driver Split */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="detention" className="text-sm">Detention - Company</Label>
+                  <Input 
+                    id="detention" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={detention} 
+                    onChange={e => setDetention(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="detention-driver" className="text-sm">Detention - Driver</Label>
+                  <Input 
+                    id="detention-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={detentionDriver} 
+                    onChange={e => setDetentionDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="layover" className="text-sm">Layover - Company</Label>
+                  <Input 
+                    id="layover" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={layover} 
+                    onChange={e => setLayover(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="layover-driver" className="text-sm">Layover - Driver</Label>
+                  <Input 
+                    id="layover-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={layoverDriver} 
+                    onChange={e => setLayoverDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="layover">Layover</Label>
-                <Input 
-                  id="layover" 
-                  type="number" 
-                  placeholder="Layover amount" 
-                  value={layover} 
-                  onChange={e => setLayover(e.target.value)} 
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="extra-stop">Extra Stop</Label>
-                <Input 
-                  id="extra-stop" 
-                  type="number" 
-                  placeholder="Extra stop amount" 
-                  value={extraStop} 
-                  onChange={e => setExtraStop(e.target.value)} 
-                />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="extra-stop" className="text-sm">Extra Stop - Company</Label>
+                  <Input 
+                    id="extra-stop" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={extraStop} 
+                    onChange={e => setExtraStop(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="extra-stop-driver" className="text-sm">Extra Stop - Driver</Label>
+                  <Input 
+                    id="extra-stop-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={extraStopDriver} 
+                    onChange={e => setExtraStopDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lumper" className="text-sm">Lumper - Company</Label>
+                  <Input 
+                    id="lumper" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={lumper} 
+                    onChange={e => setLumper(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lumper-driver" className="text-sm">Lumper - Driver</Label>
+                  <Input 
+                    id="lumper-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={lumperDriver} 
+                    onChange={e => setLumperDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lumper">Lumper</Label>
-                <Input 
-                  id="lumper" 
-                  type="number" 
-                  placeholder="Lumper amount" 
-                  value={lumper} 
-                  onChange={e => setLumper(e.target.value)} 
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="late-fee">Late Fee</Label>
-                <Input 
-                  id="late-fee" 
-                  type="number" 
-                  placeholder="Late fee amount" 
-                  value={lateFee} 
-                  onChange={e => setLateFee(e.target.value)} 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tonu">TONU</Label>
-                <Input 
-                  id="tonu" 
-                  type="number" 
-                  placeholder="TONU amount" 
-                  value={tonu} 
-                  onChange={e => {
-                    setTonu(e.target.value);
-                    // If TONU has a value, set freight amount, loaded miles, and driver price to 0
-                    if (e.target.value && parseFloat(e.target.value) > 0) {
-                      setFreightAmount("0");
-                      setLoadedMiles("0");
-                      setDriverPrice("0");
-                    }
-                  }}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="late-fee" className="text-sm">Late Fee - Company</Label>
+                  <Input 
+                    id="late-fee" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={lateFee} 
+                    onChange={e => setLateFee(e.target.value)}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="late-fee-driver" className="text-sm">Late Fee - Driver</Label>
+                  <Input 
+                    id="late-fee-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={lateFeeDriver} 
+                    onChange={e => setLateFeeDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tonu" className="text-sm">TONU - Company</Label>
+                  <Input 
+                    id="tonu" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={tonu} 
+                    onChange={e => {
+                      setTonu(e.target.value);
+                      // If TONU has a value, set freight amount, loaded miles, and driver price to 0
+                      if (e.target.value && parseFloat(e.target.value) > 0) {
+                        setFreightAmount("0");
+                        setLoadedMiles("0");
+                        setDriverPrice("0");
+                      }
+                    }}
+                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tonu-driver" className="text-sm">TONU - Driver</Label>
+                  <Input 
+                    id="tonu-driver" 
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00" 
+                    value={tonuDriver} 
+                    onChange={e => setTonuDriver(e.target.value)}
+                    className="bg-green-50/50 dark:bg-green-950/20"
+                  />
+                </div>
               </div>
             </div>
 
