@@ -922,8 +922,8 @@ const EditOrder = () => {
           escort_fee: escortFee ? parseFloat(escortFee) : null,
           escort_fee_broker_paid: escortFeeBrokerPaid,
           date_change_notes: updatedDateChangeNotes || null,
-          canceled: tonu && parseFloat(tonu) > 0,
-          locked: tonu && parseFloat(tonu) > 0 ? true : isLocked
+          canceled: Boolean(tonu && parseFloat(tonu) > 0),
+          locked: Boolean(tonu && parseFloat(tonu) > 0) || isLocked
         })
         .eq('id', id);
 
