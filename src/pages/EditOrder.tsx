@@ -843,13 +843,23 @@ const EditOrder = () => {
         ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime) 
         : null;
       
-      // Check if delivery date changed and append to date change notes
+      // Check if delivery date changed (date only, not time) and append to date change notes
       let updatedDateChangeNotes = dateChangeNotes;
       if (originalDeliveryDate && newDeliveryDatetime) {
-        const originalTime = originalDeliveryDate.getTime();
-        const newTime = new Date(newDeliveryDatetime).getTime();
+        const originalDateOnly = new Date(
+          originalDeliveryDate.getFullYear(),
+          originalDeliveryDate.getMonth(),
+          originalDeliveryDate.getDate()
+        );
+        const newDateOnly = new Date(newDeliveryDatetime);
+        const newDateOnlyNormalized = new Date(
+          newDateOnly.getFullYear(),
+          newDateOnly.getMonth(),
+          newDateOnly.getDate()
+        );
         
-        if (originalTime !== newTime) {
+        // Only add note if the dates are different (ignoring time)
+        if (originalDateOnly.getTime() !== newDateOnlyNormalized.getTime()) {
           const oldDateStr = originalDeliveryDate.toLocaleDateString('en-US', {
             month: '2-digit',
             day: '2-digit',
@@ -912,7 +922,8 @@ const EditOrder = () => {
           escort_fee: escortFee ? parseFloat(escortFee) : null,
           escort_fee_broker_paid: escortFeeBrokerPaid,
           date_change_notes: updatedDateChangeNotes || null,
-          canceled: tonu && parseFloat(tonu) > 0
+          canceled: tonu && parseFloat(tonu) > 0,
+          locked: tonu && parseFloat(tonu) > 0 ? true : isLocked
         })
         .eq('id', id);
 
@@ -1240,15 +1251,8 @@ const EditOrder = () => {
                                 </div>
                                 
                                 {item.type === 'delivery' && dateChangeNotes && (
-                                  <div className="space-y-1">
-                                    <Label htmlFor={`date-change-notes-${item.id}`} className="text-xs text-muted-foreground">Date Change History</Label>
-                                    <Textarea 
-                                      id={`date-change-notes-${item.id}`}
-                                      value={dateChangeNotes} 
-                                      disabled
-                                      rows={2}
-                                      className="bg-muted cursor-not-allowed text-xs font-mono whitespace-pre-wrap"
-                                    />
+                                  <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                                    {dateChangeNotes}
                                   </div>
                                 )}
                               </div>
