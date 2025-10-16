@@ -1342,7 +1342,7 @@ const EditOrder = () => {
                     value={detention} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setDetention)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1370,7 +1370,7 @@ const EditOrder = () => {
                     value={layover} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setLayover)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1401,7 +1401,7 @@ const EditOrder = () => {
                     value={extraStop} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setExtraStop)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1415,7 +1415,7 @@ const EditOrder = () => {
                     value={lumper} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setLumper)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
               </div>
@@ -1432,7 +1432,7 @@ const EditOrder = () => {
                     value={lateFee} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setLateFee)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1460,7 +1460,7 @@ const EditOrder = () => {
                     value={noTrackingFee} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setNoTrackingFee)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1491,7 +1491,7 @@ const EditOrder = () => {
                     value={wrongAddressFee} 
                     onKeyDown={handleNumericKeyDown}
                     onChange={handleNumericChange(setWrongAddressFee)}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1531,7 +1531,7 @@ const EditOrder = () => {
                         }
                       }
                     }}
-                    className="bg-blue-50/50 dark:bg-blue-950/20"
+                    className="bg-green-50/50 dark:bg-green-950/20"
                   />
                 </div>
                 <div className="space-y-2">
