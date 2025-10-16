@@ -92,11 +92,19 @@ const Orders = () => {
     }
     console.log('=== END NAVIGATION DEBUG ===');
   };
-  // Auto-set bookedBy filter for dispatchers
+  // Auto-set bookedBy filter for dispatchers (but not afterhours)
   const isDispatcher = primaryRole === 'dispatch';
   
-  // Check if user has only dispatch role
+  // Check if user has only dispatch role (afterhours excluded from auto-filter)
   const isDispatchOnly = hasRole('dispatch') && 
+    !hasRole('afterhours') &&
+    !hasRole('admin') && 
+    !hasRole('manager') && 
+    !hasRole('accounting') && 
+    !hasRole('supervisor');
+    
+  // Check if user can cancel orders (includes both dispatch and afterhours)
+  const canCancelOrders = (hasRole('dispatch') || hasRole('afterhours')) && 
     !hasRole('admin') && 
     !hasRole('manager') && 
     !hasRole('accounting') && 
@@ -717,7 +725,7 @@ const Orders = () => {
                                 )}
                               </>
                             )}
-                            {isDispatchOnly && !order.locked && (
+                            {canCancelOrders && !order.locked && (
                               <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
                                 <XCircle className="h-4 w-4 text-destructive" />
                               </Button>

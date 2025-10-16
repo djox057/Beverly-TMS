@@ -12,7 +12,7 @@ export interface UserProfile {
   office: string | null;
 }
 
-export type UserRole = 'dispatch' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting';
+export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -224,6 +224,7 @@ export const useAuth = () => {
     if (roles.includes('supervisor')) return 'supervisor';
     if (roles.includes('safety')) return 'safety';
     if (roles.includes('dispatch')) return 'dispatch';
+    if (roles.includes('afterhours')) return 'afterhours';
     if (roles.includes('driver')) return 'driver';
     return roles[0];
   };
