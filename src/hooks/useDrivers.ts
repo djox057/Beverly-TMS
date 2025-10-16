@@ -84,7 +84,8 @@ export const useDrivers = () => {
       return transformedData;
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // Cache for 30 seconds (same as trucks/trailers)
-    gcTime: 60000, // Keep in cache for 1 minute (same as trucks/trailers)
+    refetchOnMount: true,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 60000,
   });
 };

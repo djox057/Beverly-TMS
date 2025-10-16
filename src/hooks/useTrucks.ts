@@ -44,7 +44,8 @@ export const useTrucks = () => {
       return allTrucks;
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // Cache for 30 seconds to reduce query frequency
-    gcTime: 60000, // Keep in cache for 1 minute
+    refetchOnMount: true,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 60000,
   });
 };
