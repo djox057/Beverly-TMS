@@ -560,10 +560,7 @@ const Orders = () => {
                       
                       const hasYellowFees = (order.escortFee > 0);
                       
-                      const hasOrangeCondition = order.canceled || 
-                                                ((order as any).deliveryDatetime && 
-                                                 (order as any).deliveryEndDatetime && 
-                                                 (order as any).deliveryDatetime !== (order as any).deliveryEndDatetime);
+                      const hasOrangeCondition = order.canceled || ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== '');
                       
                       const rowClassName = hasRedFees 
                         ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'

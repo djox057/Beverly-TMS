@@ -181,6 +181,7 @@ export const useOrders = () => {
           createdAt: order.created_at,
           deliveryDatetime: order.delivery_datetime,
           deliveryEndDatetime: order.delivery_end_datetime,
+          dateChangeNotes: order.date_change_notes || '',
           files: order.order_files || [],
           rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
           bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
