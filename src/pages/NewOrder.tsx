@@ -963,6 +963,15 @@ const NewOrder = () => {
     }
 
     // Validation checks
+    if (!bookedByCompany) {
+      toast({
+        title: "Booked by Company Required",
+        description: "Please select a booked by company.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!brokerLoadNumber?.trim()) {
       toast({
         title: "Broker Load# Required",
