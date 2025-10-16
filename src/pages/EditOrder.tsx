@@ -850,12 +850,10 @@ const EditOrder = () => {
         const newTime = new Date(newDeliveryDatetime).getTime();
         
         if (originalTime !== newTime) {
-          const oldDateStr = originalDeliveryDate.toLocaleString('en-US', {
+          const oldDateStr = originalDeliveryDate.toLocaleDateString('en-US', {
             month: '2-digit',
             day: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            year: 'numeric'
           });
           const changeNote = `Supposed to deliver on ${oldDateStr}`;
           updatedDateChangeNotes = dateChangeNotes 
@@ -913,7 +911,8 @@ const EditOrder = () => {
           booked_by: bookedBy || null,
           escort_fee: escortFee ? parseFloat(escortFee) : null,
           escort_fee_broker_paid: escortFeeBrokerPaid,
-          date_change_notes: updatedDateChangeNotes || null
+          date_change_notes: updatedDateChangeNotes || null,
+          canceled: tonu && parseFloat(tonu) > 0
         })
         .eq('id', id);
 
@@ -1227,7 +1226,7 @@ const EditOrder = () => {
                                   />
                                 </div>
                                 
-                                <div className="space-y-1">
+                                 <div className="space-y-1">
                                   <Label htmlFor={`daterange-${item.id}`}>Date & Time Range</Label>
                                   <DateTimeRangePicker
                                     date={item.dateRange}
@@ -1239,6 +1238,19 @@ const EditOrder = () => {
                                     placeholder={`Select ${item.type} date and time range`}
                                   />
                                 </div>
+                                
+                                {item.type === 'delivery' && dateChangeNotes && (
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`date-change-notes-${item.id}`} className="text-xs text-muted-foreground">Date Change History</Label>
+                                    <Textarea 
+                                      id={`date-change-notes-${item.id}`}
+                                      value={dateChangeNotes} 
+                                      disabled
+                                      rows={2}
+                                      className="bg-muted cursor-not-allowed text-xs font-mono whitespace-pre-wrap"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </Card>
                           )}
@@ -1510,20 +1522,6 @@ const EditOrder = () => {
                 rows={4} 
               />
             </div>
-
-            {dateChangeNotes && (
-              <div className="space-y-2">
-                <Label htmlFor="date-change-notes" className="text-muted-foreground">Date Change History</Label>
-                <Textarea 
-                  id="date-change-notes" 
-                  value={dateChangeNotes} 
-                  disabled
-                  rows={3}
-                  className="bg-muted cursor-not-allowed text-sm font-mono whitespace-pre-wrap"
-                />
-                <p className="text-xs text-muted-foreground">Historical record of delivery date changes</p>
-              </div>
-            )}
 
             {/* File Upload Sections - Disabled when locked */}
             {isLocked && (
