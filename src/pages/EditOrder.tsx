@@ -196,10 +196,10 @@ const EditOrder = () => {
       // Validate UUID format
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(id)) {
-        console.error('Invalid order ID format:', id);
+        console.error('Invalid load ID format:', id);
         toast({
           title: "Error",
-          description: "Invalid order ID format",
+          description: "Invalid load ID format",
           variant: "destructive",
         });
         navigate('/orders');
@@ -207,10 +207,10 @@ const EditOrder = () => {
       }
       loadOrderData();
     } else {
-      console.error('No valid order ID provided. Received:', id);
+      console.error('No valid load ID provided. Received:', id);
       toast({
         title: "Error",
-        description: "No valid order ID provided in URL",
+        description: "No valid load ID provided in URL",
         variant: "destructive",
       });
       navigate('/orders');
@@ -223,10 +223,10 @@ const EditOrder = () => {
     
     // Check if id is valid UUID format
     if (!id || id === ':id' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-      console.error('Invalid or missing order ID:', id);
+      console.error('Invalid or missing load ID:', id);
       toast({
-        title: "Invalid Order ID",
-        description: "The order ID in the URL is invalid or missing",
+        title: "Invalid Load ID",
+        description: "The load ID in the URL is invalid or missing",
         variant: "destructive",
       });
       navigate('/orders');
@@ -258,10 +258,10 @@ const EditOrder = () => {
         
         // Check if order is locked and redirect if it is
         if (orderData.locked) {
-          console.log('Order is locked, redirecting to orders page');
+          console.log('Load is locked, redirecting to loads page');
           toast({
-            title: "Order Locked",
-            description: "This order is locked and cannot be edited",
+            title: "Load Locked",
+            description: "This load is locked and cannot be edited",
             variant: "destructive",
           });
           navigate('/orders');
@@ -1076,7 +1076,7 @@ const EditOrder = () => {
 
       toast({
         title: "Success",
-        description: "Order updated successfully",
+        description: "Load updated successfully",
       });
       
       navigate('/orders');
@@ -1084,7 +1084,7 @@ const EditOrder = () => {
       console.error('Error updating order:', error);
       toast({
         title: "Error",
-        description: "Failed to update order",
+        description: "Failed to update load",
         variant: "destructive",
       });
     } finally {
@@ -1116,7 +1116,7 @@ const EditOrder = () => {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Orders
               </Button>
-              <CardTitle className="text-2xl font-semibold">Edit Order</CardTitle>
+              <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>

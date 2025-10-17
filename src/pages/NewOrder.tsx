@@ -1266,8 +1266,8 @@ const NewOrder = () => {
       }
 
       toast({
-        title: "Order Created",
-        description: `Order ${newInternalLoadNumber} has been successfully created.`
+        title: "Load Created",
+        description: `Load ${newInternalLoadNumber} has been successfully created.`
       });
 
       // Invalidate query cache to refetch next internal load number
@@ -1346,7 +1346,7 @@ const NewOrder = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-semibold">Create New Order</CardTitle>
+            <CardTitle className="text-2xl font-semibold">Create New Load</CardTitle>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
               <div className="text-lg font-medium">{nextInternalLoadNumber || 'Loading...'}</div>
@@ -1939,7 +1939,7 @@ const NewOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate('/orders')}>Cancel</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Order
+                Create Load
               </Button>
             </div>
           </form>
@@ -1950,9 +1950,9 @@ const NewOrder = () => {
       <AlertDialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Duplicate Order Warning</AlertDialogTitle>
+            <AlertDialogTitle>Duplicate Load Warning</AlertDialogTitle>
             <AlertDialogDescription>
-              An order with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in the system:
+              A load with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in the system:
               <div className="mt-3 space-y-2">
                 {duplicateOrders.map((order) => (
                   <div key={order.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
@@ -1963,7 +1963,7 @@ const NewOrder = () => {
                 ))}
               </div>
               <div className="mt-3">
-                Are you sure you want to create this order anyway?
+                Are you sure you want to create this load anyway?
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

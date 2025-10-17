@@ -241,7 +241,7 @@ const Orders = () => {
   if (error) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
-          <p className="text-destructive">Error loading orders: {error.message}</p>
+          <p className="text-destructive">Error loading loads: {error.message}</p>
         </div>
       </div>;
   }
@@ -294,13 +294,13 @@ const Orders = () => {
 
       if (error) throw error;
       
-      toast.success(`Order ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
+      toast.success(`Load ${!currentLockStatus ? 'locked' : 'unlocked'} successfully`);
       
       // Refresh orders list
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
       console.error('Error toggling order lock:', error);
-      toast.error("Failed to update order lock status");
+      toast.error("Failed to update load lock status");
     }
   };
 
@@ -386,7 +386,7 @@ const Orders = () => {
 
       if (error) throw error;
 
-      toast.success("Order cancelled and locked successfully");
+      toast.success("Load cancelled and locked successfully");
       setCancelDialogOpen(false);
       setSelectedOrderId(null);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
@@ -398,7 +398,7 @@ const Orders = () => {
         toast.error(error.errors[0].message);
       } else {
         console.error('Error cancelling order:', error);
-        toast.error("Failed to cancel order");
+        toast.error("Failed to cancel load");
       }
     }
   };
@@ -406,7 +406,7 @@ const Orders = () => {
     <div className="h-full w-full">
       <div className="space-y-6 p-6 max-w-none">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-foreground">Orders</h1>
+          <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
           {(primaryRole === 'admin' || primaryRole === 'accounting' || primaryRole === 'manager') && (
             <>
@@ -422,7 +422,7 @@ const Orders = () => {
           )}
           <Button onClick={() => navigate('/new-order')}>
             <FileText className="mr-2 h-4 w-4" />
-            New Order
+            New Load
           </Button>
         </div>
       </div>
@@ -430,12 +430,12 @@ const Orders = () => {
       <Card className="w-fit min-w-full">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle>All Orders</CardTitle>
+            <CardTitle>All Loads</CardTitle>
             
             <div className="flex flex-wrap gap-4 items-center">
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search orders..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <Input placeholder="Search loads..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
               
               <DateRangePicker 
@@ -710,7 +710,7 @@ const Orders = () => {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => toggleOrderLock(order.id, order.locked)}
-                                  title={order.locked ? 'Unlock order' : 'Lock order'}
+                                  title={order.locked ? 'Unlock load' : 'Lock load'}
                                 >
                                   {order.locked ? (
                                     <Lock className="h-4 w-4 text-destructive" />
@@ -719,14 +719,14 @@ const Orders = () => {
                                   )}
                                 </Button>
                                 {!order.locked && (
-                                  <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
+                                   <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
                                     <XCircle className="h-4 w-4 text-destructive" />
                                   </Button>
                                 )}
                               </>
                             )}
                             {canCancelOrders && !order.locked && (
-                              <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel order">
+                              <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
                                 <XCircle className="h-4 w-4 text-destructive" />
                               </Button>
                             )}
@@ -742,7 +742,7 @@ const Orders = () => {
           {filteredOrders.length > ORDERS_PER_PAGE && (
             <div className="flex items-center justify-between px-6 py-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} orders
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
               </div>
               <Pagination>
                 <PaginationContent>
@@ -826,9 +826,9 @@ const Orders = () => {
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogTitle>Cancel Load</DialogTitle>
             <DialogDescription>
-              Enter cancellation details. This will set freight amount and loaded miles to 0, and lock the order.
+              Enter cancellation details. This will set freight amount and loaded miles to 0, and lock the load.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -859,7 +859,7 @@ const Orders = () => {
       <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Order Notes</DialogTitle>
+            <DialogTitle>Load Notes</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm whitespace-pre-wrap">{selectedNotes}</p>

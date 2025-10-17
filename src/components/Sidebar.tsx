@@ -38,8 +38,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const navigation = [
-  { name: "New Order", href: "/new-order", icon: Plus },
-  { name: "Orders", href: "/orders", icon: FileText },
+  { name: "New Load", href: "/new-order", icon: Plus },
+  { name: "Loads", href: "/orders", icon: FileText },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
@@ -91,7 +91,7 @@ export const Sidebar = () => {
       return navigation;
     }
     
-    // Safety role: specific pages only (New Order, Orders, Trucks, Trailers, Drivers, Alerts)
+    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Alerts)
     if (hasRole('safety')) {
       const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
       return [
