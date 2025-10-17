@@ -6,8 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, Skull } from "lucide-react";
-import gameOverIcon from "@/assets/game-over-icon.png";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -626,6 +625,17 @@ const Reports = () => {
               : {}),
           }}
         >
+          {/* Game Over Button - only on first date column */}
+          {index === 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-1 right-1 h-6 w-6 p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
+              onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
+            >
+              <XCircle className="h-5 w-5 text-destructive" />
+            </Button>
+          )}
           {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
             <div
@@ -1726,21 +1736,13 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground relative`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
                                           maxWidth: "80px",
                                         }}
                                       >
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 p-1 bg-background hover:bg-background/80 rounded-sm z-10"
-                                          onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
-                                        >
-                                          <img src={gameOverIcon} alt="Game Over" className="h-6 w-6" />
-                                        </Button>
                                         {truck.lastEdit}
                                       </td>
                                       <td
