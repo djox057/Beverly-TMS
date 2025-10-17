@@ -1521,19 +1521,12 @@ const Reports = () => {
                                 const isLastTruck = truckIndex === group.trucks.length - 1;
                                 const isMapExpanded = expandedTruckMap === truck.id;
 
-                                // Get current order (last/most recent order without POD) to determine BOL/POD status for routing (exclude GAME-OVER blocks)
-                                const currentOrder = truck.allOrders
-                                  ?.filter(
-                                    (order) =>
-                                      order.notes !== "GAME|OVER" &&
-                                      !order.order_files?.some((file: any) => file.file_category === "POD")
-                                  )
-                                  .sort((a, b) => {
-                                    // Sort by pickup datetime descending (most recent first)
-                                    const aDate = new Date(a.pickup_datetime || 0).getTime();
-                                    const bDate = new Date(b.pickup_datetime || 0).getTime();
-                                    return bDate - aDate;
-                                  })[0];
+                                // Get current order (first order without POD) to determine BOL/POD status for routing (exclude GAME-OVER blocks)
+                                const currentOrder = truck.allOrders?.find(
+                                  (order) =>
+                                    order.notes !== "GAME|OVER" &&
+                                    !order.order_files?.some((file: any) => file.file_category === "POD"),
+                                );
                                 const hasBOL =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
                                 const hasPOD =
