@@ -59,8 +59,11 @@ async function geocodeAddress(address: string): Promise<Coordinates | null> {
 /**
  * Calculate route distance using OSRM
  */
-async function calculateRouteDistance(start: Coordinates, end: Coordinates): Promise<number | null> {
+async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<number | null> {
   try {
+    const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
+    console.log(`${truckPrefix}📍 Calling OSRM: https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`);
+    
     const response = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
       {
@@ -74,14 +77,14 @@ async function calculateRouteDistance(start: Coordinates, end: Coordinates): Pro
     );
 
     if (!response.ok) {
-      console.error('Route calculation API error:', response.status);
+      console.error(`${truckPrefix}Route calculation API error:`, response.status);
       return null;
     }
 
     const data = await response.json();
     return data.success ? data.distance : null;
   } catch (error) {
-    console.error('Route calculation error:', error);
+    console.error(`${truckPrefix}Route calculation error:`, error);
     return null;
   }
 }
@@ -94,7 +97,7 @@ async function calculateDistanceFromTruck(
   targetAddress: string | null = null
 ): Promise<number | null> {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('📍 CALCULATE DISTANCE FROM TRUCK START');
+  console.log(`📍 CALCULATE DISTANCE FROM TRUCK ${truckLocation.truck_number}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('🚛 Truck:', truckLocation.truck_number);
   console.log('📍 Truck Location:', {
@@ -135,7 +138,7 @@ async function calculateDistanceFromTruck(
     console.log('🛣️ From:', truckCoords);
     console.log('🛣️ To:', targetCoords);
     
-    const distance = await calculateRouteDistance(truckCoords, targetCoords);
+    const distance = await calculateRouteDistance(truckCoords, targetCoords, truckLocation.truck_number);
     
     console.log('🛣️ OSRM Result:', distance, 'miles');
     
