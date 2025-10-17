@@ -57,6 +57,7 @@ const EditOrder = () => {
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
+  const [trailerId, setTrailerId] = useState("");
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
@@ -306,6 +307,7 @@ const EditOrder = () => {
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
         setTrailer(orderData.trailer?.trailer_number || "");
+        setTrailerId(orderData.trailer_id || "");
         setDriver1(orderData.driver1_id || "");
         setDriver2(orderData.driver2_id || "");
         setBrokerLoadNumber(orderData.broker_load_number || "");
@@ -978,7 +980,7 @@ const EditOrder = () => {
           original_driver1_id: driver1,
           original_driver2_id: driver2 || null,
           original_truck_id: truck,
-          original_trailer_id: trailer || null,
+          original_trailer_id: trailerId || null,
           original_miles: data.originalMiles,
           original_freight_amount: data.originalFreight,
           original_driver_price: data.originalDriverRate,
@@ -988,7 +990,7 @@ const EditOrder = () => {
           recovery_date: data.recoveryDate,
           // Update current assignment to recovery driver
           truck_id: data.recoveryTruckId,
-          trailer_id: data.recoveryTrailerId,
+          trailer_id: data.recoveryTrailerId || null,
           driver1_id: data.recoveryDriverId,
           driver2_id: null,
         })

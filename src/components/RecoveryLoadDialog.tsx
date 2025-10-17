@@ -46,7 +46,7 @@ export function RecoveryLoadDialog({
   totalFreight,
   totalDriverRate,
 }: RecoveryLoadDialogProps) {
-  const { data: trucks } = useAvailableTrucks();
+  const { data: trucks } = useAvailableTrucks(true); // Pass true for recovery mode
   const { data: drivers } = useDrivers();
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
   
