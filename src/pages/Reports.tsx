@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
@@ -1903,15 +1904,19 @@ const Reports = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium mb-2 block">Status Type</label>
-                <Select value={gameOverType} onValueChange={(value: GameOverType) => setGameOverType(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yard">Left truck on the Yard</SelectItem>
-                    <SelectItem value="at_road">Recovery On the road</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ToggleGroup 
+                  type="single" 
+                  value={gameOverType} 
+                  onValueChange={(value: GameOverType) => value && setGameOverType(value)}
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="yard" className="flex-1">
+                    Left truck on the Yard
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="at_road" className="flex-1">
+                    Recovery On the road
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
 
               <div>
