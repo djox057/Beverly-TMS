@@ -84,11 +84,6 @@ export function RecoveryLoadDialog({
     const origFreight = parseFloat(originalFreight) || 0;
     const recFreight = parseFloat(recoveryFreight) || 0;
 
-    if (origMiles + recMiles > totalMiles) {
-      setError(`Total miles (${origMiles + recMiles}) cannot exceed load miles (${totalMiles})`);
-      return;
-    }
-
     if (origFreight + recFreight > totalFreight) {
       setError(`Total freight ($${origFreight + recFreight}) cannot exceed load freight ($${totalFreight})`);
       return;
