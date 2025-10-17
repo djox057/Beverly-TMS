@@ -330,21 +330,53 @@ Deno.serve(async (req) => {
     let updatedCount = 0;
     
     for (const truck of trucks || []) {
-      const truckLocation = samsaraLocations.find((loc) => loc.truck_id === truck.id);
-      
-      if (!truckLocation) {
-        continue;
-      }
+      try {
+        const truckLocation = samsaraLocations.find((loc) => loc.truck_id === truck.id);
+        
+        if (!truckLocation) {
+          console.log(`⏭️ Skipping truck ${truck.truck_number}: No location data`);
+          continue;
+        }
 
-      // Get current order (earliest order without POD based on pickup datetime)
-      const currentOrder = truck.orders
-        ?.filter((order: any) => !order.order_files?.some((file: any) => file.file_category === 'POD'))
-        .sort((a: any, b: any) => {
-          // Sort by pickup datetime ascending (earliest first)
+      // Get current ACTIVE order only
+      // Priority 1: Order with BOL or arrived at pickup (currently in transit)
+      // Priority 2: Next upcoming order (within 7 days) without BOL/arrival
+      const now = new Date();
+      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      const ordersWithoutPOD = truck.orders
+        ?.filter((order: any) => {
+          const noPOD = !order.order_files?.some((file: any) => file.file_category === 'POD');
+          const pickupDate = new Date(order.pickup_datetime || '9999-12-31');
+          const isWithinTimeframe = pickupDate <= sevenDaysFromNow;
+          return noPOD && isWithinTimeframe;
+        }) || [];
+
+      // First, look for orders that are actively in progress (BOL exists or arrived at pickup)
+      const activeOrders = ordersWithoutPOD.filter((order: any) => {
+        const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+        const pickupStop = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+        const hasArrived = !!pickupStop?.arrived_at;
+        return hasBOL || hasArrived;
+      });
+
+      let currentOrder = null;
+      
+      if (activeOrders.length > 0) {
+        // Get the earliest active order
+        currentOrder = activeOrders.sort((a: any, b: any) => {
           const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
           const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
           return aDate - bDate;
         })[0];
+      } else if (ordersWithoutPOD.length > 0) {
+        // No active orders, get the next upcoming order
+        currentOrder = ordersWithoutPOD.sort((a: any, b: any) => {
+          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
+          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
+          return aDate - bDate;
+        })[0];
+      }
 
       let distance = 0;
 
@@ -367,17 +399,21 @@ Deno.serve(async (req) => {
         distance = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
       }
 
-      // Update truck record (even if 0)
-      const { error: updateError } = await supabase
-        .from('trucks')
-        .update({ miles_away: distance })
-        .eq('id', truck.id);
+        // Update truck record (even if 0)
+        const { error: updateError } = await supabase
+          .from('trucks')
+          .update({ miles_away: distance })
+          .eq('id', truck.id);
 
-      if (updateError) {
-        console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
-      } else {
-        console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles`);
-        updatedCount++;
+        if (updateError) {
+          console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
+        } else {
+          console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles`);
+          updatedCount++;
+        }
+      } catch (truckError) {
+        console.error(`❌ Error processing truck ${truck.truck_number}:`, truckError);
+        // Continue processing other trucks even if one fails
       }
     }
 
