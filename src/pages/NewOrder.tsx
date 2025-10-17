@@ -1114,11 +1114,15 @@ const NewOrder = () => {
     
     setIsSubmitting(true);
     try {
+      // Default to BF Prime LLC if booked by company is not selected
+      const bfPrimeCompany = companies?.find(c => c.name === 'BF Prime');
+      const finalBookedByCompany = bookedByCompany || (bfPrimeCompany?.id || null);
+      
       // Create order data object for the atomic function
       const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
         company_id: truckCompanyId, // Truck's company for internal load numbering
-        booked_by_company_id: bookedByCompany, // Company that booked the order
+        booked_by_company_id: finalBookedByCompany, // Company that booked the order (defaults to BF Prime LLC)
         broker_id: broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
