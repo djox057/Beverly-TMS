@@ -6,7 +6,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2 } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, Skull } from "lucide-react";
+import gameOverIcon from "@/assets/game-over-icon.png";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -15,11 +16,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface EditingState {
   truckId: string;
@@ -28,6 +31,11 @@ interface EditingState {
 }
 interface DispatcherCalendarState {
   [dispatcherId: string]: Date;
+}
+interface GameOverDialogState {
+  truckId: string;
+  truckNumber: string;
+  existingDates: string[]; // Dates that already have "game over"
 }
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -178,6 +186,23 @@ const Reports = () => {
     updatePickupDropArrival,
   } = useReports();
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
+  const queryClient = useQueryClient();
+  
+  // Delete lost day note mutation
+  const deleteLostDayNote = useMutation({
+    mutationFn: async ({ truckId, date }: { truckId: string; date: string }) => {
+      const { error } = await supabase
+        .from('lost_day_notes')
+        .delete()
+        .eq('truck_id', truckId)
+        .eq('date', date);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+  
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
@@ -185,6 +210,10 @@ const Reports = () => {
   const [visibleTrucks, setVisibleTrucks] = useState<{ [dispatcherId: string]: number }>({});
   const [noteDialogOpen, setNoteDialogOpen] = useState<string | null>(null);
   const [noteDialogContent, setNoteDialogContent] = useState<string>("");
+  const [truckMapView, setTruckMapView] = useState<{ truckNumber: string; latitude: number; longitude: number } | null>(null);
+  const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
+  const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
+  const [gameOverEndDate, setGameOverEndDate] = useState<Date | undefined>(undefined);
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -1157,6 +1186,106 @@ const Reports = () => {
     }
   };
 
+  const handleGameOverClick = (truckId: string, truckNumber: string) => {
+    // Find existing "game over" dates for this truck
+    const allTrucks = groupedReports?.flatMap((group) => group.trucks) || [];
+    const truck = allTrucks.find((t) => t.id === truckId);
+    const existingGameOverDates = truck?.lostDayNotes
+      ?.filter((note: any) => note.note.toLowerCase() === "game over")
+      .map((note: any) => note.date) || [];
+    
+    setGameOverDialog({
+      truckId,
+      truckNumber,
+      existingDates: existingGameOverDates,
+    });
+    setGameOverStartDate(undefined);
+    setGameOverEndDate(undefined);
+  };
+
+  const handleGameOverConfirm = async () => {
+    if (!gameOverDialog || !gameOverStartDate) {
+      toast({
+        title: "Select a date",
+        description: "Please select at least a start date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const dates: Date[] = [];
+      const start = new Date(gameOverStartDate);
+      const end = gameOverEndDate ? new Date(gameOverEndDate) : start;
+      
+      // Generate all dates in range
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(new Date(d));
+      }
+
+      // Add "game over" for each date
+      for (const date of dates) {
+        const dateStr = format(date, "yyyy-MM-dd");
+        await updateLostDayNote.mutateAsync({
+          truckId: gameOverDialog.truckId,
+          date: dateStr,
+          note: "game over",
+        });
+      }
+
+      toast({
+        title: "Game over set",
+        description: `Set game over for ${dates.length} day(s) on truck ${gameOverDialog.truckNumber}`,
+      });
+
+      setGameOverDialog(null);
+      setGameOverStartDate(undefined);
+      setGameOverEndDate(undefined);
+    } catch (error) {
+      toast({
+        title: "Failed to set game over",
+        description: "There was an error setting game over status.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleGameOverRemove = async () => {
+    if (!gameOverDialog || gameOverDialog.existingDates.length === 0) {
+      toast({
+        title: "No game over dates",
+        description: "This truck has no game over dates to remove.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Remove all "game over" dates
+      for (const date of gameOverDialog.existingDates) {
+        await deleteLostDayNote.mutateAsync({
+          truckId: gameOverDialog.truckId,
+          date,
+        });
+      }
+
+      toast({
+        title: "Game over removed",
+        description: `Removed game over for ${gameOverDialog.existingDates.length} day(s) on truck ${gameOverDialog.truckNumber}`,
+      });
+
+      setGameOverDialog(null);
+      setGameOverStartDate(undefined);
+      setGameOverEndDate(undefined);
+    } catch (error) {
+      toast({
+        title: "Failed to remove game over",
+        description: "There was an error removing game over status.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <div className="h-full bg-background overflow-hidden flex flex-col">
@@ -1597,13 +1726,21 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground relative`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
                                           maxWidth: "80px",
                                         }}
                                       >
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-background/20 z-10"
+                                          onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
+                                        >
+                                          <img src={gameOverIcon} alt="Game Over" className="h-3 w-3" />
+                                        </Button>
                                         {truck.lastEdit}
                                       </td>
                                       <td
@@ -1702,6 +1839,67 @@ const Reports = () => {
               >
                 Save
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Game Over Dialog */}
+      <Dialog open={gameOverDialog !== null} onOpenChange={(open) => !open && setGameOverDialog(null)}>
+        <DialogContent className="max-w-md z-[100]">
+          <DialogHeader>
+            <DialogTitle>Game Over - Truck {gameOverDialog?.truckNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm font-medium mb-2">Current Game Over Dates:</p>
+                <div className="text-xs space-y-1">
+                  {gameOverDialog.existingDates.map((date) => (
+                    <div key={date}>{format(new Date(date), "MMM dd, yyyy")}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Start Date</label>
+                <DatePicker
+                  date={gameOverStartDate}
+                  onDateChange={setGameOverStartDate}
+                  placeholder="Select start date"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">End Date (Optional - for range)</label>
+                <DatePicker
+                  date={gameOverEndDate}
+                  onDateChange={setGameOverEndDate}
+                  placeholder="Select end date (optional)"
+                  disabled={!gameOverStartDate}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleGameOverConfirm}
+                disabled={!gameOverStartDate}
+                className="flex-1"
+              >
+                Set Game Over
+              </Button>
+              {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
+                <Button
+                  onClick={handleGameOverRemove}
+                  variant="destructive"
+                  className="flex-1"
+                >
+                  Remove All
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
