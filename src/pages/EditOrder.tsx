@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -167,6 +168,13 @@ const EditOrder = () => {
   const [originalDriverName, setOriginalDriverName] = useState("");
   const [originalTruckNumber, setOriginalTruckNumber] = useState("");
   const [originalTrailerNumber, setOriginalTrailerNumber] = useState("");
+  const [originalMiles, setOriginalMiles] = useState("");
+  const [originalFreightAmount, setOriginalFreightAmount] = useState("");
+  const [originalDriverPrice, setOriginalDriverPrice] = useState("");
+  const [recoveryMiles, setRecoveryMiles] = useState("");
+  const [recoveryFreightAmount, setRecoveryFreightAmount] = useState("");
+  const [recoveryDriverPrice, setRecoveryDriverPrice] = useState("");
+  const [recoveryDate, setRecoveryDate] = useState("");
 
   // Handlers for numeric input validation
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -373,21 +381,28 @@ const EditOrder = () => {
             .from('drivers')
             .select('name')
             .eq('id', (orderData as any).original_driver1_id)
-            .single();
+            .maybeSingle();
           const { data: origTruck } = await supabase
             .from('trucks')
             .select('truck_number')
             .eq('id', (orderData as any).original_truck_id)
-            .single();
+            .maybeSingle();
           const { data: origTrailer } = await supabase
             .from('trailers')
             .select('trailer_number')
             .eq('id', (orderData as any).original_trailer_id)
-            .single();
+            .maybeSingle();
           
           setOriginalDriverName(origDriver?.name || "");
           setOriginalTruckNumber(origTruck?.truck_number || "");
           setOriginalTrailerNumber(origTrailer?.trailer_number || "");
+          setOriginalMiles((orderData as any).original_miles?.toString() || "");
+          setOriginalFreightAmount((orderData as any).original_freight_amount?.toString() || "");
+          setOriginalDriverPrice((orderData as any).original_driver_price?.toString() || "");
+          setRecoveryMiles((orderData as any).recovery_miles?.toString() || "");
+          setRecoveryFreightAmount((orderData as any).recovery_freight_amount?.toString() || "");
+          setRecoveryDriverPrice((orderData as any).recovery_driver_price?.toString() || "");
+          setRecoveryDate((orderData as any).recovery_date || "");
         }
 
         // Load date change notes and original delivery date for tracking changes
@@ -1887,6 +1902,68 @@ const EditOrder = () => {
                 rows={4}
               />
             </div>
+
+            {/* Recovery Details Section */}
+            {isRecovery && (
+              <div className="space-y-4 p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                <div className="flex items-center gap-2">
+                  <Badge variant="destructive" className="bg-amber-500">RECOVERY LOAD</Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {recoveryDate && `Recovery Date: ${new Date(recoveryDate).toLocaleDateString()}`}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm">Original Assignment</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Driver:</span>{" "}
+                        <span className="font-medium">{originalDriverName || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Truck:</span>{" "}
+                        <span className="font-medium">{originalTruckNumber || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Trailer:</span>{" "}
+                        <span className="font-medium">{originalTrailerNumber || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Miles:</span>{" "}
+                        <span className="font-medium">{originalMiles || "0"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Freight Amount:</span>{" "}
+                        <span className="font-medium">${parseFloat(originalFreightAmount || "0").toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                        <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-sm">Recovery Assignment</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Miles:</span>{" "}
+                        <span className="font-medium">{recoveryMiles || "0"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Freight Amount:</span>{" "}
+                        <span className="font-medium">${parseFloat(recoveryFreightAmount || "0").toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                        <span className="font-medium">${parseFloat(recoveryDriverPrice || "0").toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* File Upload Sections - Disabled when locked */}
             {isLocked && (
