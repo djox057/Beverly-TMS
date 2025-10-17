@@ -1430,7 +1430,7 @@ const EditOrder = () => {
               </div>
             </div>
 
-            {/* Additional + Button */}
+            {/* Additional Button */}
             {!showAdditionalFields && (
               <div className="flex justify-center">
                 <Button
@@ -1441,7 +1441,7 @@ const EditOrder = () => {
                   className="gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  Additional +
+                  Additional
                 </Button>
               </div>
             )}
