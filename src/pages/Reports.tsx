@@ -1736,10 +1736,10 @@ const Reports = () => {
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="absolute top-0 right-0 h-4 w-4 p-0 hover:bg-background/20 z-10"
+                                          className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 p-1 bg-background hover:bg-background/80 rounded-sm z-10"
                                           onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
                                         >
-                                          <img src={gameOverIcon} alt="Game Over" className="h-3 w-3" />
+                                          <img src={gameOverIcon} alt="Game Over" className="h-6 w-6" />
                                         </Button>
                                         {truck.lastEdit}
                                       </td>
