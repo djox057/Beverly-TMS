@@ -36,6 +36,8 @@ interface GameOverDialogState {
   truckNumber: string;
   existingDates: string[]; // Dates that already have "game over"
 }
+
+type GameOverType = "yard" | "at_road";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
@@ -212,7 +214,7 @@ const Reports = () => {
   const [truckMapView, setTruckMapView] = useState<{ truckNumber: string; latitude: number; longitude: number } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
-  const [gameOverEndDate, setGameOverEndDate] = useState<Date | undefined>(undefined);
+  const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -425,11 +427,14 @@ const Reports = () => {
       return lostDayNote.note;
     };
 
-    // Helper function to check if a date has "game over" note
-    const isGameOverDay = (date: Date): boolean => {
+    // Helper function to check if a date has "game over" note (any type)
+    const isGameOverDay = (date: Date): { isGameOver: boolean; type: GameOverType | null } => {
       const dateStr = format(date, "yyyy-MM-dd");
       const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
-      return lostDayNote?.note?.toLowerCase() === "game over";
+      const note = lostDayNote?.note?.toLowerCase();
+      if (note === "game over - yard") return { isGameOver: true, type: "yard" };
+      if (note === "game over - at road") return { isGameOver: true, type: "at_road" };
+      return { isGameOver: false, type: null };
     };
 
     // Helper function to check if pickup and delivery are on the same date
@@ -524,14 +529,24 @@ const Reports = () => {
       const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
 
       // Check if this day has "game over" in lost day notes
-      const isGameOver = isGameOverDay(day);
+      const gameOverCheck = isGameOverDay(day);
+      const isGameOver = gameOverCheck.isGameOver;
+      const gameOverType = gameOverCheck.type;
 
-      // If this is the block day or game over day, render black GAME/OVER cell
+      // If this is the block day or game over day, render black cell
       if (isBlockDay || isGameOver) {
+        const displayText = isBlockDay 
+          ? { line1: "GAME", line2: "OVER" }
+          : gameOverType === "yard"
+            ? { line1: "Left truck", line2: "on the Yard" }
+            : { line1: "Recovery", line2: "On the road" };
+
+        const isToday = isSameDay(day, new Date());
+
         return (
           <td
             key={index}
-            className="p-0 w-[12%] bg-black"
+            className={`border-b-[6px] border-gray-400 ${index > 0 ? "border-l border-border" : ""} ${index === 4 ? "border-r border-border" : ""} p-0 w-[12%] bg-black relative`}
             style={{
               minWidth: "120px",
               maxWidth: "120px",
@@ -539,19 +554,37 @@ const Reports = () => {
               height: "64px",
             }}
           >
-            {/* Top half - "GAME" */}
+            {/* Red border overlay for today column */}
+            {isToday && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderLeft: "6px solid #dc2626",
+                  borderRight: "6px solid #dc2626",
+                  ...(isFirstTruck ? { borderTop: "6px solid #dc2626" } : {}),
+                  ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
+                  zIndex: 100,
+                }}
+              />
+            )}
+
+            {/* Top half */}
             <div
-              className="flex flex-col items-center justify-center bg-black"
+              className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              <div className="text-sm font-bold text-white">GAME</div>
+              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line1}</div>
             </div>
 
-            {/* Bottom half - "OVER" */}
+            {/* Bottom half */}
             <div
               className="flex flex-col items-center justify-center bg-black"
               style={{
@@ -560,7 +593,7 @@ const Reports = () => {
                 maxHeight: "32px",
               }}
             >
-              <div className="text-sm font-bold text-white">OVER</div>
+              <div className="text-[11px] font-bold text-white leading-tight">{displayText.line2}</div>
             </div>
           </td>
         );
@@ -606,11 +639,18 @@ const Reports = () => {
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
 
+      // Check if there's a game over day before this day
+      const hasGameOverBefore = days.slice(0, index).some(prevDay => {
+        const check = isGameOverDay(prevDay);
+        return check.isGameOver;
+      });
+
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
+      // But NOT if there's a game over day before this
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
 
       // Check if this day is today
       const isToday = isSameDay(day, new Date());
@@ -1199,7 +1239,7 @@ const Reports = () => {
     const allTrucks = groupedReports?.flatMap((group) => group.trucks) || [];
     const truck = allTrucks.find((t) => t.id === truckId);
     const existingGameOverDates = truck?.lostDayNotes
-      ?.filter((note: any) => note.note.toLowerCase() === "game over")
+      ?.filter((note: any) => note.note.toLowerCase().includes("game over"))
       .map((note: any) => note.date) || [];
     
     setGameOverDialog({
@@ -1208,51 +1248,41 @@ const Reports = () => {
       existingDates: existingGameOverDates,
     });
     setGameOverStartDate(undefined);
-    setGameOverEndDate(undefined);
+    setGameOverType("yard");
   };
 
   const handleGameOverConfirm = async () => {
     if (!gameOverDialog || !gameOverStartDate) {
       toast({
         title: "Select a date",
-        description: "Please select at least a start date.",
+        description: "Please select a date",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const dates: Date[] = [];
-      const start = new Date(gameOverStartDate);
-      const end = gameOverEndDate ? new Date(gameOverEndDate) : start;
+      const dateStr = format(gameOverStartDate, "yyyy-MM-dd");
+      const noteText = gameOverType === "yard" ? "game over - yard" : "game over - at road";
       
-      // Generate all dates in range
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(new Date(d));
-      }
-
-      // Add "game over" for each date
-      for (const date of dates) {
-        const dateStr = format(date, "yyyy-MM-dd");
-        await updateLostDayNote.mutateAsync({
-          truckId: gameOverDialog.truckId,
-          date: dateStr,
-          note: "game over",
-        });
-      }
-
+      await updateLostDayNote.mutateAsync({
+        truckId: gameOverDialog.truckId,
+        date: dateStr,
+        note: noteText,
+      });
+      
       toast({
-        title: "Game over set",
-        description: `Set game over for ${dates.length} day(s) on truck ${gameOverDialog.truckNumber}`,
+        title: "Status set",
+        description: `Set ${gameOverType === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`,
       });
 
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
-      setGameOverEndDate(undefined);
+      setGameOverType("yard");
     } catch (error) {
       toast({
-        title: "Failed to set game over",
-        description: "There was an error setting game over status.",
+        title: "Error",
+        description: "Failed to set status",
         variant: "destructive",
       });
     }
@@ -1284,7 +1314,7 @@ const Reports = () => {
 
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
-      setGameOverEndDate(undefined);
+      setGameOverType("yard");
     } catch (error) {
       toast({
         title: "Failed to remove game over",
@@ -1856,12 +1886,12 @@ const Reports = () => {
       <Dialog open={gameOverDialog !== null} onOpenChange={(open) => !open && setGameOverDialog(null)}>
         <DialogContent className="max-w-md z-[100]">
           <DialogHeader>
-            <DialogTitle>Game Over - Truck {gameOverDialog?.truckNumber}</DialogTitle>
+            <DialogTitle>Set Truck Status - {gameOverDialog?.truckNumber}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm font-medium mb-2">Current Game Over Dates:</p>
+                <p className="text-sm font-medium mb-2">Current Status Dates:</p>
                 <div className="text-xs space-y-1">
                   {gameOverDialog.existingDates.map((date) => (
                     <div key={date}>{format(new Date(date), "MMM dd, yyyy")}</div>
@@ -1872,21 +1902,24 @@ const Reports = () => {
             
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium">Start Date</label>
+                <label className="text-sm font-medium mb-2 block">Status Type</label>
+                <Select value={gameOverType} onValueChange={(value: GameOverType) => setGameOverType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yard">Left truck on the Yard</SelectItem>
+                    <SelectItem value="at_road">Recovery On the road</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Date</label>
                 <DatePicker
                   date={gameOverStartDate}
                   onDateChange={setGameOverStartDate}
-                  placeholder="Select start date"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">End Date (Optional - for range)</label>
-                <DatePicker
-                  date={gameOverEndDate}
-                  onDateChange={setGameOverEndDate}
-                  placeholder="Select end date (optional)"
-                  disabled={!gameOverStartDate}
+                  placeholder="Select date"
                 />
               </div>
             </div>
@@ -1897,7 +1930,7 @@ const Reports = () => {
                 disabled={!gameOverStartDate}
                 className="flex-1"
               >
-                Set Game Over
+                Set Status
               </Button>
               {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
                 <Button
