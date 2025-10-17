@@ -304,6 +304,7 @@ Deno.serve(async (req) => {
           id,
           load_number,
           status,
+          pickup_datetime,
           order_files(id, file_category),
           pickup_drops!inner(
             id,
@@ -335,10 +336,15 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Get current order (first order without POD)
-      const currentOrder = truck.orders?.find(
-        (order: any) => !order.order_files?.some((file: any) => file.file_category === 'POD')
-      );
+      // Get current order (earliest order without POD based on pickup datetime)
+      const currentOrder = truck.orders
+        ?.filter((order: any) => !order.order_files?.some((file: any) => file.file_category === 'POD'))
+        .sort((a: any, b: any) => {
+          // Sort by pickup datetime ascending (earliest first)
+          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
+          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
+          return aDate - bDate;
+        })[0];
 
       let distance = 0;
 
