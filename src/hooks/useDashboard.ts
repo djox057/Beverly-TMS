@@ -62,7 +62,7 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
       load_number,
       status,
       updated_at,
-      trucks(truck_number),
+      trucks!truck_id(truck_number),
       pickup_drops!left(
         address,
         city,

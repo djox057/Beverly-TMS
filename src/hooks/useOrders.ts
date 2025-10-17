@@ -107,15 +107,25 @@ export const useOrders = () => {
         .from('orders')
         .select(`
           *,
-          truck:trucks!orders_truck_id_fkey(truck_number, company:companies(name)),
-          driver1:drivers!orders_driver1_id_fkey(name),
-          broker:brokers!orders_broker_id_fkey(name, address),
-          company:companies!orders_company_id_fkey(name),
-          booked_by_company:companies!orders_booked_by_company_id_fkey(name),
+          truck:trucks!truck_id(truck_number, company:companies(name)),
+          driver1:drivers!driver1_id(name),
+          original_driver1:drivers!original_driver1_id(name),
+          original_truck:trucks!original_truck_id(truck_number),
+          broker:brokers!broker_id(name, address),
+          company:companies!company_id(name),
+          booked_by_company:companies!booked_by_company_id(name),
           pickup_drops(type, city, state, datetime, address),
           order_files(id, file_name, file_path, file_size, content_type, file_category),
           escort_fee,
-          escort_fee_broker_paid
+          escort_fee_broker_paid,
+          is_recovery,
+          original_miles,
+          original_freight_amount,
+          original_driver_price,
+          recovery_miles,
+          recovery_freight_amount,
+          recovery_driver_price,
+          recovery_date
         `)
         .order('created_at', { ascending: false })
         .limit(100000);
@@ -186,7 +196,17 @@ export const useOrders = () => {
           rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
           bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
           podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
-          additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || []
+          additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || [],
+          isRecovery: order.is_recovery || false,
+          originalDriverName: order.original_driver1?.name || null,
+          originalTruckNumber: order.original_truck?.truck_number || null,
+          originalMiles: order.original_miles || 0,
+          originalFreightAmount: order.original_freight_amount || 0,
+          originalDriverPrice: order.original_driver_price || 0,
+          recoveryMiles: order.recovery_miles || 0,
+          recoveryFreightAmount: order.recovery_freight_amount || 0,
+          recoveryDriverPrice: order.recovery_driver_price || 0,
+          recoveryDate: order.recovery_date || null,
         };
       });
 

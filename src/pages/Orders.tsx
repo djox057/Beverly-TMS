@@ -582,7 +582,16 @@ const Orders = () => {
                       
                       return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                        <TableCell>{order.internalLoadNumber}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {order.internalLoadNumber}
+                            {(order as any).isRecovery && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                RECOVERY
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>

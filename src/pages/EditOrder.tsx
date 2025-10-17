@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
+import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
 
 interface PickupDrop {
   id: string;
@@ -159,6 +160,13 @@ const EditOrder = () => {
   // Track visibility of additional fields
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
 
+  // Recovery load state
+  const [isRecovery, setIsRecovery] = useState(false);
+  const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [originalDriverName, setOriginalDriverName] = useState("");
+  const [originalTruckNumber, setOriginalTruckNumber] = useState("");
+  const [originalTrailerNumber, setOriginalTrailerNumber] = useState("");
+
   // Handlers for numeric input validation
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Prevent '-', 'e', 'E', and '+' characters
@@ -264,7 +272,7 @@ const EditOrder = () => {
           *,
           pickup_drops!inner(*),
           order_files(*),
-          trailer:trailer_id(trailer_number)
+          trailer:trailers!trailer_id(trailer_number)
         `,
         )
         .eq("id", id)
@@ -354,6 +362,31 @@ const EditOrder = () => {
           ((orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0);
 
         setShowAdditionalFields(hasAdditionalValues);
+
+        // Load recovery state
+        setIsRecovery((orderData as any).is_recovery || false);
+        if ((orderData as any).is_recovery) {
+          // Get original driver and truck info from database
+          const { data: origDriver } = await supabase
+            .from('drivers')
+            .select('name')
+            .eq('id', (orderData as any).original_driver1_id)
+            .single();
+          const { data: origTruck } = await supabase
+            .from('trucks')
+            .select('truck_number')
+            .eq('id', (orderData as any).original_truck_id)
+            .single();
+          const { data: origTrailer } = await supabase
+            .from('trailers')
+            .select('trailer_number')
+            .eq('id', (orderData as any).original_trailer_id)
+            .single();
+          
+          setOriginalDriverName(origDriver?.name || "");
+          setOriginalTruckNumber(origTruck?.truck_number || "");
+          setOriginalTrailerNumber(origTrailer?.trailer_number || "");
+        }
 
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
@@ -934,6 +967,51 @@ const EditOrder = () => {
       value: driver.id,
       label: driver.name,
     })) || [];
+
+  const handleRecoverySave = async (data: RecoveryData) => {
+    try {
+      // Update order with recovery information
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          is_recovery: true,
+          original_driver1_id: driver1,
+          original_driver2_id: driver2 || null,
+          original_truck_id: truck,
+          original_trailer_id: trailer || null,
+          original_miles: data.originalMiles,
+          original_freight_amount: data.originalFreight,
+          original_driver_price: data.originalDriverRate,
+          recovery_miles: data.recoveryMiles,
+          recovery_freight_amount: data.recoveryFreight,
+          recovery_driver_price: data.recoveryDriverRate,
+          recovery_date: data.recoveryDate,
+          // Update current assignment to recovery driver
+          truck_id: data.recoveryTruckId,
+          trailer_id: data.recoveryTrailerId,
+          driver1_id: data.recoveryDriverId,
+          driver2_id: null,
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Load marked as recovery successfully",
+      });
+
+      // Reload order data to reflect changes
+      await loadOrderData();
+    } catch (error: any) {
+      console.error("Error saving recovery load:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark load as recovery",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2214,6 +2292,16 @@ const EditOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
+              {(hasRole('manager') || hasRole('supervisor') || hasRole('admin')) && !isRecovery && !isLocked && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setRecoveryDialogOpen(true)}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recovery Load
+                </Button>
+              )}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
@@ -2228,6 +2316,18 @@ const EditOrder = () => {
           </form>
         </CardContent>
       </Card>
+
+      <RecoveryLoadDialog
+        open={recoveryDialogOpen}
+        onOpenChange={setRecoveryDialogOpen}
+        onSave={handleRecoverySave}
+        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || ""}
+        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || ""}
+        currentTrailer={originalTrailerNumber || ""}
+        totalMiles={parseInt(loadedMiles) || 0}
+        totalFreight={parseFloat(freightAmount) || 0}
+        totalDriverRate={parseFloat(driverPrice) || 0}
+      />
     </div>
   );
 };

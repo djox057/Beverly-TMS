@@ -445,6 +445,7 @@ export type Database = {
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
+          is_recovery: boolean | null
           late_fee: number | null
           late_fee_driver: number | null
           layover: number | null
@@ -458,10 +459,21 @@ export type Database = {
           no_tracking_fee: number | null
           no_tracking_fee_driver: number | null
           notes: string | null
+          original_driver_price: number | null
+          original_driver1_id: string | null
+          original_driver2_id: string | null
+          original_freight_amount: number | null
+          original_miles: number | null
+          original_trailer_id: string | null
+          original_truck_id: string | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           po_number: string | null
           pu_number: string | null
+          recovery_date: string | null
+          recovery_driver_price: number | null
+          recovery_freight_amount: number | null
+          recovery_miles: number | null
           reference_number: string | null
           status: string | null
           tonu: number | null
@@ -499,6 +511,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          is_recovery?: boolean | null
           late_fee?: number | null
           late_fee_driver?: number | null
           layover?: number | null
@@ -512,10 +525,21 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_driver_price?: number | null
+          original_driver1_id?: string | null
+          original_driver2_id?: string | null
+          original_freight_amount?: number | null
+          original_miles?: number | null
+          original_trailer_id?: string | null
+          original_truck_id?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
           pu_number?: string | null
+          recovery_date?: string | null
+          recovery_driver_price?: number | null
+          recovery_freight_amount?: number | null
+          recovery_miles?: number | null
           reference_number?: string | null
           status?: string | null
           tonu?: number | null
@@ -553,6 +577,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          is_recovery?: boolean | null
           late_fee?: number | null
           late_fee_driver?: number | null
           layover?: number | null
@@ -566,10 +591,21 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_driver_price?: number | null
+          original_driver1_id?: string | null
+          original_driver2_id?: string | null
+          original_freight_amount?: number | null
+          original_miles?: number | null
+          original_trailer_id?: string | null
+          original_truck_id?: string | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
           pu_number?: string | null
+          recovery_date?: string | null
+          recovery_driver_price?: number | null
+          recovery_freight_amount?: number | null
+          recovery_miles?: number | null
           reference_number?: string | null
           status?: string | null
           tonu?: number | null
@@ -615,6 +651,34 @@ export type Database = {
             columns: ["driver2_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_driver1_id_fkey"
+            columns: ["original_driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_driver2_id_fkey"
+            columns: ["original_driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_trailer_id_fkey"
+            columns: ["original_trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_truck_id_fkey"
+            columns: ["original_truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
             referencedColumns: ["id"]
           },
           {
