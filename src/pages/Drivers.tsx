@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -99,6 +99,29 @@ const Drivers = () => {
   const { data: availableTrucks } = useAvailableTrucks(editingDriver?.id);
   const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || formData.truck_id);
   const { data: sensitivePII, refetch: refetchSensitivePII } = useDriverSensitivePII(editingDriver?.id);
+  
+  // Fetch termination notes for the editing driver
+  const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+
+  // Fetch termination notes when dialog opens
+  const fetchTerminationNotes = async (driverId: string) => {
+    setIsLoadingNotes(true);
+    try {
+      const { data, error } = await supabase
+        .from('driver_termination_notes')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setTerminationNotes(data || []);
+    } catch (error) {
+      console.error('Error fetching termination notes:', error);
+    } finally {
+      setIsLoadingNotes(false);
+    }
+  };
 
   // Filter drivers based on search term
   const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
@@ -421,10 +444,55 @@ const Drivers = () => {
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       refetch();
+      fetchTerminationNotes(editingDriver.id);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to mark driver as done",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartDriver = async () => {
+    if (!editingDriver) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Delete all termination notes for this driver
+      const { error: deleteError } = await supabase
+        .from('driver_termination_notes')
+        .delete()
+        .eq('driver_id', editingDriver.id);
+      
+      if (deleteError) throw deleteError;
+
+      // Reactivate driver and clear termination date
+      const { error: driverError } = await supabase
+        .from('drivers')
+        .update({ 
+          is_active: true,
+          termination_date: null
+        })
+        .eq('id', editingDriver.id);
+      
+      if (driverError) throw driverError;
+      
+      toast({
+        title: "Success",
+        description: `${formData.name} has been reactivated`
+      });
+      
+      resetForm();
+      setIsEditDialogOpen(false);
+      setEditingDriver(null);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reactivate driver",
         variant: "destructive"
       });
     } finally {
@@ -533,6 +601,7 @@ const Drivers = () => {
   };
   const openEditDialog = async (driver: any) => {
     setEditingDriver(driver);
+    fetchTerminationNotes(driver.id);
     
     // Get current truck assignment
     const { data: truckData } = await supabase
@@ -1247,25 +1316,40 @@ const Drivers = () => {
 
                 <div className="flex justify-between gap-3">
                   <div className="flex gap-3">
-                    <Button 
-                      type="button" 
-                      variant="destructive" 
-                      onClick={handleDoneClick}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Done
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant={editingDriver?.two_week_block_date ? "outline" : "secondary"}
-                      onClick={handleTwoWeekBlock}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
-                    </Button>
+                    {!editingDriver?.is_active ? (
+                      <Button 
+                        type="button" 
+                        variant="default" 
+                        onClick={handleStartDriver}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Play className="mr-2 h-4 w-4" />
+                        Start
+                      </Button>
+                    ) : (
+                      <>
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          onClick={handleDoneClick}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Done
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={editingDriver?.two_week_block_date ? "outline" : "secondary"}
+                          onClick={handleTwoWeekBlock}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                   <div className="flex gap-3">
                     <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -1289,6 +1373,31 @@ const Drivers = () => {
               )}
             </TabsContent>
           </Tabs>
+
+          {/* Termination Notes Section - Show when driver is done */}
+          {!editingDriver?.is_active && terminationNotes.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <h3 className="text-sm font-semibold">Termination Notes</h3>
+              {isLoadingNotes ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {terminationNotes.map((note) => (
+                    <Card key={note.id}>
+                      <CardContent className="p-4">
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{note.note}</p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {new Date(note.created_at).toLocaleString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
