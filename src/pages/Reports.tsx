@@ -1534,6 +1534,13 @@ const Reports = () => {
                                     const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
                                     return aDate - bDate;
                                   })[0];
+                                
+                                // Extract pickup and delivery stops from pickup_drops
+                                if (currentOrder && currentOrder.pickup_drops) {
+                                  currentOrder.pickupStop = currentOrder.pickup_drops.find((pd: any) => pd.type === 'pickup');
+                                  currentOrder.deliveryStop = currentOrder.pickup_drops.find((pd: any) => pd.type === 'delivery');
+                                }
+                                
                                 const hasBOL =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
                                 const hasPOD =
