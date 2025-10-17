@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
 import { useDriverSensitivePII } from "@/hooks/useDriverSensitivePII";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DriverFormData {
   name: string;
@@ -57,6 +58,9 @@ const Drivers = () => {
   const [editingDriver, setEditingDriver] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
+  const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [terminationNote, setTerminationNote] = useState("");
   const itemsPerPage = 15;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -333,10 +337,38 @@ const Drivers = () => {
     }
   };
 
-  const handleMarkDriverDone = async () => {
-    if (!editingDriver) return;
+  const handleDoneClick = () => {
+    setShowDoneConfirmation(true);
+  };
+
+  const handleConfirmDone = () => {
+    setShowDoneConfirmation(false);
+    setShowNoteDialog(true);
+  };
+
+  const handleSaveTerminationNote = async () => {
+    if (!editingDriver || !terminationNote.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a note",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Save termination note
+      const { error: noteError } = await supabase
+        .from('driver_termination_notes')
+        .insert({
+          driver_id: editingDriver.id,
+          note: terminationNote.trim(),
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (noteError) throw noteError;
+
       // Set termination date and mark as inactive
       const { error: driverError } = await supabase
         .from('drivers')
@@ -382,6 +414,9 @@ const Drivers = () => {
         title: "Success",
         description: `${formData.name} has been marked as done and removed from active drivers`
       });
+      
+      setTerminationNote("");
+      setShowNoteDialog(false);
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
@@ -1215,7 +1250,7 @@ const Drivers = () => {
                     <Button 
                       type="button" 
                       variant="destructive" 
-                      onClick={handleMarkDriverDone}
+                      onClick={handleDoneClick}
                       disabled={isSubmitting}
                     >
                       {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1254,6 +1289,63 @@ const Drivers = () => {
               )}
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Done Confirmation Dialog */}
+      <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark {editingDriver?.name} as done and remove them from active drivers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDone}>Yes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Termination Note Dialog */}
+      <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Termination Note</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="termination_note">Note</Label>
+              <Textarea 
+                id="termination_note"
+                value={terminationNote}
+                onChange={(e) => setTerminationNote(e.target.value)}
+                placeholder="Enter termination note..."
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setShowNoteDialog(false);
+                  setTerminationNote("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                onClick={handleSaveTerminationNote}
+                disabled={isSubmitting || !terminationNote.trim()}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>;
