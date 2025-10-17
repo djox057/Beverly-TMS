@@ -1294,7 +1294,7 @@ const Drivers = () => {
 
       {/* Done Confirmation Dialog */}
       <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
-        <AlertDialogContent>
+        <AlertDialogContent className="z-[100]">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1310,7 +1310,7 @@ const Drivers = () => {
 
       {/* Termination Note Dialog */}
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
-        <DialogContent>
+        <DialogContent className="z-[100]">
           <DialogHeader>
             <DialogTitle>Add Termination Note</DialogTitle>
           </DialogHeader>
