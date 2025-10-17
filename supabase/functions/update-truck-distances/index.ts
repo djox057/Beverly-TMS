@@ -201,9 +201,9 @@ async function calculateOrderDistance(
     return distance || 0;
   }
 
-  // Pending (not picked up) - calculate to pickup
-  if (!hasBOL && !pickupArrived) {
-    console.log('📦 Status: Pending - Calculating distance to pickup');
+  // Pending (not picked up and not arrived) - calculate to pickup
+  if (!pickupArrived && !hasBOL) {
+    console.log('📦 Status: Pending (not arrived) - Calculating distance to pickup');
     const pickupStop = order.pickupStop;
     const deliveryStop = order.deliveryStop;
     console.log('📦 VERIFICATION - Pickup stop:', pickupStop);
@@ -227,9 +227,9 @@ async function calculateOrderDistance(
     return distance || 0;
   }
 
-  // In transit with BOL - calculate to delivery
-  if (hasBOL && !hasPOD) {
-    console.log('🚛 Status: In Transit - Calculating distance to delivery');
+  // Picked up (arrived at pickup OR has BOL) but not delivered - calculate to delivery
+  if ((pickupArrived || hasBOL) && !hasPOD) {
+    console.log('🚛 Status: In Transit (arrived or has BOL) - Calculating distance to delivery');
     const deliveryStop = order.deliveryStop;
     const pickupStop = order.pickupStop;
     console.log('🚛 VERIFICATION - Delivery stop:', deliveryStop);
