@@ -123,6 +123,7 @@ const EditOrder = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
+  const [showAdditionalFields, setShowAdditionalFields] = useState(false);
   
   // Track original delivery date and date change notes for audit trail
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
@@ -302,6 +303,25 @@ const EditOrder = () => {
         setEscortFee((orderData as any).escort_fee?.toString() || "");
         setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+        
+        // Check if any additional fields have values > 0 to auto-show them
+        const hasAdditionalValues = 
+          ((orderData as any).detention > 0) ||
+          ((orderData as any).detention_driver > 0) ||
+          ((orderData as any).layover > 0) ||
+          ((orderData as any).layover_driver > 0) ||
+          ((orderData as any).extra_stop > 0) ||
+          ((orderData as any).lumper > 0) ||
+          ((orderData as any).late_fee > 0) ||
+          ((orderData as any).late_fee_driver > 0) ||
+          ((orderData as any).no_tracking_fee > 0) ||
+          ((orderData as any).no_tracking_fee_driver > 0) ||
+          ((orderData as any).wrong_address_fee > 0) ||
+          ((orderData as any).wrong_address_fee_driver > 0) ||
+          ((orderData as any).tonu > 0) ||
+          ((orderData as any).tonu_driver > 0);
+        
+        setShowAdditionalFields(hasAdditionalValues);
         
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
@@ -1328,11 +1348,94 @@ const EditOrder = () => {
               </div>
             </div>
 
+            {/* Escort Fee Section - Moved Above */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="escort-fee">Escort Fee</Label>
+                <Input 
+                  id="escort-fee" 
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={escortFee} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setEscortFee)}
+                  className="bg-blue-50/50 dark:bg-blue-950/20"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
+                <div className="flex items-center gap-3 h-10">
+                  <Switch
+                    id="escort-broker-paid"
+                    checked={escortFeeBrokerPaid}
+                    onCheckedChange={setEscortFeeBrokerPaid}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="loaded-miles">Loaded Miles</Label>
+                <Input 
+                  id="loaded-miles" 
+                  type="number"
+                  min="0"
+                  placeholder="Loaded miles" 
+                  value={loadedMiles} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLoadedMiles)}
+                  disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
+                  className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dh-miles">DH Miles</Label>
+                <Input 
+                  id="dh-miles" 
+                  type="number"
+                  min="0"
+                  placeholder="Deadhead miles" 
+                  value={dhMiles} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setDhMiles)}
+                  disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
+                  className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
+                />
+              </div>
+            </div>
+
+            {/* Additional Fields Button */}
+            {!showAdditionalFields && (
+              <div className="flex justify-center">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAdditionalFields(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Additional +
+                </Button>
+              </div>
+            )}
+
             {/* Accessorial Charges - Company/Driver Split */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {showAdditionalFields && (
+              <>
                 <div className="space-y-2">
-                  <Label htmlFor="detention" className="text-sm">Detention - Company</Label>
+                  <p className="text-xs text-muted-foreground italic">Not included in total revenue</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="detention" className="text-sm">Detention - Company</Label>
                   <Input 
                     id="detention" 
                     type="number"
@@ -1550,10 +1653,12 @@ const EditOrder = () => {
                 </div>
               </div>
             </div>
+              </>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="loaded-miles">Loaded Miles</Label>
+                <Label htmlFor="commodity">Commodity</Label>
                 <Input 
                   id="loaded-miles" 
                   type="number"
@@ -1584,32 +1689,49 @@ const EditOrder = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="escort-fee">Escort Fee</Label>
+                <Label htmlFor="weight">Weight (lbs)</Label>
                 <Input 
-                  id="escort-fee" 
-                  type="number" 
+                  id="weight" 
+                  type="number"
                   step="0.01"
                   min="0"
-                  placeholder="0.00" 
-                  value={escortFee} 
+                  placeholder="Weight" 
+                  value={weight} 
                   onKeyDown={handleNumericKeyDown}
-                  onChange={handleNumericChange(setEscortFee)}
-                  className="bg-blue-50/50 dark:bg-blue-950/20"
+                  onChange={handleNumericChange(setWeight)} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="reference-number">Reference #</Label>
+                <Input 
+                  id="reference-number" 
+                  placeholder="Reference number" 
+                  value={referenceNumber} 
+                  onChange={e => setReferenceNumber(e.target.value)} 
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
-                <div className="flex items-center gap-3 h-10">
-                  <Switch
-                    id="escort-broker-paid"
-                    checked={escortFeeBrokerPaid}
-                    onCheckedChange={setEscortFeeBrokerPaid}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
-                  </span>
-                </div>
+                <Label htmlFor="po-number">PO #</Label>
+                <Input 
+                  id="po-number" 
+                  placeholder="PO number" 
+                  value={poNumber} 
+                  onChange={e => setPoNumber(e.target.value)} 
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="pu-number">PU #</Label>
+                <Input 
+                  id="pu-number" 
+                  placeholder="PU number" 
+                  value={puNumber} 
+                  onChange={e => setPuNumber(e.target.value)} 
+                />
               </div>
             </div>
 
