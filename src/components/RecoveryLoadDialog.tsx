@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -69,8 +69,10 @@ export function RecoveryLoadDialog({
     
     const selectedTruck = trucks?.find((t) => t.id === truckId);
     if (selectedTruck) {
-      setRecoveryTrailerId(selectedTruck.trailer_id || "");
-      setRecoveryDriverId(selectedTruck.driver1_id || "");
+      const trailerId = selectedTruck.trailer_id || "";
+      const driverId = selectedTruck.driver1_id || "";
+      setRecoveryTrailerId(trailerId);
+      setRecoveryDriverId(driverId);
     }
   };
 
@@ -134,15 +136,15 @@ export function RecoveryLoadDialog({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Driver</Label>
-                <Input value={currentDriver} disabled />
+                <Input value={currentDriver || "N/A"} disabled />
               </div>
               <div>
                 <Label>Truck</Label>
-                <Input value={currentTruck} disabled />
+                <Input value={currentTruck || "N/A"} disabled />
               </div>
               <div>
                 <Label>Trailer</Label>
-                <Input value={currentTrailer} disabled />
+                <Input value={currentTrailer || "N/A"} disabled />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
@@ -182,48 +184,45 @@ export function RecoveryLoadDialog({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Truck *</Label>
-                <Select value={recoveryTruckId} onValueChange={handleTruckChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select truck" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {trucks?.map((truck) => (
-                      <SelectItem key={truck.id} value={truck.id}>
-                        {truck.truck_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={trucks?.map((truck) => ({
+                    value: truck.id,
+                    label: truck.truck_number,
+                  })) || []}
+                  value={recoveryTruckId}
+                  onValueChange={handleTruckChange}
+                  placeholder="Select truck"
+                  searchPlaceholder="Search trucks..."
+                  emptyText="No truck found."
+                />
               </div>
               <div>
                 <Label>Trailer</Label>
-                <Select value={recoveryTrailerId} onValueChange={setRecoveryTrailerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select trailer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {trailers?.map((trailer) => (
-                      <SelectItem key={trailer.id} value={trailer.id}>
-                        {trailer.trailer_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={trailers?.map((trailer) => ({
+                    value: trailer.id,
+                    label: trailer.trailer_number,
+                  })) || []}
+                  value={recoveryTrailerId}
+                  onValueChange={setRecoveryTrailerId}
+                  placeholder="Select trailer"
+                  searchPlaceholder="Search trailers..."
+                  emptyText="No trailer found."
+                />
               </div>
               <div>
                 <Label>Driver *</Label>
-                <Select value={recoveryDriverId} onValueChange={setRecoveryDriverId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select driver" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {drivers?.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
-                        {driver.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={drivers?.map((driver) => ({
+                    value: driver.id,
+                    label: driver.name,
+                  })) || []}
+                  value={recoveryDriverId}
+                  onValueChange={setRecoveryDriverId}
+                  placeholder="Select driver"
+                  searchPlaceholder="Search drivers..."
+                  emptyText="No driver found."
+                />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">

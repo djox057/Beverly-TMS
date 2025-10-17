@@ -2321,9 +2321,9 @@ const EditOrder = () => {
         open={recoveryDialogOpen}
         onOpenChange={setRecoveryDialogOpen}
         onSave={handleRecoverySave}
-        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || ""}
-        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || ""}
-        currentTrailer={originalTrailerNumber || ""}
+        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"}
+        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"}
+        currentTrailer={originalTrailerNumber || trailer || "N/A"}
         totalMiles={parseInt(loadedMiles) || 0}
         totalFreight={parseFloat(freightAmount) || 0}
         totalDriverRate={parseFloat(driverPrice) || 0}
