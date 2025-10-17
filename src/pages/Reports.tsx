@@ -1745,10 +1745,10 @@ const Reports = () => {
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="absolute top-1 right-1 h-6 w-6 p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
+                                          className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
                                           onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
                                         >
-                                          <XCircle className="h-5 w-5 text-destructive" />
+                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
                                         </Button>
                                         {truck.editDate}
                                       </td>
