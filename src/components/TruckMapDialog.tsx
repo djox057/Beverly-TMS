@@ -79,11 +79,19 @@ export function TruckMapDialog({
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Add truck marker
+        // Add truck marker (blue color)
         const truckEl = document.createElement('div');
         truckEl.className = 'truck-marker';
-        truckEl.innerHTML = '🚚';
-        truckEl.style.fontSize = '32px';
+        truckEl.style.width = '32px';
+        truckEl.style.height = '32px';
+        truckEl.style.borderRadius = '50%';
+        truckEl.style.backgroundColor = '#3b82f6'; // blue-500
+        truckEl.style.border = '3px solid white';
+        truckEl.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
+        truckEl.style.display = 'flex';
+        truckEl.style.alignItems = 'center';
+        truckEl.style.justifyContent = 'center';
+        truckEl.innerHTML = '<div style="color: white; font-size: 18px; font-weight: bold;">🚚</div>';
         
         new mapboxgl.Marker(truckEl)
           .setLngLat([truckLocation.longitude, truckLocation.latitude])
@@ -92,14 +100,19 @@ export function TruckMapDialog({
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([truckLocation.longitude, truckLocation.latitude]);
 
-        // Geocode and add pickup marker
+        // Geocode and add pickup marker (cyan color)
         if (pickupAddress) {
           const pickupCoords = await geocodeAddress(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
-            pickupEl.innerHTML = '📍';
-            pickupEl.style.fontSize = '32px';
+            pickupEl.style.width = '30px';
+            pickupEl.style.height = '30px';
+            pickupEl.style.borderRadius = '50% 50% 50% 0';
+            pickupEl.style.backgroundColor = '#06b6d4'; // cyan-500
+            pickupEl.style.border = '3px solid white';
+            pickupEl.style.transform = 'rotate(-45deg)';
+            pickupEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
             
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.lon, pickupCoords.lat])
@@ -109,14 +122,19 @@ export function TruckMapDialog({
           }
         }
 
-        // Geocode and add delivery marker
+        // Geocode and add delivery marker (red color)
         if (deliveryAddress) {
           const deliveryCoords = await geocodeAddress(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
-            deliveryEl.innerHTML = '🎯';
-            deliveryEl.style.fontSize = '32px';
+            deliveryEl.style.width = '30px';
+            deliveryEl.style.height = '30px';
+            deliveryEl.style.borderRadius = '50% 50% 50% 0';
+            deliveryEl.style.backgroundColor = '#ef4444'; // red-500
+            deliveryEl.style.border = '3px solid white';
+            deliveryEl.style.transform = 'rotate(-45deg)';
+            deliveryEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
             
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
@@ -282,11 +300,19 @@ export function TruckMapView({
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Add truck marker
+        // Add truck marker (blue color)
         const truckEl = document.createElement('div');
         truckEl.className = 'truck-marker';
-        truckEl.innerHTML = '🚚';
-        truckEl.style.fontSize = '32px';
+        truckEl.style.width = '32px';
+        truckEl.style.height = '32px';
+        truckEl.style.borderRadius = '50%';
+        truckEl.style.backgroundColor = '#3b82f6'; // blue-500
+        truckEl.style.border = '3px solid white';
+        truckEl.style.boxShadow = '0 2px 6px rgba(0,0,0,0.4)';
+        truckEl.style.display = 'flex';
+        truckEl.style.alignItems = 'center';
+        truckEl.style.justifyContent = 'center';
+        truckEl.innerHTML = '<div style="color: white; font-size: 18px; font-weight: bold;">🚚</div>';
         
         new mapboxgl.Marker(truckEl)
           .setLngLat([truckLocation.longitude, truckLocation.latitude])
@@ -313,14 +339,19 @@ export function TruckMapView({
           </div>
         `;
 
-        // Always show pickup marker if address exists
+        // Always show pickup marker if address exists (cyan color)
         if (pickupAddress) {
           pickupCoords = await geocodeAddress(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
-            pickupEl.innerHTML = '📍';
-            pickupEl.style.fontSize = '32px';
+            pickupEl.style.width = '30px';
+            pickupEl.style.height = '30px';
+            pickupEl.style.borderRadius = '50% 50% 50% 0';
+            pickupEl.style.backgroundColor = '#06b6d4'; // cyan-500
+            pickupEl.style.border = '3px solid white';
+            pickupEl.style.transform = 'rotate(-45deg)';
+            pickupEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
             
             new mapboxgl.Marker(pickupEl)
               .setLngLat([pickupCoords.lon, pickupCoords.lat])
@@ -330,14 +361,19 @@ export function TruckMapView({
           }
         }
 
-        // Always show delivery marker if address exists
+        // Always show delivery marker if address exists (red color)
         if (deliveryAddress) {
           deliveryCoords = await geocodeAddress(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
-            deliveryEl.innerHTML = '🎯';
-            deliveryEl.style.fontSize = '32px';
+            deliveryEl.style.width = '30px';
+            deliveryEl.style.height = '30px';
+            deliveryEl.style.borderRadius = '50% 50% 50% 0';
+            deliveryEl.style.backgroundColor = '#ef4444'; // red-500
+            deliveryEl.style.border = '3px solid white';
+            deliveryEl.style.transform = 'rotate(-45deg)';
+            deliveryEl.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
             
             new mapboxgl.Marker(deliveryEl)
               .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
