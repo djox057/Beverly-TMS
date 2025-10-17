@@ -425,6 +425,13 @@ const Reports = () => {
       return lostDayNote.note;
     };
 
+    // Helper function to check if a date has "game over" note
+    const isGameOverDay = (date: Date): boolean => {
+      const dateStr = format(date, "yyyy-MM-dd");
+      const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
+      return lostDayNote?.note?.toLowerCase() === "game over";
+    };
+
     // Helper function to check if pickup and delivery are on the same date
     const isSameDayPickupDelivery = (order: any) => {
       return order.pickupDate && order.deliveryDate && isSameDay(order.pickupDate, order.deliveryDate);
@@ -516,8 +523,11 @@ const Reports = () => {
 
       const isBlockDay = twoWeekBlockDate && isSameDay(day, twoWeekBlockDate);
 
-      // If this is the block day, render black GAME/OVER cell
-      if (isBlockDay) {
+      // Check if this day has "game over" in lost day notes
+      const isGameOver = isGameOverDay(day);
+
+      // If this is the block day or game over day, render black GAME/OVER cell
+      if (isBlockDay || isGameOver) {
         const isToday = isSameDay(day, new Date());
         return (
           <td
