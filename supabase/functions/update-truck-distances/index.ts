@@ -193,12 +193,12 @@ async function calculateOrderDistance(
     return 0;
   }
 
-  // Available - calculate to terminal
+  // Available - calculate to next pickup (if exists)
   if (truckStatus === 'Available') {
-    console.log('🏭 Status: Available - Calculating distance to terminal');
-    const distance = await calculateDistanceFromTruck(truckLocation, null);
-    console.log('🏭 Terminal distance result:', distance);
-    return distance || 0;
+    console.log('🏭 Status: Available - Looking for next pickup');
+    // This truck is available, so we don't calculate distance for this delivered order
+    // The parent function will look for the next order
+    return 0;
   }
 
   // Pending (not picked up and not arrived) - calculate to pickup
@@ -340,36 +340,38 @@ Deno.serve(async (req) => {
         (order: any) => !order.order_files?.some((file: any) => file.file_category === 'POD')
       );
 
+      let distance = 0;
+
       if (!currentOrder) {
-        continue;
+        // No current order - truck is available, set to 0
+        console.log(`📦 Truck ${truck.truck_number}: No active order, setting miles_away to 0`);
+        distance = 0;
+      } else {
+        // Format order with pickup/delivery stops
+        const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+        const deliveryStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'delivery');
+
+        const formattedOrder = {
+          ...currentOrder,
+          pickupStop,
+          deliveryStop,
+        };
+
+        // Calculate distance
+        distance = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
       }
 
-      // Format order with pickup/delivery stops
-      const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-      const deliveryStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'delivery');
+      // Update truck record (even if 0)
+      const { error: updateError } = await supabase
+        .from('trucks')
+        .update({ miles_away: distance })
+        .eq('id', truck.id);
 
-      const formattedOrder = {
-        ...currentOrder,
-        pickupStop,
-        deliveryStop,
-      };
-
-      // Calculate distance
-      const distance = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
-
-      if (distance > 0) {
-        // Update truck record
-        const { error: updateError } = await supabase
-          .from('trucks')
-          .update({ miles_away: distance })
-          .eq('id', truck.id);
-
-        if (updateError) {
-          console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
-        } else {
-          console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles`);
-          updatedCount++;
-        }
+      if (updateError) {
+        console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
+      } else {
+        console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles`);
+        updatedCount++;
       }
     }
 
