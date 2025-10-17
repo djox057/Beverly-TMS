@@ -528,11 +528,10 @@ const Reports = () => {
 
       // If this is the block day or game over day, render black GAME/OVER cell
       if (isBlockDay || isGameOver) {
-        const isToday = isSameDay(day, new Date());
         return (
           <td
             key={index}
-            className={`border ${isToday ? "border-primary border-2" : "border-gray-200"} p-0 w-[12%] ${isFirstTruck ? "" : "border-t-0"}`}
+            className="p-0 w-[12%] bg-black"
             style={{
               minWidth: "120px",
               maxWidth: "120px",
@@ -542,7 +541,7 @@ const Reports = () => {
           >
             {/* Top half - "GAME" */}
             <div
-              className="border-b border-gray-200 flex flex-col items-center justify-center bg-black"
+              className="flex flex-col items-center justify-center bg-black"
               style={{
                 height: "32px",
                 minHeight: "32px",
