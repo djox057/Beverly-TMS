@@ -625,17 +625,6 @@ const Reports = () => {
               : {}),
           }}
         >
-          {/* Game Over Button - only on first date column */}
-          {index === 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-1 right-1 h-6 w-6 p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
-              onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
-            >
-              <XCircle className="h-5 w-5 text-destructive" />
-            </Button>
-          )}
           {/* Red border overlay for today column - sits on top of everything */}
           {isToday && (
             <div
@@ -1746,13 +1735,21 @@ const Reports = () => {
                                         {truck.lastEdit}
                                       </td>
                                       <td
-                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
+                                        className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`}
                                         style={{
                                           width: "80px",
                                           minWidth: "80px",
                                           maxWidth: "80px",
                                         }}
                                       >
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="absolute top-1 right-1 h-6 w-6 p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
+                                          onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
+                                        >
+                                          <XCircle className="h-5 w-5 text-destructive" />
+                                        </Button>
                                         {truck.editDate}
                                       </td>
                                     </tr>
