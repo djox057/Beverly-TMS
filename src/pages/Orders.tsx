@@ -553,12 +553,14 @@ const Orders = () => {
                   </TableRow>
                  </TableHeader>
                 <TableBody>
-                  {paginatedOrders.length === 0 ? <TableRow>
+                   {paginatedOrders.length === 0 ? <TableRow>
                       <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                      </TableRow> : paginatedOrders.map(order => {
-                      // New background color rules (priority order: Red > Green > Yellow > Orange)
+                      // Background color rules - Recovery orders get purple background that overrides all other colors
+                      const isRecovery = (order as any).isRecovery;
+                      
                       const hasRedFees = ((order as any).lateFeeDriver > 0) || 
                                         ((order as any).noTrackingFeeDriver > 0) || 
                                         ((order as any).wrongAddressFeeDriver > 0);
@@ -570,7 +572,9 @@ const Orders = () => {
                       
                       const hasOrangeCondition = order.canceled || ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== '');
                       
-                      const rowClassName = hasRedFees 
+                      const rowClassName = isRecovery
+                        ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                        : hasRedFees 
                         ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
                         : hasGreenFees
                         ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
@@ -582,16 +586,7 @@ const Orders = () => {
                       
                       return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {order.internalLoadNumber}
-                            {(order as any).isRecovery && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                RECOVERY
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
+                        <TableCell>{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
