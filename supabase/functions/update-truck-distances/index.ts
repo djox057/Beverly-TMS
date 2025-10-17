@@ -93,7 +93,18 @@ async function calculateDistanceFromTruck(
   truckLocation: TruckLocation,
   targetAddress: string | null = null
 ): Promise<number | null> {
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📍 CALCULATE DISTANCE FROM TRUCK START');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🚛 Truck:', truckLocation.truck_number);
+  console.log('📍 Truck Location:', {
+    lat: truckLocation.latitude,
+    lon: truckLocation.longitude
+  });
+  console.log('🎯 Target:', targetAddress || 'TERMINAL');
+
   if (!truckLocation) {
+    console.log('❌ Missing truck location');
     return null;
   }
 
@@ -102,11 +113,15 @@ async function calculateDistanceFromTruck(
     
     if (!targetAddress) {
       targetCoords = TERMINAL_COORDINATES;
+      console.log('📍 Using terminal coordinates:', targetCoords);
     } else {
+      console.log('🌐 Geocoding address...');
       targetCoords = await geocodeAddress(targetAddress);
+      console.log('🌐 Geocode result:', targetCoords);
       
       if (!targetCoords) {
-        console.error('Geocoding failed for:', targetAddress);
+        console.error('❌ GEOCODING FAILED for:', targetAddress);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         return null;
       }
     }
@@ -116,10 +131,25 @@ async function calculateDistanceFromTruck(
       lon: truckLocation.longitude,
     };
     
+    console.log('🛣️ Calculating route distance via OSRM...');
+    console.log('🛣️ From:', truckCoords);
+    console.log('🛣️ To:', targetCoords);
+    
     const distance = await calculateRouteDistance(truckCoords, targetCoords);
+    
+    console.log('🛣️ OSRM Result:', distance, 'miles');
+    
+    if (distance === null) {
+      console.error('❌ OSRM CALCULATION FAILED');
+    } else {
+      console.log('✅ SUCCESS: Distance =', distance, 'miles');
+    }
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return distance;
   } catch (error) {
-    console.error('Error calculating distance:', error);
+    console.error('❌ Error calculating distance:', error);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return null;
   }
 }
@@ -132,35 +162,55 @@ async function calculateOrderDistance(
   order: any,
   truckStatus?: string
 ): Promise<number> {
+  console.log('\n╔════════════════════════════════════════╗');
+  console.log('║   ORDER DISTANCE CALCULATION START     ║');
+  console.log('╚════════════════════════════════════════╝');
+  
   if (!truckLocation || !order) {
+    console.log('⚠️ Missing data:', { hasTruckLocation: !!truckLocation, hasOrder: !!order });
     return 0;
   }
+
+  console.log('📦 Order:', order.load_number);
+  console.log('📦 Status:', order.status);
+  console.log('🚛 Truck Status:', truckStatus);
 
   const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
   const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
   const pickupArrived = order.pickupStop?.arrived_at;
 
+  console.log('📄 Files:', { hasBOL, hasPOD, pickupArrived: !!pickupArrived });
+
   // Maintenance - 0 miles
   if (truckStatus === 'Maintenance') {
+    console.log('🛑 Truck in maintenance, returning 0 miles');
     return 0;
   }
 
   // Delivered with POD - 0 miles
   if (hasPOD) {
+    console.log('✅ Order delivered (has POD), returning 0 miles');
     return 0;
   }
 
   // Available - calculate to terminal
   if (truckStatus === 'Available') {
+    console.log('🏭 Status: Available - Calculating distance to terminal');
     const distance = await calculateDistanceFromTruck(truckLocation, null);
+    console.log('🏭 Terminal distance result:', distance);
     return distance || 0;
   }
 
   // Pending (not picked up) - calculate to pickup
   if (!hasBOL && !pickupArrived) {
+    console.log('📦 Status: Pending - Calculating distance to pickup');
     const pickupStop = order.pickupStop;
+    const deliveryStop = order.deliveryStop;
+    console.log('📦 VERIFICATION - Pickup stop:', pickupStop);
+    console.log('📦 VERIFICATION - Delivery stop (should NOT use this):', deliveryStop);
     
     if (!pickupStop?.address) {
+      console.log('❌ No pickup address found');
       return 0;
     }
     
@@ -168,16 +218,25 @@ async function calculateOrderDistance(
       .trim()
       .replace(/,\s*,/g, ',')
       .replace(/\s+/g, ' ');
+    console.log('📦 Full pickup address being used:', fullAddress);
+    console.log('📦 COMPARISON - Delivery address (should NOT match above):', 
+      deliveryStop ? `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''} ${deliveryStop.zip_code || ''}`.trim() : 'N/A');
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
+    console.log('📦 Pickup distance result:', distance);
     return distance || 0;
   }
 
   // In transit with BOL - calculate to delivery
   if (hasBOL && !hasPOD) {
+    console.log('🚛 Status: In Transit - Calculating distance to delivery');
     const deliveryStop = order.deliveryStop;
+    const pickupStop = order.pickupStop;
+    console.log('🚛 VERIFICATION - Delivery stop:', deliveryStop);
+    console.log('🚛 VERIFICATION - Pickup stop (should NOT use this):', pickupStop);
     
     if (!deliveryStop?.address) {
+      console.log('❌ No delivery address found');
       return 0;
     }
     
@@ -185,11 +244,16 @@ async function calculateOrderDistance(
       .trim()
       .replace(/,\s*,/g, ',')
       .replace(/\s+/g, ' ');
+    console.log('🚛 Full delivery address being used:', fullAddress);
+    console.log('🚛 COMPARISON - Pickup address (should NOT match above):', 
+      pickupStop ? `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''} ${pickupStop.zip_code || ''}`.trim() : 'N/A');
     
     const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
+    console.log('🚛 Delivery distance result:', distance);
     return distance || 0;
   }
 
+  console.log('⚠️ No matching condition, returning 0 miles');
   return 0;
 }
 
