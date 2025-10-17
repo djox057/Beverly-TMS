@@ -388,7 +388,7 @@ const Reports = () => {
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
       if (previousLoadDeliveryComplete)
-        return "bg-[hsl(var(--cell-transit))] text-[hsl(var(--cell-transit-foreground))] border-border";
+        return "bg-[#00FFFF] text-black border-border";
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
     };
 
