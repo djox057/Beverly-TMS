@@ -135,6 +135,9 @@ const EditOrder = () => {
   const [driverDeliveryDateRange, setDriverDeliveryDateRange] = useState<DateRange>();
   const [driverDeliveryStartTime, setDriverDeliveryStartTime] = useState("");
   const [driverDeliveryEndTime, setDriverDeliveryEndTime] = useState("");
+  
+  // Track visibility of additional fields
+  const [showAdditionalFields, setShowAdditionalFields] = useState(false);
 
   // Handlers for numeric input validation
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -302,6 +305,26 @@ const EditOrder = () => {
         setEscortFee((orderData as any).escort_fee?.toString() || "");
         setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+        
+        // Check if any additional fields have values > 0 to auto-show them
+        const hasAdditionalValues = 
+          ((orderData as any).detention && parseFloat((orderData as any).detention) > 0) ||
+          ((orderData as any).detention_driver && parseFloat((orderData as any).detention_driver) > 0) ||
+          ((orderData as any).layover && parseFloat((orderData as any).layover) > 0) ||
+          ((orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0) ||
+          ((orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0) ||
+          ((orderData as any).lumper && parseFloat((orderData as any).lumper) > 0) ||
+          ((orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0) ||
+          ((orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0) ||
+          ((orderData as any).no_tracking_fee && parseFloat((orderData as any).no_tracking_fee) > 0) ||
+          ((orderData as any).no_tracking_fee_driver && parseFloat((orderData as any).no_tracking_fee_driver) > 0) ||
+          ((orderData as any).wrong_address_fee && parseFloat((orderData as any).wrong_address_fee) > 0) ||
+          ((orderData as any).wrong_address_fee_driver && parseFloat((orderData as any).wrong_address_fee_driver) > 0) ||
+          ((orderData as any).tonu && parseFloat((orderData as any).tonu) > 0) ||
+          ((orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0) ||
+          ((orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0);
+        
+        setShowAdditionalFields(hasAdditionalValues);
         
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
@@ -1328,11 +1351,34 @@ const EditOrder = () => {
               </div>
             </div>
 
-            {/* Accessorial Charges - Company/Driver Split */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="detention" className="text-sm">Detention - Company</Label>
+            {/* Additional + Button */}
+            {!showAdditionalFields && (
+              <div className="flex justify-center">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowAdditionalFields(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Additional +
+                </Button>
+              </div>
+            )}
+
+            {/* Additional Fields Section */}
+            {showAdditionalFields && (
+              <div className="space-y-4 border border-muted rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Additional Charges</Label>
+                  <span className="text-xs text-muted-foreground">Not included in total revenue</span>
+                </div>
+
+                {/* Accessorial Charges - Company/Driver Split */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="detention" className="text-sm">Detention - Company</Label>
                   <Input 
                     id="detention" 
                     type="number"
@@ -1392,164 +1438,197 @@ const EditOrder = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="extra-stop" className="text-sm">Extra Stop - Company</Label>
-                  <Input 
-                    id="extra-stop" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={extraStop} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setExtraStop)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lumper" className="text-sm">Lumper - Company</Label>
-                  <Input 
-                    id="lumper" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={lumper} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setLumper)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
+                <Input 
+                  id="extra-stop" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={extraStop} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setExtraStop)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="late-fee" className="text-sm">Late Fee - Company</Label>
-                  <Input 
-                    id="late-fee" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={lateFee} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setLateFee)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="late-fee-driver" className="text-sm">Late Fee - Driver</Label>
-                  <Input 
-                    id="late-fee-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={lateFeeDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setLateFeeDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="no-tracking-fee" className="text-sm">No Tracking Fee - Company</Label>
-                  <Input 
-                    id="no-tracking-fee" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={noTrackingFee} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setNoTrackingFee)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="no-tracking-fee-driver" className="text-sm">No Tracking Fee - Driver</Label>
-                  <Input 
-                    id="no-tracking-fee-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={noTrackingFeeDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setNoTrackingFeeDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="lumper" className="text-sm">Lumper - Company</Label>
+                <Input 
+                  id="lumper" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={lumper} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLumper)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="wrong-address-fee" className="text-sm">Wrong Address Fee - Company</Label>
-                  <Input 
-                    id="wrong-address-fee" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={wrongAddressFee} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setWrongAddressFee)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="wrong-address-fee-driver" className="text-sm">Wrong Address Fee - Driver</Label>
-                  <Input 
-                    id="wrong-address-fee-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={wrongAddressFeeDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setWrongAddressFeeDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tonu" className="text-sm">TONU - Company</Label>
-                  <Input 
-                    id="tonu" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={tonu} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Allow empty string or non-negative numbers
-                      if (value === '' || parseFloat(value) >= 0) {
-                        setTonu(value);
-                        // If TONU has a value, set freight amount, loaded miles, and driver price to 0
-                        if (value && parseFloat(value) > 0) {
-                          setFreightAmount("0");
-                          setLoadedMiles("0");
-                          setDriverPrice("0");
-                        }
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="late-fee" className="text-sm">Late Fee - Company</Label>
+                <Input 
+                  id="late-fee" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={lateFee} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLateFee)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="late-fee-driver" className="text-sm">Late Fee - Driver</Label>
+                <Input 
+                  id="late-fee-driver" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={lateFeeDriver} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLateFeeDriver)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="no-tracking-fee" className="text-sm">No Tracking Fee - Company</Label>
+                <Input 
+                  id="no-tracking-fee" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={noTrackingFee} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setNoTrackingFee)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="no-tracking-fee-driver" className="text-sm">No Tracking Fee - Driver</Label>
+                <Input 
+                  id="no-tracking-fee-driver" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={noTrackingFeeDriver} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setNoTrackingFeeDriver)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="wrong-address-fee" className="text-sm">Wrong Address Fee - Company</Label>
+                <Input 
+                  id="wrong-address-fee" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={wrongAddressFee} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setWrongAddressFee)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wrong-address-fee-driver" className="text-sm">Wrong Address Fee - Driver</Label>
+                <Input 
+                  id="wrong-address-fee-driver" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={wrongAddressFeeDriver} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setWrongAddressFeeDriver)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tonu" className="text-sm">TONU - Company</Label>
+                <Input 
+                  id="tonu" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={tonu} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow empty string or non-negative numbers
+                    if (value === '' || parseFloat(value) >= 0) {
+                      setTonu(value);
+                      // If TONU has a value, set freight amount, loaded miles, and driver price to 0
+                      if (value && parseFloat(value) > 0) {
+                        setFreightAmount("0");
+                        setLoadedMiles("0");
+                        setDriverPrice("0");
                       }
-                    }}
-                    className="bg-green-50/50 dark:bg-green-950/20"
+                    }
+                  }}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tonu-driver" className="text-sm">TONU - Driver</Label>
+                <Input 
+                  id="tonu-driver" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={tonuDriver} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setTonuDriver)}
+                  className="bg-green-50/50 dark:bg-green-950/20"
+                />
+              </div>
+            </div>
+
+            {/* Escort Fee Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="escort-fee">Escort Fee</Label>
+                <Input 
+                  id="escort-fee" 
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00" 
+                  value={escortFee} 
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setEscortFee)}
+                  className="bg-blue-50/50 dark:bg-blue-950/20"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
+                <div className="flex items-center gap-3 h-10">
+                  <Switch
+                    id="escort-broker-paid"
+                    checked={escortFeeBrokerPaid}
+                    onCheckedChange={setEscortFeeBrokerPaid}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tonu-driver" className="text-sm">TONU - Driver</Label>
-                  <Input 
-                    id="tonu-driver" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00" 
-                    value={tonuDriver} 
-                    onKeyDown={handleNumericKeyDown}
-                    onChange={handleNumericChange(setTonuDriver)}
-                    className="bg-green-50/50 dark:bg-green-950/20"
-                  />
+                  <span className="text-sm text-muted-foreground">
+                    {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
+                  </span>
                 </div>
               </div>
             </div>
+          </div>
+          )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1579,37 +1658,6 @@ const EditOrder = () => {
                   disabled={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting')}
                   className={hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('accounting') ? 'bg-muted cursor-not-allowed' : ''}
                 />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="escort-fee">Escort Fee</Label>
-                <Input 
-                  id="escort-fee" 
-                  type="number" 
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00" 
-                  value={escortFee} 
-                  onKeyDown={handleNumericKeyDown}
-                  onChange={handleNumericChange(setEscortFee)}
-                  className="bg-blue-50/50 dark:bg-blue-950/20"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
-                <div className="flex items-center gap-3 h-10">
-                  <Switch
-                    id="escort-broker-paid"
-                    checked={escortFeeBrokerPaid}
-                    onCheckedChange={setEscortFeeBrokerPaid}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
-                  </span>
-                </div>
               </div>
             </div>
 
