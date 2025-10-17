@@ -338,44 +338,60 @@ Deno.serve(async (req) => {
           continue;
         }
 
-      // Get current ACTIVE order only
-      // Priority 1: Order with BOL or arrived at pickup (currently in transit)
-      // Priority 2: Next upcoming order (within 7 days) without BOL/arrival
-      const now = new Date();
-      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      // ═══════════════════════════════════════════════════════════
+      // CURRENT LOAD LOGIC:
+      // 1. Priority: Order in active transit (has BOL OR arrived at pickup) AND no POD
+      // 2. Fallback: Next upcoming order (earliest pickup date) without POD
+      // 3. Result: 0 miles if no current load
+      // ═══════════════════════════════════════════════════════════
       
-      const ordersWithoutPOD = truck.orders
-        ?.filter((order: any) => {
-          const noPOD = !order.order_files?.some((file: any) => file.file_category === 'POD');
-          const pickupDate = new Date(order.pickup_datetime || '9999-12-31');
-          const isWithinTimeframe = pickupDate <= sevenDaysFromNow;
-          return noPOD && isWithinTimeframe;
-        }) || [];
+      console.log(`\n🔍 Finding current load for truck ${truck.truck_number}...`);
+      
+      // Get all incomplete orders (no POD) for this truck
+      const incompleteOrders = truck.orders?.filter((order: any) => 
+        !order.order_files?.some((file: any) => file.file_category === 'POD')
+      ) || [];
+      
+      console.log(`📋 Found ${incompleteOrders.length} incomplete orders for truck ${truck.truck_number}`);
+      
+      if (incompleteOrders.length === 0) {
+        console.log(`✅ Truck ${truck.truck_number}: No incomplete orders, setting to 0 miles`);
+      }
 
-      // First, look for orders that are actively in progress (BOL exists or arrived at pickup)
-      const activeOrders = ordersWithoutPOD.filter((order: any) => {
+      // PRIORITY 1: Find orders in active transit (BOL exists OR arrived at pickup)
+      const activeTransitOrders = incompleteOrders.filter((order: any) => {
         const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
         const pickupStop = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-        const hasArrived = !!pickupStop?.arrived_at;
-        return hasBOL || hasArrived;
+        const arrivedAtPickup = !!pickupStop?.arrived_at;
+        const inTransit = hasBOL || arrivedAtPickup;
+        
+        if (inTransit) {
+          console.log(`🚛 Active transit order found: ${order.load_number} (BOL: ${hasBOL}, Arrived: ${arrivedAtPickup})`);
+        }
+        
+        return inTransit;
       });
 
       let currentOrder = null;
       
-      if (activeOrders.length > 0) {
-        // Get the earliest active order
-        currentOrder = activeOrders.sort((a: any, b: any) => {
+      if (activeTransitOrders.length > 0) {
+        // Multiple active orders? Take the earliest one by pickup date
+        currentOrder = activeTransitOrders.sort((a: any, b: any) => {
           const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
           const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
           return aDate - bDate;
         })[0];
-      } else if (ordersWithoutPOD.length > 0) {
-        // No active orders, get the next upcoming order
-        currentOrder = ordersWithoutPOD.sort((a: any, b: any) => {
+        console.log(`✅ Current load (ACTIVE TRANSIT): ${currentOrder.load_number}`);
+      } else if (incompleteOrders.length > 0) {
+        // PRIORITY 2: No active transit, get next upcoming order (earliest pickup)
+        currentOrder = incompleteOrders.sort((a: any, b: any) => {
           const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
           const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
           return aDate - bDate;
         })[0];
+        console.log(`✅ Current load (NEXT ASSIGNMENT): ${currentOrder.load_number}`);
+      } else {
+        console.log(`ℹ️ Truck ${truck.truck_number}: No current load`);
       }
 
       let distance = 0;
