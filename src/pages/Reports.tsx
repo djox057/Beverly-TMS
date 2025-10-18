@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -150,6 +150,7 @@ const Reports = () => {
   const { profile, hasRole } = useAuthContext();
   const navigate = useNavigate();
   const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
+  const [showNewDrivers, setShowNewDrivers] = useState(false);
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -1202,6 +1203,47 @@ const Reports = () => {
   const activeOfficeReports = useMemo(() => {
     const reports = filterReportsByOffice(activeTab);
     
+    // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
+    if (showNewDrivers) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      return reports
+        .map(group => {
+          const newDriverTrucks = group.trucks.filter(truck => {
+            // Get all non-GAME|OVER orders
+            const realOrders = truck.allOrders?.filter((order: any) => 
+              order.notes !== 'GAME|OVER'
+            ) || [];
+            
+            // Case 1: No loads ever - brand new driver
+            if (realOrders.length === 0) {
+              return true;
+            }
+            
+            // Case 2: Exactly 1 load with pickup today - first load starting today
+            if (realOrders.length === 1) {
+              const order = realOrders[0];
+              if (!order.pickupStop?.datetime) return false;
+              
+              const pickupDate = new Date(order.pickupStop.datetime);
+              pickupDate.setHours(0, 0, 0, 0);
+              
+              return isSameDay(pickupDate, today);
+            }
+            
+            // More than 1 load = experienced driver
+            return false;
+          });
+          
+          return {
+            ...group,
+            trucks: newDriverTrucks
+          };
+        })
+        .filter(group => group.trucks.length > 0);
+    }
+    
     if (!showEmptyTrucks) {
       return reports;
     }
@@ -1268,7 +1310,7 @@ const Reports = () => {
         };
       })
       .filter(group => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks]);
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers]);
 
   if (isLoading) {
     return (
@@ -1407,14 +1449,24 @@ const Reports = () => {
                 ))}
               </TabsList>
               {(hasRole('supervisor') || hasRole('manager') || hasRole('admin')) && (
-                <Button
-                  variant={showEmptyTrucks ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
-                  className="ml-4"
-                >
-                  Empty trucks
-                </Button>
+                <div className="flex gap-2 ml-4">
+                  <Button
+                    variant={showEmptyTrucks ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
+                  >
+                    Empty trucks
+                  </Button>
+                  <Button
+                    variant={showNewDrivers ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowNewDrivers(!showNewDrivers)}
+                    className="gap-2"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    New drivers
+                  </Button>
+                </div>
               )}
             </div>
           </div>
