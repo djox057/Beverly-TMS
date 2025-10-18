@@ -87,7 +87,7 @@ const NewOrder = () => {
   const [duplicateOrders, setDuplicateOrders] = useState<any[]>([]);
   
   const { toast } = useToast();
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
 
   // Drag states for file uploads
@@ -106,8 +106,17 @@ const NewOrder = () => {
 
   // Fetch data from database
   const { data: companies, isLoading: companiesLoading } = useCompanies();
-  const { data: trucks, isLoading: trucksLoading } = useTrucks();
+  const { data: allTrucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
+  
+  // Filter trucks by dispatcher for dispatch role
+  const trucks = allTrucks?.filter(truck => {
+    // Only filter for dispatch role - all other roles see all trucks
+    if (profile?.user_id && hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours')) {
+      return truck.dispatcher_id === profile.user_id;
+    }
+    return true;
+  });
   
   // Get company_id from selected truck only (not from booked by company)
   const selectedTruck = trucks?.find(t => t.id === truck);
