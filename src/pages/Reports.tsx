@@ -1360,13 +1360,25 @@ const Reports = () => {
       <div className="flex-1 overflow-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-10 border-b border-border">
-            <TabsList className="grid w-full grid-cols-4 mb-2">
-              {offices.map((office) => (
-                <TabsTrigger key={office} value={office}>
-                  {office}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="flex items-center justify-between mb-2">
+              <TabsList className="grid grid-cols-4 flex-1">
+                {offices.map((office) => (
+                  <TabsTrigger key={office} value={office}>
+                    {office}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {(hasRole('supervisor') || hasRole('manager') || hasRole('admin')) && (
+                <Button
+                  variant={showEmptyTrucks ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
+                  className="ml-4"
+                >
+                  Empty trucks
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Only render the active tab content */}
@@ -1407,24 +1419,10 @@ const Reports = () => {
                                     fontSize: "0.825rem",
                                   }}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <span>
-                                      {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
-                                      {group.ext && (
-                                        <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
-                                      )}
-                                    </span>
-                                    {(hasRole('supervisor') || hasRole('manager') || hasRole('admin')) && (
-                                      <Button
-                                        variant={showEmptyTrucks ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
-                                        className="h-6 text-xs"
-                                      >
-                                        Empty trucks
-                                      </Button>
-                                    )}
-                                  </div>
+                                  {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                  {group.ext && (
+                                    <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
+                                  )}
                                 </th>
                                 <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
                                   <div className="flex items-center justify-center">
