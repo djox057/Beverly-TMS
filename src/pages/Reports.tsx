@@ -201,23 +201,7 @@ const Reports = () => {
     return {};
   }, [getDrugTestForDriver, isNewDriver]);
 
-  // Helper to get drug test note
-  const getDrugTestNote = useCallback((truck: any) => {
-    if (!truck.driverId) return null;
-    
-    const drugTest = getDrugTestForDriver(truck.driverId);
-    const isNew = isNewDriver(truck);
-    
-    if (!isNew) return null;
-    
-    if (drugTest?.result === 'positive') {
-      return 'Drug result Positive';
-    } else if (!drugTest?.result || drugTest?.result === 'pending') {
-      return 'New driver waiting results!';
-    }
-    
-    return null;
-  }, [getDrugTestForDriver, isNewDriver]);
+  // Note: Drug test notes are now added directly to truck notes when status changes
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -1753,7 +1737,6 @@ const Reports = () => {
                                 const isNew = isNewDriver(truck);
                                 const canManageDrugTests = hasRole('safety') || hasRole('manager') || hasRole('admin');
                                 const drugTestStyle = getDrugTestCellStyle(truck);
-                                const drugTestNote = getDrugTestNote(truck);
                                 const shouldShowDrugTestUI = isNew && canManageDrugTests;
 
                                 return (
@@ -1994,7 +1977,7 @@ const Reports = () => {
                                         <div className="h-8 p-0 w-full">
                                           <EditableNoteField 
                                             truckId={truck.id}
-                                            value={drugTestNote || truck.note}
+                                            value={truck.note}
                                             handleNoteChange={handleNoteChange}
                                             setNoteDialogContent={setNoteDialogContent}
                                             setNoteDialogOpen={setNoteDialogOpen}
@@ -2200,9 +2183,15 @@ const Reports = () => {
                 value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
                 onValueChange={(value) => {
                   if (drugTestDialog?.driverId) {
+                    // Find the truck ID for this driver
+                    const truck = groupedReports
+                      ?.flatMap(group => group.trucks)
+                      .find(t => t.driverId === drugTestDialog.driverId);
+                    
                     upsertDrugTest.mutate({
                       driverId: drugTestDialog.driverId,
                       result: value as 'positive' | 'negative' | 'pending',
+                      truckId: truck?.id,
                     });
                   }
                 }}
