@@ -67,23 +67,35 @@ export const useDriverDrugTests = () => {
         // Get existing note
         const { data: existingNote } = await supabase
           .from("truck_notes")
-          .select("note")
+          .select("id, note")
           .eq("truck_id", truckId)
-          .single();
+          .maybeSingle();
 
         const currentNote = existingNote?.note || "";
         const newNote = currentNote 
           ? `${currentNote}\n${noteText}` 
           : noteText;
 
-        // Upsert truck note
-        await supabase
-          .from("truck_notes")
-          .upsert({
-            truck_id: truckId,
-            note: newNote,
-            updated_by: user?.id,
-          }, { onConflict: "truck_id" });
+        // Update or insert truck note
+        if (existingNote) {
+          // Update existing note
+          await supabase
+            .from("truck_notes")
+            .update({
+              note: newNote,
+              updated_by: user?.id,
+            })
+            .eq("id", existingNote.id);
+        } else {
+          // Insert new note
+          await supabase
+            .from("truck_notes")
+            .insert({
+              truck_id: truckId,
+              note: newNote,
+              updated_by: user?.id,
+            });
+        }
       }
 
       return data;
