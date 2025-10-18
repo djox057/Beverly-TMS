@@ -147,8 +147,9 @@ const EditableNoteField = ({
 };
 
 const Reports = () => {
-  const { profile } = useAuthContext();
+  const { profile, hasRole } = useAuthContext();
   const navigate = useNavigate();
+  const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -1199,8 +1200,36 @@ const Reports = () => {
   
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
-    return filterReportsByOffice(activeTab);
-  }, [activeTab, filterReportsByOffice]);
+    const reports = filterReportsByOffice(activeTab);
+    
+    if (!showEmptyTrucks) {
+      return reports;
+    }
+    
+    // Filter to show only trucks that are empty for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return reports
+      .map(group => {
+        const emptyTrucks = group.trucks.filter(truck => {
+          // Check if truck has no pickup scheduled for today
+          const hasPickupToday = truck.allOrders?.some((order: any) => {
+            if (!order.pickupStop?.datetime) return false;
+            const pickupDate = new Date(order.pickupStop.datetime);
+            pickupDate.setHours(0, 0, 0, 0);
+            return isSameDay(pickupDate, today);
+          });
+          return !hasPickupToday;
+        });
+        
+        return {
+          ...group,
+          trucks: emptyTrucks
+        };
+      })
+      .filter(group => group.trucks.length > 0); // Only show dispatchers with empty trucks
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks]);
 
   if (isLoading) {
     return (
@@ -1378,10 +1407,24 @@ const Reports = () => {
                                     fontSize: "0.825rem",
                                   }}
                                 >
-                                  {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
-                                  {group.ext && (
-                                    <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <span>
+                                      {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                      {group.ext && (
+                                        <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
+                                      )}
+                                    </span>
+                                    {(hasRole('supervisor') || hasRole('manager') || hasRole('admin')) && (
+                                      <Button
+                                        variant={showEmptyTrucks ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
+                                        className="h-6 text-xs"
+                                      >
+                                        Empty trucks
+                                      </Button>
+                                    )}
+                                  </div>
                                 </th>
                                 <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
                                   <div className="flex items-center justify-center">
