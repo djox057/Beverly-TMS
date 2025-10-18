@@ -71,7 +71,23 @@ export const useDriverDrugTests = () => {
           .eq("truck_id", truckId)
           .maybeSingle();
 
-        const currentNote = existingNote?.note || "";
+        // Remove any previous drug test related text
+        let currentNote = existingNote?.note || "";
+        const drugTestPatterns = [
+          'Drug result Positive',
+          'Drug result Negative',
+          'Drug test result Pending'
+        ];
+        
+        // Remove all drug test related lines
+        drugTestPatterns.forEach(pattern => {
+          currentNote = currentNote.replace(new RegExp(`${pattern}\\n?`, 'g'), '');
+        });
+        
+        // Clean up any extra newlines
+        currentNote = currentNote.replace(/\n+/g, '\n').trim();
+        
+        // Add the new drug test text
         const newNote = currentNote 
           ? `${currentNote}\n${noteText}` 
           : noteText;
