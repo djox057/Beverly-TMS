@@ -1207,7 +1207,7 @@ const Reports = () => {
     }
     
     // Filter to show only trucks with explicit "Empty" or lost day notes for today
-    // These are trucks that display RED boxes with text like "Empty", "Lost day", "No pre-book", etc.
+    // Exclude trucks showing ">>>" (in transit)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = format(today, "yyyy-MM-dd");
@@ -1215,9 +1215,28 @@ const Reports = () => {
     return reports
       .map(group => {
         const emptyTrucks = group.trucks.filter(truck => {
+          // Check if truck is in transit today (shows ">>>")
+          // A truck shows ">>>" for dates between pickup and delivery
+          const isInTransitToday = truck.allOrders?.some((order: any) => {
+            if (order.notes === 'GAME|OVER') return false;
+            if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
+            
+            const pickupDate = new Date(order.pickupStop.datetime);
+            pickupDate.setHours(0, 0, 0, 0);
+            const deliveryDate = new Date(order.deliveryStop.datetime);
+            deliveryDate.setHours(0, 0, 0, 0);
+            
+            // Check if today is between pickup and delivery (exclusive of pickup day)
+            return today > pickupDate && today <= deliveryDate;
+          });
+          
+          // Exclude trucks in transit
+          if (isInTransitToday) {
+            return false;
+          }
+          
           // Check if truck has NO pickup scheduled for today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
-            // Skip GAME|OVER orders
             if (order.notes === 'GAME|OVER') return false;
             if (!order.pickupStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
@@ -1225,25 +1244,21 @@ const Reports = () => {
             return isSameDay(pickupDate, today);
           });
           
-          // Only show truck if:
-          // 1. It has NO pickup for today, AND
-          // 2. Either has an explicit lost day note OR would get auto-generated "Empty"/"Lost day" text
+          // Only show truck if it has NO pickup for today
           if (hasPickupToday) {
-            return false; // Has pickup scheduled, definitely not empty
+            return false;
           }
           
           // Check for explicit lost day note for today
           const todayNote = truck.lostDayNotes?.find((note: any) => note.date === todayStr);
           
-          // Show truck if it has explicit note OR would show "Empty"/"Lost day" auto-text
-          // Auto-text appears when: no pickup today AND no explicit game over note
           if (todayNote) {
-            // Has explicit note - check if it's a game over type (which we want to exclude)
+            // Has explicit note - exclude game over types
             const noteText = todayNote.note?.toLowerCase();
             return !noteText?.includes('game over');
           }
           
-          // No explicit note, but no pickup = would show "Empty" or "Lost day" auto-text
+          // No explicit note, but no pickup and not in transit = would show "Empty" or "Lost day"
           return true;
         });
         
