@@ -11,6 +11,7 @@ import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRigh
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
+import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
@@ -151,6 +152,72 @@ const Reports = () => {
   const navigate = useNavigate();
   const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
   const [showNewDrivers, setShowNewDrivers] = useState(false);
+  const [drugTestDialog, setDrugTestDialog] = useState<{ driverId: string; driverName: string } | null>(null);
+  const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
+
+  // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
+  const isNewDriver = useCallback((truck: any) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const realOrders = truck.allOrders?.filter((order: any) => 
+      order.notes !== 'GAME|OVER'
+    ) || [];
+    
+    // Case 1: No loads ever - brand new driver
+    if (realOrders.length === 0) {
+      return true;
+    }
+    
+    // Case 2: Exactly 1 load with pickup today - first load starting today
+    if (realOrders.length === 1) {
+      const order = realOrders[0];
+      if (!order.pickupStop?.datetime) return false;
+      
+      const pickupDate = new Date(order.pickupStop.datetime);
+      pickupDate.setHours(0, 0, 0, 0);
+      
+      return isSameDay(pickupDate, today);
+    }
+    
+    return false;
+  }, []);
+
+  // Helper to get drug test cell styling
+  const getDrugTestCellStyle = useCallback((truck: any) => {
+    if (!truck.driverId) return {};
+    
+    const drugTest = getDrugTestForDriver(truck.driverId);
+    const isNew = isNewDriver(truck);
+    
+    if (!isNew) return {};
+    
+    if (drugTest?.result === 'positive') {
+      return { backgroundColor: 'hsl(0, 72%, 53%)', color: 'white' };
+    } else if (drugTest?.result === 'negative') {
+      return { backgroundColor: 'hsl(142, 76%, 36%)', color: 'white' };
+    }
+    
+    return {};
+  }, [getDrugTestForDriver, isNewDriver]);
+
+  // Helper to get drug test note
+  const getDrugTestNote = useCallback((truck: any) => {
+    if (!truck.driverId) return null;
+    
+    const drugTest = getDrugTestForDriver(truck.driverId);
+    const isNew = isNewDriver(truck);
+    
+    if (!isNew) return null;
+    
+    if (drugTest?.result === 'positive') {
+      return 'Drug result Positive';
+    } else if (!drugTest?.result || drugTest?.result === 'pending') {
+      return 'New driver waiting results!';
+    }
+    
+    return null;
+  }, [getDrugTestForDriver, isNewDriver]);
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -1682,15 +1749,28 @@ const Reports = () => {
                                 const hasExpiredHOS = truck.driveMinutes <= 0 || truck.shiftMinutes <= 0 || 
                                                      truck.breakMinutes <= 0 || truck.cycleMinutes <= 0;
 
+                                // Get drug test styling and check if driver is new
+                                const isNew = isNewDriver(truck);
+                                const canManageDrugTests = hasRole('safety') || hasRole('manager') || hasRole('admin');
+                                const drugTestStyle = getDrugTestCellStyle(truck);
+                                const drugTestNote = getDrugTestNote(truck);
+                                const shouldShowDrugTestUI = isNew && canManageDrugTests;
+
                                 return (
                                   <>
                                     <tr key={truck.id} className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
                                         style={{
                                           width: "77px",
                                           minWidth: "77px",
                                           maxWidth: "77px",
+                                          ...drugTestStyle,
+                                        }}
+                                        onClick={() => {
+                                          if (shouldShowDrugTestUI && truck.driverId) {
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-1">
@@ -1713,11 +1793,17 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
                                           maxWidth: "163px",
+                                          ...drugTestStyle,
+                                        }}
+                                        onClick={() => {
+                                          if (shouldShowDrugTestUI && truck.driverId) {
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-2">
@@ -1749,11 +1835,17 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
                                         style={{
                                           width: "136px",
                                           minWidth: "136px",
                                           maxWidth: "136px",
+                                          ...drugTestStyle,
+                                        }}
+                                        onClick={() => {
+                                          if (shouldShowDrugTestUI && truck.driverId) {
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                          }
                                         }}
                                       >
                                         <div
@@ -1902,7 +1994,7 @@ const Reports = () => {
                                         <div className="h-8 p-0 w-full">
                                           <EditableNoteField 
                                             truckId={truck.id}
-                                            value={truck.note}
+                                            value={drugTestNote || truck.note}
                                             handleNoteChange={handleNoteChange}
                                             setNoteDialogContent={setNoteDialogContent}
                                             setNoteDialogOpen={setNoteDialogOpen}
@@ -2090,6 +2182,40 @@ const Reports = () => {
                   Remove All
                 </Button>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Drug Test Dialog */}
+      <Dialog open={!!drugTestDialog} onOpenChange={(open) => !open && setDrugTestDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Drug Test Result - {drugTestDialog?.driverName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Test Result</label>
+              <Select
+                value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
+                onValueChange={(value) => {
+                  if (drugTestDialog?.driverId) {
+                    upsertDrugTest.mutate({
+                      driverId: drugTestDialog.driverId,
+                      result: value as 'positive' | 'negative' | 'pending',
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select result" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="negative">Negative</SelectItem>
+                  <SelectItem value="positive">Positive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </DialogContent>
