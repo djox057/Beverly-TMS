@@ -405,8 +405,8 @@ const Orders = () => {
     }
   };
   return (
-    <div className="space-y-6 p-6">
-      <div>
+    <div className="w-full min-h-full">
+      <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -528,10 +528,9 @@ const Orders = () => {
         </CardHeader>
         <CardContent 
           ref={containerRef as any} 
-          className="overflow-auto p-0" 
-          style={{ maxHeight: 'calc(100vh - 400px)' }}
+          className="p-0"
         >
-          <div className="min-w-max">
+          <div className="min-w-max w-full">
             <Table>
                  <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
