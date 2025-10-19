@@ -403,8 +403,7 @@ const Orders = () => {
     }
   };
   return (
-    <div className="h-full w-full">
-      <div className="space-y-6 p-6 max-w-none">
+    <div className="space-y-6 p-6 max-w-none">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -873,7 +872,6 @@ const Orders = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </div>
   );
 };
