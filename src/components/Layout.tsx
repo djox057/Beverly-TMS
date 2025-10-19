@@ -10,9 +10,9 @@ const LayoutContent = ({ children }: LayoutProps) => {
   const { state } = useSidebar();
   
   return (
-    <div className="flex h-screen bg-background w-full">
+    <div className="flex h-screen bg-background w-full overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="h-12 flex items-center gap-2 border-b bg-background px-4 flex-shrink-0 sticky top-0 z-50">
           <SidebarTrigger />
           <h1 className="text-lg font-semibold text-foreground">
