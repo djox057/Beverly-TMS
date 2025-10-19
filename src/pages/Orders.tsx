@@ -405,8 +405,8 @@ const Orders = () => {
     }
   };
   return (
-    <div className="w-full min-h-full">
-      <div className="space-y-6 p-6">
+    <div className="w-full h-full overflow-auto">
+      <div className="min-w-max p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -429,7 +429,8 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card>
+      <div className="min-w-max px-6 pb-6">
+        <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Loads</CardTitle>
@@ -526,11 +527,8 @@ const Orders = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent 
-          ref={containerRef as any} 
-          className="p-0"
-        >
-          <div className="min-w-max w-full">
+        <CardContent ref={containerRef as any} className="p-0">
+          <div className="w-full">
             <Table>
                  <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
@@ -754,6 +752,9 @@ const Orders = () => {
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
               </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
+              </div>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -831,6 +832,7 @@ const Orders = () => {
           </div>
         )}
       </Card>
+      </div>
 
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent>
