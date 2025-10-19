@@ -17,7 +17,7 @@ interface BrokerFormData {
   mc_number: string;
   address: string;
 }
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 8;
 const Brokers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);

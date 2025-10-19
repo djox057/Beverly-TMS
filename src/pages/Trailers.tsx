@@ -41,7 +41,7 @@ const Trailers = () => {
     insurance_expiration_date: ""
   });
 
-  const itemsPerPage = 15;
+  const itemsPerPage = 8;
   const {
     toast
   } = useToast();

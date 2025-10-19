@@ -31,7 +31,7 @@ interface TruckFormData {
   plate_expiration_date: string;
   insurance_expiration_date: string;
 }
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 8;
 
 const Trucks = () => {
   const [searchTerm, setSearchTerm] = useState("");

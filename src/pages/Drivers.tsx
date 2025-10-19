@@ -61,7 +61,7 @@ const Drivers = () => {
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
-  const itemsPerPage = 15;
+  const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
     phone: "",
