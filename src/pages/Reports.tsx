@@ -1206,34 +1206,21 @@ const Reports = () => {
       return reports;
     }
     
-    // Filter to show only trucks that have RED BOX (no pickup) for today
+    // Filter to show only trucks that are empty for today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = format(today, "yyyy-MM-dd");
     
     return reports
       .map(group => {
         const emptyTrucks = group.trucks.filter(truck => {
-          // A truck shows red box for today if:
-          // 1. It has NO pickup scheduled for today
-          // 2. OR it has a game over note for today
-          // 3. OR it has a lost day note for today
-          
-          // Check for lost day or game over note for today
-          const hasLostDayNote = truck.lostDayNotes?.some((note: any) => note.date === todayStr);
-          
-          // Check if truck has any pickup scheduled for today
+          // Check if truck has no pickup scheduled for today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
-            // Skip GAME|OVER orders
-            if (order.notes === 'GAME|OVER') return false;
             if (!order.pickupStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
             return isSameDay(pickupDate, today);
           });
-          
-          // Show truck if it has lost day note OR no pickup today (both = red box)
-          return hasLostDayNote || !hasPickupToday;
+          return !hasPickupToday;
         });
         
         return {
@@ -1369,9 +1356,10 @@ const Reports = () => {
 
   return (
     <>
-      <div className="h-full bg-background flex flex-col">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
-          <div className="px-4 pt-2 sticky top-0 bg-background z-40 border-b border-border">
+      <div className="h-full bg-background overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="px-4 pt-2 sticky top-0 bg-background z-10 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
@@ -1394,7 +1382,7 @@ const Reports = () => {
           </div>
 
           {/* Only render the active tab content */}
-          <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
+          <TabsContent value={activeTab} className="mt-0">
             {activeOfficeReports.length === 0 ? (
               <div className="p-4">
                 <div className="text-center py-12 text-muted-foreground">
@@ -1916,6 +1904,7 @@ const Reports = () => {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
