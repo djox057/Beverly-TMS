@@ -489,7 +489,6 @@ export const useReports = () => {
           orderId: currentOrder?.id,
           truckNumber: truck.truck_number,
           driver: truck.driver1?.name || "Unassigned",
-          driverId: truck.driver1?.id || null,
           driverPhone: truck.driver1?.phone || null,
           driverEmail: truck.driver1?.email || null,
           trailerNumber: truck.trailer?.trailer_number || null,

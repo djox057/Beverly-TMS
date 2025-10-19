@@ -89,41 +89,6 @@ export type Database = {
         }
         Relationships: []
       }
-      driver_drug_tests: {
-        Row: {
-          created_at: string
-          driver_id: string
-          id: string
-          result: string | null
-          tested_by: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          driver_id: string
-          id?: string
-          result?: string | null
-          tested_by?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          driver_id?: string
-          id?: string
-          result?: string | null
-          tested_by?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "driver_drug_tests_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: true
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       driver_files: {
         Row: {
           content_type: string | null
