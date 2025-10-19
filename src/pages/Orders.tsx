@@ -523,10 +523,9 @@ const Orders = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <div className="p-6 min-w-max">
-              <Table>
+        <CardContent className="p-6">
+          <div className="min-w-max">
+            <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-20">Truck #</TableHead>
@@ -739,8 +738,7 @@ const Orders = () => {
                       </TableRow>
                     })}
                  </TableBody>
-              </Table>
-            </div>
+            </Table>
           </div>
           
           {/* Pagination Controls */}
