@@ -1563,7 +1563,7 @@ const Reports = () => {
                           >
                             <thead>
                               {/* Date Range Selector Row with Dispatcher Name */}
-                              <tr className="bg-muted/50 sticky top-0 z-[150]">
+                              <tr className="bg-muted/50 sticky top-0 z-20">
                                 <th
                                   colSpan={3}
                                   className="border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold text-foreground bg-muted/50"
@@ -1616,7 +1616,7 @@ const Reports = () => {
                                 </th>
                               </tr>
                               {/* Column Headers Row */}
-                              <tr className="bg-muted/50 sticky top-[37px] z-[150]">
+                              <tr className="bg-muted/50 sticky top-[37px] z-10">
                                 <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
                                   Truck #
                                 </th>
