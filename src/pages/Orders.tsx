@@ -130,6 +130,9 @@ const Orders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ORDERS_PER_PAGE = 100;
   
+  // Enable drag panning
+  const { containerRef } = useDragPan();
+  
   // Set bookedBy filter for dispatchers when profile loads
   useEffect(() => {
     if (isDispatcher && profile?.full_name) {
@@ -402,8 +405,8 @@ const Orders = () => {
     }
   };
   return (
-    <div className="flex flex-col h-full w-full overflow-hidden">
-      <div className="space-y-6 p-6 flex-shrink-0 max-w-none">
+    <div className="space-y-6 p-6">
+      <div>
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -426,8 +429,8 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card className="flex flex-col flex-1 w-full overflow-hidden">
-        <CardHeader className="flex-shrink-0">
+      <Card>
+        <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Loads</CardTitle>
             
@@ -523,7 +526,11 @@ const Orders = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-auto p-0">
+        <CardContent 
+          ref={containerRef as any} 
+          className="overflow-auto p-0" 
+          style={{ maxHeight: 'calc(100vh - 400px)' }}
+        >
           <div className="min-w-max">
             <Table>
                  <TableHeader className="sticky top-0 bg-background z-10">
@@ -744,7 +751,7 @@ const Orders = () => {
         
         {/* Pagination Controls */}
         {filteredOrders.length > ORDERS_PER_PAGE && (
-          <div className="flex items-center justify-between px-6 py-4 border-t flex-shrink-0 bg-background">
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-background">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
               </div>
