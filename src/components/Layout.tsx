@@ -13,7 +13,7 @@ const LayoutContent = ({ children }: LayoutProps) => {
     <div className="flex h-screen bg-background w-full">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 flex items-center gap-2 border-b bg-background px-4 flex-shrink-0">
+        <header className="h-12 flex items-center gap-2 border-b bg-background px-4 flex-shrink-0 sticky top-0 z-[200]">
           <SidebarTrigger />
           <h1 className="text-lg font-semibold text-foreground">Dispatch Manager</h1>
         </header>
