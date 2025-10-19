@@ -20,6 +20,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
@@ -71,6 +72,14 @@ const getStatusBadge = (status: string) => {
         <span className="px-1 py-0.5 text-[10px] bg-muted text-muted-foreground border border-border">{status}</span>
       );
   }
+};
+
+// Helper to get current date in Chicago timezone
+const getChicagoToday = () => {
+  const now = new Date();
+  const chicagoTime = toZonedTime(now, "America/Chicago");
+  chicagoTime.setHours(0, 0, 0, 0);
+  return chicagoTime;
 };
 
 // Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
@@ -612,7 +621,7 @@ const Reports = () => {
             ? { line1: "Left truck", line2: "on the Yard" }
             : { line1: "Recovery", line2: "On the road" };
 
-        const isToday = isSameDay(day, new Date());
+        const isToday = isSameDay(day, getChicagoToday());
 
         return (
           <td
@@ -723,8 +732,8 @@ const Reports = () => {
       const isWithinTimeframe = day <= oneDayInFuture;
       const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
 
-      // Check if this day is today
-      const isToday = isSameDay(day, new Date());
+      // Check if this day is today (Chicago time)
+      const isToday = isSameDay(day, getChicagoToday());
       // Apply left border to all cells except the first
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
@@ -1641,7 +1650,7 @@ const Reports = () => {
                                   Home
                                 </th>
                                 {days.map((day, index) => {
-                                  const isToday = isSameDay(day, new Date());
+                                  const isToday = isSameDay(day, getChicagoToday());
                                   return (
                                     <th
                                       key={index}
