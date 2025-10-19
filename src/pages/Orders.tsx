@@ -53,7 +53,6 @@ const getStatusBadge = (status: string) => {
   }
 };
 const Orders = () => {
-  useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
@@ -525,8 +524,9 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-6">
-            <Table>
+          <div className="overflow-x-auto">
+            <div className="p-6 min-w-max">
+              <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-20">Truck #</TableHead>
@@ -740,6 +740,7 @@ const Orders = () => {
                     })}
                  </TableBody>
               </Table>
+            </div>
           </div>
           
           {/* Pagination Controls */}
