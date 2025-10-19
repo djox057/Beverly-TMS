@@ -1501,7 +1501,7 @@ const Reports = () => {
     <>
       <div className="h-full bg-background flex flex-col">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
-          <div className="px-4 pt-2 sticky top-0 bg-background z-40 border-b border-border">
+          <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
