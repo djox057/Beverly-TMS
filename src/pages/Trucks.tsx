@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -499,8 +499,11 @@ const Trucks = () => {
               </TableBody>
             </Table>
           </div>
-          {totalPages > 1 && (
-            <div className="flex justify-center pt-4">
+          {filteredTrucks.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredTrucks.length)} of {filteredTrucks.length} trucks
+              </div>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -509,17 +512,64 @@ const Trucks = () => {
                       className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     />
                   </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                        className="cursor-pointer"
-                      >
-                        {page}
+                  
+                  {/* First page */}
+                  {currentPage > 2 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
+                        1
                       </PaginationLink>
                     </PaginationItem>
-                  ))}
+                  )}
+                  
+                  {/* Ellipsis before current */}
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Previous page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current page */}
+                  <PaginationItem>
+                    <PaginationLink isActive className="cursor-default">
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis after current */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
                   <PaginationItem>
                     <PaginationNext 
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

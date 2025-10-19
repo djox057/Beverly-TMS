@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -1034,8 +1034,11 @@ const Drivers = () => {
           </div>
           
           {/* Pagination */}
-          {filteredDrivers.length > 0 && (
-            <div className="mt-4">
+          {filteredDrivers.length > itemsPerPage && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredDrivers.length)} of {filteredDrivers.length} drivers
+              </div>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -1045,17 +1048,62 @@ const Drivers = () => {
                     />
                   </PaginationItem>
                   
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                        className="cursor-pointer"
-                      >
-                        {page}
+                  {/* First page */}
+                  {currentPage > 2 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
+                        1
                       </PaginationLink>
                     </PaginationItem>
-                  ))}
+                  )}
+                  
+                  {/* Ellipsis before current */}
+                  {currentPage > 3 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Previous page */}
+                  {currentPage > 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
+                        {currentPage - 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Current page */}
+                  <PaginationItem>
+                    <PaginationLink isActive className="cursor-default">
+                      {currentPage}
+                    </PaginationLink>
+                  </PaginationItem>
+                  
+                  {/* Next page */}
+                  {currentPage < totalPages && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
+                        {currentPage + 1}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Ellipsis after current */}
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  )}
+                  
+                  {/* Last page */}
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
+                      <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
+                        {totalPages}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )}
                   
                   <PaginationItem>
                     <PaginationNext 
