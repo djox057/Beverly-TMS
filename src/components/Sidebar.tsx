@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
-import {
-  Truck,
-  FileText,
-  Users,
-  Package,
-  UserCheck,
-  Building2,
-  BarChart3,
+import { 
+  Truck, 
+  FileText, 
+  Users, 
+  Package, 
+  UserCheck, 
+  Building2, 
+  BarChart3, 
   Calendar,
   Plus,
   LogOut,
@@ -15,7 +15,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Moon,
-  Sun,
+  Sun
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,7 @@ export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
   const { state, isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
-
+  
   // On mobile, always show text when sidebar is open
   const showText = isMobile ? true : state !== "collapsed";
 
@@ -64,42 +64,44 @@ export const Sidebar = () => {
   // Filter navigation based on role
   const getFilteredNavigation = () => {
     const primaryRole = getPrimaryRole();
-
+    
     // Accounting role: exclude Analytics, but include Reports
-    if (primaryRole === "accounting") {
-      return navigation.filter((item) => item.href !== "/analytics");
+    if (primaryRole === 'accounting') {
+      return navigation.filter(item => 
+        item.href !== '/analytics'
+      );
     }
 
     // Admin role: all navigation + User Management page + Alerts
-    if (primaryRole === "admin") {
+    if (primaryRole === 'admin') {
       return [
         ...navigation,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "User Management", href: "/admin/users", icon: Settings },
+        { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
-
+    
     // Manager role: all navigation except User Management (same as admin minus user management)
-    if (hasRole("manager")) {
+    if (hasRole('manager')) {
       return navigation;
     }
-
+    
     // Supervisor role: all navigation except User Management and Analytics has filtered view
-    if (hasRole("supervisor")) {
+    if (hasRole('supervisor')) {
       return navigation;
     }
-
+    
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Alerts)
-    if (hasRole("safety")) {
-      const safetyPages = ["/new-order", "/orders", "/trucks", "/trailers", "/drivers"];
+    if (hasRole('safety')) {
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
       return [
-        ...navigation.filter((item) => safetyPages.includes(item.href)),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        ...navigation.filter(item => safetyPages.includes(item.href)),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
     }
-
+    
     // Dispatch role: all navigation except Analytics
-    return navigation.filter((item) => item.href !== "/analytics");
+    return navigation.filter(item => item.href !== '/analytics');
   };
 
   const allNavigation = getFilteredNavigation();
@@ -124,7 +126,7 @@ export const Sidebar = () => {
                           "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-all relative",
                           isActive
                             ? "text-foreground bg-muted"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )
                       }
                     >
@@ -172,12 +174,16 @@ export const Sidebar = () => {
                     className="w-8 h-8 mx-auto"
                     onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                   >
-                    {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                    {theme === "dark" ? (
+                      <Moon className="h-4 w-4" />
+                    ) : (
+                      <Sun className="h-4 w-4" />
+                    )}
                   </Button>
                 )}
               </div>
             </div>
-
+            
             {/* User Profile & Logout */}
             <div className="p-4 border-t border-border">
               <div className="flex items-center gap-3 mb-3">
@@ -189,18 +195,18 @@ export const Sidebar = () => {
                 {showText && (
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">
-                      {profile?.full_name || profile?.email || "User"}
+                      {profile?.full_name || profile?.email || 'User'}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
-                        {getPrimaryRole() || "dispatch"}
+                        {getPrimaryRole() || 'dispatch'}
                       </Badge>
                     </div>
                   </div>
                 )}
               </div>
-              <Button
-                variant="outline"
+              <Button 
+                variant="outline" 
                 size={!showText ? "icon" : "sm"}
                 className={!showText ? "w-8 h-8" : "w-full"}
                 onClick={handleSignOut}
