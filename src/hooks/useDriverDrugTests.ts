@@ -33,11 +33,9 @@ export const useDriverDrugTests = () => {
     mutationFn: async ({
       driverId,
       result,
-      truckId,
     }: {
       driverId: string;
       result: "positive" | "negative" | "pending" | null;
-      truckId?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -55,47 +53,6 @@ export const useDriverDrugTests = () => {
         .single();
 
       if (error) throw error;
-
-      // Add comment to truck notes if truckId is provided
-      if (truckId && result) {
-        const noteText = result === 'positive' 
-          ? 'Drug result Positive' 
-          : result === 'negative' 
-          ? 'Drug result Negative' 
-          : 'Drug test result Pending';
-
-        // Get existing note
-        const { data: existingNote } = await supabase
-          .from("truck_notes")
-          .select("id, note")
-          .eq("truck_id", truckId)
-          .maybeSingle();
-
-        // Replace entire note with just the drug test result
-        const newNote = noteText;
-
-        // Update or insert truck note
-        if (existingNote) {
-          // Update existing note
-          await supabase
-            .from("truck_notes")
-            .update({
-              note: newNote,
-              updated_by: user?.id,
-            })
-            .eq("id", existingNote.id);
-        } else {
-          // Insert new note
-          await supabase
-            .from("truck_notes")
-            .insert({
-              truck_id: truckId,
-              note: newNote,
-              updated_by: user?.id,
-            });
-        }
-      }
-
       return data;
     },
     onSuccess: () => {

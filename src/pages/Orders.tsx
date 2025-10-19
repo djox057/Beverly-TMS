@@ -53,6 +53,7 @@ const getStatusBadge = (status: string) => {
   }
 };
 const Orders = () => {
+  useDragPan();
   const navigate = useNavigate();
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
@@ -402,7 +403,8 @@ const Orders = () => {
     }
   };
   return (
-    <div className="space-y-6 p-6 max-w-none">
+    <div className="h-full w-full">
+      <div className="space-y-6 p-6 max-w-none">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -425,7 +427,7 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card className="w-full">
+      <Card className="w-fit min-w-full">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Loads</CardTitle>
@@ -523,7 +525,7 @@ const Orders = () => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="p-6">
             <Table>
                 <TableHeader>
                   <TableRow>
@@ -871,6 +873,7 @@ const Orders = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };
