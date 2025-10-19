@@ -275,8 +275,8 @@ const Brokers = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col h-[700px]">
-          <div className="overflow-x-auto flex-1">
+        <CardContent>
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
