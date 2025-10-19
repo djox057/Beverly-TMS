@@ -73,6 +73,23 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+// Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
+const formatDocuments = (documents: Array<{ category: string }>) => {
+  const categoryOrder = ['RC', 'BOL', 'POD', 'ADDITIONAL'];
+  const foundCategories = new Set<string>();
+  const orderedDocs: string[] = [];
+  
+  categoryOrder.forEach(category => {
+    const doc = documents.find(d => d.category === category && !foundCategories.has(d.category));
+    if (doc) {
+      foundCategories.add(doc.category);
+      orderedDocs.push(doc.category);
+    }
+  });
+  
+  return orderedDocs.length > 0 ? orderedDocs.join(', ') : 'None';
+};
+
 // EditableNoteField component to avoid hooks violation
 const EditableNoteField = ({ 
   truckId, 
@@ -862,9 +879,7 @@ const Reports = () => {
                                       )}
                                     <p className="ml-4">
                                       • <strong>Documents:</strong>{" "}
-                                      {deliveryOrder.loadDetails.documents.length > 0
-                                        ? deliveryOrder.loadDetails.documents.map((doc) => doc.category).join(", ")
-                                        : "None"}
+                                      {formatDocuments(deliveryOrder.loadDetails.documents)}
                                     </p>
                                     {deliveryOrder.loadDetails.notes !== "—" && (
                                       <p className="ml-4 text-sm font-bold">
@@ -1013,9 +1028,7 @@ const Reports = () => {
                                       )}
                                     <p className="ml-4">
                                       • <strong>Documents:</strong>{" "}
-                                      {pickupOrder.loadDetails.documents.length > 0
-                                        ? pickupOrder.loadDetails.documents.map((doc) => doc.category).join(", ")
-                                        : "None"}
+                                      {formatDocuments(pickupOrder.loadDetails.documents)}
                                     </p>
                                     {pickupOrder.loadDetails.notes !== "—" && (
                                       <p className="ml-4 text-sm font-bold">
@@ -1155,9 +1168,7 @@ const Reports = () => {
                                 )}
                                 <p>
                                   • <strong>Documents:</strong>{" "}
-                                  {order.loadDetails.documents.length > 0
-                                    ? order.loadDetails.documents.map((doc) => doc.category).join(", ")
-                                    : "None"}
+                                  {formatDocuments(order.loadDetails.documents)}
                                 </p>
                                 {order.loadDetails.notes !== "—" && (
                                   <p className="text-sm font-bold">
