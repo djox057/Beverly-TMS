@@ -362,7 +362,7 @@ const Trailers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto h-[700px] flex flex-col">
             <Table>
               <TableHeader>
                 <TableRow>
