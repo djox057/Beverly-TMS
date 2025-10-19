@@ -7,11 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
-import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
@@ -151,73 +150,6 @@ const Reports = () => {
   const { profile, hasRole } = useAuthContext();
   const navigate = useNavigate();
   const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
-  const [showNewDrivers, setShowNewDrivers] = useState(false);
-  const [drugTestDialog, setDrugTestDialog] = useState<{ driverId: string; driverName: string } | null>(null);
-  const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
-
-  // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
-  const isNewDriver = useCallback((truck: any) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const realOrders = truck.allOrders?.filter((order: any) => 
-      order.notes !== 'GAME|OVER'
-    ) || [];
-    
-    // Case 1: No loads ever - brand new driver
-    if (realOrders.length === 0) {
-      return true;
-    }
-    
-    // Case 2: Exactly 1 load with pickup today - first load starting today
-    if (realOrders.length === 1) {
-      const order = realOrders[0];
-      if (!order.pickupStop?.datetime) return false;
-      
-      const pickupDate = new Date(order.pickupStop.datetime);
-      pickupDate.setHours(0, 0, 0, 0);
-      
-      return isSameDay(pickupDate, today);
-    }
-    
-    return false;
-  }, []);
-
-  // Helper to get drug test cell styling
-  const getDrugTestCellStyle = useCallback((truck: any) => {
-    if (!truck.driverId) return {};
-    
-    const drugTest = getDrugTestForDriver(truck.driverId);
-    const isNew = isNewDriver(truck);
-    
-    if (!isNew) return {};
-    
-    if (drugTest?.result === 'positive') {
-      return { backgroundColor: 'hsl(0, 72%, 53%)', color: 'white' };
-    } else if (drugTest?.result === 'negative') {
-      return { backgroundColor: 'hsl(142, 76%, 36%)', color: 'white' };
-    }
-    
-    return {};
-  }, [getDrugTestForDriver, isNewDriver]);
-
-  // Helper to get drug test note
-  const getDrugTestNote = useCallback((truck: any) => {
-    if (!truck.driverId) return null;
-    
-    const drugTest = getDrugTestForDriver(truck.driverId);
-    const isNew = isNewDriver(truck);
-    
-    if (!isNew) return null;
-    
-    if (drugTest?.result === 'positive') {
-      return 'Drug result Positive';
-    } else if (!drugTest?.result || drugTest?.result === 'pending') {
-      return 'New driver waiting results!';
-    }
-    
-    return null;
-  }, [getDrugTestForDriver, isNewDriver]);
 
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
@@ -1270,105 +1202,25 @@ const Reports = () => {
   const activeOfficeReports = useMemo(() => {
     const reports = filterReportsByOffice(activeTab);
     
-    // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
-    if (showNewDrivers) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      return reports
-        .map(group => {
-          const newDriverTrucks = group.trucks.filter(truck => {
-            // Get all non-GAME|OVER orders
-            const realOrders = truck.allOrders?.filter((order: any) => 
-              order.notes !== 'GAME|OVER'
-            ) || [];
-            
-            // Case 1: No loads ever - brand new driver
-            if (realOrders.length === 0) {
-              return true;
-            }
-            
-            // Case 2: Exactly 1 load with pickup today - first load starting today
-            if (realOrders.length === 1) {
-              const order = realOrders[0];
-              if (!order.pickupStop?.datetime) return false;
-              
-              const pickupDate = new Date(order.pickupStop.datetime);
-              pickupDate.setHours(0, 0, 0, 0);
-              
-              return isSameDay(pickupDate, today);
-            }
-            
-            // More than 1 load = experienced driver
-            return false;
-          });
-          
-          return {
-            ...group,
-            trucks: newDriverTrucks
-          };
-        })
-        .filter(group => group.trucks.length > 0);
-    }
-    
     if (!showEmptyTrucks) {
       return reports;
     }
     
-    // Filter to show only trucks with explicit "Empty" or lost day notes for today
-    // Exclude trucks showing ">>>" (in transit)
+    // Filter to show only trucks that are empty for today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = format(today, "yyyy-MM-dd");
     
     return reports
       .map(group => {
         const emptyTrucks = group.trucks.filter(truck => {
-          // Check if truck is in transit today (shows ">>>")
-          // A truck shows ">>>" for dates between pickup and delivery
-          const isInTransitToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === 'GAME|OVER') return false;
-            if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            
-            const pickupDate = new Date(order.pickupStop.datetime);
-            pickupDate.setHours(0, 0, 0, 0);
-            const deliveryDate = new Date(order.deliveryStop.datetime);
-            deliveryDate.setHours(0, 0, 0, 0);
-            
-            // Check if today is between pickup and delivery (exclusive of pickup day)
-            return today > pickupDate && today <= deliveryDate;
-          });
-          
-          // Exclude trucks in transit
-          if (isInTransitToday) {
-            return false;
-          }
-          
-          // Check if truck has NO pickup scheduled for today
+          // Check if truck has no pickup scheduled for today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === 'GAME|OVER') return false;
             if (!order.pickupStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
             return isSameDay(pickupDate, today);
           });
-          
-          // Only show truck if it has NO pickup for today
-          if (hasPickupToday) {
-            return false;
-          }
-          
-          // Check for explicit lost day note for today
-          const todayNote = truck.lostDayNotes?.find((note: any) => note.date === todayStr);
-          
-          if (todayNote) {
-            // Has explicit note - exclude game over types
-            const noteText = todayNote.note?.toLowerCase();
-            return !noteText?.includes('game over');
-          }
-          
-          // No explicit note, but no pickup and not in transit = would show "Empty" or "Lost day"
-          return true;
+          return !hasPickupToday;
         });
         
         return {
@@ -1377,7 +1229,7 @@ const Reports = () => {
         };
       })
       .filter(group => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers]);
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks]);
 
   if (isLoading) {
     return (
@@ -1504,9 +1356,10 @@ const Reports = () => {
 
   return (
     <>
-      <div className="h-full bg-background flex flex-col">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
-          <div className="px-4 pt-2 sticky top-0 bg-background z-40 border-b border-border">
+      <div className="h-full bg-background overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <div className="px-4 pt-2 sticky top-0 bg-background z-10 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
@@ -1516,30 +1369,20 @@ const Reports = () => {
                 ))}
               </TabsList>
               {(hasRole('supervisor') || hasRole('manager') || hasRole('admin')) && (
-                <div className="flex gap-2 ml-4">
-                  <Button
-                    variant={showEmptyTrucks ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
-                  >
-                    Empty trucks
-                  </Button>
-                  <Button
-                    variant={showNewDrivers ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowNewDrivers(!showNewDrivers)}
-                    className="gap-2"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    New drivers
-                  </Button>
-                </div>
+                <Button
+                  variant={showEmptyTrucks ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
+                  className="ml-4"
+                >
+                  Empty trucks
+                </Button>
               )}
             </div>
           </div>
 
           {/* Only render the active tab content */}
-          <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
+          <TabsContent value={activeTab} className="mt-0">
             {activeOfficeReports.length === 0 ? (
               <div className="p-4">
                 <div className="text-center py-12 text-muted-foreground">
@@ -1749,28 +1592,15 @@ const Reports = () => {
                                 const hasExpiredHOS = truck.driveMinutes <= 0 || truck.shiftMinutes <= 0 || 
                                                      truck.breakMinutes <= 0 || truck.cycleMinutes <= 0;
 
-                                // Get drug test styling and check if driver is new
-                                const isNew = isNewDriver(truck);
-                                const canManageDrugTests = hasRole('safety') || hasRole('manager') || hasRole('admin');
-                                const drugTestStyle = getDrugTestCellStyle(truck);
-                                const drugTestNote = getDrugTestNote(truck);
-                                const shouldShowDrugTestUI = isNew && canManageDrugTests;
-
                                 return (
                                   <>
                                     <tr key={truck.id} className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground font-medium`}
                                         style={{
                                           width: "77px",
                                           minWidth: "77px",
                                           maxWidth: "77px",
-                                          ...drugTestStyle,
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
-                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-1">
@@ -1793,17 +1623,11 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
                                           maxWidth: "163px",
-                                          ...drugTestStyle,
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
-                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-2">
@@ -1835,17 +1659,11 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs text-foreground`}
                                         style={{
                                           width: "136px",
                                           minWidth: "136px",
                                           maxWidth: "136px",
-                                          ...drugTestStyle,
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
-                                          }
                                         }}
                                       >
                                         <div
@@ -1994,7 +1812,7 @@ const Reports = () => {
                                         <div className="h-8 p-0 w-full">
                                           <EditableNoteField 
                                             truckId={truck.id}
-                                            value={drugTestNote || truck.note}
+                                            value={truck.note}
                                             handleNoteChange={handleNoteChange}
                                             setNoteDialogContent={setNoteDialogContent}
                                             setNoteDialogOpen={setNoteDialogOpen}
@@ -2086,6 +1904,7 @@ const Reports = () => {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
@@ -2182,40 +2001,6 @@ const Reports = () => {
                   Remove All
                 </Button>
               )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Drug Test Dialog */}
-      <Dialog open={!!drugTestDialog} onOpenChange={(open) => !open && setDrugTestDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Drug Test Result - {drugTestDialog?.driverName}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Test Result</label>
-              <Select
-                value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
-                onValueChange={(value) => {
-                  if (drugTestDialog?.driverId) {
-                    upsertDrugTest.mutate({
-                      driverId: drugTestDialog.driverId,
-                      result: value as 'positive' | 'negative' | 'pending',
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select result" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="negative">Negative</SelectItem>
-                  <SelectItem value="positive">Positive</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </DialogContent>
