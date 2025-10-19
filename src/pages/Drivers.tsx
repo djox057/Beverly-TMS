@@ -934,7 +934,7 @@ const Drivers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto h-[700px]">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

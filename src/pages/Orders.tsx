@@ -427,7 +427,7 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card className="w-fit min-w-full">
+      <Card className="w-full">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Loads</CardTitle>
