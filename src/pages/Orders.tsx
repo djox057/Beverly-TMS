@@ -402,8 +402,8 @@ const Orders = () => {
     }
   };
   return (
-    <div className="h-full w-full">
-      <div className="space-y-6 p-6 max-w-none">
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      <div className="space-y-6 p-6 flex-shrink-0 max-w-none">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
         <div className="flex gap-2">
@@ -426,8 +426,8 @@ const Orders = () => {
         </div>
       </div>
 
-      <Card className="w-full">
-        <CardHeader>
+      <Card className="flex flex-col flex-1 w-full overflow-hidden">
+        <CardHeader className="flex-shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle>All Loads</CardTitle>
             
@@ -523,32 +523,32 @@ const Orders = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="flex-1 overflow-auto p-0">
           <div className="min-w-max">
             <Table>
-                <TableHeader>
+                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableHead className="w-20">Truck #</TableHead>
-                    <TableHead className="w-20">Load #</TableHead>
-                    <TableHead className="w-32">Pickup Date</TableHead>
-                    <TableHead className="w-28">Pickup City</TableHead>
-                    <TableHead className="w-20">Pickup State</TableHead>
-                    <TableHead className="w-32">Delivery Date</TableHead>
-                    <TableHead className="w-28">Delivery City</TableHead>
-                    <TableHead className="w-20">Delivery State</TableHead>
-                    <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-24">Driver Pay</TableHead>
-                    <TableHead className="w-32">Driver</TableHead>
-                    <TableHead className="w-36">Broker Name</TableHead>
-                    <TableHead className="w-28">Broker Load #</TableHead>
-                    <TableHead className="w-20">Invoiced</TableHead>
-                    <TableHead className="w-20">Notes</TableHead>
-                    <TableHead className="w-28">Freight Amount</TableHead>
-                    <TableHead className="w-28">Company</TableHead>
-                    <TableHead className="w-24">Booked By</TableHead>
-                    <TableHead className="w-24">RC</TableHead>
-                    <TableHead className="w-24">POD</TableHead>
-                    <TableHead className="w-16">Actions</TableHead>
+                    <TableHead className="w-20 bg-background">Truck #</TableHead>
+                    <TableHead className="w-20 bg-background">Load #</TableHead>
+                    <TableHead className="w-32 bg-background">Pickup Date</TableHead>
+                    <TableHead className="w-28 bg-background">Pickup City</TableHead>
+                    <TableHead className="w-20 bg-background">Pickup State</TableHead>
+                    <TableHead className="w-32 bg-background">Delivery Date</TableHead>
+                    <TableHead className="w-28 bg-background">Delivery City</TableHead>
+                    <TableHead className="w-20 bg-background">Delivery State</TableHead>
+                    <TableHead className="w-16 bg-background">Miles</TableHead>
+                    <TableHead className="w-24 bg-background">Driver Pay</TableHead>
+                    <TableHead className="w-32 bg-background">Driver</TableHead>
+                    <TableHead className="w-36 bg-background">Broker Name</TableHead>
+                    <TableHead className="w-28 bg-background">Broker Load #</TableHead>
+                    <TableHead className="w-20 bg-background">Invoiced</TableHead>
+                    <TableHead className="w-20 bg-background">Notes</TableHead>
+                    <TableHead className="w-28 bg-background">Freight Amount</TableHead>
+                    <TableHead className="w-28 bg-background">Company</TableHead>
+                    <TableHead className="w-24 bg-background">Booked By</TableHead>
+                    <TableHead className="w-24 bg-background">RC</TableHead>
+                    <TableHead className="w-24 bg-background">POD</TableHead>
+                    <TableHead className="w-16 bg-background">Actions</TableHead>
                   </TableRow>
                  </TableHeader>
                 <TableBody>
@@ -740,10 +740,11 @@ const Orders = () => {
                  </TableBody>
             </Table>
           </div>
-          
-          {/* Pagination Controls */}
-          {filteredOrders.length > ORDERS_PER_PAGE && (
-            <div className="flex items-center justify-between px-6 py-4 border-t">
+        </CardContent>
+        
+        {/* Pagination Controls */}
+        {filteredOrders.length > ORDERS_PER_PAGE && (
+          <div className="flex items-center justify-between px-6 py-4 border-t flex-shrink-0 bg-background">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
               </div>
@@ -821,9 +822,8 @@ const Orders = () => {
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-            </div>
-          )}
-        </CardContent>
+          </div>
+        )}
       </Card>
 
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
