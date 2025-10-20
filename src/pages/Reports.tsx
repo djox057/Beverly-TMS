@@ -1052,7 +1052,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center ${isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
+                  className={`h-full flex items-center justify-center ${isMultiStopInTransit ? "text-[#e2ddd5] font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
                 >
                   {isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
                 </div>
@@ -1357,7 +1357,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold text-[0.624rem] cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
+                  className={`h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold text-[0.624rem] cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isMultiStopInTransit ? "text-[#e2ddd5] font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
                   onClick={
                     isMissingPickup
                       ? (e) => {
