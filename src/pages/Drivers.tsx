@@ -23,7 +23,6 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-
 interface DriverFormData {
   name: string;
   phone: string;
@@ -49,10 +48,13 @@ interface DriverFormData {
   drugTestResult: "positive" | "negative" | "pending" | null;
 }
 const Drivers = () => {
-  const { hasRole } = useAuthContext();
+  const {
+    hasRole
+  } = useAuthContext();
   const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('accounting');
-  const { upsertDrugTest } = useDriverDrugTests();
-  
+  const {
+    upsertDrugTest
+  } = useDriverDrugTests();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -96,11 +98,17 @@ const Drivers = () => {
     isLoading,
     refetch
   } = useDrivers();
-  
-  const { data: availableTrucks } = useAvailableTrucks(editingDriver?.id);
-  const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || formData.truck_id);
-  const { data: sensitivePII, refetch: refetchSensitivePII } = useDriverSensitivePII(editingDriver?.id);
-  
+  const {
+    data: availableTrucks
+  } = useAvailableTrucks(editingDriver?.id);
+  const {
+    data: availableTrailers
+  } = useAvailableTrailers(selectedTruckId || formData.truck_id);
+  const {
+    data: sensitivePII,
+    refetch: refetchSensitivePII
+  } = useDriverSensitivePII(editingDriver?.id);
+
   // Fetch termination notes for the editing driver
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
@@ -109,12 +117,12 @@ const Drivers = () => {
   const fetchTerminationNotes = async (driverId: string) => {
     setIsLoadingNotes(true);
     try {
-      const { data, error } = await supabase
-        .from('driver_termination_notes')
-        .select('*')
-        .eq('driver_id', driverId)
-        .order('created_at', { ascending: false });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('driver_termination_notes').select('*').eq('driver_id', driverId).order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
       setTerminationNotes(data || []);
     } catch (error) {
@@ -167,11 +175,13 @@ const Drivers = () => {
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setIsSubmitting(true);
     try {
       // Create driver record including home address
-      const { data: driverData, error } = await supabase.from('drivers').insert({
+      const {
+        data: driverData,
+        error
+      } = await supabase.from('drivers').insert({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
@@ -189,32 +199,30 @@ const Drivers = () => {
         clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
         license_number: formData.cdl_number || null
       }).select().single();
-      
       if (error) throw error;
 
       // Insert sensitive PII if user has permission (managers/admins only)
       if (canViewSensitiveData && driverData) {
-        const { error: piiError } = await supabase.from('driver_sensitive_pii').insert({
+        const {
+          error: piiError
+        } = await supabase.from('driver_sensitive_pii').insert({
           driver_id: driverData.id,
           ssn: formData.ssn || null,
           fein: formData.fein || null,
           fuel_card_number: formData.fuel_card_number || null,
           personal_id: formData.personal_id || null
         });
-        
         if (piiError) throw piiError;
       }
-      
+
       // Update truck if selected
       if (formData.truck_id && driverData) {
-        const { error: truckError } = await supabase
-          .from('trucks')
-          .update({
-            driver1_id: driverData.id,
-            trailer_id: formData.trailer_id || null
-          })
-          .eq('id', formData.truck_id);
-        
+        const {
+          error: truckError
+        } = await supabase.from('trucks').update({
+          driver1_id: driverData.id,
+          trailer_id: formData.trailer_id || null
+        }).eq('id', formData.truck_id);
         if (truckError) throw truckError;
       }
 
@@ -226,7 +234,6 @@ const Drivers = () => {
           truckId: formData.truck_id
         });
       }
-      
       toast({
         title: "Success",
         description: "Driver added successfully"
@@ -236,12 +243,11 @@ const Drivers = () => {
       refetch();
     } catch (error: any) {
       let errorMessage = error.message || "Failed to add driver";
-      
+
       // Check for duplicate email error
       if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
         errorMessage = "A driver with this email already exists. Please use a different email or update the existing driver.";
       }
-      
       toast({
         title: "Error",
         description: errorMessage,
@@ -257,7 +263,9 @@ const Drivers = () => {
     setIsSubmitting(true);
     try {
       // Update driver record including home address
-      const { error } = await supabase.from('drivers').update({
+      const {
+        error
+      } = await supabase.from('drivers').update({
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
@@ -275,36 +283,32 @@ const Drivers = () => {
         clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
         license_number: formData.cdl_number || null
       }).eq('id', editingDriver.id);
-      
       if (error) throw error;
 
       // Update sensitive PII if user has permission (managers/admins only)
       if (canViewSensitiveData) {
-        const { error: piiError } = await supabase
-          .from('driver_sensitive_pii')
-          .upsert({
-            driver_id: editingDriver.id,
-            ssn: formData.ssn || null,
-            fein: formData.fein || null,
-            fuel_card_number: formData.fuel_card_number || null,
-            personal_id: formData.personal_id || null
-          }, {
-            onConflict: 'driver_id'
-          });
-        
+        const {
+          error: piiError
+        } = await supabase.from('driver_sensitive_pii').upsert({
+          driver_id: editingDriver.id,
+          ssn: formData.ssn || null,
+          fein: formData.fein || null,
+          fuel_card_number: formData.fuel_card_number || null,
+          personal_id: formData.personal_id || null
+        }, {
+          onConflict: 'driver_id'
+        });
         if (piiError) throw piiError;
       }
-      
+
       // Update truck if selected
       if (formData.truck_id) {
-        const { error: truckError } = await supabase
-          .from('trucks')
-          .update({
-            driver1_id: editingDriver.id,
-            trailer_id: formData.trailer_id || null
-          })
-          .eq('id', formData.truck_id);
-        
+        const {
+          error: truckError
+        } = await supabase.from('trucks').update({
+          driver1_id: editingDriver.id,
+          trailer_id: formData.trailer_id || null
+        }).eq('id', formData.truck_id);
         if (truckError) throw truckError;
       }
       toast({
@@ -317,12 +321,11 @@ const Drivers = () => {
       refetch();
     } catch (error: any) {
       let errorMessage = error.message || "Failed to update driver";
-      
+
       // Check for duplicate email error
       if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
         errorMessage = "A driver with this email already exists. Please use a different email.";
       }
-      
       toast({
         title: "Error",
         description: errorMessage,
@@ -332,16 +335,13 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
-
   const handleDoneClick = () => {
     setShowDoneConfirmation(true);
   };
-
   const handleConfirmDone = () => {
     setShowDoneConfirmation(false);
     setShowNoteDialog(true);
   };
-
   const handleSaveTerminationNote = async () => {
     if (!editingDriver || !terminationNote.trim()) {
       toast({
@@ -351,43 +351,36 @@ const Drivers = () => {
       });
       return;
     }
-
     setIsSubmitting(true);
     try {
       // Save termination note
-      const { error: noteError } = await supabase
-        .from('driver_termination_notes')
-        .insert({
-          driver_id: editingDriver.id,
-          note: terminationNote.trim(),
-          created_by: (await supabase.auth.getUser()).data.user?.id
-        });
-
+      const {
+        error: noteError
+      } = await supabase.from('driver_termination_notes').insert({
+        driver_id: editingDriver.id,
+        note: terminationNote.trim(),
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      });
       if (noteError) throw noteError;
 
       // Set termination date and mark as inactive
-      const { error: driverError } = await supabase
-        .from('drivers')
-        .update({ 
-          is_active: false,
-          termination_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', editingDriver.id);
-      
+      const {
+        error: driverError
+      } = await supabase.from('drivers').update({
+        is_active: false,
+        termination_date: new Date().toISOString().split('T')[0]
+      }).eq('id', editingDriver.id);
       if (driverError) throw driverError;
 
       // Find and disconnect truck/trailer
-      const { data: truck, error: truckFindError } = await supabase
-        .from('trucks')
-        .select('id, driver1_id, driver2_id, company_id')
-        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
-        .maybeSingle();
-      
+      const {
+        data: truck,
+        error: truckFindError
+      } = await supabase.from('trucks').select('id, driver1_id, driver2_id, company_id').or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`).maybeSingle();
       if (truckFindError) throw truckFindError;
-
       if (truck) {
         // Determine which driver field to clear and set dispatcher_id to null
-        const updateData: any = { 
+        const updateData: any = {
           trailer_id: null,
           dispatcher_id: null
         };
@@ -397,20 +390,15 @@ const Drivers = () => {
         if (truck.driver2_id === editingDriver.id) {
           updateData.driver2_id = null;
         }
-
-        const { error: truckUpdateError } = await supabase
-          .from('trucks')
-          .update(updateData)
-          .eq('id', truck.id);
-        
+        const {
+          error: truckUpdateError
+        } = await supabase.from('trucks').update(updateData).eq('id', truck.id);
         if (truckUpdateError) throw truckUpdateError;
       }
-      
       toast({
         title: "Success",
         description: `${formData.name} has been marked as done and removed from active drivers`
       });
-      
       setTerminationNote("");
       setShowNoteDialog(false);
       resetForm();
@@ -428,36 +416,28 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
-
   const handleStartDriver = async () => {
     if (!editingDriver) return;
-    
     setIsSubmitting(true);
     try {
       // Delete all termination notes for this driver
-      const { error: deleteError } = await supabase
-        .from('driver_termination_notes')
-        .delete()
-        .eq('driver_id', editingDriver.id);
-      
+      const {
+        error: deleteError
+      } = await supabase.from('driver_termination_notes').delete().eq('driver_id', editingDriver.id);
       if (deleteError) throw deleteError;
 
       // Reactivate driver and clear termination date
-      const { error: driverError } = await supabase
-        .from('drivers')
-        .update({ 
-          is_active: true,
-          termination_date: null
-        })
-        .eq('id', editingDriver.id);
-      
+      const {
+        error: driverError
+      } = await supabase.from('drivers').update({
+        is_active: true,
+        termination_date: null
+      }).eq('id', editingDriver.id);
       if (driverError) throw driverError;
-      
       toast({
         title: "Success",
         description: `${formData.name} has been reactivated`
       });
-      
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
@@ -472,39 +452,31 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
-
   const handleTwoWeekBlock = async () => {
     if (!editingDriver) return;
-    
+
     // Check if already blocked
     if (editingDriver.two_week_block_date) {
       // Show cancel confirmation
       if (!confirm("Do you want to cancel the 2-week block?")) {
         return;
       }
-      
       setIsSubmitting(true);
       try {
         // Remove the block date
-        const { error } = await supabase
-          .from('drivers')
-          .update({ two_week_block_date: null })
-          .eq('id', editingDriver.id);
-        
+        const {
+          error
+        } = await supabase.from('drivers').update({
+          two_week_block_date: null
+        }).eq('id', editingDriver.id);
         if (error) throw error;
 
         // Delete the GAME-OVER order if it exists
-        await supabase
-          .from('orders')
-          .delete()
-          .eq('driver1_id', editingDriver.id)
-          .eq('load_number', 'GAME-OVER');
-
+        await supabase.from('orders').delete().eq('driver1_id', editingDriver.id).eq('load_number', 'GAME-OVER');
         toast({
           title: "Success",
           description: "2-week block cancelled"
         });
-        
         setIsEditDialogOpen(false);
         setEditingDriver(null);
         resetForm();
@@ -520,24 +492,21 @@ const Drivers = () => {
       }
       return;
     }
-
     setIsSubmitting(true);
     try {
       // Set the block date (14 days from today)
       const today = new Date();
       const blockDate = new Date(today.setDate(today.getDate() + 14)).toISOString().split('T')[0];
-      const { error: blockError } = await supabase
-        .from('drivers')
-        .update({ two_week_block_date: blockDate })
-        .eq('id', editingDriver.id);
-      
+      const {
+        error: blockError
+      } = await supabase.from('drivers').update({
+        two_week_block_date: blockDate
+      }).eq('id', editingDriver.id);
       if (blockError) throw blockError;
-
       toast({
         title: "Success",
         description: "2-week block created successfully"
       });
-      
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       resetForm();
@@ -552,7 +521,6 @@ const Drivers = () => {
       setIsSubmitting(false);
     }
   };
-
   const handleDeleteDriver = async (driverId: string) => {
     try {
       const {
@@ -575,25 +543,20 @@ const Drivers = () => {
   const openEditDialog = async (driver: any) => {
     setEditingDriver(driver);
     fetchTerminationNotes(driver.id);
-    
+
     // Get current truck assignment
-    const { data: truckData } = await supabase
-      .from('trucks')
-      .select('id, trailer_id')
-      .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
-      .maybeSingle();
-    
+    const {
+      data: truckData
+    } = await supabase.from('trucks').select('id, trailer_id').or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`).maybeSingle();
+
     // Fetch sensitive PII if user has permission
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
-      const { data } = await supabase
-        .from('driver_sensitive_pii')
-        .select('*')
-        .eq('driver_id', driver.id)
-        .maybeSingle();
+      const {
+        data
+      } = await supabase.from('driver_sensitive_pii').select('*').eq('driver_id', driver.id).maybeSingle();
       sensitivePIIData = data;
     }
-    
     setFormData({
       name: driver.name || "",
       phone: driver.phone || "",
@@ -618,11 +581,9 @@ const Drivers = () => {
       fein: sensitivePIIData?.fein || "",
       drugTestResult: null
     });
-    
     if (truckData?.id) {
       setSelectedTruckId(truckData.id);
     }
-    
     setIsEditDialogOpen(true);
   };
   if (isLoading) {
@@ -674,37 +635,28 @@ const Drivers = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="truck">Truck Number</Label>
-                  <Combobox
-                    options={(availableTrucks || []).map(truck => ({
-                      value: truck.id,
-                      label: truck.truck_number
-                    }))}
-                    value={formData.truck_id}
-                    onValueChange={(value) => {
-                      const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-                      setFormData({ 
-                        ...formData, 
-                        truck_id: value, 
-                        trailer_id: selectedTruck?.trailer_id || "" 
-                      });
-                      setSelectedTruckId(value);
-                    }}
-                    placeholder="Select truck..."
-                    emptyText="No available trucks"
-                  />
+                  <Combobox options={(availableTrucks || []).map(truck => ({
+                  value: truck.id,
+                  label: truck.truck_number
+                }))} value={formData.truck_id} onValueChange={value => {
+                  const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+                  setFormData({
+                    ...formData,
+                    truck_id: value,
+                    trailer_id: selectedTruck?.trailer_id || ""
+                  });
+                  setSelectedTruckId(value);
+                }} placeholder="Select truck..." emptyText="No available trucks" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="trailer">Trailer Number</Label>
-                  <Combobox
-                    options={(availableTrailers || []).map(trailer => ({
-                      value: trailer.id,
-                      label: trailer.trailer_number
-                    }))}
-                    value={formData.trailer_id}
-                    onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}
-                    placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
-                    emptyText="No available trailers"
-                  />
+                  <Combobox options={(availableTrailers || []).map(trailer => ({
+                  value: trailer.id,
+                  label: trailer.trailer_number
+                }))} value={formData.trailer_id} onValueChange={value => setFormData({
+                  ...formData,
+                  trailer_id: value
+                })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
                 </div>
               </div>
 
@@ -738,16 +690,16 @@ const Drivers = () => {
                   <div className="space-y-2">
                     <Label htmlFor="personal_id">Personal ID</Label>
                     <Input id="personal_id" value={formData.personal_id} onChange={e => setFormData({
-                      ...formData,
-                      personal_id: e.target.value
-                    })} placeholder="Personal ID" />
+                    ...formData,
+                    personal_id: e.target.value
+                  })} placeholder="Personal ID" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="fuel_card_number">Fuel Card #</Label>
                     <Input id="fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                      ...formData,
-                      fuel_card_number: e.target.value
-                    })} placeholder="Fuel Card Number" />
+                    ...formData,
+                    fuel_card_number: e.target.value
+                  })} placeholder="Fuel Card Number" />
                   </div>
                 </div>
 
@@ -755,75 +707,57 @@ const Drivers = () => {
                   <div className="space-y-2">
                     <Label htmlFor="cdl_number">CDL Number</Label>
                     <Input id="cdl_number" value={formData.cdl_number} onChange={e => setFormData({
-                      ...formData,
-                      cdl_number: e.target.value
-                    })} placeholder="CDL Number" />
+                    ...formData,
+                    cdl_number: e.target.value
+                  })} placeholder="CDL Number" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
-                    <DatePicker
-                      date={formData.cdl_expiration_date}
-                      onDateChange={(date) => setFormData({
-                        ...formData,
-                        cdl_expiration_date: date
-                      })}
-                    />
+                    <DatePicker date={formData.cdl_expiration_date} onDateChange={date => setFormData({
+                    ...formData,
+                    cdl_expiration_date: date
+                  })} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="hire_date">Hire Date</Label>
-                    <DatePicker
-                      date={formData.hire_date}
-                      onDateChange={(date) => setFormData({
-                        ...formData,
-                        hire_date: date
-                      })}
-                    />
+                    <DatePicker date={formData.hire_date} onDateChange={date => setFormData({
+                    ...formData,
+                    hire_date: date
+                  })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="termination_date">Termination Date</Label>
-                    <DatePicker
-                      date={formData.termination_date}
-                      onDateChange={(date) => setFormData({
-                        ...formData,
-                        termination_date: date
-                      })}
-                    />
+                    <DatePicker date={formData.termination_date} onDateChange={date => setFormData({
+                    ...formData,
+                    termination_date: date
+                  })} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mvr_date">MVR Date</Label>
-                    <DatePicker
-                      date={formData.mvr_date}
-                      onDateChange={(date) => setFormData({
-                        ...formData,
-                        mvr_date: date
-                      })}
-                    />
+                    <DatePicker date={formData.mvr_date} onDateChange={date => setFormData({
+                    ...formData,
+                    mvr_date: date
+                  })} />
                   </div>
                   <div className="space-y-2">
                   <Label htmlFor="clearing_house">Clearing House</Label>
-                  <DatePicker
-                    date={formData.clearing_house}
-                    onDateChange={(date) => setFormData({
-                      ...formData,
-                      clearing_house: date
-                    })}
-                  />
+                  <DatePicker date={formData.clearing_house} onDateChange={date => setFormData({
+                    ...formData,
+                    clearing_house: date
+                  })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="medical_card_expiration_date">Medical Card Exp</Label>
-                    <DatePicker
-                      date={formData.medical_card_expiration_date}
-                      onDateChange={(date) => setFormData({
-                        ...formData,
-                        medical_card_expiration_date: date
-                      })}
-                    />
+                    <DatePicker date={formData.medical_card_expiration_date} onDateChange={date => setFormData({
+                    ...formData,
+                    medical_card_expiration_date: date
+                  })} />
                   </div>
                 </div>
 
@@ -831,16 +765,16 @@ const Drivers = () => {
                   <div className="space-y-2">
                     <Label htmlFor="ssn">SSN #</Label>
                     <Input id="ssn" value={formData.ssn} onChange={e => setFormData({
-                      ...formData,
-                      ssn: e.target.value
-                    })} placeholder="SSN" />
+                    ...formData,
+                    ssn: e.target.value
+                  })} placeholder="SSN" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="fein">FEIN #</Label>
                     <Input id="fein" value={formData.fein} onChange={e => setFormData({
-                      ...formData,
-                      fein: e.target.value
-                    })} placeholder="FEIN" />
+                    ...formData,
+                    fein: e.target.value
+                  })} placeholder="FEIN" />
                   </div>
                 </div>
               </div>
@@ -848,13 +782,10 @@ const Drivers = () => {
               <div className="border-t pt-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="drugTestResult">Drug Test Result</Label>
-                  <Select
-                    value={formData.drugTestResult || ""}
-                    onValueChange={(value) => setFormData({
-                      ...formData,
-                      drugTestResult: value as "positive" | "negative" | "pending" | null
-                    })}
-                  >
+                  <Select value={formData.drugTestResult || ""} onValueChange={value => setFormData({
+                  ...formData,
+                  drugTestResult: value as "positive" | "negative" | "pending" | null
+                })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select drug test result..." />
                     </SelectTrigger>
@@ -901,7 +832,7 @@ const Drivers = () => {
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
-                  <TableHead>Actions</TableHead>
+                  
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -913,11 +844,9 @@ const Drivers = () => {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {driver.name}
-                          {!driver.is_active && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                          {!driver.is_active && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                               Inactive
-                            </span>
-                          )}
+                            </span>}
                         </div>
                       </TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
@@ -936,21 +865,9 @@ const Drivers = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {driver.home_city && driver.home_state ? (
-                          `${driver.home_city}, ${driver.home_state}`
-                        ) : driver.home_city || driver.home_state || "—"}
+                        {driver.home_city && driver.home_state ? `${driver.home_city}, ${driver.home_state}` : driver.home_city || driver.home_state || "—"}
                       </TableCell>
-                      <TableCell>
-                        {driver.has_account ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                            No Access
-                          </span>
-                        )}
-                      </TableCell>
+                      
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
@@ -981,54 +898,44 @@ const Drivers = () => {
                       </TableCell>
                     </TableRow>)}
                 {/* Empty rows to maintain consistent table height */}
-                {paginatedDrivers.length > 0 && Array.from({ length: itemsPerPage - paginatedDrivers.length }).map((_, index) => (
-                  <TableRow key={`empty-${index}`} className="hover:bg-transparent">
+                {paginatedDrivers.length > 0 && Array.from({
+                length: itemsPerPage - paginatedDrivers.length
+              }).map((_, index) => <TableRow key={`empty-${index}`} className="hover:bg-transparent">
                     <TableCell colSpan={6} className="h-[57px]">&nbsp;</TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>)}
               </TableBody>
             </Table>
           </div>
           
           {/* Pagination */}
-          {filteredDrivers.length > itemsPerPage && (
-            <div className="flex items-center justify-between px-2 py-4 border-t">
+          {filteredDrivers.length > itemsPerPage && <div className="flex items-center justify-between px-2 py-4 border-t">
               <div className="text-sm text-muted-foreground">
                 Showing {startIndex + 1} to {Math.min(endIndex, filteredDrivers.length)} of {filteredDrivers.length} drivers
               </div>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
+                    <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                   </PaginationItem>
                   
                   {/* First page */}
-                  {currentPage > 2 && (
-                    <PaginationItem>
+                  {currentPage > 2 && <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
                         1
                       </PaginationLink>
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   {/* Ellipsis before current */}
-                  {currentPage > 3 && (
-                    <PaginationItem>
+                  {currentPage > 3 && <PaginationItem>
                       <PaginationEllipsis />
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   {/* Previous page */}
-                  {currentPage > 1 && (
-                    <PaginationItem>
+                  {currentPage > 1 && <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
                         {currentPage - 1}
                       </PaginationLink>
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   {/* Current page */}
                   <PaginationItem>
@@ -1038,40 +945,30 @@ const Drivers = () => {
                   </PaginationItem>
                   
                   {/* Next page */}
-                  {currentPage < totalPages && (
-                    <PaginationItem>
+                  {currentPage < totalPages && <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
                         {currentPage + 1}
                       </PaginationLink>
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   {/* Ellipsis after current */}
-                  {currentPage < totalPages - 2 && (
-                    <PaginationItem>
+                  {currentPage < totalPages - 2 && <PaginationItem>
                       <PaginationEllipsis />
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   {/* Last page */}
-                  {currentPage < totalPages - 1 && (
-                    <PaginationItem>
+                  {currentPage < totalPages - 1 && <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
                         {totalPages}
                       </PaginationLink>
-                    </PaginationItem>
-                  )}
+                    </PaginationItem>}
                   
                   <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                    />
+                    <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-            </div>
-          )}
+            </div>}
         </CardContent>
       </Card>
 
@@ -1117,37 +1014,28 @@ const Drivers = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_truck">Truck Number</Label>
-                    <Combobox
-                      options={(availableTrucks || []).map(truck => ({
-                        value: truck.id,
-                        label: truck.truck_number
-                      }))}
-                      value={formData.truck_id}
-                      onValueChange={(value) => {
-                        const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-                        setFormData({ 
-                          ...formData, 
-                          truck_id: value, 
-                          trailer_id: selectedTruck?.trailer_id || "" 
-                        });
-                        setSelectedTruckId(value);
-                      }}
-                      placeholder="Select truck..."
-                      emptyText="No available trucks"
-                    />
+                    <Combobox options={(availableTrucks || []).map(truck => ({
+                    value: truck.id,
+                    label: truck.truck_number
+                  }))} value={formData.truck_id} onValueChange={value => {
+                    const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+                    setFormData({
+                      ...formData,
+                      truck_id: value,
+                      trailer_id: selectedTruck?.trailer_id || ""
+                    });
+                    setSelectedTruckId(value);
+                  }} placeholder="Select truck..." emptyText="No available trucks" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_trailer">Trailer Number</Label>
-                    <Combobox
-                      options={(availableTrailers || []).map(trailer => ({
-                        value: trailer.id,
-                        label: trailer.trailer_number
-                      }))}
-                      value={formData.trailer_id}
-                      onValueChange={(value) => setFormData({ ...formData, trailer_id: value })}
-                      placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
-                      emptyText="No available trailers"
-                    />
+                    <Combobox options={(availableTrailers || []).map(trailer => ({
+                    value: trailer.id,
+                    label: trailer.trailer_number
+                  }))} value={formData.trailer_id} onValueChange={value => setFormData({
+                    ...formData,
+                    trailer_id: value
+                  })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
                   </div>
                 </div>
 
@@ -1177,8 +1065,7 @@ const Drivers = () => {
                   </div>
                 </div>
 
-                {canViewSensitiveData && (
-                  <>
+                {canViewSensitiveData && <>
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium text-muted-foreground mb-4">
                         🔒 Sensitive Information (Managers/Admins Only)
@@ -1191,16 +1078,16 @@ const Drivers = () => {
                         <div className="space-y-2">
                           <Label htmlFor="edit_personal_id">Personal ID</Label>
                           <Input id="edit_personal_id" value={formData.personal_id} onChange={e => setFormData({
-                            ...formData,
-                            personal_id: e.target.value
-                          })} placeholder="Personal ID" />
+                        ...formData,
+                        personal_id: e.target.value
+                      })} placeholder="Personal ID" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
                           <Input id="edit_fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                            ...formData,
-                            fuel_card_number: e.target.value
-                          })} placeholder="Fuel Card Number" />
+                        ...formData,
+                        fuel_card_number: e.target.value
+                      })} placeholder="Fuel Card Number" />
                         </div>
                       </div>
 
@@ -1208,153 +1095,113 @@ const Drivers = () => {
                         <div className="space-y-2">
                           <Label htmlFor="edit_ssn">SSN #</Label>
                           <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
-                            ...formData,
-                            ssn: e.target.value
-                          })} placeholder="SSN" />
+                        ...formData,
+                        ssn: e.target.value
+                      })} placeholder="SSN" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit_fein">FEIN #</Label>
                           <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
-                            ...formData,
-                            fein: e.target.value
-                          })} placeholder="FEIN" />
+                        ...formData,
+                        fein: e.target.value
+                      })} placeholder="FEIN" />
                         </div>
                       </div>
                     </div>
-                  </>
-                )}
+                  </>}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit_cdl_number">CDL Number</Label>
                       <Input id="edit_cdl_number" value={formData.cdl_number} onChange={e => setFormData({
-                        ...formData,
-                        cdl_number: e.target.value
-                      })} placeholder="CDL Number" />
+                    ...formData,
+                    cdl_number: e.target.value
+                  })} placeholder="CDL Number" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_cdl_expiration_date">CDL Expiration Date</Label>
-                      <DatePicker
-                        date={formData.cdl_expiration_date}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          cdl_expiration_date: date
-                        })}
-                      />
+                      <DatePicker date={formData.cdl_expiration_date} onDateChange={date => setFormData({
+                    ...formData,
+                    cdl_expiration_date: date
+                  })} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit_hire_date">Hire Date</Label>
-                      <DatePicker
-                        date={formData.hire_date}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          hire_date: date
-                        })}
-                      />
+                      <DatePicker date={formData.hire_date} onDateChange={date => setFormData({
+                    ...formData,
+                    hire_date: date
+                  })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_termination_date">Termination Date</Label>
-                      <DatePicker
-                        date={formData.termination_date}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          termination_date: date
-                        })}
-                      />
+                      <DatePicker date={formData.termination_date} onDateChange={date => setFormData({
+                    ...formData,
+                    termination_date: date
+                  })} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit_mvr_date">MVR Date</Label>
-                      <DatePicker
-                        date={formData.mvr_date}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          mvr_date: date
-                        })}
-                      />
+                      <DatePicker date={formData.mvr_date} onDateChange={date => setFormData({
+                    ...formData,
+                    mvr_date: date
+                  })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_clearing_house">Clearing House</Label>
-                      <DatePicker
-                        date={formData.clearing_house}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          clearing_house: date
-                        })}
-                      />
+                      <DatePicker date={formData.clearing_house} onDateChange={date => setFormData({
+                    ...formData,
+                    clearing_house: date
+                  })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_medical_card_expiration_date">Medical Card Exp</Label>
-                      <DatePicker
-                        date={formData.medical_card_expiration_date}
-                        onDateChange={(date) => setFormData({
-                          ...formData,
-                          medical_card_expiration_date: date
-                        })}
-                      />
+                      <DatePicker date={formData.medical_card_expiration_date} onDateChange={date => setFormData({
+                    ...formData,
+                    medical_card_expiration_date: date
+                  })} />
                     </div>
                   </div>
 
-                  {canViewSensitiveData && (
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  {canViewSensitiveData && <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                       <div className="space-y-2">
                         <Label htmlFor="edit_ssn">SSN #</Label>
                         <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
-                          ...formData,
-                          ssn: e.target.value
-                        })} placeholder="SSN" />
+                    ...formData,
+                    ssn: e.target.value
+                  })} placeholder="SSN" />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit_fein">FEIN #</Label>
                         <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
-                          ...formData,
-                          fein: e.target.value
-                        })} placeholder="FEIN" />
+                    ...formData,
+                    fein: e.target.value
+                  })} placeholder="FEIN" />
                       </div>
-                    </div>
-                  )}
+                    </div>}
 
                 <div className="flex justify-between gap-3">
                   <div className="flex gap-3">
-                    {!editingDriver?.is_active ? (
-                      <Button 
-                        type="button" 
-                        variant="default" 
-                        onClick={handleStartDriver}
-                        disabled={isSubmitting}
-                      >
+                    {!editingDriver?.is_active ? <Button type="button" variant="default" onClick={handleStartDriver} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         <Play className="mr-2 h-4 w-4" />
                         Start
-                      </Button>
-                    ) : (
-                      <>
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          onClick={handleDoneClick}
-                          disabled={isSubmitting}
-                        >
+                      </Button> : <>
+                        <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
                           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                           Done
                         </Button>
-                        <Button 
-                          type="button" 
-                          variant={editingDriver?.two_week_block_date ? "outline" : "secondary"}
-                          onClick={handleTwoWeekBlock}
-                          disabled={isSubmitting}
-                        >
+                        <Button type="button" variant={editingDriver?.two_week_block_date ? "outline" : "secondary"} onClick={handleTwoWeekBlock} disabled={isSubmitting}>
                           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
                         </Button>
-                      </>
-                    )}
+                      </>}
                   </div>
                   <div className="flex gap-3">
                     <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -1370,39 +1217,26 @@ const Drivers = () => {
             </TabsContent>
             
             <TabsContent value="files">
-              {editingDriver && (
-                <DriverFilesManager 
-                  driverId={editingDriver.id} 
-                  driverName={editingDriver.name}
-                />
-              )}
+              {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
             </TabsContent>
           </Tabs>
 
           {/* Termination Notes Section - Show when driver is done */}
-          {!editingDriver?.is_active && terminationNotes.length > 0 && (
-            <div className="mt-4 space-y-3">
+          {!editingDriver?.is_active && terminationNotes.length > 0 && <div className="mt-4 space-y-3">
               <h3 className="text-sm font-semibold">Termination Notes</h3>
-              {isLoadingNotes ? (
-                <div className="flex items-center justify-center p-4">
+              {isLoadingNotes ? <div className="flex items-center justify-center p-4">
                   <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {terminationNotes.map((note) => (
-                    <Card key={note.id}>
+                </div> : <div className="space-y-2">
+                  {terminationNotes.map(note => <Card key={note.id}>
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{note.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
                       </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    </Card>)}
+                </div>}
+            </div>}
         </DialogContent>
       </Dialog>
 
@@ -1431,30 +1265,16 @@ const Drivers = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="termination_note">Note</Label>
-              <Textarea 
-                id="termination_note"
-                value={terminationNote}
-                onChange={(e) => setTerminationNote(e.target.value)}
-                placeholder="Enter termination note..."
-                className="min-h-[100px]"
-              />
+              <Textarea id="termination_note" value={terminationNote} onChange={e => setTerminationNote(e.target.value)} placeholder="Enter termination note..." className="min-h-[100px]" />
             </div>
             <div className="flex justify-end gap-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  setShowNoteDialog(false);
-                  setTerminationNote("");
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => {
+              setShowNoteDialog(false);
+              setTerminationNote("");
+            }}>
                 Cancel
               </Button>
-              <Button 
-                type="button" 
-                onClick={handleSaveTerminationNote}
-                disabled={isSubmitting || !terminationNote.trim()}
-              >
+              <Button type="button" onClick={handleSaveTerminationNote} disabled={isSubmitting || !terminationNote.trim()}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save
               </Button>
