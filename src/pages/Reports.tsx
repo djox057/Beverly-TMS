@@ -1319,17 +1319,39 @@ const Reports = () => {
       return reports;
     }
     
-    // Filter to show only trucks with explicit "Empty" or lost day notes for today
-    // Exclude trucks showing ">>>" (in transit)
+    // Filter to show only trucks with red "Empty" cells for today
+    // Must match the exact display logic for isMissingPickup
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
     
     return reports
       .map(group => {
         const emptyTrucks = group.trucks.filter(truck => {
-          // Check if truck is in transit today (shows ">>>")
-          // A truck shows ">>>" for dates between pickup and delivery
+          // Find the first pickup date for this truck
+          const firstPickupDate = truck.allOrders
+            ?.filter((order: any) => order.pickupStop?.datetime && order.notes !== 'GAME|OVER')
+            .map((order: any) => {
+              const date = new Date(order.pickupStop.datetime);
+              date.setHours(0, 0, 0, 0);
+              return date;
+            })
+            .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
+          
+          // Check if today is after first pickup
+          const isAfterFirstPickup = firstPickupDate && today >= firstPickupDate;
+          if (!isAfterFirstPickup) {
+            return false; // Only show trucks that have had at least one pickup
+          }
+          
+          // Check if today is within timeframe (today or tomorrow only)
+          const isWithinTimeframe = today.getTime() <= tomorrow.getTime();
+          if (!isWithinTimeframe) {
+            return false;
+          }
+          
+          // Check if truck is in transit today
           const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === 'GAME|OVER') return false;
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
@@ -1339,16 +1361,15 @@ const Reports = () => {
             const deliveryDate = new Date(order.deliveryStop.datetime);
             deliveryDate.setHours(0, 0, 0, 0);
             
-            // Check if today is between pickup and delivery (exclusive of pickup day)
-            return today > pickupDate && today <= deliveryDate;
+            // In transit if between pickup and delivery (exclusive)
+            return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
           });
           
-          // Exclude trucks in transit
           if (isInTransitToday) {
-            return false;
+            return false; // Exclude in-transit trucks
           }
           
-          // Check if truck has NO pickup scheduled for today
+          // Check if truck has any pickup or same-day order today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
             if (order.notes === 'GAME|OVER') return false;
             if (!order.pickupStop?.datetime) return false;
@@ -1357,21 +1378,23 @@ const Reports = () => {
             return isSameDay(pickupDate, today);
           });
           
-          // Only show truck if it has NO pickup for today
           if (hasPickupToday) {
-            return false;
+            return false; // Must have NO pickup today
           }
           
-          // Check for explicit lost day note for today
-          const todayNote = truck.lostDayNotes?.find((note: any) => note.date === todayStr);
+          // Check for game over before today
+          const hasGameOverBefore = truck.lostDayNotes?.some((note: any) => {
+            const noteDate = new Date(note.date + 'T00:00:00');
+            if (noteDate >= today) return false; // Only check days before today
+            const noteText = note.note?.toLowerCase() || '';
+            return noteText.includes('game over');
+          });
           
-          if (todayNote) {
-            // Has explicit note - exclude game over types
-            const noteText = todayNote.note?.toLowerCase();
-            return !noteText?.includes('game over');
+          if (hasGameOverBefore) {
+            return false; // Exclude if game over occurred before today
           }
           
-          // No explicit note, but no pickup and not in transit = would show "Empty" or "Lost day"
+          // At this point, truck would show red "Empty" cell for today
           return true;
         });
         
