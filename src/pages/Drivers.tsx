@@ -21,6 +21,8 @@ import { DriverFilesManager } from "@/components/DriverFilesManager";
 import { useDriverSensitivePII } from "@/hooks/useDriverSensitivePII";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 
 interface DriverFormData {
   name: string;
@@ -46,10 +48,12 @@ interface DriverFormData {
   fein: string;
   createAccount: boolean;
   password: string;
+  drugTestResult: "positive" | "negative" | "pending" | null;
 }
 const Drivers = () => {
   const { hasRole } = useAuthContext();
   const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('accounting');
+  const { upsertDrugTest } = useDriverDrugTests();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -85,7 +89,8 @@ const Drivers = () => {
     ssn: "",
     fein: "",
     createAccount: false,
-    password: ""
+    password: "",
+    drugTestResult: null
   });
   const {
     toast
@@ -161,7 +166,8 @@ const Drivers = () => {
       ssn: "",
       fein: "",
       createAccount: false,
-      password: ""
+      password: "",
+      drugTestResult: null
     });
     setSelectedTruckId("");
   };
@@ -250,6 +256,15 @@ const Drivers = () => {
           .eq('id', formData.truck_id);
         
         if (truckError) throw truckError;
+      }
+
+      // Add drug test result if provided
+      if (formData.drugTestResult && driverData) {
+        await upsertDrugTest.mutateAsync({
+          driverId: driverData.id,
+          result: formData.drugTestResult,
+          truckId: formData.truck_id
+        });
       }
       
       toast({
@@ -644,7 +659,8 @@ const Drivers = () => {
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
       createAccount: false,
-      password: ""
+      password: "",
+      drugTestResult: null
     });
     
     if (truckData?.id) {
@@ -907,6 +923,28 @@ const Drivers = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="drugTestResult">Drug Test Result</Label>
+                  <Select
+                    value={formData.drugTestResult || ""}
+                    onValueChange={(value) => setFormData({
+                      ...formData,
+                      drugTestResult: value as "positive" | "negative" | "pending" | null
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select drug test result..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="negative">Negative</SelectItem>
+                      <SelectItem value="positive">Positive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">
