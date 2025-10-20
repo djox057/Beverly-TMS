@@ -46,8 +46,6 @@ interface DriverFormData {
   clearing_house: Date | undefined;
   ssn: string;
   fein: string;
-  createAccount: boolean;
-  password: string;
   drugTestResult: "positive" | "negative" | "pending" | null;
 }
 const Drivers = () => {
@@ -88,8 +86,6 @@ const Drivers = () => {
     clearing_house: undefined,
     ssn: "",
     fein: "",
-    createAccount: false,
-    password: "",
     drugTestResult: null
   });
   const {
@@ -165,51 +161,15 @@ const Drivers = () => {
       clearing_house: undefined,
       ssn: "",
       fein: "",
-      createAccount: false,
-      password: "",
       drugTestResult: null
     });
     setSelectedTruckId("");
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.createAccount && !formData.email) {
-      toast({
-        title: "Error",
-        description: "Email is required to create a driver account",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (formData.createAccount && formData.password.length < 6) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 6 characters",
-        variant: "destructive"
-      });
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      // Create user account if requested
-      if (formData.createAccount && formData.email) {
-        const { error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.name,
-              role: 'driver'
-            }
-          }
-        });
-        
-        if (authError) throw authError;
-      }
-
       // Create driver record including home address
       const { data: driverData, error } = await supabase.from('drivers').insert({
         name: formData.name,
@@ -269,9 +229,7 @@ const Drivers = () => {
       
       toast({
         title: "Success",
-        description: formData.createAccount 
-          ? "Driver and account created successfully" 
-          : "Driver added successfully"
+        description: "Driver added successfully"
       });
       resetForm();
       setIsAddDialogOpen(false);
@@ -658,8 +616,6 @@ const Drivers = () => {
       clearing_house: driver.clearing_house ? new Date(driver.clearing_house) : undefined,
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
-      createAccount: false,
-      password: "",
       drugTestResult: null
     });
     
@@ -890,42 +846,6 @@ const Drivers = () => {
               </div>
 
               <div className="border-t pt-4 space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="create_account"
-                    checked={formData.createAccount}
-                    onCheckedChange={(checked) => setFormData({
-                      ...formData,
-                      createAccount: checked as boolean
-                    })}
-                  />
-                  <Label htmlFor="create_account" className="text-sm font-medium cursor-pointer">
-                    Create driver portal account
-                  </Label>
-                </div>
-                
-                {formData.createAccount && (
-                  <div className="space-y-2 pl-6">
-                    <Label htmlFor="password">Password*</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={e => setFormData({
-                        ...formData,
-                        password: e.target.value
-                      })}
-                      placeholder="Minimum 6 characters"
-                      required={formData.createAccount}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Driver can change this password after first login
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="border-t pt-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="drugTestResult">Drug Test Result</Label>
                   <Select
@@ -981,13 +901,12 @@ const Drivers = () => {
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
-                  <TableHead>Portal Access</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedDrivers.length === 0 ? <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
@@ -1064,7 +983,7 @@ const Drivers = () => {
                 {/* Empty rows to maintain consistent table height */}
                 {paginatedDrivers.length > 0 && Array.from({ length: itemsPerPage - paginatedDrivers.length }).map((_, index) => (
                   <TableRow key={`empty-${index}`} className="hover:bg-transparent">
-                    <TableCell colSpan={7} className="h-[57px]">&nbsp;</TableCell>
+                    <TableCell colSpan={6} className="h-[57px]">&nbsp;</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
