@@ -74,21 +74,37 @@ export const Sidebar = () => {
         return item.roles.some(role => hasRole(role as any));
       }
       
-      // Exclude Analytics for accounting role
-      if (primaryRole === 'accounting' && item.href === '/analytics') {
-        return false;
-      }
-      
       return true;
     });
     
-    // Admin role: all navigation + User Management page + Alerts
+    // Admin role: all navigation + Alerts + User Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
+    }
+    
+    // Manager role: all pages + Alerts (full operational access)
+    if (primaryRole === 'manager') {
+      return [
+        ...filteredNav,
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+      ];
+    }
+    
+    // Supervisor role: all pages + Alerts except Analytics
+    if (primaryRole === 'supervisor') {
+      return [
+        ...filteredNav.filter(item => item.href !== '/analytics'),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+      ];
+    }
+    
+    // Accounting role: all pages except Analytics (financial + operational oversight)
+    if (primaryRole === 'accounting') {
+      return filteredNav.filter(item => item.href !== '/analytics');
     }
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Alerts)
