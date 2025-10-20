@@ -856,6 +856,10 @@ const Reports = () => {
       
       const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore && lastActivityWasDelivery;
 
+      // Check if delivery cell should show ">>>" (delivery after delivery without pickup in between)
+      // Only show if there's no actual delivery content on this day but last activity was delivery
+      const isDeliveryAfterDelivery = deliveryOnlyOrders.length === 0 && lastActivityWasDelivery && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore;
+
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
       // Apply left border to all cells except the first
@@ -913,7 +917,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isMultiStopInTransit ? "bg-[#D4A017]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isDeliveryAfterDelivery ? "bg-[#D4A017]" : isMultiStopInTransit ? "bg-[#D4A017]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1052,9 +1056,9 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center ${isMultiStopInTransit ? "text-[#e2ddd5] font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
+                  className={`h-full flex items-center justify-center ${isDeliveryAfterDelivery ? "text-[#e2ddd5] font-bold text-sm" : isMultiStopInTransit ? "text-[#e2ddd5] font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
                 >
-                  {isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
+                  {isDeliveryAfterDelivery ? ">>>" : isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
                 </div>
               )}
             </div>
