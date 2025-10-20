@@ -60,7 +60,21 @@ const Trips = () => {
     filteredOrders.forEach(order => {
       if (order.deliveryDate) {
         try {
-          const deliveryDate = parseISO(order.deliveryDate);
+          // Handle both ISO datetime strings and simple date strings
+          let deliveryDate: Date;
+          if (order.deliveryDate.includes('T')) {
+            deliveryDate = parseISO(order.deliveryDate);
+          } else {
+            // Simple date string like "2025-10-20"
+            deliveryDate = new Date(order.deliveryDate + 'T00:00:00');
+          }
+          
+          // Validate the date
+          if (isNaN(deliveryDate.getTime())) {
+            console.error('Invalid date:', order.deliveryDate);
+            return;
+          }
+          
           const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 1 }); // Monday
           const weekKey = format(weekStart, 'yyyy-MM-dd');
           
@@ -69,7 +83,7 @@ const Trips = () => {
           }
           groups[weekKey].push(order);
         } catch (e) {
-          console.error('Error parsing date:', e);
+          console.error('Error parsing date:', e, 'for order:', order.deliveryDate);
         }
       }
     });
