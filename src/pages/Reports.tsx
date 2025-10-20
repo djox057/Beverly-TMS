@@ -525,7 +525,7 @@ const Reports = () => {
     // Get all orders with their pickup/delivery dates sorted chronologically
     const ordersWithDates =
       truck.allOrders
-        ?.map((order: any) => {
+        ?.flatMap((order: any) => {
           // Parse datetime without timezone conversion
           const pickupDate = order.pickup_datetime
             ? (() => {
@@ -543,11 +543,17 @@ const Reports = () => {
           // Count pickup and delivery stops for this order on each date
           const pickupStopsByDate = new Map<string, number>();
           const deliveryStopsByDate = new Map<string, number>();
+          const pickupStopsByDateArray = new Map<string, any[]>();
+          const deliveryStopsByDateArray = new Map<string, any[]>();
 
           order.pickupStops?.forEach((stop: any) => {
             if (stop.datetime) {
               const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
               pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+              if (!pickupStopsByDateArray.has(stopDate)) {
+                pickupStopsByDateArray.set(stopDate, []);
+              }
+              pickupStopsByDateArray.get(stopDate)!.push(stop);
             }
           });
 
@@ -555,33 +561,108 @@ const Reports = () => {
             if (stop.datetime) {
               const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
               deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+              if (!deliveryStopsByDateArray.has(stopDate)) {
+                deliveryStopsByDateArray.set(stopDate, []);
+              }
+              deliveryStopsByDateArray.get(stopDate)!.push(stop);
             }
           });
 
-          return {
-            ...order,
-            pickupDate,
-            deliveryDate,
-            pickupStopsByDate,
-            deliveryStopsByDate,
-            pickupLocation: order.pickupStop
-              ? order.pickupStop.city && order.pickupStop.state
-                ? `${order.pickupStop.city}, ${order.pickupStop.state}`
-                : order.pickupStop.address || "—"
-              : "—",
-            deliveryLocation: order.deliveryStop
-              ? order.deliveryStop.city && order.deliveryStop.state
-                ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
-                : order.deliveryStop.address || "—"
-              : "—",
-          };
+          // Check if all stops are on different dates
+          const allPickupDates = Array.from(pickupStopsByDate.keys());
+          const allDeliveryDates = Array.from(deliveryStopsByDate.keys());
+          const hasMultipleDates = allPickupDates.length + allDeliveryDates.length > 1;
+          
+          // Check if all stops are on the same date
+          const allDates = new Set([...allPickupDates, ...allDeliveryDates]);
+          const allStopsOnSameDate = allDates.size === 1;
+
+          // If all stops are on same date OR single pick/drop, show combined view (current behavior)
+          if (allStopsOnSameDate || !hasMultipleDates) {
+            return [{
+              ...order,
+              pickupDate,
+              deliveryDate,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: order.pickupStop
+                ? order.pickupStop.city && order.pickupStop.state
+                  ? `${order.pickupStop.city}, ${order.pickupStop.state}`
+                  : order.pickupStop.address || "—"
+                : "—",
+              deliveryLocation: order.deliveryStop
+                ? order.deliveryStop.city && order.deliveryStop.state
+                  ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
+                  : order.deliveryStop.address || "—"
+                : "—",
+            }];
+          }
+
+          // Multi-date load: create separate entries for each stop with different dates
+          const expandedOrders: any[] = [];
+          
+          // Add pickup stops
+          allPickupDates.forEach(dateStr => {
+            const stops = pickupStopsByDateArray.get(dateStr) || [];
+            const firstStop = stops[0];
+            const parsed = parseSimpleDateTime(firstStop.datetime);
+            const stopDate = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+            
+            expandedOrders.push({
+              ...order,
+              pickupDate: stopDate,
+              deliveryDate: null,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: firstStop.city && firstStop.state
+                ? `${firstStop.city}, ${firstStop.state}`
+                : firstStop.address || "—",
+              deliveryLocation: "—",
+              pickupStop: firstStop,
+              deliveryStop: null,
+              pickup_datetime: firstStop.datetime,
+              pickup_end_datetime: order.pickup_end_datetime,
+              isMultiStopExpanded: true,
+              stopType: 'pickup'
+            });
+          });
+
+          // Add delivery stops
+          allDeliveryDates.forEach(dateStr => {
+            const stops = deliveryStopsByDateArray.get(dateStr) || [];
+            const lastStop = stops[stops.length - 1];
+            const parsed = parseSimpleDateTime(lastStop.datetime);
+            const stopDate = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+            
+            expandedOrders.push({
+              ...order,
+              pickupDate: null,
+              deliveryDate: stopDate,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: "—",
+              deliveryLocation: lastStop.city && lastStop.state
+                ? `${lastStop.city}, ${lastStop.state}`
+                : lastStop.address || "—",
+              pickupStop: null,
+              deliveryStop: lastStop,
+              delivery_datetime: lastStop.datetime,
+              delivery_end_datetime: order.delivery_end_datetime,
+              isMultiStopExpanded: true,
+              stopType: 'delivery'
+            });
+          });
+
+          return expandedOrders;
         })
         .sort((a, b) => {
-          // Sort by pickup date
-          if (!a.pickupDate && !b.pickupDate) return 0;
-          if (!a.pickupDate) return 1;
-          if (!b.pickupDate) return -1;
-          return a.pickupDate.getTime() - b.pickupDate.getTime();
+          // Sort by pickup date, then delivery date
+          const aDate = a.pickupDate || a.deliveryDate;
+          const bDate = b.pickupDate || b.deliveryDate;
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate.getTime() - bDate.getTime();
         }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
