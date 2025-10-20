@@ -107,9 +107,9 @@ export const Sidebar = () => {
       return filteredNav.filter(item => item.href !== '/analytics');
     }
     
-    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Alerts)
+    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
