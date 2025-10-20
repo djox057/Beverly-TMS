@@ -601,6 +601,10 @@ const Reports = () => {
           // Multi-date load: create separate entries for each stop with different dates
           const expandedOrders: any[] = [];
           
+          // Store the full date range for in-transit detection
+          const firstPickupDate = pickupDate;
+          const lastDeliveryDate = deliveryDate;
+          
           // Add pickup stops
           allPickupDates.forEach(dateStr => {
             const stops = pickupStopsByDateArray.get(dateStr) || [];
@@ -612,6 +616,8 @@ const Reports = () => {
               ...order,
               pickupDate: stopDate,
               deliveryDate: null,
+              originalPickupDate: firstPickupDate,
+              originalDeliveryDate: lastDeliveryDate,
               pickupStopsByDate,
               deliveryStopsByDate,
               pickupLocation: firstStop.city && firstStop.state
@@ -638,6 +644,8 @@ const Reports = () => {
               ...order,
               pickupDate: null,
               deliveryDate: stopDate,
+              originalPickupDate: firstPickupDate,
+              originalDeliveryDate: lastDeliveryDate,
               pickupStopsByDate,
               deliveryStopsByDate,
               pickupLocation: "—",
@@ -789,10 +797,14 @@ const Reports = () => {
 
       // Check if this day is in transit (between pickup and delivery) for any order
       const inTransitOrders = ordersWithDates.filter((order) => {
-        if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
+        // For expanded multi-stop orders, use the original date range
+        const pickupDateToCheck = order.originalPickupDate || order.pickupDate;
+        const deliveryDateToCheck = order.originalDeliveryDate || order.deliveryDate;
+        
+        if (!pickupDateToCheck || !deliveryDateToCheck || isSameDayPickupDelivery(order)) return false;
         const dayTime = day.getTime();
-        const pickupTime = order.pickupDate.getTime();
-        const deliveryTime = order.deliveryDate.getTime();
+        const pickupTime = pickupDateToCheck.getTime();
+        const deliveryTime = deliveryDateToCheck.getTime();
         // Day is in transit if it's after pickup and before delivery
         // This includes future loads that haven't been picked up yet (2-3 day loads)
         return dayTime > pickupTime && dayTime < deliveryTime;
