@@ -15,9 +15,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Loader2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDragPan } from "@/hooks/useDragPan";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from "date-fns";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -53,11 +53,41 @@ const Trips = () => {
     return matchesTruck && matchesDriver;
   }) || [];
 
+  // Group orders by week (Monday-Sunday)
+  const groupedByWeek = useMemo(() => {
+    const groups: { [key: string]: any[] } = {};
+    
+    filteredOrders.forEach(order => {
+      if (order.deliveryDate) {
+        try {
+          const deliveryDate = parseISO(order.deliveryDate);
+          const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 1 }); // Monday
+          const weekKey = format(weekStart, 'yyyy-MM-dd');
+          
+          if (!groups[weekKey]) {
+            groups[weekKey] = [];
+          }
+          groups[weekKey].push(order);
+        } catch (e) {
+          console.error('Error parsing date:', e);
+        }
+      }
+    });
+    
+    // Sort weeks by date
+    return Object.keys(groups)
+      .sort()
+      .map(weekKey => ({
+        weekStart: weekKey,
+        orders: groups[weekKey]
+      }));
+  }, [filteredOrders]);
+
   // Pagination
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const totalPages = Math.ceil(groupedByWeek.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const paginatedWeeks = groupedByWeek.slice(startIndex, endIndex);
 
   const renderPaginationItems = () => {
     const items = [];
@@ -199,44 +229,90 @@ const Trips = () => {
                   </TableRow>
                  </TableHeader>
                 <TableBody>
-                   {paginatedOrders.length === 0 ? <TableRow>
+                   {paginatedWeeks.length === 0 ? (
+                     <TableRow>
                       <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                         No trips found
                       </TableCell>
-                     </TableRow> : paginatedOrders.map(order => {
-                      const isRecovery = order.isRecovery;
-                      
-                      const rowClassName = isRecovery
-                        ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
-                        : '';
-                      
-                      return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                        <TableCell>{order.internalLoadNumber}</TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
-                        <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
-                        <TableCell>
-                          <div className="font-semibold text-green-600 dark:text-green-400">
-                            ${order.totalDriverPay?.toLocaleString() || '0'}
-                          </div>
-                        </TableCell>
-                        <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
-                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
-                        <TableCell>{order.brokerLoadNumber}</TableCell>
-                        <TableCell>{order.invoiced}</TableCell>
-                        <TableCell>
-                          <div className="font-semibold text-green-600 dark:text-green-400">
-                            ${order.totalFreightAmount?.toLocaleString() || '0'}
-                          </div>
-                        </TableCell>
-                        <TableCell>{order.companyName}</TableCell>
-                      </TableRow>
-                    })}
+                     </TableRow>
+                   ) : (
+                     paginatedWeeks.map((week, weekIndex) => {
+                       const weekTotal = week.orders.reduce((acc, order) => ({
+                         miles: acc.miles + (order.mileage || 0),
+                         driverPay: acc.driverPay + (order.totalDriverPay || 0),
+                         freightAmount: acc.freightAmount + (order.totalFreightAmount || 0)
+                       }), { miles: 0, driverPay: 0, freightAmount: 0 });
+
+                       const weekStartDate = parseISO(week.weekStart);
+                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
+
+                       return (
+                         <>
+                           {/* Weekly Summary Row */}
+                           <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-t-4 border-primary">
+                             <TableCell colSpan={8} className="py-3">
+                               Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
+                             </TableCell>
+                             <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
+                             <TableCell className="py-3">
+                               <div className="font-semibold text-green-600 dark:text-green-400">
+                                 ${weekTotal.driverPay.toLocaleString()}
+                               </div>
+                             </TableCell>
+                             <TableCell colSpan={4}></TableCell>
+                             <TableCell className="py-3">
+                               <div className="font-semibold text-green-600 dark:text-green-400">
+                                 ${weekTotal.freightAmount.toLocaleString()}
+                               </div>
+                             </TableCell>
+                             <TableCell></TableCell>
+                           </TableRow>
+
+                           {/* Orders for this week */}
+                           {week.orders.map((order, orderIndex) => {
+                             const isRecovery = order.isRecovery;
+                             const isLastInWeek = orderIndex === week.orders.length - 1;
+                             
+                             const rowClassName = isRecovery
+                               ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                               : '';
+                             
+                             return (
+                               <TableRow 
+                                 key={order.id} 
+                                 className={`h-16 ${rowClassName} ${isLastInWeek ? 'border-b-4 border-primary' : ''}`}
+                               >
+                                 <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                                 <TableCell>{order.internalLoadNumber}</TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                                 <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                                 <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                                 <TableCell>
+                                   <div className="font-semibold text-green-600 dark:text-green-400">
+                                     ${order.totalDriverPay?.toLocaleString() || '0'}
+                                   </div>
+                                 </TableCell>
+                                 <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                                 <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                                 <TableCell>{order.brokerLoadNumber}</TableCell>
+                                 <TableCell>{order.invoiced}</TableCell>
+                                 <TableCell>
+                                   <div className="font-semibold text-green-600 dark:text-green-400">
+                                     ${order.totalFreightAmount?.toLocaleString() || '0'}
+                                   </div>
+                                 </TableCell>
+                                 <TableCell>{order.companyName}</TableCell>
+                               </TableRow>
+                             );
+                           })}
+                         </>
+                       );
+                     })
+                   )}
                  </TableBody>
               </Table>
           </div>
