@@ -801,7 +801,8 @@ const Reports = () => {
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
       
       // Check if this is a multi-stop expanded in-transit day
-      const isMultiStopInTransit = inTransitOrders.some(order => order.isMultiStopExpanded);
+      // Only mark as multi-stop in-transit if ALL in-transit orders for this day are expanded multi-stop
+      const isMultiStopInTransit = isInTransit && inTransitOrders.length > 0 && inTransitOrders.every(order => order.isMultiStopExpanded);
 
       // Check if there's a game over day before this day
       const hasGameOverBefore = days.slice(0, index).some(prevDay => {
