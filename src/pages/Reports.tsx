@@ -789,7 +789,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 ${deliveryOnlyOrders.length === 2 ? 'flex flex-row' : 'flex flex-col'} ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -797,135 +797,261 @@ const Reports = () => {
               }}
             >
               {deliveryOnlyOrders.length > 0 ? (
-                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
-                  {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
-                    const cellColor = getDeliveryCellColor(order);
-                    const totalDeliveryStops = order.pickupStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
-                    return (
-                      <div
-                        key={`delivery-${order.id}-${idx}`}
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}
-                      >
-                        {
-                          <>
-                            <div className="text-[10px] font-medium truncate leading-tight">
-                              {order.deliveryLocation}
-                              {totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
-                            </div>
-                            <div className="text-[9px] opacity-70 truncate leading-tight">
-                              {order.delivery_datetime &&
-                              order.delivery_end_datetime &&
-                              formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime)
-                                ? `${formatTime(order.delivery_datetime)} - ${formatTime(order.delivery_end_datetime)}`
-                                : order.delivery_datetime
-                                  ? formatTime(order.delivery_datetime)
-                                  : "—"}
-                            </div>
-                          </>
-                        }
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20"
-                            >
-                              <Info className="h-2 w-2" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 z-[101]">
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-semibold">Load Information</h4>
-                              </div>
-                              <div className="space-y-3">
-                                {deliveryOnlyOrders.map((deliveryOrder, idx) => (
-                                  <div
-                                    key={`delivery-info-${deliveryOrder.id}`}
-                                    className={`${idx > 0 ? "border-t pt-2" : ""}`}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <p className="font-semibold">• Load #: {deliveryOrder.loadDetails.loadNumber}</p>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 px-2"
-                                        onClick={() => navigate(`/edit-order/${deliveryOrder.id}`)}
-                                      >
-                                        <Edit3 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    <p className="ml-4">
-                                      • <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}
-                                    </p>
-                                    {deliveryOrder.loadDetails.allPickupStops &&
-                                      deliveryOrder.loadDetails.allPickupStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):
-                                          </p>
-                                          {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                            <p key={`pickup-${pIdx}`} className="ml-8">
-                                              - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
-                                              {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
-                                    {deliveryOrder.loadDetails.allDeliveryStops &&
-                                      deliveryOrder.loadDetails.allDeliveryStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):
-                                          </p>
-                                          {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                            <p key={`delivery-${dIdx}`} className="ml-8">
-                                              - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
-                                              at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
-                                    <p className="ml-4">
-                                      • <strong>Documents:</strong>{" "}
-                                      {formatDocuments(deliveryOrder.loadDetails.documents)}
-                                    </p>
-                                    {deliveryOrder.loadDetails.notes !== "—" && (
-                                      <p className="ml-4 text-sm font-bold">
-                                        • <strong>Notes:</strong> {deliveryOrder.loadDetails.notes}
+                deliveryOnlyOrders.length === 2 ? (
+                  // Multi-drop: Show 2 loads side by side
+                  <>
+                    {deliveryOnlyOrders.map((order, idx) => {
+                      const cellColor = getDeliveryCellColor(order);
+                      const totalDeliveryStops = order.deliveryStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
+                      return (
+                        <div
+                          key={`delivery-${order.id}-${idx}`}
+                          className={`${cellColor} ${idx === 0 ? 'border-r' : ''} border-border relative flex flex-col px-0.5 py-1 flex-1`}
+                          style={{ width: '50%' }}
+                        >
+                          <div className="text-[9px] font-medium truncate leading-tight">
+                            {order.deliveryLocation}
+                            {totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
+                          </div>
+                          <div className="text-[8px] opacity-70 truncate leading-tight">
+                            {order.delivery_datetime &&
+                            order.delivery_end_datetime &&
+                            formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime)
+                              ? `${formatTime(order.delivery_datetime)}-${formatTime(order.delivery_end_datetime)}`
+                              : order.delivery_datetime
+                                ? formatTime(order.delivery_datetime)
+                                : "—"}
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-0.5 right-0.5 h-3 w-3 p-0 hover:bg-background/20"
+                              >
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[101]">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-semibold">Load Information</h4>
+                                </div>
+                                <div className="space-y-3">
+                                  {deliveryOnlyOrders.map((deliveryOrder, idx) => (
+                                    <div
+                                      key={`delivery-info-${deliveryOrder.id}`}
+                                      className={`${idx > 0 ? "border-t pt-2" : ""}`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-semibold">• Load #: {deliveryOrder.loadDetails.loadNumber}</p>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2"
+                                          onClick={() => navigate(`/edit-order/${deliveryOrder.id}`)}
+                                        >
+                                          <Edit3 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      <p className="ml-4">
+                                        • <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}
                                       </p>
-                                    )}
-                                  </div>
-                                ))}
+                                      {deliveryOrder.loadDetails.allPickupStops &&
+                                        deliveryOrder.loadDetails.allPickupStops.length > 0 && (
+                                          <>
+                                            <p className="ml-4 font-semibold">
+                                              • Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):
+                                            </p>
+                                            {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                              <p key={`pickup-${pIdx}`} className="ml-8">
+                                                - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
+                                                {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                              </p>
+                                            ))}
+                                          </>
+                                        )}
+                                      {deliveryOrder.loadDetails.allDeliveryStops &&
+                                        deliveryOrder.loadDetails.allDeliveryStops.length > 0 && (
+                                          <>
+                                            <p className="ml-4 font-semibold">
+                                              • Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):
+                                            </p>
+                                            {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                              <p key={`delivery-${dIdx}`} className="ml-8">
+                                                - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
+                                                at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
+                                              </p>
+                                            ))}
+                                          </>
+                                        )}
+                                      <p className="ml-4">
+                                        • <strong>Documents:</strong>{" "}
+                                        {formatDocuments(deliveryOrder.loadDetails.documents)}
+                                      </p>
+                                      {deliveryOrder.loadDetails.notes !== "—" && (
+                                        <p className="ml-4 text-sm font-bold">
+                                          • <strong>Notes:</strong> {deliveryOrder.loadDetails.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updatePickupDropArrival.mutate({
+                                        pickupDropId: order.deliveryStop.id,
+                                      });
+                                      toast({
+                                        title: "Marked as arrived at delivery",
+                                      });
+                                    }}
+                                    className="w-full mt-2"
+                                  >
+                                    Arrived at Delivery
+                                  </Button>
+                                )}
                               </div>
-                              {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    updatePickupDropArrival.mutate({
-                                      pickupDropId: order.deliveryStop.id,
-                                    });
-                                    toast({
-                                      title: "Marked as arrived at delivery",
-                                    });
-                                  }}
-                                  className="w-full mt-2"
-                                >
-                                  Arrived at Delivery
-                                </Button>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  // Single load or 3+ loads: Use existing layout
+                  <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
+                    {deliveryOnlyOrders.slice(0, 1).map((order, idx) => {
+                      const cellColor = getDeliveryCellColor(order);
+                      const totalDeliveryStops = order.deliveryStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
+                      return (
+                        <div
+                          key={`delivery-${order.id}-${idx}`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}
+                        >
+                          {
+                            <>
+                              <div className="text-[10px] font-medium truncate leading-tight">
+                                {order.deliveryLocation}
+                                {totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
+                              </div>
+                              <div className="text-[9px] opacity-70 truncate leading-tight">
+                                {order.delivery_datetime &&
+                                order.delivery_end_datetime &&
+                                formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime)
+                                  ? `${formatTime(order.delivery_datetime)} - ${formatTime(order.delivery_end_datetime)}`
+                                  : order.delivery_datetime
+                                    ? formatTime(order.delivery_datetime)
+                                    : "—"}
+                              </div>
+                            </>
+                          }
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20"
+                              >
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[101]">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-semibold">Load Information</h4>
+                                </div>
+                                <div className="space-y-3">
+                                  {deliveryOnlyOrders.map((deliveryOrder, idx) => (
+                                    <div
+                                      key={`delivery-info-${deliveryOrder.id}`}
+                                      className={`${idx > 0 ? "border-t pt-2" : ""}`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-semibold">• Load #: {deliveryOrder.loadDetails.loadNumber}</p>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2"
+                                          onClick={() => navigate(`/edit-order/${deliveryOrder.id}`)}
+                                        >
+                                          <Edit3 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      <p className="ml-4">
+                                        • <strong>Broker Load #:</strong> {deliveryOrder.loadDetails.brokerLoadNumber}
+                                      </p>
+                                      {deliveryOrder.loadDetails.allPickupStops &&
+                                        deliveryOrder.loadDetails.allPickupStops.length > 0 && (
+                                          <>
+                                            <p className="ml-4 font-semibold">
+                                              • Pickups ({deliveryOrder.loadDetails.allPickupStops.length}):
+                                            </p>
+                                            {deliveryOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                              <p key={`pickup-${pIdx}`} className="ml-8">
+                                                - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
+                                                {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                              </p>
+                                            ))}
+                                          </>
+                                        )}
+                                      {deliveryOrder.loadDetails.allDeliveryStops &&
+                                        deliveryOrder.loadDetails.allDeliveryStops.length > 0 && (
+                                          <>
+                                            <p className="ml-4 font-semibold">
+                                              • Deliveries ({deliveryOrder.loadDetails.allDeliveryStops.length}):
+                                            </p>
+                                            {deliveryOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                              <p key={`delivery-${dIdx}`} className="ml-8">
+                                                - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
+                                                at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
+                                              </p>
+                                            ))}
+                                          </>
+                                        )}
+                                      <p className="ml-4">
+                                        • <strong>Documents:</strong>{" "}
+                                        {formatDocuments(deliveryOrder.loadDetails.documents)}
+                                      </p>
+                                      {deliveryOrder.loadDetails.notes !== "—" && (
+                                        <p className="ml-4 text-sm font-bold">
+                                          • <strong>Notes:</strong> {deliveryOrder.loadDetails.notes}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updatePickupDropArrival.mutate({
+                                        pickupDropId: order.deliveryStop.id,
+                                      });
+                                      toast({
+                                        title: "Marked as arrived at delivery",
+                                      });
+                                    }}
+                                    className="w-full mt-2"
+                                  >
+                                    Arrived at Delivery
+                                  </Button>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    })}
+                    {deliveryOnlyOrders.length > 1 && (
+                      <div className="text-[9px] text-muted-foreground text-center leading-tight">
+                        +{deliveryOnlyOrders.length - 1} more
                       </div>
-                    );
-                  })}
-                  {deliveryOnlyOrders.length > 1 && (
-                    <div className="text-[9px] text-muted-foreground text-center leading-tight">
-                      +{deliveryOnlyOrders.length - 1} more
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )
               ) : (
                 <div
                   className={`text-xs h-full flex items-center justify-center ${isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
@@ -937,7 +1063,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 ${(pickupOnlyOrders.length === 2 && sameDayOrders.length === 0) || (pickupOnlyOrders.length === 0 && sameDayOrders.length === 2) ? 'flex flex-row' : 'flex flex-col'} ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -945,292 +1071,201 @@ const Reports = () => {
               }}
             >
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? (
-                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
-                  {/* Render pickup-only orders first */}
-                  {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    const cellColor = getPickupCellColor(order, previousComplete);
-                    return (
-                      <div
-                        key={`pickup-${order.id}-${idx}`}
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}
-                      >
-                        {
-                          <>
-                            <div className="text-[10px] font-medium truncate leading-tight">
-                              {order.pickupLocation}
-                              {totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
-                            </div>
-                            <div className="text-[9px] opacity-70 truncate leading-tight">
-                              {order.pickup_datetime &&
-                              order.pickup_end_datetime &&
-                              formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime)
-                                ? `${formatTime(order.pickup_datetime)} - ${formatTime(order.pickup_end_datetime)}`
-                                : order.pickup_datetime
-                                  ? formatTime(order.pickup_datetime)
-                                  : "—"}
-                            </div>
-                          </>
-                        }
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20"
-                            >
-                              <Info className="h-2 w-2" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 z-[101]">
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-semibold">Load Information</h4>
+                (pickupOnlyOrders.length === 2 && sameDayOrders.length === 0) || (pickupOnlyOrders.length === 0 && sameDayOrders.length === 2) ? (
+                  <>
+                    {(pickupOnlyOrders.length === 2 ? pickupOnlyOrders : sameDayOrders).map((order, idx) => {
+                      const previousComplete = getPreviousLoadDeliveryStatus(order);
+                      const cellColor = getPickupCellColor(order, previousComplete);
+                      const isSameDay = sameDayOrders.length === 2;
+                      const totalPickupStops = order.pickupStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
+                      return (
+                        <div
+                          key={isSameDay ? `same-day-${order.id}-${idx}` : `pickup-${order.id}-${idx}`}
+                          className={`${cellColor} ${idx === 0 ? 'border-r' : ''} border-border relative flex flex-col px-0.5 py-1 flex-1`}
+                          style={{ width: '50%' }}
+                        >
+                          {isSameDay ? (
+                            <>
+                              <div className="text-[9px] font-medium truncate leading-tight">P: {order.pickupLocation}</div>
+                              <div className="text-[8px] opacity-70 truncate leading-tight">D: {order.deliveryLocation}</div>
+                              <div className="text-[7px] opacity-70 truncate leading-tight">
+                                {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} / {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
                               </div>
-                              <div className="space-y-3">
-                                {pickupOnlyOrders.map((pickupOrder, idx) => (
-                                  <div
-                                    key={`pickup-info-${pickupOrder.id}`}
-                                    className={`${idx > 0 ? "border-t pt-2" : ""}`}
-                                  >
-                                    <div className="flex items-center justify-between">
-                                      <p className="font-semibold">• Load #: {pickupOrder.loadDetails.loadNumber}</p>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 px-2"
-                                        onClick={() => navigate(`/edit-order/${pickupOrder.id}`)}
-                                      >
-                                        <Edit3 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                    <p className="ml-4">
-                                      • <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}
-                                    </p>
-                                    {pickupOrder.loadDetails.allPickupStops &&
-                                      pickupOrder.loadDetails.allPickupStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Pickups ({pickupOrder.loadDetails.allPickupStops.length}):
-                                          </p>
-                                          {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                            <p key={`pickup-${pIdx}`} className="ml-8">
-                                              - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
-                                              {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
-                                    {pickupOrder.loadDetails.allDeliveryStops &&
-                                      pickupOrder.loadDetails.allDeliveryStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):
-                                          </p>
-                                          {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                            <p key={`delivery-${dIdx}`} className="ml-8">
-                                              - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
-                                              at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
-                                    <p className="ml-4">
-                                      • <strong>Documents:</strong>{" "}
-                                      {formatDocuments(pickupOrder.loadDetails.documents)}
-                                    </p>
-                                    {pickupOrder.loadDetails.notes !== "—" && (
-                                      <p className="ml-4 text-sm font-bold">
-                                        • <strong>Notes:</strong> {pickupOrder.loadDetails.notes}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-[9px] font-medium truncate leading-tight">
+                                {order.pickupLocation}
+                                {totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
                               </div>
-                              {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    updatePickupDropArrival.mutate({
-                                      pickupDropId: order.pickupStop.id,
-                                    });
-                                    toast({
-                                      title: "Marked as arrived at pickup",
-                                    });
-                                  }}
-                                  className="w-full mt-2"
-                                >
-                                  Arrived at Pickup
-                                </Button>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    );
-                  })}
-
-                  {/* Render same-day orders (combined pickup and delivery) */}
-                  {sameDayOrders.slice(0, Math.max(0, 1 - pickupOnlyOrders.length)).map((order, idx) => {
-                    const previousComplete = getPreviousLoadDeliveryStatus(order);
-                    const cellColor = getPickupCellColor(order, previousComplete);
-                    return (
-                      <div
-                        key={`same-day-${order.id}-${idx}`}
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}
-                      >
-                        <div className="text-[10px] font-medium truncate leading-tight">P: {order.pickupLocation}</div>
-                        <div className="text-[10px] opacity-70 truncate leading-tight">D: {order.deliveryLocation}</div>
-                        <div className="text-[9px] opacity-70 truncate flex justify-between leading-tight">
-                          <span>
-                            {order.pickup_datetime &&
-                            order.pickup_end_datetime &&
-                            formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime)
-                              ? `${formatTime(order.pickup_datetime)}-${formatTime(order.pickup_end_datetime)}`
-                              : order.pickup_datetime
-                                ? formatTime(order.pickup_datetime)
-                                : "—"}
-                          </span>
-                          <span>
-                            {order.delivery_datetime &&
-                            order.delivery_end_datetime &&
-                            formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime)
-                              ? `${formatTime(order.delivery_datetime)}-${formatTime(order.delivery_end_datetime)}`
-                              : order.delivery_datetime
-                                ? formatTime(order.delivery_datetime)
-                                : "—"}
-                          </span>
+                              <div className="text-[8px] opacity-70 truncate leading-tight">
+                                {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"}
+                              </div>
+                            </>
+                          )}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="absolute top-0.5 right-0.5 h-2.5 w-2.5 p-0 hover:bg-background/20">
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[101]">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="font-semibold">{isSameDay ? 'Same-Day ' : ''}Load Information</h4>
+                                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => navigate(`/edit-order/${order.id}`)}>
+                                    <Edit3 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                                <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                                <p>• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20"
-                            >
-                              <Info className="h-2 w-2" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 z-[101]">
-                            <div className="space-y-2 text-sm">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-semibold">Same-Day Load Information</h4>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2"
-                                  onClick={() => navigate(`/edit-order/${order.id}`)}
-                                >
-                                  <Edit3 className="h-3 w-3" />
-                                </Button>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
+                    {pickupOnlyOrders.slice(0, 1).map((order, idx) => {
+                      const previousComplete = getPreviousLoadDeliveryStatus(order);
+                      const cellColor = getPickupCellColor(order, previousComplete);
+                      return (
+                        <div key={`pickup-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}>
+                          <div className="text-[10px] font-medium truncate leading-tight">
+                            {order.pickupLocation}
+                            {totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
+                          </div>
+                          <div className="text-[9px] opacity-70 truncate leading-tight">
+                            {order.pickup_datetime && order.pickup_end_datetime && formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime)
+                              ? `${formatTime(order.pickup_datetime)} - ${formatTime(order.pickup_end_datetime)}`
+                              : order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"}
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20">
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[101]">
+                              <div className="space-y-2 text-sm">
+                                <h4 className="font-semibold">Load Information</h4>
+                                <div className="space-y-3">
+                                  {pickupOnlyOrders.map((pickupOrder, idx) => (
+                                    <div key={`pickup-info-${pickupOrder.id}`} className={`${idx > 0 ? "border-t pt-2" : ""}`}>
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-semibold">• Load #: {pickupOrder.loadDetails.loadNumber}</p>
+                                        <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => navigate(`/edit-order/${pickupOrder.id}`)}>
+                                          <Edit3 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                      <p className="ml-4">• <strong>Broker Load #:</strong> {pickupOrder.loadDetails.brokerLoadNumber}</p>
+                                      {pickupOrder.loadDetails.allPickupStops && pickupOrder.loadDetails.allPickupStops.length > 0 && (
+                                        <>
+                                          <p className="ml-4 font-semibold">• Pickups ({pickupOrder.loadDetails.allPickupStops.length}):</p>
+                                          {pickupOrder.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                            <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}</p>
+                                          ))}
+                                        </>
+                                      )}
+                                      {pickupOrder.loadDetails.allDeliveryStops && pickupOrder.loadDetails.allDeliveryStops.length > 0 && (
+                                        <>
+                                          <p className="ml-4 font-semibold">• Deliveries ({pickupOrder.loadDetails.allDeliveryStops.length}):</p>
+                                          {pickupOrder.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                            <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}</p>
+                                          ))}
+                                        </>
+                                      )}
+                                      <p className="ml-4">• <strong>Documents:</strong> {formatDocuments(pickupOrder.loadDetails.documents)}</p>
+                                      {pickupOrder.loadDetails.notes !== "—" && (
+                                        <p className="ml-4 text-sm font-bold">• <strong>Notes:</strong> {pickupOrder.loadDetails.notes}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
+                                  <Button size="sm" onClick={() => { updatePickupDropArrival.mutate({ pickupDropId: order.pickupStop.id }); toast({ title: "Marked as arrived at pickup" }); }} className="w-full mt-2">
+                                    Arrived at Pickup
+                                  </Button>
+                                )}
                               </div>
-                              <div className="space-y-1">
-                                <p>
-                                  • <strong>Load #:</strong> {order.loadDetails.loadNumber}
-                                </p>
-                                <p>
-                                  • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
-                                </p>
-                                {order.loadDetails.pickupInfo && (
-                                  <p>
-                                    • <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address},{" "}
-                                    {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state}{" "}
-                                    {order.loadDetails.pickupInfo.zipCode || ""} at{" "}
-                                    {(() => {
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    })}
+                    {sameDayOrders.slice(0, Math.max(0, 1 - pickupOnlyOrders.length)).map((order, idx) => {
+                      const previousComplete = getPreviousLoadDeliveryStatus(order);
+                      const cellColor = getPickupCellColor(order, previousComplete);
+                      return (
+                        <div key={`same-day-${order.id}-${idx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-1 flex-1`}>
+                          <div className="text-[10px] font-medium truncate leading-tight">P: {order.pickupLocation}</div>
+                          <div className="text-[10px] opacity-70 truncate leading-tight">D: {order.deliveryLocation}</div>
+                          <div className="text-[9px] opacity-70 truncate flex justify-between leading-tight">
+                            <span>{order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"}</span>
+                            <span>{order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}</span>
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-3 w-3 p-0 hover:bg-background/20">
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[101]">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-semibold">Same-Day Load Information</h4>
+                                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => navigate(`/edit-order/${order.id}`)}>
+                                    <Edit3 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <div className="space-y-1">
+                                  <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
+                                  <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                                  {order.loadDetails.pickupInfo && (
+                                    <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ""} at {(() => {
                                       if (order.loadDetails.pickupInfo.datetime === "—") return "—";
-                                      let timeStr = formatDateTime(
-                                        order.loadDetails.pickupInfo.datetime,
-                                        "MM/dd, HH:mm",
-                                      );
+                                      let timeStr = formatDateTime(order.loadDetails.pickupInfo.datetime, "MM/dd, HH:mm");
                                       if (order.loadDetails.pickupInfo.endDatetime !== "—") {
                                         const endTime = formatTime(order.loadDetails.pickupInfo.endDatetime);
                                         const startTime = formatTime(order.loadDetails.pickupInfo.datetime);
-                                        if (startTime !== endTime) {
-                                          timeStr += ` - ${endTime}`;
-                                        }
+                                        if (startTime !== endTime) { timeStr += ` - ${endTime}`; }
                                       }
                                       return timeStr;
-                                    })()}
-                                  </p>
-                                )}
-                                {order.loadDetails.deliveryInfo && (
-                                  <p>
-                                    • <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address},{" "}
-                                    {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state}{" "}
-                                    {order.loadDetails.deliveryInfo.zipCode || ""} at{" "}
-                                    {(() => {
+                                    })()}</p>
+                                  )}
+                                  {order.loadDetails.deliveryInfo && (
+                                    <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ""} at {(() => {
                                       if (order.loadDetails.deliveryInfo.datetime === "—") return "—";
-                                      let timeStr = formatDateTime(
-                                        order.loadDetails.deliveryInfo.datetime,
-                                        "MM/dd, HH:mm",
-                                      );
+                                      let timeStr = formatDateTime(order.loadDetails.deliveryInfo.datetime, "MM/dd, HH:mm");
                                       if (order.loadDetails.deliveryInfo.endDatetime !== "—") {
                                         const endTime = formatTime(order.loadDetails.deliveryInfo.endDatetime);
                                         const startTime = formatTime(order.loadDetails.deliveryInfo.datetime);
-                                        if (startTime !== endTime) {
-                                          timeStr += ` - ${endTime}`;
-                                        }
+                                        if (startTime !== endTime) { timeStr += ` - ${endTime}`; }
                                       }
                                       return timeStr;
-                                    })()}
-                                  </p>
-                                )}
-                                <p>
-                                  • <strong>Documents:</strong>{" "}
-                                  {formatDocuments(order.loadDetails.documents)}
-                                </p>
-                                {order.loadDetails.notes !== "—" && (
-                                  <p className="text-sm font-bold">
-                                    • <strong>Notes:</strong> {order.loadDetails.notes}
-                                  </p>
-                                )}
+                                    })()}</p>
+                                  )}
+                                  <p>• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
+                                  {order.loadDetails.notes !== "—" && (
+                                    <p className="text-sm font-bold">• <strong>Notes:</strong> {order.loadDetails.notes}</p>
+                                  )}
+                                </div>
                               </div>
-                              {order.pickupStop?.id && !order.pickupStop?.arrived_at && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    updatePickupDropArrival.mutate({
-                                      pickupDropId: order.pickupStop.id,
-                                    });
-                                    toast({
-                                      title: "Marked as arrived at pickup",
-                                    });
-                                  }}
-                                  className="w-full mt-2"
-                                >
-                                  Arrived at Pickup
-                                </Button>
-                              )}
-                              {order.deliveryStop?.id && !order.deliveryStop?.arrived_at && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    updatePickupDropArrival.mutate({
-                                      pickupDropId: order.deliveryStop.id,
-                                    });
-                                    toast({
-                                      title: "Marked as arrived at delivery",
-                                    });
-                                  }}
-                                  className="w-full mt-2"
-                                >
-                                  Arrived at Delivery
-                                </Button>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    })}
+                    {pickupOnlyOrders.length + sameDayOrders.length > 1 && (
+                      <div className="text-[9px] text-muted-foreground text-center leading-tight">
+                        +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
                       </div>
-                    );
-                  })}
-
-                  {/* Show +more only for pickup cell activities (pickup-only + same-day orders) */}
-                  {pickupOnlyOrders.length + sameDayOrders.length > 1 && (
-                    <div className="text-[9px] text-muted-foreground text-center leading-tight">
-                      +{pickupOnlyOrders.length + sameDayOrders.length - 1} more
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )
               ) : (
                 <div
                   className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
