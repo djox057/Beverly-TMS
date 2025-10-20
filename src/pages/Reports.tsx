@@ -601,10 +601,6 @@ const Reports = () => {
           // Multi-date load: create separate entries for each stop with different dates
           const expandedOrders: any[] = [];
           
-          // Store the full date range for in-transit detection
-          const firstPickupDate = pickupDate;
-          const lastDeliveryDate = deliveryDate;
-          
           // Add pickup stops
           allPickupDates.forEach(dateStr => {
             const stops = pickupStopsByDateArray.get(dateStr) || [];
@@ -616,8 +612,6 @@ const Reports = () => {
               ...order,
               pickupDate: stopDate,
               deliveryDate: null,
-              originalPickupDate: firstPickupDate,
-              originalDeliveryDate: lastDeliveryDate,
               pickupStopsByDate,
               deliveryStopsByDate,
               pickupLocation: firstStop.city && firstStop.state
@@ -644,8 +638,6 @@ const Reports = () => {
               ...order,
               pickupDate: null,
               deliveryDate: stopDate,
-              originalPickupDate: firstPickupDate,
-              originalDeliveryDate: lastDeliveryDate,
               pickupStopsByDate,
               deliveryStopsByDate,
               pickupLocation: "—",
@@ -797,14 +789,10 @@ const Reports = () => {
 
       // Check if this day is in transit (between pickup and delivery) for any order
       const inTransitOrders = ordersWithDates.filter((order) => {
-        // For expanded multi-stop orders, use the original date range
-        const pickupDateToCheck = order.originalPickupDate || order.pickupDate;
-        const deliveryDateToCheck = order.originalDeliveryDate || order.deliveryDate;
-        
-        if (!pickupDateToCheck || !deliveryDateToCheck || isSameDayPickupDelivery(order)) return false;
+        if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
         const dayTime = day.getTime();
-        const pickupTime = pickupDateToCheck.getTime();
-        const deliveryTime = deliveryDateToCheck.getTime();
+        const pickupTime = order.pickupDate.getTime();
+        const deliveryTime = order.deliveryDate.getTime();
         // Day is in transit if it's after pickup and before delivery
         // This includes future loads that haven't been picked up yet (2-3 day loads)
         return dayTime > pickupTime && dayTime < deliveryTime;
@@ -823,38 +811,11 @@ const Reports = () => {
       });
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // Lost day should only appear AFTER a delivery and BEFORE the next pickup
-      // NOT between consecutive deliveries
+      // But NOT if there's a game over day before this OR if it's multi-stop in-transit
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      
-      // Find the most recent day with activity before this day
-      const previousDaysWithOrders = days.slice(0, index).filter(prevDay => {
-        const prevDayOrders = ordersWithDates.filter(
-          (order) =>
-            (order.pickupDate && isSameDay(prevDay, order.pickupDate)) ||
-            (order.deliveryDate && isSameDay(prevDay, order.deliveryDate))
-        );
-        return prevDayOrders.length > 0;
-      });
-      
-      // Check if the most recent activity was a delivery (not a pickup)
-      let lastActivityWasDelivery = false;
-      if (previousDaysWithOrders.length > 0) {
-        const lastActivityDay = previousDaysWithOrders[previousDaysWithOrders.length - 1];
-        const lastDayOrders = ordersWithDates.filter(
-          (order) =>
-            (order.pickupDate && isSameDay(lastActivityDay, order.pickupDate)) ||
-            (order.deliveryDate && isSameDay(lastActivityDay, order.deliveryDate))
-        );
-        // If last day had any delivery, it counts as delivery day
-        lastActivityWasDelivery = lastDayOrders.some(order => 
-          order.deliveryDate && isSameDay(lastActivityDay, order.deliveryDate)
-        );
-      }
-      
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore && lastActivityWasDelivery;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -1052,7 +1013,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center ${isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
+                  className={`text-xs h-full flex items-center justify-center ${isMultiStopInTransit ? "text-black font-bold" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
                 >
                   {isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
                 </div>
@@ -1357,7 +1318,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold text-[0.624rem] cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
+                  className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isMultiStopInTransit ? "text-black font-bold" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
                   onClick={
                     isMissingPickup
                       ? (e) => {
