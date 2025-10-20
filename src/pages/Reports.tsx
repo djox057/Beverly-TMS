@@ -1452,26 +1452,6 @@ const Reports = () => {
     return reports
       .map(group => {
         const emptyTrucks = group.trucks.filter(truck => {
-          // Check if truck is in transit today (shows ">>>")
-          // A truck shows ">>>" for dates between pickup and delivery
-          const isInTransitToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === 'GAME|OVER') return false;
-            if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            
-            const pickupDate = new Date(order.pickupStop.datetime);
-            pickupDate.setHours(0, 0, 0, 0);
-            const deliveryDate = new Date(order.deliveryStop.datetime);
-            deliveryDate.setHours(0, 0, 0, 0);
-            
-            // Check if today is between pickup and delivery (exclusive of pickup day)
-            return today > pickupDate && today <= deliveryDate;
-          });
-          
-          // Exclude trucks in transit
-          if (isInTransitToday) {
-            return false;
-          }
-          
           // Check if truck has NO pickup scheduled for today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
             if (order.notes === 'GAME|OVER') return false;
@@ -1481,22 +1461,110 @@ const Reports = () => {
             return isSameDay(pickupDate, today);
           });
           
-          // Only show truck if it has NO pickup for today
-          if (hasPickupToday) {
+          // Check if truck is in multi-stop transit today
+          const ordersWithDates = truck.allOrders?.flatMap((order: any) => {
+            if (order.notes === 'GAME|OVER') return [];
+            const pickupDate = order.pickup_datetime
+              ? (() => {
+                  const parsed = parseSimpleDateTime(order.pickup_datetime);
+                  return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                })()
+              : null;
+            const deliveryDate = order.delivery_datetime
+              ? (() => {
+                  const parsed = parseSimpleDateTime(order.delivery_datetime);
+                  return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                })()
+              : null;
+
+            const pickupStopsByDate = new Map<string, number>();
+            const deliveryStopsByDate = new Map<string, number>();
+            
+            order.pickupStops?.forEach((stop: any) => {
+              if (stop.datetime) {
+                const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+                pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+              }
+            });
+
+            order.deliveryStops?.forEach((stop: any) => {
+              if (stop.datetime) {
+                const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+                deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+              }
+            });
+
+            const allPickupDates = Array.from(pickupStopsByDate.keys());
+            const allDeliveryDates = Array.from(deliveryStopsByDate.keys());
+            const hasMultipleDates = allPickupDates.length + allDeliveryDates.length > 1;
+            const allDates = new Set([...allPickupDates, ...allDeliveryDates]);
+            const allStopsOnSameDate = allDates.size === 1;
+            const isMultiStopExpanded = !allStopsOnSameDate && hasMultipleDates;
+
+            return [{
+              ...order,
+              pickupDate,
+              deliveryDate,
+              isMultiStopExpanded
+            }];
+          }) || [];
+
+          const inTransitOrders = ordersWithDates.filter((order: any) => {
+            if (!order.pickupDate || !order.deliveryDate) return false;
+            const dayTime = today.getTime();
+            const pickupTime = order.pickupDate.getTime();
+            const deliveryTime = order.deliveryDate.getTime();
+            return dayTime > pickupTime && dayTime < deliveryTime;
+          });
+
+          const isMultiStopInTransit = inTransitOrders.length > 0 && inTransitOrders.every(order => order.isMultiStopExpanded);
+          
+          // Exclude trucks in multi-stop transit
+          if (isMultiStopInTransit) {
             return false;
           }
           
-          // Check for explicit lost day note for today
-          const todayNote = truck.lostDayNotes?.find((note: any) => note.date === todayStr);
+          // Find first pickup date
+          const firstPickupDate = ordersWithDates
+            .filter((order) => order.pickupDate)
+            .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
           
-          if (todayNote) {
-            // Has explicit note - exclude game over types
-            const noteText = todayNote.note?.toLowerCase();
-            return !noteText?.includes('game over');
+          const isAfterFirstPickup = firstPickupDate && today >= firstPickupDate;
+          const oneDayInFuture = addDays(today, 1);
+          const isWithinTimeframe = today.getTime() <= oneDayInFuture.getTime();
+          
+          // Check if there's a game over day before today
+          const hasGameOverBefore = truck.lostDayNotes?.some((note: any) => {
+            const noteDate = new Date(note.date);
+            noteDate.setHours(0, 0, 0, 0);
+            const noteText = note.note?.toLowerCase();
+            return noteDate < today && (noteText?.includes('game over'));
+          });
+          
+          // Find the most recent day with activity before today
+          const allActivityDays = ordersWithDates
+            .flatMap((order: any) => {
+              const days: Date[] = [];
+              if (order.pickupDate) days.push(order.pickupDate);
+              if (order.deliveryDate) days.push(order.deliveryDate);
+              return days;
+            })
+            .filter((date: Date) => date < today)
+            .sort((a: Date, b: Date) => b.getTime() - a.getTime());
+          
+          let lastActivityWasDelivery = false;
+          if (allActivityDays.length > 0) {
+            const lastActivityDay = allActivityDays[0];
+            // Check if the most recent activity was a delivery
+            lastActivityWasDelivery = ordersWithDates.some((order: any) => 
+              order.deliveryDate && isSameDay(order.deliveryDate, lastActivityDay)
+            );
           }
           
-          // No explicit note, but no pickup and not in transit = would show "Empty" or "Lost day"
-          return true;
+          // This is the exact same logic as isMissingPickup
+          const isMissingPickup = !hasPickupToday && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore && lastActivityWasDelivery;
+          
+          return isMissingPickup;
         });
         
         return {
