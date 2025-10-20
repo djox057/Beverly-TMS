@@ -60,13 +60,23 @@ const Trips = () => {
     filteredOrders.forEach(order => {
       if (order.deliveryDate) {
         try {
-          // Handle both ISO datetime strings and simple date strings
+          // Parse date string - handle various formats
+          const dateStr = String(order.deliveryDate);
           let deliveryDate: Date;
-          if (order.deliveryDate.includes('T')) {
-            deliveryDate = parseISO(order.deliveryDate);
-          } else {
-            // Simple date string like "2025-10-20"
-            deliveryDate = new Date(order.deliveryDate + 'T00:00:00');
+          
+          // If it's a string with time (ISO format)
+          if (dateStr.includes('T')) {
+            deliveryDate = parseISO(dateStr);
+          } 
+          // If it's a simple date string like "10/20/2025" or "2025-10-20"
+          else {
+            // Try to parse as-is first
+            deliveryDate = new Date(dateStr);
+            
+            // If that fails, try adding time
+            if (isNaN(deliveryDate.getTime())) {
+              deliveryDate = new Date(dateStr + 'T00:00:00');
+            }
           }
           
           // Validate the date
