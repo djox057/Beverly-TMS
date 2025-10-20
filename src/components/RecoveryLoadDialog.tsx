@@ -18,19 +18,16 @@ interface RecoveryLoadDialogProps {
   currentTruck: string;
   currentTrailer: string;
   totalMiles: number;
-  totalFreight: number;
   totalDriverRate: number;
 }
 
 export interface RecoveryData {
   originalMiles: number;
-  originalFreight: number;
   originalDriverRate: number;
   recoveryTruckId: string;
   recoveryTrailerId: string;
   recoveryDriverId: string;
   recoveryMiles: number;
-  recoveryFreight: number;
   recoveryDriverRate: number;
   recoveryDate: string;
 }
@@ -43,7 +40,6 @@ export function RecoveryLoadDialog({
   currentTruck,
   currentTrailer,
   totalMiles,
-  totalFreight,
   totalDriverRate,
 }: RecoveryLoadDialogProps) {
   const { data: trucks } = useAvailableTrucks(true); // Pass true for recovery mode
@@ -53,13 +49,11 @@ export function RecoveryLoadDialog({
   const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
 
   const [originalMiles, setOriginalMiles] = useState<string>("");
-  const [originalFreight, setOriginalFreight] = useState<string>("");
   const [originalDriverRate, setOriginalDriverRate] = useState<string>("");
   const [recoveryTruckId, setRecoveryTruckId] = useState<string>("");
   const [recoveryTrailerId, setRecoveryTrailerId] = useState<string>("");
   const [recoveryDriverId, setRecoveryDriverId] = useState<string>("");
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
-  const [recoveryFreight, setRecoveryFreight] = useState<string>("");
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -79,30 +73,18 @@ export function RecoveryLoadDialog({
   const handleSave = () => {
     setError("");
 
-    const origMiles = parseFloat(originalMiles) || 0;
-    const recMiles = parseFloat(recoveryMiles) || 0;
-    const origFreight = parseFloat(originalFreight) || 0;
-    const recFreight = parseFloat(recoveryFreight) || 0;
-
-    if (origFreight + recFreight > totalFreight) {
-      setError(`Total freight ($${origFreight + recFreight}) cannot exceed load freight ($${totalFreight})`);
-      return;
-    }
-
     if (!recoveryTruckId || !recoveryDriverId) {
-      setError("Please select recovery truck and driver");
+      setError("Please select transfer truck and driver");
       return;
     }
 
     onSave({
-      originalMiles: origMiles,
-      originalFreight: origFreight,
+      originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
       recoveryTruckId,
       recoveryTrailerId,
       recoveryDriverId,
-      recoveryMiles: recMiles,
-      recoveryFreight: recFreight,
+      recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
       recoveryDate: new Date().toISOString(),
     });
@@ -114,7 +96,7 @@ export function RecoveryLoadDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Recovery Load</DialogTitle>
+          <DialogTitle>Transfer Load</DialogTitle>
         </DialogHeader>
 
         {error && (
@@ -142,7 +124,7 @@ export function RecoveryLoadDialog({
                 <Input value={currentTrailer || "N/A"} disabled />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Miles Driven *</Label>
                 <Input
@@ -150,15 +132,6 @@ export function RecoveryLoadDialog({
                   value={originalMiles}
                   onChange={(e) => setOriginalMiles(e.target.value)}
                   placeholder="0"
-                />
-              </div>
-              <div>
-                <Label>Freight Amount *</Label>
-                <Input
-                  type="number"
-                  value={originalFreight}
-                  onChange={(e) => setOriginalFreight(e.target.value)}
-                  placeholder="0.00"
                 />
               </div>
               <div>
@@ -173,9 +146,9 @@ export function RecoveryLoadDialog({
             </div>
           </div>
 
-          {/* Recovery Driver Section */}
+          {/* Transfer Driver Section */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Recovery Driver</h3>
+            <h3 className="font-semibold text-lg">Transfer Driver</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Truck *</Label>
@@ -220,7 +193,7 @@ export function RecoveryLoadDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Miles to Complete *</Label>
                 <Input
@@ -228,15 +201,6 @@ export function RecoveryLoadDialog({
                   value={recoveryMiles}
                   onChange={(e) => setRecoveryMiles(e.target.value)}
                   placeholder="0"
-                />
-              </div>
-              <div>
-                <Label>Freight Amount *</Label>
-                <Input
-                  type="number"
-                  value={recoveryFreight}
-                  onChange={(e) => setRecoveryFreight(e.target.value)}
-                  placeholder="0.00"
                 />
               </div>
               <div>
@@ -256,7 +220,7 @@ export function RecoveryLoadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save Recovery</Button>
+          <Button onClick={handleSave}>Save Transfer</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

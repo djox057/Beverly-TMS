@@ -162,17 +162,15 @@ const EditOrder = () => {
   // Track visibility of additional fields
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
 
-  // Recovery load state
+  // Transfer load state
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
   const [originalDriverName, setOriginalDriverName] = useState("");
   const [originalTruckNumber, setOriginalTruckNumber] = useState("");
   const [originalTrailerNumber, setOriginalTrailerNumber] = useState("");
   const [originalMiles, setOriginalMiles] = useState("");
-  const [originalFreightAmount, setOriginalFreightAmount] = useState("");
   const [originalDriverPrice, setOriginalDriverPrice] = useState("");
   const [recoveryMiles, setRecoveryMiles] = useState("");
-  const [recoveryFreightAmount, setRecoveryFreightAmount] = useState("");
   const [recoveryDriverPrice, setRecoveryDriverPrice] = useState("");
   const [recoveryDate, setRecoveryDate] = useState("");
 
@@ -397,10 +395,8 @@ const EditOrder = () => {
           setOriginalTruckNumber(origTruck?.truck_number || "");
           setOriginalTrailerNumber(origTrailer?.trailer_number || "");
           setOriginalMiles((orderData as any).original_miles?.toString() || "");
-          setOriginalFreightAmount((orderData as any).original_freight_amount?.toString() || "");
           setOriginalDriverPrice((orderData as any).original_driver_price?.toString() || "");
           setRecoveryMiles((orderData as any).recovery_miles?.toString() || "");
-          setRecoveryFreightAmount((orderData as any).recovery_freight_amount?.toString() || "");
           setRecoveryDriverPrice((orderData as any).recovery_driver_price?.toString() || "");
           setRecoveryDate((orderData as any).recovery_date || "");
         }
@@ -987,7 +983,7 @@ const EditOrder = () => {
 
   const handleRecoverySave = async (data: RecoveryData) => {
     try {
-      // Update order with recovery information
+      // Update order with transfer information
       const { error } = await supabase
         .from("orders")
         .update({
@@ -997,13 +993,11 @@ const EditOrder = () => {
           original_truck_id: truck,
           original_trailer_id: trailerId || null,
           original_miles: data.originalMiles,
-          original_freight_amount: data.originalFreight,
           original_driver_price: data.originalDriverRate,
           recovery_miles: data.recoveryMiles,
-          recovery_freight_amount: data.recoveryFreight,
           recovery_driver_price: data.recoveryDriverRate,
           recovery_date: data.recoveryDate,
-          // Update current assignment to recovery driver
+          // Update current assignment to transfer driver
           truck_id: data.recoveryTruckId,
           trailer_id: data.recoveryTrailerId || null,
           driver1_id: data.recoveryDriverId,
@@ -1015,16 +1009,16 @@ const EditOrder = () => {
 
       toast({
         title: "Success",
-        description: "Load marked as recovery successfully",
+        description: "Load marked as transfer successfully",
       });
 
       // Reload order data to reflect changes
       await loadOrderData();
     } catch (error: any) {
-      console.error("Error saving recovery load:", error);
+      console.error("Error saving transfer load:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to mark load as recovery",
+        description: error.message || "Failed to mark load as transfer",
         variant: "destructive",
       });
     }
@@ -1903,13 +1897,13 @@ const EditOrder = () => {
               />
             </div>
 
-            {/* Recovery Details Section */}
+            {/* Transfer Details Section */}
             {isRecovery && (
               <div className="space-y-4 p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
                 <div className="flex items-center gap-2">
-                  <Badge variant="destructive" className="bg-amber-500">RECOVERY LOAD</Badge>
+                  <Badge variant="destructive" className="bg-amber-500">TRANSFER LOAD</Badge>
                   <span className="text-sm text-muted-foreground">
-                    {recoveryDate && `Recovery Date: ${new Date(recoveryDate).toLocaleDateString()}`}
+                    {recoveryDate && `Transfer Date: ${new Date(recoveryDate).toLocaleDateString()}`}
                   </span>
                 </div>
                 
@@ -1934,10 +1928,6 @@ const EditOrder = () => {
                         <span className="font-medium">{originalMiles || "0"}</span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Freight Amount:</span>{" "}
-                        <span className="font-medium">${parseFloat(originalFreightAmount || "0").toFixed(2)}</span>
-                      </div>
-                      <div>
                         <span className="text-muted-foreground">Driver Rate:</span>{" "}
                         <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
                       </div>
@@ -1945,15 +1935,11 @@ const EditOrder = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <h4 className="font-semibold text-sm">Recovery Assignment</h4>
+                    <h4 className="font-semibold text-sm">Transfer Assignment</h4>
                     <div className="space-y-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Miles:</span>{" "}
                         <span className="font-medium">{recoveryMiles || "0"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Freight Amount:</span>{" "}
-                        <span className="font-medium">${parseFloat(recoveryFreightAmount || "0").toFixed(2)}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Driver Rate:</span>{" "}
@@ -2378,7 +2364,7 @@ const EditOrder = () => {
                   onClick={() => setRecoveryDialogOpen(true)}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Recovery Load
+                  Transfer Load
                 </Button>
               )}
               <Button type="submit" disabled={isSubmitting}>
@@ -2404,7 +2390,6 @@ const EditOrder = () => {
         currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"}
         currentTrailer={originalTrailerNumber || trailer || "N/A"}
         totalMiles={parseInt(loadedMiles) || 0}
-        totalFreight={parseFloat(freightAmount) || 0}
         totalDriverRate={parseFloat(driverPrice) || 0}
       />
     </div>
