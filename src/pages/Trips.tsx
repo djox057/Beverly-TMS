@@ -315,7 +315,7 @@ const Trips = () => {
                             })}
 
                             {/* Weekly Summary Row */}
-                            <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-b-4 border-primary">
+                            <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-4 border-primary">
                               <TableCell colSpan={8} className="py-3">
                                 Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
                               </TableCell>
