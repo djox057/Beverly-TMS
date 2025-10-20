@@ -159,6 +159,64 @@ Extract: brokerName: "ACME LOGISTICS LLC", brokerAddress: "6275 Hazeltine Nation
 
 ---
 
+## ⚠️ CRITICAL WARNING: DO NOT CONFUSE CARRIER WITH PICKUP/DELIVERY LOCATIONS!
+
+**🚨 CARRIER INFORMATION IS NOT A SHIPPING LOCATION - NEVER USE IT FOR PICKUP/DELIVERY ADDRESSES!**
+
+**What is "Carrier" information?**
+- The CARRIER is the trucking company being hired to transport the load
+- Carrier section contains: company name, driver name, driver phone, truck number
+- Example: "Carrier: BF PRIME LLC, Address: HAMMOND, IN 46323, Driver: Marcos"
+
+**🚫 NEVER DO THIS:**
+❌ DO NOT use carrier address for pickup address
+❌ DO NOT use carrier city/state for pickup city/state  
+❌ DO NOT use carrier zip code for pickup zip code
+❌ DO NOT use carrier address for delivery address
+❌ DO NOT use carrier city/state for delivery city/state
+❌ DO NOT use carrier zip code for delivery zip code
+
+**✅ CORRECT BEHAVIOR:**
+- Extract carrier information ONLY for identifying the trucking company (ignore it completely for address extraction)
+- Pickup/delivery addresses come from sections labeled "Pickup", "PU", "Delivery", "SO", "Stop", etc.
+- ALWAYS match the street address with the corresponding city/state/zip from the SAME location section
+
+**🔍 REAL EXAMPLE OF THE ERROR TO AVOID:**
+
+Document shows:
+```
+Carrier: BF PRIME LLC
+Address: HAMMOND, IN 46323  ← This is the CARRIER's location (ignore for shipping!)
+
+PU 1: Name: Moran Logistics
+Address: 635 8TH STREET
+WATSONTOWN, PA 17777  ← This is the PICKUP location (use this!)
+```
+
+❌ WRONG EXTRACTION:
+{
+  "pickupAddress": "635 8TH STREET",
+  "pickupCity": "HAMMOND",  ← ERROR! Used carrier city instead of pickup city
+  "pickupState": "IN",       ← ERROR! Used carrier state instead of pickup state
+  "pickupZip": "46323"       ← ERROR! Used carrier zip instead of pickup zip
+}
+
+✅ CORRECT EXTRACTION:
+{
+  "pickupAddress": "635 8TH STREET",
+  "pickupCity": "WATSONTOWN",  ← CORRECT! Used pickup city
+  "pickupState": "PA",          ← CORRECT! Used pickup state
+  "pickupZip": "17777"          ← CORRECT! Used pickup zip
+}
+
+**MANDATORY VALIDATION:**
+Before finalizing each pickup/delivery address, ask yourself:
+1. ❓ Did I extract this city/state/zip from the SAME section as the street address?
+2. ❓ Am I accidentally using carrier information for shipping locations?
+3. ✅ Each pickup/delivery must have matching address, city, state, and zip from the SAME location section
+
+---
+
 ## STEP 1: DISTINGUISH PICKUPS FROM DELIVERIES (CRITICAL - READ THIS CAREFULLY!)
 
 **⚠️ ABSOLUTE REQUIREMENT: Every load MUST have AT LEAST 1 pickup AND 1 delivery. NO EXCEPTIONS!**
