@@ -270,71 +270,71 @@ const Trips = () => {
                        const weekStartDate = parseISO(week.weekStart);
                        const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
 
-                       return (
-                         <>
-                           {/* Weekly Summary Row */}
-                           <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-t-4 border-primary">
-                             <TableCell colSpan={8} className="py-3">
-                               Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
-                             </TableCell>
-                             <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
-                             <TableCell className="py-3">
-                               <div className="font-semibold text-green-600 dark:text-green-400">
-                                 ${weekTotal.driverPay.toLocaleString()}
-                               </div>
-                             </TableCell>
-                             <TableCell colSpan={4}></TableCell>
-                             <TableCell className="py-3">
-                               <div className="font-semibold text-green-600 dark:text-green-400">
-                                 ${weekTotal.freightAmount.toLocaleString()}
-                               </div>
-                             </TableCell>
-                             <TableCell></TableCell>
-                           </TableRow>
+                        return (
+                          <>
+                            {/* Orders for this week */}
+                            {week.orders.map((order, orderIndex) => {
+                              const isRecovery = order.isRecovery;
+                              const isLastInWeek = orderIndex === week.orders.length - 1;
+                              
+                              const rowClassName = isRecovery
+                                ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                                : '';
+                              
+                              return (
+                                <TableRow 
+                                  key={order.id} 
+                                  className={`h-16 ${rowClassName}`}
+                                >
+                                  <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                                  <TableCell>{order.internalLoadNumber}</TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                                  <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                                  <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                                  <TableCell>
+                                    <div className="font-semibold text-green-600 dark:text-green-400">
+                                      ${order.totalDriverPay?.toLocaleString() || '0'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                                  <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                                  <TableCell>{order.brokerLoadNumber}</TableCell>
+                                  <TableCell>{order.invoiced}</TableCell>
+                                  <TableCell>
+                                    <div className="font-semibold text-green-600 dark:text-green-400">
+                                      ${order.totalFreightAmount?.toLocaleString() || '0'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{order.companyName}</TableCell>
+                                </TableRow>
+                              );
+                            })}
 
-                           {/* Orders for this week */}
-                           {week.orders.map((order, orderIndex) => {
-                             const isRecovery = order.isRecovery;
-                             const isLastInWeek = orderIndex === week.orders.length - 1;
-                             
-                             const rowClassName = isRecovery
-                               ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
-                               : '';
-                             
-                             return (
-                               <TableRow 
-                                 key={order.id} 
-                                 className={`h-16 ${rowClassName} ${isLastInWeek ? 'border-b-4 border-primary' : ''}`}
-                               >
-                                 <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                                 <TableCell>{order.internalLoadNumber}</TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
-                                 <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
-                                 <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
-                                 <TableCell>
-                                   <div className="font-semibold text-green-600 dark:text-green-400">
-                                     ${order.totalDriverPay?.toLocaleString() || '0'}
-                                   </div>
-                                 </TableCell>
-                                 <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
-                                 <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
-                                 <TableCell>{order.brokerLoadNumber}</TableCell>
-                                 <TableCell>{order.invoiced}</TableCell>
-                                 <TableCell>
-                                   <div className="font-semibold text-green-600 dark:text-green-400">
-                                     ${order.totalFreightAmount?.toLocaleString() || '0'}
-                                   </div>
-                                 </TableCell>
-                                 <TableCell>{order.companyName}</TableCell>
-                               </TableRow>
-                             );
-                           })}
-                         </>
-                       );
+                            {/* Weekly Summary Row */}
+                            <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-b-4 border-primary">
+                              <TableCell colSpan={8} className="py-3">
+                                Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
+                              </TableCell>
+                              <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
+                              <TableCell className="py-3">
+                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                  ${weekTotal.driverPay.toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell colSpan={4}></TableCell>
+                              <TableCell className="py-3">
+                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                  ${weekTotal.freightAmount.toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          </>
+                        );
                      })
                    )}
                  </TableBody>
