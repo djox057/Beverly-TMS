@@ -94,10 +94,10 @@ export const Sidebar = () => {
       ];
     }
     
-    // Supervisor role: all pages + Alerts except Analytics
+    // Supervisor role: all pages + Alerts (full access)
     if (primaryRole === 'supervisor') {
       return [
-        ...filteredNav.filter(item => item.href !== '/analytics'),
+        ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
     }
