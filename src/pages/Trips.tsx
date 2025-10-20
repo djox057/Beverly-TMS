@@ -249,7 +249,6 @@ const Trips = () => {
                     <TableHead className="w-28">Broker Load #</TableHead>
                     <TableHead className="w-20">Invoiced</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
-                    <TableHead className="w-28">Company</TableHead>
                   </TableRow>
                  </TableHeader>
                 <TableBody>
@@ -309,7 +308,6 @@ const Trips = () => {
                                       ${order.totalFreightAmount?.toLocaleString() || '0'}
                                     </div>
                                   </TableCell>
-                                  <TableCell>{order.companyName}</TableCell>
                                 </TableRow>
                               );
                             })}
@@ -331,7 +329,6 @@ const Trips = () => {
                                   ${weekTotal.freightAmount.toLocaleString()}
                                 </div>
                               </TableCell>
-                              <TableCell></TableCell>
                             </TableRow>
                           </>
                         );
