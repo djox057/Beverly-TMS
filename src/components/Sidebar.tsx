@@ -41,7 +41,7 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
-  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'supervisor'] },
+  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
