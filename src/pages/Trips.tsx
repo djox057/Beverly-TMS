@@ -169,94 +169,77 @@ const Trips = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="w-fit min-w-full">
         <CardHeader>
           <CardTitle>
             Trips ({filteredOrders.length})
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="w-full">
-            <div className="min-w-[1400px]">
-              <Table>
+        <CardContent className="p-0">
+          <div className="p-6">
+            <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Load #</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Truck</TableHead>
-                    <TableHead>Driver</TableHead>
-                    <TableHead>Broker</TableHead>
-                    <TableHead>Broker Load #</TableHead>
-                    <TableHead>PU Date</TableHead>
-                    <TableHead>Del Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>Driver Pay</TableHead>
-                    <TableHead>Miles</TableHead>
-                    <TableHead>BOL</TableHead>
-                    <TableHead>Invoiced</TableHead>
+                    <TableHead className="w-20">Truck #</TableHead>
+                    <TableHead className="w-20">Load #</TableHead>
+                    <TableHead className="w-32">Pickup Date</TableHead>
+                    <TableHead className="w-28">Pickup City</TableHead>
+                    <TableHead className="w-20">Pickup State</TableHead>
+                    <TableHead className="w-32">Delivery Date</TableHead>
+                    <TableHead className="w-28">Delivery City</TableHead>
+                    <TableHead className="w-20">Delivery State</TableHead>
+                    <TableHead className="w-16">Miles</TableHead>
+                    <TableHead className="w-24">Driver Pay</TableHead>
+                    <TableHead className="w-32">Driver</TableHead>
+                    <TableHead className="w-36">Broker Name</TableHead>
+                    <TableHead className="w-28">Broker Load #</TableHead>
+                    <TableHead className="w-20">Invoiced</TableHead>
+                    <TableHead className="w-28">Freight Amount</TableHead>
+                    <TableHead className="w-28">Company</TableHead>
                   </TableRow>
-                </TableHeader>
+                 </TableHeader>
                 <TableBody>
-                  {paginatedOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                   {paginatedOrders.length === 0 ? <TableRow>
+                      <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                         No trips found
                       </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedOrders.map((order) => (
-                      <TableRow 
-                        key={order.id}
-                        className={
-                          order.isRecovery ? "bg-destructive/10" : ""
-                        }
-                      >
-                        <TableCell className="font-medium">
-                          {order.internalLoadNumber}
+                     </TableRow> : paginatedOrders.map(order => {
+                      const isRecovery = order.isRecovery;
+                      
+                      const rowClassName = isRecovery
+                        ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                        : '';
+                      
+                      return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                        <TableCell>{order.internalLoadNumber}</TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                        <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${order.totalDriverPay?.toLocaleString() || '0'}
+                          </div>
+                        </TableCell>
+                        <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                        <TableCell>{order.brokerLoadNumber}</TableCell>
+                        <TableCell>{order.invoiced}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${order.totalFreightAmount?.toLocaleString() || '0'}
+                          </div>
                         </TableCell>
                         <TableCell>{order.companyName}</TableCell>
-                        <TableCell>{order.truckNumber || '-'}</TableCell>
-                        <TableCell>{order.driverName || '-'}</TableCell>
-                        <TableCell>{order.brokerName || '-'}</TableCell>
-                        <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
-                        <TableCell>
-                          {order.pickupDate || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {order.deliveryDate || '-'}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(order.status || 'Pending')}</TableCell>
-                        <TableCell>
-                          {order.freightAmount ? `$${Number(order.freightAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {order.driverPrice ? `$${Number(order.driverPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {order.mileage?.toLocaleString() || '0'}
-                        </TableCell>
-                        <TableCell>
-                          {order.bolFiles && order.bolFiles.length > 0 ? (
-                            <Badge variant="secondary">Yes</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {order.invoiced ? (
-                            <Badge variant="secondary">Yes</Badge>
-                          ) : (
-                            <span className="text-muted-foreground">No</span>
-                          )}
-                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
+                    })}
+                 </TableBody>
               </Table>
-            </div>
-          </ScrollArea>
+          </div>
 
           {totalPages > 1 && (
             <div className="mt-4">
