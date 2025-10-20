@@ -15,7 +15,8 @@ import {
   TrendingUp,
   AlertTriangle,
   Moon,
-  Sun
+  Sun,
+  Route
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
+  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
@@ -65,43 +67,45 @@ export const Sidebar = () => {
   const getFilteredNavigation = () => {
     const primaryRole = getPrimaryRole();
     
-    // Accounting role: exclude Analytics, but include Reports
-    if (primaryRole === 'accounting') {
-      return navigation.filter(item => 
-        item.href !== '/analytics'
-      );
-    }
-
+    // Filter out items based on role restrictions
+    const filteredNav = navigation.filter(item => {
+      // If item has role restrictions, check if user has one of those roles
+      if (item.roles && item.roles.length > 0) {
+        return item.roles.some(role => hasRole(role as any));
+      }
+      
+      // Exclude Analytics for accounting role
+      if (primaryRole === 'accounting' && item.href === '/analytics') {
+        return false;
+      }
+      
+      return true;
+    });
+    
     // Admin role: all navigation + User Management page + Alerts
     if (primaryRole === 'admin') {
       return [
-        ...navigation,
+        ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
-    }
-    
-    // Manager role: all navigation except User Management (same as admin minus user management)
-    if (hasRole('manager')) {
-      return navigation;
-    }
-    
-    // Supervisor role: all navigation except User Management and Analytics has filtered view
-    if (hasRole('supervisor')) {
-      return navigation;
     }
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Alerts)
     if (hasRole('safety')) {
       const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers'];
       return [
-        ...navigation.filter(item => safetyPages.includes(item.href)),
+        ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
     }
     
     // Dispatch role: all navigation except Analytics
-    return navigation.filter(item => item.href !== '/analytics');
+    if (primaryRole === 'dispatch') {
+      return filteredNav.filter(item => item.href !== '/analytics');
+    }
+    
+    return filteredNav;
   };
 
   const allNavigation = getFilteredNavigation();

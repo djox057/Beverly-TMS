@@ -29,6 +29,7 @@ import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
+import Trips from "./pages/Trips";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -178,6 +179,11 @@ const AppContent = () => {
         <Route path="/alerts" element={
           <ProtectedRoute>
             <Layout><Alerts /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/trips" element={
+          <ProtectedRoute excludedRoles={['dispatch', 'afterhours', 'driver', 'safety', 'supervisor']}>
+            <Layout><Trips /></Layout>
           </ProtectedRoute>
         } />
         {/* Driver Portal Routes */}
