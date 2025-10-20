@@ -525,7 +525,7 @@ const Reports = () => {
     // Get all orders with their pickup/delivery dates sorted chronologically
     const ordersWithDates =
       truck.allOrders
-        ?.map((order: any) => {
+        ?.flatMap((order: any) => {
           // Parse datetime without timezone conversion
           const pickupDate = order.pickup_datetime
             ? (() => {
@@ -543,11 +543,17 @@ const Reports = () => {
           // Count pickup and delivery stops for this order on each date
           const pickupStopsByDate = new Map<string, number>();
           const deliveryStopsByDate = new Map<string, number>();
+          const pickupStopsByDateArray = new Map<string, any[]>();
+          const deliveryStopsByDateArray = new Map<string, any[]>();
 
           order.pickupStops?.forEach((stop: any) => {
             if (stop.datetime) {
               const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
               pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+              if (!pickupStopsByDateArray.has(stopDate)) {
+                pickupStopsByDateArray.set(stopDate, []);
+              }
+              pickupStopsByDateArray.get(stopDate)!.push(stop);
             }
           });
 
@@ -555,33 +561,116 @@ const Reports = () => {
             if (stop.datetime) {
               const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
               deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+              if (!deliveryStopsByDateArray.has(stopDate)) {
+                deliveryStopsByDateArray.set(stopDate, []);
+              }
+              deliveryStopsByDateArray.get(stopDate)!.push(stop);
             }
           });
 
-          return {
-            ...order,
-            pickupDate,
-            deliveryDate,
-            pickupStopsByDate,
-            deliveryStopsByDate,
-            pickupLocation: order.pickupStop
-              ? order.pickupStop.city && order.pickupStop.state
-                ? `${order.pickupStop.city}, ${order.pickupStop.state}`
-                : order.pickupStop.address || "—"
-              : "—",
-            deliveryLocation: order.deliveryStop
-              ? order.deliveryStop.city && order.deliveryStop.state
-                ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
-                : order.deliveryStop.address || "—"
-              : "—",
-          };
+          // Check if all stops are on different dates
+          const allPickupDates = Array.from(pickupStopsByDate.keys());
+          const allDeliveryDates = Array.from(deliveryStopsByDate.keys());
+          const hasMultipleDates = allPickupDates.length + allDeliveryDates.length > 1;
+          
+          // Check if all stops are on the same date
+          const allDates = new Set([...allPickupDates, ...allDeliveryDates]);
+          const allStopsOnSameDate = allDates.size === 1;
+
+          // If all stops are on same date OR single pick/drop, show combined view (current behavior)
+          if (allStopsOnSameDate || !hasMultipleDates) {
+            return [{
+              ...order,
+              pickupDate,
+              deliveryDate,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: order.pickupStop
+                ? order.pickupStop.city && order.pickupStop.state
+                  ? `${order.pickupStop.city}, ${order.pickupStop.state}`
+                  : order.pickupStop.address || "—"
+                : "—",
+              deliveryLocation: order.deliveryStop
+                ? order.deliveryStop.city && order.deliveryStop.state
+                  ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
+                  : order.deliveryStop.address || "—"
+                : "—",
+            }];
+          }
+
+          // Multi-date load: create separate entries for each stop with different dates
+          const expandedOrders: any[] = [];
+          
+          // Store the full date range for in-transit detection
+          const firstPickupDate = pickupDate;
+          const lastDeliveryDate = deliveryDate;
+          
+          // Add pickup stops
+          allPickupDates.forEach(dateStr => {
+            const stops = pickupStopsByDateArray.get(dateStr) || [];
+            const firstStop = stops[0];
+            const parsed = parseSimpleDateTime(firstStop.datetime);
+            const stopDate = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+            
+            expandedOrders.push({
+              ...order,
+              pickupDate: stopDate,
+              deliveryDate: null,
+              originalPickupDate: firstPickupDate,
+              originalDeliveryDate: lastDeliveryDate,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: firstStop.city && firstStop.state
+                ? `${firstStop.city}, ${firstStop.state}`
+                : firstStop.address || "—",
+              deliveryLocation: "—",
+              pickupStop: firstStop,
+              deliveryStop: null,
+              pickup_datetime: firstStop.datetime,
+              pickup_end_datetime: order.pickup_end_datetime,
+              isMultiStopExpanded: true,
+              stopType: 'pickup'
+            });
+          });
+
+          // Add delivery stops
+          allDeliveryDates.forEach(dateStr => {
+            const stops = deliveryStopsByDateArray.get(dateStr) || [];
+            const lastStop = stops[stops.length - 1];
+            const parsed = parseSimpleDateTime(lastStop.datetime);
+            const stopDate = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+            
+            expandedOrders.push({
+              ...order,
+              pickupDate: null,
+              deliveryDate: stopDate,
+              originalPickupDate: firstPickupDate,
+              originalDeliveryDate: lastDeliveryDate,
+              pickupStopsByDate,
+              deliveryStopsByDate,
+              pickupLocation: "—",
+              deliveryLocation: lastStop.city && lastStop.state
+                ? `${lastStop.city}, ${lastStop.state}`
+                : lastStop.address || "—",
+              pickupStop: null,
+              deliveryStop: lastStop,
+              delivery_datetime: lastStop.datetime,
+              delivery_end_datetime: order.delivery_end_datetime,
+              isMultiStopExpanded: true,
+              stopType: 'delivery'
+            });
+          });
+
+          return expandedOrders;
         })
         .sort((a, b) => {
-          // Sort by pickup date
-          if (!a.pickupDate && !b.pickupDate) return 0;
-          if (!a.pickupDate) return 1;
-          if (!b.pickupDate) return -1;
-          return a.pickupDate.getTime() - b.pickupDate.getTime();
+          // Sort by pickup date, then delivery date
+          const aDate = a.pickupDate || a.deliveryDate;
+          const bDate = b.pickupDate || b.deliveryDate;
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return aDate.getTime() - bDate.getTime();
         }) || [];
 
     // Helper to check if previous load's delivery is complete (dark green)
@@ -708,16 +797,24 @@ const Reports = () => {
 
       // Check if this day is in transit (between pickup and delivery) for any order
       const inTransitOrders = ordersWithDates.filter((order) => {
-        if (!order.pickupDate || !order.deliveryDate || isSameDayPickupDelivery(order)) return false;
+        // For expanded multi-stop orders, use the original date range
+        const pickupDateToCheck = order.originalPickupDate || order.pickupDate;
+        const deliveryDateToCheck = order.originalDeliveryDate || order.deliveryDate;
+        
+        if (!pickupDateToCheck || !deliveryDateToCheck || isSameDayPickupDelivery(order)) return false;
         const dayTime = day.getTime();
-        const pickupTime = order.pickupDate.getTime();
-        const deliveryTime = order.deliveryDate.getTime();
+        const pickupTime = pickupDateToCheck.getTime();
+        const deliveryTime = deliveryDateToCheck.getTime();
         // Day is in transit if it's after pickup and before delivery
         // This includes future loads that haven't been picked up yet (2-3 day loads)
         return dayTime > pickupTime && dayTime < deliveryTime;
       });
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
+      
+      // Check if this is a multi-stop expanded in-transit day
+      // Only mark as multi-stop in-transit if ALL in-transit orders for this day are expanded multi-stop
+      const isMultiStopInTransit = isInTransit && inTransitOrders.length > 0 && inTransitOrders.every(order => order.isMultiStopExpanded);
 
       // Check if there's a game over day before this day
       const hasGameOverBefore = days.slice(0, index).some(prevDay => {
@@ -726,11 +823,38 @@ const Reports = () => {
       });
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this
+      // Lost day should only appear AFTER a delivery and BEFORE the next pickup
+      // NOT between consecutive deliveries
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
+      
+      // Find the most recent day with activity before this day
+      const previousDaysWithOrders = days.slice(0, index).filter(prevDay => {
+        const prevDayOrders = ordersWithDates.filter(
+          (order) =>
+            (order.pickupDate && isSameDay(prevDay, order.pickupDate)) ||
+            (order.deliveryDate && isSameDay(prevDay, order.deliveryDate))
+        );
+        return prevDayOrders.length > 0;
+      });
+      
+      // Check if the most recent activity was a delivery (not a pickup)
+      let lastActivityWasDelivery = false;
+      if (previousDaysWithOrders.length > 0) {
+        const lastActivityDay = previousDaysWithOrders[previousDaysWithOrders.length - 1];
+        const lastDayOrders = ordersWithDates.filter(
+          (order) =>
+            (order.pickupDate && isSameDay(lastActivityDay, order.pickupDate)) ||
+            (order.deliveryDate && isSameDay(lastActivityDay, order.deliveryDate))
+        );
+        // If last day had any delivery, it counts as delivery day
+        lastActivityWasDelivery = lastDayOrders.some(order => 
+          order.deliveryDate && isSameDay(lastActivityDay, order.deliveryDate)
+        );
+      }
+      
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore && lastActivityWasDelivery;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -789,7 +913,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isMultiStopInTransit ? "bg-yellow-400" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -928,16 +1052,16 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`text-xs h-full flex items-center justify-center ${isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                  className={`h-full flex items-center justify-center ${isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
                 >
-                  {isInTransit ? ">>>" : "—"}
+                  {isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
                 </div>
               )}
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isMultiStopInTransit ? "bg-yellow-400" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1233,7 +1357,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                  className={`h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold text-[0.624rem] cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isMultiStopInTransit ? "text-black font-bold text-sm" : isInTransit ? "text-foreground font-semibold text-xs" : "text-muted-foreground text-xs"}`}
                   onClick={
                     isMissingPickup
                       ? (e) => {
@@ -1252,7 +1376,7 @@ const Reports = () => {
                       : undefined
                   }
                 >
-                  {isMissingPickup ? getLostDayNote(day) : isInTransit ? ">>>" : "—"}
+                  {isMissingPickup ? getLostDayNote(day) : isMultiStopInTransit ? ">>>" : isInTransit ? ">>>" : "—"}
                 </div>
               )}
             </div>
