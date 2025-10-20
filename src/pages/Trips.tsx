@@ -274,42 +274,101 @@ const Trips = () => {
                             {/* Orders for this week */}
                             {week.orders.map((order, orderIndex) => {
                               const isRecovery = order.isRecovery;
-                              const isLastInWeek = orderIndex === week.orders.length - 1;
-                              
                               const rowClassName = isRecovery
                                 ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
                                 : '';
                               
-                              return (
-                                <TableRow 
-                                  key={order.id} 
-                                  className={`h-16 ${rowClassName}`}
-                                >
-                                  <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                                  <TableCell>{order.internalLoadNumber}</TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
-                                  <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
-                                  <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
-                                  <TableCell>
-                                    <div className="font-semibold text-green-600 dark:text-green-400">
-                                      ${order.totalDriverPay?.toLocaleString() || '0'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
-                                  <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
-                                  <TableCell>{order.brokerLoadNumber}</TableCell>
-                                  <TableCell>{order.invoiced}</TableCell>
-                                  <TableCell>
-                                    <div className="font-semibold text-green-600 dark:text-green-400">
-                                      ${order.totalFreightAmount?.toLocaleString() || '0'}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
+                              // Check if order has multiple pickup_drops with different dates
+                              const pickupDrops = order.pickupDrops || [];
+                              const hasMultipleStops = pickupDrops.length > 1;
+                              
+                              // Get unique dates from pickup_drops
+                              const uniqueDates = [...new Set(pickupDrops.map((pd: any) => {
+                                if (!pd.datetime) return null;
+                                return new Date(pd.datetime).toLocaleDateString();
+                              }).filter(Boolean))];
+                              
+                              const hasDifferentDates = uniqueDates.length > 1;
+                              
+                              // If different dates, show all pickup_drops; if same date, show first pickup and last delivery
+                              if (hasMultipleStops && hasDifferentDates) {
+                                // Display all pickup_drops
+                                return pickupDrops.map((pd: any, pdIndex: number) => {
+                                  const isFirstStop = pdIndex === 0;
+                                  const pdDate = pd.datetime ? new Date(pd.datetime).toLocaleDateString() : 'N/A';
+                                  
+                                  return (
+                                    <TableRow 
+                                      key={`${order.id}-${pdIndex}`} 
+                                      className={`h-16 ${rowClassName}`}
+                                    >
+                                      {isFirstStop ? (
+                                        <>
+                                          <TableCell className="font-medium" rowSpan={pickupDrops.length}>{order.truckNumber}</TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}>{order.internalLoadNumber}</TableCell>
+                                        </>
+                                      ) : null}
+                                      <TableCell className="p-0"><div className="h-full p-4">{pdDate}</div></TableCell>
+                                      <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{pd.city || 'N/A'}</div></TableCell>
+                                      <TableCell className="p-0"><div className="h-full p-4">{pd.state || 'N/A'}</div></TableCell>
+                                      <TableCell className="p-0"><div className="h-full p-4">{pd.type === 'pickup' ? '→' : pdDate}</div></TableCell>
+                                      <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{pd.type === 'pickup' ? '→' : pd.city || 'N/A'}</div></TableCell>
+                                      <TableCell className="p-0"><div className="h-full p-4">{pd.type === 'pickup' ? '→' : pd.state || 'N/A'}</div></TableCell>
+                                      {isFirstStop ? (
+                                        <>
+                                          <TableCell rowSpan={pickupDrops.length}>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}>
+                                            <div className="font-semibold text-green-600 dark:text-green-400">
+                                              ${order.totalDriverPay?.toLocaleString() || '0'}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}>{order.brokerLoadNumber}</TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}>{order.invoiced}</TableCell>
+                                          <TableCell rowSpan={pickupDrops.length}>
+                                            <div className="font-semibold text-green-600 dark:text-green-400">
+                                              ${order.totalFreightAmount?.toLocaleString() || '0'}
+                                            </div>
+                                          </TableCell>
+                                        </>
+                                      ) : null}
+                                    </TableRow>
+                                  );
+                                });
+                              } else {
+                                // Single pickup/delivery or same date - show as single row
+                                return (
+                                  <TableRow 
+                                    key={order.id} 
+                                    className={`h-16 ${rowClassName}`}
+                                  >
+                                    <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                                    <TableCell>{order.internalLoadNumber}</TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                                    <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                                    <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                                    <TableCell>
+                                      <div className="font-semibold text-green-600 dark:text-green-400">
+                                        ${order.totalDriverPay?.toLocaleString() || '0'}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                                    <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                                    <TableCell>{order.brokerLoadNumber}</TableCell>
+                                    <TableCell>{order.invoiced}</TableCell>
+                                    <TableCell>
+                                      <div className="font-semibold text-green-600 dark:text-green-400">
+                                        ${order.totalFreightAmount?.toLocaleString() || '0'}
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              }
                             })}
 
                             {/* Weekly Summary Row */}

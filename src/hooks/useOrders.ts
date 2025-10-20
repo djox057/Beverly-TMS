@@ -156,6 +156,7 @@ export const useOrders = () => {
           deliveryDate: formatDateRange(order.delivery_datetime, order.delivery_end_datetime),
           deliveryCity: deliveryLocation?.city || 'N/A',
           deliveryState: deliveryLocation?.state || 'N/A',
+          pickupDrops: order.pickup_drops || [],
           mileage: totalMileage,
           driverPrice: order.driver_price || 0,
           detentionDriver: order.detention_driver || 0,
