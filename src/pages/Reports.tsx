@@ -799,6 +799,9 @@ const Reports = () => {
       });
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
+      
+      // Check if this is a multi-stop expanded in-transit day
+      const isMultiStopInTransit = inTransitOrders.some(order => order.isMultiStopExpanded);
 
       // Check if there's a game over day before this day
       const hasGameOverBefore = days.slice(0, index).some(prevDay => {
@@ -807,7 +810,7 @@ const Reports = () => {
       });
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this
+      // But NOT if there's a game over day before this OR if it's multi-stop in-transit
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
@@ -870,7 +873,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${deliveryOnlyOrders.length > 0 ? "" : isInTransit && isMultiStopInTransit ? "bg-yellow-400" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1009,7 +1012,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`text-xs h-full flex items-center justify-center ${isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                  className={`text-xs h-full flex items-center justify-center ${isInTransit && isMultiStopInTransit ? "text-black font-bold" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
                 >
                   {isInTransit ? ">>>" : "—"}
                 </div>
@@ -1018,7 +1021,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
+              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${isToday ? 'px-[2%]' : ''} ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : isInTransit && isMultiStopInTransit ? "bg-yellow-400" : isInTransit ? "bg-[hsl(var(--cell-loading))]" : "bg-muted"}`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -1314,7 +1317,7 @@ const Reports = () => {
                 </div>
               ) : (
                 <div
-                  className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                  className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isInTransit && isMultiStopInTransit ? "text-black font-bold" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}
                   onClick={
                     isMissingPickup
                       ? (e) => {
