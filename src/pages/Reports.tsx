@@ -801,8 +801,7 @@ const Reports = () => {
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
       
       // Check if this is a multi-stop expanded in-transit day
-      // Only mark as multi-stop in-transit if ALL in-transit orders for this day are expanded multi-stop
-      const isMultiStopInTransit = isInTransit && inTransitOrders.length > 0 && inTransitOrders.every(order => order.isMultiStopExpanded);
+      const isMultiStopInTransit = inTransitOrders.some(order => order.isMultiStopExpanded);
 
       // Check if there's a game over day before this day
       const hasGameOverBefore = days.slice(0, index).some(prevDay => {
@@ -811,11 +810,11 @@ const Reports = () => {
       });
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this OR if it's multi-stop in-transit
+      // But NOT if there's a game over day before this OR if it's any in-transit day
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
