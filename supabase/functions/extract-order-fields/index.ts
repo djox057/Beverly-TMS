@@ -184,30 +184,26 @@ Extract: brokerName: "ACME LOGISTICS LLC", brokerAddress: "6275 Hazeltine Nation
 **🔍 REAL EXAMPLE OF THE ERROR TO AVOID:**
 
 Document shows:
-```
+===================================
 Carrier: BF PRIME LLC
-Address: HAMMOND, IN 46323  ← This is the CARRIER's location (ignore for shipping!)
+Address: HAMMOND, IN 46323  (This is the CARRIER's location - ignore for shipping!)
 
 PU 1: Name: Moran Logistics
 Address: 635 8TH STREET
-WATSONTOWN, PA 17777  ← This is the PICKUP location (use this!)
-```
+WATSONTOWN, PA 17777  (This is the PICKUP location - use this!)
+===================================
 
 ❌ WRONG EXTRACTION:
-{
-  "pickupAddress": "635 8TH STREET",
-  "pickupCity": "HAMMOND",  ← ERROR! Used carrier city instead of pickup city
-  "pickupState": "IN",       ← ERROR! Used carrier state instead of pickup state
-  "pickupZip": "46323"       ← ERROR! Used carrier zip instead of pickup zip
-}
+pickupAddress: "635 8TH STREET"
+pickupCity: "HAMMOND"   (ERROR! Used carrier city instead of pickup city)
+pickupState: "IN"       (ERROR! Used carrier state instead of pickup state)
+pickupZip: "46323"      (ERROR! Used carrier zip instead of pickup zip)
 
 ✅ CORRECT EXTRACTION:
-{
-  "pickupAddress": "635 8TH STREET",
-  "pickupCity": "WATSONTOWN",  ← CORRECT! Used pickup city
-  "pickupState": "PA",          ← CORRECT! Used pickup state
-  "pickupZip": "17777"          ← CORRECT! Used pickup zip
-}
+pickupAddress: "635 8TH STREET"
+pickupCity: "WATSONTOWN"  (CORRECT! Used pickup city)
+pickupState: "PA"         (CORRECT! Used pickup state)
+pickupZip: "17777"        (CORRECT! Used pickup zip)
 
 **MANDATORY VALIDATION:**
 Before finalizing each pickup/delivery address, ask yourself:
