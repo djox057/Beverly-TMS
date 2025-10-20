@@ -2357,7 +2357,7 @@ const EditOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
-              {(hasRole('manager') || hasRole('supervisor') || hasRole('admin')) && !isRecovery && !isLocked && (
+              {(hasRole('manager') || hasRole('supervisor') || hasRole('admin') || hasRole('dispatch')) && !isRecovery && !isLocked && (
                 <Button
                   type="button"
                   variant="secondary"
