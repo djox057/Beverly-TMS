@@ -810,11 +810,11 @@ const Reports = () => {
       });
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this OR if it's any in-transit day
+      // But NOT if there's a game over day before this OR if it's multi-stop in-transit
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isMultiStopInTransit && !hasGameOverBefore;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
