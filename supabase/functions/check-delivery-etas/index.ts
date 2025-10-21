@@ -164,52 +164,69 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Fetching orders and truck locations...');
 
-    // Get all orders with pickup/delivery stops and truck info
-    // Use explicit foreign key since there are multiple relationships
-    const { data: orders, error: ordersError } = await supabaseClient
-      .from('orders')
-      .select(`
-        internal_load_number,
-        truck_id,
-        delivery_end_datetime,
-        delivery_datetime,
-        order_files(id, file_category),
-        trucks!orders_truck_id_fkey(
-          id,
-          truck_number
-        ),
-        pickup_drops!inner(
-          id,
-          order_id,
-          type,
-          address,
-          city,
-          state,
-          zip_code
-        )
-      `)
-      .in('status', ['pending', 'in_transit'])
-      .not('truck_id', 'is', null);
+    // Get all orders with pickup/delivery stops and truck info - wrap in try-catch
+    let orders: any[] = [];
+    try {
+      const { data: ordersData, error: ordersError } = await supabaseClient
+        .from('orders')
+        .select(`
+          internal_load_number,
+          truck_id,
+          delivery_end_datetime,
+          delivery_datetime,
+          order_files(id, file_category),
+          trucks!orders_truck_id_fkey(
+            id,
+            truck_number
+          ),
+          pickup_drops!inner(
+            id,
+            order_id,
+            type,
+            address,
+            city,
+            state,
+            zip_code
+          )
+        `)
+        .in('status', ['pending', 'in_transit'])
+        .not('truck_id', 'is', null);
 
-    if (ordersError) {
-      console.error('❌ Error fetching orders:', ordersError);
-      throw ordersError;
+      if (ordersError) {
+        console.error('⚠️ Error fetching orders:', ordersError);
+        return new Response(JSON.stringify({ success: true, results: [], error: 'Failed to fetch orders' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      orders = ordersData || [];
+    } catch (ordersException) {
+      console.error('⚠️ Exception fetching orders:', ordersException);
+      return new Response(JSON.stringify({ success: true, results: [], error: 'Exception fetching orders' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    console.log(`📦 Found ${orders?.length || 0} orders to check`);
+    console.log(`📦 Found ${orders.length} orders to check`);
 
-    // Get truck locations from Samsara
-    const { data: locationsData, error: locationsError } = await supabaseClient.functions.invoke(
-      'samsara-locations'
-    );
+    // Get truck locations from Samsara - don't fail if this errors
+    let truckLocations: any[] = [];
+    try {
+      const { data: locationsData, error: locationsError } = await supabaseClient.functions.invoke(
+        'samsara-locations'
+      );
 
-    if (locationsError) {
-      console.error('❌ Error fetching locations:', locationsError);
-      throw locationsError;
+      if (locationsError) {
+        console.error('⚠️ Error fetching locations (continuing anyway):', locationsError);
+      } else {
+        truckLocations = locationsData?.locations || [];
+        console.log(`📍 Found ${truckLocations.length} truck locations`);
+      }
+    } catch (locationsException) {
+      console.error('⚠️ Exception fetching locations (continuing anyway):', locationsException);
     }
-
-    const truckLocations = locationsData?.locations || [];
-    console.log(`📍 Found ${truckLocations.length} truck locations`);
 
     const results: OrderETA[] = [];
 
