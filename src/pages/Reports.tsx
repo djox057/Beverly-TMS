@@ -514,12 +514,13 @@ const Reports = () => {
       const isLate = lateDeliveries.has(order.id);
       
       if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      
+      // Check if ETA is late BEFORE checking other BOL statuses
+      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
+      
       if (hasBOL && hasArrived)
         return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
       if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
-      
-      // Check if ETA will be late
-      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
       
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
     };
