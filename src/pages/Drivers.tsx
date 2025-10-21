@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useQueryClient } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
 interface DriverFormData {
   name: string;
   phone: string;
@@ -619,11 +620,12 @@ const Drivers = () => {
               Add Driver
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddDriver} className="space-y-4">
+              <ScrollArea className="h-[calc(90vh-180px)] pr-4">
               <div className="grid grid-cols-12 gap-4">
                 <div className="space-y-2 col-span-3">
                   <Label htmlFor="name">Name*</Label>
@@ -824,6 +826,7 @@ const Drivers = () => {
                   </Select>
                 </div>
               </div>
+              </ScrollArea>
 
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
