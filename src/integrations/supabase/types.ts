@@ -1057,6 +1057,41 @@ export type Database = {
           },
         ]
       }
+      truck_note_history: {
+        Row: {
+          created_at: string
+          edited_at: string
+          edited_by: string | null
+          id: string
+          note: string | null
+          truck_id: string
+        }
+        Insert: {
+          created_at?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          note?: string | null
+          truck_id: string
+        }
+        Update: {
+          created_at?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          note?: string | null
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_note_history_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_notes: {
         Row: {
           created_at: string

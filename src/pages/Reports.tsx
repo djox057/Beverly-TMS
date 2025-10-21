@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History } from "lucide-react";
+import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -105,13 +106,15 @@ const EditableNoteField = ({
   value, 
   handleNoteChange,
   setNoteDialogContent,
-  setNoteDialogOpen
+  setNoteDialogOpen,
+  onHistoryClick
 }: { 
   truckId: string; 
   value: string; 
   handleNoteChange: (truckId: string, value: string) => Promise<void>;
   setNoteDialogContent: (value: string) => void;
   setNoteDialogOpen: (truckId: string | null) => void;
+  onHistoryClick: (truckId: string) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -182,13 +185,22 @@ const EditableNoteField = ({
         </div>
       )}
       {hasContent && !isEditing && (
-        <Maximize2 
-          className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
-          onClick={() => {
-            setNoteDialogContent(localValue || "");
-            setNoteDialogOpen(truckId);
-          }}
-        />
+        <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <History 
+            className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHistoryClick(truckId);
+            }}
+          />
+          <Maximize2 
+            className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
+            onClick={() => {
+              setNoteDialogContent(localValue || "");
+              setNoteDialogOpen(truckId);
+            }}
+          />
+        </div>
       )}
     </div>
   );
@@ -312,6 +324,7 @@ const Reports = () => {
   const [visibleTrucks, setVisibleTrucks] = useState<{ [dispatcherId: string]: number }>({});
   const [noteDialogOpen, setNoteDialogOpen] = useState<string | null>(null);
   const [noteDialogContent, setNoteDialogContent] = useState<string>("");
+  const [historyDialogTruckId, setHistoryDialogTruckId] = useState<string | null>(null);
   const [truckMapView, setTruckMapView] = useState<{ truckNumber: string; latitude: number; longitude: number } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
@@ -2109,6 +2122,7 @@ const Reports = () => {
                                             handleNoteChange={handleNoteChange}
                                             setNoteDialogContent={setNoteDialogContent}
                                             setNoteDialogOpen={setNoteDialogOpen}
+                                            onHistoryClick={setHistoryDialogTruckId}
                                           />
                                         </div>
                                       </td>
@@ -2337,6 +2351,12 @@ const Reports = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TruckNoteHistoryDialog
+        truckId={historyDialogTruckId}
+        open={!!historyDialogTruckId}
+        onOpenChange={(open) => !open && setHistoryDialogTruckId(null)}
+      />
     </>
   );
 };
