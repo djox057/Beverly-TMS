@@ -85,13 +85,14 @@ Deno.serve(async (req) => {
       throw signOutError;
     }
 
-    console.log(`✅ Logout complete: ${result.sessions_deleted} sessions deleted`);
+    console.log(`✅ Logout complete: ${result.sessions_deleted} sessions deleted, ${result.tokens_deleted} refresh tokens deleted`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: `Logged off all users (${result.sessions_deleted} sessions deleted)`,
-        sessionsDeleted: result.sessions_deleted
+        message: `Logged off all users (${result.sessions_deleted} sessions + ${result.tokens_deleted} refresh tokens deleted)`,
+        sessionsDeleted: result.sessions_deleted,
+        tokensDeleted: result.tokens_deleted
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
