@@ -213,7 +213,16 @@ Deno.serve(async (req) => {
 
     const results: OrderETA[] = [];
 
-    for (const order of orders || []) {
+    // Ensure we always have valid data
+    if (!orders || orders.length === 0) {
+      console.log('⚠️ No orders to check');
+      return new Response(JSON.stringify({ success: true, results: [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    for (const order of orders) {
       try {
         // Only check orders with BOL but no POD (in transit)
         const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');

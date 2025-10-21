@@ -15,7 +15,7 @@ import { useReports } from "@/hooks/useReports";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1908,8 +1908,8 @@ const Reports = () => {
                                 const shouldShowDrugTestUI = isNew && canManageDrugTests;
 
                                 return (
-                                  <>
-                                    <tr key={truck.id} className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
+                                  <React.Fragment key={truck.id}>
+                                    <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
                                         className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
                                         style={{
@@ -2239,10 +2239,10 @@ const Reports = () => {
                                           />
                                         </td>
                                       </tr>
-                                    )}
-                                  </>
-                                );
-                              })}
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
                             </tbody>
                           </table>
                           
