@@ -327,6 +327,7 @@ export type Database = {
           cdl_number: string | null
           clearing_house: string | null
           created_at: string
+          dispatcher_id: string | null
           email: string | null
           hire_date: string | null
           home_address: string | null
@@ -356,6 +357,7 @@ export type Database = {
           cdl_number?: string | null
           clearing_house?: string | null
           created_at?: string
+          dispatcher_id?: string | null
           email?: string | null
           hire_date?: string | null
           home_address?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           cdl_number?: string | null
           clearing_house?: string | null
           created_at?: string
+          dispatcher_id?: string | null
           email?: string | null
           hire_date?: string | null
           home_address?: string | null

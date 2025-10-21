@@ -20,37 +20,38 @@ const Fleets = () => {
   const { hasRole } = useAuthContext();
   const { 
     dispatchers, 
-    availableTrucks,
+    availableDrivers,
     allDispatchers,
     loading, 
-    assignTruckToDispatcher, 
-    removeTruckFromDispatcher,
+    assignDriverToDispatcher, 
+    removeDriverFromDispatcher,
     setDispatcherOffDuty,
     setDispatcherActive
   } = useFleetManagement();
 
-  const [selectedTruck, setSelectedTruck] = useState("");
+  const [selectedDriver, setSelectedDriver] = useState("");
   const [selectedDispatcher, setSelectedDispatcher] = useState("");
-  const [isAssignTruckOpen, setIsAssignTruckOpen] = useState(false);
+  const [isAssignDriverOpen, setIsAssignDriverOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dispatcherFilter, setDispatcherFilter] = useState("");
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
-  const [truckToRemove, setTruckToRemove] = useState<string | null>(null);
-  const [truckToSwitch, setTruckToSwitch] = useState<{ truckId: string; currentDispatcherId: string } | null>(null);
+  const [driverToRemove, setDriverToRemove] = useState<string | null>(null);
+  const [driverToSwitch, setDriverToSwitch] = useState<{ driverId: string; currentDispatcherId: string } | null>(null);
   const [dispatcherToToggle, setDispatcherToToggle] = useState<{
     id: string;
     name: string;
-    trucks: any[];
+    drivers: any[];
   } | null>(null);
-  const [truckCoverAssignments, setTruckCoverAssignments] = useState<Record<string, string>>({});
+  const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
 
   const itemsPerPage = 10;
 
-  // Filter trucks by search term
-  const filterTrucks = (trucks: any[]) => {
-    if (!searchTerm) return trucks;
-    return trucks.filter(truck => 
-      truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter drivers by search term
+  const filterDrivers = (drivers: any[]) => {
+    if (!searchTerm) return drivers;
+    return drivers.filter(driver => 
+      driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      driver.truck?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   };
 
@@ -63,14 +64,14 @@ const Fleets = () => {
     });
   };
 
-  // Get paginated trucks
-  const getPaginatedTrucks = (trucks: any[], pageKey: string) => {
+  // Get paginated drivers
+  const getPaginatedDrivers = (drivers: any[], pageKey: string) => {
     const currentPage = currentPages[pageKey] || 1;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return {
-      trucks: trucks.slice(startIndex, endIndex),
-      totalPages: Math.ceil(trucks.length / itemsPerPage),
+      drivers: drivers.slice(startIndex, endIndex),
+      totalPages: Math.ceil(drivers.length / itemsPerPage),
       currentPage
     };
   };
@@ -79,30 +80,30 @@ const Fleets = () => {
     setCurrentPages(prev => ({ ...prev, [pageKey]: page }));
   };
 
-  const handleAssignTruck = async () => {
-    if (selectedTruck && selectedDispatcher) {
-      await assignTruckToDispatcher(selectedTruck, selectedDispatcher);
-      setSelectedTruck("");
+  const handleAssignDriver = async () => {
+    if (selectedDriver && selectedDispatcher) {
+      await assignDriverToDispatcher(selectedDriver, selectedDispatcher);
+      setSelectedDriver("");
       setSelectedDispatcher("");
-      setIsAssignTruckOpen(false);
+      setIsAssignDriverOpen(false);
     }
   };
 
-  const handleRemoveTruck = async (truckId: string) => {
-    setTruckToRemove(truckId);
+  const handleRemoveDriver = async (driverId: string) => {
+    setDriverToRemove(driverId);
   };
 
-  const confirmRemoveTruck = async () => {
-    if (truckToRemove) {
-      await removeTruckFromDispatcher(truckToRemove);
-      setTruckToRemove(null);
+  const confirmRemoveDriver = async () => {
+    if (driverToRemove) {
+      await removeDriverFromDispatcher(driverToRemove);
+      setDriverToRemove(null);
     }
   };
 
   const handleSwitchDispatcher = async () => {
-    if (truckToSwitch && selectedDispatcher) {
-      await assignTruckToDispatcher(truckToSwitch.truckId, selectedDispatcher);
-      setTruckToSwitch(null);
+    if (driverToSwitch && selectedDispatcher) {
+      await assignDriverToDispatcher(driverToSwitch.driverId, selectedDispatcher);
+      setDriverToSwitch(null);
       setSelectedDispatcher("");
     }
   };
@@ -117,47 +118,47 @@ const Fleets = () => {
       return;
     }
 
-    const truckId = draggableId;
+    const driverId = draggableId;
     
     // Handle different drop destinations
     if (destination.droppableId === 'unassigned') {
-      // Remove truck from dispatcher
-      await removeTruckFromDispatcher(truckId);
+      // Remove driver from dispatcher
+      await removeDriverFromDispatcher(driverId);
     } else if (destination.droppableId.startsWith('dispatcher-')) {
-      // Assign truck to dispatcher
+      // Assign driver to dispatcher
       const dispatcherId = destination.droppableId.replace('dispatcher-', '');
-      await assignTruckToDispatcher(truckId, dispatcherId);
+      await assignDriverToDispatcher(driverId, dispatcherId);
     }
   };
 
-  const handleToggleDispatcher = (dispatcherId: string, dispatcherName: string, trucks: any[]) => {
+  const handleToggleDispatcher = (dispatcherId: string, dispatcherName: string, drivers: any[]) => {
     // Initialize cover assignments to empty
     const initialAssignments: Record<string, string> = {};
-    trucks.forEach(truck => {
-      initialAssignments[truck.id] = '';
+    drivers.forEach(driver => {
+      initialAssignments[driver.id] = '';
     });
-    setTruckCoverAssignments(initialAssignments);
+    setDriverCoverAssignments(initialAssignments);
     
     // Show confirmation dialog for setting OFF DUTY
     setDispatcherToToggle({
       id: dispatcherId,
       name: dispatcherName,
-      trucks: trucks
+      drivers: drivers
     });
   };
 
   const confirmToggleOffDuty = async () => {
     if (!dispatcherToToggle) return;
     
-    // Validate all trucks have cover dispatchers assigned
-    const hasUnassigned = Object.values(truckCoverAssignments).some(v => !v);
+    // Validate all drivers have cover dispatchers assigned
+    const hasUnassigned = Object.values(driverCoverAssignments).some(v => !v);
     if (hasUnassigned) {
-      return; // Don't proceed if not all trucks have cover
+      return; // Don't proceed if not all drivers have cover
     }
     
-    await setDispatcherOffDuty(dispatcherToToggle.id, truckCoverAssignments);
+    await setDispatcherOffDuty(dispatcherToToggle.id, driverCoverAssignments);
     setDispatcherToToggle(null);
-    setTruckCoverAssignments({});
+    setDriverCoverAssignments({});
   };
 
   if (loading) {
@@ -180,31 +181,31 @@ const Fleets = () => {
               <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
             </div>
             <div className="flex gap-2">
-              <Dialog open={isAssignTruckOpen} onOpenChange={setIsAssignTruckOpen}>
+              <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />
-                    Assign Truck to Dispatcher
+                    Assign Driver to Dispatcher
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Assign Truck to Dispatcher</DialogTitle>
+                    <DialogTitle>Assign Driver to Dispatcher</DialogTitle>
                     <DialogDescription>
-                      Select a truck and dispatcher to assign, or simply drag and drop!
+                      Select a driver and dispatcher to assign, or simply drag and drop!
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label>Select Truck</Label>
-                      <Select value={selectedTruck} onValueChange={setSelectedTruck}>
+                      <Label>Select Driver</Label>
+                      <Select value={selectedDriver} onValueChange={setSelectedDriver}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a truck" />
+                          <SelectValue placeholder="Choose a driver" />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableTrucks.map((truck) => (
-                            <SelectItem key={truck.id} value={truck.id}>
-                              {truck.truck_number} - {truck.make} {truck.model}
+                          {availableDrivers.map((driver) => (
+                            <SelectItem key={driver.id} value={driver.id}>
+                              {driver.name} {driver.truck && `- Truck ${driver.truck.truck_number}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -225,8 +226,8 @@ const Fleets = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={handleAssignTruck} className="w-full">
-                      Assign Truck
+                    <Button onClick={handleAssignDriver} className="w-full">
+                      Assign Driver
                     </Button>
                   </div>
                 </DialogContent>
@@ -237,7 +238,7 @@ const Fleets = () => {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
-                placeholder="Search trucks by number..." 
+                placeholder="Search drivers by name or truck..." 
                 className="pl-10" 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
@@ -266,47 +267,47 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
-                    {dispatchers.filter(d => d.trucks.length > 0).length}
+                    {dispatchers.filter(d => d.drivers.length > 0).length}
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Assigned Trucks</CardTitle>
-                  <Truck className="h-4 w-4 text-success" />
+                  <CardTitle className="text-sm font-medium">Assigned Drivers</CardTitle>
+                  <Users className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-success">
-                    {dispatchers.reduce((total, d) => total + d.trucks.length, 0)}
+                    {dispatchers.reduce((total, d) => total + d.drivers.length, 0)}
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Unassigned Trucks</CardTitle>
-                  <Truck className="h-4 w-4 text-warning" />
+                  <CardTitle className="text-sm font-medium">Unassigned Drivers</CardTitle>
+                  <Users className="h-4 w-4 text-warning" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-warning">
-                    {availableTrucks.length}
+                    {availableDrivers.length}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
             {/* Dispatcher Fleets */}
-            {filterDispatchers(dispatchers.filter(d => d.trucks.length > 0)).map((dispatcherFleet) => {
-              const filteredTrucks = filterTrucks(dispatcherFleet.trucks);
+            {filterDispatchers(dispatchers.filter(d => d.drivers.length > 0)).map((dispatcherFleet) => {
+              const filteredDrivers = filterDrivers(dispatcherFleet.drivers);
               
-              // Hide dispatcher if searching and no matching trucks
-              if (searchTerm && filteredTrucks.length === 0) {
+              // Hide dispatcher if searching and no matching drivers
+              if (searchTerm && filteredDrivers.length === 0) {
                 return null;
               }
               
               const pageKey = `dispatcher-${dispatcherFleet.dispatcher.id}`;
-              const { trucks: paginatedTrucks, totalPages, currentPage } = getPaginatedTrucks(filteredTrucks, pageKey);
+              const { drivers: paginatedDrivers, totalPages, currentPage } = getPaginatedDrivers(filteredDrivers, pageKey);
               
               return (
             <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
@@ -324,7 +325,7 @@ const Fleets = () => {
                         {dispatcherFleet.dispatcher.ext && (
                           <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
                         )}
-                        <Badge variant="secondary">{filteredTrucks.length} trucks</Badge>
+                        <Badge variant="secondary">{filteredDrivers.length} drivers</Badge>
                         {snapshot.isDraggingOver && (
                           <Badge variant="outline" className="animate-pulse">Drop here</Badge>
                         )}
@@ -346,9 +347,9 @@ const Fleets = () => {
                               onClick={() => handleToggleDispatcher(
                                 dispatcherFleet.dispatcher.id,
                                 dispatcherFleet.dispatcher.full_name || dispatcherFleet.dispatcher.email,
-                                dispatcherFleet.trucks
+                                dispatcherFleet.drivers
                               )}
-                              disabled={loading || dispatcherFleet.trucks.length === 0}
+                              disabled={loading || dispatcherFleet.drivers.length === 0}
                             >
                               Set Off Duty
                             </Button>
@@ -368,23 +369,23 @@ const Fleets = () => {
                   </CardHeader>
                   <CardContent>
                     {!dispatcherFleet.isActive ? (
-                      /* Placeholder trucks for inactive dispatchers */
+                      /* Placeholder drivers for inactive dispatchers */
                       <div className="grid gap-2">
-                        {paginatedTrucks.length > 0 ? (
-                          paginatedTrucks.map((truck) => (
+                        {paginatedDrivers.length > 0 ? (
+                          paginatedDrivers.map((driver) => (
                             <div
-                              key={truck.id}
+                              key={driver.id}
                               className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
                             >
                               <div className="flex items-center gap-3">
-                                <Truck className="h-4 w-4 text-muted-foreground" />
+                                <Users className="h-4 w-4 text-muted-foreground" />
                                 <div>
                                   <div className="font-medium flex items-center gap-2">
-                                    {truck.truck_number}
-                                    {truck.driver1 && (
+                                    {driver.name}
+                                    {driver.truck && (
                                       <>
                                         <span className="text-muted-foreground">•</span>
-                                        <span className="text-sm font-normal">{truck.driver1.name}</span>
+                                        <span className="text-sm font-normal">Truck {driver.truck.truck_number}</span>
                                       </>
                                     )}
                                   </div>
@@ -396,14 +397,14 @@ const Fleets = () => {
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-muted-foreground p-3">No trucks were assigned</p>
+                          <p className="text-sm text-muted-foreground p-3">No drivers were assigned</p>
                         )}
                       </div>
                     ) : (
-                      /* Active dispatcher trucks with full functionality */
+                      /* Active dispatcher drivers with full functionality */
                       <div className="grid gap-2">
-                        {paginatedTrucks.map((truck, index) => (
-                          <Draggable key={truck.id} draggableId={truck.id} index={index}>
+                        {paginatedDrivers.map((driver, index) => (
+                          <Draggable key={driver.id} draggableId={driver.id} index={index}>
                             {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
@@ -419,37 +420,31 @@ const Fleets = () => {
                                   >
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                                  <Truck className="h-4 w-4" />
+                                  <Users className="h-4 w-4" />
                                   <div>
                                     <div className="font-medium flex items-center gap-2">
-                                      {truck.truck_number}
-                                      {truck.driver1 && (
-                                        <>
-                                          <span className="text-muted-foreground">•</span>
-                                          <span className="text-sm font-normal">{truck.driver1.name}</span>
-                                          <Popover>
-                                            <PopoverTrigger asChild>
-                                              <button className="inline-flex">
-                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                              </button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto">
-                                              <div className="space-y-1">
-                                                <p className="font-semibold">{truck.driver1.name}</p>
-                                                {truck.driver1.phone && (
-                                                  <p className="text-sm">📞 {truck.driver1.phone}</p>
-                                                )}
-                                                {truck.driver1.email && (
-                                                  <p className="text-sm">✉️ {truck.driver1.email}</p>
-                                                )}
-                                              </div>
-                                            </PopoverContent>
-                                          </Popover>
-                                        </>
-                                      )}
+                                      {driver.name}
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="inline-flex">
+                                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto">
+                                          <div className="space-y-1">
+                                            <p className="font-semibold">{driver.name}</p>
+                                            {driver.phone && (
+                                              <p className="text-sm">📞 {driver.phone}</p>
+                                            )}
+                                            {driver.email && (
+                                              <p className="text-sm">✉️ {driver.email}</p>
+                                            )}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     </div>
                                     <div className="text-sm text-muted-foreground">
-                                      {truck.make} {truck.model} {truck.year}
+                                      {driver.truck ? `Truck ${driver.truck.truck_number}` : 'No truck assigned'}
                                     </div>
                                   </div>
                                 </div>
@@ -457,7 +452,7 @@ const Fleets = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setTruckToSwitch({ truckId: truck.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                    onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
                                   >
                                     <ArrowRightLeft className="h-4 w-4 mr-1" />
                                     Switch
@@ -465,7 +460,7 @@ const Fleets = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleRemoveTruck(truck.id)}
+                                    onClick={() => handleRemoveDriver(driver.id)}
                                   >
                                     <Minus className="h-4 w-4 mr-1" />
                                     Remove
@@ -518,15 +513,15 @@ const Fleets = () => {
             )}
             )}
 
-            {/* Dispatchers with no trucks */}
-            {filterDispatchers(dispatchers.filter(d => d.trucks.length === 0)).length > 0 && (
+            {/* Dispatchers with no drivers */}
+            {filterDispatchers(dispatchers.filter(d => d.drivers.length === 0)).length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Available Dispatchers
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filterDispatchers(dispatchers.filter(d => d.trucks.length === 0)).map((dispatcherFleet) => (
+                  {filterDispatchers(dispatchers.filter(d => d.drivers.length === 0)).map((dispatcherFleet) => (
                     <Droppable key={dispatcherFleet.dispatcher.id} droppableId={`dispatcher-${dispatcherFleet.dispatcher.id}`}>
                       {(provided, snapshot) => (
                         <Card 
@@ -546,7 +541,7 @@ const Fleets = () => {
                                     )}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {snapshot.isDraggingOver ? 'Drop truck here' : 'No trucks assigned'}
+                                    {snapshot.isDraggingOver ? 'Drop driver here' : 'No drivers assigned'}
                                   </div>
                                 </div>
                               </div>
@@ -562,11 +557,11 @@ const Fleets = () => {
               </div>
             )}
 
-            {/* Unassigned Trucks */}
-            {availableTrucks.length > 0 && (() => {
-              const filteredUnassigned = filterTrucks(availableTrucks);
+            {/* Unassigned Drivers */}
+            {availableDrivers.length > 0 && (() => {
+              const filteredUnassigned = filterDrivers(availableDrivers);
               const pageKey = 'unassigned';
-              const { trucks: paginatedTrucks, totalPages, currentPage } = getPaginatedTrucks(filteredUnassigned, pageKey);
+              const { drivers: paginatedDrivers, totalPages, currentPage } = getPaginatedDrivers(filteredUnassigned, pageKey);
               
               return (
               <Droppable droppableId="unassigned">
@@ -690,36 +685,36 @@ const Fleets = () => {
       </div>
 
       {/* Remove Confirmation Dialog */}
-      <AlertDialog open={truckToRemove !== null} onOpenChange={(open) => !open && setTruckToRemove(null)}>
+      <AlertDialog open={driverToRemove !== null} onOpenChange={(open) => !open && setDriverToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Truck from Dispatcher</AlertDialogTitle>
+            <AlertDialogTitle>Remove Driver from Dispatcher</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this truck from its dispatcher? The truck will be moved to the unassigned trucks list.
+              Are you sure you want to remove this driver from their dispatcher? The driver will be moved to the unassigned list.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveTruck}>
-              Remove Truck
+            <AlertDialogAction onClick={confirmRemoveDriver}>
+              Remove Driver
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Switch Dispatcher Dialog */}
-      <Dialog open={truckToSwitch !== null} onOpenChange={(open) => !open && setTruckToSwitch(null)}>
+      <Dialog open={driverToSwitch !== null} onOpenChange={(open) => !open && setDriverToSwitch(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Switch Dispatcher</DialogTitle>
             <DialogDescription>
-              Select a new dispatcher for this truck
+              Select a new dispatcher for this driver
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Combobox
               options={allDispatchers
-                .filter(d => d.id !== truckToSwitch?.currentDispatcherId)
+                .filter(d => d.id !== driverToSwitch?.currentDispatcherId)
                 .map((dispatcher) => ({
                   value: dispatcher.id,
                   label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
@@ -740,7 +735,7 @@ const Fleets = () => {
       <AlertDialog open={dispatcherToToggle !== null} onOpenChange={(open) => {
         if (!open) {
           setDispatcherToToggle(null);
-          setTruckCoverAssignments({});
+          setDriverCoverAssignments({});
         }
       }}>
         <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -748,24 +743,24 @@ const Fleets = () => {
             <AlertDialogTitle>Set Dispatcher as Off Duty?</AlertDialogTitle>
             <AlertDialogDescription>
               <div className="space-y-4">
-                <p>Assign a cover dispatcher for each truck currently assigned to {dispatcherToToggle?.name}.</p>
+                <p>Assign a cover dispatcher for each driver currently assigned to {dispatcherToToggle?.name}.</p>
                 <div className="space-y-3">
-                  {dispatcherToToggle?.trucks.map((truck) => (
-                    <div key={truck.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                  {dispatcherToToggle?.drivers.map((driver) => (
+                    <div key={driver.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
                       <div className="flex items-center gap-2 flex-1">
-                        <Truck className="h-4 w-4" />
+                        <Users className="h-4 w-4" />
                         <div>
-                          <div className="font-medium">{truck.truck_number}</div>
-                          {truck.driver1 && (
-                            <div className="text-xs text-muted-foreground">{truck.driver1.name}</div>
+                          <div className="font-medium">{driver.name}</div>
+                          {driver.truck && (
+                            <div className="text-xs text-muted-foreground">Truck {driver.truck.truck_number}</div>
                           )}
                         </div>
                       </div>
                       <Combobox
-                        value={truckCoverAssignments[truck.id] || ''}
-                        onValueChange={(value) => setTruckCoverAssignments(prev => ({
+                        value={driverCoverAssignments[driver.id] || ''}
+                        onValueChange={(value) => setDriverCoverAssignments(prev => ({
                           ...prev,
-                          [truck.id]: value
+                          [driver.id]: value
                         }))}
                         options={allDispatchers
                           .filter(d => d.id !== dispatcherToToggle?.id)
@@ -783,7 +778,7 @@ const Fleets = () => {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  When you set this dispatcher back to active, all their original trucks will be automatically returned to them.
+                  When you set this dispatcher back to active, all their original drivers will be automatically returned to them.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -792,7 +787,7 @@ const Fleets = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmToggleOffDuty}
-              disabled={Object.values(truckCoverAssignments).some(v => !v)}
+              disabled={Object.values(driverCoverAssignments).some(v => !v)}
             >
               Set Off Duty
             </AlertDialogAction>

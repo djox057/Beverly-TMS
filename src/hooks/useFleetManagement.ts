@@ -9,13 +9,13 @@ interface DispatcherFleet {
     email: string;
     ext?: string;
   };
-  trucks: any[];
+  drivers: any[];
   isActive: boolean;
 }
 
 export const useFleetManagement = () => {
   const [dispatchers, setDispatchers] = useState<DispatcherFleet[]>([]);
-  const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
   const [allDispatchers, setAllDispatchers] = useState<any[]>([]);
   const [dispatcherStatuses, setDispatcherStatuses] = useState<Map<string, boolean>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -43,45 +43,46 @@ export const useFleetManagement = () => {
 
       if (dispatcherError) throw dispatcherError;
 
-      // Fetch all trucks with their dispatcher assignments and driver info
-      const { data: trucks, error: trucksError } = await supabase
-        .from('trucks')
+      // Fetch all drivers with their dispatcher assignments and truck info
+      const { data: drivers, error: driversError } = await supabase
+        .from('drivers')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email)
+          truck:trucks!trucks_driver1_id_fkey(id, truck_number, make, model, company_id, trailer_id)
         `)
-        .order('updated_at', { ascending: false });
+        .eq('is_active', true)
+        .order('name');
 
-      if (trucksError) throw trucksError;
+      if (driversError) throw driversError;
 
-      // Fetch dispatcher statuses with inactive trucks data
+      // Fetch dispatcher statuses with inactive drivers data
       const { data: statuses, error: statusError } = await supabase
         .from('dispatcher_status')
         .select('dispatcher_id, is_active, inactive_trucks');
 
       if (statusError) throw statusError;
 
-      // Create status map and store full status data
-      const statusMap = new Map<string, { isActive: boolean; inactiveTrucks: any[] }>();
+      // Create status map and store full status data (note: inactive_trucks contains driver data now)
+      const statusMap = new Map<string, { isActive: boolean; inactiveDrivers: any[] }>();
       statuses?.forEach(status => {
         statusMap.set(status.dispatcher_id, {
           isActive: status.is_active,
-          inactiveTrucks: (status.inactive_trucks as any[]) || []
+          inactiveDrivers: (status.inactive_trucks as any[]) || [] // Keeping column name for backwards compat
         });
       });
 
-      // Group trucks by dispatcher
+      // Group drivers by dispatcher
       const dispatcherGroups: { [key: string]: any[] } = {};
-      const unassignedTrucks: any[] = [];
+      const unassignedDrivers: any[] = [];
 
-      trucks?.forEach(truck => {
-        if (truck.dispatcher_id) {
-          if (!dispatcherGroups[truck.dispatcher_id]) {
-            dispatcherGroups[truck.dispatcher_id] = [];
+      drivers?.forEach(driver => {
+        if (driver.dispatcher_id) {
+          if (!dispatcherGroups[driver.dispatcher_id]) {
+            dispatcherGroups[driver.dispatcher_id] = [];
           }
-          dispatcherGroups[truck.dispatcher_id].push(truck);
+          dispatcherGroups[driver.dispatcher_id].push(driver);
         } else {
-          unassignedTrucks.push(truck);
+          unassignedDrivers.push(driver);
         }
       });
 
@@ -90,10 +91,10 @@ export const useFleetManagement = () => {
         const status = statusMap.get(dispatcher.user_id);
         const isActive = status?.isActive ?? true;
         
-        // Use actual trucks if active, placeholder trucks if inactive
-        const dispatcherTrucks = isActive 
+        // Use actual drivers if active, placeholder drivers if inactive
+        const dispatcherDrivers = isActive 
           ? (dispatcherGroups[dispatcher.user_id] || [])
-          : (status?.inactiveTrucks || []);
+          : (status?.inactiveDrivers || []);
 
         return {
           dispatcher: {
@@ -102,12 +103,12 @@ export const useFleetManagement = () => {
             email: dispatcher.email,
             ext: dispatcher.ext
           },
-          trucks: dispatcherTrucks,
+          drivers: dispatcherDrivers,
           isActive
         };
       }) || [];
 
-      // Filter out dispatchers with no trucks for the main list, but keep all for assignment  
+      // Filter out dispatchers with no drivers for the main list, but keep all for assignment  
       setDispatchers(dispatcherFleets);
       setAllDispatchers(dispatcherProfiles?.map(d => ({ 
         id: d.user_id, 
@@ -115,7 +116,7 @@ export const useFleetManagement = () => {
         email: d.email,
         ext: d.ext
       })) || []);
-      setAvailableTrucks(unassignedTrucks);
+      setAvailableDrivers(unassignedDrivers);
     } catch (error: any) {
       console.error('Error fetching fleet data:', error);
       toast({
@@ -128,12 +129,12 @@ export const useFleetManagement = () => {
     }
   };
 
-  const assignTruckToDispatcher = async (truckId: string, dispatcherId: string) => {
+  const assignDriverToDispatcher = async (driverId: string, dispatcherId: string) => {
     try {
       const { error } = await supabase
-        .from('trucks')
+        .from('drivers')
         .update({ dispatcher_id: dispatcherId })
-        .eq('id', truckId);
+        .eq('id', driverId);
 
       if (error) throw error;
 
@@ -143,61 +144,61 @@ export const useFleetManagement = () => {
 
       toast({
         title: "Success",
-        description: `Truck assigned to ${dispatcherName} successfully`,
+        description: `Driver assigned to ${dispatcherName} successfully`,
       });
 
       fetchFleetData();
     } catch (error: any) {
-      console.error('Error assigning truck to dispatcher:', error);
+      console.error('Error assigning driver to dispatcher:', error);
       toast({
         title: "Error",
-        description: "Failed to assign truck to dispatcher",
+        description: "Failed to assign driver to dispatcher",
         variant: "destructive",
       });
     }
   };
 
-  const removeTruckFromDispatcher = async (truckId: string) => {
+  const removeDriverFromDispatcher = async (driverId: string) => {
     try {
       const { error } = await supabase
-        .from('trucks')
+        .from('drivers')
         .update({ dispatcher_id: null })
-        .eq('id', truckId);
+        .eq('id', driverId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Truck removed from dispatcher successfully",
+        description: "Driver removed from dispatcher successfully",
       });
 
       fetchFleetData();
     } catch (error: any) {
-      console.error('Error removing truck from dispatcher:', error);
+      console.error('Error removing driver from dispatcher:', error);
       toast({
         title: "Error",
-        description: "Failed to remove truck from dispatcher",
+        description: "Failed to remove driver from dispatcher",
         variant: "destructive",
       });
     }
   };
 
-  const setDispatcherOffDuty = async (dispatcherId: string, truckAssignments: Record<string, string>) => {
+  const setDispatcherOffDuty = async (dispatcherId: string, driverAssignments: Record<string, string>) => {
     try {
-      // Get the dispatcher's trucks with their full data for placeholders
+      // Get the dispatcher's drivers with their full data for placeholders
       const dispatcherFleet = dispatchers.find(d => d.dispatcher.id === dispatcherId);
       if (!dispatcherFleet) throw new Error('Dispatcher not found');
 
-      // Store complete truck data for placeholders
-      const inactiveTrucksData = dispatcherFleet.trucks.map(truck => ({
-        id: truck.id,
-        truck_number: truck.truck_number,
-        driver1: truck.driver1,
-        company_id: truck.company_id,
-        trailer_id: truck.trailer_id
+      // Store complete driver data for placeholders (keeping inactive_trucks column name for backwards compat)
+      const inactiveDriversData = dispatcherFleet.drivers.map(driver => ({
+        id: driver.id,
+        name: driver.name,
+        phone: driver.phone,
+        email: driver.email,
+        truck: driver.truck
       }));
       
-      // Store original truck assignments before going off duty
+      // Store original driver assignments before going off duty
       const now = new Date();
       const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
       
@@ -206,7 +207,7 @@ export const useFleetManagement = () => {
         .upsert({
           dispatcher_id: dispatcherId,
           is_active: false,
-          inactive_trucks: inactiveTrucksData,
+          inactive_trucks: inactiveDriversData, // Using inactive_trucks column for driver data
           updated_at: timestamp
         }, {
           onConflict: 'dispatcher_id'
@@ -214,19 +215,19 @@ export const useFleetManagement = () => {
 
       if (statusError) throw statusError;
 
-      // Assign each truck to its cover dispatcher
-      for (const [truckId, coverId] of Object.entries(truckAssignments)) {
+      // Assign each driver to its cover dispatcher
+      for (const [driverId, coverId] of Object.entries(driverAssignments)) {
         const { error: assignError } = await supabase
-          .from('trucks')
+          .from('drivers')
           .update({ dispatcher_id: coverId })
-          .eq('id', truckId);
+          .eq('id', driverId);
 
         if (assignError) throw assignError;
       }
 
       toast({
         title: "Success",
-        description: `Dispatcher set to Off Duty. ${Object.keys(truckAssignments).length} trucks reassigned to cover dispatchers.`,
+        description: `Dispatcher set to Off Duty. ${Object.keys(driverAssignments).length} drivers reassigned to cover dispatchers.`,
       });
 
       fetchFleetData();
@@ -242,30 +243,30 @@ export const useFleetManagement = () => {
 
   const setDispatcherActive = async (dispatcherId: string) => {
     try {
-      // Get the stored truck data from when dispatcher went off duty
+      // Get the stored driver data from when dispatcher went off duty (in inactive_trucks column)
       const { data: status } = await supabase
         .from('dispatcher_status')
         .select('inactive_trucks')
         .eq('dispatcher_id', dispatcherId)
         .maybeSingle();
 
-      const originalTrucksData = (status?.inactive_trucks as any[]) || [];
+      const originalDriversData = (status?.inactive_trucks as any[]) || [];
 
-      if (originalTrucksData.length > 0) {
-        // Extract truck IDs from the stored data
-        const truckIds = originalTrucksData.map((t: any) => t.id);
+      if (originalDriversData.length > 0) {
+        // Extract driver IDs from the stored data
+        const driverIds = originalDriversData.map((d: any) => d.id);
         
-        // Reassign all original trucks back to this dispatcher
+        // Reassign all original drivers back to this dispatcher
         const { error: reassignError } = await supabase
-          .from('trucks')
+          .from('drivers')
           .update({ dispatcher_id: dispatcherId })
-          .in('id', truckIds);
+          .in('id', driverIds);
 
         if (reassignError) throw reassignError;
 
         toast({
           title: "Success",
-          description: `Dispatcher set to Active. ${truckIds.length} trucks returned.`,
+          description: `Dispatcher set to Active. ${driverIds.length} drivers returned.`,
         });
       } else {
         toast({
@@ -308,13 +309,13 @@ export const useFleetManagement = () => {
 
   return {
     dispatchers,
-    availableTrucks,
+    availableDrivers,
     allDispatchers,
     dispatcherStatuses,
     loading,
     fetchFleetData,
-    assignTruckToDispatcher,
-    removeTruckFromDispatcher,
+    assignDriverToDispatcher,
+    removeDriverFromDispatcher,
     setDispatcherOffDuty,
     setDispatcherActive,
   };
