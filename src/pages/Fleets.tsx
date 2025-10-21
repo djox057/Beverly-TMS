@@ -573,9 +573,9 @@ const Fleets = () => {
                   >
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <Truck className="h-5 w-5" />
-                        Unassigned Trucks
-                        <Badge variant="outline">{filteredUnassigned.length} trucks</Badge>
+                        <Users className="h-5 w-5" />
+                        Unassigned Drivers
+                        <Badge variant="outline">{filteredUnassigned.length} drivers</Badge>
                         {snapshot.isDraggingOver && (
                           <Badge variant="outline" className="animate-pulse">Drop to unassign</Badge>
                         )}
@@ -583,8 +583,8 @@ const Fleets = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="grid gap-2">
-                        {paginatedTrucks.map((truck, index) => (
-                          <Draggable key={truck.id} draggableId={truck.id} index={index}>
+                        {paginatedDrivers.map((driver, index) => (
+                          <Draggable key={driver.id} draggableId={driver.id} index={index}>
                             {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
@@ -600,37 +600,31 @@ const Fleets = () => {
                                   >
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                              <Truck className="h-4 w-4" />
+                              <Users className="h-4 w-4" />
                               <div>
                                 <div className="font-medium flex items-center gap-2">
-                                  {truck.truck_number}
-                                  {truck.driver1 && (
-                                    <>
-                                      <span className="text-muted-foreground">•</span>
-                                      <span className="text-sm font-normal">{truck.driver1.name}</span>
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <button className="inline-flex">
-                                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                          </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto">
-                                          <div className="space-y-1">
-                                            <p className="font-semibold">{truck.driver1.name}</p>
-                                            {truck.driver1.phone && (
-                                              <p className="text-sm">📞 {truck.driver1.phone}</p>
-                                            )}
-                                            {truck.driver1.email && (
-                                              <p className="text-sm">✉️ {truck.driver1.email}</p>
-                                            )}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                    </>
-                                  )}
+                                  {driver.name}
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button className="inline-flex">
+                                        <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto">
+                                      <div className="space-y-1">
+                                        <p className="font-semibold">{driver.name}</p>
+                                        {driver.phone && (
+                                          <p className="text-sm">📞 {driver.phone}</p>
+                                        )}
+                                        {driver.email && (
+                                          <p className="text-sm">✉️ {driver.email}</p>
+                                        )}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  {truck.make} {truck.model} {truck.year}
+                                  {driver.truck ? `Truck ${driver.truck.truck_number}` : 'No truck assigned'}
                                 </div>
                               </div>
                                 </div>
