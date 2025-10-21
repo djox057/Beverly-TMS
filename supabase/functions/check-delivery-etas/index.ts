@@ -164,14 +164,19 @@ Deno.serve(async (req) => {
 
     console.log('🔍 Fetching orders and truck locations...');
 
-    // Get all orders with pickup/delivery stops
+    // Get all orders with pickup/delivery stops and truck info
     const { data: orders, error: ordersError } = await supabaseClient
       .from('orders')
       .select(`
         internal_load_number,
-        truck_number,
+        truck_id,
         delivery_end_datetime,
         delivery_datetime,
+        order_files(id, file_category),
+        trucks!inner(
+          id,
+          truck_number
+        ),
         pickup_drops!inner(
           id,
           order_id,
@@ -183,11 +188,14 @@ Deno.serve(async (req) => {
         )
       `)
       .in('status', ['pending', 'in_transit'])
-      .not('truck_number', 'is', null);
+      .not('truck_id', 'is', null);
 
     if (ordersError) {
+      console.error('❌ Error fetching orders:', ordersError);
       throw ordersError;
     }
+
+    console.log(`📦 Found ${orders?.length || 0} orders to check`);
 
     // Get truck locations from Samsara
     const { data: locationsData, error: locationsError } = await supabaseClient.functions.invoke(
@@ -195,6 +203,7 @@ Deno.serve(async (req) => {
     );
 
     if (locationsError) {
+      console.error('❌ Error fetching locations:', locationsError);
       throw locationsError;
     }
 
@@ -204,59 +213,81 @@ Deno.serve(async (req) => {
     const results: OrderETA[] = [];
 
     for (const order of orders || []) {
-      // Find delivery stop
-      const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
-      if (!deliveryStop?.address || !order.delivery_end_datetime) {
-        continue;
-      }
-
-      // Skip if delivery date is in the past
-      if (order.delivery_datetime) {
-        const deliveryDate = new Date(order.delivery_datetime);
-        const now = new Date();
-        if (deliveryDate < now) {
+      try {
+        // Only check orders with BOL but no POD (in transit)
+        const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+        const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+        
+        if (!hasBOL || hasPOD) {
           continue;
         }
+
+        // Find delivery stop
+        const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
+        if (!deliveryStop?.address || !order.delivery_end_datetime) {
+          continue;
+        }
+
+        // Skip if delivery date is in the past
+        if (order.delivery_datetime) {
+          const deliveryDate = new Date(order.delivery_datetime);
+          const now = new Date();
+          if (deliveryDate < now) {
+            continue;
+          }
+        }
+
+        // Get truck number from the joined trucks table
+        const truckNumber = order.trucks?.truck_number;
+        if (!truckNumber) {
+          continue;
+        }
+
+        // Find truck location
+        const truckLocation = truckLocations.find(
+          (loc: any) => loc.truck_number === truckNumber
+        );
+
+        if (!truckLocation) {
+          console.log(`⏭️ No location for truck ${truckNumber}`);
+          continue;
+        }
+
+        // Build full delivery address
+        const deliveryAddress = [
+          deliveryStop.address,
+          deliveryStop.city,
+          deliveryStop.state,
+          deliveryStop.zip_code,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        console.log(`⏱️ Calculating ETA for order ${order.internal_load_number} (Truck ${truckNumber})`);
+
+        const etaResult = await checkDeliveryETA(
+          { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
+          deliveryAddress,
+          order.delivery_end_datetime
+        );
+
+        results.push({
+          internal_load_number: order.internal_load_number,
+          is_late: etaResult.isLate,
+          estimated_arrival: etaResult.estimatedArrival?.toISOString() || null,
+          duration_minutes: etaResult.durationMinutes,
+        });
+
+        console.log(
+          `${etaResult.isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
+        );
+      } catch (orderError) {
+        console.error(`❌ Error processing order ${order.internal_load_number}:`, orderError);
+        // Continue with other orders
       }
-
-      // Find truck location
-      const truckLocation = truckLocations.find(
-        (loc: any) => loc.truck_number === order.truck_number
-      );
-
-      if (!truckLocation) {
-        continue;
-      }
-
-      // Build full delivery address
-      const deliveryAddress = [
-        deliveryStop.address,
-        deliveryStop.city,
-        deliveryStop.state,
-        deliveryStop.zip_code,
-      ]
-        .filter(Boolean)
-        .join(', ');
-
-      console.log(`⏱️ Calculating ETA for order ${order.internal_load_number}`);
-
-      const etaResult = await checkDeliveryETA(
-        { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
-        deliveryAddress,
-        order.delivery_end_datetime
-      );
-
-      results.push({
-        internal_load_number: order.internal_load_number,
-        is_late: etaResult.isLate,
-        estimated_arrival: etaResult.estimatedArrival?.toISOString() || null,
-        duration_minutes: etaResult.durationMinutes,
-      });
-
-      console.log(
-        `${etaResult.isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
-      );
     }
+
+    console.log(`✅ Processed ${results.length} orders with ETA calculations`);
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
