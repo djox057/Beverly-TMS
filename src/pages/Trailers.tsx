@@ -15,6 +15,7 @@ import { useTrucks } from "@/hooks/useTrucks";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
+import { useQueryClient } from "@tanstack/react-query";
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
@@ -45,6 +46,7 @@ const Trailers = () => {
   const {
     toast
   } = useToast();
+  const queryClient = useQueryClient();
   const {
     data: trailers,
     isLoading,
@@ -115,7 +117,10 @@ const Trailers = () => {
       });
       resetForm();
       setIsAddDialogOpen(false);
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -174,7 +179,10 @@ const Trailers = () => {
       resetForm();
       setIsEditDialogOpen(false);
       setEditingTrailer(null);
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -195,7 +203,10 @@ const Trailers = () => {
         title: "Success",
         description: "Trailer deleted successfully"
       });
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
     } catch (error: any) {
       toast({
         title: "Error",

@@ -251,7 +251,10 @@ const Drivers = () => {
       });
       resetForm();
       setIsAddDialogOpen(false);
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to add driver";
 
@@ -330,7 +333,10 @@ const Drivers = () => {
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to update driver";
 
@@ -457,7 +463,10 @@ const Drivers = () => {
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
-      refetch();
+      // Invalidate all related queries to sync with other pages
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
     } catch (error: any) {
       toast({
         title: "Error",
