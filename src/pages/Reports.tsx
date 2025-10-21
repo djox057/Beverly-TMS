@@ -1890,7 +1890,7 @@ const Reports = () => {
                                       >
                                         <div className="flex items-center gap-2">
                                           {truck.driver}
-                                          {(truck.driverPhone || truck.driverEmail || truck.trailerNumber) && (
+                                          {(truck.driverPhone || truck.driverEmail || truck.trailerNumber || truck.driver2Name) && (
                                             <Popover>
                                               <PopoverTrigger asChild>
                                                 <button className="inline-flex">
@@ -1899,16 +1899,45 @@ const Reports = () => {
                                               </PopoverTrigger>
                                               <PopoverContent className="w-auto">
                                                 <div className="space-y-1">
-                                                  <p className="font-semibold text-sm">{truck.driver}</p>
-                                                  <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                  {truck.trailerNumber && (
-                                                    <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
-                                                  )}
-                                                  {truck.driverPhone && (
-                                                    <p className="text-xs">📞 {truck.driverPhone}</p>
-                                                  )}
-                                                  {truck.driverEmail && (
-                                                    <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                  {truck.driver2Name ? (
+                                                    <>
+                                                      <p className="font-semibold text-sm">Driver 1: {truck.driver !== "Team" ? truck.driver : "Driver info"}</p>
+                                                      {truck.driverPhone && (
+                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                      )}
+                                                      {truck.driverEmail && (
+                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                      )}
+                                                      <div className="border-t pt-1 mt-1">
+                                                        <p className="font-semibold text-sm">Driver 2: {truck.driver2Name}</p>
+                                                        {truck.driver2Phone && (
+                                                          <p className="text-xs">📞 {truck.driver2Phone}</p>
+                                                        )}
+                                                        {truck.driver2Email && (
+                                                          <p className="text-xs">✉️ {truck.driver2Email}</p>
+                                                        )}
+                                                      </div>
+                                                      <div className="border-t pt-1 mt-1">
+                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                        {truck.trailerNumber && (
+                                                          <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                        )}
+                                                      </div>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <p className="font-semibold text-sm">{truck.driver}</p>
+                                                      <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                      {truck.trailerNumber && (
+                                                        <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                      )}
+                                                      {truck.driverPhone && (
+                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                      )}
+                                                      {truck.driverEmail && (
+                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                      )}
+                                                    </>
                                                   )}
                                                 </div>
                                               </PopoverContent>

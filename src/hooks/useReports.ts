@@ -255,6 +255,7 @@ export const useReports = () => {
           .select(`
             *,
             driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             trailer:trailer_id(trailer_number)
           `)
           .order('id', { ascending: true });
@@ -537,17 +538,24 @@ export const useReports = () => {
                    truck.status === 'maintenance' ? "Maintenance" : "Available";
         }
 
+        // Check if it's a team (2 drivers)
+        const isTeam = truck.driver1 && truck.driver2;
+
         return {
           id: truck.id,
           orderId: currentOrder?.id,
           truckNumber: truck.truck_number,
-          driver: truck.driver1?.name || "Unassigned",
+          driver: isTeam ? "Team" : (truck.driver1?.name || "Unassigned"),
           driverId: truck.driver1?.id || null,
           driverPhone: truck.driver1?.phone || null,
           driverEmail: truck.driver1?.email || null,
+          driver2Id: truck.driver2?.id || null,
+          driver2Name: truck.driver2?.name || null,
+          driver2Phone: truck.driver2?.phone || null,
+          driver2Email: truck.driver2?.email || null,
           trailerNumber: truck.trailer?.trailer_number || null,
           home: truck.driver1?.home_city && truck.driver1?.home_state 
-            ? `${truck.driver1.home_city}, ${truck.driver1.home_state}` 
+            ? `${truck.driver1.home_city}, ${truck.driver1.home_state}`
             : truck.driver1?.home_city || truck.driver1?.home_state || "—",
           dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
           dispatcherId: truck.driver1?.dispatcher_id,
