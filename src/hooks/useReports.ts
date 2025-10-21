@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+
+// Utility function to add timeout protection to queries
+const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Query timeout - please check your connection')), timeoutMs)
+  );
+  return Promise.race([queryFn(), timeoutPromise]);
+};
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 export const useReports = () => {
@@ -238,9 +246,12 @@ export const useReports = () => {
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      // Fetch trucks with their drivers and current orders
-      // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
-       const { data: trucks, error: trucksError } = await supabase
+      console.log('📊 Fetching reports data...');
+      
+      return queryWithTimeout(async () => {
+        // Fetch trucks with their drivers and current orders
+        // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
+         const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
           *,
@@ -593,11 +604,15 @@ export const useReports = () => {
       }
       
       return groupedData;
+      }, 30000);
     },
-    staleTime: 3 * 60 * 1000, // Increased to 3 minutes - data is fresh for longer
-    gcTime: 10 * 60 * 1000, // Increased to 10 minutes - keep in cache longer
-    refetchInterval: 60000, // Increased to 60 seconds - reduce query frequency
-    refetchOnWindowFocus: false, // Prevent aggressive refetching
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 300000, // Cache for 5 minutes
+    gcTime: 600000, // Keep in memory for 10 minutes
+    refetchInterval: 120000, // Refetch every 2 minutes
+    refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   });
 
   return {

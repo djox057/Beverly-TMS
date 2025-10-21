@@ -2,6 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
+// Utility function to add timeout protection to queries
+const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Query timeout - please check your connection')), timeoutMs)
+  );
+  return Promise.race([queryFn(), timeoutPromise]);
+};
+
 export const useOrders = () => {
   const queryClient = useQueryClient();
 
@@ -103,7 +111,10 @@ export const useOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('🔍 Fetching orders...');
+      
+      return queryWithTimeout(async () => {
+        const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
@@ -211,10 +222,14 @@ export const useOrders = () => {
       });
 
         return transformedOrders;
+      }, 30000);
     },
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
-    refetchInterval: 60000, // Refetch every 60 seconds
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 300000, // Cache for 5 minutes
+    gcTime: 600000, // Keep in memory for 10 minutes
+    refetchInterval: 120000, // Refetch every 2 minutes
     refetchOnWindowFocus: false,
+    placeholderData: (previousData) => previousData,
   });
 };
