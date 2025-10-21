@@ -114,20 +114,41 @@ const EditableNoteField = ({
   setNoteDialogOpen: (truckId: string | null) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const hasContent = value && value.trim().length > 0 && value.trim() !== "Add note...";
+  const [localValue, setLocalValue] = useState(value);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Update local value when prop changes (e.g., after successful save)
+  useEffect(() => {
+    if (!isEditing && !isSaving) {
+      setLocalValue(value);
+    }
+  }, [value, isEditing, isSaving]);
+  
+  const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
+  
+  const handleBlur = async () => {
+    if (localValue !== value) {
+      setIsSaving(true);
+      try {
+        await handleNoteChange(truckId, localValue);
+      } finally {
+        setIsSaving(false);
+      }
+    }
+    setIsEditing(false);
+  };
   
   return (
     <div className="relative w-full h-full group">
       {isEditing ? (
         <Textarea
-          defaultValue={value || ""}
+          value={localValue || ""}
+          onChange={(e) => setLocalValue(e.target.value)}
           autoFocus
-          onBlur={(e) => {
-            handleNoteChange(truckId, e.target.value);
-            setIsEditing(false);
-          }}
+          onBlur={handleBlur}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
+              setLocalValue(value); // Reset to original value
               setIsEditing(false);
             }
           }}
@@ -145,7 +166,7 @@ const EditableNoteField = ({
       ) : (
         <div
           onClick={() => setIsEditing(true)}
-          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2`}
+          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? 'opacity-70' : ''}`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -155,16 +176,16 @@ const EditableNoteField = ({
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
           }}
-          title={value || ""}
+          title={localValue || ""}
         >
-          {hasContent ? value : <span className="text-muted-foreground">Add note...</span>}
+          {hasContent ? localValue : <span className="text-muted-foreground">Add note...</span>}
         </div>
       )}
       {hasContent && !isEditing && (
         <Maximize2 
           className="absolute top-0.5 right-0.5 h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity z-10"
           onClick={() => {
-            setNoteDialogContent(value || "");
+            setNoteDialogContent(localValue || "");
             setNoteDialogOpen(truckId);
           }}
         />
