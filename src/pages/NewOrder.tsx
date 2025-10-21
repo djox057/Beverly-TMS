@@ -446,6 +446,15 @@ const NewOrder = () => {
     }));
   };
 
+  const togglePickupDropType = (id: string) => {
+    setPickupsDrops(pickupsDrops.map(item => {
+      if (item.id === id) {
+        return { ...item, type: item.type === "pickup" ? "delivery" : "pickup" };
+      }
+      return item;
+    }));
+  };
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -1591,13 +1600,19 @@ const NewOrder = () => {
                                   <div {...provided.dragHandleProps}>
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                                  <span className={cn("px-2 py-1 rounded text-xs font-medium",
-                                    item.type === "pickup" 
-                                      ? "bg-blue-100 text-blue-700" 
-                                      : "bg-green-100 text-green-700"
-                                  )}>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePickupDropType(item.id)}
+                                    className={cn(
+                                      "px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors",
+                                      item.type === "pickup" 
+                                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200" 
+                                        : "bg-green-100 text-green-700 hover:bg-green-200"
+                                    )}
+                                    title="Click to toggle between Pickup and Delivery"
+                                  >
                                     {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                                  </span>
+                                  </button>
                                 </div>
                                 <Button
                                   type="button"
