@@ -378,7 +378,8 @@ const NewOrder = () => {
         // Auto-update datetime when relevant fields change
         if (field === 'dateRange' || field === 'startTime') {
           if (updated.dateRange?.from && updated.startTime) {
-            updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+            const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
+            updated.datetime = combined || "";
           } else {
             updated.datetime = "";
           }
@@ -395,7 +396,8 @@ const NewOrder = () => {
         const updated = { ...item, dateRange };
         // Auto-update datetime when dateRange changes
         if (updated.dateRange?.from && updated.startTime) {
-          updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+          const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
+          updated.datetime = combined || "";
         } else {
           updated.datetime = "";
         }
@@ -411,7 +413,8 @@ const NewOrder = () => {
         const updated = { ...item, [timeType]: time };
         // Auto-update datetime when startTime changes
         if (timeType === 'startTime' && updated.dateRange?.from && updated.startTime) {
-          updated.datetime = combineDateAndTime(updated.dateRange.from, updated.startTime);
+          const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
+          updated.datetime = combined || "";
         } else if (timeType === 'startTime') {
           updated.datetime = "";
         }

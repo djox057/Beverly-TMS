@@ -53,13 +53,33 @@ export const parseSimpleDateTime = (datetimeString: string) => {
  * 
  * @param date - The Date object (only date part is used)
  * @param time - Time string in format "HH:MM"
- * @returns Simple datetime string "YYYY-MM-DD HH:MM:SS"
+ * @returns Simple datetime string "YYYY-MM-DD HH:MM:SS" or null if inputs are invalid
  */
-export const combineDateAndTime = (date: Date, time: string): string => {
+export const combineDateAndTime = (date: Date, time: string): string | null => {
+  // Validate inputs
+  if (!date || !time || typeof time !== 'string' || time.trim() === '') {
+    return null;
+  }
+  
+  // Validate time format (should be HH:MM)
+  const timeParts = time.split(':');
+  if (timeParts.length !== 2) {
+    return null;
+  }
+  
+  const [hours, minutes] = timeParts;
+  
+  // Validate hours and minutes are valid numbers
+  const hoursNum = parseInt(hours, 10);
+  const minutesNum = parseInt(minutes, 10);
+  
+  if (isNaN(hoursNum) || isNaN(minutesNum) || hoursNum < 0 || hoursNum > 23 || minutesNum < 0 || minutesNum > 59) {
+    return null;
+  }
+  
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  const [hours, minutes] = time.split(':');
   
   return `${year}-${month}-${day} ${hours}:${minutes}:00`;
 };
