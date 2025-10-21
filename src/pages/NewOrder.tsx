@@ -143,14 +143,8 @@ const NewOrder = () => {
     return true;
   });
   
-  // Filter companies by dispatcher for dispatch role - show only companies with accessible trucks
-  const filteredCompanies = companies?.filter(company => {
-    if (profile?.user_id && isDispatchOnly) {
-      // Show company if any of the dispatcher's trucks belong to it
-      return trucks?.some(truck => truck.company_id === company.id);
-    }
-    return true;
-  });
+  // Show all companies to all users for "Booked by company" dropdown
+  const filteredCompanies = companies;
   
   // Get company_id from selected truck only (not from booked by company)
   const selectedTruck = trucks?.find(t => t.id === truck);
