@@ -48,7 +48,7 @@ export const useFleetManagement = () => {
         .from('drivers')
         .select(`
           *,
-          truck:trucks!trucks_driver1_id_fkey(id, truck_number, make, model, company_id, trailer_id)
+          truck:trucks!trucks_driver1_id_fkey(id, truck_number, company_id, trailer_id)
         `)
         .eq('is_active', true)
         .order('name');
