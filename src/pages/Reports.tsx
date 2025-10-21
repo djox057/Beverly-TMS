@@ -26,7 +26,6 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
-import { checkDeliveryETA } from "@/utils/etaCalculation";
 
 interface EditingState {
   truckId: string;
@@ -1347,130 +1346,54 @@ const Reports = () => {
     };
   }, [groupedReports]);
 
-  // Calculate ETAs for in-progress deliveries
+  // Check delivery ETAs using edge function
   useEffect(() => {
-    if (!groupedReports || !samsaraLocations) {
-      console.log('⏱️ ETA Check: Waiting for data...', {
-        hasReports: !!groupedReports,
-        hasSamsara: !!samsaraLocations
-      });
-      return;
-    }
+    const checkETAs = async () => {
+      console.log('🔍 Checking delivery ETAs via edge function...');
 
-    console.log('⏱️ ETA Check: Starting calculation...');
+      try {
+        const { data, error } = await supabase.functions.invoke('check-delivery-etas');
 
-    const calculateAllETAs = async () => {
-      const lateOrderIds = new Set<string>();
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let checkedOrders = 0;
-      let ordersWithETA = 0;
-      
-      for (const group of groupedReports) {
-        for (const truck of group.trucks) {
-          // Get truck location from Samsara
-          const truckLocation = samsaraLocations.find(
-            (loc: any) => loc.truck_number === truck.truckNumber
-          );
-          
-          if (!truckLocation?.latitude || !truckLocation?.longitude) {
-            console.log(`⏱️ No GPS location for truck ${truck.truckNumber}`);
-            continue;
-          }
-
-          const location = {
-            latitude: truckLocation.latitude,
-            longitude: truckLocation.longitude
-          };
-
-          // Check each order for late deliveries
-          for (const order of truck.allOrders || []) {
-            // Only check orders with BOL but not POD (in progress)
-            const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-            
-            // Skip if not in progress (needs BOL and no POD)
-            if (!hasBOL || hasPOD) continue;
-
-            checkedOrders++;
-
-            // Build full delivery address for better geocoding
-            const deliveryStop = order.deliveryStop;
-            if (!deliveryStop?.address || !order.delivery_end_datetime) {
-              console.log(`⏱️ Order ${order.internal_load_number}: Missing address or end time`);
-              continue;
-            }
-            
-            // Combine address components for better geocoding accuracy
-            const deliveryAddress = [
-              deliveryStop.address,
-              deliveryStop.city,
-              deliveryStop.state,
-              deliveryStop.zip_code
-            ].filter(Boolean).join(', ');
-
-            // Only check deliveries happening today or in the future
-            if (order.delivery_datetime) {
-              const deliveryDate = new Date(order.delivery_datetime);
-              deliveryDate.setHours(0, 0, 0, 0);
-              if (deliveryDate < today) {
-                console.log(`⏱️ Order ${order.internal_load_number}: Past delivery date, skipping`);
-                continue;
-              }
-            }
-
-            console.log(`⏱️ Calculating ETA for order ${order.internal_load_number}`, {
-              truck: truck.truckNumber,
-              deliveryAddress,
-              deliveryEnd: order.delivery_end_datetime,
-              truckLocation: location
-            });
-
-            // Calculate ETA
-            try {
-              const etaResult = await checkDeliveryETA(
-                location,
-                deliveryAddress,
-                order.delivery_end_datetime
-              );
-
-              ordersWithETA++;
-
-              if (etaResult.isLate) {
-                console.log(`🔶 ORDER LATE: ${order.internal_load_number}`, {
-                  estimatedArrival: etaResult.estimatedArrival,
-                  durationMinutes: etaResult.durationMinutes
-                });
-                lateOrderIds.add(order.id);
-              } else {
-                console.log(`✅ Order ${order.internal_load_number}: On time`, {
-                  estimatedArrival: etaResult.estimatedArrival,
-                  durationMinutes: etaResult.durationMinutes
-                });
-              }
-            } catch (error) {
-              console.error(`❌ ETA calculation failed for order ${order.internal_load_number}:`, error);
-            }
-          }
+        if (error) {
+          console.error('❌ Error checking ETAs:', error);
+          return;
         }
+
+        if (data?.success && data?.results) {
+          console.log(`✅ Received ${data.results.length} ETA results`);
+          
+          // Store late order internal_load_numbers
+          const lateOrderNumbers = data.results
+            .filter((result: any) => result.is_late)
+            .map((result: any) => result.internal_load_number);
+          
+          // Find the order IDs from internal_load_numbers
+          const lateOrderIds = new Set<string>();
+          groupedReports?.forEach(group => {
+            group.trucks.forEach(truck => {
+              truck.allOrders?.forEach(order => {
+                if (lateOrderNumbers.includes(order.internal_load_number)) {
+                  lateOrderIds.add(order.id);
+                }
+              });
+            });
+          });
+          
+          setLateDeliveries(lateOrderIds);
+          
+          console.log(`🔶 Found ${lateOrderIds.size} late orders:`, Array.from(lateOrderIds));
+        }
+      } catch (error) {
+        console.error('❌ Failed to check ETAs:', error);
       }
-
-      console.log(`⏱️ ETA Check Complete:`, {
-        totalInProgress: checkedOrders,
-        calculatedETAs: ordersWithETA,
-        lateDeliveries: lateOrderIds.size,
-        lateOrderIds: Array.from(lateOrderIds)
-      });
-
-      setLateDeliveries(lateOrderIds);
     };
 
-    calculateAllETAs();
-    
-    // Re-check every 2 minutes
-    const interval = setInterval(calculateAllETAs, 2 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [groupedReports, samsaraLocations]);
+    if (groupedReports?.length) {
+      checkETAs();
+      const interval = setInterval(checkETAs, 5 * 60 * 1000); // Check every 5 minutes
+      return () => clearInterval(interval);
+    }
+  }, [groupedReports]);
   
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {

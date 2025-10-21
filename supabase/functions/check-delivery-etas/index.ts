@@ -1,0 +1,271 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
+import { toZonedTime } from 'https://esm.sh/date-fns-tz@3.2.0';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
+interface OrderETA {
+  internal_load_number: number;
+  is_late: boolean;
+  estimated_arrival: string | null;
+  duration_minutes: number | null;
+}
+
+async function geocodeAddress(address: string): Promise<Coordinates | null> {
+  if (!address || address.trim() === '') {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&limit=1',
+      {
+        headers: {
+          'User-Agent': 'BFPrime-TMS/1.0',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Geocoding failed:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon),
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error geocoding address:', error);
+    return null;
+  }
+}
+
+async function calculateRouteDuration(
+  start: Coordinates,
+  end: Coordinates
+): Promise<number | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=false&alternatives=false&steps=false`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+      return data.routes[0].duration; // Duration in seconds
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Route duration calculation error:', error);
+    return null;
+  }
+}
+
+function parseSimpleDateTime(datetimeString: string) {
+  const date = new Date(datetimeString);
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+  };
+}
+
+async function checkDeliveryETA(
+  truckLocation: Coordinates | null,
+  deliveryAddress: string,
+  deliveryEndDatetime: string | null
+): Promise<{ isLate: boolean; estimatedArrival: Date | null; durationMinutes: number | null }> {
+  const defaultResult = {
+    isLate: false,
+    estimatedArrival: null,
+    durationMinutes: null,
+  };
+
+  if (!truckLocation || !deliveryEndDatetime) {
+    return defaultResult;
+  }
+
+  try {
+    const deliveryCoords = await geocodeAddress(deliveryAddress);
+    if (!deliveryCoords) {
+      return defaultResult;
+    }
+
+    const durationSeconds = await calculateRouteDuration(truckLocation, deliveryCoords);
+    if (!durationSeconds) {
+      return defaultResult;
+    }
+
+    const durationMinutes = Math.ceil(durationSeconds / 60);
+
+    const now = new Date();
+    const chicagoNow = toZonedTime(now, 'America/Chicago');
+
+    const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
+
+    const parsed = parseSimpleDateTime(deliveryEndDatetime);
+    const deliveryEndTime = new Date(
+      parsed.year,
+      parsed.month - 1,
+      parsed.day,
+      parsed.hours,
+      parsed.minutes
+    );
+
+    const isLate = estimatedArrival > deliveryEndTime;
+
+    return {
+      isLate,
+      estimatedArrival,
+      durationMinutes,
+    };
+  } catch (error) {
+    console.error('ETA calculation error:', error);
+    return defaultResult;
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    console.log('🔍 Fetching orders and truck locations...');
+
+    // Get all orders with pickup/delivery stops
+    const { data: orders, error: ordersError } = await supabaseClient
+      .from('orders')
+      .select(`
+        internal_load_number,
+        truck_number,
+        delivery_end_datetime,
+        delivery_datetime,
+        pickup_drops!inner(
+          id,
+          order_id,
+          type,
+          address,
+          city,
+          state,
+          zip_code
+        )
+      `)
+      .in('status', ['pending', 'in_transit'])
+      .not('truck_number', 'is', null);
+
+    if (ordersError) {
+      throw ordersError;
+    }
+
+    // Get truck locations from Samsara
+    const { data: locationsData, error: locationsError } = await supabaseClient.functions.invoke(
+      'samsara-locations'
+    );
+
+    if (locationsError) {
+      throw locationsError;
+    }
+
+    const truckLocations = locationsData?.locations || [];
+    console.log(`📍 Found ${truckLocations.length} truck locations`);
+
+    const results: OrderETA[] = [];
+
+    for (const order of orders || []) {
+      // Find delivery stop
+      const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
+      if (!deliveryStop?.address || !order.delivery_end_datetime) {
+        continue;
+      }
+
+      // Skip if delivery date is in the past
+      if (order.delivery_datetime) {
+        const deliveryDate = new Date(order.delivery_datetime);
+        const now = new Date();
+        if (deliveryDate < now) {
+          continue;
+        }
+      }
+
+      // Find truck location
+      const truckLocation = truckLocations.find(
+        (loc: any) => loc.truck_number === order.truck_number
+      );
+
+      if (!truckLocation) {
+        continue;
+      }
+
+      // Build full delivery address
+      const deliveryAddress = [
+        deliveryStop.address,
+        deliveryStop.city,
+        deliveryStop.state,
+        deliveryStop.zip_code,
+      ]
+        .filter(Boolean)
+        .join(', ');
+
+      console.log(`⏱️ Calculating ETA for order ${order.internal_load_number}`);
+
+      const etaResult = await checkDeliveryETA(
+        { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
+        deliveryAddress,
+        order.delivery_end_datetime
+      );
+
+      results.push({
+        internal_load_number: order.internal_load_number,
+        is_late: etaResult.isLate,
+        estimated_arrival: etaResult.estimatedArrival?.toISOString() || null,
+        duration_minutes: etaResult.durationMinutes,
+      });
+
+      console.log(
+        `${etaResult.isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
+      );
+    }
+
+    return new Response(JSON.stringify({ success: true, results }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

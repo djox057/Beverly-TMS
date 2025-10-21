@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
     
     for (const truck of trucks || []) {
       try {
-        const truckLocation = samsaraLocations.find((loc) => loc.truck_id === truck.id);
+        const truckLocation = samsaraLocations.find((loc) => loc.truck_number === truck.truck_number);
         
         if (!truckLocation) {
           console.log(`⏭️ Skipping truck ${truck.truck_number}: No location data`);
