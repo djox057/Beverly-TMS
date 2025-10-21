@@ -26,13 +26,26 @@ export const useDriverData = () => {
         .select(`
           *,
           company:companies(name),
-          trailer:trailers(trailer_number, trailer_type),
-          dispatcher:profiles!trucks_dispatcher_id_fkey(full_name, email)
+          trailer:trailers(trailer_number, trailer_type)
         `)
         .or(`driver1_id.eq.${driverData.id},driver2_id.eq.${driverData.id}`)
         .maybeSingle();
 
       if (truckError) throw truckError;
+
+      // Get dispatcher info from driver's dispatcher_id
+      let dispatcherData = null;
+      if (driverData.dispatcher_id) {
+        const { data: dispatcher, error: dispatcherError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('user_id', driverData.dispatcher_id)
+          .maybeSingle();
+        
+        if (!dispatcherError && dispatcher) {
+          dispatcherData = dispatcher;
+        }
+      }
 
       // Get current/recent orders
       const { data: ordersData, error: ordersError } = await supabase
@@ -50,7 +63,10 @@ export const useDriverData = () => {
 
       return {
         driver: driverData,
-        truck: truckData,
+        truck: truckData ? {
+          ...truckData,
+          dispatcher: dispatcherData
+        } : null,
         orders: ordersData || [],
       };
     },

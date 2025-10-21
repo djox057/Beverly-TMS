@@ -139,7 +139,7 @@ const Drivers = () => {
   };
 
   // Filter drivers based on search term
-  const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
@@ -850,6 +850,7 @@ const Drivers = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Truck #</TableHead>
                   <TableHead>Trailer #</TableHead>
+                  <TableHead>Dispatcher</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
                   
@@ -857,7 +858,7 @@ const Drivers = () => {
               </TableHeader>
               <TableBody>
                 {paginatedDrivers.length === 0 ? <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
@@ -871,6 +872,7 @@ const Drivers = () => {
                       </TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
+                      <TableCell>{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
                           {driver.phone && <div className="flex items-center gap-2 text-sm">
@@ -921,7 +923,7 @@ const Drivers = () => {
                 {paginatedDrivers.length > 0 && Array.from({
                 length: itemsPerPage - paginatedDrivers.length
               }).map((_, index) => <TableRow key={`empty-${index}`} className="hover:bg-transparent">
-                    <TableCell colSpan={6} className="h-[57px]">&nbsp;</TableCell>
+                    <TableCell colSpan={7} className="h-[57px]">&nbsp;</TableCell>
                   </TableRow>)}
               </TableBody>
             </Table>

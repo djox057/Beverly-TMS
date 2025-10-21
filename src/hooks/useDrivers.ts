@@ -36,6 +36,17 @@ export const useDrivers = () => {
       
       console.log(`✅ Fetched ${trucksData?.length || 0} trucks for driver mapping`);
       
+      // Fetch dispatcher info
+      const { data: dispatchers, error: dispatchersError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email');
+      
+      if (dispatchersError) {
+        console.error('❌ Error fetching dispatchers:', dispatchersError);
+      }
+      
+      console.log(`✅ Fetched ${dispatchers?.length || 0} dispatchers`);
+      
       // First, get all user_ids with driver role
       const { data: driverRoles } = await supabase
         .from('user_roles')
@@ -66,15 +77,20 @@ export const useDrivers = () => {
         });
       }
       
-      // Transform the data to flatten truck/trailer info
+      // Transform the data to flatten truck/trailer and dispatcher info
       const transformedData = data?.map(driver => {
         const truck = trucksByDriverId.get(driver.id);
+        const dispatcher = dispatchers?.find(d => d.user_id === driver.dispatcher_id);
         
         return {
           ...driver,
           truck_info: truck ? {
             truck_number: truck.truck_number,
             trailer_number: truck.trailer?.trailer_number || null
+          } : null,
+          dispatcher_info: dispatcher ? {
+            full_name: dispatcher.full_name,
+            email: dispatcher.email
           } : null,
           has_account: driver.email ? driverEmails.has(driver.email.toLowerCase()) : false
         };

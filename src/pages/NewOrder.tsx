@@ -109,11 +109,11 @@ const NewOrder = () => {
   const { data: allTrucks, isLoading: trucksLoading } = useTrucks();
   const { data: drivers, isLoading: driversLoading } = useDrivers();
   
-  // Filter trucks by dispatcher for dispatch role
+  // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   const trucks = allTrucks?.filter(truck => {
     // Only filter for dispatch role - all other roles see all trucks
     if (profile?.user_id && hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours')) {
-      return truck.dispatcher_id === profile.user_id;
+      return truck.driver1?.dispatcher_id === profile.user_id;
     }
     return true;
   });
