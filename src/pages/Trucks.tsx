@@ -73,7 +73,7 @@ const Trucks = () => {
   } = useFleetManagement();
 
   // Filter trucks based on search term
-  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
@@ -431,7 +431,7 @@ const Trucks = () => {
                         <TableCell className="text-center">{truck.trailer?.trailer_number || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.dispatcher?.full_name || truck.dispatcher?.email || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.driver1?.dispatcher?.full_name || truck.driver1?.dispatcher?.email || "—"}</TableCell>
                         <TableCell className="text-center">{truck.ipass || "—"}</TableCell>
                         <TableCell className="text-center">{truck.dot_inspection_date || "—"}</TableCell>
                         <TableCell className="text-center">{truck.plate_expiration_date || "—"}</TableCell>

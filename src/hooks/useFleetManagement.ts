@@ -43,17 +43,30 @@ export const useFleetManagement = () => {
 
       if (dispatcherError) throw dispatcherError;
 
-      // Fetch all drivers with their dispatcher assignments and truck info
+      // Fetch all drivers with their dispatcher assignments
       const { data: drivers, error: driversError } = await supabase
         .from('drivers')
-        .select(`
-          *,
-          truck:trucks!trucks_driver1_id_fkey(id, truck_number, company_id, trailer_id)
-        `)
+        .select('*')
         .eq('is_active', true)
         .order('name');
 
       if (driversError) throw driversError;
+
+      // Fetch all trucks to match with drivers
+      const { data: trucks, error: trucksError } = await supabase
+        .from('trucks')
+        .select('id, truck_number, company_id, trailer_id, driver1_id, driver2_id');
+
+      if (trucksError) throw trucksError;
+
+      // Match trucks to drivers (a driver can be either driver1 or driver2)
+      const driversWithTrucks = drivers?.map(driver => {
+        const truck = trucks?.find(t => t.driver1_id === driver.id || t.driver2_id === driver.id);
+        return {
+          ...driver,
+          truck: truck ? { id: truck.id, truck_number: truck.truck_number, company_id: truck.company_id, trailer_id: truck.trailer_id } : null
+        };
+      }) || [];
 
       // Fetch dispatcher statuses with inactive drivers data
       const { data: statuses, error: statusError } = await supabase
@@ -75,7 +88,7 @@ export const useFleetManagement = () => {
       const dispatcherGroups: { [key: string]: any[] } = {};
       const unassignedDrivers: any[] = [];
 
-      drivers?.forEach(driver => {
+      driversWithTrucks.forEach(driver => {
         if (driver.dispatcher_id) {
           if (!dispatcherGroups[driver.dispatcher_id]) {
             dispatcherGroups[driver.dispatcher_id] = [];

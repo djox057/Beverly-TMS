@@ -16,9 +16,16 @@ export const useTrucks = () => {
           .select(`
             *,
             trailer:trailers!trailer_id(id, trailer_number, trailer_type),
-            driver1:drivers!trucks_driver1_id_fkey(id, name),
-            driver2:drivers!trucks_driver2_id_fkey(id, name),
-            dispatcher:profiles!dispatcher_id(id, full_name, email),
+            driver1:drivers!trucks_driver1_id_fkey(
+              id, 
+              name,
+              dispatcher:profiles!dispatcher_id(id, full_name, email)
+            ),
+            driver2:drivers!trucks_driver2_id_fkey(
+              id, 
+              name,
+              dispatcher:profiles!dispatcher_id(id, full_name, email)
+            ),
             company:companies!company_id(id, name)
           `)
           .order('truck_number')
