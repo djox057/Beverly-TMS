@@ -114,7 +114,9 @@ const NewOrder = () => {
   const trucks = allTrucks?.filter(truck => {
     // Only filter for dispatch role - all other roles see all trucks
     if (profile?.user_id && hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours')) {
-      return truck.driver1?.dispatcher_id === profile.user_id;
+      // If driver has no dispatcher assigned, show to all dispatchers (so they can be assigned)
+      // Otherwise, only show if dispatcher_id matches current user
+      return !truck.driver1?.dispatcher_id || truck.driver1?.dispatcher_id === profile.user_id;
     }
     return true;
   });

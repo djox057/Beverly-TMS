@@ -7,7 +7,13 @@ export const useAvailableTrucks = (forRecovery?: boolean) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('trucks')
-        .select('id, truck_number, driver1_id, trailer_id')
+        .select(`
+          id, 
+          truck_number, 
+          driver1_id,
+          trailer_id,
+          driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id)
+        `)
         .order('truck_number', { ascending: true });
       
       if (error) throw error;
