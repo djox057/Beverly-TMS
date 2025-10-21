@@ -325,8 +325,13 @@ const AdminUsers = () => {
       
       toast({
         title: "Success",
-        description: data?.message || "All users have been logged out",
+        description: data?.message || "All users have been logged out. Page will reload in 2 seconds.",
       });
+
+      // Reload page after 2 seconds to force all clients to re-validate sessions
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error: any) {
       console.error('Error logging out all users:', error);
       toast({
