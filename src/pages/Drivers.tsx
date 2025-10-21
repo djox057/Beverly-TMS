@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
+import { useQueryClient } from "@tanstack/react-query";
 interface DriverFormData {
   name: string;
   phone: string;
@@ -57,6 +58,7 @@ const Drivers = () => {
   const {
     upsertDrugTest
   } = useDriverDrugTests();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -372,12 +374,13 @@ const Drivers = () => {
       });
       if (noteError) throw noteError;
 
-      // Set termination date and mark as inactive
+      // Set termination date, mark as inactive, and clear dispatcher
       const {
         error: driverError
       } = await supabase.from('drivers').update({
         is_active: false,
-        termination_date: new Date().toISOString().split('T')[0]
+        termination_date: new Date().toISOString().split('T')[0],
+        dispatcher_id: null
       }).eq('id', editingDriver.id);
       if (driverError) throw driverError;
 
@@ -413,6 +416,10 @@ const Drivers = () => {
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       refetch();
+      
+      // Invalidate reports cache so Reports page updates immediately
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      
       fetchTerminationNotes(editingDriver.id);
     } catch (error: any) {
       toast({
