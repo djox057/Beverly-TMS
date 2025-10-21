@@ -26,6 +26,7 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
+import { checkDeliveryETA } from "@/utils/etaCalculation";
 
 interface EditingState {
   truckId: string;
@@ -329,6 +330,7 @@ const Reports = () => {
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
+  const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -510,10 +512,16 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = order.deliveryStop?.arrived_at;
+      const isLate = lateDeliveries.has(order.id);
+      
       if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       if (hasBOL && hasArrived)
         return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
       if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
+      
+      // Check if ETA will be late
+      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
+      
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
     };
 
@@ -1338,6 +1346,64 @@ const Reports = () => {
       return groupedReports.filter((group) => group.office === office);
     };
   }, [groupedReports]);
+
+  // Calculate ETAs for in-progress deliveries
+  useEffect(() => {
+    if (!groupedReports || !samsaraLocations) return;
+
+    const calculateAllETAs = async () => {
+      const lateOrderIds = new Set<string>();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (const group of groupedReports) {
+        for (const truck of group.trucks) {
+          // Get truck location from Samsara
+          const truckLocation = samsaraLocations.find(
+            (loc: any) => loc.truck_number === truck.truckNumber
+          );
+          
+          if (!truckLocation?.latitude || !truckLocation?.longitude) continue;
+
+          const location = {
+            latitude: truckLocation.latitude,
+            longitude: truckLocation.longitude
+          };
+
+          // Check each order for late deliveries
+          for (const order of truck.allOrders || []) {
+            // Skip if already has POD
+            const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+            if (hasPOD) continue;
+
+            // Skip if no delivery address or end time
+            const deliveryAddress = order.deliveryStop?.address;
+            if (!deliveryAddress || !order.delivery_end_datetime) continue;
+
+            // Only check deliveries happening today or in the future
+            const deliveryDate = new Date(order.delivery_datetime);
+            deliveryDate.setHours(0, 0, 0, 0);
+            if (deliveryDate < today) continue;
+
+            // Calculate ETA
+            const etaResult = await checkDeliveryETA(
+              location,
+              deliveryAddress,
+              order.delivery_end_datetime
+            );
+
+            if (etaResult.isLate) {
+              lateOrderIds.add(order.id);
+            }
+          }
+        }
+      }
+
+      setLateDeliveries(lateOrderIds);
+    };
+
+    calculateAllETAs();
+  }, [groupedReports, samsaraLocations]);
   
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {

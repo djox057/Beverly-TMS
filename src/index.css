@@ -71,6 +71,8 @@
     --cell-pending-foreground: 210 40% 30%;
     --cell-lime: 84 81% 70%;
     --cell-lime-foreground: 84 81% 15%;
+    --cell-late: 25 95% 53%;
+    --cell-late-foreground: 0 0% 100%;
 
     /* Borders and inputs */
     --border: 214 32% 91%;
@@ -148,6 +150,8 @@
     --cell-transit: 217 91% 35%;
     --cell-transit-foreground: 217 91% 95%;
     --cell-loading: 45 93% 40%;
+    --cell-late: 25 95% 53%;
+    --cell-late-foreground: 0 0% 100%;
     --cell-loading-foreground: 45 93% 95%;
     --cell-available: 142 76% 35%;
     --cell-available-foreground: 142 76% 95%;
