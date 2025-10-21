@@ -853,7 +853,7 @@ const Reports = () => {
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 z-[101]">
+                            <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="font-semibold">Load Information</h4>
@@ -979,7 +979,7 @@ const Reports = () => {
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 z-[101]">
+                            <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="font-semibold">Load Information</h4>
@@ -1130,7 +1130,7 @@ const Reports = () => {
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 z-[101]">
+                            <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center justify-between">
                                   <h4 className="font-semibold">{isSameDay ? 'Same-Day ' : ''}Load Information</h4>
@@ -1170,7 +1170,7 @@ const Reports = () => {
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 z-[101]">
+                            <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <h4 className="font-semibold">Load Information</h4>
                                 <div className="space-y-3">
@@ -1234,7 +1234,7 @@ const Reports = () => {
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-80 z-[101]">
+                            <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <div className="flex items-center justify-between mb-2">
                                   <h4 className="font-semibold">Same-Day Load Information</h4>
@@ -1495,7 +1495,7 @@ const Reports = () => {
     }
   };
 
-  const handleGameOverClick = (truckId: string, truckNumber: string) => {
+  const handleGameOverClick = (truckId: string, driverName: string) => {
     // Find existing "game over" dates for this truck
     const allTrucks = groupedReports?.flatMap((group) => group.trucks) || [];
     const truck = allTrucks.find((t) => t.id === truckId);
@@ -1505,7 +1505,7 @@ const Reports = () => {
     
     setGameOverDialog({
       truckId,
-      truckNumber,
+      truckNumber: driverName,
       existingDates: existingGameOverDates,
     });
     setGameOverStartDate(undefined);
@@ -2134,7 +2134,7 @@ const Reports = () => {
                                           variant="ghost"
                                           size="sm"
                                           className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
-                                          onClick={() => handleGameOverClick(truck.id, truck.truckNumber)}
+                                          onClick={() => handleGameOverClick(truck.id, truck.driver)}
                                         >
                                           <XCircle className="h-[19px] w-[19px] text-destructive" />
                                         </Button>
@@ -2234,7 +2234,7 @@ const Reports = () => {
       <Dialog open={gameOverDialog !== null} onOpenChange={(open) => !open && setGameOverDialog(null)}>
         <DialogContent className="max-w-md z-[100]">
           <DialogHeader>
-            <DialogTitle>Set Truck Status - {gameOverDialog?.truckNumber}</DialogTitle>
+            <DialogTitle>Set Driver Status - {gameOverDialog?.truckNumber}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
