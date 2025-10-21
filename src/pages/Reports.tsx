@@ -1349,12 +1349,22 @@ const Reports = () => {
 
   // Calculate ETAs for in-progress deliveries
   useEffect(() => {
-    if (!groupedReports || !samsaraLocations) return;
+    if (!groupedReports || !samsaraLocations) {
+      console.log('⏱️ ETA Check: Waiting for data...', {
+        hasReports: !!groupedReports,
+        hasSamsara: !!samsaraLocations
+      });
+      return;
+    }
+
+    console.log('⏱️ ETA Check: Starting calculation...');
 
     const calculateAllETAs = async () => {
       const lateOrderIds = new Set<string>();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      let checkedOrders = 0;
+      let ordersWithETA = 0;
       
       for (const group of groupedReports) {
         for (const truck of group.trucks) {
@@ -1363,7 +1373,10 @@ const Reports = () => {
             (loc: any) => loc.truck_number === truck.truckNumber
           );
           
-          if (!truckLocation?.latitude || !truckLocation?.longitude) continue;
+          if (!truckLocation?.latitude || !truckLocation?.longitude) {
+            console.log(`⏱️ No GPS location for truck ${truck.truckNumber}`);
+            continue;
+          }
 
           const location = {
             latitude: truckLocation.latitude,
@@ -1372,37 +1385,83 @@ const Reports = () => {
 
           // Check each order for late deliveries
           for (const order of truck.allOrders || []) {
-            // Skip if already has POD
+            // Only check orders with BOL but not POD (in progress)
+            const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
             const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-            if (hasPOD) continue;
+            
+            // Skip if not in progress (needs BOL and no POD)
+            if (!hasBOL || hasPOD) continue;
+
+            checkedOrders++;
 
             // Skip if no delivery address or end time
             const deliveryAddress = order.deliveryStop?.address;
-            if (!deliveryAddress || !order.delivery_end_datetime) continue;
+            if (!deliveryAddress || !order.delivery_end_datetime) {
+              console.log(`⏱️ Order ${order.internal_load_number}: Missing address or end time`);
+              continue;
+            }
 
             // Only check deliveries happening today or in the future
-            const deliveryDate = new Date(order.delivery_datetime);
-            deliveryDate.setHours(0, 0, 0, 0);
-            if (deliveryDate < today) continue;
+            if (order.delivery_datetime) {
+              const deliveryDate = new Date(order.delivery_datetime);
+              deliveryDate.setHours(0, 0, 0, 0);
+              if (deliveryDate < today) {
+                console.log(`⏱️ Order ${order.internal_load_number}: Past delivery date, skipping`);
+                continue;
+              }
+            }
+
+            console.log(`⏱️ Calculating ETA for order ${order.internal_load_number}`, {
+              truck: truck.truckNumber,
+              deliveryAddress,
+              deliveryEnd: order.delivery_end_datetime,
+              truckLocation: location
+            });
 
             // Calculate ETA
-            const etaResult = await checkDeliveryETA(
-              location,
-              deliveryAddress,
-              order.delivery_end_datetime
-            );
+            try {
+              const etaResult = await checkDeliveryETA(
+                location,
+                deliveryAddress,
+                order.delivery_end_datetime
+              );
 
-            if (etaResult.isLate) {
-              lateOrderIds.add(order.id);
+              ordersWithETA++;
+
+              if (etaResult.isLate) {
+                console.log(`🔶 ORDER LATE: ${order.internal_load_number}`, {
+                  estimatedArrival: etaResult.estimatedArrival,
+                  durationMinutes: etaResult.durationMinutes
+                });
+                lateOrderIds.add(order.id);
+              } else {
+                console.log(`✅ Order ${order.internal_load_number}: On time`, {
+                  estimatedArrival: etaResult.estimatedArrival,
+                  durationMinutes: etaResult.durationMinutes
+                });
+              }
+            } catch (error) {
+              console.error(`❌ ETA calculation failed for order ${order.internal_load_number}:`, error);
             }
           }
         }
       }
 
+      console.log(`⏱️ ETA Check Complete:`, {
+        totalInProgress: checkedOrders,
+        calculatedETAs: ordersWithETA,
+        lateDeliveries: lateOrderIds.size,
+        lateOrderIds: Array.from(lateOrderIds)
+      });
+
       setLateDeliveries(lateOrderIds);
     };
 
     calculateAllETAs();
+    
+    // Re-check every 2 minutes
+    const interval = setInterval(calculateAllETAs, 2 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [groupedReports, samsaraLocations]);
   
   // Only get filtered reports for the active tab

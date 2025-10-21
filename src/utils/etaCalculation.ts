@@ -61,32 +61,43 @@ export async function checkDeliveryETA(
     durationMinutes: null
   };
 
+  console.log('🔍 checkDeliveryETA called:', { truckLocation, deliveryAddress, deliveryEndDatetime });
+
   // If no truck location or delivery end time, cannot calculate
   if (!truckLocation || !deliveryEndDatetime) {
+    console.log('❌ Missing truck location or delivery end time');
     return defaultResult;
   }
 
   try {
     // Geocode delivery address
+    console.log('📍 Geocoding address:', deliveryAddress);
     const deliveryCoords = await geocodeAddress(deliveryAddress);
     if (!deliveryCoords) {
+      console.log('❌ Failed to geocode delivery address');
       return defaultResult;
     }
+    console.log('✅ Delivery coordinates:', deliveryCoords);
 
     // Calculate route duration
+    console.log('🚗 Calculating route duration from', truckLocation, 'to', deliveryCoords);
     const durationSeconds = await calculateRouteDuration(truckLocation, deliveryCoords);
     if (!durationSeconds) {
+      console.log('❌ Failed to calculate route duration');
       return defaultResult;
     }
+    console.log('✅ Route duration (seconds):', durationSeconds);
 
     const durationMinutes = Math.ceil(durationSeconds / 60);
 
     // Get current time in Chicago timezone
     const now = new Date();
     const chicagoNow = toZonedTime(now, "America/Chicago");
+    console.log('🕐 Current Chicago time:', chicagoNow);
 
     // Calculate estimated arrival
     const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
+    console.log('📅 Estimated arrival:', estimatedArrival);
 
     // Parse delivery end datetime (without timezone conversion - it's already in Chicago time)
     const parsed = parseSimpleDateTime(deliveryEndDatetime);
@@ -97,9 +108,16 @@ export async function checkDeliveryETA(
       parsed.hours,
       parsed.minutes
     );
+    console.log('⏰ Delivery end time:', deliveryEndTime);
 
     // Check if ETA is after delivery end time
     const isLate = estimatedArrival > deliveryEndTime;
+    console.log(`${isLate ? '🔶 LATE' : '✅ ON TIME'}:`, {
+      estimatedArrival,
+      deliveryEndTime,
+      difference: (estimatedArrival.getTime() - deliveryEndTime.getTime()) / 1000 / 60,
+      durationMinutes
+    });
 
     return {
       isLate,
@@ -107,7 +125,7 @@ export async function checkDeliveryETA(
       durationMinutes
     };
   } catch (error) {
-    console.error('ETA calculation error:', error);
+    console.error('❌ ETA calculation error:', error);
     return defaultResult;
   }
 }
