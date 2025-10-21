@@ -49,10 +49,12 @@ const Fleets = () => {
   // Filter drivers by search term
   const filterDrivers = (drivers: any[]) => {
     if (!searchTerm) return drivers;
-    return drivers.filter(driver => 
-      driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.truck?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const searchLower = searchTerm.toLowerCase();
+    return drivers.filter(driver => {
+      const nameMatch = driver?.name?.toLowerCase().includes(searchLower);
+      const truckMatch = driver?.truck?.truck_number?.toString().toLowerCase().includes(searchLower);
+      return nameMatch || truckMatch;
+    });
   };
 
   // Filter dispatchers by name
