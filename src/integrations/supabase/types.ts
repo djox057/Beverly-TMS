@@ -1242,6 +1242,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      sign_out_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

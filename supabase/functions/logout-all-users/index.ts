@@ -64,40 +64,22 @@ Deno.serve(async (req) => {
 
     console.log(`📋 Found ${users.length} users to log off`);
 
-    // Sign out all users by deleting their sessions
-    let successCount = 0;
-    let errorCount = 0;
+    // Call the database function to sign out all users
+    const { data: result, error: signOutError } = await supabaseAdmin
+      .rpc('sign_out_all_users');
 
-    for (const targetUser of users) {
-      try {
-        // Delete all sessions for this user (signs them out from all devices)
-        const { error: deleteError } = await supabaseAdmin
-          .schema('auth')
-          .from('sessions')
-          .delete()
-          .eq('user_id', targetUser.id);
-        
-        if (deleteError) {
-          console.error(`Failed to sign out user ${targetUser.email}:`, deleteError);
-          errorCount++;
-        } else {
-          console.log(`✅ Signed out user: ${targetUser.email}`);
-          successCount++;
-        }
-      } catch (err) {
-        console.error(`Error signing out user ${targetUser.email}:`, err);
-        errorCount++;
-      }
+    if (signOutError) {
+      console.error('❌ Error signing out users:', signOutError);
+      throw signOutError;
     }
 
-    console.log(`✅ Logout complete: ${successCount} succeeded, ${errorCount} failed`);
+    console.log(`✅ Logout complete: ${result.sessions_deleted} sessions deleted`);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        message: `Logged off ${successCount} users${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
-        successCount,
-        errorCount
+        message: `Logged off all users (${result.sessions_deleted} sessions deleted)`,
+        sessionsDeleted: result.sessions_deleted
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
