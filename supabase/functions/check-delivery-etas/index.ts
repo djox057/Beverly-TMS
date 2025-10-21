@@ -291,11 +291,13 @@ Deno.serve(async (req) => {
     console.log(`✅ Processed ${results.length} orders with ETA calculations`);
 
     return new Response(JSON.stringify({ success: true, results }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
