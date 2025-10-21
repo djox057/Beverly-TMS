@@ -1,4 +1,4 @@
-import { JSZip } from "https://deno.land/x/jszip@0.11.0/mod.ts";
+import JSZip from "https://esm.sh/jszip@3.10.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
           console.log(`Renamed ${invoice.filename} to ${finalFilename} to avoid duplicate`);
         }
         
-        zip.addFile(finalFilename, pdfBuffer);
+        zip.file(finalFilename, pdfBuffer);
         console.log(`Successfully added ${finalFilename} to ZIP`);
       } catch (error) {
         console.error(`Error processing invoice ${invoice.filename}:`, error);
@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       const csvContent = csvRows.join('\n');
       const csvBytes = new TextEncoder().encode(csvContent);
       
-      zip.addFile('invoice_data.xls', csvBytes);
+      zip.file('invoice_data.xls', csvBytes);
       console.log('Successfully added XLSX to ZIP');
     }
     
