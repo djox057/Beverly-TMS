@@ -217,9 +217,13 @@ const NewOrder = () => {
   useEffect(() => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
+      console.log('🚚 Autofill Debug - Selected Truck:', selectedTruck);
+      console.log('🚚 Trailer Object:', selectedTruck?.trailer);
+      console.log('🚚 Trailer Number:', selectedTruck?.trailer?.trailer_number);
       if (selectedTruck) {
         // Autofill trailer number for display
         const trailerNumber = selectedTruck.trailer?.trailer_number || '';
+        console.log('🚚 Setting Trailer To:', trailerNumber);
         setTrailer(trailerNumber);
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
