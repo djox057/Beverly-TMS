@@ -24,32 +24,25 @@ export function BrokerCombobox({
 }: BrokerComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const debouncedSearch = useDebounce(searchTerm, 300);
+  const debouncedSearch = useDebounce(searchTerm, 200);
   
-  const { data: allBrokers } = useBrokers();
+  const { data: allBrokers, isLoading } = useBrokers();
 
-  // Filter brokers based on search term
+  // Filter and limit brokers for better performance
   const filteredBrokers = React.useMemo(() => {
     if (!allBrokers) return [];
-    
-    console.log(`🔍 BrokerCombobox: Filtering ${allBrokers.length} brokers with search: "${debouncedSearch}"`);
     
     const filtered = allBrokers.filter(broker =>
       broker.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       broker.mc_number?.toLowerCase().includes(debouncedSearch.toLowerCase())
     );
     
-    console.log(`✅ BrokerCombobox: Filtered to ${filtered.length} brokers`);
+    // Limit to first 100 results for better performance
+    const limited = filtered.slice(0, 100);
     
-    // Check if test broker is in filtered results
-    const testBroker = filtered.find(b => b.id === '1dda8956-e4c2-45b1-904c-d763a7d55f1b');
-    if (debouncedSearch && testBroker) {
-      console.log('✅ Test broker (TRANSPORTATION ONE, LLC) is in filtered results');
-    } else if (debouncedSearch && !testBroker) {
-      console.log('❌ Test broker (TRANSPORTATION ONE, LLC) NOT in filtered results');
-    }
+    console.log(`✅ BrokerCombobox: Showing ${limited.length} of ${filtered.length} filtered brokers`);
     
-    return filtered;
+    return limited;
   }, [allBrokers, debouncedSearch]);
 
   const selectedBroker = React.useMemo(
@@ -65,8 +58,9 @@ export function BrokerCombobox({
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          disabled={isLoading}
         >
-          {selectedBroker ? selectedBroker.name : placeholder}
+          {isLoading ? "Loading brokers..." : selectedBroker ? selectedBroker.name : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -77,7 +71,7 @@ export function BrokerCombobox({
             value={searchTerm}
             onValueChange={setSearchTerm}
           />
-          <CommandEmpty>{emptyText}</CommandEmpty>
+          <CommandEmpty>{isLoading ? "Loading..." : emptyText}</CommandEmpty>
           <CommandGroup className="max-h-64 overflow-auto">
             {filteredBrokers.map((broker) => (
               <CommandItem
@@ -86,6 +80,7 @@ export function BrokerCombobox({
                 onSelect={(currentValue) => {
                   onValueChange(currentValue === value ? "" : currentValue);
                   setOpen(false);
+                  setSearchTerm(""); // Clear search on select
                 }}
               >
                 <Check
@@ -103,6 +98,11 @@ export function BrokerCombobox({
               </CommandItem>
             ))}
           </CommandGroup>
+          {filteredBrokers.length === 100 && debouncedSearch && (
+            <div className="px-2 py-1.5 text-xs text-muted-foreground border-t">
+              Showing first 100 results. Type to refine search.
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>
