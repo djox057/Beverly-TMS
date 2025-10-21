@@ -108,7 +108,7 @@ const NewOrder = () => {
   // Fetch data from database
   const { data: companies, isLoading: companiesLoading, error: companiesError } = useCompanies();
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
-  const { data: drivers, isLoading: driversLoading, error: driversError } = useDrivers();
+  const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
   
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   const trucks = allTrucks?.filter(truck => {
@@ -117,6 +117,27 @@ const NewOrder = () => {
       // If driver has no dispatcher assigned, show to all dispatchers (so they can be assigned)
       // Otherwise, only show if dispatcher_id matches current user
       return !truck.driver1?.dispatcher_id || truck.driver1?.dispatcher_id === profile.user_id;
+    }
+    return true;
+  });
+  
+  // Filter drivers by dispatcher for dispatch role
+  const drivers = allDrivers?.filter(driver => {
+    // Only filter for dispatch role - all other roles see all drivers
+    if (profile?.user_id && hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours')) {
+      // If driver has no dispatcher assigned, show to all dispatchers (so they can be assigned)
+      // Otherwise, only show if dispatcher_id matches current user
+      return !driver.dispatcher_id || driver.dispatcher_id === profile.user_id;
+    }
+    return true;
+  });
+  
+  // Filter companies by dispatcher for dispatch role - show only companies with accessible trucks
+  const filteredCompanies = companies?.filter(company => {
+    // Only filter for dispatch role - all other roles see all companies
+    if (profile?.user_id && hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours')) {
+      // Show company if any of the dispatcher's trucks belong to it
+      return trucks?.some(truck => truck.company_id === company.id);
     }
     return true;
   });
@@ -151,13 +172,13 @@ const NewOrder = () => {
 
   // Pre-select BF Prime company as default
   useEffect(() => {
-    if (companies && companies.length > 0 && !bookedByCompany) {
-      const bfPrime = companies.find(c => c.name === 'BF Prime');
+    if (filteredCompanies && filteredCompanies.length > 0 && !bookedByCompany) {
+      const bfPrime = filteredCompanies.find(c => c.name === 'BF Prime');
       if (bfPrime) {
         setBookedByCompany(bfPrime.id);
       }
     }
-  }, [companies, bookedByCompany]);
+  }, [filteredCompanies, bookedByCompany]);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -919,7 +940,7 @@ const NewOrder = () => {
   };
 
   // Prepare options for dropdowns
-  const companyOptions = companies?.map(company => ({
+  const companyOptions = filteredCompanies?.map(company => ({
     value: company.id,
     label: company.name
   })) || [];
