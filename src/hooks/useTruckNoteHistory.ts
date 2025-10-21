@@ -23,7 +23,7 @@ export const useTruckNoteHistory = (truckId: string | null) => {
           note,
           edited_by,
           edited_at,
-          profiles:edited_by (
+          profiles!truck_note_history_edited_by_fkey (
             full_name,
             email
           )
@@ -32,7 +32,12 @@ export const useTruckNoteHistory = (truckId: string | null) => {
         .order('edited_at', { ascending: false })
         .limit(7);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching truck note history:', error);
+        throw error;
+      }
+
+      console.log('Truck note history data:', data);
 
       return (data || []).map((entry: any) => ({
         id: entry.id,
