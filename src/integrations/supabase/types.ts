@@ -1084,6 +1084,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "truck_note_history_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "truck_note_history_truck_id_fkey"
             columns: ["truck_id"]
             isOneToOne: false

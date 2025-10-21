@@ -23,7 +23,7 @@ export const useTruckNoteHistory = (truckId: string | null) => {
           note,
           edited_by,
           edited_at,
-          profiles!truck_note_history_edited_by_fkey (
+          profiles:edited_by (
             full_name,
             email
           )
