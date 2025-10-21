@@ -64,17 +64,21 @@ Deno.serve(async (req) => {
 
     console.log(`📋 Found ${users.length} users to log off`);
 
-    // Sign out all users by clearing their sessions
+    // Sign out all users by deleting their sessions
     let successCount = 0;
     let errorCount = 0;
 
     for (const targetUser of users) {
       try {
-        // Sign out user from all devices
-        const { error: signOutError } = await supabaseAdmin.auth.admin.signOut(targetUser.id);
+        // Delete all sessions for this user (signs them out from all devices)
+        const { error: deleteError } = await supabaseAdmin
+          .schema('auth')
+          .from('sessions')
+          .delete()
+          .eq('user_id', targetUser.id);
         
-        if (signOutError) {
-          console.error(`Failed to sign out user ${targetUser.email}:`, signOutError);
+        if (deleteError) {
+          console.error(`Failed to sign out user ${targetUser.email}:`, deleteError);
           errorCount++;
         } else {
           console.log(`✅ Signed out user: ${targetUser.email}`);
