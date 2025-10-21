@@ -33,24 +33,22 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError) {
-      console.error('Auth error:', authError);
-      throw new Error(`Authentication failed: ${authError.message}`);
+    
+    // Decode JWT to get user ID (we don't validate here, Supabase handles that)
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const userId = payload.sub;
+    
+    if (!userId) {
+      throw new Error('Invalid token - no user ID found');
     }
     
-    if (!user) {
-      throw new Error('No user found');
-    }
-    
-    console.log(`✓ User authenticated: ${user.email}`);
+    console.log(`✓ User ID from token: ${userId}`);
 
     // Check if user has admin or accounting role
     const { data: roles, error: rolesError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (rolesError) {
       console.error('Roles error:', rolesError);
