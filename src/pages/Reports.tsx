@@ -1901,7 +1901,7 @@ const Reports = () => {
                                                 <div className="space-y-1">
                                                   {truck.driver2Name ? (
                                                     <>
-                                                      <p className="font-semibold text-sm">Driver 1: {truck.driver !== "Team" ? truck.driver : "Driver info"}</p>
+                                                      <p className="font-semibold text-sm">Driver 1: {truck.driver1Name}</p>
                                                       {truck.driverPhone && (
                                                         <p className="text-xs">📞 {truck.driverPhone}</p>
                                                       )}
