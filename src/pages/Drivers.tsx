@@ -12,7 +12,6 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { DatePicker } from "@/components/ui/date-picker";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { Combobox } from "@/components/ui/combobox";
@@ -41,12 +40,12 @@ interface DriverFormData {
   personal_id: string;
   fuel_card_number: string;
   cdl_number: string;
-  cdl_expiration_date: Date | undefined;
-  medical_card_expiration_date: Date | undefined;
-  hire_date: Date | undefined;
-  termination_date: Date | undefined;
-  mvr_date: Date | undefined;
-  clearing_house: Date | undefined;
+  cdl_expiration_date: string;
+  medical_card_expiration_date: string;
+  hire_date: string;
+  termination_date: string;
+  mvr_date: string;
+  clearing_house: string;
   ssn: string;
   fein: string;
   drugTestResult: "positive" | "negative" | "pending" | null;
@@ -86,12 +85,12 @@ const Drivers = () => {
     personal_id: "",
     fuel_card_number: "",
     cdl_number: "",
-    cdl_expiration_date: undefined,
-    medical_card_expiration_date: undefined,
-    hire_date: undefined,
-    termination_date: undefined,
-    mvr_date: undefined,
-    clearing_house: undefined,
+    cdl_expiration_date: "",
+    medical_card_expiration_date: "",
+    hire_date: "",
+    termination_date: "",
+    mvr_date: "",
+    clearing_house: "",
     ssn: "",
     fein: "",
     drugTestResult: null
@@ -171,12 +170,12 @@ const Drivers = () => {
       personal_id: "",
       fuel_card_number: "",
       cdl_number: "",
-      cdl_expiration_date: undefined,
-      medical_card_expiration_date: undefined,
-      hire_date: undefined,
-      termination_date: undefined,
-      mvr_date: undefined,
-      clearing_house: undefined,
+      cdl_expiration_date: "",
+      medical_card_expiration_date: "",
+      hire_date: "",
+      termination_date: "",
+      mvr_date: "",
+      clearing_house: "",
       ssn: "",
       fein: "",
       drugTestResult: null
@@ -202,12 +201,12 @@ const Drivers = () => {
         home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
         home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
         cdl_number: formData.cdl_number || null,
-        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
-        medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
-        hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
-        termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
-        mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
-        clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
+        cdl_expiration_date: formData.cdl_expiration_date || null,
+        medical_card_expiration_date: formData.medical_card_expiration_date || null,
+        hire_date: formData.hire_date || null,
+        termination_date: formData.termination_date || null,
+        mvr_date: formData.mvr_date || null,
+        clearing_house: formData.clearing_house || null,
         license_number: formData.cdl_number || null
       }).select().single();
       if (error) throw error;
@@ -290,12 +289,12 @@ const Drivers = () => {
         home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
         home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
         cdl_number: formData.cdl_number || null,
-        cdl_expiration_date: formData.cdl_expiration_date?.toISOString().split('T')[0] || null,
-        medical_card_expiration_date: formData.medical_card_expiration_date?.toISOString().split('T')[0] || null,
-        hire_date: formData.hire_date?.toISOString().split('T')[0] || null,
-        termination_date: formData.termination_date?.toISOString().split('T')[0] || null,
-        mvr_date: formData.mvr_date?.toISOString().split('T')[0] || null,
-        clearing_house: formData.clearing_house?.toISOString().split('T')[0] || null,
+        cdl_expiration_date: formData.cdl_expiration_date || null,
+        medical_card_expiration_date: formData.medical_card_expiration_date || null,
+        hire_date: formData.hire_date || null,
+        termination_date: formData.termination_date || null,
+        mvr_date: formData.mvr_date || null,
+        clearing_house: formData.clearing_house || null,
         license_number: formData.cdl_number || null
       }).eq('id', editingDriver.id);
       if (error) throw error;
@@ -597,12 +596,12 @@ const Drivers = () => {
       personal_id: sensitivePIIData?.personal_id || "",
       fuel_card_number: sensitivePIIData?.fuel_card_number || "",
       cdl_number: driver.cdl_number || "",
-      cdl_expiration_date: driver.cdl_expiration_date ? new Date(driver.cdl_expiration_date) : undefined,
-      medical_card_expiration_date: driver.medical_card_expiration_date ? new Date(driver.medical_card_expiration_date) : undefined,
-      hire_date: driver.hire_date ? new Date(driver.hire_date) : undefined,
-      termination_date: driver.termination_date ? new Date(driver.termination_date) : undefined,
-      mvr_date: driver.mvr_date ? new Date(driver.mvr_date) : undefined,
-      clearing_house: driver.clearing_house ? new Date(driver.clearing_house) : undefined,
+      cdl_expiration_date: driver.cdl_expiration_date || "",
+      medical_card_expiration_date: driver.medical_card_expiration_date || "",
+      hire_date: driver.hire_date || "",
+      termination_date: driver.termination_date || "",
+      mvr_date: driver.mvr_date || "",
+      clearing_house: driver.clearing_house || "",
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
       drugTestResult: null
@@ -751,9 +750,9 @@ const Drivers = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
-                    <DatePicker date={formData.cdl_expiration_date} onDateChange={date => setFormData({
+                    <Input id="cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
                     ...formData,
-                    cdl_expiration_date: date
+                    cdl_expiration_date: e.target.value
                   })} />
                   </div>
                 </div>
@@ -761,16 +760,16 @@ const Drivers = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="hire_date">Hire Date</Label>
-                    <DatePicker date={formData.hire_date} onDateChange={date => setFormData({
+                    <Input id="hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
                     ...formData,
-                    hire_date: date
+                    hire_date: e.target.value
                   })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="termination_date">Termination Date</Label>
-                    <DatePicker date={formData.termination_date} onDateChange={date => setFormData({
+                    <Input id="termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
                     ...formData,
-                    termination_date: date
+                    termination_date: e.target.value
                   })} />
                   </div>
                 </div>
@@ -778,23 +777,23 @@ const Drivers = () => {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mvr_date">MVR Date</Label>
-                    <DatePicker date={formData.mvr_date} onDateChange={date => setFormData({
+                    <Input id="mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
                     ...formData,
-                    mvr_date: date
+                    mvr_date: e.target.value
                   })} />
                   </div>
                   <div className="space-y-2">
                   <Label htmlFor="clearing_house">Clearing House</Label>
-                  <DatePicker date={formData.clearing_house} onDateChange={date => setFormData({
+                  <Input id="clearing_house" type="date" value={formData.clearing_house} onChange={e => setFormData({
                     ...formData,
-                    clearing_house: date
+                    clearing_house: e.target.value
                   })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="medical_card_expiration_date">Medical Card Exp</Label>
-                    <DatePicker date={formData.medical_card_expiration_date} onDateChange={date => setFormData({
+                    <Input id="medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
                     ...formData,
-                    medical_card_expiration_date: date
+                    medical_card_expiration_date: e.target.value
                   })} />
                   </div>
                 </div>
@@ -1172,9 +1171,9 @@ const Drivers = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_cdl_expiration_date">CDL Expiration Date</Label>
-                      <DatePicker date={formData.cdl_expiration_date} onDateChange={date => setFormData({
+                      <Input id="edit_cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
                     ...formData,
-                    cdl_expiration_date: date
+                    cdl_expiration_date: e.target.value
                   })} />
                     </div>
                   </div>
@@ -1182,16 +1181,16 @@ const Drivers = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit_hire_date">Hire Date</Label>
-                      <DatePicker date={formData.hire_date} onDateChange={date => setFormData({
+                      <Input id="edit_hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
                     ...formData,
-                    hire_date: date
+                    hire_date: e.target.value
                   })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_termination_date">Termination Date</Label>
-                      <DatePicker date={formData.termination_date} onDateChange={date => setFormData({
+                      <Input id="edit_termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
                     ...formData,
-                    termination_date: date
+                    termination_date: e.target.value
                   })} />
                     </div>
                   </div>
@@ -1199,23 +1198,23 @@ const Drivers = () => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="edit_mvr_date">MVR Date</Label>
-                      <DatePicker date={formData.mvr_date} onDateChange={date => setFormData({
+                      <Input id="edit_mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
                     ...formData,
-                    mvr_date: date
+                    mvr_date: e.target.value
                   })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_clearing_house">Clearing House</Label>
-                      <DatePicker date={formData.clearing_house} onDateChange={date => setFormData({
+                      <Input id="edit_clearing_house" type="date" value={formData.clearing_house} onChange={e => setFormData({
                     ...formData,
-                    clearing_house: date
+                    clearing_house: e.target.value
                   })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit_medical_card_expiration_date">Medical Card Exp</Label>
-                      <DatePicker date={formData.medical_card_expiration_date} onDateChange={date => setFormData({
+                      <Input id="edit_medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
                     ...formData,
-                    medical_card_expiration_date: date
+                    medical_card_expiration_date: e.target.value
                   })} />
                     </div>
                   </div>
