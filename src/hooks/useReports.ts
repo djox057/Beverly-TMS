@@ -116,6 +116,36 @@ export const useReports = () => {
         if (error) throw error;
       }
     },
+    onMutate: async ({ truckId, note }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['reports'] });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(['reports']);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['reports'], (old: any) => {
+        if (!old) return old;
+        
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => 
+            truck.id === truckId 
+              ? { ...truck, note }
+              : truck
+          )
+        }));
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousData) {
+        queryClient.setQueryData(['reports'], context.previousData);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
