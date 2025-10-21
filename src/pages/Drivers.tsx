@@ -104,8 +104,8 @@ const Drivers = () => {
     refetch
   } = useDrivers();
   const {
-    data: availableTrucks
-  } = useAvailableTrucks(editingDriver?.id);
+    data: allTrucks
+  } = useAvailableTrucks();
   const {
     data: availableTrailers
   } = useAvailableTrailers(selectedTruckId || formData.truck_id);
@@ -618,6 +618,21 @@ const Drivers = () => {
         </div>
       </div>;
   }
+
+  // Get the truck ID for the driver being edited
+  const editingDriverTruckId = editingDriver ? 
+    allTrucks?.find(truck => truck.driver1_id === editingDriver.id)?.id : null;
+
+  // Filter out trucks that are already assigned to other drivers
+  const availableTrucks = allTrucks?.filter(truck => {
+    // If we're editing a driver, allow their currently assigned truck to remain in the list
+    if (editingDriver && truck.id === editingDriverTruckId) {
+      return true;
+    }
+    // Truck is available if it has no driver assigned
+    return !truck.driver1_id;
+  }) || [];
+
   return <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Drivers</h1>
