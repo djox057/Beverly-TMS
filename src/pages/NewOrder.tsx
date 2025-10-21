@@ -126,10 +126,9 @@ const NewOrder = () => {
   
   const trucks = allTrucks?.filter(truck => {
     if (profile?.user_id && isDispatchOnly) {
-      // Show trucks that either:
-      // 1. Have a driver assigned to this dispatcher
-      // 2. Have no driver assigned (so dispatcher can assign them)
-      return !truck.driver1_id || dispatcherDriverIds.includes(truck.driver1_id);
+      // Show ONLY trucks that have a driver assigned to this dispatcher
+      // Dispatch users should only see trucks from their /fleets
+      return truck.driver1_id && dispatcherDriverIds.includes(truck.driver1_id);
     }
     return true;
   });
@@ -219,15 +218,9 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Autofill trailer number for display (use nested object if available, otherwise empty)
-        if (selectedTruck.trailer?.trailer_number) {
-          setTrailer(selectedTruck.trailer.trailer_number);
-        } else if (selectedTruck.trailer_id) {
-          // If we only have ID, try to find trailer number from trailers list
-          setTrailer('');
-        } else {
-          setTrailer('');
-        }
+        // Autofill trailer number for display
+        const trailerNumber = selectedTruck.trailer?.trailer_number || '';
+        setTrailer(trailerNumber);
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
         if (selectedTruck.driver1?.id) {
