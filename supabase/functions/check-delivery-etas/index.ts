@@ -165,6 +165,7 @@ Deno.serve(async (req) => {
     console.log('🔍 Fetching orders and truck locations...');
 
     // Get all orders with pickup/delivery stops and truck info
+    // Use explicit foreign key since there are multiple relationships
     const { data: orders, error: ordersError } = await supabaseClient
       .from('orders')
       .select(`
@@ -173,7 +174,7 @@ Deno.serve(async (req) => {
         delivery_end_datetime,
         delivery_datetime,
         order_files(id, file_category),
-        trucks!inner(
+        trucks!orders_truck_id_fkey(
           id,
           truck_number
         ),
