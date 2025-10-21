@@ -35,9 +35,16 @@ Deno.serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    if (authError) {
+      console.error('Auth error:', authError);
+      throw new Error(`Authentication failed: ${authError.message}`);
     }
+    
+    if (!user) {
+      throw new Error('No user found');
+    }
+    
+    console.log(`✓ User authenticated: ${user.email}`);
 
     // Check if user has admin or accounting role
     const { data: roles, error: rolesError } = await supabaseAdmin
@@ -45,13 +52,20 @@ Deno.serve(async (req) => {
       .select('role')
       .eq('user_id', user.id);
 
-    if (rolesError || !roles) {
-      throw new Error('Failed to fetch user roles');
+    if (rolesError) {
+      console.error('Roles error:', rolesError);
+      throw new Error(`Failed to fetch user roles: ${rolesError.message}`);
     }
+    
+    if (!roles) {
+      throw new Error('No roles found for user');
+    }
+    
+    console.log(`✓ User roles:`, roles.map(r => r.role).join(', '));
 
     const hasAdminAccess = roles.some(r => r.role === 'admin' || r.role === 'accounting');
     if (!hasAdminAccess) {
-      throw new Error('Insufficient permissions');
+      throw new Error('Insufficient permissions - requires admin or accounting role');
     }
 
     // Get all users
