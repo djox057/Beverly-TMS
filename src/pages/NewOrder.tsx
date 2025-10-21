@@ -110,47 +110,10 @@ const NewOrder = () => {
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
   const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
   
-  // Filter trucks by dispatcher for dispatch role - check driver dispatcher
-  // First, get the list of driver IDs assigned to this dispatcher
-  const isDispatchOnly = hasRole('dispatch') && 
-                         !hasRole('manager') && 
-                         !hasRole('admin') && 
-                         !hasRole('afterhours') &&
-                         !hasRole('accounting') &&
-                         !hasRole('supervisor') &&
-                         !hasRole('safety');
-  
-  const dispatcherDriverIds = isDispatchOnly && profile?.user_id 
-    ? allDrivers?.filter(driver => driver.dispatcher_id === profile.user_id).map(d => d.id) || []
-    : [];
-  
-  const trucks = allTrucks?.filter(truck => {
-    if (profile?.user_id && isDispatchOnly) {
-      // Show ONLY trucks that have a driver assigned to this dispatcher
-      // Dispatch users should only see trucks from their /fleets
-      return truck.driver1_id && dispatcherDriverIds.includes(truck.driver1_id);
-    }
-    return true;
-  });
-  
-  // Filter drivers by dispatcher for dispatch role
-  const drivers = allDrivers?.filter(driver => {
-    if (profile?.user_id && isDispatchOnly) {
-      // If driver has no dispatcher assigned, show to all dispatchers (so they can be assigned)
-      // Otherwise, only show if dispatcher_id matches current user
-      return !driver.dispatcher_id || driver.dispatcher_id === profile.user_id;
-    }
-    return true;
-  });
-  
-  // Filter companies by dispatcher for dispatch role - show only companies with accessible trucks
-  const filteredCompanies = companies?.filter(company => {
-    if (profile?.user_id && isDispatchOnly) {
-      // Show company if any of the dispatcher's trucks belong to it
-      return trucks?.some(truck => truck.company_id === company.id);
-    }
-    return true;
-  });
+  // Dispatchers can now see all values in dropdowns
+  const trucks = allTrucks;
+  const drivers = allDrivers;
+  const filteredCompanies = companies;
   
   // Get company_id from selected truck only (not from booked by company)
   const selectedTruck = trucks?.find(t => t.id === truck);
