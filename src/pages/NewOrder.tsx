@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
-import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -25,6 +25,7 @@ import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from 
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PickupDrop {
   id: string;
@@ -105,9 +106,9 @@ const NewOrder = () => {
   const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data from database
-  const { data: companies, isLoading: companiesLoading } = useCompanies();
-  const { data: allTrucks, isLoading: trucksLoading } = useTrucks();
-  const { data: drivers, isLoading: driversLoading } = useDrivers();
+  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCompanies();
+  const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
+  const { data: drivers, isLoading: driversLoading, error: driversError } = useDrivers();
   
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   const trucks = allTrucks?.filter(truck => {
@@ -1450,6 +1451,23 @@ const NewOrder = () => {
               />
             </div>
             
+            {/* Error handling for data loading */}
+            {(companiesError || trucksError) && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {companiesError && trucksError ? (
+                    <>Failed to load companies and trucks. This may be due to a slow or unstable connection. The page will retry automatically.</>
+                  ) : companiesError ? (
+                    <>Failed to load companies. This may be due to a slow or unstable connection. The page will retry automatically.</>
+                  ) : (
+                    <>Failed to load trucks. This may be due to a slow or unstable connection. The page will retry automatically.</>
+                  )}
+                  {companiesLoading || trucksLoading ? " Retrying..." : ""}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
@@ -1457,7 +1475,7 @@ const NewOrder = () => {
                   options={companyOptions} 
                   value={bookedByCompany} 
                   onValueChange={setBookedByCompany} 
-                  placeholder="Select company" 
+                  placeholder={companiesLoading ? "Loading companies..." : companiesError ? "Error loading companies" : "Select company"} 
                   searchPlaceholder="Search companies..." 
                 />
               </div>
@@ -1480,7 +1498,7 @@ const NewOrder = () => {
                   options={truckOptions} 
                   value={truck} 
                   onValueChange={setTruck} 
-                  placeholder="Select truck" 
+                  placeholder={trucksLoading ? "Loading trucks..." : trucksError ? "Error loading trucks" : "Select truck"} 
                   searchPlaceholder="Search trucks..." 
                 />
               </div>
