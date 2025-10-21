@@ -23,12 +23,14 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
+import { useFleetManagement } from "@/hooks/useFleetManagement";
 interface DriverFormData {
   name: string;
   phone: string;
   email: string;
   truck_id: string;
   trailer_id: string;
+  dispatcher_id: string;
   home_address: string;
   home_city: string;
   home_state: string;
@@ -72,6 +74,7 @@ const Drivers = () => {
     email: "",
     truck_id: "",
     trailer_id: "",
+    dispatcher_id: "",
     home_address: "",
     home_city: "",
     home_state: "",
@@ -108,6 +111,9 @@ const Drivers = () => {
     data: sensitivePII,
     refetch: refetchSensitivePII
   } = useDriverSensitivePII(editingDriver?.id);
+  const {
+    allDispatchers
+  } = useFleetManagement();
 
   // Fetch termination notes for the editing driver
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
@@ -153,6 +159,7 @@ const Drivers = () => {
       email: "",
       truck_id: "",
       trailer_id: "",
+      dispatcher_id: "",
       home_address: "",
       home_city: "",
       home_state: "",
@@ -185,6 +192,7 @@ const Drivers = () => {
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        dispatcher_id: formData.dispatcher_id || null,
         home_address: formData.home_address || null,
         home_city: formData.home_city || null,
         home_state: formData.home_state || null,
@@ -269,6 +277,7 @@ const Drivers = () => {
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        dispatcher_id: formData.dispatcher_id || null,
         home_address: formData.home_address || null,
         home_city: formData.home_city || null,
         home_state: formData.home_state || null,
@@ -379,10 +388,9 @@ const Drivers = () => {
       } = await supabase.from('trucks').select('id, driver1_id, driver2_id, company_id').or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`).maybeSingle();
       if (truckFindError) throw truckFindError;
       if (truck) {
-        // Determine which driver field to clear and set dispatcher_id to null
+        // Determine which driver field to clear
         const updateData: any = {
-          trailer_id: null,
-          dispatcher_id: null
+          trailer_id: null
         };
         if (truck.driver1_id === editingDriver.id) {
           updateData.driver1_id = null;
@@ -563,6 +571,7 @@ const Drivers = () => {
       email: driver.email || "",
       truck_id: truckData?.id || "",
       trailer_id: truckData?.trailer_id || "",
+      dispatcher_id: driver.dispatcher_id || "",
       home_address: driver.home_address || "",
       home_city: driver.home_city || "",
       home_state: driver.home_state || "",
@@ -658,6 +667,17 @@ const Drivers = () => {
                   trailer_id: value
                 })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dispatcher">Dispatcher</Label>
+                <Combobox
+                  options={allDispatchers.map(d => ({ value: d.id, label: d.full_name || d.email }))}
+                  value={formData.dispatcher_id}
+                  onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                  placeholder="Select dispatcher..."
+                  emptyText="No dispatchers found"
+                />
               </div>
 
               <div className="grid grid-cols-12 gap-4">
@@ -1037,6 +1057,17 @@ const Drivers = () => {
                     trailer_id: value
                   })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_dispatcher">Dispatcher</Label>
+                  <Combobox
+                    options={allDispatchers.map(d => ({ value: d.id, label: d.full_name || d.email }))}
+                    value={formData.dispatcher_id}
+                    onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                    placeholder="Select dispatcher..."
+                    emptyText="No dispatchers found"
+                  />
                 </div>
 
                 <div className="border-t pt-4">

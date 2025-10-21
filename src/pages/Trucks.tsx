@@ -24,7 +24,6 @@ interface TruckFormData {
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
-  dispatcher_id: string;
   company_id: string;
   ipass: string;
   dot_inspection_date: string;
@@ -46,7 +45,6 @@ const Trucks = () => {
     trailer_id: "",
     driver_id: "",
     driver2_id: "",
-    dispatcher_id: "",
     company_id: "",
     ipass: "",
     dot_inspection_date: "",
@@ -95,7 +93,6 @@ const Trucks = () => {
       trailer_id: "",
       driver_id: "",
       driver2_id: "",
-      dispatcher_id: "",
       company_id: "",
       ipass: "",
       dot_inspection_date: "",
@@ -115,7 +112,6 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
-        dispatcher_id: formData.dispatcher_id || null,
         company_id: formData.company_id || null,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
@@ -153,7 +149,6 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
-        dispatcher_id: formData.dispatcher_id || null,
         company_id: formData.company_id || null,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
@@ -206,7 +201,6 @@ const Trucks = () => {
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
-      dispatcher_id: truck.dispatcher_id || "",
       company_id: truck.company_id || "",
       ipass: truck.ipass || "",
       dot_inspection_date: truck.dot_inspection_date || "",
@@ -294,23 +288,6 @@ const Trucks = () => {
                     placeholder="Select company"
                     searchPlaceholder="Search companies..."
                     emptyText="No company found."
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dispatcher_id">Dispatcher</Label>
-                  <Combobox
-                    options={dispatcherOptions}
-                    value={formData.dispatcher_id}
-                    onValueChange={value => setFormData({
-                      ...formData,
-                      dispatcher_id: value
-                    })}
-                    placeholder="Select dispatcher"
-                    searchPlaceholder="Search dispatchers..."
-                    emptyText="No dispatcher found."
                   />
                 </div>
               </div>
@@ -628,23 +605,6 @@ const Trucks = () => {
                       placeholder="Select company"
                       searchPlaceholder="Search companies..."
                       emptyText="No company found."
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_dispatcher_id">Dispatcher</Label>
-                    <Combobox
-                      options={dispatcherOptions}
-                      value={formData.dispatcher_id}
-                      onValueChange={value => setFormData({
-                        ...formData,
-                        dispatcher_id: value
-                      })}
-                      placeholder="Select dispatcher"
-                      searchPlaceholder="Search dispatchers..."
-                      emptyText="No dispatcher found."
                     />
                   </div>
                 </div>
