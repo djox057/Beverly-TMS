@@ -249,15 +249,22 @@ export const useReports = () => {
       console.log('📊 Fetching reports data...');
       
       return queryWithTimeout(async () => {
-        // Fetch trucks with their drivers and current orders
-        // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
-         const { data: trucks, error: trucksError } = await supabase
-        .from('trucks')
-        .select(`
-          *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
-          trailer:trailer_id(trailer_number),
-          orders!orders_truck_id_fkey(
+        // Fetch trucks with their drivers (no orders joined to trucks)
+        const { data: trucks, error: trucksError } = await supabase
+          .from('trucks')
+          .select(`
+            *,
+            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
+            trailer:trailer_id(trailer_number)
+          `)
+          .order('id', { ascending: true });
+
+        if (trucksError) throw trucksError;
+
+        // Fetch all orders separately with their stops and files
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select(`
             id,
             load_number,
             internal_load_number,
@@ -270,25 +277,26 @@ export const useReports = () => {
             delivery_datetime,
             delivery_end_datetime,
             canceled,
-           pickup_drops(
-             id,
-             type,
-             address,
-             city,
-             state,
-             zip_code,
-             datetime,
-             arrived_at
-           ),
-           order_files!left(
-             id,
-             file_category
-           )
-          )
-        `)
-        .order('id', { ascending: true });
+            driver1_id,
+            driver2_id,
+            truck_id,
+            pickup_drops(
+              id,
+              type,
+              address,
+              city,
+              state,
+              zip_code,
+              datetime,
+              arrived_at
+            ),
+            order_files!left(
+              id,
+              file_category
+            )
+          `);
 
-      if (trucksError) throw trucksError;
+        if (ordersError) throw ordersError;
 
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
@@ -314,12 +322,17 @@ export const useReports = () => {
 
       if (lostDayError) throw lostDayError;
 
-      // Process trucks - server-side filtered, so no need to filter again
+      // Process trucks and match orders to drivers (not trucks)
       const reportData = trucks?.map(truck => {
         const now = new Date().getTime();
         
+        // Get orders for this truck's driver (not the truck itself)
+        const driverOrders = orders?.filter(order => 
+          (order.driver1_id === truck.driver1_id || order.driver2_id === truck.driver1_id)
+        ) || [];
+        
         // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
-        const activeOrders = truck.orders?.filter(order => {
+        const activeOrders = driverOrders.filter(order => {
           // Skip GAME-OVER orders - they're visual indicators only
           if (order.notes === 'GAME|OVER') return false;
           
@@ -333,7 +346,7 @@ export const useReports = () => {
           return isActiveStatus && (hasNoDeliveryDate || deliveryInFuture);
         }) || [];
         
-        const recentCompletedOrders = truck.orders?.filter(order => {
+        const recentCompletedOrders = driverOrders.filter(order => {
           // Skip GAME-OVER orders
           if (order.notes === 'GAME|OVER') return false;
           
@@ -352,8 +365,8 @@ export const useReports = () => {
           return false;
         }) || [];
         
-        // Process all orders for this truck (including GAME-OVER for calendar rendering, but excluding canceled orders)
-        const allOrdersWithStops = truck.orders?.filter(order => !order.canceled).map(order => {
+        // Process all orders for this driver (including GAME-OVER for calendar rendering, but excluding canceled orders)
+        const allOrdersWithStops = driverOrders.filter(order => !order.canceled).map(order => {
           const pickupStops = order.pickup_drops?.filter(stop => stop.type === 'pickup') || [];
           const deliveryStops = order.pickup_drops?.filter(stop => stop.type === 'delivery') || [];
           
@@ -558,8 +571,8 @@ export const useReports = () => {
           // Multi-load support
           allOrders: allOrdersWithStops,
           activeOrdersCount: activeOrders.length,
-          totalOrdersCount: truck.orders?.length || 0,
-          hasMultipleOrders: (truck.orders?.length || 0) > 1,
+          totalOrdersCount: driverOrders.length || 0,
+          hasMultipleOrders: (driverOrders.length || 0) > 1,
           lostDayNotes: truckLostDayNotes,
           milesAway: truck.miles_away || 0
         };
