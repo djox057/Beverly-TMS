@@ -5,15 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface Coordinates {
+  lat?: number;
+  lon?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
 interface RouteRequest {
-  start: {
-    latitude: number;
-    longitude: number;
-  };
-  end: {
-    latitude: number;
-    longitude: number;
-  };
+  start: Coordinates;
+  end: Coordinates;
 }
 
 serve(async (req) => {
@@ -26,8 +27,14 @@ serve(async (req) => {
 
     console.log('🔍 Received coordinates:', { start, end });
 
-    if (!start || !end || typeof start.latitude !== 'number' || typeof start.longitude !== 'number' 
-        || typeof end.latitude !== 'number' || typeof end.longitude !== 'number') {
+    // Normalize coordinates - accept both lat/lon and latitude/longitude formats
+    const startLat = start.lat ?? start.latitude;
+    const startLon = start.lon ?? start.longitude;
+    const endLat = end.lat ?? end.latitude;
+    const endLon = end.lon ?? end.longitude;
+
+    if (typeof startLat !== 'number' || typeof startLon !== 'number' 
+        || typeof endLat !== 'number' || typeof endLon !== 'number') {
       console.error('❌ Invalid coordinates:', { start, end });
       return new Response(
         JSON.stringify({ error: 'Invalid coordinates provided' }),
@@ -37,7 +44,7 @@ serve(async (req) => {
 
     // Call OSRM API from server side (no CORS issues)
     // OSRM format is: longitude,latitude (note the order!)
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=false&alternatives=false&steps=false`;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=false&alternatives=false&steps=false`;
     
     console.log('📍 Calling OSRM:', osrmUrl);
     
