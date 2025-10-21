@@ -16,16 +16,8 @@ export const useTrucks = () => {
           .select(`
             *,
             trailer:trailers!trailer_id(id, trailer_number, trailer_type),
-            driver1:drivers!trucks_driver1_id_fkey(
-              id, 
-              name,
-              dispatcher:profiles!dispatcher_id(id, full_name, email)
-            ),
-            driver2:drivers!trucks_driver2_id_fkey(
-              id, 
-              name,
-              dispatcher:profiles!dispatcher_id(id, full_name, email)
-            ),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id),
             company:companies!company_id(id, name)
           `)
           .order('truck_number')
@@ -46,9 +38,36 @@ export const useTrucks = () => {
         from += batchSize;
       }
       
-      console.log(`✅ Total trucks fetched: ${allTrucks.length}`);
-      console.log('Sample truck:', allTrucks[0]);
-      return allTrucks;
+      // Fetch all dispatchers to map to trucks
+      const { data: dispatchers, error: dispatcherError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email');
+      
+      if (dispatcherError) {
+        console.error('❌ Error fetching dispatchers:', dispatcherError);
+        throw dispatcherError;
+      }
+      
+      // Map dispatcher info to trucks based on driver1.dispatcher_id
+      const trucksWithDispatchers = allTrucks.map(truck => {
+        const dispatcherId = truck.driver1?.dispatcher_id;
+        const dispatcher = dispatcherId 
+          ? dispatchers?.find(d => d.user_id === dispatcherId)
+          : null;
+        
+        return {
+          ...truck,
+          dispatcher: dispatcher ? {
+            id: dispatcher.user_id,
+            full_name: dispatcher.full_name,
+            email: dispatcher.email
+          } : null
+        };
+      });
+      
+      console.log(`✅ Total trucks fetched: ${trucksWithDispatchers.length}`);
+      console.log('Sample truck:', trucksWithDispatchers[0]);
+      return trucksWithDispatchers;
     },
     refetchOnWindowFocus: false,
     refetchOnMount: true,

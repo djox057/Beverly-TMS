@@ -210,11 +210,11 @@ export const useReports = () => {
     queryFn: async () => {
       // Fetch trucks with their drivers and current orders
       // Filter server-side: only trucks with dispatcher OR GAME-OVER orders
-      const { data: trucks, error: trucksError } = await supabase
+       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
           trailer:trailer_id(trailer_number),
           orders!orders_truck_id_fkey(
             id,
@@ -245,7 +245,6 @@ export const useReports = () => {
            )
           )
         `)
-        .not('dispatcher_id', 'is', null)
         .order('id', { ascending: true });
 
       if (trucksError) throw trucksError;
@@ -398,8 +397,8 @@ export const useReports = () => {
         // Get lost day notes for this truck
         const truckLostDayNotes = lostDayNotes?.filter(note => note.truck_id === truck.id) || [];
 
-        // Find dispatcher info
-        const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.dispatcher_id);
+        // Find dispatcher info from driver1
+        const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.driver1?.dispatcher_id);
 
         // Format location
         const formatLocation = (city: string | null, state: string | null) => {
@@ -497,7 +496,7 @@ export const useReports = () => {
             ? `${truck.driver1.home_city}, ${truck.driver1.home_state}` 
             : truck.driver1?.home_city || truck.driver1?.home_state || "—",
           dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
-          dispatcherId: truck.dispatcher_id,
+          dispatcherId: truck.driver1?.dispatcher_id,
           status,
           pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
           delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
@@ -525,10 +524,13 @@ export const useReports = () => {
         };
       }) || [];
 
+      // Filter to only include trucks with a dispatcher assigned to driver1
+      const trucksWithDispatcher = reportData.filter(truck => truck.dispatcherId);
+
       // Group trucks by dispatcher - use array to maintain stable order
       const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; office: string | null; ext: string | null; trucks: typeof reportData }>();
       
-      for (const truck of reportData) {
+      for (const truck of trucksWithDispatcher) {
         if (!dispatcherMap.has(truck.dispatcherId)) {
           const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.dispatcherId);
           dispatcherMap.set(truck.dispatcherId, {
