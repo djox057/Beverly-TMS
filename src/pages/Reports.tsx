@@ -1394,12 +1394,20 @@ const Reports = () => {
 
             checkedOrders++;
 
-            // Skip if no delivery address or end time
-            const deliveryAddress = order.deliveryStop?.address;
-            if (!deliveryAddress || !order.delivery_end_datetime) {
+            // Build full delivery address for better geocoding
+            const deliveryStop = order.deliveryStop;
+            if (!deliveryStop?.address || !order.delivery_end_datetime) {
               console.log(`⏱️ Order ${order.internal_load_number}: Missing address or end time`);
               continue;
             }
+            
+            // Combine address components for better geocoding accuracy
+            const deliveryAddress = [
+              deliveryStop.address,
+              deliveryStop.city,
+              deliveryStop.state,
+              deliveryStop.zip_code
+            ].filter(Boolean).join(', ');
 
             // Only check deliveries happening today or in the future
             if (order.delivery_datetime) {
