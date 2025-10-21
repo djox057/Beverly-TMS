@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.update-user-role]
 verify_jwt = true
+
+[functions.logout-all-users]
+verify_jwt = true

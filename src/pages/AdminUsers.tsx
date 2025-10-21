@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit } from "lucide-react";
+import { Loader2, UserPlus, Users, Trash2, RefreshCw, Edit, LogOut } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,8 @@ const AdminUsers = () => {
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
+  const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+  const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
   
   // Form state
   const [email, setEmail] = useState("");
@@ -298,6 +300,44 @@ const AdminUsers = () => {
     }
   };
 
+  const handleLogoutAllUsers = async () => {
+    setIsLoggingOutAll(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No active session');
+      }
+
+      const { data, error } = await supabase.functions.invoke('logout-all-users', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      setShowLogoutAllDialog(false);
+      
+      toast({
+        title: "Success",
+        description: data?.message || "All users have been logged out",
+      });
+    } catch (error: any) {
+      console.error('Error logging out all users:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to log out all users",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoggingOutAll(false);
+    }
+  };
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -359,6 +399,23 @@ const AdminUsers = () => {
           <Button variant="outline" onClick={fetchUsers}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={() => setShowLogoutAllDialog(true)}
+            disabled={isLoggingOutAll}
+          >
+            {isLoggingOutAll ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off All Users
+              </>
+            )}
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -627,6 +684,21 @@ const AdminUsers = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showLogoutAllDialog} onOpenChange={setShowLogoutAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log Off All Users</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately log out all users from all devices. They will need to sign in again to access the system. Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogoutAllUsers}>Log Off All Users</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
