@@ -9,14 +9,15 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
   }
 
   try {
-    // Using Nominatim (OpenStreetMap) for geocoding - free and no API key required
-    const encodedAddress = encodeURIComponent(address);
+    // Call our edge function to avoid CORS issues
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+      'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/geocode-address',
       {
+        method: 'POST',
         headers: {
-          'User-Agent': 'TruckingApp/1.0'
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ address })
       }
     );
 
@@ -27,10 +28,10 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
 
     const data = await response.json();
     
-    if (data && data.length > 0) {
+    if (data.success) {
       return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon)
+        latitude: data.latitude,
+        longitude: data.longitude
       };
     }
 
