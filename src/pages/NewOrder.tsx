@@ -1294,7 +1294,7 @@ const NewOrder = () => {
           };
         });
         
-        // Deduplicate exact matches before inserting
+        // Deduplicate only exact matches (all fields must match)
         const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
           return index === self.findIndex((t) => (
             t.type === item.type &&
@@ -1302,7 +1302,9 @@ const NewOrder = () => {
             t.city === item.city &&
             t.state === item.state &&
             t.zip_code === item.zip_code &&
-            t.datetime === item.datetime
+            t.company_name === item.company_name &&
+            t.datetime === item.datetime &&
+            t.end_datetime === item.end_datetime
           ));
         });
         
