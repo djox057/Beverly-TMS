@@ -904,68 +904,104 @@ const NewOrder = () => {
         rate: driverPrice || "",
       };
 
-      let confirmationData;
+      // Helper to format location data
+      const formatLocationData = (location: any) => ({
+        address: location.address,
+        cityStateZip: `${location.city || ''}${location.city && location.state ? ', ' : ''}${location.state || ''}${(location.city || location.state) && location.zipCode ? ' ' : ''}${location.zipCode || ''}`.trim(),
+        date: formatDate(location.dateRange),
+        time: formatTime(location.startTime) + (location.endTime ? ` - ${formatTime(location.endTime)}` : "")
+      });
 
-      // Check if we have 2 pickups and 1 delivery (use new template)
-      if (pickups.length === 2 && deliveries.length === 1) {
-        const firstPickup = pickups[0];
-        const secondPickup = pickups[1];
-        const firstDelivery = deliveries[0];
+      // Build confirmation data with all pickups and deliveries
+      const confirmationData: any = {
+        ...baseData,
+        // First pickup (always present)
+        pickupShipper: pickupShipper || "",
+        pickupAddress: pickups[0].address,
+        pickupCityStateZip: formatLocationData(pickups[0]).cityStateZip,
+        pickupDate: formatLocationData(pickups[0]).date,
+        pickupTime: formatLocationData(pickups[0]).time,
+        pickupPuNumber: pickupPuNumber || "",
+        pickupPoNumber: pickupPoNumber || "",
+      };
 
-        confirmationData = {
-          ...baseData,
-          templateType: "2p1d",
-          // First pickup
-          pickupShipper: pickupShipper || "",
-          pickupAddress: firstPickup.address,
-          pickupCityStateZip: `${firstPickup.city || ''}${firstPickup.city && firstPickup.state ? ', ' : ''}${firstPickup.state || ''}${(firstPickup.city || firstPickup.state) && firstPickup.zipCode ? ' ' : ''}${firstPickup.zipCode || ''}`.trim(),
-          pickupDate: formatDate(firstPickup.dateRange),
-          pickupTime: formatTime(firstPickup.startTime) + (firstPickup.endTime ? ` - ${formatTime(firstPickup.endTime)}` : ""),
-          pickupPuNumber: pickupPuNumber || "",
-          pickupPoNumber: pickupPoNumber || "",
-          pickupPoNumber2: "", // Additional PO field for first pickup
-          // Second pickup
-          pickup2Shipper: "", // No separate shipper field for 2nd pickup in state
-          pickup2Address: secondPickup.address,
-          pickup2CityStateZip: `${secondPickup.city || ''}${secondPickup.city && secondPickup.state ? ', ' : ''}${secondPickup.state || ''}${(secondPickup.city || secondPickup.state) && secondPickup.zipCode ? ' ' : ''}${secondPickup.zipCode || ''}`.trim(),
-          pickup2Date: formatDate(secondPickup.dateRange),
-          pickup2Time: formatTime(secondPickup.startTime) + (secondPickup.endTime ? ` - ${formatTime(secondPickup.endTime)}` : ""),
-          pickup2PoNumber: "", // No separate PO for 2nd pickup in state
-          pickup2PoNumber2: "", // Additional PO field for second pickup
-          // Delivery
-          deliveryReceiver: deliveryShipper || "",
-          deliveryAddress: firstDelivery.address,
-          deliveryCityStateZip: `${firstDelivery.city || ''}${firstDelivery.city && firstDelivery.state ? ', ' : ''}${firstDelivery.state || ''}${(firstDelivery.city || firstDelivery.state) && firstDelivery.zipCode ? ' ' : ''}${firstDelivery.zipCode || ''}`.trim(),
-          deliveryDate: formatDate(firstDelivery.dateRange),
-          deliveryTime: formatTime(firstDelivery.startTime) + (firstDelivery.endTime ? ` - ${formatTime(firstDelivery.endTime)}` : ""),
-          deliveryPoNumber: deliveryPoNumber || "",
-          deliveryPoNumber2: "", // Additional PO field for delivery
-        };
-      } else {
-        // Default: 1 pickup and 1 delivery (use original template)
-        const firstPickup = pickups[0];
-        const firstDelivery = deliveries[0];
-
-        confirmationData = {
-          ...baseData,
-          templateType: "1p1d",
-          pickupShipper: pickupShipper || "",
-          pickupAddress: firstPickup.address,
-          pickupCityStateZip: `${firstPickup.city || ''}${firstPickup.city && firstPickup.state ? ', ' : ''}${firstPickup.state || ''}${(firstPickup.city || firstPickup.state) && firstPickup.zipCode ? ' ' : ''}${firstPickup.zipCode || ''}`.trim(),
-          pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
-          pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
-                     ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
-          pickupPuNumber: pickupPuNumber || "",
-          pickupPoNumber: pickupPoNumber || "",
-          deliveryReceiver: deliveryShipper || "",
-          deliveryAddress: firstDelivery.address,
-          deliveryCityStateZip: `${firstDelivery.city || ''}${firstDelivery.city && firstDelivery.state ? ', ' : ''}${firstDelivery.state || ''}${(firstDelivery.city || firstDelivery.state) && firstDelivery.zipCode ? ' ' : ''}${firstDelivery.zipCode || ''}`.trim(),
-          deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
-          deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
-                       ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
-          deliveryPoNumber: deliveryPoNumber || ""
-        };
+      // Add second pickup if exists
+      if (pickups.length >= 2) {
+        const pickup2Data = formatLocationData(pickups[1]);
+        confirmationData.pickup2Shipper = "";
+        confirmationData.pickup2Address = pickups[1].address;
+        confirmationData.pickup2CityStateZip = pickup2Data.cityStateZip;
+        confirmationData.pickup2Date = pickup2Data.date;
+        confirmationData.pickup2Time = pickup2Data.time;
+        confirmationData.pickup2PoNumber = "";
       }
+
+      // Add third pickup if exists
+      if (pickups.length >= 3) {
+        const pickup3Data = formatLocationData(pickups[2]);
+        confirmationData.pickup3Shipper = "";
+        confirmationData.pickup3Address = pickups[2].address;
+        confirmationData.pickup3CityStateZip = pickup3Data.cityStateZip;
+        confirmationData.pickup3Date = pickup3Data.date;
+        confirmationData.pickup3Time = pickup3Data.time;
+        confirmationData.pickup3PoNumber = "";
+      }
+
+      // Add first delivery (always present)
+      const delivery1Data = formatLocationData(deliveries[0]);
+      confirmationData.deliveryReceiver = deliveryShipper || "";
+      confirmationData.deliveryAddress = deliveries[0].address;
+      confirmationData.deliveryCityStateZip = delivery1Data.cityStateZip;
+      confirmationData.deliveryDate = delivery1Data.date;
+      confirmationData.deliveryTime = delivery1Data.time;
+      confirmationData.deliveryPoNumber = deliveryPoNumber || "";
+
+      // Add second delivery if exists
+      if (deliveries.length >= 2) {
+        const delivery2Data = formatLocationData(deliveries[1]);
+        confirmationData.delivery2Receiver = "";
+        confirmationData.delivery2Address = deliveries[1].address;
+        confirmationData.delivery2CityStateZip = delivery2Data.cityStateZip;
+        confirmationData.delivery2Date = delivery2Data.date;
+        confirmationData.delivery2Time = delivery2Data.time;
+        confirmationData.delivery2PoNumber = "";
+      }
+
+      // Add third delivery if exists
+      if (deliveries.length >= 3) {
+        const delivery3Data = formatLocationData(deliveries[2]);
+        confirmationData.delivery3Receiver = "";
+        confirmationData.delivery3Address = deliveries[2].address;
+        confirmationData.delivery3CityStateZip = delivery3Data.cityStateZip;
+        confirmationData.delivery3Date = delivery3Data.date;
+        confirmationData.delivery3Time = delivery3Data.time;
+        confirmationData.delivery3PoNumber = "";
+      }
+
+      // Add fourth delivery if exists
+      if (deliveries.length >= 4) {
+        const delivery4Data = formatLocationData(deliveries[3]);
+        confirmationData.delivery4Receiver = "";
+        confirmationData.delivery4Address = deliveries[3].address;
+        confirmationData.delivery4CityStateZip = delivery4Data.cityStateZip;
+        confirmationData.delivery4Date = delivery4Data.date;
+        confirmationData.delivery4Time = delivery4Data.time;
+        confirmationData.delivery4PoNumber = "";
+      }
+
+      // Add fifth delivery if exists
+      if (deliveries.length >= 5) {
+        const delivery5Data = formatLocationData(deliveries[4]);
+        confirmationData.delivery5Receiver = "";
+        confirmationData.delivery5Address = deliveries[4].address;
+        confirmationData.delivery5CityStateZip = delivery5Data.cityStateZip;
+        confirmationData.delivery5Date = delivery5Data.date;
+        confirmationData.delivery5Time = delivery5Data.time;
+        confirmationData.delivery5PoNumber = "";
+      }
+
+      // Template type will be auto-detected by edge function based on number of pickups/deliveries
+      console.log(`📋 Generating confirmation with ${pickups.length} pickup(s) and ${deliveries.length} delivery(ies)`);
 
       // Generate PDF via edge function (using fetch for binary data)
       const { data: { session } } = await supabase.auth.getSession();
