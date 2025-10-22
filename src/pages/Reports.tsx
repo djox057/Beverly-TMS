@@ -2306,7 +2306,7 @@ const Reports = () => {
       
       {/* Game Over Dialog */}
       <Dialog open={gameOverDialog !== null} onOpenChange={(open) => !open && setGameOverDialog(null)}>
-        <DialogContent className="max-w-md z-[100]">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Set Driver Status - {gameOverDialog?.truckNumber}</DialogTitle>
           </DialogHeader>
