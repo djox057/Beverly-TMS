@@ -691,6 +691,18 @@ const NewOrder = () => {
       // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       
+      // Helper function to safely create date range
+      const createSafeDateRange = (dateStr: string | undefined): DateRange | undefined => {
+        if (!dateStr) return undefined;
+        try {
+          const date = new Date(dateStr + 'T12:00:00');
+          if (isNaN(date.getTime())) return undefined;
+          return { from: date, to: date };
+        } catch {
+          return undefined;
+        }
+      };
+      
       // Sort pickups and deliveries by datetime before processing
       if (extractedData.pickups && extractedData.pickups.length > 1) {
         extractedData.pickups.sort((a: any, b: any) => {
@@ -712,9 +724,7 @@ const NewOrder = () => {
       if (extractedData.pickups && extractedData.pickups.length > 0) {
         // Multi-drop pickups
         extractedData.pickups.forEach((pickup: any, index: number) => {
-          const pickupDateRange = pickup.date 
-            ? { from: new Date(pickup.date + 'T12:00:00'), to: new Date(pickup.date + 'T12:00:00') }
-            : undefined;
+          const pickupDateRange = createSafeDateRange(pickup.date);
 
           newPickupsDrops.push({
             id: `pickup-${index + 1}`,
@@ -732,10 +742,15 @@ const NewOrder = () => {
       } else if (extractedData.pickupAddress) {
         // Single pickup (legacy format)
         const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate 
-          ? { from: new Date(extractedData.pickupStartDate + 'T12:00:00'), to: new Date(extractedData.pickupEndDate + 'T12:00:00') }
-          : extractedData.pickupDate 
-          ? { from: new Date(extractedData.pickupDate + 'T12:00:00'), to: new Date(extractedData.pickupDate + 'T12:00:00') }
-          : undefined;
+          ? (() => {
+              try {
+                const from = new Date(extractedData.pickupStartDate + 'T12:00:00');
+                const to = new Date(extractedData.pickupEndDate + 'T12:00:00');
+                if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
+                return { from, to };
+              } catch { return undefined; }
+            })()
+          : createSafeDateRange(extractedData.pickupDate);
 
         newPickupsDrops.push({
           id: "pickup-1",
@@ -754,9 +769,7 @@ const NewOrder = () => {
       if (extractedData.deliveries && extractedData.deliveries.length > 0) {
         // Multi-drop deliveries
         extractedData.deliveries.forEach((delivery: any, index: number) => {
-          const deliveryDateRange = delivery.date 
-            ? { from: new Date(delivery.date + 'T12:00:00'), to: new Date(delivery.date + 'T12:00:00') }
-            : undefined;
+          const deliveryDateRange = createSafeDateRange(delivery.date);
 
           newPickupsDrops.push({
             id: `delivery-${index + 1}`,
@@ -774,10 +787,15 @@ const NewOrder = () => {
       } else if (extractedData.deliveryAddress) {
         // Single delivery (legacy format)
         const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate 
-          ? { from: new Date(extractedData.deliveryStartDate + 'T12:00:00'), to: new Date(extractedData.deliveryEndDate + 'T12:00:00') }
-          : extractedData.deliveryDate 
-          ? { from: new Date(extractedData.deliveryDate + 'T12:00:00'), to: new Date(extractedData.deliveryDate + 'T12:00:00') }
-          : undefined;
+          ? (() => {
+              try {
+                const from = new Date(extractedData.deliveryStartDate + 'T12:00:00');
+                const to = new Date(extractedData.deliveryEndDate + 'T12:00:00');
+                if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
+                return { from, to };
+              } catch { return undefined; }
+            })()
+          : createSafeDateRange(extractedData.deliveryDate);
 
         newPickupsDrops.push({
           id: "delivery-1",

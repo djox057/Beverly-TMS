@@ -93,12 +93,12 @@ export function DateTimeRangePicker({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y")} {startTime && `at ${startTime}`} -{" "}
-                  {format(date.to, "LLL dd, y")} {endTime && `at ${endTime}`}
+                  {isNaN(date.from.getTime()) ? "" : format(date.from, "LLL dd, y")} {startTime && `at ${startTime}`} -{" "}
+                  {isNaN(date.to.getTime()) ? "" : format(date.to, "LLL dd, y")} {endTime && `at ${endTime}`}
                 </>
               ) : (
                 <>
-                  {format(date.from, "LLL dd, y")} {startTime && `at ${startTime}`}
+                  {isNaN(date.from.getTime()) ? "" : format(date.from, "LLL dd, y")} {startTime && `at ${startTime}`}
                 </>
               )
             ) : (
