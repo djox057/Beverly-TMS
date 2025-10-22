@@ -855,10 +855,12 @@ const NewOrder = () => {
     try {
       const selectedTruck = trucks?.find(t => t.id === truck);
       const selectedDriver = drivers?.find(d => d.id === driver1);
-      const firstPickup = pickupsDrops.find(p => p.type === "pickup");
-      const firstDelivery = pickupsDrops.find(p => p.type === "delivery");
-
-      if (!selectedTruck || !selectedDriver || !firstPickup || !firstDelivery) {
+      
+      // Get all pickups and deliveries
+      const pickups = pickupsDrops.filter(p => p.type === "pickup");
+      const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+      
+      if (!selectedTruck || !selectedDriver || pickups.length === 0 || deliveries.length === 0) {
         throw new Error("Missing required data");
       }
 
@@ -871,8 +873,8 @@ const NewOrder = () => {
 
       const formatTime = (time?: string) => time || "";
 
-      // Prepare data for load confirmation - use driver-specific times if available
-      const confirmationData = {
+      // Prepare base data for load confirmation
+      const baseData = {
         brokerLoadNumber: brokerLoadNumber || "TBD",
         driverName: selectedDriver.name,
         truckNumber: selectedTruck.truck_number,
@@ -882,22 +884,70 @@ const NewOrder = () => {
         weight: weight || "",
         miles: loadedMiles || "",
         rate: driverPrice || "",
-        pickupShipper: pickupShipper || "",
-        pickupAddress: firstPickup.address,
-        pickupCityStateZip: `${firstPickup.city || ''}${firstPickup.city && firstPickup.state ? ', ' : ''}${firstPickup.state || ''}${(firstPickup.city || firstPickup.state) && firstPickup.zipCode ? ' ' : ''}${firstPickup.zipCode || ''}`.trim(),
-        pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
-        pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
-                   ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
-        pickupPuNumber: pickupPuNumber || "",
-        pickupPoNumber: pickupPoNumber || "",
-        deliveryReceiver: deliveryShipper || "",
-        deliveryAddress: firstDelivery.address,
-        deliveryCityStateZip: `${firstDelivery.city || ''}${firstDelivery.city && firstDelivery.state ? ', ' : ''}${firstDelivery.state || ''}${(firstDelivery.city || firstDelivery.state) && firstDelivery.zipCode ? ' ' : ''}${firstDelivery.zipCode || ''}`.trim(),
-        deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
-        deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
-                     ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
-        deliveryPoNumber: deliveryPoNumber || ""
       };
+
+      let confirmationData;
+
+      // Check if we have 2 pickups and 1 delivery (use new template)
+      if (pickups.length === 2 && deliveries.length === 1) {
+        const firstPickup = pickups[0];
+        const secondPickup = pickups[1];
+        const firstDelivery = deliveries[0];
+
+        confirmationData = {
+          ...baseData,
+          templateType: "2p1d",
+          // First pickup
+          pickupShipper: pickupShipper || "",
+          pickupAddress: firstPickup.address,
+          pickupCityStateZip: `${firstPickup.city || ''}${firstPickup.city && firstPickup.state ? ', ' : ''}${firstPickup.state || ''}${(firstPickup.city || firstPickup.state) && firstPickup.zipCode ? ' ' : ''}${firstPickup.zipCode || ''}`.trim(),
+          pickupDate: formatDate(firstPickup.dateRange),
+          pickupTime: formatTime(firstPickup.startTime) + (firstPickup.endTime ? ` - ${formatTime(firstPickup.endTime)}` : ""),
+          pickupPuNumber: pickupPuNumber || "",
+          pickupPoNumber: pickupPoNumber || "",
+          pickupPoNumber2: "", // Additional PO field for first pickup
+          // Second pickup
+          pickup2Shipper: "", // No separate shipper field for 2nd pickup in state
+          pickup2Address: secondPickup.address,
+          pickup2CityStateZip: `${secondPickup.city || ''}${secondPickup.city && secondPickup.state ? ', ' : ''}${secondPickup.state || ''}${(secondPickup.city || secondPickup.state) && secondPickup.zipCode ? ' ' : ''}${secondPickup.zipCode || ''}`.trim(),
+          pickup2Date: formatDate(secondPickup.dateRange),
+          pickup2Time: formatTime(secondPickup.startTime) + (secondPickup.endTime ? ` - ${formatTime(secondPickup.endTime)}` : ""),
+          pickup2PoNumber: "", // No separate PO for 2nd pickup in state
+          pickup2PoNumber2: "", // Additional PO field for second pickup
+          // Delivery
+          deliveryReceiver: deliveryShipper || "",
+          deliveryAddress: firstDelivery.address,
+          deliveryCityStateZip: `${firstDelivery.city || ''}${firstDelivery.city && firstDelivery.state ? ', ' : ''}${firstDelivery.state || ''}${(firstDelivery.city || firstDelivery.state) && firstDelivery.zipCode ? ' ' : ''}${firstDelivery.zipCode || ''}`.trim(),
+          deliveryDate: formatDate(firstDelivery.dateRange),
+          deliveryTime: formatTime(firstDelivery.startTime) + (firstDelivery.endTime ? ` - ${formatTime(firstDelivery.endTime)}` : ""),
+          deliveryPoNumber: deliveryPoNumber || "",
+          deliveryPoNumber2: "", // Additional PO field for delivery
+        };
+      } else {
+        // Default: 1 pickup and 1 delivery (use original template)
+        const firstPickup = pickups[0];
+        const firstDelivery = deliveries[0];
+
+        confirmationData = {
+          ...baseData,
+          templateType: "1p1d",
+          pickupShipper: pickupShipper || "",
+          pickupAddress: firstPickup.address,
+          pickupCityStateZip: `${firstPickup.city || ''}${firstPickup.city && firstPickup.state ? ', ' : ''}${firstPickup.state || ''}${(firstPickup.city || firstPickup.state) && firstPickup.zipCode ? ' ' : ''}${firstPickup.zipCode || ''}`.trim(),
+          pickupDate: formatDate(driverPickupDateRange || firstPickup.dateRange),
+          pickupTime: formatTime(driverPickupStartTime || firstPickup.startTime) + 
+                     ((driverPickupEndTime || firstPickup.endTime) ? ` - ${formatTime(driverPickupEndTime || firstPickup.endTime)}` : ""),
+          pickupPuNumber: pickupPuNumber || "",
+          pickupPoNumber: pickupPoNumber || "",
+          deliveryReceiver: deliveryShipper || "",
+          deliveryAddress: firstDelivery.address,
+          deliveryCityStateZip: `${firstDelivery.city || ''}${firstDelivery.city && firstDelivery.state ? ', ' : ''}${firstDelivery.state || ''}${(firstDelivery.city || firstDelivery.state) && firstDelivery.zipCode ? ' ' : ''}${firstDelivery.zipCode || ''}`.trim(),
+          deliveryDate: formatDate(driverDeliveryDateRange || firstDelivery.dateRange),
+          deliveryTime: formatTime(driverDeliveryStartTime || firstDelivery.startTime) + 
+                       ((driverDeliveryEndTime || firstDelivery.endTime) ? ` - ${formatTime(driverDeliveryEndTime || firstDelivery.endTime)}` : ""),
+          deliveryPoNumber: deliveryPoNumber || ""
+        };
+      }
 
       // Generate PDF via edge function (using fetch for binary data)
       const { data: { session } } = await supabase.auth.getSession();
