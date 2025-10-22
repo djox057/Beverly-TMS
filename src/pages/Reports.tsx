@@ -877,7 +877,7 @@ const Reports = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className={`absolute top-[1.5%] ${isToday ? 'right-[5%]' : 'right-[1%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                              className={`absolute top-[3%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}
                             >
                               <Info className="h-2 w-2" />
                             </Button>
@@ -1024,7 +1024,7 @@ const Reports = () => {
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={`absolute top-[1.5%] ${isToday ? 'right-[5%]' : 'right-[1%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
+                            <Button variant="ghost" size="sm" className={`absolute top-[3%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
                               <Info className="h-2 w-2" />
                             </Button>
                           </PopoverTrigger>
@@ -1100,7 +1100,7 @@ const Reports = () => {
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={`absolute top-[1.5%] ${isToday ? 'right-[5%]' : 'right-[1%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
+                            <Button variant="ghost" size="sm" className={`absolute top-[3%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
                               <Info className="h-2 w-2" />
                             </Button>
                           </PopoverTrigger>
