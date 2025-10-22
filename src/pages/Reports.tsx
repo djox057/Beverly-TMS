@@ -923,6 +923,11 @@ const Reports = () => {
                                       - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at{" "}
                                       {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
                                     </p>
+                                    {stop.arrived_at && (
+                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium">
+                                        ✓ Arrived at: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                      </p>
+                                    )}
                                     <p className="ml-4">
                                       • <strong>Documents:</strong>{" "}
                                       {formatDocuments(order.loadDetails.documents)}
@@ -1033,6 +1038,11 @@ const Reports = () => {
                                   <p className="ml-8">
                                     - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
                                   </p>
+                                  {stop.arrived_at && (
+                                    <p className="ml-8 text-green-600 dark:text-green-400 font-medium">
+                                      ✓ Arrived at: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                    </p>
+                                  )}
                                   <p className="ml-4">• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
                                   {order.loadDetails.notes !== "—" && (
                                     <p className="ml-4 text-sm font-bold">• <strong>Notes:</strong> {order.loadDetails.notes}</p>
@@ -1104,9 +1114,16 @@ const Reports = () => {
                                   <>
                                     <p className="font-semibold">• Pickups ({order.loadDetails.allPickupStops.length}):</p>
                                     {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                      <p key={`pickup-${pIdx}`} className="ml-4">
-                                        - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
-                                      </p>
+                                      <div key={`pickup-${pIdx}`}>
+                                        <p className="ml-4">
+                                          - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                        </p>
+                                        {pickup.arrived_at && (
+                                          <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
+                                            ✓ Arrived: {formatDateTime(pickup.arrived_at, "MM/dd, HH:mm")}
+                                          </p>
+                                        )}
+                                      </div>
                                     ))}
                                   </>
                                 )}
@@ -1114,9 +1131,16 @@ const Reports = () => {
                                   <>
                                     <p className="font-semibold">• Deliveries ({order.loadDetails.allDeliveryStops.length}):</p>
                                     {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                      <p key={`delivery-${dIdx}`} className="ml-4">
-                                        - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
-                                      </p>
+                                      <div key={`delivery-${dIdx}`}>
+                                        <p className="ml-4">
+                                          - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
+                                        </p>
+                                        {delivery.arrived_at && (
+                                          <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
+                                            ✓ Arrived: {formatDateTime(delivery.arrived_at, "MM/dd, HH:mm")}
+                                          </p>
+                                        )}
+                                      </div>
                                     ))}
                                   </>
                                 )}
