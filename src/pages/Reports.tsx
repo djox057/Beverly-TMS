@@ -686,7 +686,7 @@ const Reports = () => {
             }}
           >
 
-            {/* Red border overlay for today column (left/right only) */}
+            {/* Red border overlay for today column */}
             {isToday && (
               <div
                 className="absolute pointer-events-none"
@@ -697,6 +697,7 @@ const Reports = () => {
                   bottom: 0,
                   borderLeft: "6px solid #dc2626",
                   borderRight: "6px solid #dc2626",
+                  ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
                   zIndex: 100,
                 }}
               />
@@ -805,7 +806,7 @@ const Reports = () => {
           }}
         >
 
-          {/* Red border overlay for today column (left/right only) */}
+          {/* Red border overlay for today column */}
           {isToday && (
             <div
               className="absolute pointer-events-none"
@@ -816,6 +817,7 @@ const Reports = () => {
                 bottom: 0,
                 borderLeft: "6px solid #dc2626",
                 borderRight: "6px solid #dc2626",
+                ...(isLastTruck ? { borderBottom: "6px solid #dc2626" } : {}),
                 zIndex: 100,
               }}
             />
@@ -865,7 +867,7 @@ const Reports = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="absolute top-0 right-0 h-2.5 w-2.5 p-0 hover:bg-background/20"
+                              className={`absolute top-0 ${isToday ? 'right-[3%]' : 'right-0'} h-2.5 w-2.5 p-0 hover:bg-background/20`}
                             >
                               <Info className="h-2 w-2" />
                             </Button>
@@ -998,7 +1000,7 @@ const Reports = () => {
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-2.5 w-2.5 p-0 hover:bg-background/20">
+                            <Button variant="ghost" size="sm" className={`absolute top-0 ${isToday ? 'right-[3%]' : 'right-0'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
                               <Info className="h-2 w-2" />
                             </Button>
                           </PopoverTrigger>
@@ -1064,7 +1066,7 @@ const Reports = () => {
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="absolute top-0 right-0 h-2.5 w-2.5 p-0 hover:bg-background/20">
+                            <Button variant="ghost" size="sm" className={`absolute top-0 ${isToday ? 'right-[3%]' : 'right-0'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
                               <Info className="h-2 w-2" />
                             </Button>
                           </PopoverTrigger>
