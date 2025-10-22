@@ -844,6 +844,22 @@ const Reports = () => {
                   {deliveryOnlyOrders.map((order, idx) => {
                     const cellColor = getDeliveryCellColor(order);
                     const totalDeliveryStops = order.deliveryStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
+                    
+                    // Get all delivery stops for this day
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const deliveryStopsForDay = order.deliveryStops?.filter((stop: any) => 
+                      formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr
+                    ) || [];
+                    
+                    // Get time range for multiple stops
+                    let timeDisplay = "—";
+                    if (deliveryStopsForDay.length > 1) {
+                      const times = deliveryStopsForDay.map((stop: any) => stop.datetime).sort();
+                      timeDisplay = `${formatTime(times[0])} - ${formatTime(times[times.length - 1])}`;
+                    } else if (order.delivery_datetime) {
+                      timeDisplay = formatTime(order.delivery_datetime);
+                    }
+                    
                     return (
                       <div
                         key={`delivery-${order.id}-${idx}`}
@@ -854,13 +870,7 @@ const Reports = () => {
                           {totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
                         </div>
                         <div className="text-[8px] opacity-70 truncate leading-tight">
-                          {order.delivery_datetime &&
-                          order.delivery_end_datetime &&
-                          formatTime(order.delivery_datetime) !== formatTime(order.delivery_end_datetime)
-                            ? `${formatTime(order.delivery_datetime)}-${formatTime(order.delivery_end_datetime)}`
-                            : order.delivery_datetime
-                              ? formatTime(order.delivery_datetime)
-                              : "—"}
+                          {timeDisplay}
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -984,6 +994,22 @@ const Reports = () => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
                     const totalPickupStops = order.pickupStopsByDate?.get(format(day, "yyyy-MM-dd")) || 1;
+                    
+                    // Get all pickup stops for this day
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const pickupStopsForDay = order.pickupStops?.filter((stop: any) => 
+                      formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr
+                    ) || [];
+                    
+                    // Get time range for multiple stops
+                    let timeDisplay = "—";
+                    if (pickupStopsForDay.length > 1) {
+                      const times = pickupStopsForDay.map((stop: any) => stop.datetime).sort();
+                      timeDisplay = `${formatTime(times[0])} - ${formatTime(times[times.length - 1])}`;
+                    } else if (order.pickup_datetime) {
+                      timeDisplay = formatTime(order.pickup_datetime);
+                    }
+                    
                     return (
                       <div 
                         key={`pickup-${order.id}-${idx}`} 
@@ -994,9 +1020,7 @@ const Reports = () => {
                           {totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
                         </div>
                         <div className="text-[8px] opacity-70 truncate leading-tight">
-                          {order.pickup_datetime && order.pickup_end_datetime && formatTime(order.pickup_datetime) !== formatTime(order.pickup_end_datetime)
-                            ? `${formatTime(order.pickup_datetime)} - ${formatTime(order.pickup_end_datetime)}`
-                            : order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"}
+                          {timeDisplay}
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1054,13 +1078,23 @@ const Reports = () => {
                   {sameDayOrders.map((order, idx) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
+                    
+                    // Get counts for same-day stops
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const totalPickupStops = order.pickupStopsByDate?.get(dayStr) || 1;
+                    const totalDeliveryStops = order.deliveryStopsByDate?.get(dayStr) || 1;
+                    
                     return (
                       <div 
                         key={`same-day-${order.id}-${idx}`} 
                         className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${pickupOnlyOrders.length + sameDayOrders.length > 1 ? 'min-h-[14px]' : 'flex-1'}`}
                       >
-                        <div className="text-[9px] font-medium truncate leading-tight">P: {order.pickupLocation}</div>
-                        <div className="text-[9px] opacity-70 truncate leading-tight">D: {order.deliveryLocation}</div>
+                        <div className="text-[9px] font-medium truncate leading-tight">
+                          P: {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
+                        </div>
+                        <div className="text-[9px] opacity-70 truncate leading-tight">
+                          D: {order.deliveryLocation}{totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
+                        </div>
                         <div className="text-[7px] opacity-70 truncate leading-tight">
                           {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} / {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
                         </div>
@@ -1081,29 +1115,25 @@ const Reports = () => {
                               <div className="space-y-1">
                                 <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
                                 <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                                {order.loadDetails.pickupInfo && (
-                                  <p>• <strong>Pickup:</strong> {order.loadDetails.pickupInfo.address}, {order.loadDetails.pickupInfo.city}, {order.loadDetails.pickupInfo.state} {order.loadDetails.pickupInfo.zipCode || ""} at {(() => {
-                                    if (order.loadDetails.pickupInfo.datetime === "—") return "—";
-                                    let timeStr = formatDateTime(order.loadDetails.pickupInfo.datetime, "MM/dd, HH:mm");
-                                    if (order.loadDetails.pickupInfo.endDatetime !== "—") {
-                                      const endTime = formatTime(order.loadDetails.pickupInfo.endDatetime);
-                                      const startTime = formatTime(order.loadDetails.pickupInfo.datetime);
-                                      if (startTime !== endTime) { timeStr += ` - ${endTime}`; }
-                                    }
-                                    return timeStr;
-                                  })()}</p>
+                                {order.loadDetails.allPickupStops && order.loadDetails.allPickupStops.length > 0 && (
+                                  <>
+                                    <p className="font-semibold">• Pickups ({order.loadDetails.allPickupStops.length}):</p>
+                                    {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                      <p key={`pickup-${pIdx}`} className="ml-4">
+                                        - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                      </p>
+                                    ))}
+                                  </>
                                 )}
-                                {order.loadDetails.deliveryInfo && (
-                                  <p>• <strong>Delivery:</strong> {order.loadDetails.deliveryInfo.address}, {order.loadDetails.deliveryInfo.city}, {order.loadDetails.deliveryInfo.state} {order.loadDetails.deliveryInfo.zipCode || ""} at {(() => {
-                                    if (order.loadDetails.deliveryInfo.datetime === "—") return "—";
-                                    let timeStr = formatDateTime(order.loadDetails.deliveryInfo.datetime, "MM/dd, HH:mm");
-                                    if (order.loadDetails.deliveryInfo.endDatetime !== "—") {
-                                      const endTime = formatTime(order.loadDetails.deliveryInfo.endDatetime);
-                                      const startTime = formatTime(order.loadDetails.deliveryInfo.datetime);
-                                      if (startTime !== endTime) { timeStr += ` - ${endTime}`; }
-                                    }
-                                    return timeStr;
-                                  })()}</p>
+                                {order.loadDetails.allDeliveryStops && order.loadDetails.allDeliveryStops.length > 0 && (
+                                  <>
+                                    <p className="font-semibold">• Deliveries ({order.loadDetails.allDeliveryStops.length}):</p>
+                                    {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                      <p key={`delivery-${dIdx}`} className="ml-4">
+                                        - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
+                                      </p>
+                                    ))}
+                                  </>
                                 )}
                                 <p>• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
                                 {order.loadDetails.notes !== "—" && (
