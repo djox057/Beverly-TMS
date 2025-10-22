@@ -878,13 +878,13 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
-                          style={{ minWidth: totalCellsOnDay > 1 ? '60px' : 'auto' }}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                          style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                         >
-                          <div className="text-[9px] font-medium truncate leading-tight">
+                          <div className={`text-[9px] font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                             {stop.city}, {stop.state}
                           </div>
-                          <div className="text-[8px] opacity-70 truncate leading-tight">
+                          <div className={`text-[8px] opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
@@ -1025,13 +1025,13 @@ const Reports = () => {
                       return (
                         <div 
                           key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} 
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
-                          style={{ minWidth: totalCellsOnDay > 1 ? '60px' : 'auto' }}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                          style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                         >
-                          <div className="text-[9px] font-medium truncate leading-tight">
+                          <div className={`text-[9px] font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                             {stop.city}, {stop.state}
                           </div>
-                          <div className="text-[8px] opacity-70 truncate leading-tight">
+                          <div className={`text-[8px] opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
@@ -1094,20 +1094,28 @@ const Reports = () => {
                     const dayStr = format(day, "yyyy-MM-dd");
                     const totalPickupStops = order.pickupStopsByDate?.get(dayStr) || 1;
                     const totalDeliveryStops = order.deliveryStopsByDate?.get(dayStr) || 1;
+                    const totalCellsOnDay = 
+                      pickupOnlyOrders.reduce(
+                        (sum, o) => sum + (o.pickupStops?.filter((s: any) => 
+                          formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
+                        ).length || 0),
+                        0
+                      ) +
+                      sameDayOrders.length;
                     
                     return (
                       <div 
                         key={`same-day-${order.id}-${idx}`} 
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
-                        style={{ minWidth: (pickupOnlyOrders.length + sameDayOrders.length) > 1 ? '60px' : 'auto' }}
+                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                        style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                       >
-                        <div className="text-[9px] font-medium truncate leading-tight">
+                        <div className={`text-[9px] font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                           P: {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
                         </div>
-                        <div className="text-[9px] opacity-70 truncate leading-tight">
+                        <div className={`text-[9px] opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                           D: {order.deliveryLocation}{totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
                         </div>
-                        <div className="text-[7px] opacity-70 truncate leading-tight">
+                        <div className={`text-[7px] opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''}`}>
                           {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} / {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
                         </div>
                         <Popover>
