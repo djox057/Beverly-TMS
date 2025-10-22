@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCallback } from "react";
 
 export interface DrugTest {
   id: string;
@@ -115,9 +116,16 @@ export const useDriverDrugTests = () => {
   });
 
   // Helper function to get drug test for a driver
-  const getDrugTestForDriver = (driverId: string) => {
-    return drugTests?.find((test) => test.driver_id === driverId);
-  };
+  const getDrugTestForDriver = useCallback((driverId: string) => {
+    const result = drugTests?.find((test) => test.driver_id === driverId);
+    console.log('getDrugTestForDriver called:', { 
+      driverId, 
+      result, 
+      totalDrugTests: drugTests?.length,
+      allDriverIds: drugTests?.map(t => t.driver_id)
+    });
+    return result;
+  }, [drugTests]);
 
   return {
     drugTests,
