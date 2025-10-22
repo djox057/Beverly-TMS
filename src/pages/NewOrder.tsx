@@ -38,6 +38,7 @@ interface PickupDrop {
   city?: string;
   state?: string;
   zipCode?: string;
+  companyName?: string;
 }
 
 const NewOrder = () => {
@@ -928,7 +929,7 @@ const NewOrder = () => {
       // Add second pickup if exists
       if (pickups.length >= 2) {
         const pickup2Data = formatLocationData(pickups[1]);
-        confirmationData.pickup2Shipper = "";
+        confirmationData.pickup2Shipper = pickups[1].companyName || "";
         confirmationData.pickup2Address = pickups[1].address;
         confirmationData.pickup2CityStateZip = pickup2Data.cityStateZip;
         confirmationData.pickup2Date = pickup2Data.date;
@@ -939,7 +940,7 @@ const NewOrder = () => {
       // Add third pickup if exists
       if (pickups.length >= 3) {
         const pickup3Data = formatLocationData(pickups[2]);
-        confirmationData.pickup3Shipper = "";
+        confirmationData.pickup3Shipper = pickups[2].companyName || "";
         confirmationData.pickup3Address = pickups[2].address;
         confirmationData.pickup3CityStateZip = pickup3Data.cityStateZip;
         confirmationData.pickup3Date = pickup3Data.date;
@@ -959,7 +960,7 @@ const NewOrder = () => {
       // Add second delivery if exists
       if (deliveries.length >= 2) {
         const delivery2Data = formatLocationData(deliveries[1]);
-        confirmationData.delivery2Receiver = "";
+        confirmationData.delivery2Receiver = deliveries[1].companyName || "";
         confirmationData.delivery2Address = deliveries[1].address;
         confirmationData.delivery2CityStateZip = delivery2Data.cityStateZip;
         confirmationData.delivery2Date = delivery2Data.date;
@@ -970,7 +971,7 @@ const NewOrder = () => {
       // Add third delivery if exists
       if (deliveries.length >= 3) {
         const delivery3Data = formatLocationData(deliveries[2]);
-        confirmationData.delivery3Receiver = "";
+        confirmationData.delivery3Receiver = deliveries[2].companyName || "";
         confirmationData.delivery3Address = deliveries[2].address;
         confirmationData.delivery3CityStateZip = delivery3Data.cityStateZip;
         confirmationData.delivery3Date = delivery3Data.date;
@@ -981,7 +982,7 @@ const NewOrder = () => {
       // Add fourth delivery if exists
       if (deliveries.length >= 4) {
         const delivery4Data = formatLocationData(deliveries[3]);
-        confirmationData.delivery4Receiver = "";
+        confirmationData.delivery4Receiver = deliveries[3].companyName || "";
         confirmationData.delivery4Address = deliveries[3].address;
         confirmationData.delivery4CityStateZip = delivery4Data.cityStateZip;
         confirmationData.delivery4Date = delivery4Data.date;
@@ -992,7 +993,7 @@ const NewOrder = () => {
       // Add fifth delivery if exists
       if (deliveries.length >= 5) {
         const delivery5Data = formatLocationData(deliveries[4]);
-        confirmationData.delivery5Receiver = "";
+        confirmationData.delivery5Receiver = deliveries[4].companyName || "";
         confirmationData.delivery5Address = deliveries[4].address;
         confirmationData.delivery5CityStateZip = delivery5Data.cityStateZip;
         confirmationData.delivery5Date = delivery5Data.date;
@@ -1381,14 +1382,14 @@ const NewOrder = () => {
           const zipCode = item.zipCode || parsed.zipCode;
           const cleanAddress = parsed.address;
           
-          return {
+            return {
             order_id: orderId,
             type: item.type,
             address: cleanAddress,
             city,
             state,
             zip_code: zipCode,
-            company_name: item.type === 'pickup' ? pickupShipper : deliveryShipper,
+            company_name: item.companyName || '',
             datetime: item.dateRange?.from && item.startTime 
               ? combineDateAndTime(item.dateRange.from, item.startTime)
               : null,
@@ -1732,6 +1733,23 @@ const NewOrder = () => {
                               </div>
                               
                               <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-1">
+                                  <Label htmlFor={`company-name-${item.id}`}>
+                                    {item.type === "pickup" ? "Shipper Name" : "Receiver Name"}
+                                  </Label>
+                                  <Input
+                                    id={`company-name-${item.id}`}
+                                    placeholder={item.type === "pickup" ? "Shipper company name" : "Receiver company name"}
+                                    value={item.companyName || ""}
+                                    onChange={(e) => {
+                                      const updated = pickupsDrops.map(p => 
+                                        p.id === item.id ? { ...p, companyName: e.target.value } : p
+                                      );
+                                      setPickupsDrops(updated);
+                                    }}
+                                  />
+                                </div>
+
                                 <div className="space-y-1">
                                   <Label htmlFor={`address-${item.id}`}>Address</Label>
                                   <Textarea
