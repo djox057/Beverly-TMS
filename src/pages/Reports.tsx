@@ -249,15 +249,6 @@ const Reports = () => {
     const drugTest = getDrugTestForDriver(truck.driverId);
     const isNew = isNewDriver(truck);
     
-    console.log('getDrugTestCellStyle:', {
-      truckNumber: truck.truckNumber,
-      driverId: truck.driverId,
-      driverName: truck.driver,
-      isNew,
-      drugTestResult: drugTest?.result,
-      drugTestDriverId: drugTest?.driver_id
-    });
-    
     if (!isNew) return {};
     
     if (drugTest?.result === 'positive') {
@@ -1930,12 +1921,6 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
-                                            console.log('Opening drug test dialog for:', { 
-                                              driverId: truck.driverId, 
-                                              driverName: truck.driver, 
-                                              truckId: truck.id,
-                                              truckNumber: truck.truckNumber
-                                            });
                                             setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
                                           }
                                         }}
@@ -2374,7 +2359,7 @@ const Reports = () => {
 
       {/* Drug Test Dialog */}
       <Dialog open={!!drugTestDialog} onOpenChange={(open) => !open && setDrugTestDialog(null)}>
-        <DialogContent>
+        <DialogContent className="z-[200]">
           <DialogHeader>
             <DialogTitle>Drug Test Result - {drugTestDialog?.driverName}</DialogTitle>
           </DialogHeader>
@@ -2385,12 +2370,6 @@ const Reports = () => {
                 value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
                 onValueChange={(value) => {
                   if (drugTestDialog?.driverId && drugTestDialog?.truckId) {
-                    console.log('Updating drug test:', {
-                      driverId: drugTestDialog.driverId,
-                      driverName: drugTestDialog.driverName,
-                      truckId: drugTestDialog.truckId,
-                      result: value
-                    });
                     upsertDrugTest.mutate({
                       driverId: drugTestDialog.driverId,
                       result: value as 'positive' | 'negative' | 'pending',

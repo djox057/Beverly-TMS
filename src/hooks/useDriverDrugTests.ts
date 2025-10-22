@@ -117,14 +117,7 @@ export const useDriverDrugTests = () => {
 
   // Helper function to get drug test for a driver
   const getDrugTestForDriver = useCallback((driverId: string) => {
-    const result = drugTests?.find((test) => test.driver_id === driverId);
-    console.log('getDrugTestForDriver called:', { 
-      driverId, 
-      result, 
-      totalDrugTests: drugTests?.length,
-      allDriverIds: drugTests?.map(t => t.driver_id)
-    });
-    return result;
+    return drugTests?.find((test) => test.driver_id === driverId);
   }, [drugTests]);
 
   return {
