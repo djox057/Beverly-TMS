@@ -731,23 +731,27 @@ const Reports = () => {
       }
 
       // Find all orders for this day and categorize them
-      const allDayOrders = ordersWithDates.filter(
-        (order) =>
-          (order.pickupDate && isSameDay(day, order.pickupDate)) ||
-          (order.deliveryDate && isSameDay(day, order.deliveryDate)),
-      );
+      // For multi-stop loads, check if ANY stop happens on this day
+      const dayStr = format(day, "yyyy-MM-dd");
+      
+      const allDayOrders = ordersWithDates.filter((order) => {
+        const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
+        const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
+        return hasPickupOnDay || hasDeliveryOnDay;
+      });
 
       // Separate same-day orders from different-day orders
       const sameDayOrders = allDayOrders.filter((order) => isSameDayPickupDelivery(order));
-      const pickupOnlyOrders = allDayOrders.filter(
-        (order) => order.pickupDate && isSameDay(day, order.pickupDate) && !isSameDayPickupDelivery(order),
-      );
-      const deliveryOnlyOrders = allDayOrders.filter(
-        (order) => order.deliveryDate && isSameDay(day, order.deliveryDate) && !isSameDayPickupDelivery(order),
-      );
+      const pickupOnlyOrders = allDayOrders.filter((order) => {
+        const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
+        return hasPickupOnDay && !isSameDayPickupDelivery(order);
+      });
+      const deliveryOnlyOrders = allDayOrders.filter((order) => {
+        const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
+        return hasDeliveryOnDay && !isSameDayPickupDelivery(order);
+      });
 
       // Count total stops for this day (sum of all pickup/delivery stops from all orders)
-      const dayStr = format(day, "yyyy-MM-dd");
       const totalPickupStops = pickupOnlyOrders.reduce(
         (sum, order) => sum + (order.pickupStopsByDate?.get(dayStr) || 0),
         0,
