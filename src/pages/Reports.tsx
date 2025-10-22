@@ -211,7 +211,7 @@ const Reports = () => {
   const navigate = useNavigate();
   const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
   const [showNewDrivers, setShowNewDrivers] = useState(false);
-  const [drugTestDialog, setDrugTestDialog] = useState<{ driverId: string; driverName: string } | null>(null);
+  const [drugTestDialog, setDrugTestDialog] = useState<{ driverId: string; driverName: string; truckId: string } | null>(null);
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
 
   // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
@@ -1921,7 +1921,7 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
                                           }
                                         }}
                                       >
@@ -1954,7 +1954,7 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
                                           }
                                         }}
                                       >
@@ -2025,7 +2025,7 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver });
+                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
                                           }
                                         }}
                                       >
@@ -2381,16 +2381,11 @@ const Reports = () => {
               <Select
                 value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
                 onValueChange={(value) => {
-                  if (drugTestDialog?.driverId) {
-                    // Find the truck ID for this driver
-                    const truck = groupedReports
-                      ?.flatMap(group => group.trucks)
-                      .find(t => t.driverId === drugTestDialog.driverId);
-                    
+                  if (drugTestDialog?.driverId && drugTestDialog?.truckId) {
                     upsertDrugTest.mutate({
                       driverId: drugTestDialog.driverId,
                       result: value as 'positive' | 'negative' | 'pending',
-                      truckId: truck?.id,
+                      truckId: drugTestDialog.truckId,
                     });
                   }
                 }}
