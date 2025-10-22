@@ -857,7 +857,7 @@ const Reports = () => {
               }}
             >
               {deliveryOnlyOrders.length > 0 ? (
-                <div className="space-y-0.5 p-0.5 overflow-y-auto flex flex-col" style={{ maxHeight: "32px" }}>
+                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {deliveryOnlyOrders.flatMap((order) => {
                     // Get all delivery stops for this day
                     const dayStr = format(day, "yyyy-MM-dd");
@@ -868,11 +868,17 @@ const Reports = () => {
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order);
+                      const totalCellsOnDay = deliveryOnlyOrders.reduce(
+                        (sum, o) => sum + (o.deliveryStops?.filter((s: any) => 
+                          formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
+                        ).length || 0),
+                        0
+                      );
                       
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 h-[28px] min-h-[28px] shrink-0`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay > 1 ? 'min-h-[14px]' : 'flex-1'}`}
                         >
                           <div className="text-[9px] font-medium truncate leading-tight">
                             {stop.city}, {stop.state}
@@ -993,7 +999,7 @@ const Reports = () => {
               }}
             >
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? (
-                <div className="space-y-0.5 p-0.5 overflow-y-auto flex flex-col" style={{ maxHeight: "32px" }}>
+                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
                   {pickupOnlyOrders.flatMap((order) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
@@ -1006,10 +1012,19 @@ const Reports = () => {
                     
                     // Render a separate cell for each pickup stop
                     return pickupStopsForDay.map((stop: any, stopIdx: number) => {
+                      const totalCellsOnDay = 
+                        pickupOnlyOrders.reduce(
+                          (sum, o) => sum + (o.pickupStops?.filter((s: any) => 
+                            formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
+                          ).length || 0),
+                          0
+                        ) +
+                        sameDayOrders.length;
+                      
                       return (
                         <div 
                           key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} 
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 h-[28px] min-h-[28px] shrink-0`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay > 1 ? 'min-h-[14px]' : 'flex-1'}`}
                         >
                           <div className="text-[9px] font-medium truncate leading-tight">
                             {stop.city}, {stop.state}
