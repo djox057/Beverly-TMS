@@ -431,7 +431,9 @@ After cleaning, your address JSON should look like:
 **ZIP CODE EXTRACTION EXAMPLES:**
 - "MIDDLETOWN, PA 17057" → zip: "17057"
 - "HOUSTON TX 77001-1234" → zip: "77001-1234"
+- "HOUSTON TX 770011234" (9 digits) → zip: "77001-1234" (MUST format with hyphen!)
 - "CHICAGO, IL 60601" → zip: "60601"
+- "MIAMI FL 331011234" (9 digits) → zip: "33101-1234" (MUST split 5-4 with hyphen!)
 - "EAGLE LAKE, TX" (no zip in doc) → Use your knowledge: zip: "77434" (central zip for Eagle Lake, TX)
 - "CHICAGO, IL" (no zip in doc) → Use your knowledge: zip: "60601" (central/downtown Chicago zip)
 - **CRITICAL**: If zip not found in document, USE YOUR AI KNOWLEDGE to infer a common/central zip code for that city and state. ALWAYS provide a zip when city and state are available.
@@ -506,10 +508,13 @@ zip: "" or null
 
 **zip field:** Extract zip code with these rules (CRITICAL - DO NOT SKIP):
 - ALWAYS look for zip codes near the city and state
-- Format: 5 digits (like "77434") OR ZIP+4 with hyphen (like "77434-1234")
-- If you find 9 consecutive digits, format as ZIP+4: "774341234" → "77434-1234"
-- If you find 5 digits, keep as-is: "77434"
-- Remove any spaces: "77434 1234" → "77434-1234"
+- Format: ALWAYS extract ONLY the first 5 digits as the primary zip code
+- **CRITICAL ZIP CODE FORMATTING RULE:**
+  * If you find 9 consecutive digits (e.g., "774341234"), you MUST format as "12345-6789": "774341234" → "77434-1234"
+  * If you find a ZIP+4 format (e.g., "77434-1234"), keep it as-is: "77434-1234"
+  * If you find 5 digits only, keep as-is: "77434"
+  * Remove any spaces: "77434 1234" → "77434-1234"
+  * ALWAYS ensure the first 5 digits represent the main zip code
 - Common locations: After state code, at end of address line, on separate line
 - **IF NOT FOUND IN DOCUMENT**: Use your AI knowledge to provide a common/central zip code for the given city and state (e.g., Eagle Lake, TX → "77434", Chicago, IL → "60601")
 - Only set to null if you have no city/state information at all
@@ -524,11 +529,18 @@ zip: "" or null
 
 ## STEP 6: DATE AND TIME EXTRACTION
 
-**DATES - Convert to YYYY-MM-DD format:**
-- \`09/24/25\` → \`2025-09-24\`
+**🚨 CRITICAL DATE RULE: ALL DATES MUST USE CURRENT YEAR (2025)!**
+
+**DATES - Convert to YYYY-MM-DD format and ALWAYS USE 2025:**
+- \`09/24/25\` → \`2025-09-24\` (ALWAYS use 2025, NEVER use 2023 or 2024)
 - \`9/24/2025\` → \`2025-09-24\`
 - \`Sep 24, 2025\` → \`2025-09-24\`
-- \`24-Sep-25\` → \`2025-09-24\`
+- \`24-Sep-25\` → \`2025-09-24\` (ALWAYS use 2025)
+- \`10/13/24\` → \`2025-10-13\` (CONVERT 24 to 2025)
+- \`10/13/23\` → \`2025-10-13\` (CONVERT 23 to 2025)
+- **MANDATORY**: If you see any 2-digit year (like 23, 24, 25, 26), ALWAYS interpret it as 2025
+- **MANDATORY**: If you see any 4-digit year that is NOT 2025, CHANGE IT to 2025
+- **NO EXCEPTIONS**: Every single date extracted MUST have the year 2025
 
 **TIMES - Convert to HH:MM 24-hour format:**
 - \`2:00 PM\` → \`14:00\`
