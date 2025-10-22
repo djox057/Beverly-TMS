@@ -73,15 +73,17 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Determine which template to use based on templateType
-    const templateFileName = data.templateType === '2p1d' 
-      ? 'load-confirmation-template-2p1d.pdf'
+    const is2p1d = data.templateType === '2p1d';
+    const bucketName = is2p1d ? 'Profilne' : 'order-files';
+    const templateFileName = is2p1d 
+      ? 'load_sheet 2p1d.pdf'
       : 'load-confirmation-template.pdf';
 
-    console.log(`Using template: ${templateFileName}`);
+    console.log(`Using template: ${templateFileName} from bucket: ${bucketName}`);
 
     // Load the template PDF from storage
     const { data: templateData, error: downloadError } = await supabase.storage
-      .from('order-files')
+      .from(bucketName)
       .download(templateFileName);
 
     if (downloadError) {
