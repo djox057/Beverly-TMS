@@ -814,25 +814,23 @@ const Reports = () => {
             <div
               className="absolute pointer-events-none"
               style={{
-                top: 6,
-                left: 6,
-                right: 6,
-                bottom: 6,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 borderLeft: "6px solid #dc2626",
                 borderRight: "6px solid #dc2626",
                 ...(isFirstTruck
                   ? {
                       borderTop: "6px solid #dc2626",
-                      top: 0,
                     }
                   : {}),
                 ...(isLastTruck
                   ? {
                       borderBottom: "6px solid #dc2626",
-                      bottom: 0,
                     }
                   : {}),
-                zIndex: 10,
+                zIndex: 100,
               }}
             />
           )}
