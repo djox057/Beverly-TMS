@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -200,35 +199,33 @@ const Fleets = () => {
                   <div className="space-y-4">
                     <div>
                       <Label>Select Driver</Label>
-                      <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a driver" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableDrivers.map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.name} {driver.truck && `- Truck ${driver.truck.truck_number}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        options={availableDrivers.map((driver) => ({
+                          value: driver.id,
+                          label: `${driver.name}${driver.truck ? ` - Truck ${driver.truck.truck_number}` : ''}`
+                        }))}
+                        value={selectedDriver}
+                        onValueChange={setSelectedDriver}
+                        placeholder="Search drivers..."
+                        emptyText="No driver found."
+                        searchPlaceholder="Search by name or truck..."
+                      />
                     </div>
                     <div>
                       <Label>Select Dispatcher</Label>
-                      <Select value={selectedDispatcher} onValueChange={setSelectedDispatcher}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a dispatcher" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allDispatchers.map((dispatcher) => (
-                            <SelectItem key={dispatcher.id} value={dispatcher.id}>
-                              {dispatcher.full_name || dispatcher.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Combobox
+                        options={allDispatchers.map((dispatcher) => ({
+                          value: dispatcher.id,
+                          label: `${dispatcher.full_name || dispatcher.email}${dispatcher.ext ? ` (ext ${dispatcher.ext})` : ''}`
+                        }))}
+                        value={selectedDispatcher}
+                        onValueChange={setSelectedDispatcher}
+                        placeholder="Search dispatchers..."
+                        emptyText="No dispatcher found."
+                        searchPlaceholder="Search by name..."
+                      />
                     </div>
-                    <Button onClick={handleAssignDriver} className="w-full">
+                    <Button onClick={handleAssignDriver} className="w-full" disabled={!selectedDriver || !selectedDispatcher}>
                       Assign Driver
                     </Button>
                   </div>
