@@ -209,7 +209,7 @@ export type Database = {
           driver_id: string
           fields_accessed: string[] | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           operation: string
           user_agent: string | null
         }
@@ -220,7 +220,7 @@ export type Database = {
           driver_id: string
           fields_accessed?: string[] | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           operation: string
           user_agent?: string | null
         }
@@ -231,7 +231,7 @@ export type Database = {
           driver_id?: string
           fields_accessed?: string[] | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           operation?: string
           user_agent?: string | null
         }
@@ -1256,7 +1256,7 @@ export type Database = {
         Returns: Json
       }
       get_latest_truck_locations: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           heading: number
           latitude: number
@@ -1284,10 +1284,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      sign_out_all_users: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      sign_out_all_users: { Args: never; Returns: Json }
     }
     Enums: {
       app_role:
