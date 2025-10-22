@@ -76,7 +76,7 @@ serve(async (req) => {
     const is2p1d = data.templateType === '2p1d';
     const bucketName = is2p1d ? 'Profilne' : 'order-files';
     const templateFileName = is2p1d 
-      ? 'load_sheet 2p1d.pdf'
+      ? 'load_sheet 2p1d (1).pdf'
       : 'load-confirmation-template.pdf';
 
     console.log(`Using template: ${templateFileName} from bucket: ${bucketName}`);
@@ -333,8 +333,8 @@ serve(async (req) => {
       console.log('Attempting to fill with available fields...');
     }
 
-    // Flatten the form (make fields non-editable)
-    form.flatten();
+    // Don't flatten the form - keep it fillable/editable
+    // form.flatten();
 
     // Save the filled PDF
     const pdfBytes = await pdfDoc.save();
