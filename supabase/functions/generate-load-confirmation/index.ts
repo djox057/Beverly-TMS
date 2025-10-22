@@ -112,8 +112,27 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Determine which template to use based on templateType
-    const templateType = data.templateType || '1p1d';
+    // Auto-detect template type based on number of pickups and deliveries if not provided
+    let templateType = data.templateType;
+    
+    if (!templateType) {
+      // Count pickups
+      let pickupCount = 1; // First pickup is always present
+      if (data.pickup2Address) pickupCount++;
+      if (data.pickup3Address) pickupCount++;
+      
+      // Count deliveries
+      let deliveryCount = 1; // First delivery is always present
+      if (data.delivery2Address) deliveryCount++;
+      if (data.delivery3Address) deliveryCount++;
+      if (data.delivery4Address) deliveryCount++;
+      if (data.delivery5Address) deliveryCount++;
+      
+      // Build template type string (e.g., "1p2d", "2p1d", "3p1d")
+      templateType = `${pickupCount}p${deliveryCount}d`;
+      console.log(`🎯 Auto-detected template type: ${templateType} (${pickupCount} pickups, ${deliveryCount} deliveries)`);
+    }
+    
     let bucketName = 'order-files';
     let templateFileName = 'load-confirmation-template.pdf';
     
