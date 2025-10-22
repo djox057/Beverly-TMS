@@ -737,7 +737,8 @@ const NewOrder = () => {
             datetime: pickup.date || "",
             dateRange: pickupDateRange,
             startTime: pickup.startTime || "",
-            endTime: pickup.endTime || ""
+            endTime: pickup.endTime || "",
+            companyName: pickup.shipper || ""
           });
         });
       } else if (extractedData.pickupAddress) {
@@ -763,7 +764,8 @@ const NewOrder = () => {
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
-          endTime: extractedData.pickupEndTime || extractedData.pickupTime || ""
+          endTime: extractedData.pickupEndTime || extractedData.pickupTime || "",
+          companyName: extractedData.pickupShipper || ""
         });
       }
       
@@ -782,7 +784,8 @@ const NewOrder = () => {
             datetime: delivery.date || "",
             dateRange: deliveryDateRange,
             startTime: delivery.startTime || "",
-            endTime: delivery.endTime || ""
+            endTime: delivery.endTime || "",
+            companyName: delivery.receiver || delivery.shipper || ""
           });
         });
       } else if (extractedData.deliveryAddress) {
@@ -808,7 +811,8 @@ const NewOrder = () => {
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || ""
+          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || "",
+          companyName: extractedData.deliveryShipper || ""
         });
       }
       
