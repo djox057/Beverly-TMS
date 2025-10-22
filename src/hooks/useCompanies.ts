@@ -21,12 +21,21 @@ export const useCompanies = () => {
           .select('*')
           .order('name');
         
-        console.log('🏢 Companies query result:', { data, error, count: data?.length });
+        console.log('🏢 Companies query result:', { 
+          data: data?.map(c => ({ id: c.id, name: c.name })), 
+          error, 
+          count: data?.length 
+        });
         
         if (error) {
           console.error('🏢 Error fetching companies:', error);
           throw error;
         }
+        
+        if (!data || data.length === 0) {
+          console.warn('🏢 No companies found in database');
+        }
+        
         return data;
       }, 30000);
     },
@@ -34,7 +43,8 @@ export const useCompanies = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 300000, // Cache for 5 minutes
     gcTime: 600000, // Keep in memory for 10 minutes
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Re-fetch when window gets focus
+    refetchOnMount: true, // Always refetch on mount
     placeholderData: (previousData) => previousData,
   });
 };

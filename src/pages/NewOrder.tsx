@@ -106,8 +106,8 @@ const NewOrder = () => {
   const podFileInputRef = useRef<HTMLInputElement>(null);
   const additionalFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch data from database
-  const { data: companies, isLoading: companiesLoading, error: companiesError } = useCompanies();
+  // Fetch data from database with proper error handling
+  const { data: companies, isLoading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
   const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
   
@@ -177,13 +177,23 @@ const NewOrder = () => {
 
   // Pre-select BF Prime company as default
   useEffect(() => {
+    console.log('🏢 Companies effect triggered', { 
+      filteredCompaniesCount: filteredCompanies?.length, 
+      bookedByCompany,
+      companiesLoading,
+      companiesError: companiesError?.message 
+    });
+    
     if (filteredCompanies && filteredCompanies.length > 0 && !bookedByCompany) {
       const bfPrime = filteredCompanies.find(c => c.name === 'BF Prime');
       if (bfPrime) {
+        console.log('🏢 Auto-selecting BF Prime company:', bfPrime.id);
         setBookedByCompany(bfPrime.id);
+      } else {
+        console.log('🏢 BF Prime not found, available companies:', filteredCompanies.map(c => c.name));
       }
     }
-  }, [filteredCompanies, bookedByCompany]);
+  }, [filteredCompanies, bookedByCompany, companiesLoading, companiesError]);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -208,14 +218,19 @@ const NewOrder = () => {
     setPickupsDrops([defaultPickup, defaultDelivery]);
   }, []);
 
+  // Track if trailer was manually edited to prevent auto-overwrite
+  const [trailerManuallyEdited, setTrailerManuallyEdited] = useState(false);
+
   // Auto-populate trailer and drivers when truck is selected
   useEffect(() => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Autofill trailer number for display
-        const trailerNumber = selectedTruck.trailer?.trailer_number || '';
-        setTrailer(trailerNumber);
+        // Only autofill trailer if not manually edited
+        if (!trailerManuallyEdited) {
+          const trailerNumber = selectedTruck.trailer?.trailer_number || '';
+          setTrailer(trailerNumber);
+        }
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
         if (selectedTruck.driver1?.id) {
@@ -239,8 +254,9 @@ const NewOrder = () => {
       setTrailer('');
       setDriver1('');
       setDriver2('');
+      setTrailerManuallyEdited(false);
     }
-  }, [truck, trucks]);
+  }, [truck, trucks, trailerManuallyEdited]);
 
   // Auto-calculate loaded miles when pickup and delivery addresses change
   useEffect(() => {
@@ -1596,15 +1612,27 @@ const NewOrder = () => {
             {(companiesError || trucksError) && (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {companiesError && trucksError ? (
-                    <>Failed to load companies and trucks. This may be due to a slow or unstable connection. The page will retry automatically.</>
-                  ) : companiesError ? (
-                    <>Failed to load companies. This may be due to a slow or unstable connection. The page will retry automatically.</>
-                  ) : (
-                    <>Failed to load trucks. This may be due to a slow or unstable connection. The page will retry automatically.</>
+                <AlertDescription className="flex items-center justify-between">
+                  <div>
+                    {companiesError && trucksError ? (
+                      <>Failed to load companies and trucks. This may be due to a slow or unstable connection.</>
+                    ) : companiesError ? (
+                      <>Failed to load companies. This may be due to a slow or unstable connection.</>
+                    ) : (
+                      <>Failed to load trucks. This may be due to a slow or unstable connection.</>
+                    )}
+                    {companiesLoading || trucksLoading ? " Retrying..." : ""}
+                  </div>
+                  {!companiesLoading && companiesError && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => refetchCompanies()}
+                      className="ml-2"
+                    >
+                      Retry Now
+                    </Button>
                   )}
-                  {companiesLoading || trucksLoading ? " Retrying..." : ""}
                 </AlertDescription>
               </Alert>
             )}
@@ -1650,7 +1678,10 @@ const NewOrder = () => {
                   id="trailer" 
                   placeholder="Trailer number" 
                   value={trailer} 
-                  onChange={e => setTrailer(e.target.value)} 
+                  onChange={e => {
+                    setTrailer(e.target.value);
+                    setTrailerManuallyEdited(true);
+                  }} 
                 />
               </div>
             </div>
