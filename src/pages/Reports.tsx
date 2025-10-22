@@ -918,34 +918,11 @@ const Reports = () => {
                                     <p className="ml-4">
                                       • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
                                     </p>
-                                    {order.loadDetails.allPickupStops &&
-                                      order.loadDetails.allPickupStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Pickups ({order.loadDetails.allPickupStops.length}):
-                                          </p>
-                                          {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                            <p key={`pickup-${pIdx}`} className="ml-8">
-                                              - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
-                                              {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
-                                    {order.loadDetails.allDeliveryStops &&
-                                      order.loadDetails.allDeliveryStops.length > 0 && (
-                                        <>
-                                          <p className="ml-4 font-semibold">
-                                            • Deliveries ({order.loadDetails.allDeliveryStops.length}):
-                                          </p>
-                                          {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                            <p key={`delivery-${dIdx}`} className="ml-8">
-                                              - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
-                                              at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
-                                            </p>
-                                          ))}
-                                        </>
-                                      )}
+                                    <p className="ml-4 font-semibold">• Delivery Stop:</p>
+                                    <p className="ml-8">
+                                      - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at{" "}
+                                      {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
+                                    </p>
                                     <p className="ml-4">
                                       • <strong>Documents:</strong>{" "}
                                       {formatDocuments(order.loadDetails.documents)}
@@ -1052,22 +1029,10 @@ const Reports = () => {
                                     </Button>
                                   </div>
                                   <p className="ml-4">• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                                  {order.loadDetails.allPickupStops && order.loadDetails.allPickupStops.length > 0 && (
-                                    <>
-                                      <p className="ml-4 font-semibold">• Pickups ({order.loadDetails.allPickupStops.length}):</p>
-                                      {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
-                                        <p key={`pickup-${pIdx}`} className="ml-8">- {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}</p>
-                                      ))}
-                                    </>
-                                  )}
-                                  {order.loadDetails.allDeliveryStops && order.loadDetails.allDeliveryStops.length > 0 && (
-                                    <>
-                                      <p className="ml-4 font-semibold">• Deliveries ({order.loadDetails.allDeliveryStops.length}):</p>
-                                      {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                        <p key={`delivery-${dIdx}`} className="ml-8">- {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}</p>
-                                      ))}
-                                    </>
-                                  )}
+                                  <p className="ml-4 font-semibold">• Pickup Stop:</p>
+                                  <p className="ml-8">
+                                    - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
+                                  </p>
                                   <p className="ml-4">• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
                                   {order.loadDetails.notes !== "—" && (
                                     <p className="ml-4 text-sm font-bold">• <strong>Notes:</strong> {order.loadDetails.notes}</p>
