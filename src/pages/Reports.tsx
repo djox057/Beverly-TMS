@@ -249,6 +249,15 @@ const Reports = () => {
     const drugTest = getDrugTestForDriver(truck.driverId);
     const isNew = isNewDriver(truck);
     
+    console.log('getDrugTestCellStyle:', {
+      truckNumber: truck.truckNumber,
+      driverId: truck.driverId,
+      driverName: truck.driver,
+      isNew,
+      drugTestResult: drugTest?.result,
+      drugTestDriverId: drugTest?.driver_id
+    });
+    
     if (!isNew) return {};
     
     if (drugTest?.result === 'positive') {
@@ -1921,6 +1930,12 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
+                                            console.log('Opening drug test dialog for:', { 
+                                              driverId: truck.driverId, 
+                                              driverName: truck.driver, 
+                                              truckId: truck.id,
+                                              truckNumber: truck.truckNumber
+                                            });
                                             setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
                                           }
                                         }}
@@ -1945,17 +1960,11 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
                                           maxWidth: "163px",
-                                          ...drugTestStyle,
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
-                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-2">
@@ -2016,17 +2025,11 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
                                         style={{
                                           width: "136px",
                                           minWidth: "136px",
                                           maxWidth: "136px",
-                                          ...drugTestStyle,
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
-                                          }
                                         }}
                                       >
                                         <div
@@ -2382,6 +2385,12 @@ const Reports = () => {
                 value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
                 onValueChange={(value) => {
                   if (drugTestDialog?.driverId && drugTestDialog?.truckId) {
+                    console.log('Updating drug test:', {
+                      driverId: drugTestDialog.driverId,
+                      driverName: drugTestDialog.driverName,
+                      truckId: drugTestDialog.truckId,
+                      result: value
+                    });
                     upsertDrugTest.mutate({
                       driverId: drugTestDialog.driverId,
                       result: value as 'positive' | 'negative' | 'pending',
