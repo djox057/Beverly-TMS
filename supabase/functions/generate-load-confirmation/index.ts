@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface LoadConfirmationData {
-  templateType?: string; // "1p1d" or "2p1d"
+  templateType?: string; // "1p1d", "1p2d", "1p3d", "1p4d", "1p5d", "2p1d", "2p2d", "3p1d"
   brokerLoadNumber: string;
   driverName: string;
   truckNumber: string;
@@ -28,7 +28,7 @@ interface LoadConfirmationData {
   pickupPuNumber?: string;
   pickupPoNumber?: string;
   pickupPoNumber2?: string;
-  // Second pickup (only for 2p1d)
+  // Second pickup (for multi-pickup)
   pickup2Shipper?: string;
   pickup2Address?: string;
   pickup2CityStateZip?: string;
@@ -36,7 +36,15 @@ interface LoadConfirmationData {
   pickup2Time?: string;
   pickup2PoNumber?: string;
   pickup2PoNumber2?: string;
-  // Delivery (always present)
+  // Third pickup (for 3p1d)
+  pickup3Shipper?: string;
+  pickup3Address?: string;
+  pickup3CityStateZip?: string;
+  pickup3Date?: string;
+  pickup3Time?: string;
+  pickup3PoNumber?: string;
+  pickup3PoNumber2?: string;
+  // First delivery (always present)
   deliveryReceiver?: string;
   deliveryAddress: string;
   deliveryCityStateZip: string;
@@ -44,6 +52,38 @@ interface LoadConfirmationData {
   deliveryTime: string;
   deliveryPoNumber?: string;
   deliveryPoNumber2?: string;
+  // Second delivery (for multi-delivery)
+  delivery2Receiver?: string;
+  delivery2Address?: string;
+  delivery2CityStateZip?: string;
+  delivery2Date?: string;
+  delivery2Time?: string;
+  delivery2PoNumber?: string;
+  delivery2PoNumber2?: string;
+  // Third delivery (for 1p3d+)
+  delivery3Receiver?: string;
+  delivery3Address?: string;
+  delivery3CityStateZip?: string;
+  delivery3Date?: string;
+  delivery3Time?: string;
+  delivery3PoNumber?: string;
+  delivery3PoNumber2?: string;
+  // Fourth delivery (for 1p4d+)
+  delivery4Receiver?: string;
+  delivery4Address?: string;
+  delivery4CityStateZip?: string;
+  delivery4Date?: string;
+  delivery4Time?: string;
+  delivery4PoNumber?: string;
+  delivery4PoNumber2?: string;
+  // Fifth delivery (for 1p5d)
+  delivery5Receiver?: string;
+  delivery5Address?: string;
+  delivery5CityStateZip?: string;
+  delivery5Date?: string;
+  delivery5Time?: string;
+  delivery5PoNumber?: string;
+  delivery5PoNumber2?: string;
 }
 
 // Sanitize text to remove characters that can't be encoded in WinAnsi (PDF standard encoding)
@@ -73,11 +113,26 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Determine which template to use based on templateType
-    const is2p1d = data.templateType === '2p1d';
-    const bucketName = is2p1d ? 'Profilne' : 'order-files';
-    const templateFileName = is2p1d 
-      ? 'load_sheet 2p1d (1).pdf'
-      : 'load-confirmation-template.pdf';
+    const templateType = data.templateType || '1p1d';
+    let bucketName = 'order-files';
+    let templateFileName = 'load-confirmation-template.pdf';
+    
+    // Map template types to their files
+    const templateMap: { [key: string]: { bucket: string; file: string } } = {
+      '1p1d': { bucket: 'order-files', file: 'load-confirmation-template.pdf' },
+      '1p2d': { bucket: 'Profilne', file: 'load_sheet 1p2d (2).pdf' },
+      '1p3d': { bucket: 'Profilne', file: 'load_sheet 1p3d (1).pdf' },
+      '1p4d': { bucket: 'Profilne', file: 'load_sheet 1p4d_1.pdf' },
+      '1p5d': { bucket: 'Profilne', file: 'load_sheet 1p5d_1.pdf' },
+      '2p1d': { bucket: 'Profilne', file: 'load_sheet 2p1d (1).pdf' },
+      '2p2d': { bucket: 'Profilne', file: 'load_sheet 2p2d (1).pdf' },
+      '3p1d': { bucket: 'Profilne', file: 'load_sheet 3p1d (1).pdf' },
+    };
+    
+    if (templateMap[templateType]) {
+      bucketName = templateMap[templateType].bucket;
+      templateFileName = templateMap[templateType].file;
+    }
 
     console.log(`Using template: ${templateFileName} from bucket: ${bucketName}`);
 
@@ -102,230 +157,307 @@ serve(async (req) => {
     const fields = form.getFields();
     console.log('Available form fields:', fields.map(f => f.getName()));
 
+    // Helper function to safely set text field
+    const setTextField = (fieldName: string, value: string | undefined) => {
+      if (!value) return;
+      try {
+        const field = form.getTextField(fieldName);
+        field.setText(sanitizeText(value));
+      } catch (e) {
+        console.log(`Field "${fieldName}" not found or error setting it`);
+      }
+    };
+
     // Fill in the form fields based on template type
     try {
-      if (data.templateType === '2p1d') {
+      // Fill common header fields (present in all templates)
+      setTextField('LOAD ORDER CONFIRAMTION', data.brokerLoadNumber);
+      setTextField('Driver', data.driverName);
+      setTextField('Truck', data.truckNumber);
+      setTextField('Trailer', data.trailerNumber);
+      setTextField('Phone', data.phoneNumber);
+      setTextField('Commodity', data.commodity);
+      setTextField('Weight', data.weight);
+      setTextField('Miles', data.miles);
+      setTextField('Rate', data.rate ? '$' + sanitizeText(data.rate) : '');
+
+      // Fill based on template type
+      if (templateType === '2p1d') {
         // Fill 2 Pickups + 1 Delivery template
         console.log('Filling 2p1d template');
+        
+        // First Pickup
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
+        setTextField('PO_2', data.pickupPoNumber2);
 
-        // Header fields
-        const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRAMTION');
-        loadConfirmationField.setText(sanitizeText(data.brokerLoadNumber));
+        // Second Pickup
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTextField('Time_2', data.pickup2Time);
+        setTextField('Delivery', data.pickup2PoNumber);
+        setTextField('PO_3', data.pickup2PoNumber2);
 
-        const driverField = form.getTextField('Driver');
-        driverField.setText(sanitizeText(data.driverName));
+        // Delivery
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Address_3', data.deliveryAddress);
+        setTextField('City state zip_3', data.deliveryCityStateZip);
+        setTextField('Date_3', data.deliveryDate);
+        setTextField('Time_3', data.deliveryTime);
+        setTextField('Delivery_2', data.deliveryPoNumber);
+        setTextField('PO_5', data.deliveryPoNumber2);
 
-        const truckField = form.getTextField('Truck');
-        truckField.setText(sanitizeText(data.truckNumber));
+      } else if (templateType === '1p2d') {
+        console.log('Filling 1p2d template');
+        
+        // Pickup
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        const trailerField = form.getTextField('Trailer');
-        trailerField.setText(sanitizeText(data.trailerNumber));
+        // First Delivery
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTextField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
+        setTextField('Delivery', data.deliveryPoNumber);
 
-        const phoneField = form.getTextField('Phone');
-        phoneField.setText(sanitizeText(data.phoneNumber));
+        // Second Delivery
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTextField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
+        setTextField('Delivery_2', data.delivery2PoNumber);
 
-        if (data.commodity) {
-          const commodityField = form.getTextField('Commodity');
-          commodityField.setText(sanitizeText(data.commodity));
-        }
+      } else if (templateType === '1p3d') {
+        console.log('Filling 1p3d template');
+        
+        // Pickup
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        if (data.weight) {
-          const weightField = form.getTextField('Weight');
-          weightField.setText(sanitizeText(data.weight));
-        }
+        // Deliveries 1-3
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTextField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
 
-        const milesField = form.getTextField('Miles');
-        milesField.setText(sanitizeText(data.miles));
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTextField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
 
-        const rateField = form.getTextField('Rate');
-        rateField.setText('$' + sanitizeText(data.rate));
+        setTextField('Receiver_3', data.delivery3Receiver);
+        setTextField('Shipper_4', data.delivery3Receiver);
+        setTextField('Address_4', data.delivery3Address);
+        setTextField('City state zip_4', data.delivery3CityStateZip);
+        setTextField('Date_4', data.delivery3Date);
+        setTextField('Time_4', data.delivery3Time);
+        setTextField('PO_4', data.delivery3PoNumber);
 
-        // First Pickup Info
-        if (data.pickupShipper) {
-          const shipperField = form.getTextField('Shipper');
-          shipperField.setText(sanitizeText(data.pickupShipper));
-        }
+      } else if (templateType === '1p4d') {
+        console.log('Filling 1p4d template');
+        
+        // Pickup
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        const pickupAddressField = form.getTextField('Address');
-        pickupAddressField.setText(sanitizeText(data.pickupAddress));
+        // Deliveries 1-4
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTextField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
 
-        const pickupCityField = form.getTextField('City state zip');
-        pickupCityField.setText(sanitizeText(data.pickupCityStateZip));
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_3', data.delivery2Receiver);
+        setTextField('Address_3', data.delivery2Address);
+        setTextField('City state zip_3', data.delivery2CityStateZip);
+        setTextField('Date_3', data.delivery2Date);
+        setTextField('Time_3', data.delivery2Time);
+        setTextField('PO_3', data.delivery2PoNumber);
 
-        const pickupDateField = form.getTextField('Date');
-        pickupDateField.setText(sanitizeText(data.pickupDate));
+        setTextField('Receiver_3', data.delivery3Receiver);
+        setTextField('Shipper_4', data.delivery3Receiver);
+        setTextField('Address_4', data.delivery3Address);
+        setTextField('City state zip_4', data.delivery3CityStateZip);
+        setTextField('Date_4', data.delivery3Date);
+        setTextField('Time_4', data.delivery3Time);
+        setTextField('PO_4', data.delivery3PoNumber);
 
-        const pickupTimeField = form.getTextField('Time');
-        pickupTimeField.setText(sanitizeText(data.pickupTime));
+        setTextField('Receiver_4', data.delivery4Receiver);
+        setTextField('Shipper_5', data.delivery4Receiver);
+        setTextField('Address_5', data.delivery4Address);
+        setTextField('City state zip_5', data.delivery4CityStateZip);
+        setTextField('Date_5', data.delivery4Date);
+        setTextField('Time_5', data.delivery4Time);
+        setTextField('PO_5', data.delivery4PoNumber);
 
-        if (data.pickupPuNumber) {
-          const puField = form.getTextField('PU');
-          puField.setText(sanitizeText(data.pickupPuNumber));
-        }
+      } else if (templateType === '1p5d') {
+        console.log('Filling 1p5d template');
+        
+        // Pickup
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        if (data.pickupPoNumber) {
-          const poField = form.getTextField('PO');
-          poField.setText(sanitizeText(data.pickupPoNumber));
-        }
+        // Deliveries 1-5
+        const deliveries = [
+          { receiver: data.deliveryReceiver, address: data.deliveryAddress, cityStateZip: data.deliveryCityStateZip, 
+            date: data.deliveryDate, time: data.deliveryTime, poNumber: data.deliveryPoNumber },
+          { receiver: data.delivery2Receiver, address: data.delivery2Address, cityStateZip: data.delivery2CityStateZip,
+            date: data.delivery2Date, time: data.delivery2Time, poNumber: data.delivery2PoNumber },
+          { receiver: data.delivery3Receiver, address: data.delivery3Address, cityStateZip: data.delivery3CityStateZip,
+            date: data.delivery3Date, time: data.delivery3Time, poNumber: data.delivery3PoNumber },
+          { receiver: data.delivery4Receiver, address: data.delivery4Address, cityStateZip: data.delivery4CityStateZip,
+            date: data.delivery4Date, time: data.delivery4Time, poNumber: data.delivery4PoNumber },
+          { receiver: data.delivery5Receiver, address: data.delivery5Address, cityStateZip: data.delivery5CityStateZip,
+            date: data.delivery5Date, time: data.delivery5Time, poNumber: data.delivery5PoNumber }
+        ];
 
-        if (data.pickupPoNumber2) {
-          const po2Field = form.getTextField('PO_2');
-          po2Field.setText(sanitizeText(data.pickupPoNumber2));
-        }
+        deliveries.forEach((delivery, i) => {
+          const suffix = i === 0 ? '' : `_${i}`;
+          const shipperSuffix = i === 0 ? '_2' : `_${i + 1}`;
+          
+          setTextField(`Receiver${suffix}`, delivery.receiver);
+          setTextField(`Shipper${shipperSuffix}`, delivery.receiver);
+          setTextField(`Address${shipperSuffix}`, delivery.address);
+          setTextField(`City state zip${shipperSuffix}`, delivery.cityStateZip);
+          setTextField(`Date${shipperSuffix}`, delivery.date);
+          setTextField(`Time${shipperSuffix}`, delivery.time);
+          setTextField(`PO${shipperSuffix}`, delivery.poNumber);
+        });
 
-        // Second Pickup Info (_2 suffix)
-        if (data.pickup2Shipper) {
-          const shipper2Field = form.getTextField('Shipper_2');
-          shipper2Field.setText(sanitizeText(data.pickup2Shipper));
-        }
+      } else if (templateType === '2p2d') {
+        console.log('Filling 2p2d template');
+        
+        // Pickups
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        if (data.pickup2Address) {
-          const address2Field = form.getTextField('Address_2');
-          address2Field.setText(sanitizeText(data.pickup2Address));
-        }
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTextField('Time_2', data.pickup2Time);
+        setTextField('PO_2', data.pickup2PoNumber);
 
-        if (data.pickup2CityStateZip) {
-          const city2Field = form.getTextField('City state zip_2');
-          city2Field.setText(sanitizeText(data.pickup2CityStateZip));
-        }
+        // Deliveries
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_3', data.deliveryReceiver);
+        setTextField('Address_3', data.deliveryAddress);
+        setTextField('City state zip_3', data.deliveryCityStateZip);
+        setTextField('Date_3', data.deliveryDate);
+        setTextField('Time_3', data.deliveryTime);
+        setTextField('PO_3', data.deliveryPoNumber);
 
-        if (data.pickup2Date) {
-          const date2Field = form.getTextField('Date_2');
-          date2Field.setText(sanitizeText(data.pickup2Date));
-        }
+        setTextField('Receiver_2', data.delivery2Receiver);
+        setTextField('Shipper_4', data.delivery2Receiver);
+        setTextField('Address_4', data.delivery2Address);
+        setTextField('City state zip_4', data.delivery2CityStateZip);
+        setTextField('Date_4', data.delivery2Date);
+        setTextField('Time_4', data.delivery2Time);
+        setTextField('PO_4', data.delivery2PoNumber);
 
-        if (data.pickup2Time) {
-          const time2Field = form.getTextField('Time_2');
-          time2Field.setText(sanitizeText(data.pickup2Time));
-        }
+      } else if (templateType === '3p1d') {
+        console.log('Filling 3p1d template');
+        
+        // Pickups
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
-        // Note: "Delivery" field on page 1 is actually for 2nd pickup delivery number
-        if (data.pickup2PoNumber) {
-          const deliveryField = form.getTextField('Delivery');
-          deliveryField.setText(sanitizeText(data.pickup2PoNumber));
-        }
+        setTextField('Shipper_2', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTextField('Time_2', data.pickup2Time);
+        setTextField('PO_2', data.pickup2PoNumber);
 
-        if (data.pickup2PoNumber2) {
-          const po3Field = form.getTextField('PO_3');
-          po3Field.setText(sanitizeText(data.pickup2PoNumber2));
-        }
+        setTextField('Shipper_3', data.pickup3Shipper);
+        setTextField('Address_3', data.pickup3Address);
+        setTextField('City state zip_3', data.pickup3CityStateZip);
+        setTextField('Date_3', data.pickup3Date);
+        setTextField('Time_3', data.pickup3Time);
+        setTextField('PO_3', data.pickup3PoNumber);
 
-        // Delivery Info (_3 suffix for address fields, _2 for time fields)
-        if (data.deliveryReceiver) {
-          const receiverField = form.getTextField('Receiver');
-          receiverField.setText(sanitizeText(data.deliveryReceiver));
-        }
-
-        const deliveryAddressField = form.getTextField('Address_3');
-        deliveryAddressField.setText(sanitizeText(data.deliveryAddress));
-
-        const deliveryCityField = form.getTextField('City state zip_3');
-        deliveryCityField.setText(sanitizeText(data.deliveryCityStateZip));
-
-        const deliveryDateField = form.getTextField('Date_3');
-        deliveryDateField.setText(sanitizeText(data.deliveryDate));
-
-        const deliveryTimeField = form.getTextField('Time_3');
-        deliveryTimeField.setText(sanitizeText(data.deliveryTime));
-
-        if (data.deliveryPoNumber) {
-          const delivery2Field = form.getTextField('Delivery_2');
-          delivery2Field.setText(sanitizeText(data.deliveryPoNumber));
-        }
-
-        if (data.deliveryPoNumber2) {
-          const po5Field = form.getTextField('PO_5');
-          po5Field.setText(sanitizeText(data.deliveryPoNumber2));
-        }
+        // Delivery
+        setTextField('Receiver', data.deliveryReceiver);
+        setTextField('Shipper_4', data.deliveryReceiver);
+        setTextField('Address_4', data.deliveryAddress);
+        setTextField('City state zip_4', data.deliveryCityStateZip);
+        setTextField('Date_4', data.deliveryDate);
+        setTextField('Time_4', data.deliveryTime);
+        setTextField('PO_4', data.deliveryPoNumber);
 
       } else {
-        // Fill 1 Pickup + 1 Delivery template (original)
+        // Fill 1 Pickup + 1 Delivery template (original 1p1d)
         console.log('Filling 1p1d template');
 
-        // Broker Load Number in LOAD ORDER CONFIRAMTION field (note: typo in PDF)
-        const loadConfirmationField = form.getTextField('LOAD ORDER CONFIRAMTION');
-        loadConfirmationField.setText(sanitizeText(data.brokerLoadNumber));
-
-        // Driver Info
-        const driverField = form.getTextField('Driver');
-        driverField.setText(sanitizeText(data.driverName));
-
-        const truckField = form.getTextField('Truck');
-        truckField.setText(sanitizeText(data.truckNumber));
-
-        const trailerField = form.getTextField('Trailer');
-        trailerField.setText(sanitizeText(data.trailerNumber));
-
-        const phoneField = form.getTextField('Phone');
-        phoneField.setText(sanitizeText(data.phoneNumber));
-
-        // Optional fields
-        if (data.commodity) {
-          const commodityField = form.getTextField('Commodity');
-          commodityField.setText(sanitizeText(data.commodity));
-        }
-
-        if (data.weight) {
-          const weightField = form.getTextField('Weight');
-          weightField.setText(sanitizeText(data.weight));
-        }
-
-        const milesField = form.getTextField('Miles');
-        milesField.setText(sanitizeText(data.miles));
-
-        const rateField = form.getTextField('Rate');
-        rateField.setText('$' + sanitizeText(data.rate));
-
-        // Pickup Info (first location)
-        if (data.pickupShipper) {
-          const shipperField = form.getTextField('Shipper');
-          shipperField.setText(sanitizeText(data.pickupShipper));
-        }
-
-        const pickupAddressField = form.getTextField('Address');
-        pickupAddressField.setText(sanitizeText(data.pickupAddress));
-
-        const pickupCityField = form.getTextField('City state zip');
-        pickupCityField.setText(sanitizeText(data.pickupCityStateZip));
-
-        const pickupDateField = form.getTextField('Date');
-        pickupDateField.setText(sanitizeText(data.pickupDate));
-
-        const pickupTimeField = form.getTextField('Time');
-        pickupTimeField.setText(sanitizeText(data.pickupTime));
-
-        if (data.pickupPuNumber) {
-          const puField = form.getTextField('PU');
-          puField.setText(sanitizeText(data.pickupPuNumber));
-        }
-
-        if (data.pickupPoNumber) {
-          const poPickupField = form.getTextField('PO');
-          poPickupField.setText(sanitizeText(data.pickupPoNumber));
-        }
+        // Pickup Info
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
 
         // Delivery Info (second location - _2 suffix)
-        if (data.deliveryReceiver) {
-          const receiverField = form.getTextField('Shipper_2');
-          receiverField.setText(sanitizeText(data.deliveryReceiver));
-        }
-
-        const deliveryAddressField = form.getTextField('Address_2');
-        deliveryAddressField.setText(sanitizeText(data.deliveryAddress));
-
-        const deliveryCityField = form.getTextField('City state zip_2');
-        deliveryCityField.setText(sanitizeText(data.deliveryCityStateZip));
-
-        const deliveryDateField = form.getTextField('Date_2');
-        deliveryDateField.setText(sanitizeText(data.deliveryDate));
-
-        const deliveryTimeField = form.getTextField('Time_2');
-        deliveryTimeField.setText(sanitizeText(data.deliveryTime));
-
-        if (data.deliveryPoNumber) {
-          const poDeliveryField = form.getTextField('PO_2');
-          poDeliveryField.setText(sanitizeText(data.deliveryPoNumber));
-        }
+        setTextField('Shipper_2', data.deliveryReceiver);
+        setTextField('Address_2', data.deliveryAddress);
+        setTextField('City state zip_2', data.deliveryCityStateZip);
+        setTextField('Date_2', data.deliveryDate);
+        setTextField('Time_2', data.deliveryTime);
+        setTextField('PO_2', data.deliveryPoNumber);
       }
 
     } catch (fieldError) {
