@@ -686,6 +686,22 @@ const Reports = () => {
             }}
           >
 
+            {/* Red border overlay for today column (left/right only) */}
+            {isToday && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  borderLeft: "6px solid #dc2626",
+                  borderRight: "6px solid #dc2626",
+                  zIndex: 100,
+                }}
+              />
+            )}
+
             {/* Top half */}
             <div
               className="border-b border-gray-400 flex flex-col items-center justify-center bg-black"
@@ -788,6 +804,22 @@ const Reports = () => {
               : {}),
           }}
         >
+
+          {/* Red border overlay for today column (left/right only) */}
+          {isToday && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderLeft: "6px solid #dc2626",
+                borderRight: "6px solid #dc2626",
+                zIndex: 100,
+              }}
+            />
+          )}
 
           <div
             className="flex flex-col relative"
