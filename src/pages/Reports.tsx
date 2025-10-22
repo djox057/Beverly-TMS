@@ -849,7 +849,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : "bg-muted"} overflow-y-auto`}
+              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -857,7 +857,7 @@ const Reports = () => {
               }}
             >
               {deliveryOnlyOrders.length > 0 ? (
-                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
+                <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {deliveryOnlyOrders.flatMap((order) => {
                     // Get all delivery stops for this day
                     const dayStr = format(day, "yyyy-MM-dd");
@@ -878,7 +878,8 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay > 1 ? 'min-h-[14px]' : 'flex-1'}`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
+                          style={{ minWidth: totalCellsOnDay > 1 ? '60px' : 'auto' }}
                         >
                           <div className="text-[9px] font-medium truncate leading-tight">
                             {stop.city}, {stop.state}
@@ -991,7 +992,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-y-auto`}
+              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -999,7 +1000,7 @@ const Reports = () => {
               }}
             >
               {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? (
-                <div className="space-y-0.5 flex-1 p-0 overflow-hidden flex flex-col">
+                <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {pickupOnlyOrders.flatMap((order) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
@@ -1024,7 +1025,8 @@ const Reports = () => {
                       return (
                         <div 
                           key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} 
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay > 1 ? 'min-h-[14px]' : 'flex-1'}`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
+                          style={{ minWidth: totalCellsOnDay > 1 ? '60px' : 'auto' }}
                         >
                           <div className="text-[9px] font-medium truncate leading-tight">
                             {stop.city}, {stop.state}
@@ -1096,7 +1098,8 @@ const Reports = () => {
                     return (
                       <div 
                         key={`same-day-${order.id}-${idx}`} 
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${pickupOnlyOrders.length + sameDayOrders.length > 1 ? 'min-h-[14px]' : 'flex-1'}`}
+                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 shrink-0 h-full`}
+                        style={{ minWidth: (pickupOnlyOrders.length + sameDayOrders.length) > 1 ? '60px' : 'auto' }}
                       >
                         <div className="text-[9px] font-medium truncate leading-tight">
                           P: {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
