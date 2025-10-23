@@ -233,8 +233,22 @@ const Orders = () => {
   // Early returns after all hooks
   if (isLoading) {
     return <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex items-center gap-4 mb-4">
+          <div className="h-10 w-64 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="rounded-lg border">
+          <div className="h-12 bg-muted animate-pulse rounded-t-lg" />
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="flex items-center gap-4 p-4 border-t">
+              <div className="h-6 w-6 bg-muted animate-pulse rounded" />
+              <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+              <div className="h-6 w-48 bg-muted animate-pulse rounded flex-1" />
+              <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+              <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+            </div>
+          ))}
         </div>
       </div>;
   }

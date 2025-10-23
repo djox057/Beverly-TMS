@@ -78,7 +78,17 @@ export default function Alerts() {
 
             <TabsContent value="trucks" className="mt-6">
               {trucksLoading ? (
-                <p>Loading trucks...</p>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded">
+                      <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
               ) : trucks.length === 0 ? (
                 <p className="text-muted-foreground">No trucks with expiring documents.</p>
               ) : (
@@ -136,7 +146,17 @@ export default function Alerts() {
 
             <TabsContent value="trailers" className="mt-6">
               {trailersLoading ? (
-                <p>Loading trailers...</p>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded">
+                      <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
               ) : trailers.length === 0 ? (
                 <p className="text-muted-foreground">No trailers with expiring documents.</p>
               ) : (
@@ -194,7 +214,17 @@ export default function Alerts() {
 
             <TabsContent value="drivers" className="mt-6">
               {driversLoading ? (
-                <p>Loading drivers...</p>
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 border rounded">
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-28 bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
               ) : drivers.length === 0 ? (
                 <p className="text-muted-foreground">No drivers with expiring documents.</p>
               ) : (
