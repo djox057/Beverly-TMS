@@ -50,7 +50,7 @@ export const TruckNoteHistoryDialog = ({
       onOpenChange(newOpen);
       if (!newOpen) setCurrentIndex(0);
     }}>
-      <DialogContent className="sm:max-w-[500px] z-[103]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Edit history</DialogTitle>

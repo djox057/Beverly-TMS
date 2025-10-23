@@ -2456,7 +2456,7 @@ const Reports = () => {
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
-        <DialogContent className="max-w-2xl z-[100]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Full Note</DialogTitle>
           </DialogHeader>
