@@ -1029,7 +1029,7 @@ const Drivers = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto z-[50]">
           <DialogHeader>
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
@@ -1308,7 +1308,7 @@ const Drivers = () => {
 
       {/* Done Confirmation Dialog */}
       <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
-        <AlertDialogContent className="z-[100]">
+        <AlertDialogContent className="z-[150]">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1324,7 +1324,7 @@ const Drivers = () => {
 
       {/* Termination Note Dialog */}
       <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
-        <DialogContent className="z-[100]">
+        <DialogContent className="z-[160]">
           <DialogHeader>
             <DialogTitle>Add Termination Note</DialogTitle>
           </DialogHeader>
