@@ -1057,7 +1057,7 @@ const Reports = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className={`absolute top-[6.5%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                className={`absolute top-[7%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
                               >
                                 <Info className="h-2 w-2" />
                               </Button>
@@ -1166,7 +1166,7 @@ const Reports = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className={`absolute top-[6.5%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                              className={`absolute top-[7%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
                             >
                               <Info className="h-2 w-2" />
                             </Button>
