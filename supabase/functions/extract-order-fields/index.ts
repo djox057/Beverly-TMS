@@ -422,11 +422,118 @@ After cleaning, your address JSON should look like:
 **Example of CORRECT output:**
 
 {
-  "address": "1000 KREIDER DRIVE STE 200",
-  "city": "MIDDLETOWN", 
+  "address": "1000 Kreider Drive Suite 200",
+  "city": "Middletown", 
   "state": "PA",
   "zip": "17057"
 }
+
+---
+
+## CRITICAL: COMMA SEPARATION REQUIREMENTS
+
+**MANDATORY FORMAT: Address components MUST be separated by commas in this exact order:**
+
+address: "STREET NUMBER STREET NAME [SUITE/BUILDING]"
+city: "CITY NAME"  
+state: "ST"
+zip: "12345"
+
+**When displayed together, the format MUST be:**
+"STREET, CITY, STATE ZIP"
+
+**Examples of CORRECT formatting:**
+- "123 Main Street, Chicago, IL 60601"
+- "2707 North Barnes Avenue Plant 5, Oklahoma City, OK 73127"
+- "1000 Kreider Drive Suite 200, Middletown, PA 17057"
+
+**Examples of WRONG formatting:**
+- ❌ "123 Main Street Chicago IL 60601" (missing commas)
+- ❌ "123 Main Street, Chicago IL 60601" (missing comma before state)
+- ❌ "123 Main Street Chicago, IL 60601" (missing comma after street)
+
+**VALIDATION RULE:**
+Before finalizing, verify that when you combine the extracted fields, they produce the format: "ADDRESS, CITY, STATE ZIP"
+
+---
+
+## CRITICAL: EXPAND ALL STREET ABBREVIATIONS
+
+**MANDATORY: You MUST expand ALL abbreviated street types and directional prefixes to their full forms.**
+
+### Common Street Type Abbreviations to Expand:
+
+**Directional Prefixes:**
+- N → North
+- S → South  
+- E → East
+- W → West
+- NE → Northeast
+- NW → Northwest
+- SE → Southeast
+- SW → Southwest
+
+**Street Types (MUST expand these):**
+- Ave → Avenue
+- Blvd → Boulevard
+- Cir → Circle
+- Ct → Court
+- Dr → Drive
+- Hwy → Highway
+- Ln → Lane
+- Pkwy → Parkway
+- Pl → Place
+- Rd → Road
+- Sq → Square
+- St → Street
+- Ter → Terrace
+- Trl → Trail
+- Way → Way (already full)
+
+**Geographical Features:**
+- Mtn → Mountain
+- Mt → Mount
+- Lk → Lake
+- Crk → Creek
+- Riv → River
+- Pt → Point
+- Ft → Fort
+
+**Building/Location Terms:**
+- Bldg → Building
+- Ste → Suite
+- Apt → Apartment
+- Fl → Floor
+- Rm → Room
+- Dept → Department
+
+### Expansion Examples:
+
+**WRONG (Abbreviated):**
+- ❌ "2707 N Barnes Ave" 
+- ❌ "123 Industrial Pkwy"
+- ❌ "456 Mountain View Dr"
+- ❌ "789 E Lake Blvd"
+
+**CORRECT (Expanded):**
+- ✅ "2707 North Barnes Avenue"
+- ✅ "123 Industrial Parkway"
+- ✅ "456 Mountain View Drive"
+- ✅ "789 East Lake Boulevard"
+
+**Complex Examples:**
+- "1000 W Oakwood Pkwy Ste 200" → "1000 West Oakwood Parkway Suite 200"
+- "250 NE Industrial Blvd Bldg A" → "250 Northeast Industrial Boulevard Building A"
+- "50 S Mt Vernon Dr" → "50 South Mount Vernon Drive"
+
+**CRITICAL RULES:**
+1. Expand directional prefixes BEFORE street names (N, S, E, W, etc.)
+2. Expand street type suffixes (Ave, Blvd, Dr, etc.)
+3. Expand building identifiers (Ste, Bldg, Fl, etc.)
+4. Keep proper nouns capitalized (Barnes, Oakwood, Vernon)
+5. Do NOT expand business names or facility names (e.g., "Plant 5" stays as "Plant 5")
+
+**EXCEPTION:** If the document clearly shows a full form already, do NOT abbreviate it. Only expand abbreviations.
 
 **ZIP CODE EXTRACTION EXAMPLES:**
 - "MIDDLETOWN, PA 17057" → zip: "17057"
@@ -440,14 +547,92 @@ After cleaning, your address JSON should look like:
 
 ---
 
-## VALIDATION CHECKLIST
+## STEP 9: DOUBLE-CHECK VALIDATION PROTOCOL (MANDATORY)
 
-Before returning your JSON, verify EACH address:
-- ❓ Does address contain " - " ? → If yes, remove everything after it
-- ❓ Does address mention "DOCK" or "DOORS"? → If yes, remove that part
-- ❓ Does address mention "GATE"? → If yes, remove that part
-- ❓ Does address have instructions? → If yes, remove them
-- ✅ Address should be: street number + street name + suite/building/plant ONLY
+**BEFORE RETURNING YOUR JSON, YOU MUST PERFORM THIS VALIDATION:**
+
+### Validation Checklist for EVERY Address (Pickup and Delivery):
+
+For each address extracted, ask yourself these questions:
+
+#### ✅ Comma Separation Check:
+- [ ] Does the full address follow the format: "STREET, CITY, STATE ZIP"?
+- [ ] Are there commas separating street from city, and city from state?
+- [ ] Example: "123 Main Street, Chicago, IL 60601" ✅
+
+#### ✅ Abbreviation Expansion Check:
+- [ ] Have I expanded ALL directional prefixes? (N→North, S→South, etc.)
+- [ ] Have I expanded ALL street types? (Ave→Avenue, Dr→Drive, Pkwy→Parkway, etc.)
+- [ ] Have I expanded ALL building terms? (Ste→Suite, Bldg→Building, etc.)
+- [ ] Are there any remaining abbreviations in the street address?
+
+#### ✅ Component Completeness Check:
+- [ ] Is the street address present and cleaned?
+- [ ] Is the city name present and not a facility identifier?
+- [ ] Is the state a valid 2-letter code?
+- [ ] Is the zip code present (5 or 9 digits)?
+
+#### ✅ Address Cleaning Check:
+- [ ] Does address contain " - " ? → If yes, remove everything after it
+- [ ] Does address mention "DOCK" or "DOORS"? → If yes, remove that part
+- [ ] Does address mention "GATE"? → If yes, remove that part
+- [ ] Does address have instructions? → If yes, remove them
+- [ ] Address should be: street number + street name + suite/building/plant ONLY
+
+#### ✅ Geocoding Readiness Check:
+- [ ] Would Google Maps / Nominatim successfully geocode this address?
+- [ ] Is the address free of dock instructions, gate numbers, and delivery notes?
+
+### Correction Process:
+
+If ANY validation check fails:
+
+1. **STOP** - Do not return the JSON yet
+2. **RE-EXAMINE** the source document for that specific address
+3. **CORRECT** the issue:
+   - Add missing commas
+   - Expand any remaining abbreviations
+   - Extract missing city/state/zip
+   - Remove any remaining instructions
+4. **RE-VALIDATE** using the checklist above
+5. **ONLY THEN** proceed to include it in the final JSON
+
+### Example Validation Process:
+
+**Initial extraction:**
+{
+  "address": "2707 N Barnes Ave",
+  "city": "Oklahoma City",
+  "state": "OK",
+  "zip": "73127"
+}
+
+**Validation Check:**
+- ❌ Comma separation: Missing commas
+- ❌ Abbreviations: "N" should be "North", "Ave" should be "Avenue"
+- ✅ Components complete
+- ⚠️ Geocoding: Might work but not optimal
+
+**After Correction:**
+{
+  "address": "2707 North Barnes Avenue",
+  "city": "Oklahoma City",
+  "state": "OK",
+  "zip": "73127"
+}
+
+**Final Format Check:** "2707 North Barnes Avenue, Oklahoma City, OK 73127" ✅ CORRECT
+
+### Validation Summary Statement:
+
+**After performing all validations, mentally confirm:**
+"I have verified that EVERY pickup and delivery address:
+1. Has proper comma separation (STREET, CITY, STATE ZIP)
+2. Has ALL abbreviations expanded to full forms
+3. Has complete address components (address, city, state, zip)
+4. Is ready for geocoding services to process successfully"
+
+**Only proceed to return the JSON after this confirmation.**
 - ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits. If not found, infer from city/state using your knowledge.
 
 ### 2. GOOD: If street address unavailable, extract city + state + zip
@@ -663,11 +848,19 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 ## FINAL INSTRUCTIONS
 
 1. **Extract ALL available information** - do not leave fields empty if data exists in the document
-2. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
-3. **Use null for missing fields** - if a field cannot be found, use null or empty string ""
-4. **Company names are REQUIRED** - always extract shipper/receiver company names
-5. **Validate addresses** - ensure city and state are always included for geocoding
-6. **Double-check parsing** - ensure Plant/Building/Gate identifiers are in the address field, not city field
+2. **Apply comma separation** - ensure format is "STREET, CITY, STATE ZIP"
+3. **Expand ALL abbreviations** - directional prefixes, street types, building terms
+4. **PERFORM DOUBLE-CHECK VALIDATION** - use the Step 9 checklist before returning JSON
+5. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
+6. **Use null for missing fields** - if a field cannot be found, use null or empty string ""
+7. **Company names are REQUIRED** - always extract shipper/receiver company names
+8. **Validate addresses** - ensure city and state are always included for geocoding
+
+**CRITICAL REMINDER:**
+- Every address MUST have expanded abbreviations
+- Every address MUST have proper comma separation
+- Every address MUST pass the double-check validation
+- DO NOT RETURN JSON until all validations pass
 
 **If a required field is unclear or missing from the document, still include it in the JSON with null or empty value rather than omitting it entirely.**`;
 
