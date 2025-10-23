@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -164,9 +165,74 @@ const Fleets = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <div className="text-center">Loading dispatcher fleet data...</div>
+      <div className="h-full flex flex-col overflow-hidden">
+        <div className="flex-shrink-0 border-b bg-background px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-6 w-6" />
+              <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
+            </div>
+            <Skeleton className="h-10 w-[240px]" />
+          </div>
+          <div className="flex gap-3 max-w-2xl">
+            <Skeleton className="h-10 flex-1" />
+            <Skeleton className="h-10 flex-1" />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          <div className="p-6 space-y-6">
+            {/* Fleet Summary Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-4" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-8 w-12" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Dispatcher Fleet Skeletons */}
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-5" />
+                      <Skeleton className="h-6 w-48" />
+                      <Skeleton className="h-5 w-20" />
+                    </div>
+                    <Skeleton className="h-9 w-32" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2">
+                    {[1, 2, 3, 4, 5].map((j) => (
+                      <div key={j} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-4 w-4" />
+                          <Skeleton className="h-4 w-4" />
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Skeleton className="h-8 w-20" />
+                          <Skeleton className="h-8 w-20" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
