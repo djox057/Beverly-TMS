@@ -430,83 +430,17 @@ After cleaning, your address JSON should look like:
 
 ---
 
-## CRITICAL: ADDRESS PARSING AND FACILITY SEPARATION
+## CRITICAL: ADDRESS PARSING RULES
 
-**ADDRESSES OFTEN CONTAIN MIXED FACILITY/COMPANY NAMES - YOU MUST SEPARATE THEM**
+**REMOVE FACILITY IDENTIFIERS:** Strip these from addresses: BLDG/BUILDING + numbers, DC/WAREHOUSE + numbers, PLANT + numbers, UNIT/DU + numbers, city names before street numbers
 
-### Common Address Patterns in Rate Confirmations:
+**FIND STREET NUMBER:** Locate 3-5 digit number - this starts the actual address. Remove everything before it.
 
-**Pattern 1: Facility Name + Street Address + City**
-```
-"SPRINGFIELD BLDG 19 DU 1904 N. LECOMPTE, SPRINGFIELD UNDERGROUND -, SPRINGFIELD, MO 65802"
-```
-**How to parse:**
-- Facility identifiers: "SPRINGFIELD", "BLDG 19 DU", "SPRINGFIELD UNDERGROUND"
-- Actual street address: "1904 N. LECOMPTE" (the number + street name)
-- City: "SPRINGFIELD" (appears once, not duplicated)
-- Correct extraction → address: "1904 North Lecompte", city: "Springfield", state: "MO", zip: "65802"
+**NO DUPLICATE CITIES:** City name goes ONLY in "city" field, never in "address" field.
 
-**Pattern 2: City + Facility Code + Street Address**
-```
-"YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA 17406"
-```
-**How to parse:**
-- Facility identifiers: "YORK PA MC" (city + facility code)
-- Actual street address: "4875 SUSQUEHANNA TRAIL"
-- Correct extraction → address: "4875 Susquehanna Trail", city: "York", state: "PA", zip: "17406"
-
-### MANDATORY FACILITY IDENTIFIER REMOVAL
-
-**YOU MUST REMOVE THESE FACILITY PREFIXES/IDENTIFIERS FROM THE STREET ADDRESS:**
-
-Common facility identifiers to strip (these are NOT part of the street address):
-- BLDG / BUILDING followed by numbers/letters (e.g., "BLDG 19 DU")
-- DC / DIST CTR / DISTRIBUTION CENTER followed by numbers
-- WAREHOUSE / WHSE / WH followed by numbers
-- PLANT followed by numbers
-- UNIT / DU followed by numbers/letters
-- DOCK / DOOR followed by numbers
-- FACILITY / FAC followed by numbers
-- City names that appear at the start before the street number
-
-**Exception:** Keep "Suite", "Ste", "Apt", "Floor", "Fl" as these are legitimate parts of addresses
-
-### STREET NUMBER PATTERN RECOGNITION
-
-**The actual street address begins with the street number (typically 3-5 digits):**
-
-Look for this pattern: **[NUMBER] [DIRECTION?] [STREET NAME] [STREET TYPE]**
-
-Examples:
-- "1904 N. LECOMPTE" → street number is 1904
-- "4875 SUSQUEHANNA TRAIL" → street number is 4875
-- "2707 NORTH BARNES AVENUE" → street number is 2707
-
-**Algorithm:**
-1. Scan the address string for a 3-5 digit number
-2. This number is likely the street number
-3. Everything BEFORE this number is likely facility identifiers (remove it)
-4. Everything FROM this number onward is the street address
-5. Stop at city name (don't duplicate city in address field)
-
-### DUPLICATE CITY NAME PREVENTION
-
-**CRITICAL: City name should appear ONLY in the "city" field, NOT in the "address" field**
-
-**Common mistakes:**
-- ❌ address: "Springfield 1904 North Lecompte", city: "Springfield"
-- ❌ address: "1904 North Lecompte Springfield", city: "Springfield"
-- ✅ address: "1904 North Lecompte", city: "Springfield"
-
-**Rule:** If you see the city name in the address string, REMOVE IT from the address field.
-
-### COMPANY/FACILITY SEPARATION
-
-Company and facility names should be extracted separately (if available) but NOT included in the street address:
-
-- "SPRINGFIELD UNDERGROUND" → company name (not part of street address)
-- "BLDG 19 DU" → facility identifier (not part of street address)
-- "1904 N. LECOMPTE" → this IS the street address
+**Examples:**
+- "SPRINGFIELD BLDG 19 DU 1904 N LECOMPTE, SPRINGFIELD, MO" → address: "1904 North Lecompte", city: "Springfield"
+- "YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA" → address: "4875 Susquehanna Trail", city: "York"
 
 ## CRITICAL: COMMA SEPARATION REQUIREMENTS
 
