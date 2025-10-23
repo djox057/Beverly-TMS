@@ -894,7 +894,7 @@ const Reports = () => {
                           <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
                             {stop.city}, {stop.state}
                           </div>
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[6px]' : 'text-[7px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div className={`${totalCellsOnDay > 1 ? 'text-[8px]' : 'text-[7px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
@@ -1023,7 +1023,7 @@ const Reports = () => {
                           <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
                             {stop.city}, {stop.state}
                           </div>
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[6px]' : 'text-[7px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div className={`${totalCellsOnDay > 1 ? 'text-[8px]' : 'text-[7px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
