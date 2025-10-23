@@ -330,7 +330,7 @@ const EditOrder = () => {
         );
         setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
         setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
-        setTonuDriver((orderData as any).tonu_driver && (orderData as any).tonu_driver > 0 ? Math.abs((orderData as any).tonu_driver).toString() : "");
+        setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
         setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
         setNoTrackingFeeDriver(
           (orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "",
@@ -376,21 +376,21 @@ const EditOrder = () => {
         if ((orderData as any).is_recovery) {
           // Get original driver and truck info from database
           const { data: origDriver } = await supabase
-            .from('drivers')
-            .select('name')
-            .eq('id', (orderData as any).original_driver1_id)
+            .from("drivers")
+            .select("name")
+            .eq("id", (orderData as any).original_driver1_id)
             .maybeSingle();
           const { data: origTruck } = await supabase
-            .from('trucks')
-            .select('truck_number')
-            .eq('id', (orderData as any).original_truck_id)
+            .from("trucks")
+            .select("truck_number")
+            .eq("id", (orderData as any).original_truck_id)
             .maybeSingle();
           const { data: origTrailer } = await supabase
-            .from('trailers')
-            .select('trailer_number')
-            .eq('id', (orderData as any).original_trailer_id)
+            .from("trailers")
+            .select("trailer_number")
+            .eq("id", (orderData as any).original_trailer_id)
             .maybeSingle();
-          
+
           setOriginalDriverName(origDriver?.name || "");
           setOriginalTruckNumber(origTruck?.truck_number || "");
           setOriginalTrailerNumber(origTrailer?.trailer_number || "");
@@ -781,7 +781,7 @@ const EditOrder = () => {
     try {
       const selectedTruck = trucks?.find((t) => t.id === truck);
       const selectedDriver = drivers?.find((d) => d.id === driver1);
-      
+
       // Get all pickups and deliveries
       const pickups = pickupsDrops.filter((p) => p.type === "pickup");
       const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
@@ -800,11 +800,18 @@ const EditOrder = () => {
       const formatTime = (time?: string) => time || "";
 
       // Helper to format location data
-      const formatLocationData = (location: any, driverDateRange?: DateRange, driverStartTime?: string, driverEndTime?: string) => ({
+      const formatLocationData = (
+        location: any,
+        driverDateRange?: DateRange,
+        driverStartTime?: string,
+        driverEndTime?: string,
+      ) => ({
         address: location.address,
         cityStateZip: location.address.split(",").slice(1).join(",").trim() || "",
         date: formatDate(driverDateRange || location.dateRange),
-        time: formatTime(driverStartTime || location.startTime) + ((driverEndTime || location.endTime) ? ` - ${formatTime(driverEndTime || location.endTime)}` : "")
+        time:
+          formatTime(driverStartTime || location.startTime) +
+          (driverEndTime || location.endTime ? ` - ${formatTime(driverEndTime || location.endTime)}` : ""),
       });
 
       // Build confirmation data with all pickups and deliveries
@@ -821,9 +828,16 @@ const EditOrder = () => {
         // First pickup (always present)
         pickupShipper: pickups[0].companyName || "",
         pickupAddress: pickups[0].address,
-        pickupCityStateZip: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).cityStateZip,
-        pickupDate: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).date,
-        pickupTime: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).time,
+        pickupCityStateZip: formatLocationData(
+          pickups[0],
+          driverPickupDateRange,
+          driverPickupStartTime,
+          driverPickupEndTime,
+        ).cityStateZip,
+        pickupDate: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime)
+          .date,
+        pickupTime: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime)
+          .time,
         pickupPuNumber: "",
         pickupPoNumber: "",
       };
@@ -851,7 +865,12 @@ const EditOrder = () => {
       }
 
       // Add first delivery (always present)
-      const delivery1Data = formatLocationData(deliveries[0], driverDeliveryDateRange, driverDeliveryStartTime, driverDeliveryEndTime);
+      const delivery1Data = formatLocationData(
+        deliveries[0],
+        driverDeliveryDateRange,
+        driverDeliveryStartTime,
+        driverDeliveryEndTime,
+      );
       confirmationData.deliveryReceiver = deliveries[0].companyName || "";
       confirmationData.deliveryAddress = deliveries[0].address;
       confirmationData.deliveryCityStateZip = delivery1Data.cityStateZip;
@@ -1516,11 +1535,13 @@ const EditOrder = () => {
                                     </Label>
                                     <Input
                                       id={`company-name-${item.id}`}
-                                      placeholder={item.type === "pickup" ? "Shipper company name" : "Receiver company name"}
+                                      placeholder={
+                                        item.type === "pickup" ? "Shipper company name" : "Receiver company name"
+                                      }
                                       value={item.companyName || ""}
                                       onChange={(e) => {
-                                        const updated = pickupsDrops.map(p => 
-                                          p.id === item.id ? { ...p, companyName: e.target.value } : p
+                                        const updated = pickupsDrops.map((p) =>
+                                          p.id === item.id ? { ...p, companyName: e.target.value } : p,
                                         );
                                         setPickupsDrops(updated);
                                       }}
@@ -1807,7 +1828,7 @@ const EditOrder = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="wrong-address-fee" className="text-sm">
-                      Wrong Address Fee - Company
+                      Wrong Address Fee-Company
                     </Label>
                     <Input
                       id="wrong-address-fee"
@@ -1993,12 +2014,14 @@ const EditOrder = () => {
             {isRecovery && (
               <div className="space-y-4 p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
                 <div className="flex items-center gap-2">
-                  <Badge variant="destructive" className="bg-amber-500">TRANSFER LOAD</Badge>
+                  <Badge variant="destructive" className="bg-amber-500">
+                    TRANSFER LOAD
+                  </Badge>
                   <span className="text-sm text-muted-foreground">
                     {recoveryDate && `Transfer Date: ${new Date(recoveryDate).toLocaleDateString()}`}
                   </span>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm">Original Assignment</h4>
@@ -2449,16 +2472,14 @@ const EditOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
-              {(hasRole('manager') || hasRole('supervisor') || hasRole('admin') || hasRole('dispatch')) && !isRecovery && !isLocked && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setRecoveryDialogOpen(true)}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Transfer Load
-                </Button>
-              )}
+              {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
+                !isRecovery &&
+                !isLocked && (
+                  <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Transfer Load
+                  </Button>
+                )}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
@@ -2478,8 +2499,8 @@ const EditOrder = () => {
         open={recoveryDialogOpen}
         onOpenChange={setRecoveryDialogOpen}
         onSave={handleRecoverySave}
-        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"}
-        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"}
+        currentDriver={originalDriverName || drivers?.find((d) => d.id === driver1)?.name || "N/A"}
+        currentTruck={originalTruckNumber || trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}
         currentTrailer={originalTrailerNumber || trailer || "N/A"}
         totalMiles={parseInt(loadedMiles) || 0}
         totalDriverRate={parseFloat(driverPrice) || 0}
