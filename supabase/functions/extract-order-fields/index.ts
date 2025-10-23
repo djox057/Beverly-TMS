@@ -430,6 +430,84 @@ After cleaning, your address JSON should look like:
 
 ---
 
+## CRITICAL: ADDRESS PARSING AND FACILITY SEPARATION
+
+**ADDRESSES OFTEN CONTAIN MIXED FACILITY/COMPANY NAMES - YOU MUST SEPARATE THEM**
+
+### Common Address Patterns in Rate Confirmations:
+
+**Pattern 1: Facility Name + Street Address + City**
+```
+"SPRINGFIELD BLDG 19 DU 1904 N. LECOMPTE, SPRINGFIELD UNDERGROUND -, SPRINGFIELD, MO 65802"
+```
+**How to parse:**
+- Facility identifiers: "SPRINGFIELD", "BLDG 19 DU", "SPRINGFIELD UNDERGROUND"
+- Actual street address: "1904 N. LECOMPTE" (the number + street name)
+- City: "SPRINGFIELD" (appears once, not duplicated)
+- Correct extraction → address: "1904 North Lecompte", city: "Springfield", state: "MO", zip: "65802"
+
+**Pattern 2: City + Facility Code + Street Address**
+```
+"YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA 17406"
+```
+**How to parse:**
+- Facility identifiers: "YORK PA MC" (city + facility code)
+- Actual street address: "4875 SUSQUEHANNA TRAIL"
+- Correct extraction → address: "4875 Susquehanna Trail", city: "York", state: "PA", zip: "17406"
+
+### MANDATORY FACILITY IDENTIFIER REMOVAL
+
+**YOU MUST REMOVE THESE FACILITY PREFIXES/IDENTIFIERS FROM THE STREET ADDRESS:**
+
+Common facility identifiers to strip (these are NOT part of the street address):
+- BLDG / BUILDING followed by numbers/letters (e.g., "BLDG 19 DU")
+- DC / DIST CTR / DISTRIBUTION CENTER followed by numbers
+- WAREHOUSE / WHSE / WH followed by numbers
+- PLANT followed by numbers
+- UNIT / DU followed by numbers/letters
+- DOCK / DOOR followed by numbers
+- FACILITY / FAC followed by numbers
+- City names that appear at the start before the street number
+
+**Exception:** Keep "Suite", "Ste", "Apt", "Floor", "Fl" as these are legitimate parts of addresses
+
+### STREET NUMBER PATTERN RECOGNITION
+
+**The actual street address begins with the street number (typically 3-5 digits):**
+
+Look for this pattern: **[NUMBER] [DIRECTION?] [STREET NAME] [STREET TYPE]**
+
+Examples:
+- "1904 N. LECOMPTE" → street number is 1904
+- "4875 SUSQUEHANNA TRAIL" → street number is 4875
+- "2707 NORTH BARNES AVENUE" → street number is 2707
+
+**Algorithm:**
+1. Scan the address string for a 3-5 digit number
+2. This number is likely the street number
+3. Everything BEFORE this number is likely facility identifiers (remove it)
+4. Everything FROM this number onward is the street address
+5. Stop at city name (don't duplicate city in address field)
+
+### DUPLICATE CITY NAME PREVENTION
+
+**CRITICAL: City name should appear ONLY in the "city" field, NOT in the "address" field**
+
+**Common mistakes:**
+- ❌ address: "Springfield 1904 North Lecompte", city: "Springfield"
+- ❌ address: "1904 North Lecompte Springfield", city: "Springfield"
+- ✅ address: "1904 North Lecompte", city: "Springfield"
+
+**Rule:** If you see the city name in the address string, REMOVE IT from the address field.
+
+### COMPANY/FACILITY SEPARATION
+
+Company and facility names should be extracted separately (if available) but NOT included in the street address:
+
+- "SPRINGFIELD UNDERGROUND" → company name (not part of street address)
+- "BLDG 19 DU" → facility identifier (not part of street address)
+- "1904 N. LECOMPTE" → this IS the street address
+
 ## CRITICAL: COMMA SEPARATION REQUIREMENTS
 
 **MANDATORY FORMAT: Address components MUST be separated by commas in this exact order:**
@@ -566,9 +644,16 @@ For each address extracted, ask yourself these questions:
 - [ ] Have I expanded ALL building terms? (Ste→Suite, Bldg→Building, etc.)
 - [ ] Are there any remaining abbreviations in the street address?
 
+#### ✅ Facility Identifier Removal Check:
+- [ ] Have I removed all facility identifiers from the street address? (BLDG, WAREHOUSE, PLANT, DC, DU, UNIT, etc.)
+- [ ] Does the address start with a street number (3-5 digits)?
+- [ ] Have I removed any city names that appear before the street number?
+- [ ] Is the address field ONLY the street address (no company/facility names)?
+
 #### ✅ Component Completeness Check:
 - [ ] Is the street address present and cleaned?
 - [ ] Is the city name present and not a facility identifier?
+- [ ] Is the city name appearing ONLY ONCE (not duplicated in address field)?
 - [ ] Is the state a valid 2-letter code?
 - [ ] Is the zip code present (5 or 9 digits)?
 
@@ -623,14 +708,92 @@ If ANY validation check fails:
 
 **Final Format Check:** "2707 North Barnes Avenue, Oklahoma City, OK 73127" ✅ CORRECT
 
+---
+
+**Example 2: Facility Identifier Removal**
+
+**Raw from PDF:** "SPRINGFIELD BLDG 19 DU 1904 N. LECOMPTE, SPRINGFIELD UNDERGROUND -, SPRINGFIELD, MO 65802"
+
+**Initial extraction (WRONG):**
+{
+  "address": "SPRINGFIELD BLDG 19 DU 1904 North Lecompte",
+  "city": "Springfield",
+  "state": "MO",
+  "zip": "65802"
+}
+
+**Validation Check:**
+- ❌ Facility identifiers: "SPRINGFIELD BLDG 19 DU" should be removed
+- ❌ Street number: Should start with "1904", not "SPRINGFIELD"
+- ✅ Abbreviations expanded
+- ❌ Geocoding: Will fail - too many identifiers
+
+**Parsing Process:**
+1. Identify facility identifiers: "SPRINGFIELD" (city before number), "BLDG 19 DU" (building identifier), "SPRINGFIELD UNDERGROUND" (company name)
+2. Locate street number: "1904" (first 3-5 digit number)
+3. Extract street address: "1904 N. LECOMPTE" (from street number onward)
+4. Expand abbreviations: "N." → "North"
+5. Extract city from end: "SPRINGFIELD" → "Springfield"
+
+**After Correction:**
+{
+  "address": "1904 North Lecompte",
+  "city": "Springfield",
+  "state": "MO",
+  "zip": "65802"
+}
+
+**Final Format Check:** "1904 North Lecompte, Springfield, MO 65802" ✅ CORRECT
+
+---
+
+**Example 3: City Prefix Removal**
+
+**Raw from PDF:** "YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA 17406"
+
+**Initial extraction (WRONG):**
+{
+  "address": "York PA MC 4875 Susquehanna Trail",
+  "city": "York",
+  "state": "PA",
+  "zip": "17406"
+}
+
+**Validation Check:**
+- ❌ Facility identifiers: "YORK PA MC" should be removed
+- ❌ Duplicate city: "York" appears in both address and city fields
+- ✅ Abbreviations already expanded
+- ❌ Geocoding: Will fail due to duplicate city
+
+**Parsing Process:**
+1. Identify facility identifiers: "YORK PA MC" (city + state + facility code)
+2. Locate street number: "4875" (first 3-5 digit number)
+3. Extract street address: "4875 SUSQUEHANNA TRAIL" (from street number onward)
+4. Extract city: "YORK" → "York"
+
+**After Correction:**
+{
+  "address": "4875 Susquehanna Trail",
+  "city": "York",
+  "state": "PA",
+  "zip": "17406"
+}
+
+**Final Format Check:** "4875 Susquehanna Trail, York, PA 17406" ✅ CORRECT
+
+---
+
 ### Validation Summary Statement:
 
 **After performing all validations, mentally confirm:**
 "I have verified that EVERY pickup and delivery address:
-1. Has proper comma separation (STREET, CITY, STATE ZIP)
-2. Has ALL abbreviations expanded to full forms
-3. Has complete address components (address, city, state, zip)
-4. Is ready for geocoding services to process successfully"
+1. Has ALL facility identifiers removed (BLDG, WAREHOUSE, PLANT, DC, DU, etc.)
+2. Starts with a street number (3-5 digits), not a city name or facility identifier
+3. Has NO duplicate city names (city appears only in city field, not in address field)
+4. Has proper comma separation (STREET, CITY, STATE ZIP)
+5. Has ALL abbreviations expanded to full forms
+6. Has complete address components (address, city, state, zip)
+7. Is ready for geocoding services to process successfully"
 
 **Only proceed to return the JSON after this confirmation.**
 - ✅ ZIP CODE: Did you extract the zip code? Search near the state code for 5 or 9 digits. If not found, infer from city/state using your knowledge.
@@ -847,16 +1010,22 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
 ## FINAL INSTRUCTIONS
 
-1. **Extract ALL available information** - do not leave fields empty if data exists in the document
-2. **Apply comma separation** - ensure format is "STREET, CITY, STATE ZIP"
-3. **Expand ALL abbreviations** - directional prefixes, street types, building terms
-4. **PERFORM DOUBLE-CHECK VALIDATION** - use the Step 9 checklist before returning JSON
-5. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
-6. **Use null for missing fields** - if a field cannot be found, use null or empty string ""
-7. **Company names are REQUIRED** - always extract shipper/receiver company names
-8. **Validate addresses** - ensure city and state are always included for geocoding
+1. **Remove facility identifiers FIRST** - strip BLDG, WAREHOUSE, PLANT, DC, DU, city prefixes before street numbers
+2. **Locate street number** - find the 3-5 digit street number, this is where the actual address begins
+3. **Avoid duplicate city names** - city name goes in "city" field ONLY, not in "address" field
+4. **Extract ALL available information** - do not leave fields empty if data exists in the document
+5. **Apply comma separation** - ensure format is "STREET, CITY, STATE ZIP"
+6. **Expand ALL abbreviations** - directional prefixes, street types, building terms
+7. **PERFORM DOUBLE-CHECK VALIDATION** - use the Step 9 checklist before returning JSON
+8. **Return ONLY valid JSON** - no markdown formatting, no explanations, no code blocks
+9. **Use null for missing fields** - if a field cannot be found, use null or empty string ""
+10. **Company names are REQUIRED** - always extract shipper/receiver company names
+11. **Validate addresses** - ensure city and state are always included for geocoding
 
 **CRITICAL REMINDER:**
+- Every address MUST have facility identifiers removed (BLDG, WAREHOUSE, DC, DU, etc.)
+- Every address MUST start with a street number, not a facility name or city name
+- Every address MUST NOT have duplicate city names
 - Every address MUST have expanded abbreviations
 - Every address MUST have proper comma separation
 - Every address MUST pass the double-check validation
