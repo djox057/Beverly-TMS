@@ -436,7 +436,7 @@ const Reports = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement | null>(null);
 
-  const INITIAL_TRUCK_COUNT = 12;
+  const INITIAL_TRUCK_COUNT = 20;
   const LOAD_MORE_COUNT = 6;
 
   // Initialize visible trucks count when data loads
@@ -1657,19 +1657,33 @@ const Reports = () => {
           <div className="h-10 w-48 bg-muted animate-pulse rounded" />
         </div>
         <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-4">
+          {[1, 2, 3].map((dispatcherIndex) => (
+            <div key={dispatcherIndex} className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-6 w-48 bg-muted animate-pulse rounded" />
                 <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-                <div className="h-6 w-24 bg-muted animate-pulse rounded" />
               </div>
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                {[...Array(7)].map((_, idx) => (
-                  <div key={idx} className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                ))}
+              <div className="overflow-x-auto">
+                <div className="min-w-max">
+                  {/* Header */}
+                  <div className="grid grid-cols-12 gap-2 pb-2 border-b mb-2">
+                    <div className="col-span-1 h-6 bg-muted animate-pulse rounded" />
+                    <div className="col-span-1 h-6 bg-muted animate-pulse rounded" />
+                    {[...Array(10)].map((_, idx) => (
+                      <div key={idx} className="col-span-1 h-6 bg-muted animate-pulse rounded" />
+                    ))}
+                  </div>
+                  {/* First 20 truck rows */}
+                  {[...Array(20)].map((_, truckIdx) => (
+                    <div key={truckIdx} className="grid grid-cols-12 gap-2 py-2 border-b">
+                      <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                      <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                      {[...Array(10)].map((_, cellIdx) => (
+                        <div key={cellIdx} className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
