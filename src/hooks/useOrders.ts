@@ -177,7 +177,7 @@ export const useOrders = () => {
           tonuDriver: order.tonu_driver || 0,
           noTrackingFeeDriver: order.no_tracking_fee_driver || 0,
           wrongAddressFeeDriver: order.wrong_address_fee_driver || 0,
-          totalDriverPay: (order.driver_price || 0) + (order.detention_driver || 0) + (order.layover_driver || 0) - (order.late_fee_driver || 0) - (order.no_tracking_fee_driver || 0) - (order.wrong_address_fee_driver || 0) - (order.tonu_driver || 0),
+          totalDriverPay: (order.driver_price || 0) + (order.detention_driver || 0) + (order.layover_driver || 0) - (order.late_fee_driver || 0) - (order.no_tracking_fee_driver || 0) - (order.wrong_address_fee_driver || 0) + (order.tonu_driver || 0),
           driverName: order.driver1?.name || 'N/A',
           brokerName: order.broker?.name || 'N/A',
           brokerAddress: order.broker?.address || '',
