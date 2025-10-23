@@ -339,6 +339,9 @@ const Reports = () => {
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
+  const [truckDriverFilter, setTruckDriverFilter] = useState("");
+  const [dispatchNameFilter, setDispatchNameFilter] = useState("");
+  const [loadNumberFilter, setLoadNumberFilter] = useState("");
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -1191,9 +1194,47 @@ const Reports = () => {
   const filterReportsByOffice = useMemo(() => {
     return (office: string) => {
       if (!groupedReports) return [];
-      return groupedReports.filter((group) => group.office === office);
+      let filtered = groupedReports.filter((group) => group.office === office);
+      
+      // Apply dispatch name filter
+      if (dispatchNameFilter) {
+        filtered = filtered.filter(group => 
+          group.dispatcher.toLowerCase().includes(dispatchNameFilter.toLowerCase())
+        );
+      }
+      
+      // Apply truck/driver and load number filters
+      if (truckDriverFilter || loadNumberFilter) {
+        filtered = filtered.map(group => {
+          const filteredTrucks = group.trucks.filter(truck => {
+            // Check truck/driver filter
+            if (truckDriverFilter) {
+              const matchesTruck = truck.truckNumber?.toLowerCase().includes(truckDriverFilter.toLowerCase());
+              const matchesDriver = truck.driver?.toLowerCase().includes(truckDriverFilter.toLowerCase());
+              if (!matchesTruck && !matchesDriver) return false;
+            }
+            
+            // Check load number filter
+            if (loadNumberFilter) {
+              const hasMatchingLoad = truck.allOrders?.some((order: any) => 
+                order.broker_load_number?.toLowerCase().includes(loadNumberFilter.toLowerCase())
+              );
+              if (!hasMatchingLoad) return false;
+            }
+            
+            return true;
+          });
+          
+          return {
+            ...group,
+            trucks: filteredTrucks
+          };
+        }).filter(group => group.trucks.length > 0);
+      }
+      
+      return filtered;
     };
-  }, [groupedReports]);
+  }, [groupedReports, truckDriverFilter, dispatchNameFilter, loadNumberFilter]);
 
   // Check delivery ETAs using edge function
   useEffect(() => {
@@ -1243,6 +1284,31 @@ const Reports = () => {
       return () => clearInterval(interval);
     }
   }, [groupedReports]);
+
+  // Auto-switch to correct dispatcher page when filters find matches
+  useEffect(() => {
+    if (!groupedReports) return;
+    
+    // Check if any filter is active
+    const hasActiveFilter = truckDriverFilter || dispatchNameFilter || loadNumberFilter;
+    if (!hasActiveFilter) return;
+    
+    // Check if current tab has any matches
+    const currentTabReports = filterReportsByOffice(activeTab);
+    if (currentTabReports.length > 0) return; // Stay on current tab if matches exist
+    
+    // Search across all offices for matches
+    for (const office of offices) {
+      if (office === activeTab) continue; // Already checked current tab
+      
+      const officeReports = filterReportsByOffice(office);
+      if (officeReports.length > 0) {
+        // Found matches in another office, switch to it
+        setActiveTab(office);
+        break;
+      }
+    }
+  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter, groupedReports, activeTab, filterReportsByOffice]);
   
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
@@ -1508,6 +1574,40 @@ const Reports = () => {
       <div className="h-full bg-background flex flex-col">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col h-full">
           <div className="px-4 pt-2 sticky top-0 bg-background z-[101] border-b border-border">
+            {/* Filters Section */}
+            <div className="flex gap-2 mb-2">
+              <Input
+                placeholder="Truck # / Driver name"
+                value={truckDriverFilter}
+                onChange={(e) => setTruckDriverFilter(e.target.value)}
+                className="max-w-[200px]"
+              />
+              <Input
+                placeholder="Dispatch name"
+                value={dispatchNameFilter}
+                onChange={(e) => setDispatchNameFilter(e.target.value)}
+                className="max-w-[180px]"
+              />
+              <Input
+                placeholder="Load # (Broker load)"
+                value={loadNumberFilter}
+                onChange={(e) => setLoadNumberFilter(e.target.value)}
+                className="max-w-[200px]"
+              />
+              {(truckDriverFilter || dispatchNameFilter || loadNumberFilter) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTruckDriverFilter("");
+                    setDispatchNameFilter("");
+                    setLoadNumberFilter("");
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map((office) => (
