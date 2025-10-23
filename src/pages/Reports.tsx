@@ -934,8 +934,8 @@ const Reports = () => {
                                       {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
                                     </p>
                                     {stop.arrived_at && (
-                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium">
-                                        ✓ Arrived at: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
+                                        ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
                                       </p>
                                     )}
                                     <p className="ml-4">
@@ -1049,8 +1049,8 @@ const Reports = () => {
                                     - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
                                   </p>
                                   {stop.arrived_at && (
-                                    <p className="ml-8 text-green-600 dark:text-green-400 font-medium">
-                                      ✓ Arrived at: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                    <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
+                                      ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
                                     </p>
                                   )}
                                   <p className="ml-4">• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
