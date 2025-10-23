@@ -216,11 +216,11 @@ export const useReports = () => {
   });
 
   const markGoingToPickup = useMutation({
-    mutationFn: async ({ orderId }: { orderId: string }) => {
+    mutationFn: async ({ pickupDropId }: { pickupDropId: string }) => {
       const { error } = await supabase
-        .from('orders')
-        .update({ going_to_pickup_at: new Date().toISOString() })
-        .eq('id', orderId);
+        .from('pickup_drops')
+        .update({ going_to_at: new Date().toISOString() })
+        .eq('id', pickupDropId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -229,11 +229,11 @@ export const useReports = () => {
   });
 
   const markGoingToDelivery = useMutation({
-    mutationFn: async ({ orderId }: { orderId: string }) => {
+    mutationFn: async ({ pickupDropId }: { pickupDropId: string }) => {
       const { error } = await supabase
-        .from('orders')
-        .update({ going_to_delivery_at: new Date().toISOString() })
-        .eq('id', orderId);
+        .from('pickup_drops')
+        .update({ going_to_at: new Date().toISOString() })
+        .eq('id', pickupDropId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -307,8 +307,6 @@ export const useReports = () => {
             driver1_id,
             driver2_id,
             truck_id,
-            going_to_pickup_at,
-            going_to_delivery_at,
             pickup_drops(
               id,
               type,
@@ -317,7 +315,8 @@ export const useReports = () => {
               state,
               zip_code,
               datetime,
-              arrived_at
+              arrived_at,
+              going_to_at
             ),
             order_files!left(
               id,

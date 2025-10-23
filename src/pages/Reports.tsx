@@ -373,13 +373,12 @@ const Reports = () => {
   };
 
   // Helper to determine if we should show Going to Pickup button
-  const shouldShowGoingToPickup = (order: any): boolean => {
+  const shouldShowGoingToPickup = (order: any, stop: any): boolean => {
     const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToPickupClicked = !!order.going_to_pickup_at;
-    const fiveSecondsPassed = has5SecondsPassed(order.going_to_pickup_at);
+    const goingToPickupClicked = !!stop.going_to_at;
     
-    // Show if no BOL and either no POD from previous load OR Going to Pickup was clicked but 5 seconds haven't passed
+    // Show if no BOL and Going to Pickup hasn't been clicked for this stop
     return !hasBOL && !goingToPickupClicked;
   };
 
@@ -389,19 +388,19 @@ const Reports = () => {
     
     const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToPickupClicked = !!order.going_to_pickup_at;
-    const fiveSecondsPassed = has5SecondsPassed(order.going_to_pickup_at);
+    const goingToPickupClicked = !!stop.going_to_at;
+    const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
     
     // Show if (has POD from previous OR Going to Pickup clicked) AND 5 seconds have passed
     return (hasPOD || (goingToPickupClicked && fiveSecondsPassed)) && !hasBOL;
   };
 
   // Helper to determine if we should show Going to Delivery button
-  const shouldShowGoingToDelivery = (order: any): boolean => {
+  const shouldShowGoingToDelivery = (order: any, stop: any): boolean => {
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToDeliveryClicked = !!order.going_to_delivery_at;
+    const goingToDeliveryClicked = !!stop.going_to_at;
     
-    // Show if no BOL and Going to Delivery hasn't been clicked
+    // Show if no BOL and Going to Delivery hasn't been clicked for this stop
     return !hasBOL && !goingToDeliveryClicked;
   };
 
@@ -410,8 +409,8 @@ const Reports = () => {
     if (stop.arrived_at) return false; // Already arrived
     
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToDeliveryClicked = !!order.going_to_delivery_at;
-    const fiveSecondsPassed = has5SecondsPassed(order.going_to_delivery_at);
+    const goingToDeliveryClicked = !!stop.going_to_at;
+    const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
     
     // Show if (has BOL OR Going to Delivery clicked) AND 5 seconds have passed
     return (hasBOL || (goingToDeliveryClicked && fiveSecondsPassed));
@@ -1038,11 +1037,11 @@ const Reports = () => {
                                 {stop.id && !stop.arrived_at && (
                                   <div className="space-y-2 mt-2">
                                     {/* Going to Delivery button */}
-                                    {shouldShowGoingToDelivery(order) && (
+                                    {shouldShowGoingToDelivery(order, stop) && (
                                       <Button
                                         size="sm"
                                         onClick={() => {
-                                          markGoingToDelivery.mutate({ orderId: order.id });
+                                          markGoingToDelivery.mutate({ pickupDropId: stop.id });
                                           toast({ title: "Going to Delivery" });
                                         }}
                                         className="w-full"
@@ -1189,11 +1188,11 @@ const Reports = () => {
                                 {stop.id && !stop.arrived_at && (
                                   <div className="space-y-2 mt-2">
                                     {/* Going to Pickup button */}
-                                    {shouldShowGoingToPickup(order) && (
+                                    {shouldShowGoingToPickup(order, stop) && (
                                       <Button
                                         size="sm"
                                         onClick={() => {
-                                          markGoingToPickup.mutate({ orderId: order.id });
+                                          markGoingToPickup.mutate({ pickupDropId: stop.id });
                                           toast({ title: "Going to Pickup" });
                                         }}
                                         className="w-full"

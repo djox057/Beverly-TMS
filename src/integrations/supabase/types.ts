@@ -515,8 +515,6 @@ export type Database = {
           extra_stop: number | null
           extra_stop_driver: number | null
           freight_amount: number | null
-          going_to_delivery_at: string | null
-          going_to_pickup_at: string | null
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
@@ -583,8 +581,6 @@ export type Database = {
           extra_stop?: number | null
           extra_stop_driver?: number | null
           freight_amount?: number | null
-          going_to_delivery_at?: string | null
-          going_to_pickup_at?: string | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
@@ -651,8 +647,6 @@ export type Database = {
           extra_stop?: number | null
           extra_stop_driver?: number | null
           freight_amount?: number | null
-          going_to_delivery_at?: string | null
-          going_to_pickup_at?: string | null
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
@@ -787,6 +781,7 @@ export type Database = {
           created_at: string
           datetime: string | null
           end_datetime: string | null
+          going_to_at: string | null
           id: string
           order_id: string
           sequence_number: number | null
@@ -806,6 +801,7 @@ export type Database = {
           created_at?: string
           datetime?: string | null
           end_datetime?: string | null
+          going_to_at?: string | null
           id?: string
           order_id: string
           sequence_number?: number | null
@@ -825,6 +821,7 @@ export type Database = {
           created_at?: string
           datetime?: string | null
           end_datetime?: string | null
+          going_to_at?: string | null
           id?: string
           order_id?: string
           sequence_number?: number | null
