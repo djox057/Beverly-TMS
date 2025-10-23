@@ -330,7 +330,7 @@ const EditOrder = () => {
         );
         setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
         setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
-        setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
+        setTonuDriver((orderData as any).tonu_driver && (orderData as any).tonu_driver > 0 ? Math.abs((orderData as any).tonu_driver).toString() : "");
         setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
         setNoTrackingFeeDriver(
           (orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "",
