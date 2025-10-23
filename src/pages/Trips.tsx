@@ -53,11 +53,17 @@ const Trips = () => {
     return matchesTruck && matchesDriver;
   }) || [];
 
-  // Group orders by week (Monday-Sunday)
+  // Pagination - paginate individual orders first
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Group paginated orders by week (Monday-Sunday)
   const groupedByWeek = useMemo(() => {
     const groups: { [key: string]: any[] } = {};
     
-    filteredOrders.forEach(order => {
+    paginatedOrders.forEach(order => {
       if (order.deliveryDate) {
         try {
           // Parse date string - handle various formats
@@ -105,13 +111,7 @@ const Trips = () => {
         weekStart: weekKey,
         orders: groups[weekKey]
       }));
-  }, [filteredOrders]);
-
-  // Pagination
-  const totalPages = Math.ceil(groupedByWeek.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedWeeks = groupedByWeek.slice(startIndex, endIndex);
+  }, [paginatedOrders]);
 
   const renderPaginationItems = () => {
     const items = [];
@@ -249,7 +249,7 @@ const Trips = () => {
       <Card className="w-fit min-w-full">
         <CardHeader>
           <CardTitle>
-            Trips ({filteredOrders.length})
+            Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -274,15 +274,15 @@ const Trips = () => {
                     <TableHead className="w-28">Freight Amount</TableHead>
                   </TableRow>
                  </TableHeader>
-                <TableBody>
-                   {paginatedWeeks.length === 0 ? (
+                 <TableBody>
+                   {groupedByWeek.length === 0 ? (
                      <TableRow>
                       <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                         No trips found
                       </TableCell>
                      </TableRow>
                    ) : (
-                     paginatedWeeks.map((week, weekIndex) => {
+                     groupedByWeek.map((week, weekIndex) => {
                        const weekTotal = week.orders.reduce((acc, order) => ({
                          miles: acc.miles + (order.mileage || 0),
                          driverPay: acc.driverPay + (order.totalDriverPay || 0),
