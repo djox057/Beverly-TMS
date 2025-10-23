@@ -7,7 +7,9 @@
     <meta name="description" content="Professional dispatch management system">
     <meta name="author" content="Lovable" />
 
-    
+    <!-- Preconnect to external domains for faster resource loading -->
+    <link rel="preconnect" href="https://wjkbtagwgjniilmgwutb.supabase.co" crossorigin>
+    <link rel="dns-prefetch" href="https://wjkbtagwgjniilmgwutb.supabase.co">
     
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/pQCoO1Q4O1MX8v23bXCb9dskjX22/social-images/social-1760013989810-logo-beverly(1).svg">
@@ -24,10 +26,67 @@
   <meta name="twitter:title" content="Beverly TMS - Fleet Operations Management">
   <meta property="og:description" content="Professional dispatch management system">
   <meta name="twitter:description" content="Professional dispatch management system">
+
+  <!-- Inline critical CSS for instant loading state -->
+  <style>
+    #initial-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: hsl(222.2 84% 4.9%);
+      z-index: 9999;
+    }
+    #initial-loader-content {
+      text-align: center;
+      color: hsl(210 40% 98%);
+    }
+    #initial-loader-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid hsl(217.2 32.6% 17.5%);
+      border-top-color: hsl(210 40% 98%);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .initial-loader-text {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+  </style>
 </head>
 
   <body>
+    <!-- Immediate loading state for better FCP -->
+    <div id="initial-loader">
+      <div id="initial-loader-content">
+        <div id="initial-loader-spinner"></div>
+        <div class="initial-loader-text">Loading Beverly TMS...</div>
+      </div>
+    </div>
+    
     <div id="root"></div>
+    
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Remove initial loader once React app mounts -->
+    <script>
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          var loader = document.getElementById('initial-loader');
+          if (loader && document.getElementById('root').children.length > 0) {
+            loader.style.opacity = '0';
+            loader.style.transition = 'opacity 0.3s';
+            setTimeout(function() { loader.remove(); }, 300);
+          }
+        }, 100);
+      });
+    </script>
   </body>
 </html>
