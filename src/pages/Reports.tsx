@@ -7,7 +7,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History } from "lucide-react";
+import {
+  MapPin,
+  AlertCircle,
+  Loader2,
+  Edit3,
+  Check,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  Clock,
+  Maximize2,
+  XCircle,
+  UserPlus,
+  History,
+} from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
@@ -86,32 +101,32 @@ const getChicagoToday = () => {
 
 // Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
 const formatDocuments = (documents: Array<{ category: string }>) => {
-  const categoryOrder = ['RC', 'BOL', 'POD', 'ADDITIONAL'];
+  const categoryOrder = ["RC", "BOL", "POD", "ADDITIONAL"];
   const foundCategories = new Set<string>();
   const orderedDocs: string[] = [];
-  
-  categoryOrder.forEach(category => {
-    const doc = documents.find(d => d.category === category && !foundCategories.has(d.category));
+
+  categoryOrder.forEach((category) => {
+    const doc = documents.find((d) => d.category === category && !foundCategories.has(d.category));
     if (doc) {
       foundCategories.add(doc.category);
       orderedDocs.push(doc.category);
     }
   });
-  
-  return orderedDocs.length > 0 ? orderedDocs.join(', ') : 'None';
+
+  return orderedDocs.length > 0 ? orderedDocs.join(", ") : "None";
 };
 
 // EditableNoteField component to avoid hooks violation
-const EditableNoteField = ({ 
-  truckId, 
-  value, 
+const EditableNoteField = ({
+  truckId,
+  value,
   handleNoteChange,
   setNoteDialogContent,
   setNoteDialogOpen,
-  onHistoryClick
-}: { 
-  truckId: string; 
-  value: string; 
+  onHistoryClick,
+}: {
+  truckId: string;
+  value: string;
   handleNoteChange: (truckId: string, value: string) => Promise<void>;
   setNoteDialogContent: (value: string) => void;
   setNoteDialogOpen: (truckId: string | null) => void;
@@ -120,16 +135,16 @@ const EditableNoteField = ({
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Update local value when prop changes (e.g., after successful save)
   useEffect(() => {
     if (!isEditing && !isSaving) {
       setLocalValue(value);
     }
   }, [value, isEditing, isSaving]);
-  
+
   const hasContent = localValue && localValue.trim().length > 0 && localValue.trim() !== "Add note...";
-  
+
   const handleBlur = async () => {
     if (localValue !== value) {
       setIsSaving(true);
@@ -141,7 +156,7 @@ const EditableNoteField = ({
     }
     setIsEditing(false);
   };
-  
+
   return (
     <div className="relative w-full h-full group">
       {isEditing ? (
@@ -151,12 +166,12 @@ const EditableNoteField = ({
           autoFocus
           onBlur={handleBlur}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') {
+            if (e.key === "Escape") {
               setLocalValue(value); // Reset to original value
               setIsEditing(false);
             }
           }}
-          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
+          className={`text-[0.624rem] font-bold border-none rounded-none resize-none text-left ${hasContent ? "bg-purple-500/20" : "bg-transparent"} focus:outline-none focus:ring-0 focus:border-transparent p-1 w-full leading-tight`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -170,7 +185,7 @@ const EditableNoteField = ({
       ) : (
         <div
           onClick={() => setIsEditing(true)}
-          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? 'bg-purple-500/20' : 'bg-transparent'} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? 'opacity-70' : ''}`}
+          className={`text-[0.624rem] font-bold cursor-text ${hasContent ? "bg-purple-500/20" : "bg-transparent"} p-1 w-full h-full overflow-hidden leading-tight line-clamp-2 ${isSaving ? "opacity-70" : ""}`}
           style={{
             height: "32px",
             minHeight: "32px",
@@ -187,14 +202,14 @@ const EditableNoteField = ({
       )}
       {hasContent && !isEditing && (
         <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <History 
+          <History
             className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
             onClick={(e) => {
               e.stopPropagation();
               onHistoryClick(truckId);
             }}
           />
-          <Maximize2 
+          <Maximize2
             className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground"
             onClick={() => {
               setNoteDialogContent(localValue || "");
@@ -212,63 +227,68 @@ const Reports = () => {
   const navigate = useNavigate();
   const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
   const [showNewDrivers, setShowNewDrivers] = useState(false);
-  const [drugTestDialog, setDrugTestDialog] = useState<{ driverId: string; driverName: string; truckId: string } | null>(null);
+  const [drugTestDialog, setDrugTestDialog] = useState<{
+    driverId: string;
+    driverName: string;
+    truckId: string;
+  } | null>(null);
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
 
   // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
   const isNewDriver = useCallback((truck: any) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const realOrders = truck.allOrders?.filter((order: any) => 
-      order.notes !== 'GAME|OVER'
-    ) || [];
-    
+
+    const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
+
     // Case 1: No loads ever - brand new driver
     if (realOrders.length === 0) {
       return true;
     }
-    
+
     // Case 2: Exactly 1 load with pickup today - first load starting today
     if (realOrders.length === 1) {
       const order = realOrders[0];
       if (!order.pickupStop?.datetime) return false;
-      
+
       const pickupDate = new Date(order.pickupStop.datetime);
       pickupDate.setHours(0, 0, 0, 0);
-      
+
       return isSameDay(pickupDate, today);
     }
-    
+
     return false;
   }, []);
 
   // Helper to get drug test cell styling
-  const getDrugTestCellStyle = useCallback((truck: any) => {
-    if (!truck.driverId) return {};
-    
-    const drugTest = getDrugTestForDriver(truck.driverId);
-    const isNew = isNewDriver(truck);
-    
-    console.log('getDrugTestCellStyle:', {
-      truckNumber: truck.truckNumber,
-      driverId: truck.driverId,
-      driverName: truck.driver,
-      isNew,
-      drugTestResult: drugTest?.result,
-      drugTestDriverId: drugTest?.driver_id
-    });
-    
-    if (!isNew) return {};
-    
-    if (drugTest?.result === 'positive') {
-      return { backgroundColor: 'hsl(0, 72%, 53%)', color: 'white' };
-    } else if (drugTest?.result === 'negative') {
-      return { backgroundColor: 'hsl(142, 76%, 36%)', color: 'white' };
-    }
-    
-    return {};
-  }, [getDrugTestForDriver, isNewDriver]);
+  const getDrugTestCellStyle = useCallback(
+    (truck: any) => {
+      if (!truck.driverId) return {};
+
+      const drugTest = getDrugTestForDriver(truck.driverId);
+      const isNew = isNewDriver(truck);
+
+      console.log("getDrugTestCellStyle:", {
+        truckNumber: truck.truckNumber,
+        driverId: truck.driverId,
+        driverName: truck.driver,
+        isNew,
+        drugTestResult: drugTest?.result,
+        drugTestDriverId: drugTest?.driver_id,
+      });
+
+      if (!isNew) return {};
+
+      if (drugTest?.result === "positive") {
+        return { backgroundColor: "hsl(0, 72%, 53%)", color: "white" };
+      } else if (drugTest?.result === "negative") {
+        return { backgroundColor: "hsl(142, 76%, 36%)", color: "white" };
+      }
+
+      return {};
+    },
+    [getDrugTestForDriver, isNewDriver],
+  );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
 
@@ -311,22 +331,18 @@ const Reports = () => {
   } = useReports();
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
-  
+
   // Delete lost day note mutation
   const deleteLostDayNote = useMutation({
     mutationFn: async ({ truckId, date }: { truckId: string; date: string }) => {
-      const { error } = await supabase
-        .from('lost_day_notes')
-        .delete()
-        .eq('truck_id', truckId)
-        .eq('date', date);
+      const { error } = await supabase.from("lost_day_notes").delete().eq("truck_id", truckId).eq("date", date);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
   });
-  
+
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
   const [expandedTruckMap, setExpandedTruckMap] = useState<string | null>(null);
@@ -335,7 +351,9 @@ const Reports = () => {
   const [noteDialogOpen, setNoteDialogOpen] = useState<string | null>(null);
   const [noteDialogContent, setNoteDialogContent] = useState<string>("");
   const [historyDialogTruckId, setHistoryDialogTruckId] = useState<string | null>(null);
-  const [truckMapView, setTruckMapView] = useState<{ truckNumber: string; latitude: number; longitude: number } | null>(null);
+  const [truckMapView, setTruckMapView] = useState<{ truckNumber: string; latitude: number; longitude: number } | null>(
+    null,
+  );
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
@@ -343,12 +361,12 @@ const Reports = () => {
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
   const [loadNumberFilter, setLoadNumberFilter] = useState("");
-  
+
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
   const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
   const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
-  
+
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -361,7 +379,7 @@ const Reports = () => {
   useEffect(() => {
     if (groupedReports) {
       const initialCounts: { [key: string]: number } = {};
-      groupedReports.forEach(group => {
+      groupedReports.forEach((group) => {
         initialCounts[group.dispatcherId] = INITIAL_TRUCK_COUNT;
       });
       setVisibleTrucks(initialCounts);
@@ -370,14 +388,14 @@ const Reports = () => {
 
   // Setup intersection observer for lazy loading
   const handleLoadMore = useCallback((dispatcherId: string) => {
-    setVisibleTrucks(prev => ({
+    setVisibleTrucks((prev) => ({
       ...prev,
-      [dispatcherId]: (prev[dispatcherId] || INITIAL_TRUCK_COUNT) + LOAD_MORE_COUNT
+      [dispatcherId]: (prev[dispatcherId] || INITIAL_TRUCK_COUNT) + LOAD_MORE_COUNT,
     }));
   }, []);
 
   // Miles away are now calculated by a background job every 10 minutes
-  
+
   const handleEdit = (
     truckId: string,
     field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note",
@@ -406,7 +424,7 @@ const Reports = () => {
           updates.address = editing.value;
         } else if (editing.field === "pickup-datetime") {
           const dt = new Date(editing.value);
-          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:00`;
+          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:00`;
         }
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.pickup.id,
@@ -421,7 +439,7 @@ const Reports = () => {
           updates.address = editing.value;
         } else if (editing.field === "delivery-datetime") {
           const dt = new Date(editing.value);
-          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:00`;
+          updates.datetime = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}:00`;
         }
         await updatePickupDrop.mutateAsync({
           pickupDropId: truck.delivery.id,
@@ -520,8 +538,7 @@ const Reports = () => {
       if (hasBOL || hasPOD)
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
       if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
-      if (previousLoadDeliveryComplete)
-        return "bg-[#00FFFF] text-black border-border";
+      if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
     };
 
@@ -531,16 +548,16 @@ const Reports = () => {
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = stop?.arrived_at || order.deliveryStop?.arrived_at;
       const isLate = lateDeliveries.has(order.id);
-      
+
       if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-      
+
       // Check if ETA is late BEFORE checking other BOL statuses
       if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
-      
+
       if (hasBOL && hasArrived)
         return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
       if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
-      
+
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
     };
 
@@ -676,7 +693,7 @@ const Reports = () => {
 
       // If this is the block day or game over day, render black cell
       if (isBlockDay || isGameOver) {
-        const displayText = isBlockDay 
+        const displayText = isBlockDay
           ? { line1: "GAME", line2: "OVER" }
           : gameOverType === "yard"
             ? { line1: "Left truck", line2: "on the Yard" }
@@ -695,7 +712,6 @@ const Reports = () => {
               height: "64px",
             }}
           >
-
             {/* Red border overlay for today column */}
             {isToday && (
               <div
@@ -742,7 +758,7 @@ const Reports = () => {
 
       // Find all orders for this day and categorize them
       const dayStr = format(day, "yyyy-MM-dd");
-      
+
       // Check if order has any stops on this day
       const allDayOrders = ordersWithDates.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
@@ -759,14 +775,14 @@ const Reports = () => {
         // And check if ALL stops are on the same day (isSameDayPickupDelivery checks first stops)
         return hasPickupOnDay && hasDeliveryOnDay && isSameDayPickupDelivery(order);
       });
-      
+
       const pickupOnlyOrders = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
         // Has pickup on this day but not delivery on this day (or not a same-day order)
         return hasPickupOnDay && !hasDeliveryOnDay;
       });
-      
+
       const deliveryOnlyOrders = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
@@ -798,7 +814,7 @@ const Reports = () => {
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
 
       // Check if there's a game over day before this day
-      const hasGameOverBefore = days.slice(0, index).some(prevDay => {
+      const hasGameOverBefore = days.slice(0, index).some((prevDay) => {
         const check = isGameOverDay(prevDay);
         return check.isGameOver;
       });
@@ -808,7 +824,8 @@ const Reports = () => {
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
+      const isMissingPickup =
+        isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -832,7 +849,6 @@ const Reports = () => {
               : {}),
           }}
         >
-
           {/* Red border overlay for today column */}
           {isToday && (
             <div
@@ -859,7 +875,7 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - empty for same-day orders */}
             <div
-              className={`border-b ${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`}
+              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -871,30 +887,36 @@ const Reports = () => {
                   {deliveryOnlyOrders.flatMap((order) => {
                     // Get all delivery stops for this day
                     const dayStr = format(day, "yyyy-MM-dd");
-                    const deliveryStopsForDay = order.deliveryStops?.filter((stop: any) => 
-                      formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr
-                    ) || [];
-                    
+                    const deliveryStopsForDay =
+                      order.deliveryStops?.filter(
+                        (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+                      ) || [];
+
                     // Render a separate cell for each delivery stop
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
                       const totalCellsOnDay = deliveryOnlyOrders.reduce(
-                        (sum, o) => sum + (o.deliveryStops?.filter((s: any) => 
-                          formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
-                        ).length || 0),
-                        0
+                        (sum, o) =>
+                          sum +
+                          (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                            .length || 0),
+                        0,
                       );
-                      
+
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full`}
                           style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                         >
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
                             {stop.city}, {stop.state}
                           </div>
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[8px]' : 'text-[8px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
@@ -902,7 +924,7 @@ const Reports = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className={`absolute top-[6%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                className={`absolute top-[6%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
                               >
                                 <Info className="h-2 w-2" />
                               </Button>
@@ -939,8 +961,7 @@ const Reports = () => {
                                       </p>
                                     )}
                                     <p className="ml-4">
-                                      • <strong>Documents:</strong>{" "}
-                                      {formatDocuments(order.loadDetails.documents)}
+                                      • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
                                     </p>
                                     {order.loadDetails.notes !== "—" && (
                                       <p className="ml-4 text-sm font-bold">
@@ -984,7 +1005,7 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? 'border-l' : ''} ${!isToday ? 'border-r' : ''} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`}
+              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`}
               style={{
                 height: "32px",
                 minHeight: "32px",
@@ -996,116 +1017,157 @@ const Reports = () => {
                   {pickupOnlyOrders.flatMap((order) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
-                    
+
                     // Get all pickup stops for this day
                     const dayStr = format(day, "yyyy-MM-dd");
-                    const pickupStopsForDay = order.pickupStops?.filter((stop: any) => 
-                      formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr
-                    ) || [];
-                    
+                    const pickupStopsForDay =
+                      order.pickupStops?.filter(
+                        (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
+                      ) || [];
+
                     // Render a separate cell for each pickup stop
                     return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                      const totalCellsOnDay = 
+                      const totalCellsOnDay =
                         pickupOnlyOrders.reduce(
-                          (sum, o) => sum + (o.pickupStops?.filter((s: any) => 
-                            formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
-                          ).length || 0),
-                          0
-                        ) +
-                        sameDayOrders.length;
-                      
+                          (sum, o) =>
+                            sum +
+                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                              .length || 0),
+                          0,
+                        ) + sameDayOrders.length;
+
                       return (
-                        <div 
-                          key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} 
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                        <div
+                          key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full`}
                           style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                         >
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
                             {stop.city}, {stop.state}
                           </div>
-                          <div className={`${totalCellsOnDay > 1 ? 'text-[8px]' : 'text-[8px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
+                          <div
+                            className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                          >
                             {formatTime(stop.datetime)}
                           </div>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="ghost" size="sm" className={`absolute top-[6%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`absolute top-[6.5%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                              >
                                 <Info className="h-2 w-2" />
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-80 z-[102]">
                               <div className="space-y-2 text-sm">
                                 <h4 className="font-semibold">Load Information</h4>
-                              <div className="space-y-3">
-                                <div>
-                                  <div className="flex items-center justify-between">
-                                    <p className="font-semibold">• Load #: {order.loadDetails.loadNumber}</p>
-                                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => navigate(`/edit-order/${order.id}`)}>
-                                      <Edit3 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                  <p className="ml-4">• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
-                                  <p className="ml-4 font-semibold">• Pickup Stop:</p>
-                                  <p className="ml-8">
-                                    - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
-                                  </p>
-                                  {stop.arrived_at && (
-                                    <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
-                                      ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold">• Load #: {order.loadDetails.loadNumber}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2"
+                                        onClick={() => navigate(`/edit-order/${order.id}`)}
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <p className="ml-4">
+                                      • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
                                     </p>
-                                  )}
-                                  <p className="ml-4">• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
-                                  {order.loadDetails.notes !== "—" && (
-                                    <p className="ml-4 text-sm font-bold">• <strong>Notes:</strong> {order.loadDetails.notes}</p>
-                                  )}
+                                    <p className="ml-4 font-semibold">• Pickup Stop:</p>
+                                    <p className="ml-8">
+                                      - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at{" "}
+                                      {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
+                                    </p>
+                                    {stop.arrived_at && (
+                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
+                                        ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                      </p>
+                                    )}
+                                    <p className="ml-4">
+                                      • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
+                                    </p>
+                                    {order.loadDetails.notes !== "—" && (
+                                      <p className="ml-4 text-sm font-bold">
+                                        • <strong>Notes:</strong> {order.loadDetails.notes}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
+                                {stop.id && !stop.arrived_at && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updatePickupDropArrival.mutate({ pickupDropId: stop.id });
+                                      toast({ title: "Marked as arrived at pickup" });
+                                    }}
+                                    className="w-full mt-2"
+                                  >
+                                    Arrived at Pickup
+                                  </Button>
+                                )}
                               </div>
-                              {stop.id && !stop.arrived_at && (
-                                <Button size="sm" onClick={() => { updatePickupDropArrival.mutate({ pickupDropId: stop.id }); toast({ title: "Marked as arrived at pickup" }); }} className="w-full mt-2">
-                                  Arrived at Pickup
-                                </Button>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                    );
-                  });
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    });
                   })}
                   {sameDayOrders.map((order, idx) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
-                    
+
                     // Get counts for same-day stops
                     const dayStr = format(day, "yyyy-MM-dd");
                     const totalPickupStops = order.pickupStopsByDate?.get(dayStr) || 1;
                     const totalDeliveryStops = order.deliveryStopsByDate?.get(dayStr) || 1;
-                    const totalCellsOnDay = 
+                    const totalCellsOnDay =
                       pickupOnlyOrders.reduce(
-                        (sum, o) => sum + (o.pickupStops?.filter((s: any) => 
-                          formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr
-                        ).length || 0),
-                        0
-                      ) +
-                      sameDayOrders.length;
-                    
+                        (sum, o) =>
+                          sum +
+                          (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                            .length || 0),
+                        0,
+                      ) + sameDayOrders.length;
+
                     return (
-                      <div 
-                        key={`same-day-${order.id}-${idx}`} 
-                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? 'flex-1' : 'shrink-0'} h-full`}
+                      <div
+                        key={`same-day-${order.id}-${idx}`}
+                        className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full`}
                         style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
                       >
-                        <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} font-medium leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
-                          P: {order.pickupLocation}{totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
+                        <div
+                          className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                        >
+                          P: {order.pickupLocation}
+                          {totalPickupStops > 1 ? ` (${totalPickupStops})` : ""}
                         </div>
-                        <div className={`${totalCellsOnDay > 1 ? 'text-[7px]' : 'text-[9px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
-                          D: {order.deliveryLocation}{totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
+                        <div
+                          className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                        >
+                          D: {order.deliveryLocation}
+                          {totalDeliveryStops > 1 ? ` (${totalDeliveryStops})` : ""}
                         </div>
-                        <div className={`${totalCellsOnDay > 1 ? 'text-[6px]' : 'text-[8px]'} opacity-70 leading-tight ${totalCellsOnDay === 1 ? 'truncate' : ''} ${isToday ? 'pl-[2%]' : ''}`}>
-                          {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} / {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
+                        <div
+                          className={`${totalCellsOnDay > 1 ? "text-[6px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
+                        >
+                          {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} /{" "}
+                          {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
                         </div>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className={`absolute top-[6%] ${isToday ? 'right-[7%]' : 'right-[1.5%]'} h-2.5 w-2.5 p-0 hover:bg-background/20`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`absolute top-[6.5%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                            >
                               <Info className="h-2 w-2" />
                             </Button>
                           </PopoverTrigger>
@@ -1113,20 +1175,32 @@ const Reports = () => {
                             <div className="space-y-2 text-sm">
                               <div className="flex items-center justify-between mb-2">
                                 <h4 className="font-semibold">Same-Day Load Information</h4>
-                                <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => navigate(`/edit-order/${order.id}`)}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => navigate(`/edit-order/${order.id}`)}
+                                >
                                   <Edit3 className="h-3 w-3" />
                                 </Button>
                               </div>
                               <div className="space-y-1">
-                                <p>• <strong>Load #:</strong> {order.loadDetails.loadNumber}</p>
-                                <p>• <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}</p>
+                                <p>
+                                  • <strong>Load #:</strong> {order.loadDetails.loadNumber}
+                                </p>
+                                <p>
+                                  • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
+                                </p>
                                 {order.loadDetails.allPickupStops && order.loadDetails.allPickupStops.length > 0 && (
                                   <>
-                                    <p className="font-semibold">• Pickups ({order.loadDetails.allPickupStops.length}):</p>
+                                    <p className="font-semibold">
+                                      • Pickups ({order.loadDetails.allPickupStops.length}):
+                                    </p>
                                     {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
                                       <div key={`pickup-${pIdx}`}>
                                         <p className="ml-4">
-                                          - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                          - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
+                                          {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
                                         </p>
                                         {pickup.arrived_at && (
                                           <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
@@ -1137,26 +1211,34 @@ const Reports = () => {
                                     ))}
                                   </>
                                 )}
-                                {order.loadDetails.allDeliveryStops && order.loadDetails.allDeliveryStops.length > 0 && (
-                                  <>
-                                    <p className="font-semibold">• Deliveries ({order.loadDetails.allDeliveryStops.length}):</p>
-                                    {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
-                                      <div key={`delivery-${dIdx}`}>
-                                        <p className="ml-4">
-                                          - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode} at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
-                                        </p>
-                                        {delivery.arrived_at && (
-                                          <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
-                                            ✓ Arrived: {formatDateTime(delivery.arrived_at, "MM/dd, HH:mm")}
+                                {order.loadDetails.allDeliveryStops &&
+                                  order.loadDetails.allDeliveryStops.length > 0 && (
+                                    <>
+                                      <p className="font-semibold">
+                                        • Deliveries ({order.loadDetails.allDeliveryStops.length}):
+                                      </p>
+                                      {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                        <div key={`delivery-${dIdx}`}>
+                                          <p className="ml-4">
+                                            - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
+                                            at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
                                           </p>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </>
-                                )}
-                                <p>• <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}</p>
+                                          {delivery.arrived_at && (
+                                            <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
+                                              ✓ Arrived: {formatDateTime(delivery.arrived_at, "MM/dd, HH:mm")}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
+                                <p>
+                                  • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
+                                </p>
                                 {order.loadDetails.notes !== "—" && (
-                                  <p className="text-sm font-bold">• <strong>Notes:</strong> {order.loadDetails.notes}</p>
+                                  <p className="text-sm font-bold">
+                                    • <strong>Notes:</strong> {order.loadDetails.notes}
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -1202,43 +1284,47 @@ const Reports = () => {
     return (office: string) => {
       if (!groupedReports) return [];
       let filtered = groupedReports.filter((group) => group.office === office);
-      
+
       // Apply dispatch name filter
       if (debouncedDispatchNameFilter) {
-        filtered = filtered.filter(group => 
-          group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase())
+        filtered = filtered.filter((group) =>
+          group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase()),
         );
       }
-      
+
       // Apply truck/driver and load number filters
       if (debouncedTruckDriverFilter || debouncedLoadNumberFilter) {
-        filtered = filtered.map(group => {
-          const filteredTrucks = group.trucks.filter(truck => {
-            // Check truck/driver filter
-            if (debouncedTruckDriverFilter) {
-              const matchesTruck = truck.truckNumber?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
-              const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
-              if (!matchesTruck && !matchesDriver) return false;
-            }
-            
-            // Check load number filter
-            if (debouncedLoadNumberFilter) {
-              const hasMatchingLoad = truck.allOrders?.some((order: any) => 
-                order.broker_load_number?.toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase())
-              );
-              if (!hasMatchingLoad) return false;
-            }
-            
-            return true;
-          });
-          
-          return {
-            ...group,
-            trucks: filteredTrucks
-          };
-        }).filter(group => group.trucks.length > 0);
+        filtered = filtered
+          .map((group) => {
+            const filteredTrucks = group.trucks.filter((truck) => {
+              // Check truck/driver filter
+              if (debouncedTruckDriverFilter) {
+                const matchesTruck = truck.truckNumber
+                  ?.toLowerCase()
+                  .includes(debouncedTruckDriverFilter.toLowerCase());
+                const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
+                if (!matchesTruck && !matchesDriver) return false;
+              }
+
+              // Check load number filter
+              if (debouncedLoadNumberFilter) {
+                const hasMatchingLoad = truck.allOrders?.some((order: any) =>
+                  order.broker_load_number?.toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase()),
+                );
+                if (!hasMatchingLoad) return false;
+              }
+
+              return true;
+            });
+
+            return {
+              ...group,
+              trucks: filteredTrucks,
+            };
+          })
+          .filter((group) => group.trucks.length > 0);
       }
-      
+
       return filtered;
     };
   }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
@@ -1246,42 +1332,42 @@ const Reports = () => {
   // Check delivery ETAs using edge function
   useEffect(() => {
     const checkETAs = async () => {
-      console.log('🔍 Checking delivery ETAs via edge function...');
+      console.log("🔍 Checking delivery ETAs via edge function...");
 
       try {
-        const { data, error } = await supabase.functions.invoke('check-delivery-etas');
+        const { data, error } = await supabase.functions.invoke("check-delivery-etas");
 
         if (error) {
-          console.error('❌ Error checking ETAs:', error);
+          console.error("❌ Error checking ETAs:", error);
           return;
         }
 
         if (data?.success && data?.results) {
           console.log(`✅ Received ${data.results.length} ETA results`);
-          
+
           // Store late order internal_load_numbers
           const lateOrderNumbers = data.results
             .filter((result: any) => result.is_late)
             .map((result: any) => result.internal_load_number);
-          
+
           // Find the order IDs from internal_load_numbers
           const lateOrderIds = new Set<string>();
-          groupedReports?.forEach(group => {
-            group.trucks.forEach(truck => {
-              truck.allOrders?.forEach(order => {
+          groupedReports?.forEach((group) => {
+            group.trucks.forEach((truck) => {
+              truck.allOrders?.forEach((order) => {
                 if (lateOrderNumbers.includes(order.internal_load_number)) {
                   lateOrderIds.add(order.id);
                 }
               });
             });
           });
-          
+
           setLateDeliveries(lateOrderIds);
-          
+
           console.log(`🔶 Found ${lateOrderIds.size} late orders:`, Array.from(lateOrderIds));
         }
       } catch (error) {
-        console.error('❌ Failed to check ETAs:', error);
+        console.error("❌ Failed to check ETAs:", error);
       }
     };
 
@@ -1295,19 +1381,19 @@ const Reports = () => {
   // Auto-switch to correct dispatcher page when filters find matches
   useEffect(() => {
     if (!groupedReports) return;
-    
+
     // Check if any filter is active
     const hasActiveFilter = debouncedTruckDriverFilter || debouncedDispatchNameFilter || debouncedLoadNumberFilter;
     if (!hasActiveFilter) return;
-    
+
     // Check if current tab has any matches
     const currentTabReports = filterReportsByOffice(activeTab);
     if (currentTabReports.length > 0) return; // Stay on current tab if matches exist
-    
+
     // Search across all offices for matches
     for (const office of offices) {
       if (office === activeTab) continue; // Already checked current tab
-      
+
       const officeReports = filterReportsByOffice(office);
       if (officeReports.length > 0) {
         // Found matches in another office, switch to it
@@ -1315,142 +1401,147 @@ const Reports = () => {
         break;
       }
     }
-  }, [debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter, groupedReports, activeTab, filterReportsByOffice]);
-  
+  }, [
+    debouncedTruckDriverFilter,
+    debouncedDispatchNameFilter,
+    debouncedLoadNumberFilter,
+    groupedReports,
+    activeTab,
+    filterReportsByOffice,
+  ]);
+
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
     const reports = filterReportsByOffice(activeTab);
-    
+
     // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       return reports
-        .map(group => {
-          const newDriverTrucks = group.trucks.filter(truck => {
+        .map((group) => {
+          const newDriverTrucks = group.trucks.filter((truck) => {
             // Get all non-GAME|OVER orders
-            const realOrders = truck.allOrders?.filter((order: any) => 
-              order.notes !== 'GAME|OVER'
-            ) || [];
-            
+            const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
+
             // Case 1: No loads ever - brand new driver
             if (realOrders.length === 0) {
               return true;
             }
-            
+
             // Case 2: Exactly 1 load with pickup today - first load starting today
             if (realOrders.length === 1) {
               const order = realOrders[0];
               if (!order.pickupStop?.datetime) return false;
-              
+
               const pickupDate = new Date(order.pickupStop.datetime);
               pickupDate.setHours(0, 0, 0, 0);
-              
+
               return isSameDay(pickupDate, today);
             }
-            
+
             // More than 1 load = experienced driver
             return false;
           });
-          
+
           return {
             ...group,
-            trucks: newDriverTrucks
+            trucks: newDriverTrucks,
           };
         })
-        .filter(group => group.trucks.length > 0);
+        .filter((group) => group.trucks.length > 0);
     }
-    
+
     if (!showEmptyTrucks) {
       return reports;
     }
-    
+
     // Filter to show only trucks with red "Empty" cells for today
     // Must match the exact display logic for isMissingPickup
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
-    
+
     return reports
-      .map(group => {
-        const emptyTrucks = group.trucks.filter(truck => {
+      .map((group) => {
+        const emptyTrucks = group.trucks.filter((truck) => {
           // Find the first pickup date for this truck
           const firstPickupDate = truck.allOrders
-            ?.filter((order: any) => order.pickupStop?.datetime && order.notes !== 'GAME|OVER')
+            ?.filter((order: any) => order.pickupStop?.datetime && order.notes !== "GAME|OVER")
             .map((order: any) => {
               const date = new Date(order.pickupStop.datetime);
               date.setHours(0, 0, 0, 0);
               return date;
             })
             .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
-          
+
           // Check if today is after first pickup
           const isAfterFirstPickup = firstPickupDate && today >= firstPickupDate;
           if (!isAfterFirstPickup) {
             return false; // Only show trucks that have had at least one pickup
           }
-          
+
           // Check if today is within timeframe (today or tomorrow only)
           const isWithinTimeframe = today.getTime() <= tomorrow.getTime();
           if (!isWithinTimeframe) {
             return false;
           }
-          
+
           // Check if truck is in transit today
           const isInTransitToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === 'GAME|OVER') return false;
+            if (order.notes === "GAME|OVER") return false;
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            
+
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
             const deliveryDate = new Date(order.deliveryStop.datetime);
             deliveryDate.setHours(0, 0, 0, 0);
-            
+
             // In transit if between pickup and delivery (exclusive)
             return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
           });
-          
+
           if (isInTransitToday) {
             return false; // Exclude in-transit trucks
           }
-          
+
           // Check if truck has any pickup or same-day order today
           const hasPickupToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === 'GAME|OVER') return false;
+            if (order.notes === "GAME|OVER") return false;
             if (!order.pickupStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
             return isSameDay(pickupDate, today);
           });
-          
+
           if (hasPickupToday) {
             return false; // Must have NO pickup today
           }
-          
+
           // Check for game over before today
           const hasGameOverBefore = truck.lostDayNotes?.some((note: any) => {
-            const noteDate = new Date(note.date + 'T00:00:00');
+            const noteDate = new Date(note.date + "T00:00:00");
             if (noteDate >= today) return false; // Only check days before today
-            const noteText = note.note?.toLowerCase() || '';
-            return noteText.includes('game over');
+            const noteText = note.note?.toLowerCase() || "";
+            return noteText.includes("game over");
           });
-          
+
           if (hasGameOverBefore) {
             return false; // Exclude if game over occurred before today
           }
-          
+
           // At this point, truck would show red "Empty" cell for today
           return true;
         });
-        
+
         return {
           ...group,
-          trucks: emptyTrucks
+          trucks: emptyTrucks,
         };
       })
-      .filter(group => group.trucks.length > 0); // Only show dispatchers with empty trucks
+      .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
   }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers]);
 
   if (isLoading) {
@@ -1490,10 +1581,11 @@ const Reports = () => {
     // Find existing "game over" dates for this truck
     const allTrucks = groupedReports?.flatMap((group) => group.trucks) || [];
     const truck = allTrucks.find((t) => t.id === truckId);
-    const existingGameOverDates = truck?.lostDayNotes
-      ?.filter((note: any) => note.note.toLowerCase().includes("game over"))
-      .map((note: any) => note.date) || [];
-    
+    const existingGameOverDates =
+      truck?.lostDayNotes
+        ?.filter((note: any) => note.note.toLowerCase().includes("game over"))
+        .map((note: any) => note.date) || [];
+
     setGameOverDialog({
       truckId,
       truckNumber: driverName,
@@ -1516,13 +1608,13 @@ const Reports = () => {
     try {
       const dateStr = format(gameOverStartDate, "yyyy-MM-dd");
       const noteText = gameOverType === "yard" ? "game over - yard" : "game over - at road";
-      
+
       await updateLostDayNote.mutateAsync({
         truckId: gameOverDialog.truckId,
         date: dateStr,
         note: noteText,
       });
-      
+
       toast({
         title: "Status set",
         description: `Set ${gameOverType === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`,
@@ -1623,7 +1715,7 @@ const Reports = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {(hasRole('supervisor') || hasRole('manager') || hasRole('admin') || hasRole('safety')) && (
+              {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                 <div className="flex gap-2 ml-4">
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
@@ -1657,167 +1749,167 @@ const Reports = () => {
             ) : (
               <div className="px-4 py-2">
                 {activeOfficeReports.map((group) => {
-                    const startDate = getCalendarStartDate(group.dispatcherId);
-                    const days = Array.from(
-                      {
-                        length: 6,
-                      },
-                      (_, i) => addDays(startDate, i),
-                    );
-                    return (
-                      <div key={group.dispatcherId} className="bg-card">
-                        {/* Google Sheets-style table */}
-                        <div className="w-full">
-                          <table
-                            className="w-full border-collapse bg-card border-[3px] border-gray-400"
-                            style={{
-                              tableLayout: "auto",
-                            }}
-                          >
-                            <thead>
-                              {/* Date Range Selector Row with Dispatcher Name */}
-                              <tr className="bg-muted/50 sticky top-0 z-20">
-                                <th
-                                  colSpan={3}
-                                  className="border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold text-foreground bg-muted/50"
-                                  style={{
-                                    fontSize: "0.825rem",
-                                  }}
-                                >
-                                  {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
-                                  {group.ext && (
-                                    <span className="text-xs font-normal text-muted-foreground ml-2">ext {group.ext}</span>
-                                  )}
-                                </th>
-                                <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
-                                  <div className="flex items-center justify-center">
-                                    <button
-                                      onClick={() =>
-                                        handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))
-                                      }
-                                      className="p-0.5 hover:bg-muted rounded"
-                                    >
-                                      <ChevronLeft className="h-3 w-3" />
-                                    </button>
-                                    <div className="text-xs font-medium text-foreground mx-2">
-                                      {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
-                                    </div>
-                                    <button
-                                      onClick={() =>
-                                        handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))
-                                      }
-                                      className="p-0.5 hover:bg-muted rounded"
-                                    >
-                                      <ChevronRight className="h-3 w-3" />
-                                    </button>
+                  const startDate = getCalendarStartDate(group.dispatcherId);
+                  const days = Array.from(
+                    {
+                      length: 6,
+                    },
+                    (_, i) => addDays(startDate, i),
+                  );
+                  return (
+                    <div key={group.dispatcherId} className="bg-card">
+                      {/* Google Sheets-style table */}
+                      <div className="w-full">
+                        <table
+                          className="w-full border-collapse bg-card border-[3px] border-gray-400"
+                          style={{
+                            tableLayout: "auto",
+                          }}
+                        >
+                          <thead>
+                            {/* Date Range Selector Row with Dispatcher Name */}
+                            <tr className="bg-muted/50 sticky top-0 z-20">
+                              <th
+                                colSpan={3}
+                                className="border-r border-b-[2px] border-gray-400 px-2 py-1 text-left font-bold text-foreground bg-muted/50"
+                                style={{
+                                  fontSize: "0.825rem",
+                                }}
+                              >
+                                {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
+                                {group.ext && (
+                                  <span className="text-xs font-normal text-muted-foreground ml-2">
+                                    ext {group.ext}
+                                  </span>
+                                )}
+                              </th>
+                              <th colSpan={6} className="border-r border-b-[2px] border-gray-400 px-2 py-1 bg-muted/50">
+                                <div className="flex items-center justify-center">
+                                  <button
+                                    onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, -1))}
+                                    className="p-0.5 hover:bg-muted rounded"
+                                  >
+                                    <ChevronLeft className="h-3 w-3" />
+                                  </button>
+                                  <div className="text-xs font-medium text-foreground mx-2">
+                                    {format(startDate, "MMM dd")} - {format(addDays(startDate, 5), "MMM dd, yyyy")}
                                   </div>
-                                </th>
-                                <th
-                                  colSpan={4}
-                                  className="border-r border-b-[2px] border-gray-400 bg-muted/50"
-                                  style={{
-                                    width: "220px",
-                                    minWidth: "220px",
-                                    maxWidth: "220px",
-                                  }}
-                                ></th>
-                                <th
-                                  colSpan={2}
-                                  className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
-                                >
-                                  Recent Activity
-                                </th>
-                              </tr>
-                              {/* Column Headers Row */}
-                              <tr className="bg-muted/50 sticky top-[37px] z-10">
-                                <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
-                                  Truck #
-                                </th>
-                                <th
-                                  className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "163px",
-                                    minWidth: "163px",
-                                    maxWidth: "163px",
-                                  }}
-                                >
-                                  Driver
-                                </th>
-                                <th
-                                  className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "136px",
-                                    minWidth: "136px",
-                                    maxWidth: "136px",
-                                  }}
-                                >
-                                  Home
-                                </th>
-                                {days.map((day, index) => {
-                                  const isToday = isSameDay(day, getChicagoToday());
-                                  return (
-                                    <th
-                                      key={index}
-                                      className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
-                                      style={{
-                                        width: "120px",
-                                        minWidth: "120px",
-                                        maxWidth: "120px",
-                                        ...(isToday
-                                          ? {
-                                              position: "relative",
-                                              zIndex: 10,
-                                            }
-                                          : {}),
-                                      }}
-                                    >
-                                      {/* Red border overlay for today header */}
-                                      {isToday && (
-                                        <div
-                                          className="absolute pointer-events-none"
-                                          style={{
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            borderLeft: "6px solid #dc2626",
-                                            borderRight: "6px solid #dc2626",
-                                            borderTop: "6px solid #dc2626",
-                                            borderBottom: "6px solid hsl(var(--border))",
-                                            zIndex: 100,
-                                          }}
-                                        />
-                                      )}
-                                      <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
-                                      <div className="text-[9px] text-muted-foreground relative z-10">
-                                        {format(day, "M/d/yyyy")}
-                                      </div>
-                                    </th>
-                                  );
-                                })}
-                                <th
-                                  colSpan={4}
-                                  className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
-                                  style={{
-                                    width: "220px",
-                                    minWidth: "220px",
-                                    maxWidth: "220px",
-                                  }}
-                                >
-                                  Away (D) | Drive | Shift | Break | Cycle
-                                </th>
-                                <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
-                                  Last Edit
-                                </th>
-                                <th
-                                  className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? "border-r border-border" : ""}`}
-                                >
-                                  Date
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.trucks.slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT).map((truck, truckIndex) => {
+                                  <button
+                                    onClick={() => handleCalendarDateChange(group.dispatcherId, addDays(startDate, 1))}
+                                    className="p-0.5 hover:bg-muted rounded"
+                                  >
+                                    <ChevronRight className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              </th>
+                              <th
+                                colSpan={4}
+                                className="border-r border-b-[2px] border-gray-400 bg-muted/50"
+                                style={{
+                                  width: "220px",
+                                  minWidth: "220px",
+                                  maxWidth: "220px",
+                                }}
+                              ></th>
+                              <th
+                                colSpan={2}
+                                className={`bg-muted/50 border-l border-b-[2px] border-gray-400 px-2 py-1 text-center text-[10px] font-medium text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`}
+                              >
+                                Recent Activity
+                              </th>
+                            </tr>
+                            {/* Column Headers Row */}
+                            <tr className="bg-muted/50 sticky top-[37px] z-10">
+                              <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
+                                Truck #
+                              </th>
+                              <th
+                                className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                style={{
+                                  width: "163px",
+                                  minWidth: "163px",
+                                  maxWidth: "163px",
+                                }}
+                              >
+                                Driver
+                              </th>
+                              <th
+                                className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                style={{
+                                  width: "136px",
+                                  minWidth: "136px",
+                                  maxWidth: "136px",
+                                }}
+                              >
+                                Home
+                              </th>
+                              {days.map((day, index) => {
+                                const isToday = isSameDay(day, getChicagoToday());
+                                return (
+                                  <th
+                                    key={index}
+                                    className={`border-b-[3px] border-gray-400 ${index > 0 ? "border-l border-gray-400" : ""} px-2 py-1 text-center text-[10px] font-medium text-muted-foreground bg-muted/50 relative`}
+                                    style={{
+                                      width: "120px",
+                                      minWidth: "120px",
+                                      maxWidth: "120px",
+                                      ...(isToday
+                                        ? {
+                                            position: "relative",
+                                            zIndex: 10,
+                                          }
+                                        : {}),
+                                    }}
+                                  >
+                                    {/* Red border overlay for today header */}
+                                    {isToday && (
+                                      <div
+                                        className="absolute pointer-events-none"
+                                        style={{
+                                          top: 0,
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          borderLeft: "6px solid #dc2626",
+                                          borderRight: "6px solid #dc2626",
+                                          borderTop: "6px solid #dc2626",
+                                          borderBottom: "6px solid hsl(var(--border))",
+                                          zIndex: 100,
+                                        }}
+                                      />
+                                    )}
+                                    <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
+                                    <div className="text-[9px] text-muted-foreground relative z-10">
+                                      {format(day, "M/d/yyyy")}
+                                    </div>
+                                  </th>
+                                );
+                              })}
+                              <th
+                                colSpan={4}
+                                className="border-t border-l border-r border-b-[3px] border-gray-400 px-2 py-0.5 text-center text-[10px] font-medium text-muted-foreground bg-muted/50"
+                                style={{
+                                  width: "220px",
+                                  minWidth: "220px",
+                                  maxWidth: "220px",
+                                }}
+                              >
+                                Away (D) | Drive | Shift | Break | Cycle
+                              </th>
+                              <th className="border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20">
+                                Last Edit
+                              </th>
+                              <th
+                                className={`border-t border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-20 ${sidebarOpen ? "border-r border-border" : ""}`}
+                              >
+                                Date
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {group.trucks
+                              .slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)
+                              .map((truck, truckIndex) => {
                                 const modifiedCells = renderTruckCalendarCells(
                                   truck,
                                   startDate,
@@ -1832,34 +1924,41 @@ const Reports = () => {
                                   ?.filter(
                                     (order) =>
                                       order.notes !== "GAME|OVER" &&
-                                      !order.order_files?.some((file: any) => file.file_category === "POD")
+                                      !order.order_files?.some((file: any) => file.file_category === "POD"),
                                   )
                                   .sort((a, b) => {
                                     // Sort by pickup datetime ascending (earliest first)
-                                    const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
-                                    const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
+                                    const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                    const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
                                     return aDate - bDate;
                                   })[0];
-                                
+
                                 // Extract pickup and delivery stops from pickup_drops
                                 if (currentOrder && currentOrder.pickup_drops) {
-                                  currentOrder.pickupStop = currentOrder.pickup_drops.find((pd: any) => pd.type === 'pickup');
-                                  currentOrder.deliveryStop = currentOrder.pickup_drops.find((pd: any) => pd.type === 'delivery');
+                                  currentOrder.pickupStop = currentOrder.pickup_drops.find(
+                                    (pd: any) => pd.type === "pickup",
+                                  );
+                                  currentOrder.deliveryStop = currentOrder.pickup_drops.find(
+                                    (pd: any) => pd.type === "delivery",
+                                  );
                                 }
-                                
+
                                 const hasBOL =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
                                 const hasPOD =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "POD") || false;
                                 const pickupArrived = !!currentOrder?.pickupStop?.arrived_at;
-                                
+
                                 // Check if any HOS timer is 0 or below
-                                const hasExpiredHOS = truck.driveMinutes <= 0 || truck.shiftMinutes <= 0 || 
-                                                     truck.breakMinutes <= 0 || truck.cycleMinutes <= 0;
+                                const hasExpiredHOS =
+                                  truck.driveMinutes <= 0 ||
+                                  truck.shiftMinutes <= 0 ||
+                                  truck.breakMinutes <= 0 ||
+                                  truck.cycleMinutes <= 0;
 
                                 // Get drug test styling and check if driver is new
                                 const isNew = isNewDriver(truck);
-                                const canManageDrugTests = hasRole('safety') || hasRole('manager') || hasRole('admin');
+                                const canManageDrugTests = hasRole("safety") || hasRole("manager") || hasRole("admin");
                                 const drugTestStyle = getDrugTestCellStyle(truck);
                                 const shouldShowDrugTestUI = isNew && canManageDrugTests;
 
@@ -1867,7 +1966,7 @@ const Reports = () => {
                                   <React.Fragment key={truck.id}>
                                     <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? 'cursor-pointer hover:opacity-80' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
                                         style={{
                                           width: "77px",
                                           minWidth: "77px",
@@ -1876,21 +1975,23 @@ const Reports = () => {
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
-                                            console.log('Opening drug test dialog for:', { 
-                                              driverId: truck.driverId, 
-                                              driverName: truck.driver, 
+                                            console.log("Opening drug test dialog for:", {
+                                              driverId: truck.driverId,
+                                              driverName: truck.driver,
                                               truckId: truck.id,
-                                              truckNumber: truck.truckNumber
+                                              truckNumber: truck.truckNumber,
                                             });
-                                            setDrugTestDialog({ driverId: truck.driverId, driverName: truck.driver, truckId: truck.id });
+                                            setDrugTestDialog({
+                                              driverId: truck.driverId,
+                                              driverName: truck.driver,
+                                              truckId: truck.id,
+                                            });
                                           }
                                         }}
                                       >
                                         <div className="flex items-center gap-1">
                                           {truck.truckNumber}
-                                          {hasExpiredHOS && (
-                                            <Clock className="h-3 w-3 text-destructive" />
-                                          )}
+                                          {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                           {truck.hasMultipleOrders && (
                                             <TooltipProvider>
                                               <Tooltip>
@@ -1915,7 +2016,10 @@ const Reports = () => {
                                       >
                                         <div className="flex items-center gap-2">
                                           {truck.driver}
-                                          {(truck.driverPhone || truck.driverEmail || truck.trailerNumber || truck.driver2Name) && (
+                                          {(truck.driverPhone ||
+                                            truck.driverEmail ||
+                                            truck.trailerNumber ||
+                                            truck.driver2Name) && (
                                             <Popover>
                                               <PopoverTrigger asChild>
                                                 <button className="inline-flex">
@@ -1926,7 +2030,9 @@ const Reports = () => {
                                                 <div className="space-y-1">
                                                   {truck.driver2Name ? (
                                                     <>
-                                                      <p className="font-semibold text-sm">Driver 1: {truck.driver1Name}</p>
+                                                      <p className="font-semibold text-sm">
+                                                        Driver 1: {truck.driver1Name}
+                                                      </p>
                                                       {truck.driverPhone && (
                                                         <p className="text-xs">📞 {truck.driverPhone}</p>
                                                       )}
@@ -1934,7 +2040,9 @@ const Reports = () => {
                                                         <p className="text-xs">✉️ {truck.driverEmail}</p>
                                                       )}
                                                       <div className="border-t pt-1 mt-1">
-                                                        <p className="font-semibold text-sm">Driver 2: {truck.driver2Name}</p>
+                                                        <p className="font-semibold text-sm">
+                                                          Driver 2: {truck.driver2Name}
+                                                        </p>
                                                         {truck.driver2Phone && (
                                                           <p className="text-xs">📞 {truck.driver2Phone}</p>
                                                         )}
@@ -2067,13 +2175,15 @@ const Reports = () => {
                                       {/* Merged cell for Away, Drive, Shift, Cycle with Notes at bottom */}
                                       <td
                                         colSpan={4}
-                                        className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}
+                                        className={`border-r border-b-[6px] border-gray-400 p-0 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
                                         style={{
                                           height: "64px",
                                         }}
                                       >
-                                        <div className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? 'bg-destructive/50' : ''}`}>
-                                           {/* Away Days - Show distance in miles if available */}
+                                        <div
+                                          className={`h-8 border-b border-border flex items-center justify-around px-1 ${hasExpiredHOS ? "bg-destructive/50" : ""}`}
+                                        >
+                                          {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
                                             <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
                                             {truck.milesAway > 0 ? (
@@ -2122,7 +2232,7 @@ const Reports = () => {
                                           />
                                         </div>
                                         <div className="h-8 p-0 w-full">
-                                          <EditableNoteField 
+                                          <EditableNoteField
                                             truckId={truck.id}
                                             value={truck.note}
                                             handleNoteChange={handleNoteChange}
@@ -2189,34 +2299,36 @@ const Reports = () => {
                                           />
                                         </td>
                                       </tr>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-                            </tbody>
-                          </table>
-                          
-                          {/* Load More Trigger */}
-                          {group.trucks.length > (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT) && (
-                            <div className="flex justify-center py-4">
-                              <Button
-                                variant="outline"
-                                onClick={() => handleLoadMore(group.dispatcherId)}
-                                className="w-full max-w-md"
-                              >
-                                Load More Trucks ({group.trucks.length - (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)} remaining)
-                              </Button>
-                            </div>
-                          )}
-                        </div>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+
+                        {/* Load More Trigger */}
+                        {group.trucks.length > (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT) && (
+                          <div className="flex justify-center py-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleLoadMore(group.dispatcherId)}
+                              className="w-full max-w-md"
+                            >
+                              Load More Trucks (
+                              {group.trucks.length - (visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)}{" "}
+                              remaining)
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen !== null} onOpenChange={(open) => !open && setNoteDialogOpen(null)}>
@@ -2235,7 +2347,7 @@ const Reports = () => {
               <Button variant="outline" onClick={() => setNoteDialogOpen(null)}>
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={async () => {
                   if (noteDialogOpen) {
                     await handleNoteChange(noteDialogOpen, noteDialogContent);
@@ -2249,7 +2361,7 @@ const Reports = () => {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* Game Over Dialog */}
       <Dialog open={gameOverDialog !== null} onOpenChange={(open) => !open && setGameOverDialog(null)}>
         <DialogContent className="max-w-md">
@@ -2267,13 +2379,13 @@ const Reports = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium mb-2 block">Status Type</label>
-                <ToggleGroup 
-                  type="single" 
-                  value={gameOverType} 
+                <ToggleGroup
+                  type="single"
+                  value={gameOverType}
                   onValueChange={(value: GameOverType) => value && setGameOverType(value)}
                   className="justify-start"
                 >
@@ -2288,28 +2400,16 @@ const Reports = () => {
 
               <div>
                 <label className="text-sm font-medium">Date</label>
-                <DatePicker
-                  date={gameOverStartDate}
-                  onDateChange={setGameOverStartDate}
-                  placeholder="Select date"
-                />
+                <DatePicker date={gameOverStartDate} onDateChange={setGameOverStartDate} placeholder="Select date" />
               </div>
             </div>
 
             <div className="flex gap-2">
-              <Button
-                onClick={handleGameOverConfirm}
-                disabled={!gameOverStartDate}
-                className="flex-1"
-              >
+              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate} className="flex-1">
                 Set Status
               </Button>
               {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && (
-                <Button
-                  onClick={handleGameOverRemove}
-                  variant="destructive"
-                  className="flex-1"
-                >
+                <Button onClick={handleGameOverRemove} variant="destructive" className="flex-1">
                   Remove All
                 </Button>
               )}
@@ -2328,18 +2428,18 @@ const Reports = () => {
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">Test Result</label>
               <Select
-                value={getDrugTestForDriver(drugTestDialog?.driverId || '')?.result || 'pending'}
+                value={getDrugTestForDriver(drugTestDialog?.driverId || "")?.result || "pending"}
                 onValueChange={(value) => {
                   if (drugTestDialog?.driverId && drugTestDialog?.truckId) {
-                    console.log('Updating drug test:', {
+                    console.log("Updating drug test:", {
                       driverId: drugTestDialog.driverId,
                       driverName: drugTestDialog.driverName,
                       truckId: drugTestDialog.truckId,
-                      result: value
+                      result: value,
                     });
                     upsertDrugTest.mutate({
                       driverId: drugTestDialog.driverId,
-                      result: value as 'positive' | 'negative' | 'pending',
+                      result: value as "positive" | "negative" | "pending",
                       truckId: drugTestDialog.truckId,
                     });
                   }
