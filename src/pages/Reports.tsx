@@ -309,7 +309,7 @@ const Reports = () => {
   };
 
   // Offices list
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery drivers"];
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD"];
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
