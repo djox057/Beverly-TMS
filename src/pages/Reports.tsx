@@ -1832,7 +1832,7 @@ const Reports = () => {
               )}
             </div>
             <div className="flex items-center justify-between mb-2">
-              <TabsList className="grid grid-cols-4 flex-1">
+              <TabsList className="grid grid-cols-3 flex-1">
                 {offices.map((office) => (
                   <TabsTrigger key={office} value={office}>
                     {office}
