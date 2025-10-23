@@ -26,6 +26,7 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface EditingState {
   truckId: string;
@@ -342,6 +343,12 @@ const Reports = () => {
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
   const [loadNumberFilter, setLoadNumberFilter] = useState("");
+  
+  // Debounce filter values to prevent lag
+  const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
+  const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
+  const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
+  
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -1197,27 +1204,27 @@ const Reports = () => {
       let filtered = groupedReports.filter((group) => group.office === office);
       
       // Apply dispatch name filter
-      if (dispatchNameFilter) {
+      if (debouncedDispatchNameFilter) {
         filtered = filtered.filter(group => 
-          group.dispatcher.toLowerCase().includes(dispatchNameFilter.toLowerCase())
+          group.dispatcher.toLowerCase().includes(debouncedDispatchNameFilter.toLowerCase())
         );
       }
       
       // Apply truck/driver and load number filters
-      if (truckDriverFilter || loadNumberFilter) {
+      if (debouncedTruckDriverFilter || debouncedLoadNumberFilter) {
         filtered = filtered.map(group => {
           const filteredTrucks = group.trucks.filter(truck => {
             // Check truck/driver filter
-            if (truckDriverFilter) {
-              const matchesTruck = truck.truckNumber?.toLowerCase().includes(truckDriverFilter.toLowerCase());
-              const matchesDriver = truck.driver?.toLowerCase().includes(truckDriverFilter.toLowerCase());
+            if (debouncedTruckDriverFilter) {
+              const matchesTruck = truck.truckNumber?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
+              const matchesDriver = truck.driver?.toLowerCase().includes(debouncedTruckDriverFilter.toLowerCase());
               if (!matchesTruck && !matchesDriver) return false;
             }
             
             // Check load number filter
-            if (loadNumberFilter) {
+            if (debouncedLoadNumberFilter) {
               const hasMatchingLoad = truck.allOrders?.some((order: any) => 
-                order.broker_load_number?.toLowerCase().includes(loadNumberFilter.toLowerCase())
+                order.broker_load_number?.toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase())
               );
               if (!hasMatchingLoad) return false;
             }
@@ -1234,7 +1241,7 @@ const Reports = () => {
       
       return filtered;
     };
-  }, [groupedReports, truckDriverFilter, dispatchNameFilter, loadNumberFilter]);
+  }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
 
   // Check delivery ETAs using edge function
   useEffect(() => {
@@ -1290,7 +1297,7 @@ const Reports = () => {
     if (!groupedReports) return;
     
     // Check if any filter is active
-    const hasActiveFilter = truckDriverFilter || dispatchNameFilter || loadNumberFilter;
+    const hasActiveFilter = debouncedTruckDriverFilter || debouncedDispatchNameFilter || debouncedLoadNumberFilter;
     if (!hasActiveFilter) return;
     
     // Check if current tab has any matches
@@ -1308,7 +1315,7 @@ const Reports = () => {
         break;
       }
     }
-  }, [truckDriverFilter, dispatchNameFilter, loadNumberFilter, groupedReports, activeTab, filterReportsByOffice]);
+  }, [debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter, groupedReports, activeTab, filterReportsByOffice]);
   
   // Only get filtered reports for the active tab
   const activeOfficeReports = useMemo(() => {
