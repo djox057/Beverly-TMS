@@ -9,7 +9,8 @@ import { Combobox } from "@/components/ui/combobox";
 import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
-import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle, Mail } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -76,6 +77,13 @@ const NewOrder = () => {
   const [isCalculatingDhMiles, setIsCalculatingDhMiles] = useState(false);
   const [hasAutoExtracted, setHasAutoExtracted] = useState(false);
   
+  // Email dispatch toggle states
+  const [confirmationGenerated, setConfirmationGenerated] = useState(false);
+  const [generatedConfirmationBlob, setGeneratedConfirmationBlob] = useState<Blob | null>(null);
+  const [generatedConfirmationFilename, setGeneratedConfirmationFilename] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
   const [driverPickupStartTime, setDriverPickupStartTime] = useState("");
@@ -91,6 +99,30 @@ const NewOrder = () => {
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
+
+  // Company email configuration
+  const COMPANY_EMAIL_CONFIG: Record<string, { sender: string; cc: string }> = {
+    "BF Prime LLC": {
+      sender: "truckload@bfprime.net",
+      cc: "dispatch@bfprime.net"
+    },
+    "BF Prime United LLC": {
+      sender: "truckload@bfprimeunited.net",
+      cc: "dispatch@bfprimeunited.net"
+    },
+    "Beverly Group": {
+      sender: "truckload@beverlygroupllc.net",
+      cc: "dispatch@beverlygroupllc.net"
+    },
+    "Beverly Freight": {
+      sender: "truckload@beverlyfreight.net",
+      cc: "dispatch@beverlyfreight.net"
+    },
+    "BG Prime Inc": {
+      sender: "truckload@bgprime.net",
+      cc: "dispatch@bgprime.net"
+    }
+  };
 
   // Drag states for file uploads
   const [dragStates, setDragStates] = useState({
@@ -880,6 +912,106 @@ const NewOrder = () => {
     }
   };
 
+  // Build email subject line
+  const buildEmailSubject = (): string => {
+    const selectedTruck = trucks?.find(t => t.id === truck);
+    const selectedDriver = drivers?.find(d => d.id === driver1);
+    const pickups = pickupsDrops.filter(p => p.type === "pickup");
+    const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+    
+    const truckNumber = selectedTruck?.truck_number || "TBD";
+    const driverFirstName = selectedDriver?.name?.split(' ')[0] || "Driver";
+    const pickupDate = pickups[0]?.dateRange?.from 
+      ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, '0')}/${String(pickups[0].dateRange.from.getDate()).padStart(2, '0')}/${pickups[0].dateRange.from.getFullYear()}`
+      : "TBD";
+    const brokerLoad = brokerLoadNumber || "TBD";
+    const firstPickupState = pickups[0]?.state || "TBD";
+    const lastDeliveryState = deliveries[deliveries.length - 1]?.state || "TBD";
+    
+    return `#${truckNumber} ${driverFirstName} // ${pickupDate} // Load#${brokerLoad} // ${firstPickupState} - ${lastDeliveryState}`;
+  };
+
+  // Send email to driver with load confirmation
+  const handleSendEmailToDriver = async () => {
+    if (!generatedConfirmationBlob || !confirmationGenerated || emailSent) return;
+    
+    try {
+      setIsSendingEmail(true);
+      
+      // Get driver email
+      const selectedDriver = drivers?.find(d => d.id === driver1);
+      if (!selectedDriver?.email) {
+        throw new Error("Driver email not found. Please ensure the driver has an email address.");
+      }
+      
+      // Get truck company for email configuration
+      const selectedTruck = trucks?.find(t => t.id === truck);
+      const companyName = selectedTruck?.company?.name;
+      
+      if (!companyName) {
+        throw new Error("Truck company not found. Cannot determine sender email.");
+      }
+      
+      const emailConfig = COMPANY_EMAIL_CONFIG[companyName];
+      if (!emailConfig) {
+        throw new Error(`Email configuration not found for company: ${companyName}. Please contact support.`);
+      }
+      
+      // Build email subject
+      const subject = buildEmailSubject();
+      
+      // Convert blob to base64 for attachment
+      const reader = new FileReader();
+      reader.readAsDataURL(generatedConfirmationBlob);
+      
+      await new Promise((resolve, reject) => {
+        reader.onloadend = async () => {
+          try {
+            const base64data = reader.result as string;
+            const base64Content = base64data.split(',')[1]; // Remove data:application/pdf;base64, prefix
+            
+            // Call edge function to send email
+            const { error } = await supabase.functions.invoke('send-load-confirmation-email', {
+              body: {
+                to: selectedDriver.email,
+                from: emailConfig.sender,
+                cc: emailConfig.cc,
+                subject: subject,
+                bodyText: "Please see the rate confirmation attached below.",
+                attachmentBase64: base64Content,
+                attachmentFilename: generatedConfirmationFilename,
+                attachmentContentType: 'application/pdf'
+              }
+            });
+            
+            if (error) throw error;
+            
+            setEmailSent(true);
+            toast({
+              title: "Email Sent",
+              description: `Load confirmation sent to ${selectedDriver.email}`
+            });
+            
+            resolve(true);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
+      });
+      
+    } catch (error: any) {
+      console.error('Email sending error:', error);
+      toast({
+        title: "Email Failed",
+        description: error.message || "Failed to send email to driver",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const handleGenerateConfirmation = async () => {
     if (!bookedByCompany || !truck || !driver1 || pickupsDrops.length < 2) {
       toast({
@@ -1045,10 +1177,19 @@ const NewOrder = () => {
 
       // Create a blob from the response
       const blob = await response.blob();
+      const filename = `load-confirmation-${confirmationData.brokerLoadNumber}.pdf`;
+      
+      // Save blob and filename for email attachment
+      setGeneratedConfirmationBlob(blob);
+      setGeneratedConfirmationFilename(filename);
+      setConfirmationGenerated(true); // Enable the email toggle
+      setEmailSent(false); // Reset email sent state
+      
+      // Download the PDF
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `load-confirmation-${confirmationData.brokerLoadNumber}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -1056,7 +1197,7 @@ const NewOrder = () => {
 
       toast({
         title: "Confirmation Generated",
-        description: "Load confirmation PDF has been generated and downloaded."
+        description: "Load confirmation PDF has been generated. You can now email it to the driver."
       });
 
     } catch (error: any) {
@@ -2162,6 +2303,39 @@ const NewOrder = () => {
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
               </Button>
+            </div>
+
+            {/* Email Dispatch Toggle */}
+            <div className="flex justify-center mt-4">
+              <div className="flex items-center space-x-3 p-4 border rounded-lg bg-muted/50 w-full max-w-md">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email to Driver
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {!confirmationGenerated 
+                      ? "Generate confirmation first"
+                      : emailSent
+                      ? `Sent to ${drivers?.find(d => d.id === driver1)?.email || 'driver'}`
+                      : "Toggle to send confirmation email"
+                    }
+                  </p>
+                </div>
+                <Switch
+                  checked={emailSent}
+                  onCheckedChange={(checked) => {
+                    if (checked && !emailSent) {
+                      handleSendEmailToDriver();
+                    }
+                  }}
+                  disabled={!confirmationGenerated || isSendingEmail || emailSent}
+                  className="data-[state=checked]:bg-green-600"
+                />
+                {isSendingEmail && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3">
