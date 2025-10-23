@@ -215,6 +215,32 @@ export const useReports = () => {
     },
   });
 
+  const markGoingToPickup = useMutation({
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ going_to_pickup_at: new Date().toISOString() })
+        .eq('id', orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
+  const markGoingToDelivery = useMutation({
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ going_to_delivery_at: new Date().toISOString() })
+        .eq('id', orderId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
   // Helper function to determine document status
   const getDocumentStatus = (orderFiles: any[]) => {
     if (!orderFiles || orderFiles.length === 0) return 'none';
@@ -281,6 +307,8 @@ export const useReports = () => {
             driver1_id,
             driver2_id,
             truck_id,
+            going_to_pickup_at,
+            going_to_delivery_at,
             pickup_drops(
               id,
               type,
@@ -644,5 +672,7 @@ export const useReports = () => {
     updatePickupDrop,
     updateLostDayNote,
     updatePickupDropArrival,
+    markGoingToPickup,
+    markGoingToDelivery,
   };
 };

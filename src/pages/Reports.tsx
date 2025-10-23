@@ -328,6 +328,8 @@ const Reports = () => {
     updatePickupDrop,
     updateLostDayNote,
     updatePickupDropArrival,
+    markGoingToPickup,
+    markGoingToDelivery,
   } = useReports();
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
@@ -362,10 +364,73 @@ const Reports = () => {
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
   const [loadNumberFilter, setLoadNumberFilter] = useState("");
 
+  // Helper function to check if 5 seconds have passed since button click
+  const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
+    if (!timestamp) return false;
+    const clickTime = new Date(timestamp).getTime();
+    const now = new Date().getTime();
+    return (now - clickTime) >= 5000;
+  };
+
+  // Helper to determine if we should show Going to Pickup button
+  const shouldShowGoingToPickup = (order: any): boolean => {
+    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const goingToPickupClicked = !!order.going_to_pickup_at;
+    const fiveSecondsPassed = has5SecondsPassed(order.going_to_pickup_at);
+    
+    // Show if no BOL and either no POD from previous load OR Going to Pickup was clicked but 5 seconds haven't passed
+    return !hasBOL && !goingToPickupClicked;
+  };
+
+  // Helper to determine if we should show At Pickup button
+  const shouldShowAtPickup = (order: any, stop: any): boolean => {
+    if (stop.arrived_at) return false; // Already arrived
+    
+    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const goingToPickupClicked = !!order.going_to_pickup_at;
+    const fiveSecondsPassed = has5SecondsPassed(order.going_to_pickup_at);
+    
+    // Show if (has POD from previous OR Going to Pickup clicked) AND 5 seconds have passed
+    return (hasPOD || (goingToPickupClicked && fiveSecondsPassed)) && !hasBOL;
+  };
+
+  // Helper to determine if we should show Going to Delivery button
+  const shouldShowGoingToDelivery = (order: any): boolean => {
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const goingToDeliveryClicked = !!order.going_to_delivery_at;
+    
+    // Show if no BOL and Going to Delivery hasn't been clicked
+    return !hasBOL && !goingToDeliveryClicked;
+  };
+
+  // Helper to determine if we should show At Delivery button  
+  const shouldShowAtDelivery = (order: any, stop: any): boolean => {
+    if (stop.arrived_at) return false; // Already arrived
+    
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const goingToDeliveryClicked = !!order.going_to_delivery_at;
+    const fiveSecondsPassed = has5SecondsPassed(order.going_to_delivery_at);
+    
+    // Show if (has BOL OR Going to Delivery clicked) AND 5 seconds have passed
+    return (hasBOL || (goingToDeliveryClicked && fiveSecondsPassed));
+  };
+
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
   const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
   const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
+
+  // Force re-render every second to update button visibility based on 5-second delays
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Invalidate to trigger button visibility updates
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [queryClient]);
 
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
@@ -971,20 +1036,40 @@ const Reports = () => {
                                   </div>
                                 </div>
                                 {stop.id && !stop.arrived_at && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      updatePickupDropArrival.mutate({
-                                        pickupDropId: stop.id,
-                                      });
-                                      toast({
-                                        title: "Marked as arrived at delivery",
-                                      });
-                                    }}
-                                    className="w-full mt-2"
-                                  >
-                                    Arrived at Delivery
-                                  </Button>
+                                  <div className="space-y-2 mt-2">
+                                    {/* Going to Delivery button */}
+                                    {shouldShowGoingToDelivery(order) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          markGoingToDelivery.mutate({ orderId: order.id });
+                                          toast({ title: "Going to Delivery" });
+                                        }}
+                                        className="w-full"
+                                        variant="outline"
+                                      >
+                                        Going to Delivery
+                                      </Button>
+                                    )}
+                                    
+                                    {/* At Delivery button - shows after 5 seconds or when BOL exists */}
+                                    {shouldShowAtDelivery(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          updatePickupDropArrival.mutate({
+                                            pickupDropId: stop.id,
+                                          });
+                                          toast({
+                                            title: "Marked as arrived at delivery",
+                                          });
+                                        }}
+                                        className="w-full"
+                                      >
+                                        Arrived at Delivery
+                                      </Button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </PopoverContent>
@@ -1102,16 +1187,36 @@ const Reports = () => {
                                   </div>
                                 </div>
                                 {stop.id && !stop.arrived_at && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      updatePickupDropArrival.mutate({ pickupDropId: stop.id });
-                                      toast({ title: "Marked as arrived at pickup" });
-                                    }}
-                                    className="w-full mt-2"
-                                  >
-                                    Arrived at Pickup
-                                  </Button>
+                                  <div className="space-y-2 mt-2">
+                                    {/* Going to Pickup button */}
+                                    {shouldShowGoingToPickup(order) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          markGoingToPickup.mutate({ orderId: order.id });
+                                          toast({ title: "Going to Pickup" });
+                                        }}
+                                        className="w-full"
+                                        variant="outline"
+                                      >
+                                        Going to Pickup
+                                      </Button>
+                                    )}
+                                    
+                                    {/* At Pickup button - shows after 5 seconds or when previous POD exists */}
+                                    {shouldShowAtPickup(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          updatePickupDropArrival.mutate({ pickupDropId: stop.id });
+                                          toast({ title: "Marked as arrived at pickup" });
+                                        }}
+                                        className="w-full"
+                                      >
+                                        Arrived at Pickup
+                                      </Button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </PopoverContent>
