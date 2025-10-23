@@ -118,7 +118,7 @@ const EditOrder = () => {
     const ton = parseFloat(tonuDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton - noTracking - wrongAddr;
+    return base + det + lay - late - ton - noTracking - wrongAddr;
   }, [
     driverPrice,
     detentionDriver,
