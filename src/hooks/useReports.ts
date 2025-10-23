@@ -223,6 +223,36 @@ export const useReports = () => {
         .eq('id', pickupDropId);
       if (error) throw error;
     },
+    onMutate: async ({ pickupDropId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['reports'] });
+      
+      // Optimistically update the cache
+      const previousData = queryClient.getQueryData(['reports']);
+      queryClient.setQueryData(['reports'], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => ({
+            ...truck,
+            allOrders: truck.allOrders?.map((order: any) => ({
+              ...order,
+              pickupStops: order.pickupStops?.map((stop: any) =>
+                stop.id === pickupDropId ? { ...stop, going_to_at: new Date().toISOString() } : stop
+              ),
+            })),
+          })),
+        }));
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['reports'], context.previousData);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
@@ -235,6 +265,36 @@ export const useReports = () => {
         .update({ going_to_at: new Date().toISOString() })
         .eq('id', pickupDropId);
       if (error) throw error;
+    },
+    onMutate: async ({ pickupDropId }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['reports'] });
+      
+      // Optimistically update the cache
+      const previousData = queryClient.getQueryData(['reports']);
+      queryClient.setQueryData(['reports'], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => ({
+            ...truck,
+            allOrders: truck.allOrders?.map((order: any) => ({
+              ...order,
+              deliveryStops: order.deliveryStops?.map((stop: any) =>
+                stop.id === pickupDropId ? { ...stop, going_to_at: new Date().toISOString() } : stop
+              ),
+            })),
+          })),
+        }));
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['reports'], context.previousData);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });

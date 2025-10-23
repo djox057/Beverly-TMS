@@ -421,12 +421,12 @@ const Reports = () => {
   const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
   const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
 
-  // Force re-render every second to update button visibility based on 5-second delays
+  // Force re-render every 5 seconds to update button visibility based on 5-second delays
   useEffect(() => {
     const interval = setInterval(() => {
-      // Invalidate to trigger button visibility updates
+      // Invalidate to trigger button visibility updates for the 5-second transition
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-    }, 1000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [queryClient]);
@@ -1651,8 +1651,28 @@ const Reports = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex items-center gap-4 mb-4">
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="border rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+              </div>
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                {[...Array(7)].map((_, idx) => (
+                  <div key={idx} className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
