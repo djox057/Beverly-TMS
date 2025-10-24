@@ -15,12 +15,12 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
 
     // Call our edge function to avoid CORS issues
     const response = await fetch(
-      'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/geocode-address',
+      'http://localhost:54321/functions/v1/geocode-address',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYxMTk1NjAwLCJleHAiOjE5MTg5NjIwMDB9.eE9k0yIst4LF-f5uLFJWRw0Zn-bX8OwczTnEcmahXqI'}`,
         },
         body: JSON.stringify({ address })
       }
