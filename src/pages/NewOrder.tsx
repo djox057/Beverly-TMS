@@ -982,20 +982,33 @@ const NewOrder = () => {
             const base64Content = base64data.split(',')[1]; // Remove data:application/pdf;base64, prefix
             
             // Call edge function to send email
-            const { error } = await supabase.functions.invoke('send-load-confirmation-email', {
-              body: {
-                to: selectedDriver.email,
-                from: emailConfig.sender,
-                cc: emailConfig.cc,
-                subject: subject,
-                bodyText: "Please see the rate confirmation attached below.",
-                attachmentBase64: base64Content,
-                attachmentFilename: generatedConfirmationFilename,
-                attachmentContentType: 'application/pdf'
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(
+              'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+                },
+                body: JSON.stringify({
+                  to: selectedDriver.email,
+                  from: emailConfig.sender,
+                  cc: emailConfig.cc,
+                  subject: subject,
+                  bodyText: "Please see the rate confirmation attached below.",
+                  attachmentBase64: base64Content,
+                  attachmentFilename: generatedConfirmationFilename,
+                  attachmentContentType: 'application/pdf'
+                })
               }
-            });
+            );
             
-            if (error) throw error;
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Error sending email:', errorText);
+              throw new Error('Failed to send email');
+            }
             
             setEmailSent(true);
             toast({

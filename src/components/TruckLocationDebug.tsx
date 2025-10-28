@@ -36,9 +36,21 @@ export const TruckLocationDebug = () => {
     try {
       // Make 3 consecutive calls to check for caching
       const calls = [];
+      const { data: { session } } = await supabase.auth.getSession();
       for (let i = 0; i < 3; i++) {
-        const { data, error } = await supabase.functions.invoke('samsara-locations');
-        if (error) throw error;
+        const response = await fetch(
+          'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/samsara-locations',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+            },
+            body: JSON.stringify({})
+          }
+        );
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
         const now = new Date();
         const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         calls.push({ callNumber: i + 1, data, timestamp });

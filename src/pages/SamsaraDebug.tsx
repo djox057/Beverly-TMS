@@ -12,9 +12,21 @@ const SamsaraDebug = () => {
   const fetchDebugData = async () => {
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('samsara-debug');
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/samsara-debug',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: JSON.stringify({})
+        }
+      );
       
-      if (error) {
+      if (!response.ok) {
+        const error = await response.text();
         console.error('Error fetching debug data:', error);
         toast({
           title: "Error",
@@ -24,6 +36,7 @@ const SamsaraDebug = () => {
         return;
       }
       
+      const result = await response.json();
       setData(result);
       console.log('Samsara Debug Data:', result);
     } catch (error) {

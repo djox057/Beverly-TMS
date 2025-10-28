@@ -14,19 +14,30 @@ export const TestHosSync = () => {
     setLoading(true);
     try {
       console.log('Calling HOS sync function...');
-      const { data, error } = await supabase.functions.invoke('hos-sync', {
-        body: {}
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/hos-sync',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: JSON.stringify({})
+        }
+      );
 
-      if (error) {
-        console.error('Function error:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Function error:', errorText);
         toast({
           title: "Error",
-          description: `HOS sync failed: ${error.message}`,
+          description: `HOS sync failed: ${errorText}`,
           variant: "destructive"
         });
-        setResult({ error: error.message });
+        setResult({ error: errorText });
       } else {
+        const data = await response.json();
         console.log('Function success:', data);
         toast({
           title: "Success",
@@ -51,19 +62,30 @@ export const TestHosSync = () => {
     setDebugLoading(true);
     try {
       console.log('Calling HOS debug function...');
-      const { data, error } = await supabase.functions.invoke('hos-debug', {
-        body: {}
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/hos-debug',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: JSON.stringify({})
+        }
+      );
 
-      if (error) {
-        console.error('Debug function error:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Debug function error:', errorText);
         toast({
           title: "Error",
-          description: `HOS debug failed: ${error.message}`,
+          description: `HOS debug failed: ${errorText}`,
           variant: "destructive"
         });
-        setDebugResult({ error: error.message });
+        setDebugResult({ error: errorText });
       } else {
+        const data = await response.json();
         console.log('Debug function success:', data);
         toast({
           title: "Success",

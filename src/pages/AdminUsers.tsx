@@ -145,19 +145,30 @@ const AdminUsers = () => {
       }
 
       // Use admin-only edge function to create user
-      const { data, error } = await supabase.functions.invoke('create-user', {
-        body: { 
-          email, 
-          password, 
-          fullName: fullName || email, 
-          role 
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/create-user',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ 
+            email, 
+            password, 
+            fullName: fullName || email, 
+            role 
+          })
         }
-      });
-      
-      if (error) throw error;
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error creating user:', errorText);
+        throw new Error('Failed to create user');
+      }
+
+      const data = await response.json();
       
       // Check if the function returned an error in the response
       if (data?.error) {
@@ -202,14 +213,25 @@ const AdminUsers = () => {
         throw new Error('No active session');
       }
 
-      const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: userToDelete.user_id },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/delete-user',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ userId: userToDelete.user_id })
         }
-      });
-      
-      if (error) throw error;
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error deleting user:', errorText);
+        throw new Error('Failed to delete user');
+      }
+
+      const data = await response.json();
       
       // Check if the function returned an error in the response
       if (data?.error) {
@@ -254,17 +276,28 @@ const AdminUsers = () => {
       }
 
       // Update role via edge function with explicit auth header
-      const { data, error } = await supabase.functions.invoke('update-user-role', {
-        body: { 
-          userId: userToEdit.user_id,
-          role: editRole
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/update-user-role',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ 
+            userId: userToEdit.user_id,
+            role: editRole
+          })
         }
-      });
-      
-      if (error) throw error;
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error updating role:', errorText);
+        throw new Error('Failed to update role');
+      }
+
+      const data = await response.json();
       
       if (data?.error) {
         throw new Error(data.error);
@@ -309,13 +342,25 @@ const AdminUsers = () => {
         throw new Error('No active session');
       }
 
-      const { data, error } = await supabase.functions.invoke('logout-all-users', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/logout-all-users',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({})
         }
-      });
-      
-      if (error) throw error;
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error logging out all users:', errorText);
+        throw new Error('Failed to logout all users');
+      }
+
+      const data = await response.json();
       
       if (data?.error) {
         throw new Error(data.error);
