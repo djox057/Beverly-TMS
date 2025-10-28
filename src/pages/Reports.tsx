@@ -438,7 +438,7 @@ const Reports = () => {
       brokerLoadNumber: order.loadDetails.brokerLoadNumber,
       allPickupStops: order.pickupStops || [],
       allDeliveryStops: order.deliveryStops || [],
-      documents: order.loadDetails.documents || [],
+      documents: (order.loadDetails.documents || []).map((d: any) => d.category),
       notes: order.loadDetails.notes,
       truckNumber: truck.truckNumber,
       driverNames: truck.driverNames,
