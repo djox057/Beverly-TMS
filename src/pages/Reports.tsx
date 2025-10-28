@@ -363,6 +363,17 @@ const Reports = () => {
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
   const [loadNumberFilter, setLoadNumberFilter] = useState("");
+  const [zoomedLoad, setZoomedLoad] = useState<{
+    orderId: string;
+    loadNumber: string;
+    brokerLoadNumber: string;
+    allPickupStops: any[];
+    allDeliveryStops: any[];
+    documents: string[];
+    notes: string;
+    truckNumber: string;
+    driverNames: string;
+  } | null>(null);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -415,6 +426,24 @@ const Reports = () => {
     // Show if (has BOL OR Going to Delivery clicked) AND 5 seconds have passed
     return (hasBOL || (goingToDeliveryClicked && fiveSecondsPassed));
   };
+
+  // Helper to get all load details for zoom dialog
+  const getLoadDetailsForZoom = useCallback((orderId: string, truck: any) => {
+    const order = truck.allOrders?.find((o: any) => o.id === orderId);
+    if (!order) return null;
+    
+    return {
+      orderId: order.id,
+      loadNumber: order.loadDetails.loadNumber,
+      brokerLoadNumber: order.loadDetails.brokerLoadNumber,
+      allPickupStops: order.pickupStops || [],
+      allDeliveryStops: order.deliveryStops || [],
+      documents: order.loadDetails.documents || [],
+      notes: order.loadDetails.notes,
+      truckNumber: truck.truckNumber,
+      driverNames: truck.driverNames,
+    };
+  }, []);
 
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
@@ -970,8 +999,12 @@ const Reports = () => {
                       return (
                         <div
                           key={`delivery-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`}
                           style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                            if (loadDetails) setZoomedLoad(loadDetails);
+                          }}
                         >
                           <div
                             className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
@@ -989,6 +1022,7 @@ const Reports = () => {
                                 variant="ghost"
                                 size="sm"
                                 className={`absolute top-[6%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <Info className="h-2 w-2" />
                               </Button>
@@ -1123,8 +1157,12 @@ const Reports = () => {
                       return (
                         <div
                           key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
-                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full`}
+                          className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`}
                           style={totalCellsOnDay > 1 ? { width: `${100 / totalCellsOnDay}%` } : {}}
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                            if (loadDetails) setZoomedLoad(loadDetails);
+                          }}
                         >
                           <div
                             className={`${totalCellsOnDay > 1 ? "text-[7px]" : "text-[9px]"} font-medium leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
@@ -1142,6 +1180,7 @@ const Reports = () => {
                                 variant="ghost"
                                 size="sm"
                                 className={`absolute top-[7%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <Info className="h-2 w-2" />
                               </Button>
@@ -2602,6 +2641,285 @@ const Reports = () => {
         open={!!historyDialogTruckId}
         onOpenChange={(open) => !open && setHistoryDialogTruckId(null)}
       />
+
+      {/* Load Zoom Dialog */}
+      <Dialog open={!!zoomedLoad} onOpenChange={(open) => !open && setZoomedLoad(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <div className="text-lg font-semibold">
+                  Load #{zoomedLoad?.loadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
+                </div>
+                <div className="text-sm text-muted-foreground font-normal">
+                  Truck {zoomedLoad?.truckNumber} • {zoomedLoad?.driverNames}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (zoomedLoad?.orderId) {
+                    navigate(`/edit-order/${zoomedLoad.orderId}`);
+                    setZoomedLoad(null);
+                  }
+                }}
+                className="shrink-0"
+              >
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit Order
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid md:grid-cols-2 gap-6 mt-4">
+            {/* Pickup Stops Column */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                PICKUP STOPS
+              </h3>
+              {zoomedLoad?.allPickupStops && zoomedLoad.allPickupStops.length > 0 ? (
+                <div className="space-y-3">
+                  {zoomedLoad.allPickupStops.map((stop: any, idx: number) => {
+                    const order = { 
+                      order_files: zoomedLoad.documents.map((cat: string) => ({ file_category: cat })),
+                      id: zoomedLoad.orderId 
+                    };
+                    const previousComplete = idx > 0 && zoomedLoad.allPickupStops[idx - 1].arrived_at;
+                    
+                    // Determine card color based on status
+                    let cardBgClass = "bg-muted";
+                    if (stop.arrived_at) {
+                      cardBgClass = "bg-blue-500/20 border-blue-500/50";
+                    } else if (zoomedLoad.documents.includes("POD")) {
+                      cardBgClass = "bg-green-500/20 border-green-500/50";
+                    } else if (zoomedLoad.documents.includes("BOL")) {
+                      cardBgClass = "bg-lime-500/20 border-lime-500/50";
+                    }
+
+                    return (
+                      <div
+                        key={stop.id || idx}
+                        className={`p-4 rounded-lg border-2 shadow-sm ${cardBgClass}`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="text-sm text-muted-foreground font-medium">
+                            Stop #{idx + 1}
+                          </div>
+                          {stop.arrived_at && (
+                            <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm font-semibold">
+                              <Check className="h-4 w-4" />
+                              Arrived
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-base font-semibold">
+                            {stop.address}
+                          </div>
+                          <div className="text-base">
+                            {stop.city}, {stop.state} {stop.zip_code}
+                          </div>
+                          <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                            <Clock className="h-4 w-4" />
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
+                          </div>
+                          {stop.arrived_at && (
+                            <div className="text-sm text-green-600 dark:text-green-400">
+                              Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
+                            </div>
+                          )}
+                        </div>
+
+                        {stop.id && !stop.arrived_at && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            {shouldShowGoingToPickup(order, stop) && (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  markGoingToPickup.mutate({ pickupDropId: stop.id });
+                                  toast({ title: "Going to Pickup" });
+                                }}
+                                className="w-full"
+                              >
+                                Going to Pickup
+                              </Button>
+                            )}
+                            
+                            {shouldShowAtPickup(order, stop) && (
+                              <Button
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: stop.id });
+                                  toast({ title: "Marked as arrived at pickup" });
+                                }}
+                                className="w-full"
+                              >
+                                Arrived at Pickup
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm p-4 bg-muted rounded-lg">
+                  No pickup stops
+                </div>
+              )}
+            </div>
+
+            {/* Delivery Stops Column */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                DELIVERY STOPS
+              </h3>
+              {zoomedLoad?.allDeliveryStops && zoomedLoad.allDeliveryStops.length > 0 ? (
+                <div className="space-y-3">
+                  {zoomedLoad.allDeliveryStops.map((stop: any, idx: number) => {
+                    const order = { 
+                      order_files: zoomedLoad.documents.map((cat: string) => ({ file_category: cat })),
+                      id: zoomedLoad.orderId 
+                    };
+
+                    // Determine card color based on status
+                    let cardBgClass = "bg-muted";
+                    if (stop.arrived_at) {
+                      cardBgClass = "bg-blue-500/20 border-blue-500/50";
+                    } else if (zoomedLoad.documents.includes("POD")) {
+                      cardBgClass = "bg-green-500/20 border-green-500/50";
+                    } else if (zoomedLoad.documents.includes("BOL")) {
+                      cardBgClass = "bg-lime-500/20 border-lime-500/50";
+                    }
+
+                    // Check if delivery is late
+                    const deliveryTime = new Date(stop.datetime);
+                    const now = new Date();
+                    const isLate = !stop.arrived_at && !zoomedLoad.documents.includes("POD") && deliveryTime < now;
+                    if (isLate) {
+                      cardBgClass = "bg-red-500/20 border-red-500/50";
+                    }
+
+                    return (
+                      <div
+                        key={stop.id || idx}
+                        className={`p-4 rounded-lg border-2 shadow-sm ${cardBgClass}`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="text-sm text-muted-foreground font-medium">
+                            Stop #{idx + 1}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isLate && (
+                              <div className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm font-semibold">
+                                <AlertCircle className="h-4 w-4" />
+                                Late
+                              </div>
+                            )}
+                            {stop.arrived_at && (
+                              <div className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm font-semibold">
+                                <Check className="h-4 w-4" />
+                                Arrived
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-base font-semibold">
+                            {stop.address}
+                          </div>
+                          <div className="text-base">
+                            {stop.city}, {stop.state} {stop.zip_code}
+                          </div>
+                          <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                            <Clock className="h-4 w-4" />
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
+                          </div>
+                          {stop.arrived_at && (
+                            <div className="text-sm text-green-600 dark:text-green-400">
+                              Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
+                            </div>
+                          )}
+                        </div>
+
+                        {stop.id && !stop.arrived_at && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            {shouldShowGoingToDelivery(order, stop) && (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  markGoingToDelivery.mutate({ pickupDropId: stop.id });
+                                  toast({ title: "Going to Delivery" });
+                                }}
+                                className="w-full"
+                              >
+                                Going to Delivery
+                              </Button>
+                            )}
+                            
+                            {shouldShowAtDelivery(order, stop) && (
+                              <Button
+                                onClick={() => {
+                                  updatePickupDropArrival.mutate({ pickupDropId: stop.id });
+                                  toast({ title: "Marked as arrived at delivery" });
+                                }}
+                                className="w-full"
+                              >
+                                Arrived at Delivery
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-muted-foreground text-sm p-4 bg-muted rounded-lg">
+                  No delivery stops
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Section - Documents and Notes */}
+          <div className="mt-6 space-y-4 pt-4 border-t">
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Documents Status</h4>
+              <div className="flex gap-2 flex-wrap">
+                {["RC", "BOL", "POD"].map((doc) => (
+                  <span
+                    key={doc}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                      zoomedLoad?.documents.includes(doc)
+                        ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/50"
+                        : "bg-muted text-muted-foreground border border-border"
+                    }`}
+                  >
+                    {doc}
+                    {zoomedLoad?.documents.includes(doc) && (
+                      <Check className="inline h-3 w-3 ml-1" />
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {zoomedLoad?.notes && zoomedLoad.notes !== "—" && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Load Notes</h4>
+                <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+                  {zoomedLoad.notes}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
