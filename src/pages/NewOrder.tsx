@@ -210,22 +210,23 @@ const NewOrder = () => {
   // Pre-select BF Prime company as default
   useEffect(() => {
     console.log('🏢 Companies effect triggered', { 
-      filteredCompaniesCount: filteredCompanies?.length, 
+      companiesCount: companies?.length, 
       bookedByCompany,
       companiesLoading,
       companiesError: companiesError?.message 
     });
     
-    if (filteredCompanies && filteredCompanies.length > 0 && !bookedByCompany) {
-      const bfPrime = filteredCompanies.find(c => c.name === 'BF Prime');
+    // Wait for companies to load and only set if not already selected
+    if (!companiesLoading && companies && companies.length > 0 && !bookedByCompany) {
+      const bfPrime = companies.find(c => c.name === 'BF Prime');
       if (bfPrime) {
         console.log('🏢 Auto-selecting BF Prime company:', bfPrime.id);
         setBookedByCompany(bfPrime.id);
       } else {
-        console.log('🏢 BF Prime not found, available companies:', filteredCompanies.map(c => c.name));
+        console.log('🏢 BF Prime not found, available companies:', companies.map(c => c.name));
       }
     }
-  }, [filteredCompanies, bookedByCompany, companiesLoading, companiesError]);
+  }, [companies, bookedByCompany, companiesLoading, companiesError]);
 
   // Initialize with one pickup and one delivery
   useEffect(() => {
@@ -259,9 +260,8 @@ const NewOrder = () => {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
         // Only autofill trailer if not manually edited
-        if (!trailerManuallyEdited) {
-          const trailerNumber = selectedTruck.trailer?.trailer_number || '';
-          setTrailer(trailerNumber);
+        if (!trailerManuallyEdited && selectedTruck.trailer_id) {
+          setTrailer(selectedTruck.trailer_id);
         }
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
