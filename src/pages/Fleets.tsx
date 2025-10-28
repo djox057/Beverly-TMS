@@ -396,8 +396,8 @@ const Fleets = () => {
                         )}
                       </div>
                       
-                      {/* Off Duty Toggle - Only visible to managers and admins */}
-                      {(hasRole('manager') || hasRole('admin')) && (
+                      {/* Off Duty Toggle - Hidden only for dispatch role */}
+                      {!hasRole('dispatch') && (
                         <div className="flex items-center gap-2">
                           <Badge 
                             variant={dispatcherFleet.isActive ? "default" : "secondary"}
