@@ -102,9 +102,10 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error in logout-all-users function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to log off users';
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to log off users',
+        error: errorMessage,
         success: false 
       }),
       { 

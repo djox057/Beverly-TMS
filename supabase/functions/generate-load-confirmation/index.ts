@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PDFDocument } from "https://cdn.skypack.dev/pdf-lib@1.17.1";
+import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
 
 const corsHeaders = {
@@ -509,7 +509,7 @@ serve(async (req) => {
     // Format: #3869 Samuel // 9-25-2025 // Load#2002255693 // MO - LA
     const filename = `#${data.truckNumber} ${driverFirstName} // ${todayFormatted} // Load#${data.brokerLoadNumber} // ${pickupState} - ${deliveryState}.pdf`;
 
-    return new Response(pdfBytes, {
+    return new Response(pdfBytes as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/pdf',
@@ -519,8 +519,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error generating load confirmation:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

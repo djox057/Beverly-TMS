@@ -60,8 +60,8 @@ async function geocodeAddress(address: string): Promise<Coordinates | null> {
  * Calculate route distance using OSRM
  */
 async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<number | null> {
+  const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
   try {
-    const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
     console.log(`${truckPrefix}📍 Calling OSRM: https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`);
     
     const response = await fetch(
@@ -119,14 +119,15 @@ async function calculateDistanceFromTruck(
       console.log('📍 Using terminal coordinates:', targetCoords);
     } else {
       console.log('🌐 Geocoding address...');
-      targetCoords = await geocodeAddress(targetAddress);
-      console.log('🌐 Geocode result:', targetCoords);
+      const geocodedCoords = await geocodeAddress(targetAddress);
+      console.log('🌐 Geocode result:', geocodedCoords);
       
-      if (!targetCoords) {
+      if (!geocodedCoords) {
         console.error('❌ GEOCODING FAILED for:', targetAddress);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
         return null;
       }
+      targetCoords = geocodedCoords;
     }
 
     const truckCoords: Coordinates = {
@@ -452,10 +453,11 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: errorMessage 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

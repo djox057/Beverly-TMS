@@ -13,6 +13,7 @@ interface SamsaraVehicle {
     latitude: number;
     longitude: number;
     time: string;
+    speed?: number;
   };
   location?: {
     latitude: number;
@@ -20,6 +21,7 @@ interface SamsaraVehicle {
     time: string;
     speed?: number;
   };
+  apiKeyIndex?: number;
 }
 
 interface TruckLocation {
@@ -200,8 +202,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in samsara-locations function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
