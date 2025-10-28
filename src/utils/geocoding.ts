@@ -9,31 +9,18 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
   }
 
   try {
-    // Import Supabase client dynamically to get the auth token
+    // Call our edge function through Supabase client
     const { supabase } = await import('@/integrations/supabase/client');
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('geocode-address', {
+      body: { address }
+    });
 
-    // Call our edge function to avoid CORS issues
-    const response = await fetch(
-      'http://localhost:54321/functions/v1/geocode-address',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYxMTk1NjAwLCJleHAiOjE5MTg5NjIwMDB9.eE9k0yIst4LF-f5uLFJWRw0Zn-bX8OwczTnEcmahXqI'}`,
-        },
-        body: JSON.stringify({ address })
-      }
-    );
-
-    if (!response.ok) {
-      console.error('Geocoding failed:', response.statusText);
+    if (error) {
+      console.error('Geocoding failed:', error);
       return null;
     }
 
-    const data = await response.json();
-    
-    if (data.success) {
+    if (data?.success) {
       return {
         latitude: data.latitude,
         longitude: data.longitude
