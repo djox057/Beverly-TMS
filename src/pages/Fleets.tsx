@@ -396,8 +396,8 @@ const Fleets = () => {
                         )}
                       </div>
                       
-                      {/* Off Duty Toggle - Hidden only for dispatch role */}
-                      {!hasRole('dispatch') && (
+                      {/* Off Duty Toggle - Only visible to managers and admins */}
+                      {(hasRole('manager') || hasRole('admin')) && (
                         <div className="flex items-center gap-2">
                           <Badge 
                             variant={dispatcherFleet.isActive ? "default" : "secondary"}
@@ -513,26 +513,24 @@ const Fleets = () => {
                                     </div>
                                   </div>
                                 </div>
-                                {!hasRole('dispatch') && (
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                    >
-                                      <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                      Switch
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleRemoveDriver(driver.id)}
-                                    >
-                                      <Minus className="h-4 w-4 mr-1" />
-                                      Remove
-                                    </Button>
-                                  </div>
-                                )}
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                  >
+                                    <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                    Switch
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRemoveDriver(driver.id)}
+                                  >
+                                    <Minus className="h-4 w-4 mr-1" />
+                                    Remove
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </Draggable>
