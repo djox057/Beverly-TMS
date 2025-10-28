@@ -603,23 +603,34 @@ const NewOrder = () => {
       
       console.log('Calling extract-order-fields edge function...');
       
-      const response = await supabase.functions.invoke('extract-order-fields', {
-        body: formData,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: formData
+        }
+      );
 
-      console.log('Edge function response:', response);
+      console.log('Edge function response status:', response.status);
 
-      if (response.error) {
-        console.error('Edge function error:', response.error);
-        throw new Error(response.error.message || 'Edge function failed');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Edge function error:', errorText);
+        throw new Error(`Edge function failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+
+      if (!data?.success) {
+        console.error('Extraction failed:', data?.error);
+        throw new Error(data?.error || 'Failed to extract data');
       }
 
-      if (!response.data?.success) {
-        console.error('Extraction failed:', response.data?.error);
-        throw new Error(response.data?.error || 'Failed to extract data');
-      }
-
-      const extractedData = response.data.data;
+      const extractedData = data.data;
       console.log('Successfully extracted data:', extractedData);
       
       // Auto-fill broker if matched
@@ -897,7 +908,7 @@ const NewOrder = () => {
 
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted ${response.data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? ' (Multi-drop load detected)' : ''}. Please review and adjust as needed.`
+        description: `Extracted ${data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? ' (Multi-drop load detected)' : ''}. Please review and adjust as needed.`
       });
 
     } catch (error: any) {
