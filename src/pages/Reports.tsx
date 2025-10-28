@@ -2889,22 +2889,24 @@ const Reports = () => {
           {/* Bottom Section - Documents and Notes */}
           <div className="mt-6 space-y-4 pt-4 border-t">
             <div>
-              <h4 className="text-sm font-semibold mb-2">Documents Status</h4>
-              <div className="flex gap-2 flex-wrap">
+              <h4 className="text-sm font-semibold mb-3">Document Status</h4>
+              <div className="flex gap-3 flex-wrap">
                 {["RC", "BOL", "POD"].map((doc) => (
-                  <span
+                  <div
                     key={doc}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
                       zoomedLoad?.documents.includes(doc)
-                        ? "bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/50"
-                        : "bg-muted text-muted-foreground border border-border"
+                        ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))]"
+                        : "bg-card text-muted-foreground border-border"
                     }`}
                   >
-                    {doc}
-                    {zoomedLoad?.documents.includes(doc) && (
-                      <Check className="inline h-3 w-3 ml-1" />
-                    )}
-                  </span>
+                    <div className="flex items-center gap-2">
+                      {zoomedLoad?.documents.includes(doc) && (
+                        <Check className="h-4 w-4" />
+                      )}
+                      <span>{doc}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
