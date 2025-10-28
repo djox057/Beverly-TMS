@@ -35,8 +35,11 @@ export const useTrucks = () => {
           
           if (error) {
             console.error('❌ Error fetching trucks:', error);
+            console.error('❌ Full error details:', JSON.stringify(error, null, 2));
             throw error;
           }
+          
+          console.log('✅ Raw truck data sample:', JSON.stringify(data?.[0], null, 2));
           
           if (!data || data.length === 0) break;
           
