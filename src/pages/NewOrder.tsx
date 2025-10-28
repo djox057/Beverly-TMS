@@ -260,8 +260,8 @@ const NewOrder = () => {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
         // Only autofill trailer if not manually edited
-        if (!trailerManuallyEdited && selectedTruck.trailer_id) {
-          setTrailer(selectedTruck.trailer_id);
+        if (!trailerManuallyEdited && selectedTruck.trailer?.trailer_number) {
+          setTrailer(selectedTruck.trailer.trailer_number);
         }
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
