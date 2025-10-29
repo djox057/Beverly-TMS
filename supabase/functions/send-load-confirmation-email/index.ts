@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "https://esm.sh/resend@4.0.1";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -75,25 +76,18 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError?.message || 'No file data'}`);
     }
 
-    // Convert Blob to ArrayBuffer
-    const arrayBuffer = await fileData.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
-    // Convert to base64 string
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.slice(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    const base64Content = btoa(binary);
-    
-    console.log(`✅ File converted to base64: ${base64Content.length} characters`);
+    console.log(`✅ File downloaded: ${fileData.size} bytes`);
 
-    console.log('📧 Calling Resend API directly...');
+    // Convert Blob to ArrayBuffer and then to Uint8Array
+    const arrayBuffer = await fileData.arrayBuffer();
+    const fileBytes = new Uint8Array(arrayBuffer);
     
-    // Call Resend API directly using fetch instead of SDK
-    const emailPayload = {
+    console.log(`✅ File converted to Uint8Array: ${fileBytes.length} bytes`);
+
+    // Use Resend SDK - it will handle the base64 encoding internally
+    console.log('📧 Calling Resend API via SDK...');
+    
+    const emailResponse = await resend.emails.send({
       from: from,
       to: [to],
       cc: cc ? [cc] : undefined,
@@ -113,27 +107,10 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: base64Content,
+          content: fileBytes,
         }
       ]
-    };
-
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify(emailPayload),
     });
-
-    if (!resendResponse.ok) {
-      const errorText = await resendResponse.text();
-      console.error('❌ Resend API error:', errorText);
-      throw new Error(`Resend API error: ${errorText}`);
-    }
-
-    const emailResponse = await resendResponse.json();
 
     console.log('✅ ========================================');
     console.log('✅ EMAIL SENT SUCCESSFULLY');
@@ -159,7 +136,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('❌ Error Message:', error.message);
     console.error('❌ Error Stack:', error.stack);
     if (error.response) {
-      console.error('❌ Resend API Response:', error.response);
+      console.error('❌ Resend API Response:', JSON.stringify(error.response, null, 2));
     }
     console.error('❌ ========================================');
     
