@@ -65,11 +65,11 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing storage path for attachment');
     }
 
-    // Generate a signed URL for the attachment (valid for 5 minutes)
-    console.log('🔗 Generating signed URL for attachment...');
+    // Generate a signed URL for download (valid for 24 hours)
+    console.log('🔗 Generating signed download URL...');
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('email-attachments')
-      .createSignedUrl(storagePath, 300); // 300 seconds = 5 minutes
+      .createSignedUrl(storagePath, 86400); // 24 hours
 
     if (signedUrlError || !signedUrlData) {
       console.error('❌ Signed URL error:', signedUrlError);
@@ -78,8 +78,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`✅ Signed URL created: ${signedUrlData.signedUrl}`);
 
-    // Use Resend SDK with path instead of content - let Resend download the file
-    console.log('📧 Calling Resend API via SDK with signed URL...');
+    // Send email with download link instead of attachment - bypass all encoding issues
+    console.log('📧 Sending email with download link...');
     
     const emailResponse = await resend.emails.send({
       from: from,
@@ -92,18 +92,22 @@ const handler = async (req: Request): Promise<Response> => {
             ${bodyText}
           </p>
           <br/>
+          <div style="margin: 20px 0;">
+            <a href="${signedUrlData.signedUrl}" 
+               style="background-color: #0070f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              📄 Download ${attachmentFilename}
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #999;">
+            This download link is valid for 24 hours.
+          </p>
+          <br/>
           <p style="font-size: 14px; color: #666;">
             Best regards,<br/>
             Dispatch Team
           </p>
         </div>
       `,
-      attachments: [
-        {
-          filename: attachmentFilename,
-          path: signedUrlData.signedUrl, // Use path instead of content
-        }
-      ]
     });
 
     console.log('✅ ========================================');
