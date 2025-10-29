@@ -27,8 +27,6 @@ import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Fuse from 'fuse.js';
-import { useBrokers } from "@/hooks/useBrokers";
 
 interface PickupDrop {
   id: string;
@@ -144,7 +142,6 @@ const NewOrder = () => {
   const { data: companies, isLoading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
   const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
-  const { data: allBrokers, isLoading: brokersLoading } = useBrokers();
   
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   // First, get the list of driver IDs assigned to this dispatcher
@@ -608,7 +605,7 @@ const NewOrder = () => {
       
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/pdf-extract-test`,
+        `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`,
         {
           method: 'POST',
           headers: {
@@ -623,11 +620,6 @@ const NewOrder = () => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Edge function error:', errorText);
-        
-        if (response.status === 429) {
-          throw new Error('AI rate limit exceeded. Please wait a moment and try again.');
-        }
-        
         throw new Error(`Edge function failed with status ${response.status}`);
       }
       
@@ -641,42 +633,21 @@ const NewOrder = () => {
       const extractedData = data.data;
       console.log('Successfully extracted data:', extractedData);
       
-      // Frontend broker matching using AI candidates
-      if (extractedData.brokerNameCandidates && extractedData.brokerNameCandidates.length > 0 && allBrokers) {
-        console.log('🔍 Matching broker candidates:', extractedData.brokerNameCandidates);
-        
-        // Use Fuse.js for fuzzy matching
-        const fuse = new Fuse(allBrokers, {
-          keys: ['name', 'address'],
-          threshold: 0.3, // Lower = stricter matching
-          ignoreLocation: true,
+      // Auto-fill broker if matched
+      if (extractedData.matchedBrokerId) {
+        console.log('✅ Auto-filling broker with matched ID:', extractedData.matchedBrokerId);
+        setBroker(extractedData.matchedBrokerId);
+        toast({
+          title: "Broker Matched",
+          description: `Automatically matched broker: ${extractedData.brokerName || 'from database'}`,
         });
-        
-        // Try to match each candidate
-        let bestMatch: any = null;
-        for (const candidateName of extractedData.brokerNameCandidates) {
-          const results = fuse.search(candidateName);
-          if (results.length > 0 && results[0].score !== undefined && results[0].score < 0.3) {
-            bestMatch = results[0].item;
-            console.log(`✅ Matched "${candidateName}" to "${bestMatch.name}" (score: ${results[0].score})`);
-            break;
-          }
-        }
-        
-        if (bestMatch) {
-          setBroker(bestMatch.id);
-          toast({
-            title: "Broker Matched",
-            description: `Automatically matched: ${bestMatch.name}`,
-          });
-        } else {
-          console.log('⚠️ No broker match found for candidates:', extractedData.brokerNameCandidates);
-          toast({
-            title: "Broker Not Matched",
-            description: `Extracted "${extractedData.brokerNameCandidates[0]}" but couldn't find a match. Please select manually.`,
-            variant: "destructive",
-          });
-        }
+      } else if (extractedData.brokerName) {
+        console.log('⚠️ Broker extracted but not matched:', extractedData.brokerName);
+        toast({
+          title: "Broker Not Matched",
+          description: `Extracted broker "${extractedData.brokerName}" but couldn't find a match in database. Please select manually.`,
+          variant: "destructive",
+        });
       }
       
       // Populate form fields with extracted data
