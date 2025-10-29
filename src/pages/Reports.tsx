@@ -16,6 +16,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Info,
   Clock,
   Maximize2,
   XCircle,
@@ -1014,6 +1015,98 @@ const Reports = () => {
                             className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
                           >
                             {formatTime(stop.datetime)}
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`absolute top-[6%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[102]">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-semibold">Load Information</h4>
+                                </div>
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold">• Load #: {order.loadDetails.loadNumber}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2"
+                                        onClick={() => navigate(`/edit-order/${order.id}`)}
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <p className="ml-4">
+                                      • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
+                                    </p>
+                                    <p className="ml-4 font-semibold">• Delivery Stop:</p>
+                                    <p className="ml-8">
+                                      - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at{" "}
+                                      {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
+                                    </p>
+                                    {stop.arrived_at && (
+                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
+                                        ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                      </p>
+                                    )}
+                                    <p className="ml-4">
+                                      • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
+                                    </p>
+                                    {order.loadDetails.notes !== "—" && (
+                                      <p className="ml-4 text-sm font-bold">
+                                        • <strong>Notes:</strong> {order.loadDetails.notes}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {stop.id && !stop.arrived_at && (
+                                  <div className="space-y-2 mt-2">
+                                    {/* Going to Delivery button */}
+                                    {shouldShowGoingToDelivery(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          markGoingToDelivery.mutate({ pickupDropId: stop.id });
+                                          toast({ title: "Going to Delivery" });
+                                        }}
+                                        className="w-full"
+                                        variant="outline"
+                                      >
+                                        Going to Delivery
+                                      </Button>
+                                    )}
+                                    
+                                    {/* At Delivery button - shows after 5 seconds or when BOL exists */}
+                                    {shouldShowAtDelivery(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          updatePickupDropArrival.mutate({
+                                            pickupDropId: stop.id,
+                                          });
+                                          toast({
+                                            title: "Marked as arrived at delivery",
+                                          });
+                                        }}
+                                        className="w-full"
+                                      >
+                                        Arrived at Delivery
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       );
                     });
@@ -1080,6 +1173,92 @@ const Reports = () => {
                             className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}
                           >
                             {formatTime(stop.datetime)}
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`absolute top-[7%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Info className="h-2 w-2" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 z-[102]">
+                              <div className="space-y-2 text-sm">
+                                <h4 className="font-semibold">Load Information</h4>
+                                <div className="space-y-3">
+                                  <div>
+                                    <div className="flex items-center justify-between">
+                                      <p className="font-semibold">• Load #: {order.loadDetails.loadNumber}</p>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2"
+                                        onClick={() => navigate(`/edit-order/${order.id}`)}
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <p className="ml-4">
+                                      • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
+                                    </p>
+                                    <p className="ml-4 font-semibold">• Pickup Stop:</p>
+                                    <p className="ml-8">
+                                      - {stop.address}, {stop.city}, {stop.state} {stop.zip_code} at{" "}
+                                      {formatDateTime(stop.datetime, "MM/dd, HH:mm")}
+                                    </p>
+                                    {stop.arrived_at && (
+                                      <p className="ml-8 text-green-600 dark:text-green-400 font-medium text-xs">
+                                        ✓ Arrived: {formatDateTime(stop.arrived_at, "MM/dd, HH:mm")}
+                                      </p>
+                                    )}
+                                    <p className="ml-4">
+                                      • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
+                                    </p>
+                                    {order.loadDetails.notes !== "—" && (
+                                      <p className="ml-4 text-sm font-bold">
+                                        • <strong>Notes:</strong> {order.loadDetails.notes}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {stop.id && !stop.arrived_at && (
+                                  <div className="space-y-2 mt-2">
+                                    {/* Going to Pickup button */}
+                                    {shouldShowGoingToPickup(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          markGoingToPickup.mutate({ pickupDropId: stop.id });
+                                          toast({ title: "Going to Pickup" });
+                                        }}
+                                        className="w-full"
+                                        variant="outline"
+                                      >
+                                        Going to Pickup
+                                      </Button>
+                                    )}
+                                    
+                                    {/* At Pickup button - shows after 5 seconds or when previous POD exists */}
+                                    {shouldShowAtPickup(order, stop) && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => {
+                                          updatePickupDropArrival.mutate({ pickupDropId: stop.id });
+                                          toast({ title: "Marked as arrived at pickup" });
+                                        }}
+                                        className="w-full"
+                                      >
+                                        Arrived at Pickup
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       );
                     });
@@ -1124,6 +1303,90 @@ const Reports = () => {
                         >
                           {order.pickup_datetime ? formatTime(order.pickup_datetime) : "—"} /{" "}
                           {order.delivery_datetime ? formatTime(order.delivery_datetime) : "—"}
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`absolute top-[7%] ${isToday ? "right-[7%]" : "right-[1.5%]"} h-2.5 w-2.5 p-0 hover:bg-background/20`}
+                            >
+                              <Info className="h-2 w-2" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 z-[102]">
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold">Same-Day Load Information</h4>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2"
+                                  onClick={() => navigate(`/edit-order/${order.id}`)}
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="space-y-1">
+                                <p>
+                                  • <strong>Load #:</strong> {order.loadDetails.loadNumber}
+                                </p>
+                                <p>
+                                  • <strong>Broker Load #:</strong> {order.loadDetails.brokerLoadNumber}
+                                </p>
+                                {order.loadDetails.allPickupStops && order.loadDetails.allPickupStops.length > 0 && (
+                                  <>
+                                    <p className="font-semibold">
+                                      • Pickups ({order.loadDetails.allPickupStops.length}):
+                                    </p>
+                                    {order.loadDetails.allPickupStops.map((pickup, pIdx) => (
+                                      <div key={`pickup-${pIdx}`}>
+                                        <p className="ml-4">
+                                          - {pickup.address}, {pickup.city}, {pickup.state} {pickup.zipCode} at{" "}
+                                          {formatDateTime(pickup.datetime, "MM/dd, HH:mm")}
+                                        </p>
+                                        {pickup.arrived_at && (
+                                          <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
+                                            ✓ Arrived: {formatDateTime(pickup.arrived_at, "MM/dd, HH:mm")}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </>
+                                )}
+                                {order.loadDetails.allDeliveryStops &&
+                                  order.loadDetails.allDeliveryStops.length > 0 && (
+                                    <>
+                                      <p className="font-semibold">
+                                        • Deliveries ({order.loadDetails.allDeliveryStops.length}):
+                                      </p>
+                                      {order.loadDetails.allDeliveryStops.map((delivery, dIdx) => (
+                                        <div key={`delivery-${dIdx}`}>
+                                          <p className="ml-4">
+                                            - {delivery.address}, {delivery.city}, {delivery.state} {delivery.zipCode}{" "}
+                                            at {formatDateTime(delivery.datetime, "MM/dd, HH:mm")}
+                                          </p>
+                                          {delivery.arrived_at && (
+                                            <p className="ml-6 text-green-600 dark:text-green-400 font-medium text-xs">
+                                              ✓ Arrived: {formatDateTime(delivery.arrived_at, "MM/dd, HH:mm")}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
+                                <p>
+                                  • <strong>Documents:</strong> {formatDocuments(order.loadDetails.documents)}
+                                </p>
+                                {order.loadDetails.notes !== "—" && (
+                                  <p className="text-sm font-bold">
+                                    • <strong>Notes:</strong> {order.loadDetails.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     );
                   })}
@@ -1930,6 +2193,66 @@ const Reports = () => {
                                       >
                                         <div className="flex items-center gap-2">
                                           {truck.driver}
+                                          {(truck.driverPhone ||
+                                            truck.driverEmail ||
+                                            truck.trailerNumber ||
+                                            truck.driver2Name) && (
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button className="inline-flex">
+                                                  <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-auto">
+                                                <div className="space-y-1">
+                                                  {truck.driver2Name ? (
+                                                    <>
+                                                      <p className="font-semibold text-sm">
+                                                        Driver 1: {truck.driver1Name}
+                                                      </p>
+                                                      {truck.driverPhone && (
+                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                      )}
+                                                      {truck.driverEmail && (
+                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                      )}
+                                                      <div className="border-t pt-1 mt-1">
+                                                        <p className="font-semibold text-sm">
+                                                          Driver 2: {truck.driver2Name}
+                                                        </p>
+                                                        {truck.driver2Phone && (
+                                                          <p className="text-xs">📞 {truck.driver2Phone}</p>
+                                                        )}
+                                                        {truck.driver2Email && (
+                                                          <p className="text-xs">✉️ {truck.driver2Email}</p>
+                                                        )}
+                                                      </div>
+                                                      <div className="border-t pt-1 mt-1">
+                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                        {truck.trailerNumber && (
+                                                          <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                        )}
+                                                      </div>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <p className="font-semibold text-sm">{truck.driver}</p>
+                                                      <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                      {truck.trailerNumber && (
+                                                        <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
+                                                      )}
+                                                      {truck.driverPhone && (
+                                                        <p className="text-xs">📞 {truck.driverPhone}</p>
+                                                      )}
+                                                      {truck.driverEmail && (
+                                                        <p className="text-xs">✉️ {truck.driverEmail}</p>
+                                                      )}
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
+                                          )}
                                         </div>
                                       </td>
                                       <td
