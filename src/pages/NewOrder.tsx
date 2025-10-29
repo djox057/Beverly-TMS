@@ -83,6 +83,7 @@ const NewOrder = () => {
   const [generatedConfirmationFilename, setGeneratedConfirmationFilename] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [emailFiles, setEmailFiles] = useState<FileList | null>(null);
   
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
@@ -130,7 +131,8 @@ const NewOrder = () => {
     rc: false,
     bol: false,
     pod: false,
-    additional: false
+    additional: false,
+    email: false
   });
 
   // File input refs for programmatic access
@@ -138,6 +140,7 @@ const NewOrder = () => {
   const bolFileInputRef = useRef<HTMLInputElement>(null);
   const podFileInputRef = useRef<HTMLInputElement>(null);
   const additionalFileInputRef = useRef<HTMLInputElement>(null);
+  const emailFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data from database with proper error handling
   const { data: companies, isLoading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
@@ -516,19 +519,21 @@ const NewOrder = () => {
   };
 
   // File drag and drop handlers
-  const createFileDragHandlers = (fileType: 'rc' | 'bol' | 'pod' | 'additional') => {
+  const createFileDragHandlers = (fileType: 'rc' | 'bol' | 'pod' | 'additional' | 'email') => {
     const setFiles = {
       rc: setRcFiles,
       bol: setBolFiles,
       pod: setPodFiles,
-      additional: setAdditionalFiles
+      additional: setAdditionalFiles,
+      email: setEmailFiles
     }[fileType];
 
     const fileInputRef = {
       rc: rcFileInputRef,
       bol: bolFileInputRef,
       pod: podFileInputRef,
-      additional: additionalFileInputRef
+      additional: additionalFileInputRef,
+      email: emailFileInputRef
     }[fileType];
 
     return {
@@ -573,6 +578,7 @@ const NewOrder = () => {
   const bolDragHandlers = createFileDragHandlers('bol');
   const podDragHandlers = createFileDragHandlers('pod');
   const additionalDragHandlers = createFileDragHandlers('additional');
+  const emailDragHandlers = createFileDragHandlers('email');
 
   const handleExtractWithAI = async () => {
     if (!rcFiles || rcFiles.length === 0) {
@@ -943,13 +949,13 @@ const NewOrder = () => {
     return `#${truckNumber} ${driverFirstName} // ${pickupDate} // Load#${brokerLoad} // ${firstPickupState} - ${lastDeliveryState}`;
   };
 
-  // Send email to driver with uploaded RC file
+  // Send email to driver with uploaded file
   const handleSendEmailToDriver = async () => {
-    // Check if RC file is uploaded
-    if (!rcFiles || rcFiles.length === 0) {
+    // Check if email file is uploaded
+    if (!emailFiles || emailFiles.length === 0) {
       toast({
-        title: "No RC File",
-        description: "Please upload an RC file first before sending email.",
+        title: "No File Attached",
+        description: "Please upload a file to send to the driver.",
         variant: "destructive"
       });
       return;
@@ -982,20 +988,20 @@ const NewOrder = () => {
       // Build email subject
       const subject = buildEmailSubject();
       
-      // Use the uploaded RC file
-      const rcFile = rcFiles[0];
+      // Use the uploaded email file
+      const emailFile = emailFiles[0];
       
       // Convert file to base64 for attachment
       const reader = new FileReader();
-      reader.readAsDataURL(rcFile);
+      reader.readAsDataURL(emailFile);
       
       await new Promise((resolve, reject) => {
         reader.onloadend = async () => {
           try {
             const base64data = reader.result as string;
-            const base64Content = base64data.split(',')[1]; // Remove data:application/pdf;base64, prefix
+            const base64Content = base64data.split(',')[1]; // Remove data:type;base64, prefix
             
-            console.log('📧 Sending email with RC file:', rcFile.name);
+            console.log('📧 Sending email with file:', emailFile.name);
             console.log('📧 To:', selectedDriver.email);
             console.log('📧 From:', emailConfig.sender);
             console.log('📧 CC:', emailConfig.cc);
@@ -1018,8 +1024,8 @@ const NewOrder = () => {
                   subject: subject,
                   bodyText: "Please see the rate confirmation attached below.",
                   attachmentBase64: base64Content,
-                  attachmentFilename: rcFile.name,
-                  attachmentContentType: 'application/pdf'
+                  attachmentFilename: emailFile.name,
+                  attachmentContentType: emailFile.type
                 })
               }
             );
@@ -1036,7 +1042,7 @@ const NewOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `Rate confirmation sent to ${selectedDriver.email}`
+              description: `File sent to ${selectedDriver.email}`
             });
             
             resolve(true);
@@ -2364,38 +2370,82 @@ const NewOrder = () => {
               </Button>
             </div>
 
-            {/* Email Dispatch Toggle */}
-            <div className="flex justify-center mt-4">
-              <div className="flex items-center space-x-3 p-4 border rounded-lg bg-muted/50 w-full max-w-md">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email to Driver
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {!confirmationGenerated 
-                      ? "Generate confirmation first"
-                      : emailSent
-                      ? `Sent to ${drivers?.find(d => d.id === driver1)?.email || 'driver'}`
-                      : "Toggle to send confirmation email"
-                    }
-                  </p>
-                </div>
-                <Switch
-                  checked={emailSent}
-                  onCheckedChange={(checked) => {
-                    if (checked && !emailSent) {
-                      handleSendEmailToDriver();
-                    }
-                  }}
-                  disabled={!confirmationGenerated || isSendingEmail || emailSent}
-                  className="data-[state=checked]:bg-green-600"
-                />
-                {isSendingEmail && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            {/* Email to Driver File Upload */}
+            <Card 
+              className={cn(
+                "cursor-pointer transition-all duration-200 hover:shadow-md bg-blue-50/30 border-blue-200",
+                dragStates.email && "border-blue-400 bg-blue-100/50 scale-[1.02]"
+              )}
+              {...emailDragHandlers}
+              onClick={() => emailFileInputRef.current?.click()}
+            >
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email to Driver
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {dragStates.email ? (
+                  <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
+                    <FileText className="mx-auto h-6 w-6 text-blue-500 mb-1" />
+                    <p className="text-xs text-blue-600 font-medium">Drop files here</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-blue-600 mb-2">
+                      {emailFiles && emailFiles.length > 0 
+                        ? `${emailFiles.length} file(s) selected` 
+                        : "Click or drag files here"
+                      }
+                    </p>
+                    {emailFiles && emailFiles.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {Array.from(emailFiles).map((file, index) => (
+                          <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                            <FileText className="h-3 w-3" />
+                            <span className="truncate">{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
-              </div>
-            </div>
+                <input 
+                  ref={emailFileInputRef}
+                  type="file" 
+                  multiple 
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={e => setEmailFiles(e.target.files)} 
+                  className="hidden"
+                />
+                <p className="text-xs text-blue-600">Upload file to email to driver</p>
+                
+                {/* Send Email Button */}
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSendEmailToDriver();
+                  }}
+                  disabled={!emailFiles || emailFiles.length === 0 || isSendingEmail || emailSent || !driver1}
+                  className={cn(
+                    "w-full mt-2",
+                    emailSent && "bg-green-600 hover:bg-green-700"
+                  )}
+                >
+                  {isSendingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {emailSent ? (
+                    <>✓ Sent to {drivers?.find(d => d.id === driver1)?.email || 'driver'}</>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send Email to Driver
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
 
             <div className="flex justify-end gap-3">
               <Button type="button" variant="outline" onClick={() => navigate('/orders')}>Cancel</Button>
