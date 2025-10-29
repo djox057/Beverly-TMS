@@ -94,57 +94,61 @@ serve(async (req) => {
       throw new Error('File must be a PDF');
     }
 
-    console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
+    console.log('📄 Processing PDF:', pdfFile.name, 'Size:', pdfFile.size, 'bytes');
 
-    // Use simpler approach: read file as bytes but limit memory by using smaller buffer
-    console.log('Uploading to Gemini File API with memory-efficient approach...');
+    // Upload to Gemini File API with timeout
+    console.log('⏳ Starting Gemini File API upload...');
     
     const boundary = `----WebKitFormBoundary${Date.now()}`;
     const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
     const encoder = new TextEncoder();
     
-    // Build multipart using Blob (browser-native, more efficient than manual array building)
     const metadataHeader = encoder.encode(
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${metadata}\r\n`
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`
     );
-    
     const fileHeader = encoder.encode(
-      `--${boundary}\r\n` +
-      `Content-Type: application/pdf\r\n\r\n`
+      `--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`
     );
-    
     const footer = encoder.encode(`\r\n--${boundary}--`);
     
-    // Use Blob directly - it's optimized for binary data and doesn't load into JS heap
-    const multipartBody = new Blob([
-      metadataHeader,
-      fileHeader,
-      pdfFile, // Pass the File object directly - it's a Blob
-      footer
-    ]);
+    const multipartBody = new Blob([metadataHeader, fileHeader, pdfFile, footer]);
+    console.log('📦 Multipart body created, size:', multipartBody.size);
     
-    console.log('Multipart body created, size:', multipartBody.size);
+    // Add timeout to prevent hanging
+    const uploadController = new AbortController();
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 25000); // 25s timeout
     
-    const uploadResponse = await fetch(
-      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-        body: multipartBody
+    let uploadResponse;
+    try {
+      uploadResponse = await fetch(
+        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+          body: multipartBody,
+          signal: uploadController.signal
+        }
+      );
+      clearTimeout(uploadTimeout);
+    } catch (uploadError: unknown) {
+      clearTimeout(uploadTimeout);
+      if (uploadError instanceof Error && uploadError.name === 'AbortError') {
+        console.error('❌ Upload timed out after 25s');
+        throw new Error('File upload timed out');
       }
-    );
+      console.error('❌ Upload failed:', uploadError);
+      throw uploadError;
+    }
 
     if (!uploadResponse.ok) {
       const errText = await uploadResponse.text();
-      console.error('File upload error:', uploadResponse.status, errText);
+      console.error('❌ Upload error:', uploadResponse.status, errText);
       throw new Error(`File upload failed: ${uploadResponse.status}`);
     }
 
     const uploadData = await uploadResponse.json();
     const fileUri = uploadData.file.uri;
-    console.log('✅ File uploaded successfully, URI:', fileUri);
+    console.log('✅ File uploaded, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
