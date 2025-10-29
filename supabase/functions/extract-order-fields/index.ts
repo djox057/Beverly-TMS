@@ -322,49 +322,14 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 
 **🚨 MANDATORY: You MUST clean ALL addresses before extracting them into the JSON output.**
 **🚨 CRITICAL: You MUST extract ZIP CODES - look carefully for 5 or 9-digit numbers near addresses.**
-**🚨 CRITICAL: You MUST VALIDATE addresses - if an address looks garbled or has OCR errors, attempt to reconstruct it intelligently.**
 
 **STEP-BY-STEP ADDRESS CLEANING PROCESS:**
 
 1. **Identify the raw address** in the document
-2. **VALIDATE THE ADDRESS - Check for OCR corruption:**
-   - Does the address have excessive commas, random letters, or nonsensical patterns?
-   - Examples of GARBLED addresses that need fixing:
-     - "S W 33440 1731C S W C, W C OWE,N AVE," (excessive commas, random letter patterns)
-     - "1234 M A I N ST R E E T" (spaces between every letter)
-     - "123 MAIN,, ST,, STE, 100" (double commas, excessive punctuation)
-   - If address appears garbled, look for patterns and reconstruct logically:
-     - Find the street number (3-5 digit number at start)
-     - Look for recognizable street name patterns (AVE, ST, RD, BLVD, DR)
-     - Remove excessive punctuation and random character insertions
-     - Use the ZIP CODE and CITY to help validate the correct address format
-3. **Remove everything after a dash (-)** if it contains instructions
-4. **Remove dock/door numbers and instructions**
-5. **Keep ONLY: street number, street name, suite/unit/building identifiers**
-6. **Extract city, state, zip separately** (ZIP CODE IS MANDATORY - search thoroughly)
-
-**GARBLED ADDRESS RECONSTRUCTION EXAMPLES:**
-
-❌ RAW: "S W 33440 1731C S W C, W C OWE,N AVE, CLEWISTON, FL 33440"
-🔍 ANALYSIS: 
-   - ZIP code: 33440
-   - City: CLEWISTON, FL
-   - Number visible: 1731
-   - Street indicator: AVE (Avenue)
-   - Pattern suggests: Should be a simple street address
-🤔 LIKELY CORRECTION: The pattern "1731C" followed by garbled text ending in "AVE" suggests this might be "1731 C OWEN AVE" or similar
-✅ CLEAN: If you cannot reconstruct with confidence, extract the clearest parts: "1731 C Owen Ave" (based on pattern recognition)
-   - IMPORTANT: When reconstructing, be conservative - only fix obvious OCR errors, don't invent data
-
-❌ RAW: "1000 K R E I D E R DRIVE STE 200"
-✅ CLEAN: "1000 KREIDER DRIVE STE 200" (remove spaces between letters)
-
-**VALIDATION RULES FOR ADDRESSES:**
-1. Street numbers should be 1-5 digits followed by a space
-2. Street names should be readable words (not random letter combinations)
-3. If an address has more than 3 commas, it's likely corrupted
-4. Street suffix (ST, AVE, RD, BLVD, DR, etc.) should be clearly visible
-5. When in doubt, prioritize extracting what's clearly readable rather than guessing
+2. **Remove everything after a dash (-)** if it contains instructions
+3. **Remove dock/door numbers and instructions**
+4. **Keep ONLY: street number, street name, suite/unit/building identifiers**
+5. **Extract city, state, zip separately** (ZIP CODE IS MANDATORY - search thoroughly)
 
 ---
 
@@ -467,24 +432,6 @@ After cleaning, your address JSON should look like:
 
 ## CRITICAL: ADDRESS PARSING RULES
 
-**CITY/STATE/ZIP EXTRACTION - HANDLE BOTH FORMATS:**
-
-**Format A: City/State/Zip on same line as street:**
-- Example: "36300 Eureka Rd Romulus MI 48174"
-- Example: "30301 COMMERCE BLVD CHESTERFIELD Michigan 48051"
-- **Action:** Parse the LAST word as zip, word BEFORE zip as state, word(s) BEFORE state as city, everything BEFORE city as street address
-
-**Format B: City/State/Zip on separate lines:**
-- Example line 1: "36300 Eureka Rd"
-- Example line 2: "Romulus, MI 48174"
-- **Action:** Standard parsing from separate lines
-
-**CRITICAL PARSING RULES:**
-1. **Zip code (5 or 9 digits)**: Always the LAST element - scan right-to-left to find it
-2. **State (2-letter or full name)**: Immediately BEFORE the zip code
-3. **City**: Immediately BEFORE the state (may be multiple words like "New York", "Salt Lake City")
-4. **Street**: Everything BEFORE the city
-
 **REMOVE FACILITY IDENTIFIERS:** Strip these from addresses: BLDG/BUILDING + numbers, DC/WAREHOUSE + numbers, PLANT + numbers, UNIT/DU + numbers, city names before street numbers
 
 **FIND STREET NUMBER:** Locate 3-5 digit number - this starts the actual address. Remove everything before it.
@@ -494,8 +441,6 @@ After cleaning, your address JSON should look like:
 **Examples:**
 - "SPRINGFIELD BLDG 19 DU 1904 N LECOMPTE, SPRINGFIELD, MO" → address: "1904 North Lecompte", city: "Springfield"
 - "YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA" → address: "4875 Susquehanna Trail", city: "York"
-- "36300 Eureka Rd Romulus MI 48174" → address: "36300 Eureka Rd", city: "Romulus", state: "MI", zip: "48174"
-- "30301 COMMERCE BLVD CHESTERFIELD Michigan 48051" → address: "30301 COMMERCE BLVD", city: "CHESTERFIELD", state: "MI", zip: "48051"
 
 ## CRITICAL: COMMA SEPARATION REQUIREMENTS
 
@@ -1049,7 +994,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,
         }
       }),
     });
