@@ -1,13 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-// Initialize Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +14,9 @@ interface EmailRequest {
   cc: string;
   subject: string;
   bodyText: string;
+  attachmentBase64: string;
+  attachmentFilename: string;
+  attachmentContentType: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -34,7 +31,10 @@ const handler = async (req: Request): Promise<Response> => {
       from,
       cc,
       subject,
-      bodyText
+      bodyText,
+      attachmentBase64,
+      attachmentFilename,
+      attachmentContentType
     }: EmailRequest = await req.json();
 
     console.log('📧 ========================================');
@@ -44,6 +44,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`📧 From: ${from}`);
     console.log(`📧 CC: ${cc}`);
     console.log(`📧 Subject: ${subject}`);
+    console.log(`📧 Attachment: ${attachmentFilename}`);
+    console.log(`📧 Attachment Type: ${attachmentContentType}`);
     console.log(`📧 Body: ${bodyText}`);
     console.log('📧 ========================================');
 
@@ -52,15 +54,36 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // Send simple email
-    console.log('📧 Sending email...');
-    
+    // Convert base64 to buffer for attachment
+    console.log('📧 Converting base64 attachment to buffer...');
+    const attachmentBuffer = Uint8Array.from(atob(attachmentBase64), c => c.charCodeAt(0));
+    console.log(`📧 Attachment buffer size: ${attachmentBuffer.length} bytes`);
+
+    console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
       from: from,
       to: [to],
       cc: cc ? [cc] : undefined,
       subject: subject,
-      text: bodyText,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <p style="font-size: 16px; color: #333;">
+            ${bodyText}
+          </p>
+          <br/>
+          <p style="font-size: 14px; color: #666;">
+            Best regards,<br/>
+            Dispatch Team
+          </p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: attachmentFilename,
+          content: attachmentBuffer,
+          contentType: attachmentContentType
+        }
+      ]
     });
 
     console.log('✅ ========================================');
@@ -87,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.error('❌ Error Message:', error.message);
     console.error('❌ Error Stack:', error.stack);
     if (error.response) {
-      console.error('❌ Resend API Response:', JSON.stringify(error.response, null, 2));
+      console.error('❌ Resend API Response:', error.response);
     }
     console.error('❌ ========================================');
     

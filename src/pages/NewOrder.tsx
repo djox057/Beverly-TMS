@@ -263,10 +263,9 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Always autofill trailer when truck changes (reset manual edit flag)
-        if (selectedTruck.trailer?.trailer_number) {
+        // Only autofill trailer if not manually edited
+        if (!trailerManuallyEdited && selectedTruck.trailer?.trailer_number) {
           setTrailer(selectedTruck.trailer.trailer_number);
-          setTrailerManuallyEdited(false); // Reset flag when truck changes
         }
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
@@ -293,7 +292,7 @@ const NewOrder = () => {
       setDriver2('');
       setTrailerManuallyEdited(false);
     }
-  }, [truck, trucks]);
+  }, [truck, trucks, trailerManuallyEdited]);
 
   // Auto-calculate loaded miles when pickup and delivery addresses change
   useEffect(() => {
@@ -992,46 +991,67 @@ const NewOrder = () => {
       // Use the uploaded email file
       const emailFile = emailFiles[0];
       
-      // Skip file upload for now - just send test email
-      console.log('📧 Sending test email');
-      console.log('📧 To:', selectedDriver.email);
-      console.log('📧 From:', emailConfig.sender);
-      console.log('📧 CC:', emailConfig.cc);
-      console.log('📧 Subject:', subject);
+      // Convert file to base64 for attachment
+      const reader = new FileReader();
+      reader.readAsDataURL(emailFile);
       
-      // Call edge function to send simple email
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
-          },
-          body: JSON.stringify({
-            to: selectedDriver.email,
-            from: emailConfig.sender,
-            cc: emailConfig.cc,
-            subject: subject,
-            bodyText: "Test email - load confirmation will be added later.",
-          })
-        }
-      );
-      
-      const responseData = await response.json();
-      console.log('📧 Email response:', responseData);
-      
-      if (!response.ok) {
-        console.error('❌ Error sending email - Status:', response.status);
-        console.error('❌ Error response:', responseData);
-        throw new Error(responseData.error || 'Failed to send email');
-      }
-      
-      setEmailSent(true);
-      toast({
-        title: "Test Email Sent",
-        description: `Email sent to ${selectedDriver.email}`
+      await new Promise((resolve, reject) => {
+        reader.onloadend = async () => {
+          try {
+            const base64data = reader.result as string;
+            const base64Content = base64data.split(',')[1]; // Remove data:type;base64, prefix
+            
+            console.log('📧 Sending email with file:', emailFile.name);
+            console.log('📧 To:', selectedDriver.email);
+            console.log('📧 From:', emailConfig.sender);
+            console.log('📧 CC:', emailConfig.cc);
+            console.log('📧 Subject:', subject);
+            
+            // Call edge function to send email
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(
+              'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+                },
+                body: JSON.stringify({
+                  to: selectedDriver.email,
+                  from: emailConfig.sender,
+                  cc: emailConfig.cc,
+                  subject: subject,
+                  bodyText: "Please see the rate confirmation attached below.",
+                  attachmentBase64: base64Content,
+                  attachmentFilename: emailFile.name,
+                  attachmentContentType: emailFile.type
+                })
+              }
+            );
+            
+            const responseData = await response.json();
+            console.log('📧 Email response:', responseData);
+            
+            if (!response.ok) {
+              console.error('❌ Error sending email - Status:', response.status);
+              console.error('❌ Error response:', responseData);
+              throw new Error(responseData.error || 'Failed to send email');
+            }
+            
+            setEmailSent(true);
+            toast({
+              title: "Email Sent",
+              description: `File sent to ${selectedDriver.email}`
+            });
+            
+            resolve(true);
+          } catch (err) {
+            console.error('❌ Email error:', err);
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
       });
       
     } catch (error: any) {
