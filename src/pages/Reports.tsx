@@ -994,8 +994,8 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                  {isInTransit ? ">>>" : "—"}
+                </div> : <div className={`text-xs h-full flex items-center justify-center text-muted-foreground`}>
+                  —
                 </div>}
             </div>
 

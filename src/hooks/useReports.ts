@@ -376,6 +376,7 @@ export const useReports = () => {
               state,
               zip_code,
               datetime,
+              end_datetime,
               arrived_at,
               going_to_at
             ),
