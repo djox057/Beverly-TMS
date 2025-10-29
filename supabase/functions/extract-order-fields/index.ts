@@ -86,38 +86,73 @@ serve(async (req) => {
       throw new Error('Gemini API key not configured');
     }
 
-    console.log('🚀 [3] Parsing FormData');
-    const formData = await req.formData();
-    const pdfFile = formData.get('pdf') as File;
+    console.log('🚀 [3] Forwarding request body to Gemini (NO formData parsing)');
     
-    if (!pdfFile) {
-      throw new Error('No PDF file provided');
+    // CRITICAL: Do NOT call req.formData() - it loads entire PDF into memory
+    // Instead, forward the raw multipart body directly to Gemini
+    
+    const contentType = req.headers.get('content-type') || '';
+    if (!contentType.includes('multipart/form-data')) {
+      throw new Error('Request must be multipart/form-data');
     }
-    console.log('🚀 [4] PDF received:', pdfFile.name, pdfFile.size, 'bytes');
-
-    // Upload to Gemini using simple Blob approach
-    console.log('🚀 [5] Creating upload body');
-    const boundary = `Boundary${Date.now()}`;
-    const encoder = new TextEncoder();
     
-    const uploadBody = new Blob([
-      encoder.encode(`--${boundary}\r\nContent-Type: application/json\r\n\r\n{"file":{"display_name":"${pdfFile.name}"}}\r\n`),
-      encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
-      pdfFile,
-      encoder.encode(`\r\n--${boundary}--`)
-    ]);
-    console.log('🚀 [6] Upload body created, size:', uploadBody.size);
+    // Extract boundary from content-type
+    const boundaryMatch = contentType.match(/boundary=([^;]+)/);
+    if (!boundaryMatch) {
+      throw new Error('No boundary found in content-type');
+    }
+    const clientBoundary = boundaryMatch[1];
+    console.log('🚀 [4] Client boundary:', clientBoundary);
 
-    console.log('🚀 [7] Uploading to Gemini');
+    // Create Gemini upload with minimal overhead
+    const geminiBoundary = `Boundary${Date.now()}`;
+    const encoder = new TextEncoder();
+    const geminiMetadata = encoder.encode(
+      `--${geminiBoundary}\r\n` +
+      `Content-Type: application/json\r\n\r\n` +
+      `{"file":{"display_name":"rate-confirmation.pdf"}}\r\n` +
+      `--${geminiBoundary}\r\n` +
+      `Content-Type: application/pdf\r\n\r\n`
+    );
+    const geminiFooter = encoder.encode(`\r\n--${geminiBoundary}--`);
+
+    console.log('🚀 [5] Streaming body to Gemini');
+    const uploadBody = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(geminiMetadata);
+        
+        if (!req.body) {
+          controller.error(new Error('No request body'));
+          return;
+        }
+        
+        // Stream raw body directly without buffering
+        const reader = req.body.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+        
+        controller.enqueue(geminiFooter);
+        controller.close();
+      }
+    });
+
+    console.log('🚀 [6] Uploading to Gemini');
     const uploadResponse = await fetch(
       `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
       {
         method: 'POST',
-        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        headers: { 'Content-Type': `multipart/related; boundary=${geminiBoundary}` },
         body: uploadBody
       }
     );
-    console.log('🚀 [8] Upload response:', uploadResponse.status);
+    console.log('🚀 [7] Upload response:', uploadResponse.status);
 
     if (!uploadResponse.ok) {
       const errText = await uploadResponse.text();
