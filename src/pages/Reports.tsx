@@ -884,15 +884,18 @@ const Reports = () => {
       });
 
       // Check if this is a "continuing delivery" scenario for PICKUP cell
-      // This happens when TODAY has deliveries and NEXT day also has deliveries (without pickups) for the same orders
+      // Shows >>> 2 days before the delivery - checks if delivery will happen 2 days from now
       let shouldShowContinuingDelivery = false;
-      if (index < days.length - 1 && deliveryOnlyOrders.length > 0) {
-        const nextDayStr = format(days[index + 1], "yyyy-MM-dd");
-        // Check if any of today's delivery-only orders have deliveries on the next day without pickups
-        shouldShowContinuingDelivery = deliveryOnlyOrders.some(order => {
-          const hasDeliveryNextDay = order.deliveryStopsByDate?.has(nextDayStr);
-          const hasPickupNextDay = order.pickupStopsByDate?.has(nextDayStr);
-          return hasDeliveryNextDay && !hasPickupNextDay;
+      if (index < days.length - 2) {
+        const twoDaysAheadStr = format(days[index + 2], "yyyy-MM-dd");
+        const oneDayAheadStr = format(days[index + 1], "yyyy-MM-dd");
+        // Check if any order will have deliveries 2 days ahead and is in-transit (no stops today/tomorrow)
+        shouldShowContinuingDelivery = ordersWithDates.some(order => {
+          const willHaveDeliveryIn2Days = order.deliveryStopsByDate?.has(twoDaysAheadStr);
+          const hasStopsToday = order.pickupStopsByDate?.has(dayStr) || order.deliveryStopsByDate?.has(dayStr);
+          const hasStopsTomorrow = order.pickupStopsByDate?.has(oneDayAheadStr) || order.deliveryStopsByDate?.has(oneDayAheadStr);
+          // Show >>> if delivery in 2 days but no stops today or tomorrow (in transit)
+          return willHaveDeliveryIn2Days && !hasStopsToday && !hasStopsTomorrow;
         });
       }
 
