@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
-import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -77,9 +76,18 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to base64 using Deno's standard library
+    // Convert Blob to base64 using chunked approach (same method as extract-order-fields)
     const arrayBuffer = await fileData.arrayBuffer();
-    const base64 = base64Encode(arrayBuffer);
+    const pdfBuffer = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64 in chunks to avoid stack overflow
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
+      const chunk = pdfBuffer.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64 = btoa(binaryString);
     
     console.log(`✅ File converted to base64: ${base64.length} characters`);
 
