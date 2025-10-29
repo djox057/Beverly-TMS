@@ -21,6 +21,9 @@ verify_jwt = false
 [functions.generate-load-confirmation]
 verify_jwt = false
 
+[functions.pdf-extract-test]
+verify_jwt = false
+
 [functions.geocode-address]
 verify_jwt = false
 
