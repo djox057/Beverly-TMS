@@ -96,75 +96,14 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert PDF to base64
+    // Convert PDF to base64 (optimized for memory)
     const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdfBuffer = new Uint8Array(arrayBuffer);
+    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     
-    console.log('PDF buffer size:', pdfBuffer.length);
+    console.log('PDF converted to base64, size:', base64Pdf.length);
 
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
-      const chunk = pdfBuffer.slice(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    const base64Pdf = btoa(binaryString);
-    
-    console.log('PDF converted to base64, length:', base64Pdf.length);
-
-    // Compact optimized prompt (< 1000 tokens for memory efficiency)
-    const systemPrompt = `Extract shipping data from PDF. Use OCR for scanned images.
-
-**BROKER (Extract First):**
-brokerNameCandidates: Array of possible broker names from document top/header (e.g. ["TQL", "C.H. Robinson"])
-brokerAddressCandidates: Array of possible broker addresses
-Broker = company issuing rate confirmation, NOT carrier/shipper/receiver
-
-**PICKUP vs DELIVERY:**
-"PU"/"PICKUP"/"Origin" = pickup | "SO"/"STOP"/"DEL"/"Consignee" = delivery
-NEVER use carrier info for pickup/delivery - carrier is trucking company, not shipping location
-
-**ADDRESS CLEANING:**
-1. Remove after " - ": dock numbers, gates, instructions
-2. Remove prefixes: BLDG, DC, WAREHOUSE, PLANT, DU, city names
-3. Find street number (3-5 digits) - address starts here
-4. Expand: N→North, Ave→Avenue, Blvd→Boulevard, Dr→Drive, St→Street, Ste→Suite
-5. City goes in "city" field only, not "address"
-
-Examples:
-"BLDG 19 1904 N LECOMPTE - DOCK 5" → "1904 North Lecompte"
-"123 MAIN AVE - AROUND BACK" → "123 Main Avenue"
-
-**ZIP:** Extract 5 or 9-digit. Format 9-digit as "12345-6789". Infer from city/state if missing.
-
-**REQUIRED:** brokerNameCandidates (array), brokerAddressCandidates (array), brokerLoadNumber, freightAmount, mileage, commodity (max 4 words), weight, equipment, shipper names
-
-**OUTPUT (Single-drop):**
-{
-  "brokerNameCandidates": ["NAME1", "NAME2"],
-  "brokerAddressCandidates": ["ADDR1", "ADDR2"],
-  "brokerLoadNumber": "string",
-  "pickupAddress": "street", "pickupCity": "city", "pickupState": "ST", "pickupZip": "12345",
-  "pickupDate": "YYYY-MM-DD", "pickupStartTime": "HH:MM", "pickupEndTime": "HH:MM",
-  "pickupShipper": "company",
-  "deliveryAddress": "street", "deliveryCity": "city", "deliveryState": "ST", "deliveryZip": "12345",
-  "deliveryDate": "YYYY-MM-DD", "deliveryStartTime": "HH:MM", "deliveryEndTime": "HH:MM",
-  "deliveryShipper": "company",
-  "freightAmount": 1250, "mileage": 450, "commodity": "max 4 words", "weight": 42000,
-  "equipment": "string", "temperature": "string"
-}
-
-**OUTPUT (Multi-drop):**
-{
-  "brokerNameCandidates": ["NAME1"], "brokerAddressCandidates": ["ADDR1"],
-  "brokerLoadNumber": "string",
-  "pickups": [{"address":"street","city":"city","state":"ST","zip":"12345","date":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM","shipper":"company"}],
-  "deliveries": [{"address":"street","city":"city","state":"ST","zip":"12345","date":"YYYY-MM-DD","startTime":"HH:MM","endTime":"HH:MM","shipper":"company"}],
-  "freightAmount": 1250, "mileage": 450, "commodity": "max 4 words", "weight": 42000,
-  "equipment": "string", "temperature": "string"
-}
-
-Return ONLY JSON. No markdown. Use null for missing fields.`;
+    // Ultra-compact prompt for memory efficiency
+    const systemPrompt = `Extract: brokerNameCandidates[], brokerAddressCandidates[], brokerLoadNumber, pickups[]/deliveries[] OR pickup*/delivery* fields, freightAmount, mileage, commodity, weight, equipment. Clean addresses (remove dock/gate info, expand abbreviations). Return JSON only.`;
 
     console.log('Calling Gemini Flash Lite for PDF analysis...');
     
@@ -340,31 +279,13 @@ Return ONLY JSON. No markdown. Use null for missing fields.`;
       }
     }
 
-    // Count extracted fields for response
-    let fieldsExtracted = 0;
-    const countFields = (obj: any, prefix = '') => {
-      for (const key in obj) {
-        if (obj[key] !== null && obj[key] !== undefined && obj[key] !== '') {
-          if (Array.isArray(obj[key])) {
-            obj[key].forEach((item: any, index: number) => countFields(item, `${prefix}${key}[${index}].`));
-          } else if (typeof obj[key] === 'object') {
-            countFields(obj[key], `${prefix}${key}.`);
-          } else {
-            fieldsExtracted++;
-          }
-        }
-      }
-    };
-    countFields(extractedData);
-
-    console.log(`✅ Extraction complete: ${fieldsExtracted} fields extracted`);
+    console.log('✅ Extraction complete');
 
     return new Response(
       JSON.stringify({
         success: true,
         data: extractedData,
-        fieldsExtracted,
-        message: `Successfully extracted ${fieldsExtracted} fields from PDF`
+        message: 'Successfully extracted PDF data'
       }),
       { 
         status: 200,
