@@ -157,7 +157,6 @@ export const CalendarCarousel: React.FC<CalendarCarouselProps> = ({
                 value={editing.value}
                 onChange={(e) => onEditingChange({...editing, value: e.target.value})}
                 className="h-4 text-xs border-gray-300 rounded-none"
-                step="60"
               />
               <button onClick={onSave} className="text-green-600 hover:text-green-800 p-0.5">
                 <Check className="h-2 w-2" />

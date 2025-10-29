@@ -133,7 +133,6 @@ export function DateTimeRangePicker({
                       value={startTime}
                       onChange={(e) => onStartTimeChange?.(e.target.value)}
                       className="text-sm"
-                      step="60"
                     />
                   </div>
                   
@@ -144,7 +143,6 @@ export function DateTimeRangePicker({
                       value={endTime}
                       onChange={(e) => onEndTimeChange?.(e.target.value)}
                       className="text-sm"
-                      step="60"
                     />
                   </div>
                 </div>
