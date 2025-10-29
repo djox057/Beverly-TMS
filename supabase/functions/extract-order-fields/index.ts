@@ -94,45 +94,69 @@ serve(async (req) => {
       throw new Error('File must be a PDF');
     }
 
-    // Reject PDFs larger than 5MB to prevent memory issues
-    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
-    if (pdfFile.size > maxSizeBytes) {
-      throw new Error('PDF file is too large. Maximum size is 5MB. Please upload a smaller file.');
-    }
-
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Stream-based conversion to minimize memory footprint
-    const reader = pdfFile.stream().getReader();
-    const chunks: Uint8Array[] = [];
-    let totalSize = 0;
+    // For large PDFs, use Gemini's file upload API instead of inline data
+    const useLargeFileAPI = pdfFile.size > 200000; // 200KB threshold
     
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      totalSize += value.length;
+    if (useLargeFileAPI) {
+      console.log('⚠️ Large PDF detected, using Gemini File API...');
     }
-    
-    // Combine chunks efficiently
-    const combined = new Uint8Array(totalSize);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.length;
+
+    let fileUri: string | null = null;
+    let base64Pdf: string | null = null;
+
+    if (useLargeFileAPI) {
+      // Upload to Gemini Files API (handles large files better)
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: {
+          'X-Goog-Upload-Protocol': 'multipart',
+        },
+        body: (() => {
+          const boundary = '----boundary';
+          const metadataPart = JSON.stringify({ file: { display_name: pdfFile.name } });
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          const parts = [
+            `--${boundary}\r\n`,
+            'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+            metadataPart,
+            '\r\n--',
+            boundary,
+            '\r\n',
+            'Content-Type: application/pdf\r\n\r\n',
+          ];
+          
+          const textEncoder = new TextEncoder();
+          const header = textEncoder.encode(parts.join(''));
+          const footer = textEncoder.encode(`\r\n--${boundary}--`);
+          
+          const result = new Uint8Array(header.length + uint8Array.length + footer.length);
+          result.set(header, 0);
+          result.set(uint8Array, header.length);
+          result.set(footer, header.length + uint8Array.length);
+          
+          return result;
+        })(),
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`File upload failed: ${uploadResponse.status}`);
+      }
+
+      const uploadData = await uploadResponse.json();
+      fileUri = uploadData.file.uri;
+      console.log('✅ File uploaded to Gemini, URI:', fileUri);
+    } else {
+      // Small file: use inline base64
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
+      base64Pdf = btoa(binaryString);
+      console.log('✅ Small file converted to base64');
     }
-    
-    // Convert to base64 in smaller chunks to avoid memory spike
-    let base64Pdf = '';
-    const chunkSize = 32768; // 32KB chunks
-    for (let i = 0; i < combined.length; i += chunkSize) {
-      const end = Math.min(i + chunkSize, combined.length);
-      const chunk = combined.slice(i, end);
-      const binaryChunk = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
-      base64Pdf += btoa(binaryChunk);
-    }
-    
-    console.log('PDF converted efficiently, size:', totalSize);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
@@ -177,10 +201,9 @@ Return ONLY JSON. Use null for missing fields.`;
       },
       body: JSON.stringify({
         contents: [{
-          parts: [
-            { text: systemPrompt },
-            { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }
-          ]
+          parts: fileUri 
+            ? [{ text: systemPrompt }, { file_data: { mime_type: 'application/pdf', file_uri: fileUri } }]
+            : [{ text: systemPrompt }, { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }]
         }],
         generationConfig: {
           temperature: 0,
