@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,30 +54,22 @@ function extractWithRegex(text: string) {
   };
 }
 
-// Async LLM extraction (background task)
-async function extractWithLLM(base64: string, jobId: string) {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+// LLM extraction for complex PDFs (sync, fallback)
+async function extractWithLLM(base64: string): Promise<any> {
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!geminiApiKey) throw new Error('No API key');
 
-  try {
-    console.log(`[Job ${jobId}] Starting LLM extraction`);
-    
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) throw new Error('No API key');
-
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': geminiApiKey,
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { 
-              text: `Extract data from this multi-page PDF. IMPORTANT INSTRUCTIONS:
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': geminiApiKey,
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { 
+            text: `Extract data from this multi-page PDF. IMPORTANT INSTRUCTIONS:
 
 1. CONCATENATE TEXT FROM ALL PAGES before parsing - do NOT assume page 1 has everything
 2. NORMALIZE the text first:
@@ -107,50 +98,33 @@ async function extractWithLLM(base64: string, jobId: string) {
    - equipment: string
 
 Return ONLY valid JSON, no markdown formatting.` 
-            },
-            { inline_data: { mime_type: 'application/pdf', data: base64 } }
-          ]
-        }],
-        generationConfig: { temperature: 0, maxOutputTokens: 3048 }
-      }),
-    });
+          },
+          { inline_data: { mime_type: 'application/pdf', data: base64 } }
+        ]
+      }],
+      generationConfig: { temperature: 0, maxOutputTokens: 3048 }
+    }),
+  });
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error(`[Job ${jobId}] Gemini error:`, response.status, err);
-      throw new Error(`Gemini failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    let cleanText = text.trim();
-    if (cleanText.includes('```json')) {
-      const match = cleanText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (match) cleanText = match[1];
-    } else if (cleanText.includes('```')) {
-      const match = cleanText.match(/```\s*([\s\S]*?)\s*```/);
-      if (match) cleanText = match[1];
-    }
-
-    const extracted = JSON.parse(cleanText);
-    
-    // Update job with result
-    await supabase.from('extraction_jobs').update({
-      status: 'completed',
-      result: extracted,
-      completed_at: new Date().toISOString()
-    }).eq('id', jobId);
-
-    console.log(`[Job ${jobId}] Completed successfully`);
-  } catch (error) {
-    console.error(`[Job ${jobId}] Error:`, error);
-    await supabase.from('extraction_jobs').update({
-      status: 'failed',
-      error: String(error),
-      completed_at: new Date().toISOString()
-    }).eq('id', jobId);
+  if (!response.ok) {
+    const err = await response.text();
+    console.error('Gemini error:', response.status, err);
+    throw new Error(`Gemini failed: ${response.status}`);
   }
+
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  
+  let cleanText = text.trim();
+  if (cleanText.includes('```json')) {
+    const match = cleanText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (match) cleanText = match[1];
+  } else if (cleanText.includes('```')) {
+    const match = cleanText.match(/```\s*([\s\S]*?)\s*```/);
+    if (match) cleanText = match[1];
+  }
+
+  return JSON.parse(cleanText);
 }
 
 serve(async (req) => {
@@ -173,9 +147,9 @@ serve(async (req) => {
     
     console.log(`📊 Budget check: size=${fileSize}B, est_tokens=${estimatedTokens}, est_cpu=${estimatedCpuMs}ms`);
 
-    // Budget enforcement
+    // Budget enforcement - use LLM for larger files
     if (fileSize > EDGE_BUDGET.maxFileSizeBytes || estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs) {
-      console.log(`⚠️ Over budget - using async path (size=${fileSize > EDGE_BUDGET.maxFileSizeBytes}, cpu=${estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs})`);
+      console.log(`⚠️ Over budget - using LLM path (size=${fileSize > EDGE_BUDGET.maxFileSizeBytes}, cpu=${estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs})`);
       
       // Convert to base64 in chunks
       const bytes = new Uint8Array(await pdfFile.arrayBuffer());
@@ -186,28 +160,15 @@ serve(async (req) => {
       }
       const base64 = btoa(binary);
       
-      // Create job
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
+      // Use LLM extraction synchronously
+      console.log('🤖 Calling Gemini API...');
+      const extracted = await extractWithLLM(base64);
+      const elapsed = Date.now() - startTime;
       
-      const jobId = crypto.randomUUID();
-      await supabase.from('extraction_jobs').insert({
-        id: jobId,
-        status: 'processing',
-        created_at: new Date().toISOString()
-      });
-      
-      // Run LLM extraction in background (fire and forget)
-      extractWithLLM(base64, jobId).catch(err => 
-        console.error(`Background extraction failed:`, err)
-      );
-      
-      console.log(`✅ Job ${jobId} enqueued - returning 202`);
+      console.log(`✅ LLM extraction completed in ${elapsed}ms`);
       return new Response(
-        JSON.stringify({ success: true, jobId, status: 'processing' }),
-        { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true, data: extracted, path: 'llm-sync', elapsed }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
