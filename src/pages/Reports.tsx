@@ -22,6 +22,7 @@ import {
   XCircle,
   UserPlus,
   History,
+  HelpCircle,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { useNavigate } from "react-router-dom";
@@ -411,6 +412,7 @@ const Reports = () => {
     truckNumber: string;
     driverNames: string;
   } | null>(null);
+  const [legendDialogOpen, setLegendDialogOpen] = useState(false);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -1673,6 +1675,15 @@ const Reports = () => {
               {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                 <div className="flex gap-2 ml-4">
                   <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLegendDialogOpen(true)}
+                    className="gap-2"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    Legend
+                  </Button>
+                  <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
                     size="sm"
                     onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
@@ -2720,6 +2731,186 @@ const Reports = () => {
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Legend Dialog */}
+      <Dialog open={legendDialogOpen} onOpenChange={setLegendDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Report Board Legend</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Company Colors Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Company Colors (Truck #)</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-16 h-8 rounded border" 
+                    style={{
+                      backgroundColor: "hsl(var(--company-beverly-freight))",
+                      color: "hsl(var(--company-beverly-freight-foreground))"
+                    }}
+                  />
+                  <span className="text-sm">Beverly Freight Inc</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-16 h-8 rounded border" 
+                    style={{
+                      backgroundColor: "hsl(var(--company-bf-prime))",
+                      color: "hsl(var(--company-bf-prime-foreground))"
+                    }}
+                  />
+                  <span className="text-sm">BF Prime LLC</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-16 h-8 rounded border" 
+                    style={{
+                      backgroundColor: "hsl(var(--company-beverly-group))",
+                      color: "hsl(var(--company-beverly-group-foreground))"
+                    }}
+                  />
+                  <span className="text-sm">Beverly Group LLC</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-16 h-8 rounded border" 
+                    style={{
+                      backgroundColor: "hsl(var(--company-bf-prime-united))",
+                      color: "hsl(var(--company-bf-prime-united-foreground))"
+                    }}
+                  />
+                  <span className="text-sm">BF Prime United LLC</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-16 h-8 rounded border" 
+                    style={{
+                      backgroundColor: "hsl(var(--company-bg-prime))",
+                      color: "hsl(var(--company-bg-prime-foreground))"
+                    }}
+                  />
+                  <span className="text-sm">BG Prime Inc</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Calendar Cell Colors Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Calendar Cell Status Colors</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-green-600 text-white rounded flex items-center justify-center text-xs font-medium">Complete</div>
+                  <span className="text-sm">Load delivered with POD uploaded</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-lime-100 text-lime-800 border border-lime-300 rounded flex items-center justify-center text-xs font-medium">Active</div>
+                  <span className="text-sm">Load picked up with BOL (in transit)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-cyan-100 text-cyan-800 border border-cyan-300 rounded flex items-center justify-center text-xs font-medium">Booked</div>
+                  <span className="text-sm">Load confirmed with Rate Confirmation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-gray-100 text-gray-800 border border-gray-200 rounded flex items-center justify-center text-xs font-medium">Pending</div>
+                  <span className="text-sm">Load scheduled but no documents yet</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-blue-500/20 border border-blue-500/50 rounded flex items-center justify-center text-xs font-medium">Arrived</div>
+                  <span className="text-sm">Driver marked as arrived at location</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-red-500/20 border border-red-500/50 rounded flex items-center justify-center text-xs font-medium">Late</div>
+                  <span className="text-sm">Delivery is past due date</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-black text-white rounded flex items-center justify-center text-xs font-medium">In Transit</div>
+                  <span className="text-sm">Day between pickup and delivery</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium">Empty</div>
+                  <span className="text-sm">No loads scheduled for this day</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Special Indicators Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Special Indicators</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">XXX</div>
+                  <span className="text-sm">Missing pickup (truck should have a load but doesn't)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold">Game Over</div>
+                  <span className="text-sm">Truck is in yard or at road (marked as unavailable)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-destructive" />
+                  <span className="text-sm">HOS (Hours of Service) expired or critical</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="border-4 border-red-600 w-20 h-8 rounded"></div>
+                  <span className="text-sm">Today's column (red border highlight)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Features Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Interactive Features</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span><strong>Driver Info Button:</strong> Click the info icon next to driver name to view contact details, truck/trailer info</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Maximize2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span><strong>Load Zoom:</strong> Click the zoom icon on load cells to view detailed load information with all stops</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span><strong>Truck Location:</strong> Click map icon to view truck's current location on map</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Edit3 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span><strong>Editable Notes:</strong> Click pencil icon to edit truck notes</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <History className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span><strong>Note History:</strong> View complete history of truck note changes</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-bold">🎯</span>
+                  <span><strong>Drug Test (New Drivers):</strong> Click on driver cell for new drivers to record drug test results</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-bold">📅</span>
+                  <span><strong>Calendar Navigation:</strong> Use arrows to navigate through different date ranges</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-bold">🔍</span>
+                  <span><strong>Filters:</strong> Search by truck/driver name, dispatcher, or load number</span>
+                </div>
+              </div>
+            </div>
+
+            {/* HOS Timers Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">HOS (Hours of Service) Timers</h3>
+              <div className="text-sm space-y-1">
+                <p><strong>Away (D):</strong> Days away from home</p>
+                <p><strong>Drive:</strong> Remaining drive time (11 hours max)</p>
+                <p><strong>Shift:</strong> Remaining shift time (14 hours max)</p>
+                <p><strong>Break:</strong> Time until required 30-minute break</p>
+                <p><strong>Cycle:</strong> Remaining hours in 70-hour/8-day cycle</p>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
