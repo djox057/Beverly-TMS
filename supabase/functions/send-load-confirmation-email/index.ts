@@ -76,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to base64 with data URI prefix for Resend
+    // Convert Blob to base64 for Resend (NO data URI prefix!)
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     
@@ -89,10 +89,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
     const base64 = btoa(base64String);
     
-    // Add data URI prefix for Resend API
-    const dataUri = `data:${attachmentContentType};base64,${base64}`;
-    
-    console.log(`✅ File converted to data URI: ${dataUri.length} characters`);
+    console.log(`✅ File converted to base64: ${base64.length} characters`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -115,7 +112,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: dataUri,
+          content: base64,
         }
       ]
     });
