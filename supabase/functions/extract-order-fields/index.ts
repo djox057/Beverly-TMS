@@ -102,11 +102,22 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert PDF to base64 (optimized for memory)
+    // Convert PDF to base64 using chunked approach (memory-efficient)
     const arrayBuffer = await pdfFile.arrayBuffer();
-    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const pdfBuffer = new Uint8Array(arrayBuffer);
     
-    console.log('PDF converted to base64, size:', base64Pdf.length);
+    console.log('PDF buffer size:', pdfBuffer.length);
+
+    // Process in chunks to avoid stack overflow
+    let binaryString = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
+      const chunk = pdfBuffer.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Pdf = btoa(binaryString);
+    
+    console.log('PDF converted to base64, length:', base64Pdf.length);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
