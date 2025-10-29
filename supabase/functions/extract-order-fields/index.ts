@@ -77,6 +77,8 @@ serve(async (req) => {
     );
   }
 
+  let fileUri: string | null = null;
+  
   try {
     console.log('=== STARTING EXTRACTION ===');
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
@@ -198,7 +200,7 @@ serve(async (req) => {
     }
 
     const uploadData = await uploadResponse.json();
-    const fileUri = uploadData.file.uri;
+    fileUri = uploadData.file.uri;
     console.log('✅ PDF uploaded to Gemini, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
@@ -434,5 +436,23 @@ Return ONLY JSON. Use null for missing fields.`;
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
+  } finally {
+    // CRITICAL: Delete uploaded file from Gemini to free memory
+    if (fileUri) {
+      try {
+        const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+        if (geminiApiKey) {
+          console.log('🧹 Cleaning up uploaded file:', fileUri);
+          const fileName = fileUri.split('/').pop();
+          await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/files/${fileName}?key=${geminiApiKey}`,
+            { method: 'DELETE' }
+          );
+          console.log('✅ File deleted from Gemini');
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Failed to cleanup file:', cleanupError);
+      }
+    }
   }
 });
