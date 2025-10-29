@@ -2828,7 +2828,7 @@ const Reports = () => {
                   <span className="text-sm">Delivery is past due date</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-8 bg-black text-white rounded flex items-center justify-center text-xs font-medium">In Transit</div>
+                  <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium">&gt;&gt;&gt;</div>
                   <span className="text-sm">Day between pickup and delivery</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2847,7 +2847,7 @@ const Reports = () => {
                   <span className="text-sm">Missing pickup (truck should have a load but doesn't)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold">Game Over</div>
+                  <div className="bg-black text-white px-3 py-1 rounded text-xs font-bold">Game Over</div>
                   <span className="text-sm">Truck is in yard or at road (marked as unavailable)</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2904,7 +2904,7 @@ const Reports = () => {
             <div>
               <h3 className="text-lg font-semibold mb-3">HOS (Hours of Service) Timers</h3>
               <div className="text-sm space-y-1">
-                <p><strong>Away (D):</strong> Days away from home</p>
+                <p><strong>Away (D):</strong> Miles away from next pickup/delivery</p>
                 <p><strong>Drive:</strong> Remaining drive time (11 hours max)</p>
                 <p><strong>Shift:</strong> Remaining shift time (14 hours max)</p>
                 <p><strong>Break:</strong> Time until required 30-minute break</p>
