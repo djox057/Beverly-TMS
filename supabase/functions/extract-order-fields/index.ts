@@ -102,22 +102,15 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert PDF to base64 using chunked approach (memory-efficient)
+    // Convert PDF to base64 in the most memory-efficient way
     const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdfBuffer = new Uint8Array(arrayBuffer);
+    const uint8Array = new Uint8Array(arrayBuffer);
     
-    console.log('PDF buffer size:', pdfBuffer.length);
-
-    // Process in chunks to avoid stack overflow
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
-      const chunk = pdfBuffer.slice(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
-    }
+    // Use TextDecoder for binary string conversion (more efficient)
+    const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
     const base64Pdf = btoa(binaryString);
     
-    console.log('PDF converted to base64, length:', base64Pdf.length);
+    console.log('PDF converted, base64 length:', base64Pdf.length);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
@@ -152,9 +145,9 @@ freightAmount (number), mileage (number), commodity (max 4 words), weight (numbe
 
 Return ONLY JSON. Use null for missing fields.`;
 
-    console.log('Calling Gemini Flash Lite for PDF analysis...');
+    console.log('Calling Gemini 2.0 Flash Lite (optimized for speed and memory)...');
     
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -163,13 +156,13 @@ Return ONLY JSON. Use null for missing fields.`;
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: systemPrompt + '\n\nAnalyze this PDF and extract order information using OCR if needed. Return ONLY JSON - no markdown, no explanations.' },
+            { text: systemPrompt },
             { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }
           ]
         }],
         generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 2048, // Reduced from 8192 to save memory
+          temperature: 0,
+          maxOutputTokens: 2048,
         }
       }),
     });
