@@ -1,1 +1,4 @@
 project_id = "ontnwcpuykenzzuktyng"
+
+[functions.extract-order-fields]
+verify_jwt = false
