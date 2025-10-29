@@ -64,190 +64,71 @@ interface ExtractedOrderData {
 }
 
 serve(async (req) => {
-  console.log('🚀 [STEP 0] Function invoked');
-  console.log('🚀 [STEP 1] Method:', req.method);
-  console.log('🚀 [STEP 2] Headers:', Object.fromEntries(req.headers.entries()));
-  
-  // Log memory usage
-  if (typeof Deno !== 'undefined' && Deno.memoryUsage) {
-    const mem = Deno.memoryUsage();
-    console.log('🚀 [MEMORY] Initial:', {
-      rss: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`,
-      heapTotal: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
-      heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
-      external: `${(mem.external / 1024 / 1024).toFixed(2)} MB`
-    });
-  }
+  console.log('🚀 [1] Function called, method:', req.method);
 
   if (req.method === 'OPTIONS') {
-    console.log('🚀 [STEP 3] Handling OPTIONS');
     return new Response(null, { headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
-    console.log('🚀 [STEP 4] Method not allowed');
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
-  console.log('🚀 [STEP 5] POST request confirmed');
   let fileUri: string | null = null;
   
   try {
-    console.log('🚀 [STEP 6] Entering try block');
-    
+    console.log('🚀 [2] Getting API key');
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    console.log('🚀 [STEP 7] API key exists:', !!geminiApiKey);
-    
     if (!geminiApiKey) {
       throw new Error('Gemini API key not configured');
     }
 
-    console.log('🚀 [STEP 8] Getting content-type');
-    const contentType = req.headers.get('content-type') || '';
-    console.log('🚀 [STEP 9] Content-Type:', contentType);
+    console.log('🚀 [3] Parsing FormData');
+    const formData = await req.formData();
+    const pdfFile = formData.get('pdf') as File;
     
-    if (!contentType.includes('multipart/form-data')) {
-      throw new Error('Request must be multipart/form-data');
+    if (!pdfFile) {
+      throw new Error('No PDF file provided');
     }
+    console.log('🚀 [4] PDF received:', pdfFile.name, pdfFile.size, 'bytes');
 
-    console.log('🚀 [STEP 10] Preparing upload stream');
-    const geminiBoundary = `----WebKitFormBoundary${Date.now()}`;
-    const metadata = JSON.stringify({ file: { display_name: 'rate-confirmation.pdf' } });
+    // Upload to Gemini using simple Blob approach
+    console.log('🚀 [5] Creating upload body');
+    const boundary = `Boundary${Date.now()}`;
     const encoder = new TextEncoder();
     
-    console.log('🚀 [STEP 11] Creating headers');
-    const geminiHeaders = encoder.encode(
-      `--${geminiBoundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${metadata}\r\n` +
-      `--${geminiBoundary}\r\n` +
-      `Content-Type: application/pdf\r\n\r\n`
+    const uploadBody = new Blob([
+      encoder.encode(`--${boundary}\r\nContent-Type: application/json\r\n\r\n{"file":{"display_name":"${pdfFile.name}"}}\r\n`),
+      encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
+      pdfFile,
+      encoder.encode(`\r\n--${boundary}--`)
+    ]);
+    console.log('🚀 [6] Upload body created, size:', uploadBody.size);
+
+    console.log('🚀 [7] Uploading to Gemini');
+    const uploadResponse = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: uploadBody
+      }
     );
-    
-    const geminiFooter = encoder.encode(`\r\n--${geminiBoundary}--`);
-    console.log('🚀 [STEP 12] Headers and footer created');
-    console.log('🚀 [STEP 13] Creating upload stream');
-    // Create stream that combines headers + original PDF stream + footer
-    const uploadStream = new ReadableStream({
-      async start(controller) {
-        console.log('🚀 [STEP 14] Stream started');
-        
-        // Send Gemini headers
-        controller.enqueue(geminiHeaders);
-        console.log('🚀 [STEP 15] Headers enqueued');
-        
-        // Stream the original request body (but extract only PDF part)
-        console.log('🚀 [STEP 16] Getting body reader');
-        const bodyReader = req.body?.getReader();
-        if (!bodyReader) {
-          console.error('❌ No request body');
-          controller.error(new Error('No request body'));
-          return;
-        }
-        
-        console.log('🚀 [STEP 17] Starting to read body chunks');
-        let chunkCount = 0;
-        
-        try {
-          let foundPdfStart = false;
-          let buffer = new Uint8Array();
-          const pdfMarker = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
-          
-          while (true) {
-            const { done, value } = await bodyReader.read();
-            chunkCount++;
-            
-            if (chunkCount % 10 === 0) {
-              console.log(`🚀 [STEP 18] Read ${chunkCount} chunks, buffer size: ${buffer.length} bytes`);
-            }
-            
-            if (done) {
-              console.log(`🚀 [STEP 19] Stream complete after ${chunkCount} chunks`);
-              break;
-            }
-            
-            if (!foundPdfStart) {
-              // Concatenate to buffer to search for PDF marker
-              const newBuffer = new Uint8Array(buffer.length + value.length);
-              newBuffer.set(buffer);
-              newBuffer.set(value, buffer.length);
-              buffer = newBuffer;
-              
-              // Log memory usage periodically
-              if (chunkCount % 5 === 0 && typeof Deno !== 'undefined' && Deno.memoryUsage) {
-                const mem = Deno.memoryUsage();
-                console.log(`🧠 [MEMORY] After ${chunkCount} chunks:`, {
-                  heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
-                  bufferSize: `${(buffer.length / 1024 / 1024).toFixed(2)} MB`
-                });
-              }
-              
-              // Find %PDF marker
-              for (let i = 0; i < buffer.length - 3; i++) {
-                if (buffer[i] === 0x25 && buffer[i+1] === 0x50 && 
-                    buffer[i+2] === 0x44 && buffer[i+3] === 0x46) {
-                  // Found PDF start, send from here
-                  console.log(`🚀 [STEP 20] Found PDF marker at buffer position ${i}`);
-                  controller.enqueue(buffer.slice(i));
-                  foundPdfStart = true;
-                  buffer = new Uint8Array(); // Clear buffer
-                  break;
-                }
-              }
-            } else {
-              // Already found PDF, just forward chunks
-              controller.enqueue(value);
-            }
-          }
-        } finally {
-          bodyReader.releaseLock();
-        }
-        
-        // Send footer
-        controller.enqueue(geminiFooter);
-        controller.close();
-      }
-    });
-    
-    const uploadController = new AbortController();
-    const uploadTimeout = setTimeout(() => uploadController.abort(), 30000);
-    
-    let uploadResponse;
-    try {
-      uploadResponse = await fetch(
-        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': `multipart/related; boundary=${geminiBoundary}` },
-          body: uploadStream,
-          signal: uploadController.signal
-        }
-      );
-      clearTimeout(uploadTimeout);
-    } catch (uploadError: unknown) {
-      clearTimeout(uploadTimeout);
-      if (uploadError instanceof Error && uploadError.name === 'AbortError') {
-        console.error('❌ Upload timed out');
-        throw new Error('File upload timed out');
-      }
-      console.error('❌ Upload error:', uploadError);
-      throw uploadError;
-    }
+    console.log('🚀 [8] Upload response:', uploadResponse.status);
 
     if (!uploadResponse.ok) {
       const errText = await uploadResponse.text();
-      console.error('❌ Gemini upload failed:', uploadResponse.status, errText);
-      throw new Error(`File upload failed: ${uploadResponse.status}`);
+      console.error('❌ Upload error:', uploadResponse.status, errText);
+      throw new Error(`Upload failed: ${uploadResponse.status}`);
     }
 
     const uploadData = await uploadResponse.json();
     fileUri = uploadData.file.uri;
-    console.log('✅ PDF uploaded to Gemini, URI:', fileUri);
+    console.log('✅ [9] Uploaded:', fileUri);
 
-    // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
 
 **BROKER INFO (required):**
@@ -280,8 +161,7 @@ freightAmount (number), mileage (number), commodity (max 4 words), weight (numbe
 
 Return ONLY JSON. Use null for missing fields.`;
 
-    console.log('Calling Gemini 2.0 Flash Lite (optimized for speed and memory)...');
-    
+    console.log('🚀 [10] Calling Gemini AI');
     const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent', {
       method: 'POST',
       headers: {
@@ -314,8 +194,7 @@ Return ONLY JSON. Use null for missing fields.`;
     }
 
     const aiData = await aiResponse.json();
-    console.log('Gemini response received');
-    console.log('Full Gemini response:', JSON.stringify(aiData, null, 2));
+    console.log('✅ [11] Gemini response received');
     
     if (aiData.promptFeedback?.blockReason) {
       console.error('Prompt was blocked:', aiData.promptFeedback);
@@ -364,94 +243,75 @@ Return ONLY JSON. Use null for missing fields.`;
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
       console.error('Content that failed to parse:', extractedContent);
-      throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+      throw new Error('Failed to parse AI response as JSON. The PDF might contain unexpected formatting.');
     }
 
-    // Auto-convert legacy single-stop format to array format
-    if (!extractedData.pickups && !extractedData.deliveries) {
-      console.log('🔄 Detected legacy single-stop format, converting to array format...');
-      
-      if (extractedData.pickupCity || extractedData.pickupAddress) {
-        extractedData.pickups = [{
-          address: extractedData.pickupAddress,
-          city: extractedData.pickupCity,
-          state: extractedData.pickupState,
-          zip: extractedData.pickupZip,
-          date: extractedData.pickupDate || extractedData.pickupStartDate,
-          startTime: extractedData.pickupStartTime,
-          endTime: extractedData.pickupEndTime,
-          puNumber: extractedData.pickupPuNumber,
-          poNumber: extractedData.pickupPoNumber,
-          shipper: extractedData.pickupShipper
-        }];
-      }
-      
-      if (extractedData.deliveryCity || extractedData.deliveryAddress) {
-        extractedData.deliveries = [{
-          address: extractedData.deliveryAddress,
-          city: extractedData.deliveryCity,
-          state: extractedData.deliveryState,
-          zip: extractedData.deliveryZip,
-          date: extractedData.deliveryDate || extractedData.deliveryStartDate,
-          startTime: extractedData.deliveryStartTime,
-          endTime: extractedData.deliveryEndTime,
-          puNumber: undefined,
-          poNumber: extractedData.deliveryPoNumber,
-          shipper: extractedData.deliveryShipper
-        }];
-      }
+    // Convert legacy single-stop format to array format if needed
+    if (!extractedData.pickups && extractedData.pickupAddress) {
+      extractedData.pickups = [{
+        address: extractedData.pickupAddress,
+        city: extractedData.pickupCity,
+        state: extractedData.pickupState,
+        zip: extractedData.pickupZip,
+        date: extractedData.pickupDate || extractedData.pickupStartDate,
+        startTime: extractedData.pickupStartTime,
+        endTime: extractedData.pickupEndTime,
+        puNumber: extractedData.pickupPuNumber,
+        poNumber: extractedData.pickupPoNumber,
+        shipper: extractedData.pickupShipper
+      }];
+    }
+
+    if (!extractedData.deliveries && extractedData.deliveryAddress) {
+      extractedData.deliveries = [{
+        address: extractedData.deliveryAddress,
+        city: extractedData.deliveryCity,
+        state: extractedData.deliveryState,
+        zip: extractedData.deliveryZip,
+        date: extractedData.deliveryDate || extractedData.deliveryStartDate,
+        startTime: extractedData.deliveryStartTime,
+        endTime: extractedData.deliveryEndTime,
+        poNumber: extractedData.deliveryPoNumber,
+        shipper: extractedData.deliveryShipper
+      }];
     }
 
     // Sort stops by datetime
     if (extractedData.pickups && extractedData.pickups.length > 1) {
-      extractedData.pickups.sort((a: PickupDeliveryStop, b: PickupDeliveryStop) => {
-        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
-        return dateA.localeCompare(dateB);
-      });
-    }
-    
-    if (extractedData.deliveries && extractedData.deliveries.length > 1) {
-      extractedData.deliveries.sort((a: PickupDeliveryStop, b: PickupDeliveryStop) => {
-        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
-        return dateA.localeCompare(dateB);
+      extractedData.pickups.sort((a, b) => {
+        const dateA = new Date(`${a.date || '1970-01-01'} ${a.startTime || '00:00'}`);
+        const dateB = new Date(`${b.date || '1970-01-01'} ${b.startTime || '00:00'}`);
+        return dateA.getTime() - dateB.getTime();
       });
     }
 
-    // Validate pickups and deliveries
-    const pickupCount = extractedData.pickups?.length || 0;
-    const deliveryCount = extractedData.deliveries?.length || 0;
-    
-    console.log('=== EXTRACTION VALIDATION ===');
-    console.log(`Found ${pickupCount} pickup(s) and ${deliveryCount} delivery(ies)`);
-    
-    // Auto-correction if validation fails
-    if (pickupCount === 0 || deliveryCount === 0) {
-      console.warn('⚠️ VALIDATION FAILED: Missing pickups or deliveries. Attempting auto-correction...');
-      
-      const allStops = [
-        ...(extractedData.pickups || []).map(s => ({ ...s, type: 'pickup' })),
-        ...(extractedData.deliveries || []).map(s => ({ ...s, type: 'delivery' }))
-      ].sort((a, b) => {
-        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
-        return dateA.localeCompare(dateB);
+    if (extractedData.deliveries && extractedData.deliveries.length > 1) {
+      extractedData.deliveries.sort((a, b) => {
+        const dateA = new Date(`${a.date || '1970-01-01'} ${a.startTime || '00:00'}`);
+        const dateB = new Date(`${b.date || '1970-01-01'} ${b.startTime || '00:00'}`);
+        return dateA.getTime() - dateB.getTime();
       });
-      
-      if (allStops.length >= 2) {
-        const { type: _, ...firstStop } = allStops[0];
-        const remainingStops = allStops.slice(1).map(({ type: _, ...stop }) => stop);
-        
-        extractedData.pickups = [firstStop];
-        extractedData.deliveries = remainingStops;
-        
-        console.log(`✅ Auto-corrected: ${extractedData.pickups.length} pickup(s), ${extractedData.deliveries.length} delivery(ies)`);
-      } else if (allStops.length === 1) {
-        throw new Error('Document contains only 1 location. A valid load requires at least 1 pickup and 1 delivery location.');
-      } else {
-        throw new Error('No pickup or delivery locations could be found in the document.');
-      }
+    }
+
+    // Validate and auto-correct pickup/delivery arrays
+    const hasPickups = extractedData.pickups && extractedData.pickups.length > 0;
+    const hasDeliveries = extractedData.deliveries && extractedData.deliveries.length > 0;
+
+    if (!hasPickups && hasDeliveries && extractedData.deliveries!.length > 1) {
+      console.log('Auto-correcting: Moving first delivery to pickup');
+      extractedData.pickups = [extractedData.deliveries![0]];
+      extractedData.deliveries = extractedData.deliveries!.slice(1);
+    } else if (hasPickups && !hasDeliveries && extractedData.pickups!.length > 1) {
+      console.log('Auto-correcting: Moving last pickup to delivery');
+      extractedData.deliveries = [extractedData.pickups![extractedData.pickups!.length - 1]];
+      extractedData.pickups = extractedData.pickups!.slice(0, -1);
+    }
+
+    const finalHasPickups = extractedData.pickups && extractedData.pickups.length > 0;
+    const finalHasDeliveries = extractedData.deliveries && extractedData.deliveries.length > 0;
+
+    if (!finalHasPickups || !finalHasDeliveries) {
+      throw new Error('At least one pickup and one delivery location are required. Please ensure the PDF contains this information.');
     }
 
     console.log('✅ Extraction complete');
@@ -469,7 +329,7 @@ Return ONLY JSON. Use null for missing fields.`;
     );
 
   } catch (error) {
-    console.error('Error in extract-order-fields function:', error);
+    console.error('❌ Error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
@@ -481,21 +341,21 @@ Return ONLY JSON. Use null for missing fields.`;
       }
     );
   } finally {
-    // CRITICAL: Delete uploaded file from Gemini to free memory
+    // Cleanup: Delete uploaded file from Gemini
     if (fileUri) {
       try {
         const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
         if (geminiApiKey) {
-          console.log('🧹 Cleaning up uploaded file:', fileUri);
+          console.log('🧹 Cleaning up:', fileUri);
           const fileName = fileUri.split('/').pop();
           await fetch(
             `https://generativelanguage.googleapis.com/v1beta/files/${fileName}?key=${geminiApiKey}`,
             { method: 'DELETE' }
           );
-          console.log('✅ File deleted from Gemini');
+          console.log('✅ File deleted');
         }
       } catch (cleanupError) {
-        console.error('⚠️ Failed to cleanup file:', cleanupError);
+        console.error('⚠️ Cleanup failed:', cleanupError);
       }
     }
   }
