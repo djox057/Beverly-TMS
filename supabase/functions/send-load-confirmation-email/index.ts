@@ -65,27 +65,21 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing storage path for attachment');
     }
 
-    // Download file from Supabase Storage
-    console.log('📥 Downloading file from storage...');
-    const { data: fileData, error: downloadError } = await supabase.storage
+    // Generate a signed URL for the attachment (valid for 5 minutes)
+    console.log('🔗 Generating signed URL for attachment...');
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('email-attachments')
-      .download(storagePath);
+      .createSignedUrl(storagePath, 300); // 300 seconds = 5 minutes
 
-    if (downloadError || !fileData) {
-      console.error('❌ Storage download error:', downloadError);
-      throw new Error(`Failed to download file from storage: ${downloadError?.message || 'No file data'}`);
+    if (signedUrlError || !signedUrlData) {
+      console.error('❌ Signed URL error:', signedUrlError);
+      throw new Error(`Failed to create signed URL: ${signedUrlError?.message || 'No URL data'}`);
     }
 
-    console.log(`✅ File downloaded: ${fileData.size} bytes`);
+    console.log(`✅ Signed URL created: ${signedUrlData.signedUrl}`);
 
-    // Convert Blob to ArrayBuffer and then to Uint8Array
-    const arrayBuffer = await fileData.arrayBuffer();
-    const fileBytes = new Uint8Array(arrayBuffer);
-    
-    console.log(`✅ File converted to Uint8Array: ${fileBytes.length} bytes`);
-
-    // Use Resend SDK - it will handle the base64 encoding internally
-    console.log('📧 Calling Resend API via SDK...');
+    // Use Resend SDK with path instead of content - let Resend download the file
+    console.log('📧 Calling Resend API via SDK with signed URL...');
     
     const emailResponse = await resend.emails.send({
       from: from,
@@ -107,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: fileBytes,
+          path: signedUrlData.signedUrl, // Use path instead of content
         }
       ]
     });
