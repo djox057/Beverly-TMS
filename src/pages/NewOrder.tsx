@@ -263,9 +263,10 @@ const NewOrder = () => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Only autofill trailer if not manually edited
-        if (!trailerManuallyEdited && selectedTruck.trailer?.trailer_number) {
+        // Always autofill trailer when truck changes (reset manual edit flag)
+        if (selectedTruck.trailer?.trailer_number) {
           setTrailer(selectedTruck.trailer.trailer_number);
+          setTrailerManuallyEdited(false); // Reset flag when truck changes
         }
         
         // Autofill driver IDs (use nested object if available, otherwise use direct ID)
@@ -292,7 +293,7 @@ const NewOrder = () => {
       setDriver2('');
       setTrailerManuallyEdited(false);
     }
-  }, [truck, trucks, trailerManuallyEdited]);
+  }, [truck, trucks]);
 
   // Auto-calculate loaded miles when pickup and delivery addresses change
   useEffect(() => {
