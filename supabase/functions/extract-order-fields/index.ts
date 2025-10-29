@@ -78,45 +78,96 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== STARTING EXTRACTION ===');
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     if (!geminiApiKey) {
       throw new Error('Gemini API key not configured');
     }
 
-    const formData = await req.formData();
-    const pdfFile = formData.get('pdf') as File;
+    // Get content-type to extract boundary
+    const contentType = req.headers.get('content-type') || '';
+    console.log('Content-Type:', contentType);
     
-    if (!pdfFile) {
-      throw new Error('No PDF file provided in form data');
+    if (!contentType.includes('multipart/form-data')) {
+      throw new Error('Request must be multipart/form-data');
     }
 
-    if (pdfFile.type !== 'application/pdf') {
-      throw new Error('File must be a PDF');
-    }
-
-    console.log('📄 Processing PDF:', pdfFile.name, 'Size:', pdfFile.size, 'bytes');
-
-    // Upload to Gemini File API with timeout
-    console.log('⏳ Starting Gemini File API upload...');
+    // Forward the request body directly to Gemini without loading into memory
+    console.log('⏳ Streaming upload to Gemini File API...');
     
-    const boundary = `----WebKitFormBoundary${Date.now()}`;
-    const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
+    // Create new boundary for Gemini upload
+    const geminiBoundary = `----WebKitFormBoundary${Date.now()}`;
+    const metadata = JSON.stringify({ file: { display_name: 'rate-confirmation.pdf' } });
     const encoder = new TextEncoder();
     
-    const metadataHeader = encoder.encode(
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`
+    // Build Gemini multipart request by streaming original body
+    const geminiHeaders = encoder.encode(
+      `--${geminiBoundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${metadata}\r\n` +
+      `--${geminiBoundary}\r\n` +
+      `Content-Type: application/pdf\r\n\r\n`
     );
-    const fileHeader = encoder.encode(
-      `--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`
-    );
-    const footer = encoder.encode(`\r\n--${boundary}--`);
     
-    const multipartBody = new Blob([metadataHeader, fileHeader, pdfFile, footer]);
-    console.log('📦 Multipart body created, size:', multipartBody.size);
+    const geminiFooter = encoder.encode(`\r\n--${geminiBoundary}--`);
     
-    // Add timeout to prevent hanging
+    // Create stream that combines headers + original PDF stream + footer
+    const uploadStream = new ReadableStream({
+      async start(controller) {
+        // Send Gemini headers
+        controller.enqueue(geminiHeaders);
+        
+        // Stream the original request body (but extract only PDF part)
+        const bodyReader = req.body?.getReader();
+        if (!bodyReader) {
+          controller.error(new Error('No request body'));
+          return;
+        }
+        
+        try {
+          let foundPdfStart = false;
+          let buffer = new Uint8Array();
+          const pdfMarker = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
+          
+          while (true) {
+            const { done, value } = await bodyReader.read();
+            if (done) break;
+            
+            if (!foundPdfStart) {
+              // Concatenate to buffer to search for PDF marker
+              const newBuffer = new Uint8Array(buffer.length + value.length);
+              newBuffer.set(buffer);
+              newBuffer.set(value, buffer.length);
+              buffer = newBuffer;
+              
+              // Find %PDF marker
+              for (let i = 0; i < buffer.length - 3; i++) {
+                if (buffer[i] === 0x25 && buffer[i+1] === 0x50 && 
+                    buffer[i+2] === 0x44 && buffer[i+3] === 0x46) {
+                  // Found PDF start, send from here
+                  controller.enqueue(buffer.slice(i));
+                  foundPdfStart = true;
+                  buffer = new Uint8Array(); // Clear buffer
+                  break;
+                }
+              }
+            } else {
+              // Already found PDF, just forward chunks
+              controller.enqueue(value);
+            }
+          }
+        } finally {
+          bodyReader.releaseLock();
+        }
+        
+        // Send footer
+        controller.enqueue(geminiFooter);
+        controller.close();
+      }
+    });
+    
     const uploadController = new AbortController();
-    const uploadTimeout = setTimeout(() => uploadController.abort(), 25000); // 25s timeout
+    const uploadTimeout = setTimeout(() => uploadController.abort(), 30000);
     
     let uploadResponse;
     try {
@@ -124,8 +175,8 @@ serve(async (req) => {
         `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-          body: multipartBody,
+          headers: { 'Content-Type': `multipart/related; boundary=${geminiBoundary}` },
+          body: uploadStream,
           signal: uploadController.signal
         }
       );
@@ -133,22 +184,22 @@ serve(async (req) => {
     } catch (uploadError: unknown) {
       clearTimeout(uploadTimeout);
       if (uploadError instanceof Error && uploadError.name === 'AbortError') {
-        console.error('❌ Upload timed out after 25s');
+        console.error('❌ Upload timed out');
         throw new Error('File upload timed out');
       }
-      console.error('❌ Upload failed:', uploadError);
+      console.error('❌ Upload error:', uploadError);
       throw uploadError;
     }
 
     if (!uploadResponse.ok) {
       const errText = await uploadResponse.text();
-      console.error('❌ Upload error:', uploadResponse.status, errText);
+      console.error('❌ Gemini upload failed:', uploadResponse.status, errText);
       throw new Error(`File upload failed: ${uploadResponse.status}`);
     }
 
     const uploadData = await uploadResponse.json();
     const fileUri = uploadData.file.uri;
-    console.log('✅ File uploaded, URI:', fileUri);
+    console.log('✅ PDF uploaded to Gemini, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
