@@ -102,15 +102,37 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Convert PDF to base64 in the most memory-efficient way
-    const arrayBuffer = await pdfFile.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    // Stream-based conversion to minimize memory footprint
+    const reader = pdfFile.stream().getReader();
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
     
-    // Use TextDecoder for binary string conversion (more efficient)
-    const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
-    const base64Pdf = btoa(binaryString);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalSize += value.length;
+    }
     
-    console.log('PDF converted, base64 length:', base64Pdf.length);
+    // Combine chunks efficiently
+    const combined = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    // Convert to base64 in smaller chunks to avoid memory spike
+    let base64Pdf = '';
+    const chunkSize = 32768; // 32KB chunks
+    for (let i = 0; i < combined.length; i += chunkSize) {
+      const end = Math.min(i + chunkSize, combined.length);
+      const chunk = combined.slice(i, end);
+      const binaryChunk = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
+      base64Pdf += btoa(binaryChunk);
+    }
+    
+    console.log('PDF converted efficiently, size:', totalSize);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
