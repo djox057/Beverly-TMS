@@ -107,55 +107,47 @@ serve(async (req) => {
     let base64Pdf: string | null = null;
 
     if (useLargeFileAPI) {
-      // Upload to Gemini Files API (handles large files better)
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const uploadResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: {
-          'X-Goog-Upload-Protocol': 'multipart',
-        },
-        body: (() => {
-          const boundary = '----boundary';
-          const metadataPart = JSON.stringify({ file: { display_name: pdfFile.name } });
-          const uint8Array = new Uint8Array(arrayBuffer);
-          
-          const parts = [
-            `--${boundary}\r\n`,
-            'Content-Type: application/json; charset=UTF-8\r\n\r\n',
-            metadataPart,
-            '\r\n--',
-            boundary,
-            '\r\n',
-            'Content-Type: application/pdf\r\n\r\n',
-          ];
-          
-          const textEncoder = new TextEncoder();
-          const header = textEncoder.encode(parts.join(''));
-          const footer = textEncoder.encode(`\r\n--${boundary}--`);
-          
-          const result = new Uint8Array(header.length + uint8Array.length + footer.length);
-          result.set(header, 0);
-          result.set(uint8Array, header.length);
-          result.set(footer, header.length + uint8Array.length);
-          
-          return result;
-        })(),
-      });
+      // Upload to Gemini Files API using streaming to minimize memory
+      const boundary = `----WebKitFormBoundary${Date.now()}`;
+      const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
+      
+      // Build multipart body as blob (more memory efficient)
+      const encoder = new TextEncoder();
+      const parts = [
+        encoder.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`),
+        encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
+        new Uint8Array(await pdfFile.arrayBuffer()),
+        encoder.encode(`\r\n--${boundary}--`)
+      ];
+      
+      const uploadResponse = await fetch(
+        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+          body: new Blob(parts)
+        }
+      );
 
       if (!uploadResponse.ok) {
+        const errText = await uploadResponse.text();
+        console.error('File upload error:', uploadResponse.status, errText);
         throw new Error(`File upload failed: ${uploadResponse.status}`);
       }
 
       const uploadData = await uploadResponse.json();
       fileUri = uploadData.file.uri;
-      console.log('✅ File uploaded to Gemini, URI:', fileUri);
+      console.log('✅ File uploaded, URI:', fileUri);
     } else {
-      // Small file: use inline base64
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
-      base64Pdf = btoa(binaryString);
-      console.log('✅ Small file converted to base64');
+      // Small file: stream base64 encode in chunks
+      const bytes = new Uint8Array(await pdfFile.arrayBuffer());
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      base64Pdf = btoa(binary);
+      console.log('✅ Small file encoded');
     }
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
