@@ -942,9 +942,19 @@ const NewOrder = () => {
     return `#${truckNumber} ${driverFirstName} // ${pickupDate} // Load#${brokerLoad} // ${firstPickupState} - ${lastDeliveryState}`;
   };
 
-  // Send email to driver with load confirmation
+  // Send email to driver with uploaded RC file
   const handleSendEmailToDriver = async () => {
-    if (!generatedConfirmationBlob || !confirmationGenerated || emailSent) return;
+    // Check if RC file is uploaded
+    if (!rcFiles || rcFiles.length === 0) {
+      toast({
+        title: "No RC File",
+        description: "Please upload an RC file first before sending email.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (emailSent) return;
     
     try {
       setIsSendingEmail(true);
@@ -971,15 +981,24 @@ const NewOrder = () => {
       // Build email subject
       const subject = buildEmailSubject();
       
-      // Convert blob to base64 for attachment
+      // Use the uploaded RC file
+      const rcFile = rcFiles[0];
+      
+      // Convert file to base64 for attachment
       const reader = new FileReader();
-      reader.readAsDataURL(generatedConfirmationBlob);
+      reader.readAsDataURL(rcFile);
       
       await new Promise((resolve, reject) => {
         reader.onloadend = async () => {
           try {
             const base64data = reader.result as string;
             const base64Content = base64data.split(',')[1]; // Remove data:application/pdf;base64, prefix
+            
+            console.log('📧 Sending email with RC file:', rcFile.name);
+            console.log('📧 To:', selectedDriver.email);
+            console.log('📧 From:', emailConfig.sender);
+            console.log('📧 CC:', emailConfig.cc);
+            console.log('📧 Subject:', subject);
             
             // Call edge function to send email
             const { data: { session } } = await supabase.auth.getSession();
@@ -998,26 +1017,30 @@ const NewOrder = () => {
                   subject: subject,
                   bodyText: "Please see the rate confirmation attached below.",
                   attachmentBase64: base64Content,
-                  attachmentFilename: generatedConfirmationFilename,
+                  attachmentFilename: rcFile.name,
                   attachmentContentType: 'application/pdf'
                 })
               }
             );
             
+            const responseData = await response.json();
+            console.log('📧 Email response:', responseData);
+            
             if (!response.ok) {
-              const errorText = await response.text();
-              console.error('Error sending email:', errorText);
-              throw new Error('Failed to send email');
+              console.error('❌ Error sending email - Status:', response.status);
+              console.error('❌ Error response:', responseData);
+              throw new Error(responseData.error || 'Failed to send email');
             }
             
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `Load confirmation sent to ${selectedDriver.email}`
+              description: `Rate confirmation sent to ${selectedDriver.email}`
             });
             
             resolve(true);
           } catch (err) {
+            console.error('❌ Email error:', err);
             reject(err);
           }
         };
@@ -1025,7 +1048,7 @@ const NewOrder = () => {
       });
       
     } catch (error: any) {
-      console.error('Email sending error:', error);
+      console.error('❌ Email sending error:', error);
       toast({
         title: "Email Failed",
         description: error.message || "Failed to send email to driver",
@@ -1701,6 +1724,7 @@ const NewOrder = () => {
                 dragStates.rc && "border-blue-400 bg-blue-100/50 scale-[1.02]"
               )}
               {...rcDragHandlers}
+              onClick={() => rcFileInputRef.current?.click()}
             >
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
@@ -1721,7 +1745,10 @@ const NewOrder = () => {
                       type="button" 
                       variant="outline" 
                       size="sm"
-                      onClick={handleExtractWithAI}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExtractWithAI();
+                      }}
                       disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')}
                       className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
                       data-ai-extract="true"
@@ -1750,6 +1777,14 @@ const NewOrder = () => {
                     </div>
                   )}
                   
+                  {!dragStates.rc && (!rcFiles || rcFiles.length === 0) && (
+                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
+                      <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
+                      <p className="text-sm text-blue-600 font-medium mb-1">Click or drag & drop files here</p>
+                      <p className="text-xs text-blue-500">PDF, JPG, JPEG, PNG files supported</p>
+                    </div>
+                  )}
+                  
                   <input 
                     ref={rcFileInputRef}
                     type="file" 
@@ -1758,7 +1793,6 @@ const NewOrder = () => {
                     onChange={e => setRcFiles(e.target.files)} 
                     className="hidden"
                   />
-                  <p className="text-xs text-blue-600">Supports PDF, JPG, JPEG, PNG. AI extraction works only with PDF files.</p>
                 </div>
               </CardContent>
             </Card>
