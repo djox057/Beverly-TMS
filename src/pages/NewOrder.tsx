@@ -257,13 +257,20 @@ const NewOrder = () => {
 
   // Track if trailer was manually edited to prevent auto-overwrite
   const [trailerManuallyEdited, setTrailerManuallyEdited] = useState(false);
+  const [lastSelectedTruckId, setLastSelectedTruckId] = useState<string>('');
 
   // Auto-populate trailer and drivers when truck is selected
   useEffect(() => {
     if (truck && trucks) {
       const selectedTruck = trucks.find(t => t.id === truck);
       if (selectedTruck) {
-        // Only autofill trailer if not manually edited
+        // Reset manual edit flag when switching to a different truck
+        if (truck !== lastSelectedTruckId) {
+          setTrailerManuallyEdited(false);
+          setLastSelectedTruckId(truck);
+        }
+        
+        // Autofill trailer if not manually edited or if truck changed
         if (!trailerManuallyEdited && selectedTruck.trailer?.trailer_number) {
           setTrailer(selectedTruck.trailer.trailer_number);
         }
@@ -291,8 +298,9 @@ const NewOrder = () => {
       setDriver1('');
       setDriver2('');
       setTrailerManuallyEdited(false);
+      setLastSelectedTruckId('');
     }
-  }, [truck, trucks, trailerManuallyEdited]);
+  }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
   // Auto-calculate loaded miles when pickup and delivery addresses change
   useEffect(() => {
