@@ -147,27 +147,26 @@ serve(async (req) => {
     
     console.log(`📊 Budget check: size=${fileSize}B, est_tokens=${estimatedTokens}, est_cpu=${estimatedCpuMs}ms`);
 
-    // Budget enforcement - use LLM for larger files
+    // Budget enforcement - reject files that are too large for Edge
     if (fileSize > EDGE_BUDGET.maxFileSizeBytes || estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs) {
-      console.log(`⚠️ Over budget - using LLM path (size=${fileSize > EDGE_BUDGET.maxFileSizeBytes}, cpu=${estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs})`);
-      
-      // Convert to base64 in chunks
-      const bytes = new Uint8Array(await pdfFile.arrayBuffer());
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-      }
-      const base64 = btoa(binary);
-      
-      // Use LLM extraction synchronously
-      console.log('🤖 Calling Gemini API...');
-      const extracted = await extractWithLLM(base64);
+      console.log(`⚠️ Over budget - rejecting (size=${fileSize > EDGE_BUDGET.maxFileSizeBytes}, cpu=${estimatedCpuMs > EDGE_BUDGET.maxEstimatedCpuMs})`);
       const elapsed = Date.now() - startTime;
       
-      console.log(`✅ LLM extraction completed in ${elapsed}ms`);
+      // Return partial extraction with regex only
+      const bytes = new Uint8Array(await pdfFile.arrayBuffer());
+      const text = new TextDecoder().decode(bytes);
+      const normalized = normalizeText(text);
+      const extracted = extractWithRegex(normalized);
+      
+      console.log(`⚠️ File too large, returning regex-only extraction in ${elapsed}ms`);
       return new Response(
-        JSON.stringify({ success: true, data: extracted, path: 'llm-sync', elapsed }),
+        JSON.stringify({ 
+          success: true, 
+          data: extracted, 
+          path: 'edge-partial',
+          warning: 'Large file - used basic extraction only',
+          elapsed 
+        }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
