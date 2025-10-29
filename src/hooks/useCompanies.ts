@@ -36,14 +36,14 @@ export const useCompanies = () => {
           console.warn('🏢 No companies found in database');
         }
         
-        return data;
+        return data || [];
       }, 30000);
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 300000, // Cache for 5 minutes
+    staleTime: 0, // Don't cache - always fetch fresh
     gcTime: 600000, // Keep in memory for 10 minutes
-    refetchOnWindowFocus: true, // Re-fetch when window gets focus
+    refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: true, // Always refetch on mount
     placeholderData: (previousData) => previousData,
   });

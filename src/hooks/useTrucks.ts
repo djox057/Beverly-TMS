@@ -87,7 +87,7 @@ export const useTrucks = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 300000, // Cache for 5 minutes
+    staleTime: 0, // Don't cache - always fetch fresh
     gcTime: 600000, // Keep in memory for 10 minutes
     placeholderData: (previousData) => previousData,
   });
