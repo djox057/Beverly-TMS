@@ -897,14 +897,16 @@ const Reports = () => {
       }
 
       // Check if this is a "continuing delivery" scenario for DELIVERY cell
-      // This happens when PREVIOUS day had deliveries and TODAY has deliveries (without new pickups) for the same orders
+      // This happens when PREVIOUS day had deliveries and we're in-transit (no stops today but load continuing)
       let shouldShowContinuingDeliveryInDeliveryCell = false;
-      if (index > 0 && deliveryOnlyOrders.length > 0) {
+      if (index > 0) {
         const prevDayStr = format(days[index - 1], "yyyy-MM-dd");
-        // Check if any of today's delivery-only orders had deliveries on the previous day
-        shouldShowContinuingDeliveryInDeliveryCell = deliveryOnlyOrders.some(order => {
+        // Check if any order had deliveries on the previous day and is still active/in-transit today
+        shouldShowContinuingDeliveryInDeliveryCell = ordersWithDates.some(order => {
           const hadDeliveryPrevDay = order.deliveryStopsByDate?.has(prevDayStr);
-          return hadDeliveryPrevDay;
+          const hasStopsToday = order.pickupStopsByDate?.has(dayStr) || order.deliveryStopsByDate?.has(dayStr);
+          // Show >>> if had delivery yesterday but no stops today (in transit)
+          return hadDeliveryPrevDay && !hasStopsToday;
         });
       }
 
