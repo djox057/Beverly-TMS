@@ -96,26 +96,53 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Always use Gemini File API to avoid memory issues
-    console.log('Uploading to Gemini File API...');
+    // Stream upload to avoid loading entire PDF into memory
+    console.log('Streaming upload to Gemini File API...');
     
     const boundary = `----WebKitFormBoundary${Date.now()}`;
     const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
-    
     const encoder = new TextEncoder();
-    const parts = [
-      encoder.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`),
-      encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
-      new Uint8Array(await pdfFile.arrayBuffer()),
-      encoder.encode(`\r\n--${boundary}--`)
-    ];
+    
+    // Create streaming multipart body
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Send metadata header
+        controller.enqueue(encoder.encode(
+          `--${boundary}\r\n` +
+          `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+          `${metadata}\r\n`
+        ));
+        
+        // Send PDF content header
+        controller.enqueue(encoder.encode(
+          `--${boundary}\r\n` +
+          `Content-Type: application/pdf\r\n\r\n`
+        ));
+        
+        // Stream PDF file in chunks
+        const reader = pdfFile.stream().getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+        
+        // Send closing boundary
+        controller.enqueue(encoder.encode(`\r\n--${boundary}--`));
+        controller.close();
+      }
+    });
     
     const uploadResponse = await fetch(
       `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-        body: new Blob(parts)
+        body: stream
       }
     );
 
@@ -127,7 +154,7 @@ serve(async (req) => {
 
     const uploadData = await uploadResponse.json();
     const fileUri = uploadData.file.uri;
-    console.log('✅ File uploaded, URI:', fileUri);
+    console.log('✅ File streamed successfully, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
