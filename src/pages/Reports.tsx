@@ -1921,28 +1921,12 @@ const Reports = () => {
                                   <React.Fragment key={truck.id}>
                                     <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
                                       <td
-                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
+                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium"
                                         style={{
                                           width: "77px",
                                           minWidth: "77px",
                                           maxWidth: "77px",
-                                          ...drugTestStyle,
                                           ...getCompanyBackgroundColor(truck.companyName),
-                                        }}
-                                        onClick={() => {
-                                          if (shouldShowDrugTestUI && truck.driverId) {
-                                            console.log("Opening drug test dialog for:", {
-                                              driverId: truck.driverId,
-                                              driverName: truck.driver,
-                                              truckId: truck.id,
-                                              truckNumber: truck.truckNumber,
-                                            });
-                                            setDrugTestDialog({
-                                              driverId: truck.driverId,
-                                              driverName: truck.driver,
-                                              truckId: truck.id,
-                                            });
-                                          }
                                         }}
                                       >
                                         <div className="flex items-center gap-1">
@@ -1963,22 +1947,60 @@ const Reports = () => {
                                         </div>
                                       </td>
                                       <td
-                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs"
+                                        className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`}
                                         style={{
                                           width: "163px",
                                           minWidth: "163px",
                                           maxWidth: "163px",
+                                          ...drugTestStyle,
+                                        }}
+                                        onClick={(e) => {
+                                          // Only trigger drug test dialog if clicking on the cell itself, not the info button
+                                          if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
+                                            console.log("Opening drug test dialog for:", {
+                                              driverId: truck.driverId,
+                                              driverName: truck.driver,
+                                              truckId: truck.id,
+                                              truckNumber: truck.truckNumber,
+                                            });
+                                            setDrugTestDialog({
+                                              driverId: truck.driverId,
+                                              driverName: truck.driver,
+                                              truckId: truck.id,
+                                            });
+                                          }
                                         }}
                                       >
-                                        <div className="flex items-center gap-2">
-                                          {truck.driver}
+                                        <div 
+                                          className="flex items-center gap-2"
+                                          onClick={(e) => {
+                                            // Also allow clicking on the driver name text
+                                            if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
+                                              console.log("Opening drug test dialog for:", {
+                                                driverId: truck.driverId,
+                                                driverName: truck.driver,
+                                                truckId: truck.id,
+                                                truckNumber: truck.truckNumber,
+                                              });
+                                              setDrugTestDialog({
+                                                driverId: truck.driverId,
+                                                driverName: truck.driver,
+                                                truckId: truck.id,
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <span>{truck.driver}</span>
                                           {(truck.driverPhone ||
                                             truck.driverEmail ||
                                             truck.trailerNumber ||
                                             truck.driver2Name) && (
                                             <Popover>
                                               <PopoverTrigger asChild>
-                                                <button className="inline-flex">
+                                                <button 
+                                                  className="inline-flex"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
                                                   <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
                                                 </button>
                                               </PopoverTrigger>
