@@ -78,7 +78,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`✅ Signed URL created: ${signedUrlData.signedUrl}`);
 
-    // Send email with download link instead of attachment - bypass all encoding issues
+    // Send email with plain text and download link
     console.log('📧 Sending email with download link...');
     
     const emailResponse = await resend.emails.send({
@@ -86,28 +86,7 @@ const handler = async (req: Request): Promise<Response> => {
       to: [to],
       cc: cc ? [cc] : undefined,
       subject: subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <p style="font-size: 16px; color: #333;">
-            ${bodyText}
-          </p>
-          <br/>
-          <div style="margin: 20px 0;">
-            <a href="${signedUrlData.signedUrl}" 
-               style="background-color: #0070f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              📄 Download ${attachmentFilename}
-            </a>
-          </div>
-          <p style="font-size: 12px; color: #999;">
-            This download link is valid for 24 hours.
-          </p>
-          <br/>
-          <p style="font-size: 14px; color: #666;">
-            Best regards,<br/>
-            Dispatch Team
-          </p>
-        </div>
-      `,
+      text: `${bodyText}\n\nDownload your load confirmation here:\n${signedUrlData.signedUrl}\n\nThis link is valid for 24 hours.\n\nBest regards,\nDispatch Team`,
     });
 
     console.log('✅ ========================================');
