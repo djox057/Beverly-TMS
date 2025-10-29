@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { encode as base64Encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -76,18 +77,9 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to base64 for Resend (NO data URI prefix!)
+    // Convert Blob to base64 using Deno's standard library
     const arrayBuffer = await fileData.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    
-    // Convert bytes to base64 string
-    let base64String = '';
-    const chunkSize = 0x8000; // Process in chunks to avoid call stack size exceeded
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      base64String += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    const base64 = btoa(base64String);
+    const base64 = base64Encode(arrayBuffer);
     
     console.log(`✅ File converted to base64: ${base64.length} characters`);
 
