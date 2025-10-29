@@ -903,7 +903,7 @@ const Reports = () => {
           width: "120px",
           height: "64px"
         }}>
-            {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
+            {/* Delivery cell (top half) - SWAPPED: now shows same-day PICKUP stops */}
             <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`} style={{
             height: "32px",
             minHeight: "32px",
@@ -918,7 +918,7 @@ const Reports = () => {
                 // Render a separate cell for each delivery stop
                 return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                   const cellColor = getDeliveryCellColor(order, stop);
-                  const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
+                  const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
                   return <div key={`delivery-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
@@ -935,15 +935,17 @@ const Reports = () => {
                 });
               })}
                   {sameDayOrders.flatMap(order => {
-                // Get all delivery stops for this day
-                const dayStr = format(day, "yyyy-MM-dd");
-                const deliveryStopsForDay = order.deliveryStops?.filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr) || [];
+                const previousComplete = getPreviousLoadDeliveryStatus(order);
+                const cellColor = getPickupCellColor(order, previousComplete);
 
-                // Render a separate cell for each delivery stop
-                return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
-                  const cellColor = getDeliveryCellColor(order, stop);
-                  const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
-                  return <div key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                // Get all PICKUP stops for this day (SWAPPED for same-day loads)
+                const dayStr = format(day, "yyyy-MM-dd");
+                const pickupStopsForDay = order.pickupStops?.filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr) || [];
+
+                // Render a separate cell for each pickup stop
+                return pickupStopsForDay.map((stop: any, stopIdx: number) => {
+                  const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
+                  return <div key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
@@ -963,7 +965,7 @@ const Reports = () => {
                 </div>}
             </div>
 
-            {/* Pickup cell (bottom half) - includes same-day orders */}
+            {/* Pickup cell (bottom half) - SWAPPED: now shows same-day DELIVERY stops */}
             <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`} style={{
             height: "32px",
             minHeight: "32px",
@@ -980,7 +982,7 @@ const Reports = () => {
 
                 // Render a separate cell for each pickup stop
                 return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                  const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.length;
+                  const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
                   return <div key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
@@ -997,17 +999,15 @@ const Reports = () => {
                 });
               })}
                   {sameDayOrders.flatMap(order => {
-                const previousComplete = getPreviousLoadDeliveryStatus(order);
-                const cellColor = getPickupCellColor(order, previousComplete);
-
-                // Get all pickup stops for this day
+                // Get all DELIVERY stops for this day (SWAPPED for same-day loads)
                 const dayStr = format(day, "yyyy-MM-dd");
-                const pickupStopsForDay = order.pickupStops?.filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr) || [];
+                const deliveryStopsForDay = order.deliveryStops?.filter((stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr) || [];
 
-                // Render a separate cell for each pickup stop
-                return pickupStopsForDay.map((stop: any, stopIdx: number) => {
-                  const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
-                  return <div key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                // Render a separate cell for each delivery stop
+                return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
+                  const cellColor = getDeliveryCellColor(order, stop);
+                  const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
+                  return <div key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
