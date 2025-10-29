@@ -101,25 +101,26 @@ const NewOrder = () => {
   const queryClient = useQueryClient();
 
   // Company email configuration
+  // TEMPORARY: Using Resend's verified domain until bfprime.net domains are verified in Resend
   const COMPANY_EMAIL_CONFIG: Record<string, { sender: string; cc: string }> = {
     "BF Prime LLC": {
-      sender: "truckload@bfprime.net",
+      sender: "BF Prime Dispatch <onboarding@resend.dev>",
       cc: "dispatch@bfprime.net"
     },
     "BF Prime United LLC": {
-      sender: "truckload@bfprimeunited.net",
+      sender: "BF Prime United Dispatch <onboarding@resend.dev>",
       cc: "dispatch@bfprimeunited.net"
     },
     "Beverly Group": {
-      sender: "truckload@beverlygroupllc.net",
+      sender: "Beverly Group Dispatch <onboarding@resend.dev>",
       cc: "dispatch@beverlygroupllc.net"
     },
     "Beverly Freight": {
-      sender: "truckload@beverlyfreight.net",
+      sender: "Beverly Freight Dispatch <onboarding@resend.dev>",
       cc: "dispatch@beverlyfreight.net"
     },
     "BG Prime Inc": {
-      sender: "truckload@bgprime.net",
+      sender: "BG Prime Dispatch <onboarding@resend.dev>",
       cc: "dispatch@bgprime.net"
     }
   };
