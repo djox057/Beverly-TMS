@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -54,12 +55,51 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // Convert base64 to buffer for attachment
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Convert base64 to buffer
     console.log('📧 Converting base64 attachment to buffer...');
     const attachmentBuffer = Uint8Array.from(atob(attachmentBase64), c => c.charCodeAt(0));
     console.log(`📧 Attachment buffer size: ${attachmentBuffer.length} bytes`);
 
-    console.log('📧 Calling Resend API...');
+    // Upload file to Supabase Storage
+    const timestamp = Date.now();
+    const storagePath = `temp/${timestamp}-${attachmentFilename}`;
+    
+    console.log('📧 Uploading file to Supabase Storage...');
+    console.log(`📧 Storage path: ${storagePath}`);
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('email-attachments')
+      .upload(storagePath, attachmentBuffer, {
+        contentType: attachmentContentType,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('❌ Storage upload error:', uploadError);
+      throw new Error(`Failed to upload file: ${uploadError.message}`);
+    }
+
+    console.log('✅ File uploaded successfully:', uploadData);
+
+    // Get public URL with 1 year expiry
+    const expiresIn = 365 * 24 * 60 * 60; // 1 year in seconds
+    const { data: signedUrlData } = await supabase.storage
+      .from('email-attachments')
+      .createSignedUrl(storagePath, expiresIn);
+
+    if (!signedUrlData?.signedUrl) {
+      throw new Error('Failed to generate signed URL');
+    }
+
+    console.log('✅ Signed URL generated:', signedUrlData.signedUrl);
+
+    // Send email with download link instead of attachment
+    console.log('📧 Sending email with download link...');
     const emailResponse = await resend.emails.send({
       from: from,
       to: [to],
@@ -71,19 +111,22 @@ const handler = async (req: Request): Promise<Response> => {
             ${bodyText}
           </p>
           <br/>
+          <div style="margin: 20px 0;">
+            <a href="${signedUrlData.signedUrl}" 
+               style="display: inline-block; padding: 12px 24px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+              Download ${attachmentFilename}
+            </a>
+          </div>
+          <p style="font-size: 12px; color: #999;">
+            This link will expire in 1 year.
+          </p>
+          <br/>
           <p style="font-size: 14px; color: #666;">
             Best regards,<br/>
             Dispatch Team
           </p>
         </div>
-      `,
-      attachments: [
-        {
-          filename: attachmentFilename,
-          content: attachmentBuffer,
-          contentType: attachmentContentType
-        }
-      ]
+      `
     });
 
     console.log('✅ ========================================');
