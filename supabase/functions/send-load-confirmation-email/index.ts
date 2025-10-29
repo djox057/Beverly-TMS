@@ -76,10 +76,20 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to Uint8Array
+    // Convert Blob to base64 for Resend
     const arrayBuffer = await fileData.arrayBuffer();
-    const fileBuffer = new Uint8Array(arrayBuffer);
-    console.log(`✅ File downloaded from storage: ${fileBuffer.length} bytes`);
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Convert bytes to base64 string
+    let base64String = '';
+    const chunkSize = 0x8000; // Process in chunks to avoid call stack size exceeded
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      base64String += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64 = btoa(base64String);
+    
+    console.log(`✅ File converted to base64: ${base64.length} characters`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -102,7 +112,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: fileBuffer,
+          content: base64,
         }
       ]
     });
