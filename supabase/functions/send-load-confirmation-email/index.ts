@@ -1,17 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
-// Load test PDF for debugging
-const testPdfPath = new URL('./test-attachment.pdf', import.meta.url).pathname;
-let testPdfBuffer: Uint8Array | null = null;
-try {
-  testPdfBuffer = await Deno.readFile(testPdfPath);
-  console.log('📎 Loaded test PDF buffer:', testPdfBuffer.length, 'bytes');
-} catch (e: any) {
-  console.log('⚠️ Could not load test PDF:', e?.message || String(e));
-}
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +20,7 @@ interface EmailRequest {
   cc: string;
   subject: string;
   bodyText: string;
-  attachmentBase64: string;
+  storagePath: string;
   attachmentFilename: string;
   attachmentContentType: string;
 }
@@ -42,7 +38,7 @@ const handler = async (req: Request): Promise<Response> => {
       cc,
       subject,
       bodyText,
-      attachmentBase64,
+      storagePath,
       attachmentFilename,
       attachmentContentType
     }: EmailRequest = await req.json();
@@ -54,7 +50,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`📧 From: ${from}`);
     console.log(`📧 CC: ${cc}`);
     console.log(`📧 Subject: ${subject}`);
-    console.log(`📧 Attachment: ${attachmentFilename}`);
+    console.log(`📧 Storage Path: ${storagePath}`);
+    console.log(`📧 Attachment Filename: ${attachmentFilename}`);
     console.log(`📧 Attachment Type: ${attachmentContentType}`);
     console.log(`📧 Body: ${bodyText}`);
     console.log('📧 ========================================');
@@ -64,29 +61,25 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // TEST MODE: Use hardcoded test PDF to isolate the issue
-    console.log('📧 TEST MODE: Using hardcoded test PDF');
-    
-    // Also try to process the incoming attachment for comparison
-    let incomingBuffer: Uint8Array | null = null;
-    if (attachmentBase64) {
-      try {
-        let cleanBase64 = attachmentBase64;
-        if (attachmentBase64.includes('base64,')) {
-          cleanBase64 = attachmentBase64.split('base64,')[1];
-          console.log('📧 Removed data URI prefix from incoming base64');
-        }
-        
-        const binaryString = atob(cleanBase64);
-        incomingBuffer = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          incomingBuffer[i] = binaryString.charCodeAt(i);
-        }
-        console.log(`📧 Incoming buffer size: ${incomingBuffer.length} bytes`);
-      } catch (e: any) {
-        console.error('❌ Error processing incoming attachment:', e?.message || String(e));
-      }
+    if (!storagePath) {
+      throw new Error('Missing storage path for attachment');
     }
+
+    // Download file from Supabase Storage
+    console.log('📥 Downloading file from storage...');
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('email-attachments')
+      .download(storagePath);
+
+    if (downloadError) {
+      console.error('❌ Storage download error:', downloadError);
+      throw new Error(`Failed to download file from storage: ${downloadError.message}`);
+    }
+
+    // Convert Blob to Uint8Array
+    const arrayBuffer = await fileData.arrayBuffer();
+    const fileBuffer = new Uint8Array(arrayBuffer);
+    console.log(`✅ File downloaded from storage: ${fileBuffer.length} bytes`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -104,17 +97,14 @@ const handler = async (req: Request): Promise<Response> => {
             Best regards,<br/>
             Dispatch Team
           </p>
-          <p style="font-size: 12px; color: #999; margin-top: 20px;">
-            [TEST MODE - Using hardcoded PDF. Incoming buffer: ${incomingBuffer?.length || 0} bytes, Test buffer: ${testPdfBuffer?.length || 0} bytes]
-          </p>
         </div>
       `,
-      attachments: testPdfBuffer ? [
+      attachments: [
         {
-          filename: 'test-load-confirmation.pdf',
-          content: testPdfBuffer,
+          filename: attachmentFilename,
+          content: fileBuffer,
         }
-      ] : []
+      ]
     });
 
     console.log('✅ ========================================');

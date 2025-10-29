@@ -992,67 +992,79 @@ const NewOrder = () => {
       // Use the uploaded email file
       const emailFile = emailFiles[0];
       
-      // Convert file to base64 for attachment
-      const reader = new FileReader();
-      reader.readAsDataURL(emailFile);
+      // Upload file to Supabase Storage first
+      const timestamp = Date.now();
+      const fileName = `${timestamp}-${emailFile.name}`;
+      const filePath = `temp/${fileName}`;
       
-      await new Promise((resolve, reject) => {
-        reader.onloadend = async () => {
-          try {
-            const base64data = reader.result as string;
-            const base64Content = base64data.split(',')[1]; // Remove data:type;base64, prefix
-            
-            console.log('📧 Sending email with file:', emailFile.name);
-            console.log('📧 To:', selectedDriver.email);
-            console.log('📧 From:', emailConfig.sender);
-            console.log('📧 CC:', emailConfig.cc);
-            console.log('📧 Subject:', subject);
-            
-            // Call edge function to send email
-            const { data: { session } } = await supabase.auth.getSession();
-            const response = await fetch(
-              'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
-                },
-                body: JSON.stringify({
-                  to: selectedDriver.email,
-                  from: emailConfig.sender,
-                  cc: emailConfig.cc,
-                  subject: subject,
-                  bodyText: "Please see the rate confirmation attached below.",
-                  attachmentBase64: base64Content,
-                  attachmentFilename: emailFile.name,
-                  attachmentContentType: emailFile.type
-                })
-              }
-            );
-            
-            const responseData = await response.json();
-            console.log('📧 Email response:', responseData);
-            
-            if (!response.ok) {
-              console.error('❌ Error sending email - Status:', response.status);
-              console.error('❌ Error response:', responseData);
-              throw new Error(responseData.error || 'Failed to send email');
-            }
-            
-            setEmailSent(true);
-            toast({
-              title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}`
-            });
-            
-            resolve(true);
-          } catch (err) {
-            console.error('❌ Email error:', err);
-            reject(err);
-          }
-        };
-        reader.onerror = reject;
+      console.log('📤 Uploading to storage:', filePath);
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('email-attachments')
+        .upload(filePath, emailFile, {
+          contentType: emailFile.type,
+          upsert: false
+        });
+      
+      if (uploadError) {
+        console.error('❌ Storage upload error:', uploadError);
+        throw new Error(`Failed to upload file: ${uploadError.message}`);
+      }
+      
+      console.log('✅ File uploaded to storage:', uploadData.path);
+      console.log('📧 Sending email with file:', emailFile.name);
+      console.log('📧 To:', selectedDriver.email);
+      console.log('📧 From:', emailConfig.sender);
+      console.log('📧 CC:', emailConfig.cc);
+      console.log('📧 Subject:', subject);
+      
+      // Call edge function to send email with storage path
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`,
+          },
+          body: JSON.stringify({
+            to: selectedDriver.email,
+            from: emailConfig.sender,
+            cc: emailConfig.cc,
+            subject: subject,
+            bodyText: "Please see the rate confirmation attached below.",
+            storagePath: filePath,
+            attachmentFilename: emailFile.name,
+            attachmentContentType: emailFile.type
+          })
+        }
+      );
+      
+      const responseData = await response.json();
+      console.log('📧 Email response:', responseData);
+      
+      if (!response.ok) {
+        console.error('❌ Error sending email - Status:', response.status);
+        console.error('❌ Error response:', responseData);
+        throw new Error(responseData.error || 'Failed to send email');
+      }
+      
+      // Clean up the temporary file from storage
+      const { error: deleteError } = await supabase.storage
+        .from('email-attachments')
+        .remove([filePath]);
+      
+      if (deleteError) {
+        console.warn('⚠️ Failed to delete temporary file:', deleteError);
+      } else {
+        console.log('🗑️ Temporary file deleted from storage');
+      }
+      
+      setEmailSent(true);
+      toast({
+        title: "Email Sent",
+        description: `File sent to ${selectedDriver.email}`
       });
       
     } catch (error: any) {
