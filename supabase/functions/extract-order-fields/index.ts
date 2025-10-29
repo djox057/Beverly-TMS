@@ -96,53 +96,43 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // Stream upload to avoid loading entire PDF into memory
-    console.log('Streaming upload to Gemini File API...');
+    // Use simpler approach: read file as bytes but limit memory by using smaller buffer
+    console.log('Uploading to Gemini File API with memory-efficient approach...');
     
     const boundary = `----WebKitFormBoundary${Date.now()}`;
     const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
     const encoder = new TextEncoder();
     
-    // Create streaming multipart body
-    const stream = new ReadableStream({
-      async start(controller) {
-        // Send metadata header
-        controller.enqueue(encoder.encode(
-          `--${boundary}\r\n` +
-          `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-          `${metadata}\r\n`
-        ));
-        
-        // Send PDF content header
-        controller.enqueue(encoder.encode(
-          `--${boundary}\r\n` +
-          `Content-Type: application/pdf\r\n\r\n`
-        ));
-        
-        // Stream PDF file in chunks
-        const reader = pdfFile.stream().getReader();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-        
-        // Send closing boundary
-        controller.enqueue(encoder.encode(`\r\n--${boundary}--`));
-        controller.close();
-      }
-    });
+    // Build multipart using Blob (browser-native, more efficient than manual array building)
+    const metadataHeader = encoder.encode(
+      `--${boundary}\r\n` +
+      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${metadata}\r\n`
+    );
+    
+    const fileHeader = encoder.encode(
+      `--${boundary}\r\n` +
+      `Content-Type: application/pdf\r\n\r\n`
+    );
+    
+    const footer = encoder.encode(`\r\n--${boundary}--`);
+    
+    // Use Blob directly - it's optimized for binary data and doesn't load into JS heap
+    const multipartBody = new Blob([
+      metadataHeader,
+      fileHeader,
+      pdfFile, // Pass the File object directly - it's a Blob
+      footer
+    ]);
+    
+    console.log('Multipart body created, size:', multipartBody.size);
     
     const uploadResponse = await fetch(
       `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-        body: stream
+        body: multipartBody
       }
     );
 
@@ -154,7 +144,7 @@ serve(async (req) => {
 
     const uploadData = await uploadResponse.json();
     const fileUri = uploadData.file.uri;
-    console.log('✅ File streamed successfully, URI:', fileUri);
+    console.log('✅ File uploaded successfully, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
