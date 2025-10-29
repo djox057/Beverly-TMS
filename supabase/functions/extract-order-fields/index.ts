@@ -154,7 +154,7 @@ Return ONLY JSON. Use null for missing fields.`;
 
     console.log('Calling Gemini Flash Lite for PDF analysis...');
     
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
