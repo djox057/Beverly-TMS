@@ -45,11 +45,41 @@ serve(async (req) => {
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: 'Extract: brokerNameCandidates[], brokerAddressCandidates[], brokerLoadNumber, pickups[{address,city,state,zip,date,startTime,endTime,shipper}], deliveries[], freightAmount, mileage, commodity, weight, equipment. Return JSON only.' },
+            { 
+              text: `Extract data from this multi-page PDF. IMPORTANT INSTRUCTIONS:
+
+1. CONCATENATE TEXT FROM ALL PAGES before parsing - do NOT assume page 1 has everything
+2. NORMALIZE the text first:
+   - Decode UTF-8 properly
+   - Apply Unicode NFKC normalization
+   - Replace smart quotes ("")with straight quotes
+   - Collapse and trim whitespace
+   - Remove zero-width characters
+   - De-hyphenate line breaks (e.g., "ship-\\nper" → "shipper")
+3. Use TOLERANT, CROSS-LINE regex patterns (case-insensitive, DOTALL mode):
+   - Load number: (?is)load\\s*#?\\s*[:\\-]?\\s*(\\d+)|\\bref(?:erence)?\\b\\s*[:\\-]?\\s*(\\d+)|#(\\d{8,})
+   - Broker name: Look for common patterns like "C.H. Robinson", "MoLo Solutions", etc.
+   - Dates: Match MM/DD/YYYY or MM/DD/YY formats
+   - Addresses: Parse full address with street, city, state, zip
+4. FALLBACK to nearby key-value pairs if primary patterns fail
+5. Extract these fields as JSON:
+   - brokerNameCandidates: string[] (multiple possible matches)
+   - brokerAddressCandidates: string[] (multiple possible matches)
+   - brokerLoadNumber: string (the main load/reference number)
+   - pickups: array of {address, city, state, zip, date, startTime, endTime, shipper, pickupNumber}
+   - deliveries: array of {address, city, state, zip, date, startTime, endTime, shipper, deliveryNumber}
+   - freightAmount: number (total amount from Rate Details)
+   - mileage: number (if present)
+   - commodity: string
+   - weight: number (total estimated weight)
+   - equipment: string
+
+Return ONLY valid JSON, no markdown formatting.` 
+            },
             { inline_data: { mime_type: 'application/pdf', data: base64 } }
           ]
         }],
-        generationConfig: { temperature: 0, maxOutputTokens: 2048 }
+        generationConfig: { temperature: 0, maxOutputTokens: 3048 }
       }),
     });
 
