@@ -1663,6 +1663,15 @@ const Reports = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLegendDialogOpen(true)}
+                className="gap-2 ml-auto"
+              >
+                <HelpCircle className="h-4 w-4" />
+                Legend
+              </Button>
             </div>
             <div className="flex items-center justify-between mb-2">
               <TabsList className="grid grid-cols-3 flex-1">
@@ -1674,15 +1683,6 @@ const Reports = () => {
               </TabsList>
               {(hasRole("supervisor") || hasRole("manager") || hasRole("admin") || hasRole("safety")) && (
                 <div className="flex gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setLegendDialogOpen(true)}
-                    className="gap-2"
-                  >
-                    <HelpCircle className="h-4 w-4" />
-                    Legend
-                  </Button>
                   <Button
                     variant={showEmptyTrucks ? "default" : "outline"}
                     size="sm"
