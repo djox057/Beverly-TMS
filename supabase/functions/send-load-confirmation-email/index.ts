@@ -54,10 +54,9 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // Convert base64 to buffer for attachment
-    console.log('📧 Converting base64 attachment to buffer...');
-    const attachmentBuffer = Uint8Array.from(atob(attachmentBase64), c => c.charCodeAt(0));
-    console.log(`📧 Attachment buffer size: ${attachmentBuffer.length} bytes`);
+    // Decode base64 directly to send to Resend
+    console.log('📧 Preparing attachment...');
+    console.log(`📧 Attachment size (base64): ${attachmentBase64.length} characters`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -80,8 +79,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: attachmentBuffer,
-          contentType: attachmentContentType
+          content: attachmentBase64,
         }
       ]
     });
