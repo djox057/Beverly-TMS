@@ -1,4 +1,55 @@
 project_id = "ontnwcpuykenzzuktyng"
 
+[functions.calculate-route]
+verify_jwt = false
+
+[functions.check-delivery-etas]
+verify_jwt = true
+
+[functions.create-invoice-folder]
+verify_jwt = true
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.delete-user]
+verify_jwt = true
+
 [functions.extract-order-fields]
 verify_jwt = false
+
+[functions.generate-load-confirmation]
+verify_jwt = false
+
+[functions.geocode-address]
+verify_jwt = false
+
+[functions.hos-debug]
+verify_jwt = true
+
+[functions.hos-sync]
+verify_jwt = true
+
+[functions.logout-all-users]
+verify_jwt = true
+
+[functions.merge-pdfs]
+verify_jwt = false
+
+[functions.recalculate-load-miles]
+verify_jwt = true
+
+[functions.samsara-debug]
+verify_jwt = true
+
+[functions.samsara-locations]
+verify_jwt = true
+
+[functions.send-load-confirmation-email]
+verify_jwt = true
+
+[functions.update-truck-distances]
+verify_jwt = true
+
+[functions.update-user-role]
+verify_jwt = true
