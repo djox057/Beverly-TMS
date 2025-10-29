@@ -438,23 +438,9 @@ After cleaning, your address JSON should look like:
 
 **NO DUPLICATE CITIES:** City name goes ONLY in "city" field, never in "address" field.
 
-**🚨 CRITICAL: PARSE CITY FROM END OF ADDRESS LINE:**
-When you see an address like "36300 Eureka Rd Romulus" or "123 Main St Chicago":
-1. The LAST WORD (if it's a city name) is the CITY - extract it to the "city" field
-2. Everything before the city is the street address
-3. Example: "36300 Eureka Rd Romulus" → address: "36300 Eureka Rd", city: "Romulus"
-4. Example: "123 Main St Chicago" → address: "123 Main St", city: "Chicago"
-
-**🚨 MANDATORY: If you see city/state/zip on the SAME LINE as the street address:**
-- Example: "36300 Eureka Rd Romulus MI 48174"
-- Parse as: address: "36300 Eureka Rd", city: "Romulus", state: "MI", zip: "48174"
-- The pattern is: STREET_ADDRESS CITY STATE ZIP (all on one line)
-
 **Examples:**
 - "SPRINGFIELD BLDG 19 DU 1904 N LECOMPTE, SPRINGFIELD, MO" → address: "1904 North Lecompte", city: "Springfield"
 - "YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA" → address: "4875 Susquehanna Trail", city: "York"
-- "36300 Eureka Rd Romulus" → address: "36300 Eureka Rd", city: "Romulus"
-- "36300 Eureka Rd Romulus MI 48174" → address: "36300 Eureka Rd", city: "Romulus", state: "MI", zip: "48174"
 
 ## CRITICAL: COMMA SEPARATION REQUIREMENTS
 
