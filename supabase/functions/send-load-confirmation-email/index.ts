@@ -106,46 +106,34 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('✅ Upload data:', JSON.stringify(uploadData, null, 2));
     console.log('✅ ========================================');
 
-    // Get signed URL with 1 year expiry
-    const expiresIn = 365 * 24 * 60 * 60; // 1 year in seconds
+    // Get public URL (bucket is public)
     console.log('🔗 ========================================');
-    console.log('🔗 GENERATING SIGNED URL');
+    console.log('🔗 GENERATING PUBLIC URL');
     console.log('🔗 ========================================');
     console.log(`🔗 Path: ${storagePath}`);
-    console.log(`🔗 Expires in: ${expiresIn} seconds (1 year)`);
     
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    const { data: publicUrlData } = supabase.storage
       .from('email-attachments')
-      .createSignedUrl(storagePath, expiresIn);
+      .getPublicUrl(storagePath);
 
-    if (signedUrlError) {
+    if (!publicUrlData?.publicUrl) {
       console.error('❌ ========================================');
-      console.error('❌ SIGNED URL ERROR');
+      console.error('❌ NO PUBLIC URL IN RESPONSE');
       console.error('❌ ========================================');
-      console.error('❌ Error:', signedUrlError);
-      console.error('❌ Error message:', signedUrlError.message);
-      console.error('❌ Error details:', JSON.stringify(signedUrlError, null, 2));
+      console.error('❌ publicUrlData:', JSON.stringify(publicUrlData, null, 2));
       console.error('❌ ========================================');
-      throw new Error(`Failed to generate signed URL: ${signedUrlError.message}`);
-    }
-
-    if (!signedUrlData?.signedUrl) {
-      console.error('❌ ========================================');
-      console.error('❌ NO SIGNED URL IN RESPONSE');
-      console.error('❌ ========================================');
-      console.error('❌ signedUrlData:', JSON.stringify(signedUrlData, null, 2));
-      console.error('❌ ========================================');
-      throw new Error('Failed to generate signed URL - no URL in response');
+      throw new Error('Failed to generate public URL - no URL in response');
     }
 
     console.log('✅ ========================================');
-    console.log('✅ SIGNED URL GENERATED SUCCESSFULLY');
+    console.log('✅ PUBLIC URL GENERATED SUCCESSFULLY');
     console.log('✅ ========================================');
-    console.log(`✅ Signed URL: ${signedUrlData.signedUrl}`);
-    console.log(`✅ URL length: ${signedUrlData.signedUrl.length}`);
+    console.log(`✅ Public URL: ${publicUrlData.publicUrl}`);
+    console.log(`✅ URL length: ${publicUrlData.publicUrl.length}`);
     console.log('✅ ========================================');
 
     // Build email HTML with download link
+    const downloadUrl = publicUrlData.publicUrl;
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <p style="font-size: 16px; color: #333;">
@@ -153,13 +141,13 @@ const handler = async (req: Request): Promise<Response> => {
         </p>
         <br/>
         <div style="margin: 20px 0;">
-          <a href="${signedUrlData.signedUrl}" 
+          <a href="${downloadUrl}" 
              style="display: inline-block; padding: 12px 24px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
             Download ${attachmentFilename}
           </a>
         </div>
         <p style="font-size: 12px; color: #999;">
-          This link will expire in 1 year.
+          Click the button above to download your file.
         </p>
         <br/>
         <p style="font-size: 14px; color: #666;">
@@ -173,27 +161,36 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('📧 EMAIL HTML CONSTRUCTED');
     console.log('📧 ========================================');
     console.log(`📧 HTML length: ${emailHtml.length} characters`);
-    console.log(`📧 Contains download link: ${emailHtml.includes(signedUrlData.signedUrl)}`);
+    console.log(`📧 Contains download link: ${emailHtml.includes(downloadUrl)}`);
+    console.log('📧 Download URL in HTML:', downloadUrl);
     console.log('📧 Full HTML:');
     console.log(emailHtml);
     console.log('📧 ========================================');
 
-    // Send email with download link instead of attachment
+    // Send email with download link
     console.log('📧 ========================================');
     console.log('📧 SENDING EMAIL VIA RESEND');
     console.log('📧 ========================================');
-    console.log(`📧 To: ${to}`);
+    console.log(`📧 To: [${to}]`);
     console.log(`📧 From: ${from}`);
-    console.log(`📧 CC: ${cc || 'none'}`);
+    console.log(`📧 CC: ${cc ? `[${cc}]` : 'none'}`);
     console.log(`📧 Subject: ${subject}`);
     
-    const emailResponse = await resend.emails.send({
+    const emailPayload: any = {
       from: from,
       to: [to],
-      cc: cc ? [cc] : undefined,
       subject: subject,
       html: emailHtml
-    });
+    };
+    
+    if (cc && cc.trim()) {
+      emailPayload.cc = [cc];
+      console.log(`📧 CC field added to payload: [${cc}]`);
+    }
+    
+    console.log('📧 Full email payload:', JSON.stringify(emailPayload, null, 2));
+    
+    const emailResponse = await resend.emails.send(emailPayload);
 
     console.log('✅ ========================================');
     console.log('✅ EMAIL SENT SUCCESSFULLY');
@@ -205,7 +202,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         data: emailResponse,
-        signedUrl: signedUrlData.signedUrl,
+        publicUrl: publicUrlData.publicUrl,
         storagePath: storagePath
       }),
       {
