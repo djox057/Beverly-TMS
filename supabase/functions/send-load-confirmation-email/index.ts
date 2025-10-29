@@ -3,6 +3,16 @@ import { Resend } from "https://esm.sh/resend@4.0.1";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+// Load test PDF for debugging
+const testPdfPath = new URL('./test-attachment.pdf', import.meta.url).pathname;
+let testPdfBuffer: Uint8Array | null = null;
+try {
+  testPdfBuffer = await Deno.readFile(testPdfPath);
+  console.log('📎 Loaded test PDF buffer:', testPdfBuffer.length, 'bytes');
+} catch (e: any) {
+  console.log('⚠️ Could not load test PDF:', e?.message || String(e));
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -54,25 +64,29 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // Prepare attachment - clean base64 and convert to buffer
-    console.log('📧 Preparing attachment...');
-    console.log(`📧 Original attachment size: ${attachmentBase64.length} characters`);
+    // TEST MODE: Use hardcoded test PDF to isolate the issue
+    console.log('📧 TEST MODE: Using hardcoded test PDF');
     
-    // Remove data URI prefix if present (e.g., "data:application/pdf;base64,")
-    let cleanBase64 = attachmentBase64;
-    if (attachmentBase64.includes('base64,')) {
-      cleanBase64 = attachmentBase64.split('base64,')[1];
-      console.log('📧 Removed data URI prefix from base64');
+    // Also try to process the incoming attachment for comparison
+    let incomingBuffer: Uint8Array | null = null;
+    if (attachmentBase64) {
+      try {
+        let cleanBase64 = attachmentBase64;
+        if (attachmentBase64.includes('base64,')) {
+          cleanBase64 = attachmentBase64.split('base64,')[1];
+          console.log('📧 Removed data URI prefix from incoming base64');
+        }
+        
+        const binaryString = atob(cleanBase64);
+        incomingBuffer = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          incomingBuffer[i] = binaryString.charCodeAt(i);
+        }
+        console.log(`📧 Incoming buffer size: ${incomingBuffer.length} bytes`);
+      } catch (e: any) {
+        console.error('❌ Error processing incoming attachment:', e?.message || String(e));
+      }
     }
-    console.log(`📧 Clean base64 size: ${cleanBase64.length} characters`);
-    
-    // Convert to Buffer for Resend
-    const buffer = new Uint8Array(
-      atob(cleanBase64)
-        .split('')
-        .map(char => char.charCodeAt(0))
-    );
-    console.log(`📧 Buffer size: ${buffer.length} bytes`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -90,15 +104,17 @@ const handler = async (req: Request): Promise<Response> => {
             Best regards,<br/>
             Dispatch Team
           </p>
+          <p style="font-size: 12px; color: #999; margin-top: 20px;">
+            [TEST MODE - Using hardcoded PDF. Incoming buffer: ${incomingBuffer?.length || 0} bytes, Test buffer: ${testPdfBuffer?.length || 0} bytes]
+          </p>
         </div>
       `,
-      attachments: [
+      attachments: testPdfBuffer ? [
         {
-          filename: attachmentFilename,
-          content: buffer,
-          contentType: attachmentContentType,
+          filename: 'test-load-confirmation.pdf',
+          content: testPdfBuffer,
         }
-      ]
+      ] : []
     });
 
     console.log('✅ ========================================');
