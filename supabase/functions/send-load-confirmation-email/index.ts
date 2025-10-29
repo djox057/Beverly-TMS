@@ -76,20 +76,12 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to base64 using chunked approach (same method as extract-order-fields)
+    // Convert Blob to ArrayBuffer then to Uint8Array
+    // Resend in Deno expects Uint8Array for attachments, not base64 string
     const arrayBuffer = await fileData.arrayBuffer();
-    const pdfBuffer = new Uint8Array(arrayBuffer);
+    const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Convert to base64 in chunks to avoid stack overflow
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
-      const chunk = pdfBuffer.slice(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
-    }
-    const base64 = btoa(binaryString);
-    
-    console.log(`✅ File converted to base64: ${base64.length} characters`);
+    console.log(`✅ File converted to Uint8Array: ${uint8Array.length} bytes`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -112,7 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: base64,
+          content: uint8Array,
         }
       ]
     });
