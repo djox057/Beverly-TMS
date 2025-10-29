@@ -287,17 +287,13 @@ const Reports = () => {
     if (!datetimeStr || datetimeStr === "—") return "—";
     
     const parsed = parseSimpleDateTime(datetimeStr);
-    const startHour = parsed.hours % 12 || 12;
-    const startPeriod = parsed.hours >= 12 ? 'pm' : 'am';
-    const startTimeFormatted = `${startHour}${startPeriod}`;
+    const startTimeFormatted = `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`;
     
     // If no end time or end time is "—", just show start time
     if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
     
     const parsedEnd = parseSimpleDateTime(endDatetimeStr);
-    const endHour = parsedEnd.hours % 12 || 12;
-    const endPeriod = parsedEnd.hours >= 12 ? 'pm' : 'am';
-    const endTimeFormatted = `${endHour}${endPeriod}`;
+    const endTimeFormatted = `${parsedEnd.hours.toString().padStart(2, '0')}:${parsedEnd.minutes.toString().padStart(2, '0')}`;
     
     // If start and end are the same, only show one time
     if (startTimeFormatted === endTimeFormatted) return startTimeFormatted;
@@ -888,14 +884,15 @@ const Reports = () => {
       });
 
       // Check if this is a "continuing delivery" scenario
-      // This happens when the previous day has deliveries and today has deliveries (without pickups) for the same orders
+      // This happens when TODAY has deliveries and NEXT day also has deliveries (without pickups) for the same orders
       let shouldShowContinuingDelivery = false;
-      if (index > 0 && deliveryOnlyOrders.length > 0) {
-        const prevDayStr = format(days[index - 1], "yyyy-MM-dd");
-        // Check if any of today's delivery-only orders had deliveries on the previous day
+      if (index < days.length - 1 && deliveryOnlyOrders.length > 0) {
+        const nextDayStr = format(days[index + 1], "yyyy-MM-dd");
+        // Check if any of today's delivery-only orders have deliveries on the next day without pickups
         shouldShowContinuingDelivery = deliveryOnlyOrders.some(order => {
-          const hadDeliveryPrevDay = order.deliveryStopsByDate?.has(prevDayStr);
-          return hadDeliveryPrevDay;
+          const hasDeliveryNextDay = order.deliveryStopsByDate?.has(nextDayStr);
+          const hasPickupNextDay = order.pickupStopsByDate?.has(nextDayStr);
+          return hasDeliveryNextDay && !hasPickupNextDay;
         });
       }
 
