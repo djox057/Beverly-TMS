@@ -992,33 +992,14 @@ const NewOrder = () => {
       // Use the uploaded email file
       const emailFile = emailFiles[0];
       
-      // Upload file to Supabase Storage first
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${emailFile.name}`;
-      const filePath = `temp/${fileName}`;
-      
-      console.log('📤 Uploading to storage:', filePath);
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('email-attachments')
-        .upload(filePath, emailFile, {
-          contentType: emailFile.type,
-          upsert: false
-        });
-      
-      if (uploadError) {
-        console.error('❌ Storage upload error:', uploadError);
-        throw new Error(`Failed to upload file: ${uploadError.message}`);
-      }
-      
-      console.log('✅ File uploaded to storage:', uploadData.path);
-      console.log('📧 Sending email with file:', emailFile.name);
+      // Skip file upload for now - just send test email
+      console.log('📧 Sending test email');
       console.log('📧 To:', selectedDriver.email);
       console.log('📧 From:', emailConfig.sender);
       console.log('📧 CC:', emailConfig.cc);
       console.log('📧 Subject:', subject);
       
-      // Call edge function to send email with storage path
+      // Call edge function to send simple email
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
         'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email',
@@ -1033,10 +1014,7 @@ const NewOrder = () => {
             from: emailConfig.sender,
             cc: emailConfig.cc,
             subject: subject,
-            bodyText: "Please see the rate confirmation attached below.",
-            storagePath: filePath,
-            attachmentFilename: emailFile.name,
-            attachmentContentType: emailFile.type
+            bodyText: "Test email - load confirmation will be added later.",
           })
         }
       );
@@ -1050,21 +1028,10 @@ const NewOrder = () => {
         throw new Error(responseData.error || 'Failed to send email');
       }
       
-      // Clean up the temporary file from storage
-      const { error: deleteError } = await supabase.storage
-        .from('email-attachments')
-        .remove([filePath]);
-      
-      if (deleteError) {
-        console.warn('⚠️ Failed to delete temporary file:', deleteError);
-      } else {
-        console.log('🗑️ Temporary file deleted from storage');
-      }
-      
       setEmailSent(true);
       toast({
-        title: "Email Sent",
-        description: `File sent to ${selectedDriver.email}`
+        title: "Test Email Sent",
+        description: `Email sent to ${selectedDriver.email}`
       });
       
     } catch (error: any) {
