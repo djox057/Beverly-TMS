@@ -1940,21 +1940,26 @@ const Reports = () => {
                                           ...getCompanyBackgroundColor(truck.companyName),
                                         }}
                                       >
-                                        <div className="flex items-center gap-1">
-                                          {truck.truckNumber}
-                                          {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
-                                          {truck.hasMultipleOrders && (
-                                            <TooltipProvider>
-                                              <Tooltip>
-                                                <TooltipContent>
-                                                  <p className="text-[10px]">
-                                                    {truck.totalOrdersCount} total orders ({truck.activeOrdersCount}{" "}
-                                                    active)
-                                                  </p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
-                                          )}
+                                        <div className="flex flex-col gap-0.5">
+                                          <div className="flex items-center gap-1">
+                                            {truck.truckNumber}
+                                            {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                                            {truck.hasMultipleOrders && (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipContent>
+                                                    <p className="text-[10px]">
+                                                      {truck.totalOrdersCount} total orders ({truck.activeOrdersCount}{" "}
+                                                      active)
+                                                    </p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            )}
+                                          </div>
+                                          <div className="text-[9px] text-muted-foreground">
+                                            {truck.companyName}
+                                          </div>
                                         </div>
                                       </td>
                                       <td
@@ -2824,7 +2829,7 @@ const Reports = () => {
                   <span className="text-sm">Driver marked as arrived at location</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-8 bg-red-500/20 border border-red-500/50 rounded flex items-center justify-center text-xs font-medium">Late</div>
+                  <div className="w-20 h-8 bg-orange-500/20 border border-orange-500/50 rounded flex items-center justify-center text-xs font-medium">Late</div>
                   <span className="text-sm">Delivery is past due date</span>
                 </div>
                 <div className="flex items-center gap-2">
