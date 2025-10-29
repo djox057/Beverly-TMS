@@ -96,59 +96,38 @@ serve(async (req) => {
 
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
-    // For large PDFs, use Gemini's file upload API instead of inline data
-    const useLargeFileAPI = pdfFile.size > 200000; // 200KB threshold
+    // Always use Gemini File API to avoid memory issues
+    console.log('Uploading to Gemini File API...');
     
-    if (useLargeFileAPI) {
-      console.log('⚠️ Large PDF detected, using Gemini File API...');
+    const boundary = `----WebKitFormBoundary${Date.now()}`;
+    const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
+    
+    const encoder = new TextEncoder();
+    const parts = [
+      encoder.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`),
+      encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
+      new Uint8Array(await pdfFile.arrayBuffer()),
+      encoder.encode(`\r\n--${boundary}--`)
+    ];
+    
+    const uploadResponse = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body: new Blob(parts)
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      const errText = await uploadResponse.text();
+      console.error('File upload error:', uploadResponse.status, errText);
+      throw new Error(`File upload failed: ${uploadResponse.status}`);
     }
 
-    let fileUri: string | null = null;
-    let base64Pdf: string | null = null;
-
-    if (useLargeFileAPI) {
-      // Upload to Gemini Files API using streaming to minimize memory
-      const boundary = `----WebKitFormBoundary${Date.now()}`;
-      const metadata = JSON.stringify({ file: { display_name: pdfFile.name } });
-      
-      // Build multipart body as blob (more memory efficient)
-      const encoder = new TextEncoder();
-      const parts = [
-        encoder.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`),
-        encoder.encode(`--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`),
-        new Uint8Array(await pdfFile.arrayBuffer()),
-        encoder.encode(`\r\n--${boundary}--`)
-      ];
-      
-      const uploadResponse = await fetch(
-        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-          body: new Blob(parts)
-        }
-      );
-
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        console.error('File upload error:', uploadResponse.status, errText);
-        throw new Error(`File upload failed: ${uploadResponse.status}`);
-      }
-
-      const uploadData = await uploadResponse.json();
-      fileUri = uploadData.file.uri;
-      console.log('✅ File uploaded, URI:', fileUri);
-    } else {
-      // Small file: stream base64 encode in chunks
-      const bytes = new Uint8Array(await pdfFile.arrayBuffer());
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-      }
-      base64Pdf = btoa(binary);
-      console.log('✅ Small file encoded');
-    }
+    const uploadData = await uploadResponse.json();
+    const fileUri = uploadData.file.uri;
+    console.log('✅ File uploaded, URI:', fileUri);
 
     // Optimized prompt - balanced between size and clarity (200-300 tokens)
     const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
@@ -193,9 +172,10 @@ Return ONLY JSON. Use null for missing fields.`;
       },
       body: JSON.stringify({
         contents: [{
-          parts: fileUri 
-            ? [{ text: systemPrompt }, { file_data: { mime_type: 'application/pdf', file_uri: fileUri } }]
-            : [{ text: systemPrompt }, { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }]
+          parts: [
+            { text: systemPrompt },
+            { file_data: { mime_type: 'application/pdf', file_uri: fileUri } }
+          ]
         }],
         generationConfig: {
           temperature: 0,
