@@ -883,7 +883,7 @@ const Reports = () => {
         return check.isGameOver;
       });
 
-      // Check if this is a "continuing delivery" scenario
+      // Check if this is a "continuing delivery" scenario for PICKUP cell
       // This happens when TODAY has deliveries and NEXT day also has deliveries (without pickups) for the same orders
       let shouldShowContinuingDelivery = false;
       if (index < days.length - 1 && deliveryOnlyOrders.length > 0) {
@@ -893,6 +893,18 @@ const Reports = () => {
           const hasDeliveryNextDay = order.deliveryStopsByDate?.has(nextDayStr);
           const hasPickupNextDay = order.pickupStopsByDate?.has(nextDayStr);
           return hasDeliveryNextDay && !hasPickupNextDay;
+        });
+      }
+
+      // Check if this is a "continuing delivery" scenario for DELIVERY cell
+      // This happens when PREVIOUS day had deliveries and TODAY has deliveries (without new pickups) for the same orders
+      let shouldShowContinuingDeliveryInDeliveryCell = false;
+      if (index > 0 && deliveryOnlyOrders.length > 0) {
+        const prevDayStr = format(days[index - 1], "yyyy-MM-dd");
+        // Check if any of today's delivery-only orders had deliveries on the previous day
+        shouldShowContinuingDeliveryInDeliveryCell = deliveryOnlyOrders.some(order => {
+          const hadDeliveryPrevDay = order.deliveryStopsByDate?.has(prevDayStr);
+          return hadDeliveryPrevDay;
         });
       }
 
@@ -991,8 +1003,8 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center text-muted-foreground`}>
-                  —
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${shouldShowContinuingDeliveryInDeliveryCell ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                  {shouldShowContinuingDeliveryInDeliveryCell ? ">>>" : "—"}
                 </div>}
             </div>
 
