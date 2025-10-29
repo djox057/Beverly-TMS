@@ -24,10 +24,15 @@ serve(async (req) => {
     if (!pdfFile) throw new Error('No file');
     console.log('File:', pdfFile.size, 'bytes');
 
-    // Convert to base64 inline (simpler, works for files < 10MB)
+    // Convert to base64 in chunks to avoid stack overflow
     console.log('Converting to base64');
     const bytes = new Uint8Array(await pdfFile.arrayBuffer());
-    const base64 = btoa(String.fromCharCode(...bytes));
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binary);
     console.log('Base64 created');
 
     console.log('Calling Gemini');
