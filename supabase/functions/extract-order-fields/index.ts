@@ -64,45 +64,61 @@ interface ExtractedOrderData {
 }
 
 serve(async (req) => {
-  console.log('Extract order fields function called, method:', req.method);
+  console.log('🚀 [STEP 0] Function invoked');
+  console.log('🚀 [STEP 1] Method:', req.method);
+  console.log('🚀 [STEP 2] Headers:', Object.fromEntries(req.headers.entries()));
+  
+  // Log memory usage
+  if (typeof Deno !== 'undefined' && Deno.memoryUsage) {
+    const mem = Deno.memoryUsage();
+    console.log('🚀 [MEMORY] Initial:', {
+      rss: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`,
+      heapTotal: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+      heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+      external: `${(mem.external / 1024 / 1024).toFixed(2)} MB`
+    });
+  }
 
   if (req.method === 'OPTIONS') {
+    console.log('🚀 [STEP 3] Handling OPTIONS');
     return new Response(null, { headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
+    console.log('🚀 [STEP 4] Method not allowed');
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
+  console.log('🚀 [STEP 5] POST request confirmed');
   let fileUri: string | null = null;
   
   try {
-    console.log('=== STARTING EXTRACTION ===');
+    console.log('🚀 [STEP 6] Entering try block');
+    
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    console.log('🚀 [STEP 7] API key exists:', !!geminiApiKey);
+    
     if (!geminiApiKey) {
       throw new Error('Gemini API key not configured');
     }
 
-    // Get content-type to extract boundary
+    console.log('🚀 [STEP 8] Getting content-type');
     const contentType = req.headers.get('content-type') || '';
-    console.log('Content-Type:', contentType);
+    console.log('🚀 [STEP 9] Content-Type:', contentType);
     
     if (!contentType.includes('multipart/form-data')) {
       throw new Error('Request must be multipart/form-data');
     }
 
-    // Forward the request body directly to Gemini without loading into memory
-    console.log('⏳ Streaming upload to Gemini File API...');
-    
-    // Create new boundary for Gemini upload
+    console.log('🚀 [STEP 10] Preparing upload stream');
     const geminiBoundary = `----WebKitFormBoundary${Date.now()}`;
     const metadata = JSON.stringify({ file: { display_name: 'rate-confirmation.pdf' } });
     const encoder = new TextEncoder();
     
-    // Build Gemini multipart request by streaming original body
+    console.log('🚀 [STEP 11] Creating headers');
     const geminiHeaders = encoder.encode(
       `--${geminiBoundary}\r\n` +
       `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
@@ -112,19 +128,28 @@ serve(async (req) => {
     );
     
     const geminiFooter = encoder.encode(`\r\n--${geminiBoundary}--`);
-    
+    console.log('🚀 [STEP 12] Headers and footer created');
+    console.log('🚀 [STEP 13] Creating upload stream');
     // Create stream that combines headers + original PDF stream + footer
     const uploadStream = new ReadableStream({
       async start(controller) {
+        console.log('🚀 [STEP 14] Stream started');
+        
         // Send Gemini headers
         controller.enqueue(geminiHeaders);
+        console.log('🚀 [STEP 15] Headers enqueued');
         
         // Stream the original request body (but extract only PDF part)
+        console.log('🚀 [STEP 16] Getting body reader');
         const bodyReader = req.body?.getReader();
         if (!bodyReader) {
+          console.error('❌ No request body');
           controller.error(new Error('No request body'));
           return;
         }
+        
+        console.log('🚀 [STEP 17] Starting to read body chunks');
+        let chunkCount = 0;
         
         try {
           let foundPdfStart = false;
@@ -133,7 +158,16 @@ serve(async (req) => {
           
           while (true) {
             const { done, value } = await bodyReader.read();
-            if (done) break;
+            chunkCount++;
+            
+            if (chunkCount % 10 === 0) {
+              console.log(`🚀 [STEP 18] Read ${chunkCount} chunks, buffer size: ${buffer.length} bytes`);
+            }
+            
+            if (done) {
+              console.log(`🚀 [STEP 19] Stream complete after ${chunkCount} chunks`);
+              break;
+            }
             
             if (!foundPdfStart) {
               // Concatenate to buffer to search for PDF marker
@@ -142,11 +176,21 @@ serve(async (req) => {
               newBuffer.set(value, buffer.length);
               buffer = newBuffer;
               
+              // Log memory usage periodically
+              if (chunkCount % 5 === 0 && typeof Deno !== 'undefined' && Deno.memoryUsage) {
+                const mem = Deno.memoryUsage();
+                console.log(`🧠 [MEMORY] After ${chunkCount} chunks:`, {
+                  heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+                  bufferSize: `${(buffer.length / 1024 / 1024).toFixed(2)} MB`
+                });
+              }
+              
               // Find %PDF marker
               for (let i = 0; i < buffer.length - 3; i++) {
                 if (buffer[i] === 0x25 && buffer[i+1] === 0x50 && 
                     buffer[i+2] === 0x44 && buffer[i+3] === 0x46) {
                   // Found PDF start, send from here
+                  console.log(`🚀 [STEP 20] Found PDF marker at buffer position ${i}`);
                   controller.enqueue(buffer.slice(i));
                   foundPdfStart = true;
                   buffer = new Uint8Array(); // Clear buffer
