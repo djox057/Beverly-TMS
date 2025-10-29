@@ -282,6 +282,23 @@ const Reports = () => {
     return parsed.timeString;
   };
 
+  // Helper to format time range (or single time if start equals end)
+  const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
+    if (!datetimeStr || datetimeStr === "—") return "—";
+    const startTime = formatTime(datetimeStr);
+    
+    // If no end time or end time is "—", just show start time
+    if (!endDatetimeStr || endDatetimeStr === "—") return startTime;
+    
+    const endTime = formatTime(endDatetimeStr);
+    
+    // If start and end are the same, only show one time
+    if (startTime === endTime) return startTime;
+    
+    // Otherwise show range
+    return `${startTime}-${endTime}`;
+  };
+
   // Offices list
   const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD"];
 
@@ -929,7 +946,7 @@ const Reports = () => {
                             {stop.city}, {stop.state}
                           </div>
                           <div className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}>
-                            {formatTime(stop.datetime)}
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                         </div>;
                 });
@@ -953,7 +970,7 @@ const Reports = () => {
                             {stop.city}, {stop.state}
                           </div>
                           <div className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}>
-                            {formatTime(stop.datetime)}
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                         </div>;
                 });
@@ -991,7 +1008,7 @@ const Reports = () => {
                             {stop.city}, {stop.state}
                           </div>
                           <div className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}>
-                            {formatTime(stop.datetime)}
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                         </div>;
                 });
@@ -1017,7 +1034,7 @@ const Reports = () => {
                             {stop.city}, {stop.state}
                           </div>
                           <div className={`${totalCellsOnDay > 1 ? "text-[8px]" : "text-[8px]"} opacity-70 leading-tight ${totalCellsOnDay === 1 ? "truncate" : ""} ${isToday ? "pl-[2%]" : ""}`}>
-                            {formatTime(stop.datetime)}
+                            {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                         </div>;
                 });
