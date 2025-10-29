@@ -335,14 +335,15 @@ export const useReports = () => {
       console.log('📊 Fetching reports data...');
       
       return queryWithTimeout(async () => {
-        // Fetch trucks with their drivers (no orders joined to trucks)
+        // Fetch trucks with their drivers and company info
         const { data: trucks, error: trucksError } = await supabase
           .from('trucks')
           .select(`
             *,
             driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
-            trailer:trailer_id(trailer_number)
+            trailer:trailer_id(trailer_number),
+            company:companies(name)
           `)
           .order('id', { ascending: true });
 
@@ -632,6 +633,7 @@ export const useReports = () => {
           id: truck.id,
           orderId: currentOrder?.id,
           truckNumber: truck.truck_number,
+          companyName: truck.company?.name || null,
           driver: isTeam ? "Team" : (truck.driver1?.name || "Unassigned"),
           driver1Name: truck.driver1?.name || "Unassigned",
           driverId: truck.driver1?.id || null,

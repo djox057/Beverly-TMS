@@ -73,6 +73,18 @@
     --cell-lime-foreground: 84 81% 15%;
     --cell-late: 25 95% 53%;
     --cell-late-foreground: 0 0% 100%;
+    
+    /* Company colors for truck cells */
+    --company-beverly-freight: 142 76% 85%;
+    --company-beverly-freight-foreground: 142 76% 20%;
+    --company-bf-prime: 300 50% 90%;
+    --company-bf-prime-foreground: 300 50% 25%;
+    --company-beverly-group: 0 0% 70%;
+    --company-beverly-group-foreground: 0 0% 20%;
+    --company-bf-prime-united: 38 92% 60%;
+    --company-bf-prime-united-foreground: 0 0% 100%;
+    --company-bg-prime: 60 100% 70%;
+    --company-bg-prime-foreground: 60 100% 15%;
 
     /* Borders and inputs */
     --border: 214 32% 91%;
@@ -165,6 +177,18 @@
     --cell-pending-foreground: 217 32% 85%;
     --cell-lime: 84 81% 40%;
     --cell-lime-foreground: 84 81% 95%;
+    
+    /* Company colors for truck cells - dark mode */
+    --company-beverly-freight: 142 76% 35%;
+    --company-beverly-freight-foreground: 142 76% 95%;
+    --company-bf-prime: 300 50% 40%;
+    --company-bf-prime-foreground: 300 50% 95%;
+    --company-beverly-group: 0 0% 50%;
+    --company-beverly-group-foreground: 0 0% 95%;
+    --company-bf-prime-united: 38 92% 50%;
+    --company-bf-prime-united-foreground: 0 0% 100%;
+    --company-bg-prime: 60 100% 50%;
+    --company-bg-prime-foreground: 60 100% 10%;
 
     --border: 217 32% 27%;
     --input: 217 32% 27%;

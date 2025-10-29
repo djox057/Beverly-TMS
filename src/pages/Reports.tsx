@@ -58,6 +58,43 @@ interface GameOverDialogState {
 }
 
 type GameOverType = "yard" | "at_road";
+
+// Helper function to get company-based background color for truck cells
+const getCompanyBackgroundColor = (companyName: string | null) => {
+  if (!companyName) return {};
+  
+  const normalizedName = companyName.toUpperCase();
+  
+  if (normalizedName.includes("BEVERLY FREIGHT")) {
+    return {
+      backgroundColor: "hsl(var(--company-beverly-freight))",
+      color: "hsl(var(--company-beverly-freight-foreground))"
+    };
+  } else if (normalizedName.includes("BF PRIME UNITED")) {
+    return {
+      backgroundColor: "hsl(var(--company-bf-prime-united))",
+      color: "hsl(var(--company-bf-prime-united-foreground))"
+    };
+  } else if (normalizedName.includes("BF PRIME")) {
+    return {
+      backgroundColor: "hsl(var(--company-bf-prime))",
+      color: "hsl(var(--company-bf-prime-foreground))"
+    };
+  } else if (normalizedName.includes("BEVERLY GROUP")) {
+    return {
+      backgroundColor: "hsl(var(--company-beverly-group))",
+      color: "hsl(var(--company-beverly-group-foreground))"
+    };
+  } else if (normalizedName.includes("BG PRIME")) {
+    return {
+      backgroundColor: "hsl(var(--company-bg-prime))",
+      color: "hsl(var(--company-bg-prime-foreground))"
+    };
+  }
+  
+  return {};
+};
+
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
@@ -1890,6 +1927,7 @@ const Reports = () => {
                                           minWidth: "77px",
                                           maxWidth: "77px",
                                           ...drugTestStyle,
+                                          ...getCompanyBackgroundColor(truck.companyName),
                                         }}
                                         onClick={() => {
                                           if (shouldShowDrugTestUI && truck.driverId) {
