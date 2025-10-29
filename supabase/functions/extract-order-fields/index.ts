@@ -432,6 +432,24 @@ After cleaning, your address JSON should look like:
 
 ## CRITICAL: ADDRESS PARSING RULES
 
+**CITY/STATE/ZIP EXTRACTION - HANDLE BOTH FORMATS:**
+
+**Format A: City/State/Zip on same line as street:**
+- Example: "36300 Eureka Rd Romulus MI 48174"
+- Example: "30301 COMMERCE BLVD CHESTERFIELD Michigan 48051"
+- **Action:** Parse the LAST word as zip, word BEFORE zip as state, word(s) BEFORE state as city, everything BEFORE city as street address
+
+**Format B: City/State/Zip on separate lines:**
+- Example line 1: "36300 Eureka Rd"
+- Example line 2: "Romulus, MI 48174"
+- **Action:** Standard parsing from separate lines
+
+**CRITICAL PARSING RULES:**
+1. **Zip code (5 or 9 digits)**: Always the LAST element - scan right-to-left to find it
+2. **State (2-letter or full name)**: Immediately BEFORE the zip code
+3. **City**: Immediately BEFORE the state (may be multiple words like "New York", "Salt Lake City")
+4. **Street**: Everything BEFORE the city
+
 **REMOVE FACILITY IDENTIFIERS:** Strip these from addresses: BLDG/BUILDING + numbers, DC/WAREHOUSE + numbers, PLANT + numbers, UNIT/DU + numbers, city names before street numbers
 
 **FIND STREET NUMBER:** Locate 3-5 digit number - this starts the actual address. Remove everything before it.
@@ -441,6 +459,8 @@ After cleaning, your address JSON should look like:
 **Examples:**
 - "SPRINGFIELD BLDG 19 DU 1904 N LECOMPTE, SPRINGFIELD, MO" → address: "1904 North Lecompte", city: "Springfield"
 - "YORK PA MC 4875 SUSQUEHANNA TRAIL, YORK, PA" → address: "4875 Susquehanna Trail", city: "York"
+- "36300 Eureka Rd Romulus MI 48174" → address: "36300 Eureka Rd", city: "Romulus", state: "MI", zip: "48174"
+- "30301 COMMERCE BLVD CHESTERFIELD Michigan 48051" → address: "30301 COMMERCE BLVD", city: "CHESTERFIELD", state: "MI", zip: "48051"
 
 ## CRITICAL: COMMA SEPARATION REQUIREMENTS
 
