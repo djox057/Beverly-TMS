@@ -94,6 +94,12 @@ serve(async (req) => {
       throw new Error('File must be a PDF');
     }
 
+    // Reject PDFs larger than 5MB to prevent memory issues
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+    if (pdfFile.size > maxSizeBytes) {
+      throw new Error('PDF file is too large. Maximum size is 5MB. Please upload a smaller file.');
+    }
+
     console.log('Processing PDF file:', pdfFile.name, 'Size:', pdfFile.size);
 
     // Convert PDF to base64 (optimized for memory)
@@ -102,8 +108,38 @@ serve(async (req) => {
     
     console.log('PDF converted to base64, size:', base64Pdf.length);
 
-    // Ultra-compact prompt for memory efficiency
-    const systemPrompt = `Extract: brokerNameCandidates[], brokerAddressCandidates[], brokerLoadNumber, pickups[]/deliveries[] OR pickup*/delivery* fields, freightAmount, mileage, commodity, weight, equipment. Clean addresses (remove dock/gate info, expand abbreviations). Return JSON only.`;
+    // Optimized prompt - balanced between size and clarity (200-300 tokens)
+    const systemPrompt = `Extract shipping data from PDF rate confirmation. Use OCR if needed.
+
+**BROKER INFO (required):**
+brokerNameCandidates: Array of broker names from top of document
+brokerAddressCandidates: Array of broker addresses
+brokerLoadNumber: Load/reference number
+
+**STOPS:**
+Extract pickups[] and deliveries[] arrays with: address, city, state, zip, date (YYYY-MM-DD), startTime, endTime, shipper
+Clean addresses: remove dock/gate info after "-", expand abbreviations (N→North, Ave→Avenue)
+ZIP: 5 or 9 digits (format: 12345-6789)
+
+**OTHER FIELDS:**
+freightAmount (number), mileage (number), commodity (max 4 words), weight (number), equipment, temperature
+
+**OUTPUT:**
+{
+  "brokerNameCandidates": ["NAME"],
+  "brokerAddressCandidates": ["ADDRESS"],
+  "brokerLoadNumber": "string",
+  "pickups": [{"address":"","city":"","state":"","zip":"","date":"","startTime":"","endTime":"","shipper":""}],
+  "deliveries": [{"address":"","city":"","state":"","zip":"","date":"","startTime":"","endTime":"","shipper":""}],
+  "freightAmount": 0,
+  "mileage": 0,
+  "commodity": "",
+  "weight": 0,
+  "equipment": "",
+  "temperature": ""
+}
+
+Return ONLY JSON. Use null for missing fields.`;
 
     console.log('Calling Gemini Flash Lite for PDF analysis...');
     
@@ -122,7 +158,7 @@ serve(async (req) => {
         }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 2048, // Reduced from 8192 to save memory
         }
       }),
     });
