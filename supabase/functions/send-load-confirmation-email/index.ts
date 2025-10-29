@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@4.0.1";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
+import { encode } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -76,12 +77,11 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error(`Failed to download file from storage: ${downloadError.message}`);
     }
 
-    // Convert Blob to ArrayBuffer then to Uint8Array
-    // Resend in Deno expects Uint8Array for attachments, not base64 string
+    // Convert Blob to base64 string (Resend SDK expects base64 string for content)
     const arrayBuffer = await fileData.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    const base64String = encode(arrayBuffer);
     
-    console.log(`✅ File converted to Uint8Array: ${uint8Array.length} bytes`);
+    console.log(`✅ File converted to base64 string: ${base64String.length} characters`);
 
     console.log('📧 Calling Resend API...');
     const emailResponse = await resend.emails.send({
@@ -104,7 +104,7 @@ const handler = async (req: Request): Promise<Response> => {
       attachments: [
         {
           filename: attachmentFilename,
-          content: uint8Array,
+          content: base64String,
         }
       ]
     });
