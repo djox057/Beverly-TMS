@@ -285,18 +285,25 @@ const Reports = () => {
   // Helper to format time range (or single time if start equals end)
   const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
     if (!datetimeStr || datetimeStr === "—") return "—";
-    const startTime = formatTime(datetimeStr);
+    
+    const parsed = parseSimpleDateTime(datetimeStr);
+    const startHour = parsed.hours % 12 || 12;
+    const startPeriod = parsed.hours >= 12 ? 'pm' : 'am';
+    const startTimeFormatted = `${startHour}${startPeriod}`;
     
     // If no end time or end time is "—", just show start time
-    if (!endDatetimeStr || endDatetimeStr === "—") return startTime;
+    if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
     
-    const endTime = formatTime(endDatetimeStr);
+    const parsedEnd = parseSimpleDateTime(endDatetimeStr);
+    const endHour = parsedEnd.hours % 12 || 12;
+    const endPeriod = parsedEnd.hours >= 12 ? 'pm' : 'am';
+    const endTimeFormatted = `${endHour}${endPeriod}`;
     
     // If start and end are the same, only show one time
-    if (startTime === endTime) return startTime;
+    if (startTimeFormatted === endTimeFormatted) return startTimeFormatted;
     
     // Otherwise show range
-    return `${startTime}-${endTime}`;
+    return `${startTimeFormatted}-${endTimeFormatted}`;
   };
 
   // Offices list
@@ -880,12 +887,24 @@ const Reports = () => {
         return check.isGameOver;
       });
 
+      // Check if this is a "continuing delivery" scenario
+      // This happens when the previous day has deliveries and today has deliveries (without pickups) for the same orders
+      let shouldShowContinuingDelivery = false;
+      if (index > 0 && deliveryOnlyOrders.length > 0) {
+        const prevDayStr = format(days[index - 1], "yyyy-MM-dd");
+        // Check if any of today's delivery-only orders had deliveries on the previous day
+        shouldShowContinuingDelivery = deliveryOnlyOrders.some(order => {
+          const hadDeliveryPrevDay = order.deliveryStopsByDate?.has(prevDayStr);
+          return hadDeliveryPrevDay;
+        });
+      }
+
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this
+      // But NOT if there's a game over day before this OR if it's a continuing delivery
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !shouldShowContinuingDelivery;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -1039,7 +1058,7 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : isInTransit ? "text-foreground font-semibold" : "text-muted-foreground"}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? "text-foreground font-semibold" : "text-muted-foreground"}`} onClick={isMissingPickup ? e => {
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
               const currentNote = getLostDayNote(day);
@@ -1052,7 +1071,7 @@ const Reports = () => {
                 });
               }
             } : undefined}>
-                  {isMissingPickup ? getLostDayNote(day) : isInTransit ? ">>>" : "—"}
+                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? ">>>" : "—"}
                 </div>}
             </div>
           </div>
@@ -1986,7 +2005,7 @@ const Reports = () => {
                           </div>
                           <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                             <Clock className="h-4 w-4" />
-                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy")} {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                           {stop.arrived_at && <div className="text-sm text-green-600 dark:text-green-400">
                               Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
@@ -2081,7 +2100,7 @@ const Reports = () => {
                           </div>
                           <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                             <Clock className="h-4 w-4" />
-                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy")} {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                           {stop.arrived_at && <div className="text-sm text-green-600 dark:text-green-400">
                               Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
