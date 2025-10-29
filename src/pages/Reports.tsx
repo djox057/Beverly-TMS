@@ -2169,7 +2169,7 @@ const Reports = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-20 h-8 bg-gray-100 text-gray-800 border border-gray-200 rounded flex items-center justify-center text-xs font-medium">Pending</div>
-                  <span className="text-sm">Load scheduled but no documents yet</span>
+                  <span className="text-sm">Load scheduled, previous not completed</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-20 h-8 bg-blue-500/20 border border-blue-500/50 rounded flex items-center justify-center text-xs font-medium">Arrived</div>
