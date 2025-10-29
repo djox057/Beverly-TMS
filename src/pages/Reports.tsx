@@ -880,24 +880,12 @@ const Reports = () => {
         return check.isGameOver;
       });
 
-      // Check if there's a delivery on the previous day
-      const prevDay = index > 0 ? days[index - 1] : null;
-      const prevDayStr = prevDay ? format(prevDay, "yyyy-MM-dd") : null;
-      const hasDeliveryOnPrevDay = prevDayStr && ordersWithDates.some(order => {
-        return order.deliveryStopsByDate?.has(prevDayStr);
-      });
-
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this
-      // And NOT if there's a delivery on the previous day (should show >>> instead)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !hasDeliveryOnPrevDay;
-
-      // Check if empty pickup cell should show ">>>" (continuing delivery from prev day)
-      const currentDayHasDelivery = deliveryOnlyOrders.length > 0;
-      const shouldShowContinuingDelivery = hasDeliveryOnPrevDay && currentDayHasDelivery && isEmptyPickup;
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -905,37 +893,6 @@ const Reports = () => {
       const showLeftBorder = index > 0;
       // Apply right border to the last day (5th day, index 4)
       const showRightBorder = index === 4;
-
-      // Early return for continuing delivery indicator
-      if (shouldShowContinuingDelivery) {
-        return <td key={index} className={`border-b-[6px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`} style={{
-            width: "120px",
-            minWidth: "120px",
-            maxWidth: "120px",
-            verticalAlign: "top",
-            ...(showRightBorder ? {
-              borderRight: "6px solid #9ca3af"
-            } : {})
-          }}>
-            {/* Top half - shows >>> for continuing delivery */}
-            <div className="border-b border-gray-400 flex flex-col items-center justify-center bg-black" style={{
-            height: "32px",
-            minHeight: "32px",
-            maxHeight: "32px"
-          }}>
-              <div className="text-[11px] font-bold text-white leading-tight">&gt;&gt;&gt;</div>
-            </div>
-
-            {/* Bottom half - empty */}
-            <div className="flex flex-col items-center justify-center bg-black" style={{
-            height: "32px",
-            minHeight: "32px",
-            maxHeight: "32px"
-          }}>
-              <div className="text-[11px] font-bold text-white leading-tight"></div>
-            </div>
-          </td>;
-      }
       return <td key={index} className={`border-b-[6px] border-gray-400 ${showLeftBorder ? "border-l border-border" : ""} p-0 relative`} style={{
         width: "120px",
         minWidth: "120px",
@@ -2029,7 +1986,7 @@ const Reports = () => {
                           </div>
                           <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                             <Clock className="h-4 w-4" />
-                            {formatDateTime(stop.datetime, "MM/dd/yyyy")} {formatTimeRange(stop.datetime, stop.end_datetime)}
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
                           </div>
                           {stop.arrived_at && <div className="text-sm text-green-600 dark:text-green-400">
                               Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
@@ -2124,7 +2081,7 @@ const Reports = () => {
                           </div>
                           <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                             <Clock className="h-4 w-4" />
-                            {formatDateTime(stop.datetime, "MM/dd/yyyy")} {formatTimeRange(stop.datetime, stop.end_datetime)}
+                            {formatDateTime(stop.datetime, "MM/dd/yyyy, HH:mm")}
                           </div>
                           {stop.arrived_at && <div className="text-sm text-green-600 dark:text-green-400">
                               Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
