@@ -900,6 +900,11 @@ const Reports = () => {
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
 
+      // Check if any orders have rescheduling notes
+      const hasRescheduledOrders = [...inTransitOrders, ...deliveryOnlyOrders, ...pickupOnlyOrders, ...sameDayOrders].some(
+        order => order.date_change_notes && order.date_change_notes.includes("Supposed to deliver")
+      );
+
       // Check if there's a game over day before this day
       const hasGameOverBefore = days.slice(0, index).some(prevDay => {
         const check = isGameOverDay(prevDay);
@@ -1014,8 +1019,8 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                  {(isInTransit || shouldShowContinuingDelivery) ? ">>>" : "—"}
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "text-orange-500 font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                  {(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : "—"}
                 </div>}
             </div>
 
@@ -1091,7 +1096,7 @@ const Reports = () => {
                 });
               }
             } : undefined}>
-                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? ">>>" : "—"}
+                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : "—"}
                 </div>}
             </div>
           </div>
@@ -2288,8 +2293,8 @@ const Reports = () => {
                   <span className="text-sm">Delivery is past due date</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium">&gt;&gt;&gt;</div>
-                  <span className="text-sm">Day between pickup and delivery</span>
+                  <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium text-orange-500">RESCHEDULED</div>
+                  <span className="text-sm">Load rescheduled or in transit</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium">Empty</div>
