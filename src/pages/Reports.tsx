@@ -1670,7 +1670,7 @@ const Reports = () => {
                                 });
                               }
                             }}>
-                                        <div className="flex items-center gap-2" onClick={e => {
+                                          <div className="flex items-center justify-between gap-2 w-full" onClick={e => {
                                 // Also allow clicking on the driver name text
                                 if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
                                   console.log("Opening drug test dialog for:", {
@@ -1686,43 +1686,58 @@ const Reports = () => {
                                   });
                                 }
                               }}>
-                                          <span>{truck.driver}</span>
-                                          {(truck.driverPhone || truck.driverEmail || truck.trailerNumber || truck.driver2Name) && <Popover>
-                                              <PopoverTrigger asChild>
-                                                <button className="inline-flex" onClick={e => e.stopPropagation()}>
-                                                  <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                                </button>
-                                              </PopoverTrigger>
-                                              <PopoverContent className="w-auto">
-                                                <div className="space-y-1">
-                                                  {truck.driver2Name ? <>
-                                                      <p className="font-semibold text-sm">
-                                                        Driver 1: {truck.driver1Name}
-                                                      </p>
-                                                      {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
-                                                      {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
-                                                      <div className="border-t pt-1 mt-1">
-                                                        <p className="font-semibold text-sm">
-                                                          Driver 2: {truck.driver2Name}
-                                                        </p>
-                                                        {truck.driver2Phone && <p className="text-xs">📞 {truck.driver2Phone}</p>}
-                                                        {truck.driver2Email && <p className="text-xs">✉️ {truck.driver2Email}</p>}
-                                                      </div>
-                                                      <div className="border-t pt-1 mt-1">
-                                                        <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                        {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
-                                                      </div>
-                                                    </> : <>
-                                                      <p className="font-semibold text-sm">{truck.driver}</p>
-                                                      <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                      {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
-                                                      {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
-                                                      {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
-                                                    </>}
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>}
-                                        </div>
+                                            <div className="flex items-center gap-2">
+                                              <span>{truck.driver}</span>
+                                              {(truck.driverPhone || truck.driverEmail || truck.trailerNumber || truck.driver2Name) && <Popover>
+                                                  <PopoverTrigger asChild>
+                                                    <button className="inline-flex" onClick={e => e.stopPropagation()}>
+                                                      <Info className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                                    </button>
+                                                  </PopoverTrigger>
+                                                  <PopoverContent className="w-auto">
+                                                    <div className="space-y-1">
+                                                      {truck.driver2Name ? <>
+                                                          <p className="font-semibold text-sm">
+                                                            Driver 1: {truck.driver1Name}
+                                                          </p>
+                                                          {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
+                                                          {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
+                                                          <div className="border-t pt-1 mt-1">
+                                                            <p className="font-semibold text-sm">
+                                                              Driver 2: {truck.driver2Name}
+                                                            </p>
+                                                            {truck.driver2Phone && <p className="text-xs">📞 {truck.driver2Phone}</p>}
+                                                            {truck.driver2Email && <p className="text-xs">✉️ {truck.driver2Email}</p>}
+                                                          </div>
+                                                          <div className="border-t pt-1 mt-1">
+                                                            <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                            {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
+                                                          </div>
+                                                        </> : <>
+                                                          <p className="font-semibold text-sm">{truck.driver}</p>
+                                                          <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
+                                                          {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
+                                                          {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
+                                                          {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
+                                                        </>}
+                                                    </div>
+                                                  </PopoverContent>
+                                                </Popover>}
+                                            </div>
+                                            <RecoveryDialog
+                                              truckId={truck.id}
+                                              truckNumber={truck.truckNumber}
+                                              driverName={truck.driver}
+                                              isRecovery={truck.note?.toLowerCase().includes("recovery") || false}
+                                              currentNote={truck.note || ""}
+                                              onConfirm={async (truckId, note) => {
+                                                await handleNoteChange(truckId, note);
+                                              }}
+                                              onCancel={async (truckId) => {
+                                                await handleNoteChange(truckId, "");
+                                              }}
+                                            />
+                                          </div>
                                       </td>
                                       <td className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs" style={{
                               width: "136px",
@@ -1797,24 +1812,9 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        <div className="absolute top-1 right-1 flex gap-1 z-[50]">
-                                          <RecoveryDialog
-                                            truckId={truck.id}
-                                            truckNumber={truck.truckNumber}
-                                            driverName={truck.driver}
-                                            isRecovery={truck.note?.toLowerCase().includes("recovery") || false}
-                                            currentNote={truck.note || ""}
-                                            onConfirm={async (truckId, note) => {
-                                              await handleNoteChange(truckId, note);
-                                            }}
-                                            onCancel={async (truckId) => {
-                                              await handleNoteChange(truckId, "");
-                                            }}
-                                          />
-                                          <Button variant="ghost" size="sm" className="h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" onClick={() => handleGameOverClick(truck.id, truck.driver)}>
-                                            <XCircle className="h-[19px] w-[19px] text-destructive" />
-                                          </Button>
-                                        </div>
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={() => handleGameOverClick(truck.id, truck.driver)}>
+                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                        </Button>
                                         {truck.editDate}
                                       </td>
                                     </tr>
