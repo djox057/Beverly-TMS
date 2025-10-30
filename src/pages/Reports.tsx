@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, LifeBuoy } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { RecoveryDialog } from "@/components/RecoveryDialog";
@@ -326,6 +326,34 @@ const Reports = () => {
     markGoingToPickup,
     markGoingToDelivery
   } = useReports();
+
+  // Add mutation for driver recovery
+  const updateDriverRecovery = useMutation({
+    mutationFn: async ({ driverId, isRecovery, note }: { driverId: string; isRecovery: boolean; note: string }) => {
+      const { error } = await supabase
+        .from('drivers')
+        .update({ 
+          is_recovery: isRecovery,
+          recovery_note: note
+        })
+        .eq('id', driverId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      toast({
+        title: "Recovery status updated",
+        description: "Driver recovery status has been updated"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "Failed to update recovery status",
+        variant: "destructive"
+      });
+    }
+  });
   const {
     data: samsaraLocations,
     isLoading: isLoadingSamsara
@@ -1651,7 +1679,7 @@ const Reports = () => {
                               width: "163px",
                               minWidth: "163px",
                               maxWidth: "163px",
-                              ...(truck.note?.toLowerCase().includes("recovery") 
+                              ...(truck.isRecovery 
                                 ? { backgroundColor: "black", color: "white" }
                                 : drugTestStyle)
                             }} onClick={e => {
@@ -1724,19 +1752,18 @@ const Reports = () => {
                                                   </PopoverContent>
                                                 </Popover>}
                                             </div>
-                                            <RecoveryDialog
-                                              truckId={truck.id}
-                                              truckNumber={truck.truckNumber}
-                                              driverName={truck.driver}
-                                              isRecovery={truck.note?.toLowerCase().includes("recovery") || false}
-                                              currentNote={truck.note || ""}
-                                              onConfirm={async (truckId, note) => {
-                                                await handleNoteChange(truckId, note);
-                                              }}
-                                              onCancel={async (truckId) => {
-                                                await handleNoteChange(truckId, "");
-                                              }}
-                                            />
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                              <RecoveryDialog
+                                                driverId={truck.driverId}
+                                                truckNumber={truck.truckNumber}
+                                                driverName={truck.driver}
+                                                isRecovery={truck.isRecovery || false}
+                                                recoveryNote={truck.recoveryNote || ""}
+                                                onToggle={async (driverId, isRecovery, note) => {
+                                                  await updateDriverRecovery.mutateAsync({ driverId, isRecovery, note });
+                                                }}
+                                              />
+                                            </div>
                                           </div>
                                       </td>
                                       <td className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs" style={{
@@ -2316,6 +2343,10 @@ const Reports = () => {
                 <div className="flex items-start gap-2">
                   <span className="font-bold">🎯</span>
                   <span><strong>Drug Test (New Drivers):</strong> Click on driver cell for new drivers to record drug test results</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="bg-black text-white px-2 py-0.5 rounded"><LifeBuoy className="h-4 w-4" /></span>
+                  <span><strong>Recovery Mode:</strong> Click recovery icon in driver column to mark driver in recovery (turns driver cell black)</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="font-bold">📅</span>
