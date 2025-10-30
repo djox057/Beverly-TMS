@@ -16,6 +16,25 @@ import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/ho
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useTrucks } from "@/hooks/useTrucks";
+import { useTrailers } from "@/hooks/useTrailers";
+import { useDrivers } from "@/hooks/useDrivers";
+import { useCompanies } from "@/hooks/useCompanies";
+import { useFleetManagement } from "@/hooks/useFleetManagement";
+import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
+import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
+import { useQueryClient } from "@tanstack/react-query";
+import { TruckFilesManager } from "@/components/TruckFilesManager";
+import { TrailerFilesManager } from "@/components/TrailerFilesManager";
+import { DriverFilesManager } from "@/components/DriverFilesManager";
 
 const formatDate = (date: string | null) => {
   if (!date) return "N/A";
@@ -43,11 +62,31 @@ export default function Alerts() {
   const { data: trailers = [], isLoading: trailersLoading } = useExpiringTrailers();
   const { data: drivers = [], isLoading: driversLoading } = useExpiringDrivers();
   const { hasRole } = useAuthContext();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch all data for edit dialogs
+  const { data: allTrucks } = useTrucks();
+  const { data: allTrailers } = useTrailers();
+  const { data: allDrivers } = useDrivers();
+  const { data: companies } = useCompanies();
+  const { allDispatchers } = useFleetManagement();
+  const { data: availableTrucks } = useAvailableTrucks();
+  const { data: availableTrailers } = useAvailableTrailers();
 
   const [trucksPage, setTrucksPage] = useState(1);
   const [trailersPage, setTrailersPage] = useState(1);
   const [driversPage, setDriversPage] = useState(1);
   const itemsPerPage = 50;
+
+  // Edit dialog states
+  const [isEditTruckDialogOpen, setIsEditTruckDialogOpen] = useState(false);
+  const [isEditTrailerDialogOpen, setIsEditTrailerDialogOpen] = useState(false);
+  const [isEditDriverDialogOpen, setIsEditDriverDialogOpen] = useState(false);
+  const [editingTruck, setEditingTruck] = useState<any>(null);
+  const [editingTrailer, setEditingTrailer] = useState<any>(null);
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination logic for trucks
   const trucksTotalPages = Math.ceil(trucks.length / itemsPerPage);
@@ -66,6 +105,152 @@ export default function Alerts() {
   const driversStartIndex = (driversPage - 1) * itemsPerPage;
   const driversEndIndex = driversStartIndex + itemsPerPage;
   const paginatedDrivers = drivers.slice(driversStartIndex, driversEndIndex);
+
+  // Edit dialog handlers
+  const openEditTruckDialog = (truckId: string) => {
+    const truck = allTrucks?.find(t => t.id === truckId);
+    if (truck) {
+      setEditingTruck(truck);
+      setIsEditTruckDialogOpen(true);
+    }
+  };
+
+  const openEditTrailerDialog = (trailerId: string) => {
+    const trailer = allTrailers?.find(t => t.id === trailerId);
+    if (trailer) {
+      setEditingTrailer(trailer);
+      setIsEditTrailerDialogOpen(true);
+    }
+  };
+
+  const openEditDriverDialog = (driverId: string) => {
+    const driver = allDrivers?.find(d => d.id === driverId);
+    if (driver) {
+      setEditingDriver(driver);
+      setIsEditDriverDialogOpen(true);
+    }
+  };
+
+  const handleEditTruck = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData(e.currentTarget);
+      const updates = {
+        truck_number: formData.get('truck_number') as string,
+        vin: formData.get('vin') as string || null,
+        dot_inspection_date: formData.get('dot_inspection_date') as string || null,
+        plate_expiration_date: formData.get('plate_expiration_date') as string || null,
+        insurance_expiration_date: formData.get('insurance_expiration_date') as string || null,
+      };
+
+      const { error } = await supabase
+        .from('trucks')
+        .update(updates)
+        .eq('id', editingTruck.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Truck updated successfully"
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['expiring-trucks'] });
+      setIsEditTruckDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update truck",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditTrailer = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData(e.currentTarget);
+      const updates = {
+        trailer_number: formData.get('trailer_number') as string,
+        trailer_type: formData.get('trailer_type') as string || null,
+        vin: formData.get('vin') as string || null,
+        dot_inspection_date: formData.get('dot_inspection_date') as string || null,
+        plate_expiration_date: formData.get('plate_expiration_date') as string || null,
+        insurance_expiration_date: formData.get('insurance_expiration_date') as string || null,
+      };
+
+      const { error } = await supabase
+        .from('trailers')
+        .update(updates)
+        .eq('id', editingTrailer.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Trailer updated successfully"
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['expiring-trailers'] });
+      setIsEditTrailerDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update trailer",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditDriver = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const formData = new FormData(e.currentTarget);
+      const updates = {
+        name: formData.get('name') as string,
+        cdl_expiration_date: formData.get('cdl_expiration_date') as string || null,
+        mvr_date: formData.get('mvr_date') as string || null,
+        clearing_house: formData.get('clearing_house') as string || null,
+        medical_card_expiration_date: formData.get('medical_card_expiration_date') as string || null,
+      };
+
+      const { error } = await supabase
+        .from('drivers')
+        .update(updates)
+        .eq('id', editingDriver.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Driver updated successfully"
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['expiring-drivers'] });
+      setIsEditDriverDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update driver",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const renderPaginationItems = (currentPage: number, totalPages: number, setPage: (page: number) => void) => {
     const items = [];
@@ -197,7 +382,14 @@ export default function Alerts() {
                    <TableBody>
                      {paginatedTrucks.map((truck) => (
                        <TableRow key={truck.id}>
-                         <TableCell className="font-medium">{truck.truck_number}</TableCell>
+                         <TableCell className="font-medium">
+                           <button 
+                             onClick={() => openEditTruckDialog(truck.id)}
+                             className="text-primary hover:underline cursor-pointer"
+                           >
+                             {truck.truck_number}
+                           </button>
+                         </TableCell>
                          <TableCell>{truck.company?.name || "N/A"}</TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
@@ -287,7 +479,14 @@ export default function Alerts() {
                    <TableBody>
                      {paginatedTrailers.map((trailer) => (
                        <TableRow key={trailer.id}>
-                         <TableCell className="font-medium">{trailer.trailer_number}</TableCell>
+                         <TableCell className="font-medium">
+                           <button 
+                             onClick={() => openEditTrailerDialog(trailer.id)}
+                             className="text-primary hover:underline cursor-pointer"
+                           >
+                             {trailer.trailer_number}
+                           </button>
+                         </TableCell>
                          <TableCell>{trailer.trailer_type || "N/A"}</TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
@@ -377,7 +576,14 @@ export default function Alerts() {
                    <TableBody>
                      {paginatedDrivers.map((driver) => (
                        <TableRow key={driver.id}>
-                         <TableCell className="font-medium">{driver.name}</TableCell>
+                         <TableCell className="font-medium">
+                           <button 
+                             onClick={() => openEditDriverDialog(driver.id)}
+                             className="text-primary hover:underline cursor-pointer"
+                           >
+                             {driver.name}
+                           </button>
+                         </TableCell>
                          <TableCell>
                            <div className="flex items-center gap-2">
                              {formatDate(driver.cdl_expiration_date)}
@@ -449,6 +655,152 @@ export default function Alerts() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Edit Truck Dialog */}
+      <Dialog open={isEditTruckDialogOpen} onOpenChange={setIsEditTruckDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Truck</DialogTitle>
+          </DialogHeader>
+          {editingTruck && (
+            <form onSubmit={handleEditTruck} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="truck_number">Truck Number *</Label>
+                  <Input id="truck_number" name="truck_number" defaultValue={editingTruck.truck_number} required />
+                </div>
+                <div>
+                  <Label htmlFor="vin">VIN</Label>
+                  <Input id="vin" name="vin" defaultValue={editingTruck.vin || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="dot_inspection_date">DOT Inspection Date</Label>
+                  <Input id="dot_inspection_date" name="dot_inspection_date" type="date" defaultValue={editingTruck.dot_inspection_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="plate_expiration_date">Plate Expiration Date</Label>
+                  <Input id="plate_expiration_date" name="plate_expiration_date" type="date" defaultValue={editingTruck.plate_expiration_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="insurance_expiration_date">Insurance Expiration Date</Label>
+                  <Input id="insurance_expiration_date" name="insurance_expiration_date" type="date" defaultValue={editingTruck.insurance_expiration_date || ""} />
+                </div>
+              </div>
+              <TruckFilesManager truckId={editingTruck.id} />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditTruckDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Trailer Dialog */}
+      <Dialog open={isEditTrailerDialogOpen} onOpenChange={setIsEditTrailerDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Trailer</DialogTitle>
+          </DialogHeader>
+          {editingTrailer && (
+            <form onSubmit={handleEditTrailer} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="trailer_number">Trailer Number *</Label>
+                  <Input id="trailer_number" name="trailer_number" defaultValue={editingTrailer.trailer_number} required />
+                </div>
+                <div>
+                  <Label htmlFor="trailer_type">Trailer Type</Label>
+                  <Select name="trailer_type" defaultValue={editingTrailer.trailer_type || ""}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Dry Van">Dry Van</SelectItem>
+                      <SelectItem value="Reefer">Reefer</SelectItem>
+                      <SelectItem value="Flatbed">Flatbed</SelectItem>
+                      <SelectItem value="Step Deck">Step Deck</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="vin">VIN</Label>
+                  <Input id="vin" name="vin" defaultValue={editingTrailer.vin || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="dot_inspection_date">DOT Inspection Date</Label>
+                  <Input id="dot_inspection_date" name="dot_inspection_date" type="date" defaultValue={editingTrailer.dot_inspection_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="plate_expiration_date">Plate Expiration Date</Label>
+                  <Input id="plate_expiration_date" name="plate_expiration_date" type="date" defaultValue={editingTrailer.plate_expiration_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="insurance_expiration_date">Insurance Expiration Date</Label>
+                  <Input id="insurance_expiration_date" name="insurance_expiration_date" type="date" defaultValue={editingTrailer.insurance_expiration_date || ""} />
+                </div>
+              </div>
+              <TrailerFilesManager trailerId={editingTrailer.id} />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditTrailerDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Driver Dialog */}
+      <Dialog open={isEditDriverDialogOpen} onOpenChange={setIsEditDriverDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Driver</DialogTitle>
+          </DialogHeader>
+          {editingDriver && (
+            <form onSubmit={handleEditDriver} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Driver Name *</Label>
+                  <Input id="name" name="name" defaultValue={editingDriver.name} required />
+                </div>
+                <div>
+                  <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
+                  <Input id="cdl_expiration_date" name="cdl_expiration_date" type="date" defaultValue={editingDriver.cdl_expiration_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="mvr_date">MVR Date</Label>
+                  <Input id="mvr_date" name="mvr_date" type="date" defaultValue={editingDriver.mvr_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="clearing_house">Clearing House</Label>
+                  <Input id="clearing_house" name="clearing_house" type="date" defaultValue={editingDriver.clearing_house || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
+                  <Input id="medical_card_expiration_date" name="medical_card_expiration_date" type="date" defaultValue={editingDriver.medical_card_expiration_date || ""} />
+                </div>
+              </div>
+              <DriverFilesManager driverId={editingDriver.id} />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditDriverDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
