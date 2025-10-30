@@ -370,6 +370,7 @@ const Reports = () => {
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
+  const [recoveryNote, setRecoveryNote] = useState<string>("");
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
@@ -1372,6 +1373,7 @@ const Reports = () => {
     });
     setGameOverStartDate(undefined);
     setGameOverType("yard");
+    setRecoveryNote("");
   };
   const handleGameOverConfirm = async () => {
     if (!gameOverDialog || !gameOverStartDate) {
@@ -1382,6 +1384,17 @@ const Reports = () => {
       });
       return;
     }
+    
+    // If recovery type is selected, require a note
+    if (gameOverType === "at_road" && !recoveryNote.trim()) {
+      toast({
+        title: "Note required",
+        description: "Please enter a note for recovery status",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       const dateStr = format(gameOverStartDate, "yyyy-MM-dd");
       const noteText = gameOverType === "yard" ? "game over - yard" : "game over - at road";
@@ -1390,6 +1403,15 @@ const Reports = () => {
         date: dateStr,
         note: noteText
       });
+      
+      // If recovery type is selected, update the truck note
+      if (gameOverType === "at_road") {
+        await updateTruckNote.mutateAsync({
+          truckId: gameOverDialog.truckId,
+          note: recoveryNote.trim()
+        });
+      }
+      
       toast({
         title: "Status set",
         description: `Set ${gameOverType === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`
@@ -1397,6 +1419,7 @@ const Reports = () => {
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
       setGameOverType("yard");
+      setRecoveryNote("");
     } catch (error) {
       toast({
         title: "Error",
@@ -1429,6 +1452,7 @@ const Reports = () => {
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
       setGameOverType("yard");
+      setRecoveryNote("");
     } catch (error) {
       toast({
         title: "Failed to remove game over",
@@ -1900,6 +1924,18 @@ const Reports = () => {
                 <label className="text-sm font-medium">Date</label>
                 <DatePicker date={gameOverStartDate} onDateChange={setGameOverStartDate} placeholder="Select date" />
               </div>
+              
+              {gameOverType === "at_road" && (
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Note</label>
+                  <Textarea 
+                    value={recoveryNote} 
+                    onChange={(e) => setRecoveryNote(e.target.value)} 
+                    placeholder="Enter recovery details..." 
+                    className="min-h-[100px]"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
