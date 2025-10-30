@@ -9,7 +9,6 @@ interface RecoveryDialogProps {
   truckNumber: string;
   driverName: string;
   isRecovery: boolean;
-  recoveryNote: string;
   onToggle: (driverId: string, isRecovery: boolean, note: string) => Promise<void>;
 }
 
@@ -18,7 +17,6 @@ export const RecoveryDialog = ({
   truckNumber,
   driverName,
   isRecovery,
-  recoveryNote: currentRecoveryNote,
   onToggle
 }: RecoveryDialogProps) => {
   const [open, setOpen] = useState(false);
