@@ -903,12 +903,6 @@ const Reports = () => {
       // Check if any orders have rescheduling notes for THIS specific day
       const hasRescheduledOrders = [...inTransitOrders, ...deliveryOnlyOrders, ...pickupOnlyOrders, ...sameDayOrders].some(
         order => {
-          // Debug logging for load 64744976
-          if (order.load_number === '64744976') {
-            console.log('Load 64744976 - Checking day:', format(day, 'MM/dd/yyyy'));
-            console.log('Load 64744976 - date_change_notes:', order.date_change_notes);
-          }
-          
           if (!order.date_change_notes || !order.date_change_notes.includes("Supposed to deliver")) {
             return false;
           }
@@ -919,12 +913,6 @@ const Reports = () => {
           const [, monthStr, dayStr, yearStr] = match;
           const supposedDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
           supposedDate.setHours(0, 0, 0, 0);
-          
-          // Debug logging for load 64744976
-          if (order.load_number === '64744976') {
-            console.log('Load 64744976 - Supposed date:', format(supposedDate, 'MM/dd/yyyy'));
-            console.log('Load 64744976 - isSameDay result:', isSameDay(supposedDate, day));
-          }
           
           // Check if this day matches the supposed delivery date
           return isSameDay(supposedDate, day);
@@ -1045,7 +1033,7 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "text-orange-500 font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`}>
                   {(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : "—"}
                 </div>}
             </div>
@@ -1109,7 +1097,7 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? "text-foreground font-semibold" : "text-muted-foreground"}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`} onClick={isMissingPickup ? e => {
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
               const currentNote = getLostDayNote(day);
@@ -2319,7 +2307,7 @@ const Reports = () => {
                   <span className="text-sm">Delivery is past due date</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium text-orange-500">RESCHEDULED</div>
+                  <div className="w-20 h-8 bg-orange-500 rounded flex items-center justify-center text-xs font-medium text-black">RESCHEDULED</div>
                   <span className="text-sm">Load rescheduled or in transit</span>
                 </div>
                 <div className="flex items-center gap-2">
