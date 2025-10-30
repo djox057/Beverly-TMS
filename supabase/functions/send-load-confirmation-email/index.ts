@@ -95,6 +95,7 @@ const handler = async (req: Request): Promise<Response> => {
         {
           filename: attachmentFilename,
           content: attachmentBase64,
+          type: attachmentContentType,
         },
       ],
     };
