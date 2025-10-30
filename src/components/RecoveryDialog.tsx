@@ -46,6 +46,7 @@ export const RecoveryDialog = ({
       await onConfirm(truckId, recoveryNote.trim());
       setOpen(false);
       setRecoveryNote("");
+      window.location.reload(); // Refresh the page
     } finally {
       setIsSubmitting(false);
     }
@@ -56,6 +57,7 @@ export const RecoveryDialog = ({
     try {
       await onCancel(truckId);
       setOpen(false);
+      window.location.reload(); // Refresh the page
     } finally {
       setIsSubmitting(false);
     }
@@ -69,14 +71,12 @@ export const RecoveryDialog = ({
         className={`h-[23px] w-[23px] p-0.5 rounded-full z-[50] border ${
           isRecovery 
             ? "bg-black hover:bg-black/80 border-black" 
-            : "bg-background hover:bg-primary/10 border-border"
+            : "bg-background hover:bg-muted border-border"
         }`}
         onClick={handleClick}
       >
         <LifeBuoy 
-          className={`h-[19px] w-[19px] ${
-            isRecovery ? "text-white" : "text-primary"
-          }`} 
+          className="h-[19px] w-[19px] text-black"
         />
       </Button>
 
