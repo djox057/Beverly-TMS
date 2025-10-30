@@ -650,7 +650,7 @@ const Reports = () => {
     const getDeliveryCellColor = (order: any, stop?: any) => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
-      const hasArrived = stop?.arrived_at || order.deliveryStop?.arrived_at;
+      const hasArrived = stop?.arrived_at;
       const isLate = lateDeliveries.has(order.id);
       if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
 
