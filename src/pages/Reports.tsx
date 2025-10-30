@@ -903,6 +903,12 @@ const Reports = () => {
       // Check if any orders have rescheduling notes for THIS specific day
       const hasRescheduledOrders = [...inTransitOrders, ...deliveryOnlyOrders, ...pickupOnlyOrders, ...sameDayOrders].some(
         order => {
+          // Debug logging for load 64744976
+          if (order.load_number === '64744976') {
+            console.log('Load 64744976 - Checking day:', format(day, 'MM/dd/yyyy'));
+            console.log('Load 64744976 - date_change_notes:', order.date_change_notes);
+          }
+          
           if (!order.date_change_notes || !order.date_change_notes.includes("Supposed to deliver")) {
             return false;
           }
@@ -913,6 +919,12 @@ const Reports = () => {
           const [, monthStr, dayStr, yearStr] = match;
           const supposedDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
           supposedDate.setHours(0, 0, 0, 0);
+          
+          // Debug logging for load 64744976
+          if (order.load_number === '64744976') {
+            console.log('Load 64744976 - Supposed date:', format(supposedDate, 'MM/dd/yyyy'));
+            console.log('Load 64744976 - isSameDay result:', isSameDay(supposedDate, day));
+          }
           
           // Check if this day matches the supposed delivery date
           return isSameDay(supposedDate, day);
