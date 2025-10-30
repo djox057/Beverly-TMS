@@ -367,6 +367,7 @@ export const useReports = () => {
             broker_load_number,
             status,
             notes,
+            date_change_notes,
             updated_at,
             pickup_datetime,
             pickup_end_datetime,
