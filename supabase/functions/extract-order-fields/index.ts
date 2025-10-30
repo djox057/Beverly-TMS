@@ -1022,78 +1022,109 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
 **If a required field is unclear or missing from the document, still include it in the JSON with null or empty value rather than omitting it entirely.**`;
 
-    // Call Gemini 2.5 Flash API (upgraded from Flash Lite for better token handling)
-    console.log('Calling Gemini 2.5 Flash for PDF analysis...');
+    // Retry logic: Try flash-lite first, fallback to flash if token limit exceeded
+    let aiData;
+    let candidate;
+    let modelUsed = 'gemini-2.5-flash-lite';
     
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': geminiApiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: systemPrompt + '\n\nPlease analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
-              },
-              {
-                inline_data: {
-                  mime_type: 'application/pdf',
-                  data: base64Pdf
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const modelEndpoint = attempt === 1 
+        ? 'gemini-2.5-flash-lite:generateContent'
+        : 'gemini-2.5-flash:generateContent';
+      
+      modelUsed = attempt === 1 ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash';
+      console.log(`Attempt ${attempt}: Calling ${modelUsed} for PDF analysis...`);
+      
+      const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': geminiApiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: systemPrompt + '\n\nPlease analyze this shipping/logistics PDF document (which may be a scanned image) and extract ALL available order information using OCR if needed. Return ONLY the JSON object with the data you can find. No explanations, no markdown formatting, just pure JSON.'
+                },
+                {
+                  inline_data: {
+                    mime_type: 'application/pdf',
+                    data: base64Pdf
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 65536,
           }
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 65536,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`${modelUsed} API error:`, aiResponse.status, errorText);
+        
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
         }
-      }),
-    });
+        
+        // If it's the last attempt, throw the error
+        if (attempt === 2) {
+          throw new Error(`Failed to analyze PDF with ${modelUsed}: ${aiResponse.status}`);
+        }
+        
+        // Otherwise, continue to next attempt
+        console.log('Retrying with more capable model...');
+        continue;
+      }
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Gemini API error:', aiResponse.status, errorText);
+      aiData = await aiResponse.json();
+      console.log(`${modelUsed} response received`);
       
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+      // Log the full response structure for debugging
+      console.log('Full Gemini response:', JSON.stringify(aiData, null, 2));
+      
+      // Check for prompt feedback (blocked by safety filters)
+      if (aiData.promptFeedback?.blockReason) {
+        console.error('Prompt was blocked:', aiData.promptFeedback);
+        throw new Error(`Gemini blocked the request: ${aiData.promptFeedback.blockReason}`);
       }
       
-      throw new Error(`Failed to analyze PDF with Gemini: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    console.log('Gemini response received');
-    
-    // Log the full response structure for debugging
-    console.log('Full Gemini response:', JSON.stringify(aiData, null, 2));
-    
-    // Check for prompt feedback (blocked by safety filters)
-    if (aiData.promptFeedback?.blockReason) {
-      console.error('Prompt was blocked:', aiData.promptFeedback);
-      throw new Error(`Gemini blocked the request: ${aiData.promptFeedback.blockReason}`);
-    }
-    
-    // Check if there are candidates
-    if (!aiData.candidates || aiData.candidates.length === 0) {
-      console.error('No candidates in response:', aiData);
-      throw new Error('Gemini returned no candidates. The PDF might be too complex or the content triggered safety filters.');
-    }
-    
-    const candidate = aiData.candidates[0];
-    
-    // Check for finish reason
-    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      console.warn('Unusual finish reason:', candidate.finishReason);
-      if (candidate.finishReason === 'SAFETY') {
-        throw new Error('Content generation was blocked by safety filters');
+      // Check if there are candidates
+      if (!aiData.candidates || aiData.candidates.length === 0) {
+        console.error('No candidates in response:', aiData);
+        throw new Error(`${modelUsed} returned no candidates. The PDF might be too complex or the content triggered safety filters.`);
       }
-      if (candidate.finishReason === 'MAX_TOKENS') {
-        throw new Error('PDF is too complex and exceeded token limit. Try uploading a simpler or shorter PDF.');
+      
+      candidate = aiData.candidates[0];
+      
+      // Check for finish reason
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+        console.warn('Unusual finish reason:', candidate.finishReason);
+        
+        if (candidate.finishReason === 'SAFETY') {
+          throw new Error('Content generation was blocked by safety filters');
+        }
+        
+        // If token limit exceeded and this is first attempt, retry with more capable model
+        if (candidate.finishReason === 'MAX_TOKENS' && attempt === 1) {
+          console.log('Token limit exceeded with flash-lite, retrying with flash...');
+          continue;
+        }
+        
+        // If still exceeding on second attempt, throw error
+        if (candidate.finishReason === 'MAX_TOKENS') {
+          throw new Error('PDF is too complex and exceeded token limit. Try uploading a simpler or shorter PDF.');
+        }
       }
+      
+      // Success! Break out of retry loop
+      console.log(`✅ Successfully processed PDF with ${modelUsed}`);
+      break;
     }
     
     const extractedContent = candidate.content?.parts?.[0]?.text?.trim();
