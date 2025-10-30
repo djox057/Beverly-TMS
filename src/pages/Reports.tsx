@@ -910,8 +910,8 @@ const Reports = () => {
           const match = order.date_change_notes.match(/Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/);
           if (!match) return false;
           
-          const [, month, day, year] = match;
-          const supposedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          const [, monthStr, dayStr, yearStr] = match;
+          const supposedDate = new Date(parseInt(yearStr), parseInt(monthStr) - 1, parseInt(dayStr));
           supposedDate.setHours(0, 0, 0, 0);
           
           // Check if this day matches the supposed delivery date
