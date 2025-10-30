@@ -1022,10 +1022,10 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
 
 **If a required field is unclear or missing from the document, still include it in the JSON with null or empty value rather than omitting it entirely.**`;
 
-    // Call Gemini 2.5 Flash Lite API with inline PDF data
-    console.log('Calling Gemini 2.5 Flash Lite for PDF analysis...');
+    // Call Gemini 2.5 Flash API (upgraded from Flash Lite for better token handling)
+    console.log('Calling Gemini 2.5 Flash for PDF analysis...');
     
-    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent', {
+    const aiResponse = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
