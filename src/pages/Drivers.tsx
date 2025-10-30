@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,7 +51,6 @@ interface DriverFormData {
   drugTestResult: "positive" | "negative" | "pending" | null;
 }
 const Drivers = () => {
-  const location = useLocation();
   const {
     hasRole
   } = useAuthContext();
@@ -118,21 +116,6 @@ const Drivers = () => {
   const {
     allDispatchers
   } = useFleetManagement();
-
-  // Handle navigation from Reports page
-  useEffect(() => {
-    const state = location.state as { editDriverId?: string } | null;
-    if (state?.editDriverId && drivers) {
-      const driverToEdit = drivers.find(d => d.id === state.editDriverId);
-      if (driverToEdit) {
-        openEditDialog(driverToEdit);
-        setIsEditDialogOpen(true);
-        // Clear the state to prevent reopening on re-render
-        window.history.replaceState({}, document.title);
-      }
-    }
-  }, [location.state, drivers]);
-
 
   // Fetch termination notes for the editing driver
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
