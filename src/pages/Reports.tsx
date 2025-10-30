@@ -900,9 +900,23 @@ const Reports = () => {
       // Only show in-transit if there are no other orders on this day
       const isInTransit = inTransitOrders.length > 0 && allDayOrders.length === 0;
 
-      // Check if any orders have rescheduling notes
+      // Check if any orders have rescheduling notes for THIS specific day
       const hasRescheduledOrders = [...inTransitOrders, ...deliveryOnlyOrders, ...pickupOnlyOrders, ...sameDayOrders].some(
-        order => order.date_change_notes && order.date_change_notes.includes("Supposed to deliver")
+        order => {
+          if (!order.date_change_notes || !order.date_change_notes.includes("Supposed to deliver")) {
+            return false;
+          }
+          // Extract the date from "Supposed to deliver on MM/DD/YYYY"
+          const match = order.date_change_notes.match(/Supposed to deliver on (\d{2})\/(\d{2})\/(\d{4})/);
+          if (!match) return false;
+          
+          const [, month, day, year] = match;
+          const supposedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          supposedDate.setHours(0, 0, 0, 0);
+          
+          // Check if this day matches the supposed delivery date
+          return isSameDay(supposedDate, day);
+        }
       );
 
       // Check if there's a game over day before this day
