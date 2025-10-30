@@ -5,54 +5,62 @@ import { Textarea } from "@/components/ui/textarea";
 import { LifeBuoy } from "lucide-react";
 
 interface RecoveryDialogProps {
-  driverId: string | null;
+  truckId: string;
   truckNumber: string;
   driverName: string;
   isRecovery: boolean;
-  onToggle: (driverId: string, isRecovery: boolean, note: string) => Promise<void>;
+  currentNote: string;
+  onConfirm: (truckId: string, note: string) => Promise<void>;
+  onCancel: (truckId: string) => Promise<void>;
 }
 
 export const RecoveryDialog = ({
-  driverId,
+  truckId,
   truckNumber,
   driverName,
   isRecovery,
-  onToggle
+  currentNote,
+  onConfirm,
+  onCancel
 }: RecoveryDialogProps) => {
   const [open, setOpen] = useState(false);
   const [recoveryNote, setRecoveryNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleClick = () => {
-    if (!driverId) return;
-    
     if (isRecovery) {
-      // If already in recovery, turn it off
-      handleToggle(false, "");
+      // If already in recovery, cancel it directly
+      handleCancel();
     } else {
-      // Open dialog to turn on recovery
+      // Open dialog to add recovery
       setRecoveryNote("");
       setOpen(true);
     }
   };
 
-  const handleToggle = async (recovery: boolean, note: string) => {
-    if (!driverId) return;
+  const handleConfirm = async () => {
+    if (!recoveryNote.trim()) return;
     
     setIsSubmitting(true);
     try {
-      await onToggle(driverId, recovery, note);
+      await onConfirm(truckId, recoveryNote.trim());
       setOpen(false);
       setRecoveryNote("");
-      window.location.reload();
+      window.location.reload(); // Refresh the page
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleConfirm = async () => {
-    if (!recoveryNote.trim()) return;
-    await handleToggle(true, recoveryNote.trim());
+  const handleCancel = async () => {
+    setIsSubmitting(true);
+    try {
+      await onCancel(truckId);
+      setOpen(false);
+      window.location.reload(); // Refresh the page
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -60,16 +68,15 @@ export const RecoveryDialog = ({
       <Button
         variant="ghost"
         size="sm"
-        className={`h-[18px] w-[18px] p-0 rounded-full z-[50] border ${
+        className={`h-[23px] w-[23px] p-0.5 rounded-full z-[50] border ${
           isRecovery 
             ? "bg-black hover:bg-black/80 border-black" 
             : "bg-background hover:bg-muted border-border"
         }`}
         onClick={handleClick}
-        disabled={!driverId}
       >
         <LifeBuoy 
-          className="h-[14px] w-[14px] text-black"
+          className="h-[19px] w-[19px] text-black"
         />
       </Button>
 

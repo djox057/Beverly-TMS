@@ -348,8 +348,8 @@ export const useReports = () => {
           .from('trucks')
           .select(`
             *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, is_recovery, recovery_note),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, is_recovery, recovery_note),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `)
@@ -678,8 +678,6 @@ export const useReports = () => {
           note: truckNote?.note || "",
           lastEdit: truckNote ? new Date(truckNote.updated_at).toLocaleTimeString() : new Date(truck.updated_at).toLocaleTimeString(),
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
-          // Recovery status from driver
-          isRecovery: truck.driver1?.is_recovery || false,
           // Multi-load support
           allOrders: allOrdersWithStops,
           activeOrdersCount: activeOrders.length,
