@@ -237,12 +237,29 @@ const Reports = () => {
     return false;
   }, []);
 
-  // Helper to get drug test cell styling
-  const getDrugTestCellStyle = useCallback((truck: any) => {
+  // Helper to check if truck has any game over days
+  const hasGameOverDays = useCallback((truck: any) => {
+    return truck.lostDayNotes?.some((note: any) => {
+      const noteText = note.note?.toLowerCase() || "";
+      return noteText.includes("game over");
+    }) || false;
+  }, []);
+
+  // Helper to get driver cell styling (combines drug test and game over styling)
+  const getDriverCellStyle = useCallback((truck: any) => {
+    // Check for game over first - it takes priority
+    if (hasGameOverDays(truck)) {
+      return {
+        backgroundColor: "black",
+        color: "white"
+      };
+    }
+    
+    // Otherwise check for drug test styling
     if (!truck.driverId) return {};
     const drugTest = getDrugTestForDriver(truck.driverId);
     const isNew = isNewDriver(truck);
-    console.log("getDrugTestCellStyle:", {
+    console.log("getDriverCellStyle:", {
       truckNumber: truck.truckNumber,
       driverId: truck.driverId,
       driverName: truck.driver,
@@ -263,7 +280,7 @@ const Reports = () => {
       };
     }
     return {};
-  }, [getDrugTestForDriver, isNewDriver]);
+  }, [hasGameOverDays, getDrugTestForDriver, isNewDriver]);
 
   // Note: Drug test notes are now added directly to truck notes when status changes
 
@@ -369,6 +386,7 @@ const Reports = () => {
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
+  const [gameOverNote, setGameOverNote] = useState<string>("");
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
@@ -1371,6 +1389,7 @@ const Reports = () => {
     });
     setGameOverStartDate(undefined);
     setGameOverType("yard");
+    setGameOverNote("");
   };
   const handleGameOverConfirm = async () => {
     if (!gameOverDialog || !gameOverStartDate) {
@@ -1381,14 +1400,33 @@ const Reports = () => {
       });
       return;
     }
+    
+    if (!gameOverNote.trim()) {
+      toast({
+        title: "Note required",
+        description: "Please enter a note for this status",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       const dateStr = format(gameOverStartDate, "yyyy-MM-dd");
       const noteText = gameOverType === "yard" ? "game over - yard" : "game over - at road";
+      
+      // First, set the game over status
       await updateLostDayNote.mutateAsync({
         truckId: gameOverDialog.truckId,
         date: dateStr,
         note: noteText
       });
+      
+      // Then, update the truck's note
+      await updateTruckNote.mutateAsync({
+        truckId: gameOverDialog.truckId,
+        note: gameOverNote.trim()
+      });
+      
       toast({
         title: "Status set",
         description: `Set ${gameOverType === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`
@@ -1396,6 +1434,7 @@ const Reports = () => {
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
       setGameOverType("yard");
+      setGameOverNote("");
     } catch (error) {
       toast({
         title: "Error",
@@ -1428,6 +1467,7 @@ const Reports = () => {
       setGameOverDialog(null);
       setGameOverStartDate(undefined);
       setGameOverType("yard");
+      setGameOverNote("");
     } catch (error) {
       toast({
         title: "Failed to remove game over",
@@ -1615,10 +1655,10 @@ const Reports = () => {
                         // Check if any HOS timer is 0 or below
                         const hasExpiredHOS = truck.driveMinutes <= 0 || truck.shiftMinutes <= 0 || truck.breakMinutes <= 0 || truck.cycleMinutes <= 0;
 
-                        // Get drug test styling and check if driver is new
+                        // Get driver cell styling (includes drug test and game over)
                         const isNew = isNewDriver(truck);
                         const canManageDrugTests = hasRole("safety") || hasRole("manager") || hasRole("admin");
-                        const drugTestStyle = getDrugTestCellStyle(truck);
+                        const driverCellStyle = getDriverCellStyle(truck);
                         const shouldShowDrugTestUI = isNew && canManageDrugTests;
                         return <React.Fragment key={truck.id}>
                                     <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
@@ -1646,11 +1686,11 @@ const Reports = () => {
                                           
                                         </div>
                                       </td>
-                                      <td className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`} style={{
+                      <td className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`} style={{
                               width: "163px",
                               minWidth: "163px",
                               maxWidth: "163px",
-                              ...drugTestStyle
+                              ...driverCellStyle
                             }} onClick={e => {
                               // Only trigger drug test dialog if clicking on the cell itself, not the info button
                               if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
@@ -1882,10 +1922,20 @@ const Reports = () => {
                 <label className="text-sm font-medium">Date</label>
                 <DatePicker date={gameOverStartDate} onDateChange={setGameOverStartDate} placeholder="Select date" />
               </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Note</label>
+                <Textarea 
+                  value={gameOverNote}
+                  onChange={(e) => setGameOverNote(e.target.value)}
+                  placeholder="Enter note for this status..."
+                  className="min-h-[100px]"
+                />
+              </div>
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate} className="flex-1">
+              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate || !gameOverNote.trim()} className="flex-1">
                 Set Status
               </Button>
               {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && <Button onClick={handleGameOverRemove} variant="destructive" className="flex-1">
