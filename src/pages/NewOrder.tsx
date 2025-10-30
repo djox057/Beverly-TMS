@@ -590,6 +590,12 @@ const NewOrder = () => {
   const emailDragHandlers = createFileDragHandlers('email');
 
   const handleExtractWithAI = async () => {
+    // Prevent multiple simultaneous extractions
+    if (isExtracting) {
+      console.log('Extraction already in progress, skipping...');
+      return;
+    }
+
     if (rcFiles.length === 0) {
       toast({
         title: "No RC File Selected",
@@ -934,7 +940,10 @@ const NewOrder = () => {
         description: error.message || "Failed to extract data from PDF",
         variant: "destructive"
       });
+      // Ensure isExtracting is reset even on error
+      setIsExtracting(false);
     } finally {
+      // Double safety: ensure state is always reset
       setIsExtracting(false);
     }
   };
