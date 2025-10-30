@@ -100,9 +100,14 @@ const handler = async (req: Request): Promise<Response> => {
       ],
     };
     
-    if (cc && cc.trim()) {
-      emailPayload.cc = [cc];
-      console.log(`📧 CC field added to payload: [${cc}]`);
+    // Add CC if provided
+    if (cc && cc.trim().length > 0) {
+      emailPayload.cc = cc.includes(',') 
+        ? cc.split(',').map(email => email.trim()) 
+        : [cc.trim()];
+      console.log(`📧 CC field added to payload:`, emailPayload.cc);
+    } else {
+      console.log(`📧 No CC field provided or empty`);
     }
     
     console.log('📧 Full email payload (without base64):', JSON.stringify({
