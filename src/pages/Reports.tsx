@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
+import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -384,6 +385,10 @@ const Reports = () => {
     driverNames: string;
   } | null>(null);
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+  const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
+    pickupDropId: string;
+    type: "pickup" | "delivery";
+  } | null>(null);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -2022,11 +2027,9 @@ const Reports = () => {
                               </Button>}
                             
                             {shouldShowAtPickup(order, stop) && <Button onClick={() => {
-                      updatePickupDropArrival.mutate({
-                        pickupDropId: stop.id
-                      });
-                      toast({
-                        title: "Marked as arrived at pickup"
+                      setArrivalTimeDialog({
+                        pickupDropId: stop.id,
+                        type: "pickup"
                       });
                     }} className="w-full">
                                 Arrived at Pickup
@@ -2117,11 +2120,9 @@ const Reports = () => {
                               </Button>}
                             
                             {shouldShowAtDelivery(order, stop) && <Button onClick={() => {
-                      updatePickupDropArrival.mutate({
-                        pickupDropId: stop.id
-                      });
-                      toast({
-                        title: "Marked as arrived at delivery"
+                      setArrivalTimeDialog({
+                        pickupDropId: stop.id,
+                        type: "delivery"
                       });
                     }} className="w-full">
                                 Arrived at Delivery
@@ -2323,6 +2324,26 @@ const Reports = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Arrival Time Dialog */}
+      <ArrivalTimeDialog
+        open={!!arrivalTimeDialog}
+        onOpenChange={(open) => {
+          if (!open) setArrivalTimeDialog(null);
+        }}
+        onConfirm={(arrivalTime) => {
+          if (arrivalTimeDialog) {
+            updatePickupDropArrival.mutate({
+              pickupDropId: arrivalTimeDialog.pickupDropId,
+              arrivalTime: arrivalTime
+            });
+            toast({
+              title: `Marked as arrived at ${arrivalTimeDialog.type}`
+            });
+          }
+        }}
+        title={arrivalTimeDialog?.type === "pickup" ? "Arrival at Pickup" : "Arrival at Delivery"}
+      />
     </>;
 };
 export default Reports;
