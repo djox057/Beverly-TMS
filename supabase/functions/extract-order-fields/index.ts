@@ -252,7 +252,7 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 
 ---
 
-## STEP 2: DETERMINE LOAD TYPE
+## STEP 2: DETERMINE LOAD TYPE AND PRESERVE EXACT SEQUENCE
 
 **After identifying pickups vs deliveries, determine if this is a SINGLE-DROP or MULTI-DROP load.**
 
@@ -262,6 +262,40 @@ SO 2  Name: DAWN KANSAS CITY    Date: 10/14/2025 1200
 - Words like "multi-stop", "multi-drop", "multiple stops"
 - Stop numbers (Stop 1, Stop 2, etc.)
 - Multiple dates/times for pickups or multiple dates/times for deliveries
+
+**🚨 CRITICAL: PRESERVE THE EXACT ORDER FROM THE RATE CONFIRMATION DOCUMENT!**
+
+**For Multi-Drop Loads - SEQUENCE RULES:**
+1. **Extract stops in the EXACT order they appear on the rate confirmation** - DO NOT reorder them!
+2. **First pickup listed = First pickup in array** - preserve the exact sequence
+3. **First delivery listed = First delivery in array** - maintain document order
+4. **DO NOT sort by date/time** - the order on the rate con is the intended route sequence
+5. **If the document shows:**
+   - PU 1 at Location A, Date 10/13
+   - SO 1 at Location B, Date 10/14  
+   - SO 2 at Location C, Date 10/13
+   
+   **Extract in this EXACT order even if dates are out of sequence:**
+   - pickups[0] = Location A
+   - deliveries[0] = Location B
+   - deliveries[1] = Location C
+
+6. **The rate confirmation order is ALWAYS correct** - trust the document sequence, not chronological order
+
+**Example of CORRECT sequence preservation:**
+
+Document shows:
+- PU 1: ABC Warehouse, Houston, TX - Date: 10/15/2025
+- SO 1: XYZ Store, Dallas, TX - Date: 10/16/2025
+- SO 2: DEF Distribution, Austin, TX - Date: 10/14/2025 (earlier date!)
+
+❌ WRONG (sorted by date):
+pickups: [ABC Warehouse 10/15]
+deliveries: [DEF Distribution 10/14, XYZ Store 10/16] ← Wrong! Reordered by date
+
+✅ CORRECT (document order preserved):
+pickups: [ABC Warehouse 10/15]
+deliveries: [XYZ Store 10/16, DEF Distribution 10/14] ← Correct! Matches document order
 
 ---
 
