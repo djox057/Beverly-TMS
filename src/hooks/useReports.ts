@@ -386,7 +386,8 @@ export const useReports = () => {
               datetime,
               end_datetime,
               arrived_at,
-              going_to_at
+              going_to_at,
+              sequence_number
             ),
             order_files!left(
               id,
@@ -465,8 +466,10 @@ export const useReports = () => {
         
         // Process all orders for this driver (including GAME-OVER for calendar rendering, but excluding canceled orders)
         const allOrdersWithStops = driverOrders.filter(order => !order.canceled).map(order => {
-          const pickupStops = order.pickup_drops?.filter(stop => stop.type === 'pickup') || [];
-          const deliveryStops = order.pickup_drops?.filter(stop => stop.type === 'delivery') || [];
+          const pickupStops = (order.pickup_drops?.filter(stop => stop.type === 'pickup') || [])
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
+          const deliveryStops = (order.pickup_drops?.filter(stop => stop.type === 'delivery') || [])
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
           
           // For display: use first pickup and last delivery
           const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
