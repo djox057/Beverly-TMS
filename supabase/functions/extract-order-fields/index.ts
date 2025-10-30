@@ -1049,7 +1049,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         ],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 65536,
         }
       }),
     });
