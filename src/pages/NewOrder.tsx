@@ -450,6 +450,15 @@ const NewOrder = () => {
       if (item.id === id) {
         const updated = { ...item, [field]: value };
         
+        // If updating address field, parse it into components
+        if (field === 'address' && typeof value === 'string' && value.trim()) {
+          const parsed = parseAddress(value);
+          updated.address = parsed.address || value;
+          updated.city = parsed.city || undefined;
+          updated.state = parsed.state || undefined;
+          updated.zipCode = parsed.zipCode || undefined;
+        }
+        
         // Auto-update datetime when relevant fields change
         if (field === 'dateRange' || field === 'startTime') {
           if (updated.dateRange?.from && updated.startTime) {
@@ -460,22 +469,6 @@ const NewOrder = () => {
           }
         }
         return updated;
-      }
-      return item;
-    }));
-  };
-
-  const parsePickupDropAddress = (id: string) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id && item.address && item.address.trim()) {
-        const parsed = parseAddress(item.address);
-        return {
-          ...item,
-          address: parsed.address || item.address,
-          city: parsed.city || undefined,
-          state: parsed.state || undefined,
-          zipCode: parsed.zipCode || undefined,
-        };
       }
       return item;
     }));
@@ -2027,7 +2020,6 @@ const NewOrder = () => {
                                         : item.address
                                     }
                                     onChange={(e) => updatePickupDrop(item.id, 'address', e.target.value)}
-                                    onBlur={() => parsePickupDropAddress(item.id)}
                                     className="min-h-[60px]"
                                   />
                                   {(item.city || item.state || item.zipCode) && (
