@@ -1175,6 +1175,8 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
     try {
       // Clean up the response in case it has markdown formatting
       let cleanContent = extractedContent;
+      
+      // Remove markdown code blocks
       if (extractedContent.includes('```json')) {
         const match = extractedContent.match(/```json\s*([\s\S]*?)\s*```/);
         if (match) {
@@ -1187,12 +1189,59 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         }
       }
       
+      // Additional cleaning steps for malformed JSON
+      cleanContent = cleanContent.trim();
+      
+      // Remove trailing commas before closing braces/brackets
+      cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
+      
+      // Remove single-line comments
+      cleanContent = cleanContent.replace(/\/\/.*$/gm, '');
+      
+      // Remove multi-line comments
+      cleanContent = cleanContent.replace(/\/\*[\s\S]*?\*\//g, '');
+      
+      // Remove any leading/trailing whitespace again after cleaning
+      cleanContent = cleanContent.trim();
+      
+      console.log('Cleaned JSON content (first 500 chars):', cleanContent.substring(0, 500));
+      
       extractedData = JSON.parse(cleanContent);
-      console.log('Successfully parsed extracted data:', extractedData);
+      console.log('Successfully parsed extracted data');
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
-      console.error('Content that failed to parse:', extractedContent);
-      throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`);
+      console.error('Content that failed to parse (first 1000 chars):', extractedContent.substring(0, 1000));
+      
+      // Try one more time with even more aggressive cleaning
+      try {
+        console.log('Attempting aggressive JSON repair...');
+        let aggressiveClean = extractedContent;
+        
+        // Extract just the JSON object/array
+        const jsonMatch = aggressiveClean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        if (jsonMatch) {
+          aggressiveClean = jsonMatch[0];
+          
+          // Remove trailing commas
+          aggressiveClean = aggressiveClean.replace(/,(\s*[}\]])/g, '$1');
+          
+          // Remove comments
+          aggressiveClean = aggressiveClean.replace(/\/\/.*$/gm, '');
+          aggressiveClean = aggressiveClean.replace(/\/\*[\s\S]*?\*\//g, '');
+          
+          // Try to fix common issues with quotes
+          aggressiveClean = aggressiveClean.trim();
+          
+          console.log('Aggressively cleaned JSON (first 500 chars):', aggressiveClean.substring(0, 500));
+          extractedData = JSON.parse(aggressiveClean);
+          console.log('Successfully parsed after aggressive cleaning');
+        } else {
+          throw new Error('Could not find valid JSON structure in response');
+        }
+      } catch (secondError) {
+        console.error('Aggressive cleaning also failed:', secondError);
+        throw new Error(`Failed to parse extraction result: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}. Response was malformed and could not be repaired.`);
+      }
     }
 
     // Auto-convert legacy single-stop format to array format
