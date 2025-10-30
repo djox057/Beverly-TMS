@@ -66,10 +66,10 @@ const NewOrder = () => {
   const [deliveryPoNumber, setDeliveryPoNumber] = useState("");
   const [deliveryShipper, setDeliveryShipper] = useState("");
   const [pickupsDrops, setPickupsDrops] = useState<PickupDrop[]>([]);
-  const [rcFiles, setRcFiles] = useState<FileList | null>(null);
-  const [bolFiles, setBolFiles] = useState<FileList | null>(null);
-  const [podFiles, setPodFiles] = useState<FileList | null>(null);
-  const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
+  const [rcFiles, setRcFiles] = useState<File[]>([]);
+  const [bolFiles, setBolFiles] = useState<File[]>([]);
+  const [podFiles, setPodFiles] = useState<File[]>([]);
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
@@ -83,7 +83,7 @@ const NewOrder = () => {
   const [generatedConfirmationFilename, setGeneratedConfirmationFilename] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [emailFiles, setEmailFiles] = useState<FileList | null>(null);
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
   
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
@@ -197,14 +197,14 @@ const NewOrder = () => {
   // Auto-extract AI when RC file is uploaded
   useEffect(() => {
     // Reset flag when files are cleared
-    if (!rcFiles || rcFiles.length === 0) {
+    if (rcFiles.length === 0) {
       setHasAutoExtracted(false);
       return;
     }
 
     // Auto-trigger extraction once when PDF is uploaded
     if (!hasAutoExtracted && !isExtracting) {
-      const pdfFile = Array.from(rcFiles).find(file => file.type === 'application/pdf');
+      const pdfFile = rcFiles.find(file => file.type === 'application/pdf');
       if (pdfFile) {
         setHasAutoExtracted(true);
         handleExtractWithAI();
@@ -569,7 +569,7 @@ const NewOrder = () => {
         
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          setFiles(files);
+          setFiles(Array.from(files));
         }
       },
       onClick: (e: React.MouseEvent) => {
@@ -590,7 +590,7 @@ const NewOrder = () => {
   const emailDragHandlers = createFileDragHandlers('email');
 
   const handleExtractWithAI = async () => {
-    if (!rcFiles || rcFiles.length === 0) {
+    if (rcFiles.length === 0) {
       toast({
         title: "No RC File Selected",
         description: "Please select a PDF file in the RC section to extract data from.",
@@ -599,7 +599,7 @@ const NewOrder = () => {
       return;
     }
 
-    const pdfFile = Array.from(rcFiles).find(file => file.type === 'application/pdf');
+    const pdfFile = rcFiles.find(file => file.type === 'application/pdf');
     if (!pdfFile) {
       toast({
         title: "PDF Required", 
@@ -961,7 +961,7 @@ const NewOrder = () => {
   // Send email to driver with uploaded file
   const handleSendEmailToDriver = async () => {
     // Check if email file is uploaded
-    if (!emailFiles || emailFiles.length === 0) {
+    if (emailFiles.length === 0) {
       toast({
         title: "No File Attached",
         description: "Please upload a file to send to the driver.",
@@ -1033,8 +1033,8 @@ const NewOrder = () => {
                   subject: subject,
                   bodyText: "Please see the rate confirmation attached below.",
                   attachmentBase64: base64Content,
-                  attachmentFilename: emailFile.name,
-                  attachmentContentType: emailFile.type
+                  attachmentFilename: emailFiles[0].name,
+                  attachmentContentType: emailFiles[0].type
                 })
               }
             );
@@ -1781,9 +1781,9 @@ const NewOrder = () => {
                     </div>
                   )}
                   
-                  {!dragStates.rc && rcFiles && rcFiles.length > 0 && (
+                  {!dragStates.rc && rcFiles.length > 0 && (
                     <div className="space-y-2">
-                      {Array.from(rcFiles).map((file, index) => (
+                      {rcFiles.map((file, index) => (
                         <div key={index} className="flex items-center gap-2 p-2 bg-white rounded border border-blue-200">
                           <FileText className="h-4 w-4 text-blue-500" />
                           <span className="text-sm text-gray-700 truncate">{file.name}</span>
@@ -1793,7 +1793,7 @@ const NewOrder = () => {
                     </div>
                   )}
                   
-                  {!dragStates.rc && (!rcFiles || rcFiles.length === 0) && (
+                  {!dragStates.rc && rcFiles.length === 0 && (
                     <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
                       <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
                       <p className="text-sm text-blue-600 font-medium mb-1">Click or drag & drop files here</p>
@@ -1806,7 +1806,7 @@ const NewOrder = () => {
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setRcFiles(e.target.files)} 
+                    onChange={e => setRcFiles(e.target.files ? Array.from(e.target.files) : [])} 
                     className="hidden"
                   />
                 </div>
@@ -2196,14 +2196,14 @@ const NewOrder = () => {
                   ) : (
                     <>
                       <p className="text-xs text-green-600 mb-2">
-                        {bolFiles && bolFiles.length > 0 
+                        {bolFiles.length > 0 
                           ? `${bolFiles.length} file(s) selected` 
                           : "Click or drag files here"
                         }
                       </p>
-                      {bolFiles && bolFiles.length > 0 && (
+                      {bolFiles.length > 0 && (
                         <div className="space-y-1 mb-2">
-                          {Array.from(bolFiles).map((file, index) => (
+                          {bolFiles.map((file, index) => (
                             <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
@@ -2218,7 +2218,7 @@ const NewOrder = () => {
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setBolFiles(e.target.files)} 
+                    onChange={e => setBolFiles(e.target.files ? Array.from(e.target.files) : [])} 
                     className="hidden"
                   />
                   <p className="text-xs text-green-600">Bill of lading documents</p>
@@ -2247,14 +2247,14 @@ const NewOrder = () => {
                   ) : (
                     <>
                       <p className="text-xs text-purple-600 mb-2">
-                        {podFiles && podFiles.length > 0 
+                        {podFiles.length > 0 
                           ? `${podFiles.length} file(s) selected` 
                           : "Click or drag files here"
                         }
                       </p>
-                      {podFiles && podFiles.length > 0 && (
+                      {podFiles.length > 0 && (
                         <div className="space-y-1 mb-2">
-                          {Array.from(podFiles).map((file, index) => (
+                          {podFiles.map((file, index) => (
                             <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
@@ -2269,7 +2269,7 @@ const NewOrder = () => {
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setPodFiles(e.target.files)} 
+                    onChange={e => setPodFiles(e.target.files ? Array.from(e.target.files) : [])} 
                     className="hidden"
                   />
                   <p className="text-xs text-purple-600">Delivery confirmation documents</p>
@@ -2298,14 +2298,14 @@ const NewOrder = () => {
                   ) : (
                     <>
                       <p className="text-xs text-orange-600 mb-2">
-                        {additionalFiles && additionalFiles.length > 0 
+                        {additionalFiles.length > 0 
                           ? `${additionalFiles.length} file(s) selected` 
                           : "Click or drag files here"
                         }
                       </p>
-                      {additionalFiles && additionalFiles.length > 0 && (
+                      {additionalFiles.length > 0 && (
                         <div className="space-y-1 mb-2">
-                          {Array.from(additionalFiles).map((file, index) => (
+                          {additionalFiles.map((file, index) => (
                             <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
@@ -2320,7 +2320,7 @@ const NewOrder = () => {
                     type="file" 
                     multiple 
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={e => setAdditionalFiles(e.target.files)} 
+                    onChange={e => setAdditionalFiles(e.target.files ? Array.from(e.target.files) : [])} 
                     className="hidden"
                   />
                   <p className="text-xs text-orange-600">Other supporting documents</p>
@@ -2403,14 +2403,14 @@ const NewOrder = () => {
                 ) : (
                   <>
                     <p className="text-xs text-blue-600 mb-2">
-                      {emailFiles && emailFiles.length > 0 
+                      {emailFiles.length > 0 
                         ? `${emailFiles.length} file(s) selected` 
                         : "Click or drag files here"
                       }
                     </p>
-                    {emailFiles && emailFiles.length > 0 && (
+                    {emailFiles.length > 0 && (
                       <div className="space-y-1 mb-2">
-                        {Array.from(emailFiles).map((file, index) => (
+                        {emailFiles.map((file, index) => (
                           <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                             <FileText className="h-3 w-3" />
                             <span className="truncate">{file.name}</span>
@@ -2425,7 +2425,7 @@ const NewOrder = () => {
                   type="file" 
                   multiple 
                   accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={e => setEmailFiles(e.target.files)} 
+                  onChange={e => setEmailFiles(e.target.files ? Array.from(e.target.files) : [])} 
                   className="hidden"
                 />
                 <p className="text-xs text-blue-600">Upload file to email to driver</p>
@@ -2437,7 +2437,7 @@ const NewOrder = () => {
                     e.stopPropagation();
                     handleSendEmailToDriver();
                   }}
-                  disabled={!emailFiles || emailFiles.length === 0 || isSendingEmail || emailSent || !driver1}
+                  disabled={emailFiles.length === 0 || isSendingEmail || emailSent || !driver1}
                   className={cn(
                     "w-full mt-2",
                     emailSent && "bg-green-600 hover:bg-green-700"
