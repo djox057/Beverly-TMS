@@ -1758,9 +1758,13 @@ const Reports = () => {
                                                 truckNumber={truck.truckNumber}
                                                 driverName={truck.driver}
                                                 isRecovery={truck.isRecovery || false}
-                                                recoveryNote={truck.recoveryNote || ""}
                                                 onToggle={async (driverId, isRecovery, note) => {
-                                                  await updateDriverRecovery.mutateAsync({ driverId, isRecovery, note });
+                                                  await updateDriverRecovery.mutateAsync({ 
+                                                    driverId, 
+                                                    isRecovery, 
+                                                    note,
+                                                    truckId: truck.id 
+                                                  });
                                                 }}
                                               />
                                             </div>

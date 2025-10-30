@@ -680,7 +680,6 @@ export const useReports = () => {
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
           // Recovery status from driver
           isRecovery: truck.driver1?.is_recovery || false,
-          recoveryNote: truck.driver1?.recovery_note || '',
           // Multi-load support
           allOrders: allOrdersWithStops,
           activeOrdersCount: activeOrders.length,
