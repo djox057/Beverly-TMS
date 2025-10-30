@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
+import { RecoveryDialog } from "@/components/RecoveryDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -1650,7 +1651,9 @@ const Reports = () => {
                               width: "163px",
                               minWidth: "163px",
                               maxWidth: "163px",
-                              ...drugTestStyle
+                              ...(truck.note?.toLowerCase().includes("recovery") 
+                                ? { backgroundColor: "black", color: "white" }
+                                : drugTestStyle)
                             }} onClick={e => {
                               // Only trigger drug test dialog if clicking on the cell itself, not the info button
                               if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
@@ -1794,9 +1797,24 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={() => handleGameOverClick(truck.id, truck.driver)}>
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
-                                        </Button>
+                                        <div className="absolute top-1 right-1 flex gap-1 z-[50]">
+                                          <RecoveryDialog
+                                            truckId={truck.id}
+                                            truckNumber={truck.truckNumber}
+                                            driverName={truck.driver}
+                                            isRecovery={truck.note?.toLowerCase().includes("recovery") || false}
+                                            currentNote={truck.note || ""}
+                                            onConfirm={async (truckId, note) => {
+                                              await handleNoteChange(truckId, note);
+                                            }}
+                                            onCancel={async (truckId) => {
+                                              await handleNoteChange(truckId, "");
+                                            }}
+                                          />
+                                          <Button variant="ghost" size="sm" className="h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" onClick={() => handleGameOverClick(truck.id, truck.driver)}>
+                                            <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                          </Button>
+                                        </div>
                                         {truck.editDate}
                                       </td>
                                     </tr>
