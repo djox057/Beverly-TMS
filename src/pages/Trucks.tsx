@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ interface TruckFormData {
 const ITEMS_PER_PAGE = 8;
 
 const Trucks = () => {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -73,6 +75,21 @@ const Trucks = () => {
   const {
     allDispatchers
   } = useFleetManagement();
+
+  // Handle navigation from Reports page
+  useEffect(() => {
+    const state = location.state as { editTruckId?: string } | null;
+    if (state?.editTruckId && trucks) {
+      const truckToEdit = trucks.find(t => t.id === state.editTruckId);
+      if (truckToEdit) {
+        openEditDialog(truckToEdit);
+        setIsEditDialogOpen(true);
+        // Clear the state to prevent reopening on re-render
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, trucks]);
+
 
   // Filter trucks based on search term
   const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];

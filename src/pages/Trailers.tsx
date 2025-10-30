@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ interface TrailerFormData {
   insurance_expiration_date: string;
 }
 const Trailers = () => {
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -55,6 +57,20 @@ const Trailers = () => {
   const {
     data: trucks
   } = useTrucks();
+
+  // Handle navigation from Reports page
+  useEffect(() => {
+    const state = location.state as { editTrailerId?: string } | null;
+    if (state?.editTrailerId && trailers) {
+      const trailerToEdit = trailers.find(t => t.id === state.editTrailerId);
+      if (trailerToEdit) {
+        openEditDialog(trailerToEdit);
+        setIsEditDialogOpen(true);
+        // Clear the state to prevent reopening on re-render
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, trailers]);
 
   // Reset to first page when search changes
   useEffect(() => {

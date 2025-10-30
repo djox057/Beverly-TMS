@@ -1681,15 +1681,19 @@ const Reports = () => {
                         const shouldShowDrugTestUI = isNew && canManageDrugTests;
                         return <React.Fragment key={truck.id}>
                                     <tr className={truckIndex % 2 === 0 ? "bg-card" : "bg-muted/20"}>
-                                      <td className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium" style={{
-                              width: "77px",
-                              minWidth: "77px",
-                              maxWidth: "77px",
-                              ...getCompanyBackgroundColor(truck.companyName)
-                            }}>
+                                      <td 
+                                        className="border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs font-medium cursor-pointer hover:bg-muted/50 transition-colors" 
+                                        style={{
+                                          width: "77px",
+                                          minWidth: "77px",
+                                          maxWidth: "77px",
+                                          ...getCompanyBackgroundColor(truck.companyName)
+                                        }}
+                                        onClick={() => navigate('/trucks', { state: { editTruckId: truck.id } })}
+                                      >
                                         <div className="flex flex-col gap-0.5">
                                           <div className="flex items-center gap-1">
-                                            {truck.truckNumber}
+                                            <span className="underline decoration-dotted">{truck.truckNumber}</span>
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                             {truck.hasMultipleOrders && <TooltipProvider>
                                                 <Tooltip>
@@ -1726,23 +1730,18 @@ const Reports = () => {
                                 });
                               }
                             }}>
-                                        <div className="flex items-center gap-2" onClick={e => {
-                                // Also allow clicking on the driver name text
-                                if (shouldShowDrugTestUI && truck.driverId && e.target === e.currentTarget) {
-                                  console.log("Opening drug test dialog for:", {
-                                    driverId: truck.driverId,
-                                    driverName: truck.driver,
-                                    truckId: truck.id,
-                                    truckNumber: truck.truckNumber
-                                  });
-                                  setDrugTestDialog({
-                                    driverId: truck.driverId,
-                                    driverName: truck.driver,
-                                    truckId: truck.id
-                                  });
-                                }
-                              }}>
-                                          <span>{truck.driver}</span>
+                                        <div className="flex items-center gap-2">
+                                          <span 
+                                            className="cursor-pointer hover:underline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (truck.driverId) {
+                                                navigate('/drivers', { state: { editDriverId: truck.driverId } });
+                                              }
+                                            }}
+                                          >
+                                            {truck.driver}
+                                          </span>
                                           {(truck.driverPhone || truck.driverEmail || truck.trailerNumber || truck.driver2Name) && <Popover>
                                               <PopoverTrigger asChild>
                                                 <button className="inline-flex" onClick={e => e.stopPropagation()}>
@@ -1766,12 +1765,32 @@ const Reports = () => {
                                                       </div>
                                                       <div className="border-t pt-1 mt-1">
                                                         <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                        {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
+                                                        {truck.trailerNumber && <p 
+                                                          className="text-xs cursor-pointer hover:underline"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (truck.trailerId) {
+                                                              navigate('/trailers', { state: { editTrailerId: truck.trailerId } });
+                                                            }
+                                                          }}
+                                                        >
+                                                          🚛 Trailer: {truck.trailerNumber}
+                                                        </p>}
                                                       </div>
                                                     </> : <>
                                                       <p className="font-semibold text-sm">{truck.driver}</p>
                                                       <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
-                                                      {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
+                                                      {truck.trailerNumber && <p 
+                                                        className="text-xs cursor-pointer hover:underline"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          if (truck.trailerId) {
+                                                            navigate('/trailers', { state: { editTrailerId: truck.trailerId } });
+                                                          }
+                                                        }}
+                                                      >
+                                                        🚛 Trailer: {truck.trailerNumber}
+                                                      </p>}
                                                       {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
                                                       {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
                                                     </>}

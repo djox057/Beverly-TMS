@@ -656,6 +656,7 @@ export const useReports = () => {
           driver2Name: truck.driver2?.name || null,
           driver2Phone: truck.driver2?.phone || null,
           driver2Email: truck.driver2?.email || null,
+          trailerId: truck.trailer_id || null,
           trailerNumber: truck.trailer?.trailer_number || null,
           home: truck.driver1?.home_city && truck.driver1?.home_state 
             ? `${truck.driver1.home_city}, ${truck.driver1.home_state}`
