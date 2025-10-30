@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTruckNoteHistory } from "@/hooks/useTruckNoteHistory";
 import { format } from "date-fns";
 
@@ -17,23 +15,7 @@ export const TruckNoteHistoryDialog = ({
   open,
   onOpenChange,
 }: TruckNoteHistoryDialogProps) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
   const { data: history, isLoading } = useTruckNoteHistory(truckId);
-
-  const currentEntry = history?.[currentIndex];
-  const previousEntry = history?.[currentIndex + 1];
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (history && currentIndex < history.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
 
   const getInitials = (name: string | null, email: string | null) => {
     if (name) {
@@ -46,35 +28,10 @@ export const TruckNoteHistoryDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      onOpenChange(newOpen);
-      if (!newOpen) setCurrentIndex(0);
-    }}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Edit history</DialogTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-                className="h-8 w-8"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNext}
-                disabled={!history || currentIndex === history.length - 1}
-                className="h-8 w-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <DialogTitle>Note History</DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
@@ -83,55 +40,35 @@ export const TruckNoteHistoryDialog = ({
           </div>
         ) : !history || history.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">
-            No edit history available
+            No note history available
           </div>
         ) : (
-          <div className="space-y-4">
-            {currentEntry && (
-              <div className="flex items-start gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback>
-                    {getInitials(currentEntry.editor_name, currentEntry.editor_email)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold">
-                    {currentEntry.editor_name || currentEntry.editor_email || 'Unknown User'}
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-4">
+              {history.map((entry, index) => (
+                <div key={entry.id} className="flex gap-3 animate-fade-in">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="text-xs">
+                      {getInitials(entry.editor_name, entry.editor_email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-semibold text-sm">
+                        {entry.editor_name || entry.editor_email || 'Unknown User'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(entry.edited_at), 'MMM d, h:mm a')}
+                      </span>
+                    </div>
+                    <div className="rounded-2xl bg-muted px-3 py-2 text-sm">
+                      {entry.note || <span className="italic text-muted-foreground">(empty)</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    {format(new Date(currentEntry.edited_at), 'MMMM d, h:mm a')}
-                  </div>
                 </div>
-              </div>
-            )}
-
-            {previousEntry && currentEntry && (
-              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
-                <div className="text-sm">
-                  <span className="font-medium">Replaced:</span>{' '}
-                  <span className="italic">"{previousEntry.note || '(empty)'}"</span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">with:</span>{' '}
-                  <span className="italic">"{currentEntry.note || '(empty)'}"</span>
-                </div>
-              </div>
-            )}
-
-            {currentEntry && !previousEntry && (
-              <div className="rounded-lg border bg-muted/50 p-4">
-                <div className="text-sm">
-                  <span className="font-medium">Initial note:</span>{' '}
-                  <span className="italic">"{currentEntry.note || '(empty)'}"</span>
-                </div>
-              </div>
-            )}
-
-            <div className="text-xs text-center text-muted-foreground">
-              {currentIndex + 1} of {history.length}
+              ))}
             </div>
-          </div>
+          </ScrollArea>
         )}
       </DialogContent>
     </Dialog>
