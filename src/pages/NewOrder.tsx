@@ -1612,32 +1612,46 @@ const NewOrder = () => {
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address?.trim()).map(item => {
-          // Use the robust address parser
-          const parsed = parseAddress(item.address);
-          
-          // Prefer explicit city/state/zip from item if provided, otherwise use parsed
-          const city = item.city || parsed.city;
-          const state = item.state || parsed.state;
-          const zipCode = item.zipCode || parsed.zipCode;
-          const cleanAddress = parsed.address;
-          
+        const pickupDropData = pickupsDrops
+          .filter(item => item.address?.trim())
+          .map(item => {
+            // Use the robust address parser
+            const parsed = parseAddress(item.address);
+            
+            // Prefer explicit city/state/zip from item if provided, otherwise use parsed
+            const city = item.city || parsed.city || null;
+            const state = item.state || parsed.state || null;
+            const zipCode = item.zipCode || parsed.zipCode || null;
+            const cleanAddress = parsed.address || item.address.trim();
+            
+            // Ensure datetime fields are valid
+            let datetime = null;
+            let end_datetime = null;
+            
+            try {
+              if (item.dateRange?.from && item.startTime) {
+                datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+              }
+              if (item.dateRange?.from && item.endTime) {
+                end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+              }
+            } catch (error) {
+              console.error('Error combining date and time:', error);
+            }
+            
             return {
-            order_id: orderId,
-            type: item.type,
-            address: cleanAddress,
-            city,
-            state,
-            zip_code: zipCode,
-            company_name: item.companyName || '',
-            datetime: item.dateRange?.from && item.startTime 
-              ? combineDateAndTime(item.dateRange.from, item.startTime)
-              : null,
-            end_datetime: item.dateRange?.from && item.endTime 
-              ? combineDateAndTime(item.dateRange.from, item.endTime)
-              : null
-          };
-        });
+              order_id: orderId,
+              type: item.type,
+              address: cleanAddress,
+              city,
+              state,
+              zip_code: zipCode,
+              company_name: item.companyName || null,
+              datetime,
+              end_datetime
+            };
+          })
+          .filter(item => item.address && item.address.trim().length > 0); // Final safety check
         
         // Deduplicate only exact matches (all fields must match)
         const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
