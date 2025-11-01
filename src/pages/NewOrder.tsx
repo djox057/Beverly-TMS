@@ -1612,7 +1612,7 @@ const NewOrder = () => {
 
       // Insert pickup/drop locations
       if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops.filter(item => item.address).map(item => {
+        const pickupDropData = pickupsDrops.filter(item => item.address?.trim()).map(item => {
           // Use the robust address parser
           const parsed = parseAddress(item.address);
           
