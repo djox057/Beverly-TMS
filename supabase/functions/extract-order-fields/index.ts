@@ -1192,6 +1192,18 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       // Additional cleaning steps for malformed JSON
       cleanContent = cleanContent.trim();
       
+      // Fix control characters that break JSON parsing
+      // Replace actual control characters with their escaped versions
+      cleanContent = cleanContent.replace(/[\x00-\x1F\x7F-\x9F]/g, (char: string) => {
+        const code = char.charCodeAt(0);
+        switch (code) {
+          case 9: return '\\t';   // tab
+          case 10: return '\\n';  // newline
+          case 13: return '\\r';  // carriage return
+          default: return '';     // remove other control chars
+        }
+      });
+      
       // Remove trailing commas before closing braces/brackets
       cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
       
@@ -1221,6 +1233,17 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const jsonMatch = aggressiveClean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         if (jsonMatch) {
           aggressiveClean = jsonMatch[0];
+          
+          // Fix control characters
+          aggressiveClean = aggressiveClean.replace(/[\x00-\x1F\x7F-\x9F]/g, (char: string) => {
+            const code = char.charCodeAt(0);
+            switch (code) {
+              case 9: return '\\t';
+              case 10: return '\\n';
+              case 13: return '\\r';
+              default: return '';
+            }
+          });
           
           // Remove trailing commas
           aggressiveClean = aggressiveClean.replace(/,(\s*[}\]])/g, '$1');
