@@ -111,60 +111,6 @@ function parseSimpleDateTime(datetimeString: string) {
   };
 }
 
-async function checkDeliveryETA(
-  truckLocation: Coordinates | null,
-  deliveryAddress: string,
-  deliveryEndDatetime: string | null
-): Promise<{ isLate: boolean; estimatedArrival: Date | null; durationMinutes: number | null }> {
-  const defaultResult = {
-    isLate: false,
-    estimatedArrival: null,
-    durationMinutes: null,
-  };
-
-  if (!truckLocation || !deliveryEndDatetime) {
-    return defaultResult;
-  }
-
-  try {
-    const deliveryCoords = await geocodeAddress(deliveryAddress);
-    if (!deliveryCoords) {
-      return defaultResult;
-    }
-
-    const durationSeconds = await calculateRouteDuration(truckLocation, deliveryCoords);
-    if (!durationSeconds) {
-      return defaultResult;
-    }
-
-    const durationMinutes = Math.ceil(durationSeconds / 60);
-
-    const now = new Date();
-    const chicagoNow = toZonedTime(now, 'America/Chicago');
-
-    const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
-
-    const parsed = parseSimpleDateTime(deliveryEndDatetime);
-    const deliveryEndTime = new Date(
-      parsed.year,
-      parsed.month - 1,
-      parsed.day,
-      parsed.hours,
-      parsed.minutes
-    );
-
-    const isLate = estimatedArrival > deliveryEndTime;
-
-    return {
-      isLate,
-      estimatedArrival,
-      durationMinutes,
-    };
-  } catch (error) {
-    console.error('ETA calculation error:', error);
-    return defaultResult;
-  }
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
