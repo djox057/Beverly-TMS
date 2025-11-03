@@ -62,6 +62,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_files: {
+        Row: {
+          company_id: string
+          content_type: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          content_type?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          content_type?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatcher_status: {
         Row: {
           created_at: string
@@ -414,6 +458,36 @@ export type Database = {
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      geocoding_cache: {
+        Row: {
+          address: string
+          created_at: string | null
+          hit_count: number | null
+          id: string
+          latitude: number
+          longitude: number
+          updated_at: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -880,6 +954,45 @@ export type Database = {
           office?: Database["public"]["Enums"]["office_location"] | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      route_cache: {
+        Row: {
+          created_at: string | null
+          distance_meters: number | null
+          distance_miles: number
+          duration_seconds: number | null
+          end_lat: number
+          end_lon: number
+          hit_count: number | null
+          id: string
+          start_lat: number
+          start_lon: number
+        }
+        Insert: {
+          created_at?: string | null
+          distance_meters?: number | null
+          distance_miles: number
+          duration_seconds?: number | null
+          end_lat: number
+          end_lon: number
+          hit_count?: number | null
+          id?: string
+          start_lat: number
+          start_lon: number
+        }
+        Update: {
+          created_at?: string | null
+          distance_meters?: number | null
+          distance_miles?: number
+          duration_seconds?: number | null
+          end_lat?: number
+          end_lon?: number
+          hit_count?: number | null
+          id?: string
+          start_lat?: number
+          start_lon?: number
         }
         Relationships: []
       }

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.78.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,37 @@ serve(async (req) => {
 
   try {
     const { address }: GeocodeRequest = await req.json();
+    
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Check cache first
+    const { data: cached } = await supabase
+      .from('geocoding_cache')
+      .select('latitude, longitude')
+      .eq('address', address)
+      .maybeSingle();
+    
+    if (cached) {
+      console.log('✅ Cache hit for:', address);
+      // Update hit count asynchronously (don't wait)
+      supabase
+        .from('geocoding_cache')
+        .update({ hit_count: (cached as any).hit_count + 1 })
+        .eq('address', address)
+        .then();
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          latitude: parseFloat(cached.latitude as any),
+          longitude: parseFloat(cached.longitude as any)
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('🔍 Geocoding address:', address);
 
@@ -54,6 +86,17 @@ serve(async (req) => {
         longitude: parseFloat(data[0].lon)
       };
       console.log('✅ Geocoded successfully:', result);
+      
+      // Store in cache for future use (don't wait)
+      supabase
+        .from('geocoding_cache')
+        .insert({
+          address,
+          latitude: result.latitude,
+          longitude: result.longitude
+        })
+        .then();
+      
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
