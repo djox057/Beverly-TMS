@@ -1067,15 +1067,25 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`}>
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isInTransit && !shouldShowContinuingDelivery) {
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
+                    updateLostDayNote.mutate({
+                      truckId: truck.id,
+                      date: dayStr,
+                      note: homeTimeNote ? '' : 'Home Time',
+                      noteType: homeTimeNote ? null : 'home_time'
+                    });
+                  }
+                }}>
                   {(() => {
                     const dayStr = format(day, "yyyy-MM-dd");
                     const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
                     
                     if (homeTimeNote) {
-                      return <div className="flex items-center justify-center gap-1">
-                        <Home className="h-4 w-4" />
-                      </div>;
+                      return <Home className="h-4 w-4" />;
                     }
                     
                     if (isInTransit || shouldShowContinuingDelivery) {
