@@ -513,24 +513,26 @@ const Fleets = () => {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                  >
-                                    <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                    Switch
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleRemoveDriver(driver.id)}
-                                  >
-                                    <Minus className="h-4 w-4 mr-1" />
-                                    Remove
-                                  </Button>
-                                </div>
+                                {(hasRole('admin') || hasRole('manager') || hasRole('supervisor')) && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                    >
+                                      <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                      Switch
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRemoveDriver(driver.id)}
+                                    >
+                                      <Minus className="h-4 w-4 mr-1" />
+                                      Remove
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </Draggable>
