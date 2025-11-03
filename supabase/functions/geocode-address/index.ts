@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 interface GeocodeRequest {
-  address: string;
+  address?: string;
+  addresses?: string[]; // Support batch requests
 }
 
 serve(async (req) => {
@@ -16,12 +17,99 @@ serve(async (req) => {
   }
 
   try {
-    const { address }: GeocodeRequest = await req.json();
+    const { address, addresses }: GeocodeRequest = await req.json();
     
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Handle batch requests
+    if (addresses && Array.isArray(addresses)) {
+      console.log(`🔍 Batch geocoding ${addresses.length} addresses`);
+      
+      const results = await Promise.all(
+        addresses.map(async (addr) => {
+          try {
+            // Check cache first
+            const { data: cached } = await supabase
+              .from('geocoding_cache')
+              .select('latitude, longitude')
+              .eq('address', addr)
+              .maybeSingle();
+            
+            if (cached) {
+              console.log('✅ Cache hit for:', addr);
+              supabase
+                .from('geocoding_cache')
+                .update({ hit_count: (cached as any).hit_count + 1 })
+                .eq('address', addr)
+                .then();
+              
+              return {
+                address: addr,
+                success: true,
+                latitude: parseFloat(cached.latitude as any),
+                longitude: parseFloat(cached.longitude as any)
+              };
+            }
+
+            // Geocode with rate limiting (1 per second for Nominatim)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const encodedAddress = encodeURIComponent(addr);
+            const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
+            
+            const response = await fetch(nominatimUrl, {
+              headers: { 'User-Agent': 'TruckingApp/1.0' }
+            });
+
+            if (!response.ok) {
+              return { address: addr, success: false, error: 'Geocoding failed' };
+            }
+
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+              const result = {
+                address: addr,
+                success: true,
+                latitude: parseFloat(data[0].lat),
+                longitude: parseFloat(data[0].lon)
+              };
+              
+              supabase
+                .from('geocoding_cache')
+                .insert({
+                  address: addr,
+                  latitude: result.latitude,
+                  longitude: result.longitude
+                })
+                .then();
+              
+              return result;
+            }
+
+            return { address: addr, success: false, error: 'No results found' };
+          } catch (error) {
+            return { address: addr, success: false, error: String(error) };
+          }
+        })
+      );
+      
+      return new Response(
+        JSON.stringify({ success: true, results }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Handle single address request (original behavior)
+    if (!address || address.trim() === '') {
+      return new Response(
+        JSON.stringify({ error: 'Address is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     // Check cache first
     const { data: cached } = await supabase
@@ -32,7 +120,6 @@ serve(async (req) => {
     
     if (cached) {
       console.log('✅ Cache hit for:', address);
-      // Update hit count asynchronously (don't wait)
       supabase
         .from('geocoding_cache')
         .update({ hit_count: (cached as any).hit_count + 1 })
@@ -50,13 +137,6 @@ serve(async (req) => {
     }
 
     console.log('🔍 Geocoding address:', address);
-
-    if (!address || address.trim() === '') {
-      return new Response(
-        JSON.stringify({ error: 'Address is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const encodedAddress = encodeURIComponent(address);
     const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
@@ -87,7 +167,6 @@ serve(async (req) => {
       };
       console.log('✅ Geocoded successfully:', result);
       
-      // Store in cache for future use (don't wait)
       supabase
         .from('geocoding_cache')
         .insert({
