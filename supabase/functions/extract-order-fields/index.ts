@@ -1192,18 +1192,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       // Additional cleaning steps for malformed JSON
       cleanContent = cleanContent.trim();
       
-      // Fix control characters that break JSON parsing
-      // Replace actual control characters with their escaped versions
-      cleanContent = cleanContent.replace(/[\x00-\x1F\x7F-\x9F]/g, (char: string) => {
-        const code = char.charCodeAt(0);
-        switch (code) {
-          case 9: return '\\t';   // tab
-          case 10: return '\\n';  // newline
-          case 13: return '\\r';  // carriage return
-          default: return '';     // remove other control chars
-        }
-      });
-      
       // Remove trailing commas before closing braces/brackets
       cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
       
@@ -1233,17 +1221,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const jsonMatch = aggressiveClean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         if (jsonMatch) {
           aggressiveClean = jsonMatch[0];
-          
-          // Fix control characters
-          aggressiveClean = aggressiveClean.replace(/[\x00-\x1F\x7F-\x9F]/g, (char: string) => {
-            const code = char.charCodeAt(0);
-            switch (code) {
-              case 9: return '\\t';
-              case 10: return '\\n';
-              case 13: return '\\r';
-              default: return '';
-            }
-          });
           
           // Remove trailing commas
           aggressiveClean = aggressiveClean.replace(/,(\s*[}\]])/g, '$1');
@@ -1705,6 +1682,90 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       }
     } else {
       console.log('⚠️ No broker name or address extracted, skipping broker matching');
+    }
+
+    // Calculate loaded and DH miles using route calculation
+    console.log('🗺️ Calculating loaded and DH miles...');
+    try {
+      const geocodeAddress = async (address: string, city?: string, state?: string, zip?: string) => {
+        const fullAddress = [address, city, state, zip].filter(Boolean).join(', ');
+        const encodedAddress = encodeURIComponent(fullAddress);
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`;
+        
+        const response = await fetch(nominatimUrl, {
+          headers: { 'User-Agent': 'TruckingApp/1.0' }
+        });
+        
+        if (!response.ok) {
+          console.error('Geocoding failed:', response.statusText);
+          return null;
+        }
+        
+        const data = await response.json();
+        if (data && data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lon: parseFloat(data[0].lon)
+          };
+        }
+        return null;
+      };
+      
+      const calculateRoute = async (start: { lat: number; lon: number }, end: { lat: number; lon: number }) => {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false`;
+        const response = await fetch(osrmUrl);
+        
+        if (!response.ok) {
+          throw new Error(`OSRM failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.routes && data.routes.length > 0) {
+          const distanceInMeters = data.routes[0].distance;
+          const distanceInMiles = Math.round(distanceInMeters * 0.000621371);
+          return distanceInMiles;
+        }
+        throw new Error('No route found');
+      };
+      
+      // Get first pickup and last delivery
+      const firstPickup = extractedData.pickups?.[0];
+      const lastDelivery = extractedData.deliveries?.[extractedData.deliveries.length - 1];
+      
+      if (firstPickup && lastDelivery) {
+        console.log('📍 First pickup:', firstPickup);
+        console.log('📍 Last delivery:', lastDelivery);
+        
+        // Geocode first pickup
+        const pickupCoords = await geocodeAddress(
+          firstPickup.address || '',
+          firstPickup.city,
+          firstPickup.state,
+          firstPickup.zip
+        );
+        
+        // Geocode last delivery
+        const deliveryCoords = await geocodeAddress(
+          lastDelivery.address || '',
+          lastDelivery.city,
+          lastDelivery.state,
+          lastDelivery.zip
+        );
+        
+        if (pickupCoords && deliveryCoords) {
+          console.log('✅ Geocoded coordinates:', { pickup: pickupCoords, delivery: deliveryCoords });
+          
+          // Calculate loaded miles (pickup to delivery)
+          const loadedMiles = await calculateRoute(pickupCoords, deliveryCoords);
+          extractedData.mileage = loadedMiles;
+          console.log(`✅ Calculated loaded miles: ${loadedMiles}`);
+        } else {
+          console.warn('⚠️ Could not geocode all locations for route calculation');
+        }
+      }
+    } catch (routeError) {
+      console.error('Error calculating route:', routeError);
+      // Don't fail the whole operation if route calculation fails
     }
 
     // Validate that we extracted some meaningful data
