@@ -423,6 +423,7 @@ export type Database = {
           date: string
           id: string
           note: string
+          note_type: string | null
           truck_id: string
           updated_at: string
           updated_by: string | null
@@ -432,6 +433,7 @@ export type Database = {
           date: string
           id?: string
           note?: string
+          note_type?: string | null
           truck_id: string
           updated_at?: string
           updated_by?: string | null
@@ -441,6 +443,7 @@ export type Database = {
           date?: string
           id?: string
           note?: string
+          note_type?: string | null
           truck_id?: string
           updated_at?: string
           updated_by?: string | null
