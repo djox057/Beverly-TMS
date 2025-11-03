@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { useNavigate } from "react-router-dom";
@@ -1068,7 +1068,22 @@ const Reports = () => {
                 });
               })}
                 </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`}>
-                  {(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : "—"}
+                  {(() => {
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
+                    
+                    if (homeTimeNote) {
+                      return <div className="flex items-center justify-center gap-1">
+                        <Home className="h-4 w-4" />
+                      </div>;
+                    }
+                    
+                    if (isInTransit || shouldShowContinuingDelivery) {
+                      return hasRescheduledOrders ? "RESCHEDULED" : ">>>";
+                    }
+                    
+                    return "—";
+                  })()}
                 </div>}
             </div>
 
@@ -1078,7 +1093,7 @@ const Reports = () => {
             minHeight: "32px",
             maxHeight: "32px"
           }}>
-              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
+              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row" onClick={(e) => e.stopPropagation()}>
               {sameDayOrders.flatMap(order => {
                 const previousComplete = getPreviousLoadDeliveryStatus(order);
                 const cellColor = getPickupCellColor(order, previousComplete);
@@ -1131,20 +1146,36 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground"}`} onClick={isMissingPickup ? e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={e => {
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
-              const currentNote = getLostDayNote(day);
-              const newNote = prompt("Edit lost day note:", currentNote);
-              if (newNote !== null && newNote !== currentNote) {
+              
+              if (isMissingPickup) {
+                const currentNote = getLostDayNote(day);
+                const newNote = prompt("Edit lost day note:", currentNote);
+                if (newNote !== null && newNote !== currentNote) {
+                  updateLostDayNote.mutate({
+                    truckId: truck.id,
+                    date: dateStr,
+                    note: newNote
+                  });
+                }
+              } else if (!isInTransit && !shouldShowContinuingDelivery) {
+                // Toggle home time for empty cells
+                const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
                 updateLostDayNote.mutate({
                   truckId: truck.id,
                   date: dateStr,
-                  note: newNote
+                  note: homeTimeNote ? '' : 'Home Time',
+                  noteType: homeTimeNote ? null : 'home_time'
                 });
               }
-            } : undefined}>
-                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : "—"}
+            }}>
+                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : (() => {
+                    const dayStr = format(day, "yyyy-MM-dd");
+                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
+                    return homeTimeNote ? <Home className="h-4 w-4" /> : "—";
+                  })()}
                 </div>}
             </div>
           </div>
@@ -2370,6 +2401,10 @@ const Reports = () => {
                 <div className="flex items-center gap-2">
                   <div className="border-4 border-red-600 w-20 h-8 rounded"></div>
                   <span className="text-sm">Today's column (red border highlight)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Home className="h-5 w-5" />
+                  <span className="text-sm">Home time (click on empty "—" cells to mark/unmark)</span>
                 </div>
               </div>
             </div>

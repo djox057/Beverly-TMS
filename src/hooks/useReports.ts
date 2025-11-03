@@ -177,7 +177,7 @@ export const useReports = () => {
   });
 
   const updateLostDayNote = useMutation({
-    mutationFn: async ({ truckId, date, note }: { truckId: string; date: string; note: string }) => {
+    mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string; noteType?: string | null }) => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       
       // Try to update existing note, if not exists, insert new one
@@ -187,6 +187,7 @@ export const useReports = () => {
           truck_id: truckId,
           date: date,
           note: note,
+          note_type: noteType,
           updated_by: userId
         }, {
           onConflict: 'truck_id,date'
