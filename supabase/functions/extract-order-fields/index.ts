@@ -1192,16 +1192,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       // Additional cleaning steps for malformed JSON
       cleanContent = cleanContent.trim();
       
-      // Remove control characters (including \n, \r, \t in JSON strings)
-      // This fixes "Bad control character in string literal" errors
-      cleanContent = cleanContent.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char) => {
-        // Keep valid JSON escape sequences
-        if (char === '\n') return '\\n';
-        if (char === '\r') return '\\r';
-        if (char === '\t') return '\\t';
-        return ''; // Remove other control characters
-      });
-      
       // Remove trailing commas before closing braces/brackets
       cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
       
@@ -1231,14 +1221,6 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
         const jsonMatch = aggressiveClean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
         if (jsonMatch) {
           aggressiveClean = jsonMatch[0];
-          
-          // Remove control characters first
-          aggressiveClean = aggressiveClean.replace(/[\u0000-\u001F\u007F-\u009F]/g, (char) => {
-            if (char === '\n') return '\\n';
-            if (char === '\r') return '\\r';
-            if (char === '\t') return '\\t';
-            return '';
-          });
           
           // Remove trailing commas
           aggressiveClean = aggressiveClean.replace(/,(\s*[}\]])/g, '$1');
