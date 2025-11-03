@@ -1080,7 +1080,7 @@ const Reports = () => {
                     const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
                     setHomeTimeDialog({
                       truckId: truck.id,
-                      truckNumber: truck.truck_number,
+                      truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
                       date: dayStr,
                       isCurrentlyHomeTime: !!homeTimeNote
                     });
@@ -1181,7 +1181,7 @@ const Reports = () => {
                 const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
                 setHomeTimeDialog({
                   truckId: truck.id,
-                  truckNumber: truck.truck_number,
+                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
                   date: dateStr,
                   isCurrentlyHomeTime: !!homeTimeNote
                 });
