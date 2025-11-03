@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -1066,8 +1066,8 @@ const Drivers = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-12 gap-4 items-end">
+                  <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_truck">Truck Number</Label>
                     <Combobox options={(availableTrucks || []).map(truck => ({
                     value: truck.id,
@@ -1082,7 +1082,7 @@ const Drivers = () => {
                     setSelectedTruckId(value);
                   }} placeholder="Select truck..." emptyText="No available trucks" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_trailer">Trailer Number</Label>
                     <Combobox options={(availableTrailers || []).map(trailer => ({
                     value: trailer.id,
@@ -1091,6 +1091,21 @@ const Drivers = () => {
                     ...formData,
                     trailer_id: value
                   })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
+                  </div>
+                  <div className="col-span-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData({
+                        ...formData,
+                        truck_id: "",
+                        trailer_id: ""
+                      })}
+                      className="w-full"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
 
