@@ -407,6 +407,12 @@ const Reports = () => {
     pickupDropId: string;
     type: "pickup" | "delivery";
   } | null>(null);
+  const [homeTimeDialog, setHomeTimeDialog] = useState<{
+    truckId: string;
+    truckNumber: string;
+    date: string;
+    isCurrentlyHomeTime: boolean;
+  } | null>(null);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -1068,21 +1074,15 @@ const Reports = () => {
                 });
               })}
                 </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={(e) => {
-                  console.log('Delivery cell clicked', { isInTransit, shouldShowContinuingDelivery, truckId: truck.id, day: format(day, "yyyy-MM-dd") });
                   e.stopPropagation();
                   if (!isInTransit && !shouldShowContinuingDelivery) {
                     const dayStr = format(day, "yyyy-MM-dd");
                     const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
-                    console.log('Toggling home time (delivery)', { dayStr, hasHomeTime: !!homeTimeNote, truckId: truck.id });
-                    updateLostDayNote.mutate({
+                    setHomeTimeDialog({
                       truckId: truck.id,
+                      truckNumber: truck.truck_number,
                       date: dayStr,
-                      note: homeTimeNote ? '' : 'Home Time',
-                      noteType: homeTimeNote ? null : 'home_time'
-                    });
-                    toast({
-                      title: homeTimeNote ? "Home time removed" : "Home time marked",
-                      description: `${truck.truck_number} - ${formatDateTime(dayStr, "MM/dd/yyyy")}`
+                      isCurrentlyHomeTime: !!homeTimeNote
                     });
                   }
                 }}>
@@ -1163,7 +1163,6 @@ const Reports = () => {
                 });
               })}
                 </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={e => {
-              console.log('Pickup cell clicked', { isMissingPickup, isInTransit, shouldShowContinuingDelivery, truckId: truck.id, day: format(day, "yyyy-MM-dd") });
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
               
@@ -1178,18 +1177,13 @@ const Reports = () => {
                   });
                 }
               } else if (!isInTransit && !shouldShowContinuingDelivery) {
-                // Toggle home time for empty cells
+                // Open home time dialog for empty cells
                 const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
-                console.log('Toggling home time (pickup)', { dateStr, hasHomeTime: !!homeTimeNote, truckId: truck.id });
-                updateLostDayNote.mutate({
+                setHomeTimeDialog({
                   truckId: truck.id,
+                  truckNumber: truck.truck_number,
                   date: dateStr,
-                  note: homeTimeNote ? '' : 'Home Time',
-                  noteType: homeTimeNote ? null : 'home_time'
-                });
-                toast({
-                  title: homeTimeNote ? "Home time removed" : "Home time marked",
-                  description: `${truck.truck_number} - ${formatDateTime(dateStr, "MM/dd/yyyy")}`
+                  isCurrentlyHomeTime: !!homeTimeNote
                 });
               }
             }}>
@@ -2504,6 +2498,56 @@ const Reports = () => {
         }}
         title={arrivalTimeDialog?.type === "pickup" ? "Arrival at Pickup" : "Arrival at Delivery"}
       />
+
+      {/* Home Time Dialog */}
+      <Dialog open={!!homeTimeDialog} onOpenChange={(open) => {
+        if (!open) setHomeTimeDialog(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {homeTimeDialog?.isCurrentlyHomeTime ? "Remove Home Time" : "Mark as Home Time"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Truck: <span className="font-semibold text-foreground">{homeTimeDialog?.truckNumber}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Date: <span className="font-semibold text-foreground">{homeTimeDialog?.date ? formatDateTime(homeTimeDialog.date, "EEEE, MMMM d, yyyy") : ""}</span>
+              </p>
+            </div>
+            <p className="text-sm">
+              {homeTimeDialog?.isCurrentlyHomeTime 
+                ? "Do you want to remove the home time marker for this date?" 
+                : "Do you want to mark this date as home time?"}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setHomeTimeDialog(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                if (homeTimeDialog) {
+                  updateLostDayNote.mutate({
+                    truckId: homeTimeDialog.truckId,
+                    date: homeTimeDialog.date,
+                    note: homeTimeDialog.isCurrentlyHomeTime ? '' : 'Home Time',
+                    noteType: homeTimeDialog.isCurrentlyHomeTime ? null : 'home_time'
+                  });
+                  toast({
+                    title: homeTimeDialog.isCurrentlyHomeTime ? "Home time removed" : "Home time marked",
+                    description: `${homeTimeDialog.truckNumber} - ${formatDateTime(homeTimeDialog.date, "MM/dd/yyyy")}`
+                  });
+                  setHomeTimeDialog(null);
+                }
+              }}>
+                {homeTimeDialog?.isCurrentlyHomeTime ? "Remove" : "Mark as Home Time"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>;
 };
 export default Reports;
