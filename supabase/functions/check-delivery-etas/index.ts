@@ -24,26 +24,30 @@ async function geocodeAddress(address: string): Promise<Coordinates | null> {
   }
 
   try {
+    // Use cached geocode-address edge function
     const response = await fetch(
-      'https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&limit=1',
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/geocode-address`,
       {
+        method: 'POST',
         headers: {
-          'User-Agent': 'BFPrime-TMS/1.0',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
         },
+        body: JSON.stringify({ address }),
       }
     );
 
     if (!response.ok) {
-      console.error('Geocoding failed:', response.statusText);
+      console.error('Geocoding failed:', response.status);
       return null;
     }
 
     const data = await response.json();
     
-    if (data && data.length > 0) {
+    if (data?.success) {
       return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
+        latitude: data.latitude,
+        longitude: data.longitude,
       };
     }
 
@@ -59,9 +63,21 @@ async function calculateRouteDuration(
   end: Coordinates
 ): Promise<number | null> {
   try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${end.longitude},${end.latitude}?overview=false&alternatives=false&steps=false`;
-    
-    const response = await fetch(url);
+    // Use cached calculate-route edge function
+    const response = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({ 
+          start: { lat: start.latitude, lon: start.longitude },
+          end: { lat: end.latitude, lon: end.longitude }
+        }),
+      }
+    );
     
     if (!response.ok) {
       return null;
@@ -69,8 +85,8 @@ async function calculateRouteDuration(
     
     const data = await response.json();
     
-    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-      return data.routes[0].duration; // Duration in seconds
+    if (data?.success && data.duration) {
+      return data.duration; // Duration in seconds
     }
     
     return null;
