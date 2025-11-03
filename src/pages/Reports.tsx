@@ -1414,7 +1414,7 @@ const Reports = () => {
         }
 
         // Check for game over before today
-        const hasGameOverBefore = truck.lost_day_notes?.some((note: any) => {
+        const hasGameOverBefore = truck.lostDayNotes?.some((note: any) => {
           const noteDate = new Date(note.date + "T00:00:00");
           if (noteDate >= today) return false; // Only check days before today
           const noteText = note.note?.toLowerCase() || "";
@@ -1481,7 +1481,7 @@ const Reports = () => {
     // Find existing "game over" dates for this truck
     const allTrucks = groupedReports?.flatMap(group => group.trucks) || [];
     const truck = allTrucks.find(t => t.id === truckId);
-    const existingGameOverDates = truck?.lost_day_notes?.filter((note: any) => note.note.toLowerCase().includes("game over")).map((note: any) => note.date) || [];
+    const existingGameOverDates = truck?.lostDayNotes?.filter((note: any) => note.note.toLowerCase().includes("game over")).map((note: any) => note.date) || [];
     setGameOverDialog({
       truckId,
       truckNumber: driverName,
