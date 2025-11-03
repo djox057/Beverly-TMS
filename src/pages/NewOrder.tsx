@@ -27,6 +27,7 @@ import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
 
 interface PickupDrop {
   id: string;
@@ -96,6 +97,11 @@ const NewOrder = () => {
   // Duplicate order warning
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [duplicateOrders, setDuplicateOrders] = useState<any[]>([]);
+  
+  // Missing data warning
+  const [showMissingDataDialog, setShowMissingDataDialog] = useState(false);
+  const [missingDataDetails, setMissingDataDetails] = useState<Array<{location: string; type: 'pickup' | 'delivery'; missingFields: string[]}>>([]);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
   
   const { toast } = useToast();
   const { profile, hasRole } = useAuthContext();
@@ -1341,6 +1347,33 @@ const NewOrder = () => {
     return duplicates;
   };
 
+  const validatePickupDropData = () => {
+    const missingData: Array<{location: string; type: 'pickup' | 'delivery'; missingFields: string[]}> = [];
+    
+    pickupsDrops.forEach((item, index) => {
+      const missing: string[] = [];
+      const parsed = parseAddress(item.address || '');
+      
+      const city = item.city || parsed.city;
+      const state = item.state || parsed.state;
+      const hasDateTime = item.dateRange?.from && item.startTime;
+      
+      if (!city) missing.push('City');
+      if (!state) missing.push('State');
+      if (!hasDateTime) missing.push('Date/Time');
+      
+      if (missing.length > 0) {
+        missingData.push({
+          location: item.address || `${item.type} ${index + 1}`,
+          type: item.type,
+          missingFields: missing
+        });
+      }
+    });
+    
+    return missingData;
+  };
+
   const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false) => {
     e.preventDefault();
     
@@ -1348,6 +1381,17 @@ const NewOrder = () => {
     if (isSubmitting) {
       console.log('Form submission already in progress, ignoring duplicate submission');
       return;
+    }
+
+    // CRITICAL: Validate pickup/drop data before submission (unless pending from missing data confirmation)
+    if (!pendingSubmit) {
+      const missingData = validatePickupDropData();
+      
+      if (missingData.length > 0) {
+        setMissingDataDetails(missingData);
+        setShowMissingDataDialog(true);
+        return;
+      }
     }
 
     // Validation checks
@@ -1500,6 +1544,7 @@ const NewOrder = () => {
       }
     }
     
+    setPendingSubmit(false);
     setIsSubmitting(true);
     try {
       // Default to BF Prime LLC if booked by company is not selected
@@ -1610,67 +1655,75 @@ const NewOrder = () => {
         }
       }
 
-      // Insert pickup/drop locations
-      if (pickupsDrops.length > 0) {
-        const pickupDropData = pickupsDrops
-          .filter(item => item.address?.trim())
-          .map(item => {
-            // Use the robust address parser
-            const parsed = parseAddress(item.address);
-            
-            // Prefer explicit city/state/zip from item if provided, otherwise use parsed
-            const city = item.city || parsed.city || null;
-            const state = item.state || parsed.state || null;
-            const zipCode = item.zipCode || parsed.zipCode || null;
-            const cleanAddress = parsed.address || item.address.trim();
-            
-            // Ensure datetime fields are valid
-            let datetime = null;
-            let end_datetime = null;
-            
-            try {
-              if (item.dateRange?.from && item.startTime) {
-                datetime = combineDateAndTime(item.dateRange.from, item.startTime);
-              }
-              if (item.dateRange?.from && item.endTime) {
-                end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
-              }
-            } catch (error) {
-              console.error('Error combining date and time:', error);
+      // CRITICAL: Insert pickup/drop locations - must have at least one
+      if (pickupsDrops.length === 0) {
+        throw new Error('Cannot create order without pickup/delivery locations');
+      }
+
+      const pickupDropData = pickupsDrops
+        .filter(item => item.address?.trim())
+        .map(item => {
+          // Use the robust address parser
+          const parsed = parseAddress(item.address);
+          
+          // Prefer explicit city/state/zip from item if provided, otherwise use parsed
+          const city = item.city || parsed.city || null;
+          const state = item.state || parsed.state || null;
+          const zipCode = item.zipCode || parsed.zipCode || null;
+          const cleanAddress = parsed.address || item.address.trim();
+          
+          // Ensure datetime fields are valid
+          let datetime = null;
+          let end_datetime = null;
+          
+          try {
+            if (item.dateRange?.from && item.startTime) {
+              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
             }
-            
-            return {
-              order_id: orderId,
-              type: item.type,
-              address: cleanAddress,
-              city,
-              state,
-              zip_code: zipCode,
-              company_name: item.companyName || null,
-              datetime,
-              end_datetime
-            };
-          })
-          .filter(item => item.address && item.address.trim().length > 0); // Final safety check
-        
-        // Deduplicate only exact matches (all fields must match)
-        const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
-          return index === self.findIndex((t) => (
-            t.type === item.type &&
-            t.address === item.address &&
-            t.city === item.city &&
-            t.state === item.state &&
-            t.zip_code === item.zip_code &&
-            t.company_name === item.company_name &&
-            t.datetime === item.datetime &&
-            t.end_datetime === item.end_datetime
-          ));
-        });
-        
-        if (uniquePickupDropData.length > 0) {
-          const { error: pickupDropError } = await supabase.from('pickup_drops').insert(uniquePickupDropData);
-          if (pickupDropError) throw pickupDropError;
-        }
+            if (item.dateRange?.from && item.endTime) {
+              end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+            }
+          } catch (error) {
+            console.error('Error combining date and time:', error);
+          }
+          
+          return {
+            order_id: orderId,
+            type: item.type,
+            address: cleanAddress,
+            city,
+            state,
+            zip_code: zipCode,
+            company_name: item.companyName || null,
+            datetime,
+            end_datetime
+          };
+        })
+        .filter(item => item.address && item.address.trim().length > 0); // Final safety check
+      
+      // Deduplicate only exact matches (all fields must match)
+      const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
+        return index === self.findIndex((t) => (
+          t.type === item.type &&
+          t.address === item.address &&
+          t.city === item.city &&
+          t.state === item.state &&
+          t.zip_code === item.zip_code &&
+          t.company_name === item.company_name &&
+          t.datetime === item.datetime &&
+          t.end_datetime === item.end_datetime
+        ));
+      });
+      
+      // CRITICAL: Must have at least one valid pickup/drop after filtering
+      if (uniquePickupDropData.length === 0) {
+        throw new Error('No valid pickup/delivery locations found. Please ensure all locations have valid addresses.');
+      }
+
+      const { error: pickupDropError } = await supabase.from('pickup_drops').insert(uniquePickupDropData);
+      if (pickupDropError) {
+        console.error('Pickup/drop insert error:', pickupDropError);
+        throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
 
       toast({
@@ -1728,13 +1781,32 @@ const NewOrder = () => {
         endTime: ""
       }]);
     } catch (error: any) {
+      console.error('Error creating order:', error);
+      
+      // Show detailed error message
+      const errorMessage = error.message || "Failed to create order. Please try again.";
+      const isPickupDropError = errorMessage.toLowerCase().includes('pickup') || 
+                                errorMessage.toLowerCase().includes('delivery') ||
+                                errorMessage.toLowerCase().includes('location');
+      
       toast({
-        title: "Error",
-        description: error.message || "Failed to create order",
-        variant: "destructive"
+        title: isPickupDropError ? "Invalid Pickup/Delivery Data" : "Error Creating Order",
+        description: errorMessage,
+        variant: "destructive",
+        duration: 8000
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmMissingData = () => {
+    setShowMissingDataDialog(false);
+    setPendingSubmit(true);
+    // Re-trigger form submission
+    const form = document.querySelector('form');
+    if (form) {
+      form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
     }
   };
 
@@ -2535,6 +2607,14 @@ const NewOrder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Missing Data Confirmation Dialog */}
+      <MissingDataConfirmDialog
+        open={showMissingDataDialog}
+        onOpenChange={setShowMissingDataDialog}
+        missingData={missingDataDetails}
+        onConfirm={handleConfirmMissingData}
+      />
     </div>
   );
 };
