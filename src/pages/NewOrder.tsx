@@ -1372,8 +1372,13 @@ const NewOrder = () => {
       if (!hasDateTime) missing.push('Date/Time');
       
       if (missing.length > 0) {
+        // Build full address string
+        const fullAddress = item.city || item.state || item.zipCode
+          ? `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}`
+          : item.address || `${item.type} ${index + 1}`;
+        
         missingData.push({
-          location: item.address || `${item.type} ${index + 1}`,
+          location: fullAddress,
           type: item.type,
           missingFields: missing
         });
