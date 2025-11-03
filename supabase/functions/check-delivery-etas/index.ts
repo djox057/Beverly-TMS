@@ -18,13 +18,13 @@ interface OrderETA {
   duration_minutes: number | null;
 }
 
-// Batch geocode multiple addresses at once
-async function geocodeAddressesBatch(addresses: string[]): Promise<Map<string, Coordinates | null>> {
-  const results = new Map<string, Coordinates | null>();
-  
-  if (addresses.length === 0) return results;
+async function geocodeAddress(address: string): Promise<Coordinates | null> {
+  if (!address || address.trim() === '') {
+    return null;
+  }
 
   try {
+    // Use cached geocode-address edge function
     const response = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/geocode-address`,
       {
@@ -33,44 +33,37 @@ async function geocodeAddressesBatch(addresses: string[]): Promise<Map<string, C
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
         },
-        body: JSON.stringify({ addresses }),
+        body: JSON.stringify({ address }),
       }
     );
 
     if (!response.ok) {
-      console.error('Batch geocoding failed:', response.status);
-      return results;
+      console.error('Geocoding failed:', response.status);
+      return null;
     }
 
     const data = await response.json();
     
-    if (data?.success && data.results) {
-      for (const result of data.results) {
-        if (result.success) {
-          results.set(result.address, {
-            latitude: result.latitude,
-            longitude: result.longitude,
-          });
-        } else {
-          results.set(result.address, null);
-        }
-      }
+    if (data?.success) {
+      return {
+        latitude: data.latitude,
+        longitude: data.longitude,
+      };
     }
 
-    return results;
+    return null;
   } catch (error) {
-    console.error('Error batch geocoding addresses:', error);
-    return results;
+    console.error('Error geocoding address:', error);
+    return null;
   }
 }
 
-// Batch calculate routes
-async function calculateRoutesBatch(
-  routes: Array<{ start: Coordinates; end: Coordinates }>
-): Promise<Array<number | null>> {
-  if (routes.length === 0) return [];
-
+async function calculateRouteDuration(
+  start: Coordinates,
+  end: Coordinates
+): Promise<number | null> {
   try {
+    // Use cached calculate-route edge function
     const response = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
       {
@@ -79,24 +72,27 @@ async function calculateRoutesBatch(
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
         },
-        body: JSON.stringify({ routes }),
+        body: JSON.stringify({ 
+          start: { lat: start.latitude, lon: start.longitude },
+          end: { lat: end.latitude, lon: end.longitude }
+        }),
       }
     );
     
     if (!response.ok) {
-      return routes.map(() => null);
+      return null;
     }
     
     const data = await response.json();
     
-    if (data?.success && data.results) {
-      return data.results.map((r: any) => r.success ? r.duration : null);
+    if (data?.success && data.duration) {
+      return data.duration; // Duration in seconds
     }
     
-    return routes.map(() => null);
+    return null;
   } catch (error) {
-    console.error('Batch route calculation error:', error);
-    return routes.map(() => null);
+    console.error('Route duration calculation error:', error);
+    return null;
   }
 }
 
@@ -111,6 +107,60 @@ function parseSimpleDateTime(datetimeString: string) {
   };
 }
 
+async function checkDeliveryETA(
+  truckLocation: Coordinates | null,
+  deliveryAddress: string,
+  deliveryEndDatetime: string | null
+): Promise<{ isLate: boolean; estimatedArrival: Date | null; durationMinutes: number | null }> {
+  const defaultResult = {
+    isLate: false,
+    estimatedArrival: null,
+    durationMinutes: null,
+  };
+
+  if (!truckLocation || !deliveryEndDatetime) {
+    return defaultResult;
+  }
+
+  try {
+    const deliveryCoords = await geocodeAddress(deliveryAddress);
+    if (!deliveryCoords) {
+      return defaultResult;
+    }
+
+    const durationSeconds = await calculateRouteDuration(truckLocation, deliveryCoords);
+    if (!durationSeconds) {
+      return defaultResult;
+    }
+
+    const durationMinutes = Math.ceil(durationSeconds / 60);
+
+    const now = new Date();
+    const chicagoNow = toZonedTime(now, 'America/Chicago');
+
+    const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
+
+    const parsed = parseSimpleDateTime(deliveryEndDatetime);
+    const deliveryEndTime = new Date(
+      parsed.year,
+      parsed.month - 1,
+      parsed.day,
+      parsed.hours,
+      parsed.minutes
+    );
+
+    const isLate = estimatedArrival > deliveryEndTime;
+
+    return {
+      isLate,
+      estimatedArrival,
+      durationMinutes,
+    };
+  } catch (error) {
+    console.error('ETA calculation error:', error);
+    return defaultResult;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -195,34 +245,58 @@ Deno.serve(async (req) => {
     }
 
     const results: OrderETA[] = [];
-    
-    // Collect all addresses and routes to batch process
-    const addressesToGeocode: string[] = [];
-    const ordersToProcess: any[] = [];
+
+    // Ensure we always have valid data
+    if (!orders || orders.length === 0) {
+      console.log('⚠️ No orders to check');
+      return new Response(JSON.stringify({ success: true, results: [] }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     for (const order of orders) {
       try {
+        // Only check orders with BOL but no POD (in transit)
         const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
         const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
         
-        if (!hasBOL || hasPOD) continue;
-
-        const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
-        if (!deliveryStop?.address || !order.delivery_end_datetime) continue;
-
-        if (order.delivery_datetime) {
-          const deliveryDate = new Date(order.delivery_datetime);
-          if (deliveryDate < new Date()) continue;
+        if (!hasBOL || hasPOD) {
+          continue;
         }
 
-        const truckNumber = order.trucks?.truck_number;
-        if (!truckNumber) continue;
+        // Find delivery stop
+        const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
+        if (!deliveryStop?.address || !order.delivery_end_datetime) {
+          continue;
+        }
 
+        // Skip if delivery date is in the past
+        if (order.delivery_datetime) {
+          const deliveryDate = new Date(order.delivery_datetime);
+          const now = new Date();
+          if (deliveryDate < now) {
+            continue;
+          }
+        }
+
+        // Get truck number from the joined trucks table
+        const truckNumber = order.trucks?.truck_number;
+        if (!truckNumber) {
+          continue;
+        }
+
+        // Find truck location
         const truckLocation = truckLocations.find(
           (loc: any) => loc.truck_number === truckNumber
         );
-        if (!truckLocation) continue;
 
+        if (!truckLocation) {
+          console.log(`⏭️ No location for truck ${truckNumber}`);
+          continue;
+        }
+
+        // Build full delivery address
         const deliveryAddress = [
           deliveryStop.address,
           deliveryStop.city,
@@ -232,78 +306,29 @@ Deno.serve(async (req) => {
           .filter(Boolean)
           .join(', ');
 
-        addressesToGeocode.push(deliveryAddress);
-        ordersToProcess.push({
-          order,
-          truckLocation,
+        console.log(`⏱️ Calculating ETA for order ${order.internal_load_number} (Truck ${truckNumber})`);
+
+        const etaResult = await checkDeliveryETA(
+          { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
           deliveryAddress,
-        });
-      } catch (orderError) {
-        console.error(`❌ Error preparing order ${order.internal_load_number}:`, orderError);
-      }
-    }
-
-    console.log(`📦 Batch processing ${ordersToProcess.length} orders`);
-
-    // Batch geocode all delivery addresses
-    const geocodedAddresses = await geocodeAddressesBatch(addressesToGeocode);
-    
-    // Collect routes to calculate
-    const routesToCalculate: Array<{ start: Coordinates; end: Coordinates; orderIndex: number }> = [];
-    
-    ordersToProcess.forEach((item, index) => {
-      const deliveryCoords = geocodedAddresses.get(item.deliveryAddress);
-      if (deliveryCoords) {
-        routesToCalculate.push({
-          start: {
-            latitude: item.truckLocation.latitude,
-            longitude: item.truckLocation.longitude,
-          },
-          end: deliveryCoords,
-          orderIndex: index,
-        });
-      }
-    });
-
-    // Batch calculate all routes
-    const routeDurations = await calculateRoutesBatch(
-      routesToCalculate.map(r => ({ start: r.start, end: r.end }))
-    );
-
-    // Process results
-    routesToCalculate.forEach((route, routeIndex) => {
-      const durationSeconds = routeDurations[routeIndex];
-      const { order, deliveryAddress } = ordersToProcess[route.orderIndex];
-      
-      if (durationSeconds) {
-        const durationMinutes = Math.ceil(durationSeconds / 60);
-        const now = new Date();
-        const chicagoNow = toZonedTime(now, 'America/Chicago');
-        const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
-
-        const parsed = parseSimpleDateTime(order.delivery_end_datetime);
-        const deliveryEndTime = new Date(
-          parsed.year,
-          parsed.month - 1,
-          parsed.day,
-          parsed.hours,
-          parsed.minutes
+          order.delivery_end_datetime
         );
-
-        const isLate = estimatedArrival > deliveryEndTime;
 
         results.push({
           internal_load_number: order.internal_load_number,
-          is_late: isLate,
-          estimated_arrival: estimatedArrival.toISOString(),
-          duration_minutes: durationMinutes,
+          is_late: etaResult.isLate,
+          estimated_arrival: etaResult.estimatedArrival?.toISOString() || null,
+          duration_minutes: etaResult.durationMinutes,
         });
 
         console.log(
-          `${isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
+          `${etaResult.isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
         );
+      } catch (orderError) {
+        console.error(`❌ Error processing order ${order.internal_load_number}:`, orderError);
+        // Continue with other orders
       }
-    });
+    }
 
     console.log(`✅ Processed ${results.length} orders with ETA calculations`);
 
