@@ -522,14 +522,14 @@ const Reports = () => {
   const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
   const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
 
-  // Force re-render every 5 seconds to update button visibility based on 5-second delays
+  // Force re-render every 30 seconds to update button visibility (optimized from 5s)
   useEffect(() => {
     const interval = setInterval(() => {
-      // Invalidate to trigger button visibility updates for the 5-second transition
+      // Invalidate to trigger button visibility updates
       queryClient.invalidateQueries({
         queryKey: ['reports']
       });
-    }, 5000);
+    }, 30000); // Changed from 5000ms to 30000ms
     return () => clearInterval(interval);
   }, [queryClient]);
   const {
@@ -1288,7 +1288,7 @@ const Reports = () => {
     };
     if (groupedReports?.length) {
       checkETAs();
-      const interval = setInterval(checkETAs, 5 * 60 * 1000); // Check every 5 minutes
+      const interval = setInterval(checkETAs, 30 * 60 * 1000); // Check every 30 minutes (optimized from 5 min)
       return () => clearInterval(interval);
     }
   }, [groupedReports]);

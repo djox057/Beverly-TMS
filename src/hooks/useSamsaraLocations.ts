@@ -22,7 +22,7 @@ export const useSamsaraLocations = () => {
       
       return data.locations as TruckLocation[];
     },
-    refetchInterval: 120000, // Refetch every 2 minutes (reduced from 1 minute to save Disk IO)
+    refetchInterval: 600000, // Refetch every 10 minutes (optimized from 2 min)
     staleTime: 90000, // Consider data stale after 90 seconds
   });
 };
