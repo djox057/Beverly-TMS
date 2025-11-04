@@ -1040,7 +1040,7 @@ const Reports = () => {
           height: "64px"
         }}>
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
-            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`} style={{
+            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
@@ -1129,7 +1129,7 @@ const Reports = () => {
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`} style={{
+            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
