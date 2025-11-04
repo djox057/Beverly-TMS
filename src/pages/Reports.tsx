@@ -875,7 +875,7 @@ const Reports = () => {
           height: "64px"
         }}>
             {/* Red border overlay for today column */}
-            {isToday && <div className="absolute pointer-events-none" style={{
+            {isToday && <div className="absolute" style={{
             top: 0,
             left: 0,
             right: 0,
@@ -885,7 +885,8 @@ const Reports = () => {
             ...(isLastTruck ? {
               borderBottom: "6px solid #dc2626"
             } : {}),
-            zIndex: 100
+            zIndex: 100,
+            pointerEvents: "none"
           }} />}
 
             {/* Top half */}
@@ -1020,7 +1021,7 @@ const Reports = () => {
         } : {})
       }}>
           {/* Red border overlay for today column */}
-          {isToday && <div className="absolute pointer-events-none" style={{
+          {isToday && <div className="absolute" style={{
           top: 0,
           left: 0,
           right: 0,
@@ -1030,16 +1031,16 @@ const Reports = () => {
           ...(isLastTruck ? {
             borderBottom: "6px solid #dc2626"
           } : {}),
-          zIndex: 100
+          zIndex: 100,
+          pointerEvents: "none"
         }} />}
 
           <div className="flex flex-col relative" style={{
           width: "120px",
-          height: "64px",
-          overflow: "hidden"
+          height: "64px"
         }}>
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
-            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`} style={{
+            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
@@ -1099,16 +1100,15 @@ const Reports = () => {
                   const hasHomeTime = !!homeTimeNote;
                   
                   return <div 
-                    className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : hasHomeTime ? "text-muted-foreground" : "text-muted-foreground cursor-pointer"}`} 
+                    className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} 
                     onClick={(e) => {
-                      if (hasHomeTime) return; // Don't handle clicks when home time is displayed
                       e.stopPropagation();
                       if (!isInTransit && !shouldShowContinuingDelivery) {
                         setHomeTimeDialog({
                           truckId: truck.id,
                           truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
                           date: dayStr,
-                          isCurrentlyHomeTime: false
+                          isCurrentlyHomeTime: hasHomeTime
                         });
                       }
                     }}
@@ -1129,7 +1129,7 @@ const Reports = () => {
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`} style={{
+            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
@@ -1193,9 +1193,8 @@ const Reports = () => {
                   const hasHomeTime = !!homeTimeNote;
                   
                   return <div 
-                    className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : hasHomeTime ? "text-muted-foreground" : "text-muted-foreground cursor-pointer"}`} 
+                    className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} 
                     onClick={e => {
-                      if (hasHomeTime && !isMissingPickup) return; // Don't handle clicks when home time is displayed (unless it's a missing pickup)
                       e.stopPropagation();
                       
                       if (isMissingPickup) {
@@ -1219,7 +1218,7 @@ const Reports = () => {
                           truckId: truck.id,
                           truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
                           date: dateStr,
-                          isCurrentlyHomeTime: false
+                          isCurrentlyHomeTime: hasHomeTime
                         });
                       }
                     }}
@@ -1731,7 +1730,7 @@ const Reports = () => {
                             } : {})
                           }}>
                                     {/* Red border overlay for today header */}
-                                    {isToday && <div className="absolute pointer-events-none" style={{
+                                    {isToday && <div className="absolute" style={{
                               top: 0,
                               left: 0,
                               right: 0,
@@ -1740,7 +1739,8 @@ const Reports = () => {
                               borderRight: "6px solid #dc2626",
                               borderTop: "6px solid #dc2626",
                               borderBottom: "6px solid hsl(var(--border))",
-                              zIndex: 100
+                              zIndex: 100,
+                              pointerEvents: "none"
                             }} />}
                                     <div className="relative z-10 text-[10px]">{format(day, "EEEE")}</div>
                                     <div className="text-[9px] text-muted-foreground relative z-10">
