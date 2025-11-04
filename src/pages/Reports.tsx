@@ -1035,10 +1035,11 @@ const Reports = () => {
 
           <div className="flex flex-col relative" style={{
           width: "120px",
-          height: "64px"
+          height: "64px",
+          overflow: "hidden"
         }}>
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
-            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-x-auto`} style={{
+            <div className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
@@ -1128,7 +1129,7 @@ const Reports = () => {
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
-            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-x-auto`} style={{
+            <div className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`} style={{
             height: "32px",
             minHeight: "32px",
             maxHeight: "32px"
@@ -1962,20 +1963,18 @@ const Reports = () => {
                             }}>
                                         {truck.lastEdit}
                                       </td>
-                                       <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`} style={{
+                                       <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`} style={{
                               width: "80px",
                               minWidth: "80px",
-                              maxWidth: "80px",
-                              position: "relative",
-                              zIndex: 1
+                              maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" style={{ zIndex: 999, pointerEvents: 'auto' }} onClick={(e) => {
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
                                           e.stopPropagation();
                                           handleGameOverClick(truck.id, truck.driver);
                                         }}>
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" style={{ pointerEvents: 'none' }} />
+                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
                                         </Button>
-                                        <div style={{ pointerEvents: 'none' }}>{truck.editDate}</div>
+                                        {truck.editDate}
                                       </td>
                                     </tr>
                                     {isMapExpanded && <tr key={`${truck.id}-map`}>
