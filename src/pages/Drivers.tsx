@@ -315,7 +315,23 @@ const Drivers = () => {
         if (piiError) throw piiError;
       }
 
-      // Update truck if selected
+      // Handle truck assignment changes
+      // First, clear this driver from any trucks they might be on
+      const { error: clearError } = await supabase
+        .from('trucks')
+        .update({ driver1_id: null })
+        .eq('driver1_id', editingDriver.id);
+      
+      if (clearError) throw clearError;
+
+      const { error: clearError2 } = await supabase
+        .from('trucks')
+        .update({ driver2_id: null })
+        .eq('driver2_id', editingDriver.id);
+      
+      if (clearError2) throw clearError2;
+
+      // Then assign to new truck if one is selected
       if (formData.truck_id) {
         const {
           error: truckError
