@@ -733,7 +733,13 @@ const Reports = () => {
     // Helper function to get lost day note for a specific date
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, "yyyy-MM-dd");
-      const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
+      const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+      
+      console.log('🔍 getLostDayNote called', {
+        dateStr,
+        allNotes: truck.lost_day_notes,
+        foundNote: lostDayNote
+      });
 
       // If no existing note, check if this is 1 day in future
       if (!lostDayNote) {
