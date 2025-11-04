@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
+import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
+import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
@@ -386,9 +388,6 @@ const Reports = () => {
     longitude: number;
   } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
-  const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
-  const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
-  const [gameOverNote, setGameOverNote] = useState<string>("");
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
@@ -1520,94 +1519,6 @@ const Reports = () => {
       truckNumber: driverName,
       existingDates: existingGameOverDates
     });
-    setGameOverStartDate(undefined);
-    setGameOverType("yard");
-    setGameOverNote("");
-  };
-  const handleGameOverConfirm = async () => {
-    if (!gameOverDialog || !gameOverStartDate) {
-      toast({
-        title: "Select a date",
-        description: "Please select a date",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!gameOverNote.trim()) {
-      toast({
-        title: "Note required",
-        description: "Please enter a note for this status",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      const dateStr = format(gameOverStartDate, "yyyy-MM-dd");
-      const noteText = gameOverType === "yard" ? "game over - yard" : "game over - at road";
-      
-      // First, set the game over status
-      await updateLostDayNote.mutateAsync({
-        truckId: gameOverDialog.truckId,
-        date: dateStr,
-        note: noteText
-      });
-      
-      // Then, update the truck's note
-      await updateTruckNote.mutateAsync({
-        truckId: gameOverDialog.truckId,
-        note: gameOverNote.trim()
-      });
-      
-      toast({
-        title: "Status set",
-        description: `Set ${gameOverType === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`
-      });
-      setGameOverDialog(null);
-      setGameOverStartDate(undefined);
-      setGameOverType("yard");
-      setGameOverNote("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to set status",
-        variant: "destructive"
-      });
-    }
-  };
-  const handleGameOverRemove = async () => {
-    if (!gameOverDialog || gameOverDialog.existingDates.length === 0) {
-      toast({
-        title: "No game over dates",
-        description: "This truck has no game over dates to remove.",
-        variant: "destructive"
-      });
-      return;
-    }
-    try {
-      // Remove all "game over" dates
-      for (const date of gameOverDialog.existingDates) {
-        await deleteLostDayNote.mutateAsync({
-          truckId: gameOverDialog.truckId,
-          date
-        });
-      }
-      toast({
-        title: "Game over removed",
-        description: `Removed game over for ${gameOverDialog.existingDates.length} day(s) on truck ${gameOverDialog.truckNumber}`
-      });
-      setGameOverDialog(null);
-      setGameOverStartDate(undefined);
-      setGameOverType("yard");
-      setGameOverNote("");
-    } catch (error) {
-      toast({
-        title: "Failed to remove game over",
-        description: "There was an error removing game over status.",
-        variant: "destructive"
-      });
-    }
   };
   return <>
       <div className="h-full bg-background flex flex-col">
@@ -2029,59 +1940,72 @@ const Reports = () => {
       </Dialog>
 
       {/* Game Over Dialog */}
-      <Dialog open={gameOverDialog !== null} onOpenChange={open => !open && setGameOverDialog(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Set Driver Status - {gameOverDialog?.truckNumber}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm font-medium mb-2">Current Status Dates:</p>
-                <div className="text-xs space-y-1">
-                  {gameOverDialog.existingDates.map(date => <div key={date}>{format(new Date(date), "MMM dd, yyyy")}</div>)}
-                </div>
-              </div>}
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Status Type</label>
-                <ToggleGroup type="single" value={gameOverType} onValueChange={(value: GameOverType) => value && setGameOverType(value)} className="justify-start">
-                  <ToggleGroupItem value="yard" className="flex-1">
-                    Left truck on the Yard
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="at_road" className="flex-1">
-                    Recovery On the road
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Date</label>
-                <DatePicker date={gameOverStartDate} onDateChange={setGameOverStartDate} placeholder="Select date" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-2 block">Note</label>
-                <Textarea 
-                  value={gameOverNote}
-                  onChange={(e) => setGameOverNote(e.target.value)}
-                  placeholder="Enter note for this status..."
-                  className="min-h-[100px]"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate || !gameOverNote.trim()} className="flex-1">
-                Set Status
-              </Button>
-              {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && <Button onClick={handleGameOverRemove} variant="destructive" className="flex-1">
-                  Remove All
-                </Button>}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SetDriverStatusDialog
+        open={gameOverDialog !== null}
+        onOpenChange={(open) => !open && setGameOverDialog(null)}
+        truckNumber={gameOverDialog?.truckNumber || ""}
+        existingDates={gameOverDialog?.existingDates || []}
+        onConfirm={async (startDate, type, note) => {
+          if (!gameOverDialog) return;
+          
+          try {
+            const dateStr = format(startDate, "yyyy-MM-dd");
+            const noteText = type === "yard" ? "game over - yard" : "game over - at road";
+            
+            await updateLostDayNote.mutateAsync({
+              truckId: gameOverDialog.truckId,
+              date: dateStr,
+              note: noteText
+            });
+            
+            await updateTruckNote.mutateAsync({
+              truckId: gameOverDialog.truckId,
+              note: note.trim()
+            });
+            
+            toast({
+              title: "Status set",
+              description: `Set ${type === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`
+            });
+            setGameOverDialog(null);
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: error instanceof Error ? error.message : "Failed to set status",
+              variant: "destructive"
+            });
+          }
+        }}
+        onRemoveAll={async () => {
+          if (!gameOverDialog || gameOverDialog.existingDates.length === 0) {
+            toast({
+              title: "No game over dates",
+              description: "This truck has no game over dates to remove.",
+              variant: "destructive"
+            });
+            return;
+          }
+          try {
+            for (const date of gameOverDialog.existingDates) {
+              await deleteLostDayNote.mutateAsync({
+                truckId: gameOverDialog.truckId,
+                date
+              });
+            }
+            toast({
+              title: "Game over removed",
+              description: `Removed game over for ${gameOverDialog.existingDates.length} day(s) on truck ${gameOverDialog.truckNumber}`
+            });
+            setGameOverDialog(null);
+          } catch (error) {
+            toast({
+              title: "Error",
+              description: error instanceof Error ? error.message : "Failed to remove game over",
+              variant: "destructive"
+            });
+          }
+        }}
+      />
 
       {/* Drug Test Dialog */}
       <Dialog open={!!drugTestDialog} onOpenChange={open => !open && setDrugTestDialog(null)}>
@@ -2590,94 +2514,49 @@ const Reports = () => {
       </Dialog>
 
       {/* Red Cell Edit Dialog */}
-      <Dialog open={!!redCellDialog} onOpenChange={(open) => {
-        if (!open) {
-          setRedCellDialog(null);
-          setRedCellNote("");
-          setRedCellIsHomeTime(false);
-        }
-      }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Lost Day Note</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Truck: <span className="font-semibold text-foreground">{redCellDialog?.truckNumber}</span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Date: <span className="font-semibold text-foreground">{redCellDialog?.date ? formatDateTime(redCellDialog.date, "EEEE, MMMM d, yyyy") : ""}</span>
-              </p>
-            </div>
+      <EditLostDayNoteDialog
+        open={!!redCellDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRedCellDialog(null);
+            setRedCellNote("");
+            setRedCellIsHomeTime(false);
+          }
+        }}
+        truckNumber={redCellDialog?.truckNumber || ""}
+        date={redCellDialog?.date || ""}
+        currentNote={redCellNote}
+        onSave={(note, isHomeTime) => {
+          if (redCellDialog) {
+            const mutationData = {
+              truckId: redCellDialog.truckId,
+              date: redCellDialog.date,
+              note: isHomeTime ? 'Home Time' : note,
+              noteType: isHomeTime ? 'home_time' : null
+            };
             
-            <div className="space-y-2">
-              <Label htmlFor="red-cell-note">Note</Label>
-              <Textarea
-                id="red-cell-note"
-                value={redCellNote}
-                onChange={(e) => setRedCellNote(e.target.value)}
-                placeholder="Enter note"
-                className="min-h-[80px]"
-                disabled={redCellIsHomeTime}
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="home-time-toggle"
-                checked={redCellIsHomeTime}
-                onCheckedChange={setRedCellIsHomeTime}
-              />
-              <Label htmlFor="home-time-toggle" className="cursor-pointer">
-                Mark as Home Time
-              </Label>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => {
-                setRedCellDialog(null);
-                setRedCellNote("");
-                setRedCellIsHomeTime(false);
-              }}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                if (redCellDialog) {
-                  const mutationData = {
-                    truckId: redCellDialog.truckId,
-                    date: redCellDialog.date,
-                    note: redCellIsHomeTime ? 'Home Time' : redCellNote,
-                    noteType: redCellIsHomeTime ? 'home_time' : null
-                  };
-                  
-                  updateLostDayNote.mutate(mutationData, {
-                    onSuccess: () => {
-                      toast({
-                        title: "Note updated",
-                        description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
-                      });
-                    },
-                    onError: (error) => {
-                      toast({
-                        title: "Error updating note",
-                        description: error instanceof Error ? error.message : "Unknown error",
-                        variant: "destructive"
-                      });
-                    }
-                  });
-                  
-                  setRedCellDialog(null);
-                  setRedCellNote("");
-                  setRedCellIsHomeTime(false);
-                }
-              }}>
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            updateLostDayNote.mutate(mutationData, {
+              onSuccess: () => {
+                toast({
+                  title: "Note updated",
+                  description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
+                });
+              },
+              onError: (error) => {
+                toast({
+                  title: "Error updating note",
+                  description: error instanceof Error ? error.message : "Unknown error",
+                  variant: "destructive"
+                });
+              }
+            });
+            
+            setRedCellDialog(null);
+            setRedCellNote("");
+            setRedCellIsHomeTime(false);
+          }
+        }}
+      />
     </>;
 };
 export default Reports;
