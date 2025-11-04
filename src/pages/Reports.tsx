@@ -1962,26 +1962,20 @@ const Reports = () => {
                             }}>
                                         {truck.lastEdit}
                                       </td>
-                                      <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`} style={{
+                                       <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""}`} style={{
                               width: "80px",
                               minWidth: "80px",
-                              maxWidth: "80px"
+                              maxWidth: "80px",
+                              position: "relative",
+                              zIndex: 1
                             }}>
-                                        <Button 
-                                          variant="ghost" 
-                                          size="sm" 
-                                          className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[102] border border-border" 
-                                          onClick={(e) => {
-                                            console.log("🔴 Button clicked!", { truckId: truck.id, driver: truck.driver, hasHomeTime: truck.lost_day_notes?.some((note: any) => note.note_type === 'home_time') });
-                                            e.stopPropagation();
-                                            handleGameOverClick(truck.id, truck.driver);
-                                          }}
-                                          onMouseEnter={() => console.log("🟢 Mouse entered button")}
-                                          onMouseDown={() => console.log("🟡 Mouse down on button")}
-                                        >
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" style={{ zIndex: 999, pointerEvents: 'auto' }} onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleGameOverClick(truck.id, truck.driver);
+                                        }}>
+                                          <XCircle className="h-[19px] w-[19px] text-destructive" style={{ pointerEvents: 'none' }} />
                                         </Button>
-                                        {truck.editDate}
+                                        <div style={{ pointerEvents: 'none' }}>{truck.editDate}</div>
                                       </td>
                                     </tr>
                                     {isMapExpanded && <tr key={`${truck.id}-map`}>
