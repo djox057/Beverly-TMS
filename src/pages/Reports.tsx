@@ -734,12 +734,6 @@ const Reports = () => {
     const getLostDayNote = (date: Date): string => {
       const dateStr = format(date, "yyyy-MM-dd");
       const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
-      
-      console.log('🔍 getLostDayNote called', {
-        dateStr,
-        allNotes: truck.lost_day_notes,
-        foundNote: lostDayNote
-      });
 
       // If no existing note, check if this is 1 day in future
       if (!lostDayNote) {
@@ -1194,16 +1188,6 @@ const Reports = () => {
                 const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
                 const isCurrentlyHomeTime = lostDayNoteData?.note_type === 'home_time';
                 const actualNoteValue = lostDayNoteData?.note || '';
-                
-                console.log('🟡 OPENING RED CELL DIALOG', {
-                  dateStr,
-                  currentNote,
-                  lostDayNoteData,
-                  isCurrentlyHomeTime,
-                  actualNoteValue,
-                  truckId: truck.id,
-                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown'
-                });
                 
                 setRedCellDialog({
                   truckId: truck.id,
@@ -2641,15 +2625,6 @@ const Reports = () => {
               </Button>
               <Button onClick={() => {
                 if (redCellDialog) {
-                  console.log('🔴 RED CELL SAVE CLICKED', {
-                    truckId: redCellDialog.truckId,
-                    date: redCellDialog.date,
-                    note: redCellNote,
-                    isHomeTime: redCellIsHomeTime,
-                    finalNote: redCellIsHomeTime ? null : redCellNote,
-                    finalNoteType: redCellIsHomeTime ? 'home_time' : null
-                  });
-                  
                   const mutationData = {
                     truckId: redCellDialog.truckId,
                     date: redCellDialog.date,
@@ -2657,18 +2632,14 @@ const Reports = () => {
                     noteType: redCellIsHomeTime ? 'home_time' : null
                   };
                   
-                  console.log('🔴 CALLING updateLostDayNote.mutate with:', mutationData);
-                  
                   updateLostDayNote.mutate(mutationData, {
                     onSuccess: () => {
-                      console.log('✅ RED CELL MUTATION SUCCESS');
                       toast({
                         title: "Note updated",
                         description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
                       });
                     },
                     onError: (error) => {
-                      console.error('❌ RED CELL MUTATION ERROR:', error);
                       toast({
                         title: "Error updating note",
                         description: error instanceof Error ? error.message : "Unknown error",
