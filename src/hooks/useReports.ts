@@ -177,7 +177,7 @@ export const useReports = () => {
   });
 
   const updateLostDayNote = useMutation({
-    mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string; noteType?: string | null }) => {
+    mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string | null; noteType?: string | null }) => {
       console.log('🔵 updateLostDayNote MUTATION FUNCTION CALLED', { truckId, date, note, noteType });
       
       const userId = (await supabase.auth.getUser()).data.user?.id;

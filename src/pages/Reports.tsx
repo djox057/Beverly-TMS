@@ -241,7 +241,7 @@ const Reports = () => {
 
   // Helper to check if truck has any game over days
   const hasGameOverDays = useCallback((truck: any) => {
-    return truck.lostDayNotes?.some((note: any) => {
+    return truck.lost_day_notes?.some((note: any) => {
       const noteText = note.note?.toLowerCase() || "";
       return noteText.includes("game over");
     }) || false;
@@ -757,7 +757,13 @@ const Reports = () => {
         }
         return "Lost day";
       }
-      return lostDayNote.note;
+      
+      // If note_type is home_time, return "Home Time" regardless of note value
+      if (lostDayNote.note_type === 'home_time') {
+        return "Home Time";
+      }
+      
+      return lostDayNote.note || "Lost day";
     };
 
     // Helper function to check if a date has "game over" note (any type)
@@ -766,7 +772,7 @@ const Reports = () => {
       type: GameOverType | null;
     } => {
       const dateStr = format(date, "yyyy-MM-dd");
-      const lostDayNote = truck.lostDayNotes?.find((note: any) => note.date === dateStr);
+      const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
       const note = lostDayNote?.note?.toLowerCase();
       if (note === "game over - yard") return {
         isGameOver: true,
@@ -1187,12 +1193,14 @@ const Reports = () => {
                 const currentNote = getLostDayNote(day);
                 const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
                 const isCurrentlyHomeTime = lostDayNoteData?.note_type === 'home_time';
+                const actualNoteValue = lostDayNoteData?.note || '';
                 
                 console.log('🟡 OPENING RED CELL DIALOG', {
                   dateStr,
                   currentNote,
                   lostDayNoteData,
                   isCurrentlyHomeTime,
+                  actualNoteValue,
                   truckId: truck.id,
                   truckNumber: truck.truckNumber || truck.truck_number || 'Unknown'
                 });
@@ -1203,7 +1211,8 @@ const Reports = () => {
                   date: dateStr,
                   currentNote: currentNote
                 });
-                setRedCellNote(currentNote);
+                // Use actual note value from DB, not the display text
+                setRedCellNote(actualNoteValue);
                 setRedCellIsHomeTime(isCurrentlyHomeTime);
               } else if (!isInTransit && !shouldShowContinuingDelivery) {
                 // Open home time dialog for empty cells
@@ -2637,14 +2646,14 @@ const Reports = () => {
                     date: redCellDialog.date,
                     note: redCellNote,
                     isHomeTime: redCellIsHomeTime,
-                    finalNote: redCellIsHomeTime ? 'Home Time' : redCellNote,
+                    finalNote: redCellIsHomeTime ? null : redCellNote,
                     finalNoteType: redCellIsHomeTime ? 'home_time' : null
                   });
                   
                   const mutationData = {
                     truckId: redCellDialog.truckId,
                     date: redCellDialog.date,
-                    note: redCellIsHomeTime ? 'Home Time' : redCellNote,
+                    note: redCellIsHomeTime ? null : redCellNote,
                     noteType: redCellIsHomeTime ? 'home_time' : null
                   };
                   
