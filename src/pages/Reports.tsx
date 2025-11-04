@@ -1514,7 +1514,7 @@ const Reports = () => {
     // Find existing "game over" dates for this truck
     const allTrucks = groupedReports?.flatMap(group => group.trucks) || [];
     const truck = allTrucks.find(t => t.id === truckId);
-    const existingGameOverDates = truck?.lost_day_notes?.filter((note: any) => note.note.toLowerCase().includes("game over")).map((note: any) => note.date) || [];
+    const existingGameOverDates = truck?.lost_day_notes?.filter((note: any) => note.note && note.note.toLowerCase().includes("game over")).map((note: any) => note.date) || [];
     setGameOverDialog({
       truckId,
       truckNumber: driverName,
@@ -1970,7 +1970,6 @@ const Reports = () => {
                             }}>
                                         <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
                                           e.stopPropagation();
-                                          console.log("🔴 Button clicked!", truck.id, truck.driver);
                                           handleGameOverClick(truck.id, truck.driver);
                                         }}>
                                           <XCircle className="h-[19px] w-[19px] text-destructive" />
