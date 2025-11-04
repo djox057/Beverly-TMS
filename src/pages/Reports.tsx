@@ -1958,13 +1958,13 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[100] border border-border" onClick={(e) => {
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[200] border border-border pointer-events-auto" onClick={(e) => {
                                           e.stopPropagation();
                                           handleGameOverClick(truck.id, truck.driver);
                                         }}>
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                          <XCircle className="h-[19px] w-[19px] text-destructive pointer-events-none" />
                                         </Button>
-                                        <div className="pr-7">
+                                        <div className="pr-7 pointer-events-none">
                                           {truck.editDate}
                                         </div>
                                       </td>
