@@ -1962,13 +1962,14 @@ const Reports = () => {
                               maxWidth: "80px"
                             }}>
                                         {truck.lastEdit}
-                                      </td>
+                                       </td>
                                        <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`} style={{
                               width: "80px",
                               minWidth: "80px",
-                              maxWidth: "80px"
+                              maxWidth: "80px",
+                              zIndex: 200
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" style={{ zIndex: 200 }} onClick={(e) => {
                                           e.stopPropagation();
                                           handleGameOverClick(truck.id, truck.driver);
                                         }}>
