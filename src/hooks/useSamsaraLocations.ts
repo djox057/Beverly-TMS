@@ -22,7 +22,8 @@ export const useSamsaraLocations = () => {
       
       return data.locations as TruckLocation[];
     },
-    refetchInterval: 600000, // Refetch every 10 minutes (optimized from 2 min)
-    staleTime: 90000, // Consider data stale after 90 seconds
+    enabled: false, // DISABLED: Route calculation temporarily disabled
+    refetchInterval: false,
+    staleTime: Infinity,
   });
 };
