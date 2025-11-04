@@ -1966,11 +1966,11 @@ const Reports = () => {
                                        <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground ${sidebarOpen ? "border-r border-border" : ""} relative`} style={{
                               width: "80px",
                               minWidth: "80px",
-                              maxWidth: "80px",
-                              zIndex: 200
+                              maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full border border-border" style={{ zIndex: 200 }} onClick={(e) => {
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
                                           e.stopPropagation();
+                                          console.log("🔴 Button clicked!", truck.id, truck.driver);
                                           handleGameOverClick(truck.id, truck.driver);
                                         }}>
                                           <XCircle className="h-[19px] w-[19px] text-destructive" />
