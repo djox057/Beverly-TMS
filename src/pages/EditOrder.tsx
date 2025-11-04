@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
+import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -419,23 +420,6 @@ const EditOrder = () => {
         if (orderData.pickup_drops) {
           console.log("Processing pickup_drops:", orderData.pickup_drops);
           const transformedPickupsDrops = orderData.pickup_drops.map((pd: any) => {
-            // Reconstruct full address from parts
-            let fullAddress = pd.address || "";
-            if (pd.city || pd.state || pd.zip_code) {
-              const addressParts = [pd.address];
-              if (pd.city) addressParts.push(pd.city);
-              if (pd.state) {
-                if (pd.zip_code) {
-                  addressParts.push(`${pd.state} ${pd.zip_code}`);
-                } else {
-                  addressParts.push(pd.state);
-                }
-              } else if (pd.zip_code) {
-                addressParts.push(pd.zip_code);
-              }
-              fullAddress = addressParts.filter(Boolean).join(", ");
-            }
-
             // Create date range from datetime field - each stop uses its own datetime
             let dateRange: DateRange | undefined = undefined;
             let startTime = "";
@@ -471,7 +455,7 @@ const EditOrder = () => {
             return {
               id: pd.id,
               type: pd.type,
-              address: fullAddress,
+              address: pd.address || "",
               datetime: pd.datetime || "",
               dateRange,
               startTime,
@@ -710,9 +694,10 @@ const EditOrder = () => {
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
-          address: extractedData.pickupZip
-            ? `${extractedData.pickupAddress}, ${extractedData.pickupCity}, ${extractedData.pickupState} ${extractedData.pickupZip}`
-            : `${extractedData.pickupAddress}${extractedData.pickupCity ? `, ${extractedData.pickupCity}` : ""}${extractedData.pickupState ? `, ${extractedData.pickupState}` : ""}`,
+          address: extractedData.pickupAddress,
+          city: extractedData.pickupCity || "",
+          state: extractedData.pickupState || "",
+          zipCode: extractedData.pickupZip || "",
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
@@ -737,9 +722,10 @@ const EditOrder = () => {
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery",
-          address: extractedData.deliveryZip
-            ? `${extractedData.deliveryAddress}, ${extractedData.deliveryCity}, ${extractedData.deliveryState} ${extractedData.deliveryZip}`
-            : `${extractedData.deliveryAddress}${extractedData.deliveryCity ? `, ${extractedData.deliveryCity}` : ""}${extractedData.deliveryState ? `, ${extractedData.deliveryState}` : ""}`,
+          address: extractedData.deliveryAddress,
+          city: extractedData.deliveryCity || "",
+          state: extractedData.deliveryState || "",
+          zipCode: extractedData.deliveryZip || "",
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
@@ -818,7 +804,7 @@ const EditOrder = () => {
         driverEndTime?: string,
       ) => ({
         address: location.address,
-        cityStateZip: location.address.split(",").slice(1).join(",").trim() || "",
+        cityStateZip: `${location.city || ''}${location.city && location.state ? ', ' : ''}${location.state || ''}${(location.city || location.state) && location.zipCode ? ' ' : ''}${location.zipCode || ''}`.trim(),
         date: formatDate(driverDateRange || location.dateRange),
         time:
           formatTime(driverStartTime || location.startTime) +
@@ -1310,16 +1296,14 @@ const EditOrder = () => {
               endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
             }
 
-            // Parse address to extract street address only (avoid duplication)
-            const parsedAddress = parseAddress(item.address);
-
+            // Parse address to extract street address only (use the 'address' field from database)
             return {
               order_id: id,
               type: item.type,
-              address: parsedAddress.address,
-              city: parsedAddress.city || null,
-              state: parsedAddress.state || null,
-              zip_code: parsedAddress.zipCode || null,
+              address: item.address || "",
+              city: item.city || null,
+              state: item.state || null,
+              zip_code: item.zipCode || null,
               company_name: (item as any).companyName || null,
               datetime: datetime
                 ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00`
@@ -1560,14 +1544,59 @@ const EditOrder = () => {
                                   </div>
 
                                   <div className="space-y-1">
-                                    <Label htmlFor={`address-${item.id}`}>Address</Label>
-                                    <Textarea
+                                    <Label htmlFor={`address-${item.id}`}>Street Address</Label>
+                                    <Input
                                       id={`address-${item.id}`}
-                                      placeholder="Full address"
+                                      placeholder="123 Main St"
                                       value={item.address}
                                       onChange={(e) => updatePickupDrop(item.id, "address", e.target.value)}
-                                      className="min-h-[60px]"
                                     />
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div className="space-y-1 col-span-1">
+                                      <Label htmlFor={`city-${item.id}`}>City</Label>
+                                      <Input
+                                        id={`city-${item.id}`}
+                                        placeholder="City"
+                                        value={item.city || ""}
+                                        onChange={(e) => updatePickupDrop(item.id, "city", e.target.value)}
+                                      />
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      <Label htmlFor={`state-${item.id}`}>State</Label>
+                                      <Select
+                                        value={item.state || ""}
+                                        onValueChange={(value) => updatePickupDrop(item.id, "state", value)}
+                                      >
+                                        <SelectTrigger id={`state-${item.id}`}>
+                                          <SelectValue placeholder="ST" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {US_STATES.map((state) => (
+                                            <SelectItem key={state.value} value={state.value}>
+                                              {state.value}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div className="space-y-1">
+                                      <Label htmlFor={`zip-${item.id}`}>Zip Code</Label>
+                                      <Input
+                                        id={`zip-${item.id}`}
+                                        placeholder="12345"
+                                        value={item.zipCode || ""}
+                                        onChange={(e) => {
+                                          // Only allow numbers and limit to 10 characters (for 12345-6789 format)
+                                          const value = e.target.value.replace(/[^\d-]/g, '').slice(0, 10);
+                                          updatePickupDrop(item.id, "zipCode", value);
+                                        }}
+                                        maxLength={10}
+                                      />
+                                    </div>
                                   </div>
 
                                   <div className="space-y-1">

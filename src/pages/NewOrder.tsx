@@ -9,10 +9,12 @@ import { Combobox } from "@/components/ui/combobox";
 import { BrokerCombobox } from "@/components/ui/broker-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
+import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -319,10 +321,12 @@ const NewOrder = () => {
       const addresses = pickupsDrops
         .filter(item => item.address.trim())
         .map(item => {
-          if (item.city || item.state || item.zipCode) {
-            return `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}`;
-          }
-          return item.address;
+          // Always concatenate all available address parts
+          const parts = [item.address];
+          if (item.city) parts.push(item.city);
+          if (item.state) parts.push(item.state);
+          if (item.zipCode) parts.push(item.zipCode);
+          return parts.join(', ');
         });
 
       if (addresses.length < 2) {
@@ -380,9 +384,11 @@ const NewOrder = () => {
       }
 
       // Build full address for better geocoding accuracy
-      const pickupAddress = firstPickup.city || firstPickup.state || firstPickup.zipCode
-        ? `${firstPickup.address}${firstPickup.city ? `, ${firstPickup.city}` : ''}${firstPickup.state ? `, ${firstPickup.state}` : ''}${firstPickup.zipCode ? ` ${firstPickup.zipCode}` : ''}`
-        : firstPickup.address;
+      const addressParts = [firstPickup.address];
+      if (firstPickup.city) addressParts.push(firstPickup.city);
+      if (firstPickup.state) addressParts.push(firstPickup.state);
+      if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
+      const pickupAddress = addressParts.join(', ');
 
       console.log('🚚 =================================');
       console.log('🚚 DH MILES AUTO-CALCULATION');
@@ -1677,15 +1683,6 @@ const NewOrder = () => {
       const pickupDropData = pickupsDrops
         .filter(item => item.address?.trim())
         .map(item => {
-          // Use the robust address parser
-          const parsed = parseAddress(item.address);
-          
-          // Prefer explicit city/state/zip from item if provided, otherwise use parsed
-          const city = item.city || parsed.city || null;
-          const state = item.state || parsed.state || null;
-          const zipCode = item.zipCode || parsed.zipCode || null;
-          const cleanAddress = parsed.address || item.address.trim();
-          
           // Ensure datetime fields are valid
           let datetime = null;
           let end_datetime = null;
@@ -1704,10 +1701,10 @@ const NewOrder = () => {
           return {
             order_id: orderId,
             type: item.type,
-            address: cleanAddress,
-            city,
-            state,
-            zip_code: zipCode,
+            address: item.address,
+            city: item.city || null,
+            state: item.state || null,
+            zip_code: item.zipCode || null,
             company_name: item.companyName || null,
             datetime,
             end_datetime
@@ -2117,23 +2114,59 @@ const NewOrder = () => {
                                 </div>
 
                                 <div className="space-y-1">
-                                  <Label htmlFor={`address-${item.id}`}>Address</Label>
-                                  <Textarea
+                                  <Label htmlFor={`address-${item.id}`}>Street Address</Label>
+                                  <Input
                                     id={`address-${item.id}`}
-                                    placeholder="Full address (e.g., 123 Main St, Springfield, IL 62701)"
-                                    value={
-                                      item.city || item.state || item.zipCode
-                                        ? `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}`
-                                        : item.address
-                                    }
+                                    placeholder="123 Main St"
+                                    value={item.address}
                                     onChange={(e) => updatePickupDrop(item.id, 'address', e.target.value)}
-                                    className="min-h-[60px]"
                                   />
-                                  {(item.city || item.state || item.zipCode) && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Parsed: {item.address} | {item.city || '—'}, {item.state || '—'} {item.zipCode || '—'}
-                                    </p>
-                                  )}
+                                </div>
+                                
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="space-y-1 col-span-1">
+                                    <Label htmlFor={`city-${item.id}`}>City</Label>
+                                    <Input
+                                      id={`city-${item.id}`}
+                                      placeholder="City"
+                                      value={item.city || ""}
+                                      onChange={(e) => updatePickupDrop(item.id, 'city', e.target.value)}
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`state-${item.id}`}>State</Label>
+                                    <Select
+                                      value={item.state || ""}
+                                      onValueChange={(value) => updatePickupDrop(item.id, 'state', value)}
+                                    >
+                                      <SelectTrigger id={`state-${item.id}`}>
+                                        <SelectValue placeholder="ST" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {US_STATES.map((state) => (
+                                          <SelectItem key={state.value} value={state.value}>
+                                            {state.value}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <Label htmlFor={`zip-${item.id}`}>Zip Code</Label>
+                                    <Input
+                                      id={`zip-${item.id}`}
+                                      placeholder="12345"
+                                      value={item.zipCode || ""}
+                                      onChange={(e) => {
+                                        // Only allow numbers and limit to 10 characters (for 12345-6789 format)
+                                        const value = e.target.value.replace(/[^\d-]/g, '').slice(0, 10);
+                                        updatePickupDrop(item.id, 'zipCode', value);
+                                      }}
+                                      maxLength={10}
+                                    />
+                                  </div>
                                 </div>
                                 
                                 <div className="space-y-1">
