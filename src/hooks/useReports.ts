@@ -178,26 +178,44 @@ export const useReports = () => {
 
   const updateLostDayNote = useMutation({
     mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string; noteType?: string | null }) => {
+      console.log('🔵 updateLostDayNote MUTATION FUNCTION CALLED', { truckId, date, note, noteType });
+      
       const userId = (await supabase.auth.getUser()).data.user?.id;
+      console.log('🔵 User ID:', userId);
+      
+      const upsertData = { 
+        truck_id: truckId,
+        date: date,
+        note: note,
+        note_type: noteType,
+        updated_by: userId
+      };
+      console.log('🔵 Upserting data:', upsertData);
       
       // Try to update existing note, if not exists, insert new one
-      const { error: upsertError } = await supabase
+      const { data, error: upsertError } = await supabase
         .from('lost_day_notes')
-        .upsert({ 
-          truck_id: truckId,
-          date: date,
-          note: note,
-          note_type: noteType,
-          updated_by: userId
-        }, {
+        .upsert(upsertData, {
           onConflict: 'truck_id,date'
-        });
+        })
+        .select();
       
-      if (upsertError) throw upsertError;
+      console.log('🔵 Upsert result:', { data, error: upsertError });
+      
+      if (upsertError) {
+        console.error('❌ UPSERT ERROR:', upsertError);
+        throw upsertError;
+      }
+      
+      console.log('✅ updateLostDayNote MUTATION COMPLETED SUCCESSFULLY');
     },
     onSuccess: () => {
+      console.log('✅ updateLostDayNote onSuccess - invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
+    onError: (error) => {
+      console.error('❌ updateLostDayNote onError:', error);
+    }
   });
 
   const updatePickupDropArrival = useMutation({

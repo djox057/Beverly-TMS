@@ -1179,6 +1179,18 @@ const Reports = () => {
               
               if (isMissingPickup) {
                 const currentNote = getLostDayNote(day);
+                const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+                const isCurrentlyHomeTime = lostDayNoteData?.note_type === 'home_time';
+                
+                console.log('🟡 OPENING RED CELL DIALOG', {
+                  dateStr,
+                  currentNote,
+                  lostDayNoteData,
+                  isCurrentlyHomeTime,
+                  truckId: truck.id,
+                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown'
+                });
+                
                 setRedCellDialog({
                   truckId: truck.id,
                   truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
@@ -1186,7 +1198,7 @@ const Reports = () => {
                   currentNote: currentNote
                 });
                 setRedCellNote(currentNote);
-                setRedCellIsHomeTime(false);
+                setRedCellIsHomeTime(isCurrentlyHomeTime);
               } else if (!isInTransit && !shouldShowContinuingDelivery) {
                 // Open home time dialog for empty cells
                 const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
@@ -2614,16 +2626,42 @@ const Reports = () => {
               </Button>
               <Button onClick={() => {
                 if (redCellDialog) {
-                  updateLostDayNote.mutate({
+                  console.log('🔴 RED CELL SAVE CLICKED', {
+                    truckId: redCellDialog.truckId,
+                    date: redCellDialog.date,
+                    note: redCellNote,
+                    isHomeTime: redCellIsHomeTime,
+                    finalNote: redCellIsHomeTime ? 'Home Time' : redCellNote,
+                    finalNoteType: redCellIsHomeTime ? 'home_time' : null
+                  });
+                  
+                  const mutationData = {
                     truckId: redCellDialog.truckId,
                     date: redCellDialog.date,
                     note: redCellIsHomeTime ? 'Home Time' : redCellNote,
                     noteType: redCellIsHomeTime ? 'home_time' : null
+                  };
+                  
+                  console.log('🔴 CALLING updateLostDayNote.mutate with:', mutationData);
+                  
+                  updateLostDayNote.mutate(mutationData, {
+                    onSuccess: () => {
+                      console.log('✅ RED CELL MUTATION SUCCESS');
+                      toast({
+                        title: "Note updated",
+                        description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
+                      });
+                    },
+                    onError: (error) => {
+                      console.error('❌ RED CELL MUTATION ERROR:', error);
+                      toast({
+                        title: "Error updating note",
+                        description: error instanceof Error ? error.message : "Unknown error",
+                        variant: "destructive"
+                      });
+                    }
                   });
-                  toast({
-                    title: "Note updated",
-                    description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
-                  });
+                  
                   setRedCellDialog(null);
                   setRedCellNote("");
                   setRedCellIsHomeTime(false);
