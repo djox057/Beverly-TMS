@@ -51,6 +51,13 @@ const EditOrder = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [returnToReports, setReturnToReports] = useState(false);
+
+  // Check on mount if we should return to reports
+  useEffect(() => {
+    const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+    setReturnToReports(shouldReturnToReports);
+  }, []);
 
   // Form states
   const [bookedByCompany, setBookedByCompany] = useState("");
@@ -241,7 +248,13 @@ const EditOrder = () => {
           description: "Invalid load ID format",
           variant: "destructive",
         });
-        navigate("/orders");
+        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+        if (shouldReturnToReports) {
+          localStorage.removeItem('returnToReports');
+          navigate("/reports");
+        } else {
+          navigate("/orders");
+        }
         return;
       }
       loadOrderData();
@@ -252,7 +265,13 @@ const EditOrder = () => {
         description: "No valid load ID provided in URL",
         variant: "destructive",
       });
-      navigate("/orders");
+      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      if (shouldReturnToReports) {
+        localStorage.removeItem('returnToReports');
+        navigate("/reports");
+      } else {
+        navigate("/orders");
+      }
     }
   }, [id]);
 
@@ -268,7 +287,13 @@ const EditOrder = () => {
         description: "The load ID in the URL is invalid or missing",
         variant: "destructive",
       });
-      navigate("/orders");
+      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      if (shouldReturnToReports) {
+        localStorage.removeItem('returnToReports');
+        navigate("/reports");
+      } else {
+        navigate("/orders");
+      }
       return;
     }
 
@@ -305,7 +330,13 @@ const EditOrder = () => {
             description: "This load is locked and cannot be edited",
             variant: "destructive",
           });
-          navigate("/orders");
+          const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+          if (shouldReturnToReports) {
+            localStorage.removeItem('returnToReports');
+            navigate("/reports");
+          } else {
+            navigate("/orders");
+          }
           return;
         }
 
@@ -504,7 +535,13 @@ const EditOrder = () => {
         description: "Failed to load order data",
         variant: "destructive",
       });
-      navigate("/orders");
+      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      if (shouldReturnToReports) {
+        localStorage.removeItem('returnToReports');
+        navigate("/reports");
+      } else {
+        navigate("/orders");
+      }
     } finally {
       console.log("Setting loading to false");
       setIsLoading(false);
@@ -1350,7 +1387,13 @@ const EditOrder = () => {
         description: "Load updated successfully",
       });
 
-      navigate("/orders");
+      // Navigate back to where we came from
+      if (returnToReports) {
+        localStorage.removeItem('returnToReports');
+        navigate("/reports");
+      } else {
+        navigate("/orders");
+      }
     } catch (error) {
       console.error("Error updating order:", error);
       toast({
@@ -1379,9 +1422,17 @@ const EditOrder = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={() => navigate("/orders")}>
+              <Button variant="outline" size="sm" onClick={() => {
+                // Navigate back to where we came from
+                if (returnToReports) {
+                  localStorage.removeItem('returnToReports');
+                  navigate("/reports");
+                } else {
+                  navigate("/orders");
+                }
+              }}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Orders
+                {returnToReports ? 'Back to Reports' : 'Back to Orders'}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
             </div>
@@ -2509,7 +2560,15 @@ const EditOrder = () => {
             </div>
 
             <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
+              <Button type="button" variant="outline" onClick={() => {
+                // Navigate back to where we came from
+                if (returnToReports) {
+                  localStorage.removeItem('returnToReports');
+                  navigate("/reports");
+                } else {
+                  navigate("/orders");
+                }
+              }}>
                 Cancel
               </Button>
               {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&

@@ -2125,6 +2125,9 @@ const Reports = () => {
               </div>
               <Button variant="outline" onClick={() => {
               if (zoomedLoad?.orderId) {
+                // Mark that we're coming from reports
+                localStorage.setItem('returnToReports', 'true');
+                localStorage.removeItem('returnToOrders');
                 navigate(`/edit-order/${zoomedLoad.orderId}`);
                 setZoomedLoad(null);
               }

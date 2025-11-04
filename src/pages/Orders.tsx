@@ -59,7 +59,7 @@ const Orders = () => {
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
   
-  // Debug navigation function
+  // Debug navigation function with filter persistence
   const navigateToEditOrder = (orderId: string) => {
     console.log('=== NAVIGATION DEBUG ===');
     console.log('Order ID to navigate to:', orderId);
@@ -77,6 +77,24 @@ const Orders = () => {
       console.error('Invalid order ID format:', orderId);
       return;
     }
+    
+    // Save current filter state to localStorage
+    const filterState = {
+      searchTerm,
+      companyFilter,
+      truckCompanyFilter,
+      bookedByFilter,
+      missingDocsFilter,
+      truckFilter,
+      driverFilter,
+      dateRange: dateRange ? {
+        from: dateRange.from?.toISOString(),
+        to: dateRange.to?.toISOString()
+      } : undefined,
+      currentPage
+    };
+    localStorage.setItem('ordersFilterState', JSON.stringify(filterState));
+    localStorage.setItem('returnToOrders', 'true');
     
     const targetUrl = `/edit-order/${orderId}`;
     console.log('Target URL:', targetUrl);
@@ -131,9 +149,42 @@ const Orders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ORDERS_PER_PAGE = 100;
   
-  // Set bookedBy filter for dispatchers when profile loads
+  // Restore filter state from localStorage on mount
   useEffect(() => {
-    if (isDispatcher && profile?.full_name) {
+    const shouldRestore = localStorage.getItem('returnToOrders');
+    if (shouldRestore === 'true') {
+      const savedState = localStorage.getItem('ordersFilterState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          setSearchTerm(state.searchTerm || "");
+          setCompanyFilter(state.companyFilter || "all-companies");
+          setTruckCompanyFilter(state.truckCompanyFilter || "all-truck-companies");
+          setBookedByFilter(state.bookedByFilter || "all-users");
+          setMissingDocsFilter(state.missingDocsFilter || "all");
+          setTruckFilter(state.truckFilter || "all-trucks");
+          setDriverFilter(state.driverFilter || "all-drivers");
+          if (state.dateRange) {
+            setDateRange({
+              from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
+              to: state.dateRange.to ? new Date(state.dateRange.to) : undefined
+            });
+          }
+          setCurrentPage(state.currentPage || 1);
+        } catch (error) {
+          console.error('Error restoring filter state:', error);
+        }
+      }
+      // Clear the flags
+      localStorage.removeItem('returnToOrders');
+      localStorage.removeItem('ordersFilterState');
+    }
+  }, []);
+  
+  // Set bookedBy filter for dispatchers when profile loads (only if not restoring)
+  useEffect(() => {
+    const shouldRestore = localStorage.getItem('returnToOrders');
+    if (!shouldRestore && isDispatcher && profile?.full_name) {
       setBookedByFilter(profile.full_name);
     }
   }, [isDispatcher, profile?.full_name]);
