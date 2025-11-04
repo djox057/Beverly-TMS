@@ -180,7 +180,29 @@ export const useReports = () => {
     mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string; noteType?: string | null }) => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       
-      // Try to update existing note, if not exists, insert new one
+      // Delete note if empty
+      if (!note || note.trim() === '') {
+        const deleteQuery = supabase
+          .from('lost_day_notes')
+          .delete()
+          .eq('truck_id', truckId)
+          .eq('date', date);
+        
+        if (noteType !== undefined) {
+          if (noteType === null) {
+            deleteQuery.is('note_type', null);
+          } else {
+            deleteQuery.eq('note_type', noteType);
+          }
+        }
+        
+        const { error: deleteError } = await deleteQuery;
+        if (deleteError) throw deleteError;
+        return;
+      }
+      
+      // Use upsert with truck_id, date, and note_type as conflict target
+      // This allows multiple notes per day (one regular, one home_time)
       const { error: upsertError } = await supabase
         .from('lost_day_notes')
         .upsert({ 
@@ -190,7 +212,7 @@ export const useReports = () => {
           note_type: noteType,
           updated_by: userId
         }, {
-          onConflict: 'truck_id,date'
+          onConflict: 'truck_id,date,note_type'
         });
       
       if (upsertError) throw upsertError;

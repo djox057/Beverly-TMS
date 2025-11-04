@@ -2556,51 +2556,68 @@ const Reports = () => {
               {homeTimeDialog?.isMissingPickup && (
                 <Button 
                   variant="secondary"
-                  onClick={() => {
+                  onClick={async () => {
                     if (homeTimeDialog) {
-                      updateLostDayNote.mutate({
-                        truckId: homeTimeDialog.truckId,
-                        date: homeTimeDialog.date,
-                        note: homeTimeNote || '',
-                        noteType: null
-                      });
-                      toast({
-                        title: "Cell text updated",
-                        description: `${homeTimeDialog.truckNumber} - ${formatDateTime(homeTimeDialog.date, "MM/dd/yyyy")}`
-                      });
-                      setHomeTimeDialog(null);
-                      setHomeTimeNote('');
+                      try {
+                        await updateLostDayNote.mutateAsync({
+                          truckId: homeTimeDialog.truckId,
+                          date: homeTimeDialog.date,
+                          note: homeTimeNote || '',
+                          noteType: null
+                        });
+                        toast({
+                          title: "Cell text updated",
+                          description: `${homeTimeDialog.truckNumber} - ${formatDateTime(homeTimeDialog.date, "MM/dd/yyyy")}`
+                        });
+                        setHomeTimeDialog(null);
+                        setHomeTimeNote('');
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to save text. Please try again.",
+                          variant: "destructive"
+                        });
+                      }
                     }
                   }}
                 >
                   Save Text Only
                 </Button>
               )}
-              <Button onClick={() => {
+              <Button onClick={async () => {
                 if (homeTimeDialog) {
-                  // If saving home time, also save the text if it was edited
-                  if (homeTimeDialog.isMissingPickup && homeTimeNote !== homeTimeDialog.currentNote) {
-                    updateLostDayNote.mutate({
+                  try {
+                    // If saving home time and text was edited, save text first
+                    if (homeTimeDialog.isMissingPickup && homeTimeNote !== homeTimeDialog.currentNote) {
+                      await updateLostDayNote.mutateAsync({
+                        truckId: homeTimeDialog.truckId,
+                        date: homeTimeDialog.date,
+                        note: homeTimeNote || '',
+                        noteType: null
+                      });
+                    }
+                    
+                    // Then handle home time marker
+                    await updateLostDayNote.mutateAsync({
                       truckId: homeTimeDialog.truckId,
                       date: homeTimeDialog.date,
-                      note: homeTimeNote || '',
-                      noteType: null
+                      note: homeTimeDialog.isCurrentlyHomeTime ? '' : 'Home Time',
+                      noteType: homeTimeDialog.isCurrentlyHomeTime ? null : 'home_time'
+                    });
+                    
+                    toast({
+                      title: homeTimeDialog.isCurrentlyHomeTime ? "Home time removed" : "Home time marked",
+                      description: `${homeTimeDialog.truckNumber} - ${formatDateTime(homeTimeDialog.date, "MM/dd/yyyy")}`
+                    });
+                    setHomeTimeDialog(null);
+                    setHomeTimeNote('');
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to update. Please try again.",
+                      variant: "destructive"
                     });
                   }
-                  
-                  // Then handle home time
-                  updateLostDayNote.mutate({
-                    truckId: homeTimeDialog.truckId,
-                    date: homeTimeDialog.date,
-                    note: homeTimeDialog.isCurrentlyHomeTime ? '' : 'Home Time',
-                    noteType: homeTimeDialog.isCurrentlyHomeTime ? null : 'home_time'
-                  });
-                  toast({
-                    title: homeTimeDialog.isCurrentlyHomeTime ? "Home time removed" : "Home time marked",
-                    description: `${homeTimeDialog.truckNumber} - ${formatDateTime(homeTimeDialog.date, "MM/dd/yyyy")}`
-                  });
-                  setHomeTimeDialog(null);
-                  setHomeTimeNote('');
                 }
               }}>
                 {homeTimeDialog?.isCurrentlyHomeTime ? "Remove Home Time" : "Mark as Home Time"}
