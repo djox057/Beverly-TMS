@@ -997,10 +997,12 @@ const Reports = () => {
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this OR if it's a continuing delivery
+      // Also exclude "No pre-book?" case (exactly one day in future)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !shouldShowContinuingDelivery;
+      const isOneDayFuture = isSameDay(day, oneDayInFuture);
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !shouldShowContinuingDelivery && !isOneDayFuture;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -1195,8 +1197,8 @@ const Reports = () => {
                   date: dateStr,
                   currentNote: currentNote
                 });
-                // Use actual note value from DB, not the display text
-                setRedCellNote(actualNoteValue);
+                // Show display text if no database value exists
+                setRedCellNote(actualNoteValue || currentNote);
                 setRedCellIsHomeTime(isCurrentlyHomeTime);
               } else if (!isInTransit && !shouldShowContinuingDelivery) {
                 // Open home time dialog for empty cells
@@ -2599,8 +2601,9 @@ const Reports = () => {
                 id="red-cell-note"
                 value={redCellNote}
                 onChange={(e) => setRedCellNote(e.target.value)}
-                placeholder="Enter note (e.g., Empty, Lost day, No pre-book)"
+                placeholder="Enter note"
                 className="min-h-[80px]"
+                disabled={redCellIsHomeTime}
               />
             </div>
 
@@ -2628,7 +2631,7 @@ const Reports = () => {
                   const mutationData = {
                     truckId: redCellDialog.truckId,
                     date: redCellDialog.date,
-                    note: redCellIsHomeTime ? null : redCellNote,
+                    note: redCellIsHomeTime ? 'Home Time' : redCellNote,
                     noteType: redCellIsHomeTime ? 'home_time' : null
                   };
                   
