@@ -1092,34 +1092,39 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isInTransit && !shouldShowContinuingDelivery) {
-                    const dayStr = format(day, "yyyy-MM-dd");
-                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
-                    setHomeTimeDialog({
-                      truckId: truck.id,
-                      truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
-                      date: dayStr,
-                      isCurrentlyHomeTime: !!homeTimeNote
-                    });
-                  }
-                }}>
-                  {(() => {
-                    const dayStr = format(day, "yyyy-MM-dd");
-                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
-                    
-                    if (homeTimeNote) {
-                      return <Home className="h-4 w-4" />;
-                    }
-                    
-                    if (isInTransit || shouldShowContinuingDelivery) {
-                      return hasRescheduledOrders ? "RESCHEDULED" : ">>>";
-                    }
-                    
-                    return "—";
-                  })()}
-                </div>}
+                </div> : (() => {
+                  const dayStr = format(day, "yyyy-MM-dd");
+                  const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
+                  const hasHomeTime = !!homeTimeNote;
+                  
+                  return <div 
+                    className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : hasHomeTime ? "text-muted-foreground" : "text-muted-foreground cursor-pointer"}`} 
+                    onClick={(e) => {
+                      if (hasHomeTime) return; // Don't handle clicks when home time is displayed
+                      e.stopPropagation();
+                      if (!isInTransit && !shouldShowContinuingDelivery) {
+                        setHomeTimeDialog({
+                          truckId: truck.id,
+                          truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          date: dayStr,
+                          isCurrentlyHomeTime: false
+                        });
+                      }
+                    }}
+                  >
+                    {(() => {
+                      if (hasHomeTime) {
+                        return <Home className="h-4 w-4" />;
+                      }
+                      
+                      if (isInTransit || shouldShowContinuingDelivery) {
+                        return hasRescheduledOrders ? "RESCHEDULED" : ">>>";
+                      }
+                      
+                      return "—";
+                    })()}
+                  </div>;
+                })()}
             </div>
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
@@ -1181,42 +1186,46 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} onClick={e => {
-              e.stopPropagation();
-              const dateStr = format(day, "yyyy-MM-dd");
-              
-              if (isMissingPickup) {
-                const currentNote = getLostDayNote(day);
-                const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
-                const isCurrentlyHomeTime = lostDayNoteData?.note_type === 'home_time';
-                const actualNoteValue = lostDayNoteData?.note || '';
-                
-                setRedCellDialog({
-                  truckId: truck.id,
-                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
-                  date: dateStr,
-                  currentNote: currentNote
-                });
-                // Show display text if no database value exists
-                setRedCellNote(actualNoteValue || currentNote);
-                setRedCellIsHomeTime(isCurrentlyHomeTime);
-              } else if (!isInTransit && !shouldShowContinuingDelivery) {
-                // Open home time dialog for empty cells
-                const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
-                setHomeTimeDialog({
-                  truckId: truck.id,
-                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
-                  date: dateStr,
-                  isCurrentlyHomeTime: !!homeTimeNote
-                });
-              }
-            }}>
-                  {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : (() => {
-                    const dayStr = format(day, "yyyy-MM-dd");
-                    const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dayStr && note.note_type === 'home_time');
-                    return homeTimeNote ? <Home className="h-4 w-4" /> : "—";
-                  })()}
-                </div>}
+                </div> : (() => {
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
+                  const hasHomeTime = !!homeTimeNote;
+                  
+                  return <div 
+                    className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : hasHomeTime ? "text-muted-foreground" : "text-muted-foreground cursor-pointer"}`} 
+                    onClick={e => {
+                      if (hasHomeTime && !isMissingPickup) return; // Don't handle clicks when home time is displayed (unless it's a missing pickup)
+                      e.stopPropagation();
+                      
+                      if (isMissingPickup) {
+                        const currentNote = getLostDayNote(day);
+                        const lostDayNoteData = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+                        const isCurrentlyHomeTime = lostDayNoteData?.note_type === 'home_time';
+                        const actualNoteValue = lostDayNoteData?.note || '';
+                        
+                        setRedCellDialog({
+                          truckId: truck.id,
+                          truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          date: dateStr,
+                          currentNote: currentNote
+                        });
+                        // Show display text if no database value exists
+                        setRedCellNote(actualNoteValue || currentNote);
+                        setRedCellIsHomeTime(isCurrentlyHomeTime);
+                      } else if (!isInTransit && !shouldShowContinuingDelivery) {
+                        // Open home time dialog for empty cells
+                        setHomeTimeDialog({
+                          truckId: truck.id,
+                          truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          date: dateStr,
+                          isCurrentlyHomeTime: false
+                        });
+                      }
+                    }}
+                  >
+                    {isMissingPickup ? getLostDayNote(day) : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "RESCHEDULED" : ">>>" : hasHomeTime ? <Home className="h-4 w-4" /> : "—"}
+                  </div>;
+                })()}
             </div>
           </div>
         </td>;
@@ -1958,8 +1967,11 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={() => handleGameOverClick(truck.id, truck.driver)}>
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[200] border border-border pointer-events-auto" onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleGameOverClick(truck.id, truck.driver);
+                                        }}>
+                                          <XCircle className="h-[19px] w-[19px] text-destructive pointer-events-none" />
                                         </Button>
                                         {truck.editDate}
                                       </td>
