@@ -34,7 +34,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useDebounce } from "@/hooks/useDebounce";
 interface EditingState {
   truckId: string;
-  field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note";
+  field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note" | "miles-away";
   value: string;
 }
 interface DispatcherCalendarState {
@@ -339,6 +339,7 @@ const Reports = () => {
     isLoading,
     error,
     updateTruckStatus,
+    updateTruckMilesAway,
     updateTruckNote,
     updatePickupDrop,
     updateLostDayNote,
@@ -576,7 +577,7 @@ const Reports = () => {
 
   // Miles away are now calculated by a background job every 10 minutes
 
-  const handleEdit = (truckId: string, field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note", currentValue: string) => {
+  const handleEdit = (truckId: string, field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note" | "miles-away", currentValue: string) => {
     setEditing({
       truckId,
       field,
@@ -589,7 +590,22 @@ const Reports = () => {
       // Find the truck to get orderId and pickup/delivery stop IDs
       const allTrucks = Object.values(groupedReports || {}).flatMap(group => group.trucks);
       const truck = allTrucks.find(t => t.id === editing.truckId);
-      if (editing.field === "note") {
+      
+      if (editing.field === "miles-away") {
+        const milesValue = parseFloat(editing.value);
+        if (isNaN(milesValue) || milesValue < 0) {
+          toast({
+            title: "Invalid value",
+            description: "Please enter a valid number for miles away",
+            variant: "destructive"
+          });
+          return;
+        }
+        await updateTruckMilesAway.mutateAsync({
+          truckId: editing.truckId,
+          milesAway: milesValue
+        });
+      } else if (editing.field === "note") {
         await updateTruckNote.mutateAsync({
           truckId: truck.id,
           note: editing.value
@@ -1842,11 +1858,35 @@ const Reports = () => {
                                           {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
                                             <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
-                                            {truck.milesAway > 0 ? <div className="text-[10px] text-[hsl(var(--info))] font-medium">
+                                            {editing?.truckId === truck.id && editing?.field === "miles-away" ? (
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                value={editing.value}
+                                                onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === "Enter") handleSave();
+                                                  if (e.key === "Escape") handleCancel();
+                                                }}
+                                                className="w-12 h-5 text-[10px] p-1"
+                                                autoFocus
+                                              />
+                                            ) : truck.milesAway > 0 ? (
+                                              <div 
+                                                className="text-[10px] text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                onClick={() => handleEdit(truck.id, "miles-away", truck.milesAway.toString())}
+                                              >
                                                 {truck.milesAway}
-                                              </div> : <div className="text-[10px] text-foreground font-medium">
+                                              </div>
+                                            ) : (
+                                              <div 
+                                                className="text-[10px] text-foreground font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                onClick={() => handleEdit(truck.id, "miles-away", truck.awayDays.toString())}
+                                              >
                                                 {truck.awayDays}
-                                              </div>}
+                                              </div>
+                                            )}
                                           </div>
 
                                           {/* HOS Circular Timers */}

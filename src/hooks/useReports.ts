@@ -93,6 +93,19 @@ export const useReports = () => {
     },
   });
 
+  const updateTruckMilesAway = useMutation({
+    mutationFn: async ({ truckId, milesAway }: { truckId: string; milesAway: number }) => {
+      const { error } = await supabase
+        .from('trucks')
+        .update({ miles_away: milesAway })
+        .eq('id', truckId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+
   const updateTruckNote = useMutation({
     mutationFn: async ({ truckId, note }: { truckId: string; note: string }) => {
       // First check if a note already exists for this truck
@@ -745,6 +758,7 @@ export const useReports = () => {
   return {
     ...reportsQuery,
     updateTruckStatus,
+    updateTruckMilesAway,
     updateTruckNote,
     updatePickupDrop,
     updateLostDayNote,
