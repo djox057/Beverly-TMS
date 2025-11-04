@@ -389,6 +389,8 @@ const Reports = () => {
   const [gameOverStartDate, setGameOverStartDate] = useState<Date | undefined>(undefined);
   const [gameOverType, setGameOverType] = useState<GameOverType>("yard");
   const [gameOverNote, setGameOverNote] = useState<string>("");
+  const [gameOverNoteInput, setGameOverNoteInput] = useState<string>("");
+  const debouncedGameOverNote = useDebounce(gameOverNoteInput, 300);
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [truckDriverFilter, setTruckDriverFilter] = useState("");
   const [dispatchNameFilter, setDispatchNameFilter] = useState("");
@@ -423,7 +425,9 @@ const Reports = () => {
     currentNote: string;
   } | null>(null);
   const [redCellNote, setRedCellNote] = useState("");
+  const [redCellNoteInput, setRedCellNoteInput] = useState("");
   const [redCellIsHomeTime, setRedCellIsHomeTime] = useState(false);
+  const debouncedRedCellNote = useDebounce(redCellNoteInput, 300);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -1211,6 +1215,7 @@ const Reports = () => {
                         });
                         // Show display text if no database value exists
                         setRedCellNote(actualNoteValue || currentNote);
+                        setRedCellNoteInput(actualNoteValue || currentNote);
                         setRedCellIsHomeTime(isCurrentlyHomeTime);
                       } else if (!isInTransit && !shouldShowContinuingDelivery) {
                         // Open home time dialog for empty cells
@@ -1523,6 +1528,7 @@ const Reports = () => {
     setGameOverStartDate(undefined);
     setGameOverType("yard");
     setGameOverNote("");
+    setGameOverNoteInput("");
   };
   const handleGameOverConfirm = async () => {
     if (!gameOverDialog || !gameOverStartDate) {
@@ -1534,7 +1540,7 @@ const Reports = () => {
       return;
     }
     
-    if (!gameOverNote.trim()) {
+    if (!gameOverNoteInput.trim()) {
       toast({
         title: "Note required",
         description: "Please enter a note for this status",
@@ -1557,7 +1563,7 @@ const Reports = () => {
       // Then, update the truck's note
       await updateTruckNote.mutateAsync({
         truckId: gameOverDialog.truckId,
-        note: gameOverNote.trim()
+        note: gameOverNoteInput.trim()
       });
       
       toast({
@@ -1568,6 +1574,7 @@ const Reports = () => {
       setGameOverStartDate(undefined);
       setGameOverType("yard");
       setGameOverNote("");
+      setGameOverNoteInput("");
     } catch (error) {
       toast({
         title: "Error",
@@ -1601,6 +1608,7 @@ const Reports = () => {
       setGameOverStartDate(undefined);
       setGameOverType("yard");
       setGameOverNote("");
+      setGameOverNoteInput("");
     } catch (error) {
       toast({
         title: "Failed to remove game over",
@@ -2063,8 +2071,8 @@ const Reports = () => {
               <div>
                 <label className="text-sm font-medium mb-2 block">Note</label>
                 <Textarea 
-                  value={gameOverNote}
-                  onChange={(e) => setGameOverNote(e.target.value)}
+                  value={gameOverNoteInput}
+                  onChange={(e) => setGameOverNoteInput(e.target.value)}
                   placeholder="Enter note for this status..."
                   className="min-h-[100px]"
                 />
@@ -2072,7 +2080,7 @@ const Reports = () => {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate || !gameOverNote.trim()} className="flex-1">
+              <Button onClick={handleGameOverConfirm} disabled={!gameOverStartDate || !gameOverNoteInput.trim()} className="flex-1">
                 Set Status
               </Button>
               {gameOverDialog?.existingDates && gameOverDialog.existingDates.length > 0 && <Button onClick={handleGameOverRemove} variant="destructive" className="flex-1">
@@ -2594,6 +2602,7 @@ const Reports = () => {
         if (!open) {
           setRedCellDialog(null);
           setRedCellNote("");
+          setRedCellNoteInput("");
           setRedCellIsHomeTime(false);
         }
       }}>
@@ -2615,8 +2624,8 @@ const Reports = () => {
               <Label htmlFor="red-cell-note">Note</Label>
               <Textarea
                 id="red-cell-note"
-                value={redCellNote}
-                onChange={(e) => setRedCellNote(e.target.value)}
+                value={redCellNoteInput}
+                onChange={(e) => setRedCellNoteInput(e.target.value)}
                 placeholder="Enter note"
                 className="min-h-[80px]"
                 disabled={redCellIsHomeTime}
@@ -2638,6 +2647,7 @@ const Reports = () => {
               <Button variant="outline" onClick={() => {
                 setRedCellDialog(null);
                 setRedCellNote("");
+                setRedCellNoteInput("");
                 setRedCellIsHomeTime(false);
               }}>
                 Cancel
@@ -2647,7 +2657,7 @@ const Reports = () => {
                   const mutationData = {
                     truckId: redCellDialog.truckId,
                     date: redCellDialog.date,
-                    note: redCellIsHomeTime ? 'Home Time' : redCellNote,
+                    note: redCellIsHomeTime ? 'Home Time' : redCellNoteInput,
                     noteType: redCellIsHomeTime ? 'home_time' : null
                   };
                   
@@ -2669,6 +2679,7 @@ const Reports = () => {
                   
                   setRedCellDialog(null);
                   setRedCellNote("");
+                  setRedCellNoteInput("");
                   setRedCellIsHomeTime(false);
                 }
               }}>
