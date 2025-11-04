@@ -1166,19 +1166,12 @@ const Reports = () => {
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
               
-              if (isMissingPickup) {
-                const currentNote = getLostDayNote(day);
-                const newNote = prompt("Edit lost day note:", currentNote);
-                if (newNote !== null && newNote !== currentNote) {
-                  updateLostDayNote.mutate({
-                    truckId: truck.id,
-                    date: dateStr,
-                    note: newNote
-                  });
-                }
-              } else if (!isInTransit && !shouldShowContinuingDelivery) {
-                // Open home time dialog for empty cells
-                const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
+              // Check if current cell is home time
+              const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
+              
+              // Allow both red cells and regular empty cells to open home time dialog or edit note
+              if (!isInTransit && !shouldShowContinuingDelivery) {
+                // Open home time dialog for all empty cells (including red ones)
                 setHomeTimeDialog({
                   truckId: truck.id,
                   truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
