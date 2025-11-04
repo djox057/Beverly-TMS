@@ -1053,7 +1053,7 @@ const Reports = () => {
                 return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                   const cellColor = getDeliveryCellColor(order, stop);
                   const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
-                  return <div key={`delivery-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                  return <div key={`delivery-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
@@ -1077,7 +1077,7 @@ const Reports = () => {
                 return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                   const cellColor = getDeliveryCellColor(order, stop);
                   const totalCellsOnDay = deliveryOnlyOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
-                  return <div key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                  return <div key={`delivery-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
@@ -1092,7 +1092,7 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={(e) => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${(isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} onClick={(e) => {
                   e.stopPropagation();
                   if (!isInTransit && !shouldShowContinuingDelivery) {
                     const dayStr = format(day, "yyyy-MM-dd");
@@ -1140,7 +1140,7 @@ const Reports = () => {
                 // Render a separate cell for each pickup stop
                 return pickupStopsForDay.map((stop: any, stopIdx: number) => {
                   const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0);
-                  return <div key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                  return <div key={`pickup-same-day-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
@@ -1166,7 +1166,7 @@ const Reports = () => {
                 // Render a separate cell for each pickup stop
                 return pickupStopsForDay.map((stop: any, stopIdx: number) => {
                   const totalCellsOnDay = pickupOnlyOrders.reduce((sum, o) => sum + (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr).length || 0), 0) + sameDayOrders.length;
-                  return <div key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer hover:opacity-80 transition-opacity`} style={totalCellsOnDay > 1 ? {
+                  return <div key={`pickup-${order.id}-stop-${stop.id || stopIdx}`} className={`${cellColor} border rounded relative flex flex-col px-1 py-0.5 ${totalCellsOnDay === 1 ? "flex-1" : "shrink-0"} h-full cursor-pointer`} style={totalCellsOnDay > 1 ? {
                     width: `${100 / totalCellsOnDay}%`
                   } : {}} onClick={() => {
                     const loadDetails = getLoadDetailsForZoom(order.id, truck);
@@ -1181,7 +1181,7 @@ const Reports = () => {
                         </div>;
                 });
               })}
-                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer hover:bg-[hsl(0_72%_63%)] dark:hover:bg-[hsl(var(--destructive))] transition-colors" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer hover:bg-accent transition-colors"}`} onClick={e => {
+                </div> : <div className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : (isInTransit || shouldShowContinuingDelivery) ? hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold" : "text-muted-foreground cursor-pointer"}`} onClick={e => {
               e.stopPropagation();
               const dateStr = format(day, "yyyy-MM-dd");
               
