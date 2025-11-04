@@ -979,11 +979,15 @@ const Reports = () => {
       }
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this OR if it's a continuing delivery
+      // But NOT if there's a game over day before this OR if it's a continuing delivery OR if home time is set
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
-      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !shouldShowContinuingDelivery;
+      
+      // Check if this day has home time set (use existing dayStr variable from line 895)
+      const hasHomeTime = truck.lost_day_notes?.some((note: any) => note.date === dayStr && note.note_type === 'home_time');
+      
+      const isMissingPickup = isEmptyPickup && isAfterFirstPickup && isWithinTimeframe && !isInTransit && !hasGameOverBefore && !shouldShowContinuingDelivery && !hasHomeTime;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
