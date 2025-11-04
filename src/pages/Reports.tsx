@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -413,6 +415,15 @@ const Reports = () => {
     date: string;
     isCurrentlyHomeTime: boolean;
   } | null>(null);
+  
+  const [redCellDialog, setRedCellDialog] = useState<{
+    truckId: string;
+    truckNumber: string;
+    date: string;
+    currentNote: string;
+  } | null>(null);
+  const [redCellNote, setRedCellNote] = useState("");
+  const [redCellIsHomeTime, setRedCellIsHomeTime] = useState(false);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -1168,14 +1179,14 @@ const Reports = () => {
               
               if (isMissingPickup) {
                 const currentNote = getLostDayNote(day);
-                const newNote = prompt("Edit lost day note:", currentNote);
-                if (newNote !== null && newNote !== currentNote) {
-                  updateLostDayNote.mutate({
-                    truckId: truck.id,
-                    date: dateStr,
-                    note: newNote
-                  });
-                }
+                setRedCellDialog({
+                  truckId: truck.id,
+                  truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                  date: dateStr,
+                  currentNote: currentNote
+                });
+                setRedCellNote(currentNote);
+                setRedCellIsHomeTime(false);
               } else if (!isInTransit && !shouldShowContinuingDelivery) {
                 // Open home time dialog for empty cells
                 const homeTimeNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr && note.note_type === 'home_time');
@@ -2543,6 +2554,82 @@ const Reports = () => {
                 }
               }}>
                 {homeTimeDialog?.isCurrentlyHomeTime ? "Remove" : "Mark as Home Time"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Red Cell Edit Dialog */}
+      <Dialog open={!!redCellDialog} onOpenChange={(open) => {
+        if (!open) {
+          setRedCellDialog(null);
+          setRedCellNote("");
+          setRedCellIsHomeTime(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Lost Day Note</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Truck: <span className="font-semibold text-foreground">{redCellDialog?.truckNumber}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Date: <span className="font-semibold text-foreground">{redCellDialog?.date ? formatDateTime(redCellDialog.date, "EEEE, MMMM d, yyyy") : ""}</span>
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="red-cell-note">Note</Label>
+              <Textarea
+                id="red-cell-note"
+                value={redCellNote}
+                onChange={(e) => setRedCellNote(e.target.value)}
+                placeholder="Enter note (e.g., Empty, Lost day, No pre-book)"
+                className="min-h-[80px]"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="home-time-toggle"
+                checked={redCellIsHomeTime}
+                onCheckedChange={setRedCellIsHomeTime}
+              />
+              <Label htmlFor="home-time-toggle" className="cursor-pointer">
+                Mark as Home Time
+              </Label>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setRedCellDialog(null);
+                setRedCellNote("");
+                setRedCellIsHomeTime(false);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                if (redCellDialog) {
+                  updateLostDayNote.mutate({
+                    truckId: redCellDialog.truckId,
+                    date: redCellDialog.date,
+                    note: redCellIsHomeTime ? 'Home Time' : redCellNote,
+                    noteType: redCellIsHomeTime ? 'home_time' : null
+                  });
+                  toast({
+                    title: "Note updated",
+                    description: `${redCellDialog.truckNumber} - ${formatDateTime(redCellDialog.date, "MM/dd/yyyy")}`
+                  });
+                  setRedCellDialog(null);
+                  setRedCellNote("");
+                  setRedCellIsHomeTime(false);
+                }
+              }}>
+                Save
               </Button>
             </div>
           </div>
