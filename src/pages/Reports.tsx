@@ -1822,12 +1822,22 @@ const Reports = () => {
                                                         <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
                                                         {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
                                                       </div>
+                                                      {((truck as any).emergencyContactName || (truck as any).emergencyContactPhone) && <div className="border-t pt-1 mt-1">
+                                                        <p className="font-semibold text-xs mb-0.5">Emergency Contact</p>
+                                                        {(truck as any).emergencyContactName && <p className="text-xs">👤 {(truck as any).emergencyContactName}{(truck as any).emergencyContactRelation ? ` (${(truck as any).emergencyContactRelation})` : ''}</p>}
+                                                        {(truck as any).emergencyContactPhone && <p className="text-xs">📞 {(truck as any).emergencyContactPhone}</p>}
+                                                      </div>}
                                                     </> : <>
                                                       <p className="font-semibold text-sm">{truck.driver}</p>
                                                       <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
                                                       {truck.trailerNumber && <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>}
                                                       {truck.driverPhone && <p className="text-xs">📞 {truck.driverPhone}</p>}
                                                       {truck.driverEmail && <p className="text-xs">✉️ {truck.driverEmail}</p>}
+                                                      {((truck as any).emergencyContactName || (truck as any).emergencyContactPhone) && <div className="border-t pt-1 mt-1">
+                                                        <p className="font-semibold text-xs mb-0.5">Emergency Contact</p>
+                                                        {(truck as any).emergencyContactName && <p className="text-xs">👤 {(truck as any).emergencyContactName}{(truck as any).emergencyContactRelation ? ` (${(truck as any).emergencyContactRelation})` : ''}</p>}
+                                                        {(truck as any).emergencyContactPhone && <p className="text-xs">📞 {(truck as any).emergencyContactPhone}</p>}
+                                                      </div>}
                                                     </>}
                                                 </div>
                                               </PopoverContent>

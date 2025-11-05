@@ -364,8 +364,8 @@ export const useReports = () => {
           .from('trucks')
           .select(`
             *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `)
@@ -679,6 +679,9 @@ export const useReports = () => {
           driverId: truck.driver1?.id || null,
           driverPhone: truck.driver1?.phone || null,
           driverEmail: truck.driver1?.email || null,
+          emergencyContactName: truck.driver1?.emergency_contact_name || null,
+          emergencyContactRelation: truck.driver1?.emergency_contact_relation || null,
+          emergencyContactPhone: truck.driver1?.emergency_contact_phone || null,
           driver2Id: truck.driver2?.id || null,
           driver2Name: truck.driver2?.name || null,
           driver2Phone: truck.driver2?.phone || null,
@@ -723,7 +726,7 @@ export const useReports = () => {
       // Fetch all active drivers to find unassigned drivers
       const { data: allDrivers, error: driversError } = await supabase
         .from('drivers')
-        .select('*')
+        .select('id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, is_active')
         .eq('is_active', true)
         .order('name', { ascending: true });
 
