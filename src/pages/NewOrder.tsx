@@ -124,7 +124,7 @@ const NewOrder = () => {
   }> = {
     "BF Prime LLC": {
       sender: "BF Prime Dispatch <onboarding@resend.dev>",
-      cc: "truckload@bfprime.net"
+      cc: "dispatch@bfprime.net"
     },
     "BF Prime United LLC": {
       sender: "BF Prime United Dispatch <onboarding@resend.dev>",
