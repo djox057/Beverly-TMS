@@ -1986,12 +1986,13 @@ const Reports = () => {
       </Dialog>
 
       {/* Game Over Dialog */}
-      <SetDriverStatusDialog
+      <SetDriverStatusDialog 
         open={gameOverDialog !== null}
         onOpenChange={(open) => !open && setGameOverDialog(null)}
         truckNumber={gameOverDialog?.truckNumber || ""}
+        truckId={gameOverDialog?.truckId || ""}
         existingDates={gameOverDialog?.existingDates || []}
-        onConfirm={async (startDate, type, note) => {
+        onConfirm={async (startDate, type, note, recoveryDriverId) => {
           if (!gameOverDialog) return;
           
           try {
@@ -2016,14 +2017,23 @@ const Reports = () => {
             });
             
             // Set recovery status on truck
+            const truckUpdate: any = {
+              needs_recovery: true,
+              left_by_driver_id: truck?.driverId || null,
+            };
+            
+            // If recovery driver selected, assign to them; otherwise unassign
+            if (recoveryDriverId) {
+              truckUpdate.driver1_id = recoveryDriverId;
+              // Keep trailer assigned if recovery driver selected
+            } else {
+              truckUpdate.driver1_id = null;
+              truckUpdate.trailer_id = null;
+            }
+            
             const { error: truckError } = await supabase
               .from("trucks")
-              .update({
-                needs_recovery: true,
-                left_by_driver_id: truck?.driverId || null,
-                driver1_id: null, // Unassign driver
-                trailer_id: null  // Unassign trailer
-              })
+              .update(truckUpdate)
               .eq("id", gameOverDialog.truckId);
               
             if (truckError) throw truckError;
@@ -2031,15 +2041,22 @@ const Reports = () => {
             // Mark active orders as recovery loads
             if (truck?.activeOrders && truck.activeOrders.length > 0) {
               const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+              const orderUpdate: any = { 
+                is_recovery: true,
+                original_driver1_id: truck.driverId,
+                original_driver2_id: truck.driver2Id || null,
+                original_truck_id: gameOverDialog.truckId,
+                original_trailer_id: truck.trailerId || null
+              };
+              
+              // If recovery driver selected, assign them to the loads
+              if (recoveryDriverId) {
+                orderUpdate.driver1_id = recoveryDriverId;
+              }
+              
               const { error: orderError } = await supabase
                 .from("orders")
-                .update({ 
-                  is_recovery: true,
-                  original_driver1_id: truck.driverId,
-                  original_driver2_id: truck.driver2Id || null,
-                  original_truck_id: gameOverDialog.truckId,
-                  original_trailer_id: truck.trailerId || null
-                })
+                .update(orderUpdate)
                 .in("id", activeOrderIds);
                 
               if (orderError) throw orderError;
@@ -2047,7 +2064,9 @@ const Reports = () => {
             
             toast({
               title: "Truck sent to recovery",
-              description: `Truck ${gameOverDialog.truckNumber} marked for recovery${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""}`
+              description: recoveryDriverId 
+                ? `Truck ${gameOverDialog.truckNumber} assigned to recovery driver${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""}`
+                : `Truck ${gameOverDialog.truckNumber} marked for recovery${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""} - awaiting driver assignment`
             });
             setGameOverDialog(null);
           } catch (error) {

@@ -5,6 +5,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
+import { Combobox } from "@/components/ui/combobox";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 type GameOverType = "yard" | "at_road";
 
@@ -12,8 +15,9 @@ interface SetDriverStatusDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   truckNumber: string;
+  truckId: string;
   existingDates: string[];
-  onConfirm: (startDate: Date, type: GameOverType, note: string) => void;
+  onConfirm: (startDate: Date, type: GameOverType, note: string, recoveryDriverId?: string) => void;
   onRemoveAll: () => void;
 }
 
@@ -21,6 +25,7 @@ export function SetDriverStatusDialog({
   open,
   onOpenChange,
   truckNumber,
+  truckId,
   existingDates,
   onConfirm,
   onRemoveAll,
@@ -28,18 +33,37 @@ export function SetDriverStatusDialog({
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [type, setType] = useState<GameOverType>("yard");
   const [note, setNote] = useState("");
+  const [recoveryDriverId, setRecoveryDriverId] = useState<string>("");
+
+  // Fetch recovery drivers
+  const { data: recoveryDrivers = [] } = useQuery({
+    queryKey: ["recovery-drivers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("id, name")
+        .eq("is_recovery", true)
+        .eq("is_active", true)
+        .order("name");
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
 
   useEffect(() => {
     if (open) {
       setStartDate(undefined);
       setType("yard");
       setNote("");
+      setRecoveryDriverId("");
     }
   }, [open]);
 
   const handleConfirm = () => {
     if (startDate && note.trim()) {
-      onConfirm(startDate, type, note);
+      onConfirm(startDate, type, note, recoveryDriverId || undefined);
       onOpenChange(false);
     }
   };
@@ -87,6 +111,20 @@ export function SetDriverStatusDialog({
                 onDateChange={setStartDate} 
                 placeholder="Select date" 
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Recovery Driver (Optional)</label>
+              <Combobox
+                value={recoveryDriverId}
+                onValueChange={setRecoveryDriverId}
+                options={recoveryDrivers.map(d => ({ value: d.id, label: d.name }))}
+                placeholder="Select recovery driver..."
+                emptyText="No recovery drivers found"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Leave blank to assign later in Recovery tab
+              </p>
             </div>
 
             <div>
