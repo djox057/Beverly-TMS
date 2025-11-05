@@ -2085,7 +2085,32 @@ const Reports = () => {
               
               // If recovery driver selected, assign them to the loads
               if (recoveryDriverId) {
+                console.log("🔍 Fetching recovery driver's truck assignment...");
+                // Fetch the recovery driver's current truck assignment
+                const { data: recoveryTrucks, error: recoveryTruckError } = await supabase
+                  .from("trucks")
+                  .select("id, truck_number")
+                  .eq("driver1_id", recoveryDriverId)
+                  .limit(1);
+                
+                if (recoveryTruckError) {
+                  console.error("❌ Failed to fetch recovery driver's truck:", recoveryTruckError);
+                  // Continue without updating truck_id if we can't fetch it
+                }
+                
                 orderUpdate.driver1_id = recoveryDriverId;
+                
+                // If recovery driver has a truck, assign the load to that truck too
+                if (recoveryTrucks && recoveryTrucks.length > 0) {
+                  orderUpdate.truck_id = recoveryTrucks[0].id;
+                  console.log("✅ Recovery driver has truck:", recoveryTrucks[0].truck_number);
+                } else {
+                  console.log("⚠️ Recovery driver has no assigned truck, keeping original truck");
+                }
+              } else {
+                // No recovery driver selected - unassign driver but keep truck
+                orderUpdate.driver1_id = null;
+                console.log("🚫 Unassigning driver from orders (no recovery driver selected)");
               }
               
               console.log("📦 Order update data:", orderUpdate);
@@ -2098,7 +2123,9 @@ const Reports = () => {
                 console.error("❌ Order update failed:", orderError);
                 throw orderError;
               }
-              console.log("✅ Orders updated");
+              console.log("✅ Orders updated successfully");
+            } else {
+              console.log("ℹ️ No active orders to update");
             }
             
             console.log("🎉 Set driver status completed successfully");
