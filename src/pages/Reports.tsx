@@ -1931,12 +1931,79 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleGameOverClick(truck.id, truck.driver);
-                                        }}>
-                                          <XCircle className="h-[19px] w-[19px] text-destructive" />
-                                        </Button>
+                                        {activeTab === "Recovery" && truck.activeOrders?.some((o: any) => o.is_recovery) ? (
+                                          <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50" onClick={async (e) => {
+                                            e.stopPropagation();
+                                            // Revert recovery load
+                                            const recoveryOrder = truck.activeOrders.find((o: any) => o.is_recovery);
+                                            if (!recoveryOrder) return;
+                                            
+                                            try {
+                                              const order = recoveryOrder as any;
+                                              // Revert the order back to original state
+                                              const { error: orderError } = await supabase
+                                                .from("orders")
+                                                .update({
+                                                  is_recovery: false,
+                                                  driver1_id: order.original_driver1_id,
+                                                  driver2_id: order.original_driver2_id,
+                                                  truck_id: order.original_truck_id,
+                                                  trailer_id: order.original_trailer_id,
+                                                  original_driver1_id: null,
+                                                  original_driver2_id: null,
+                                                  original_truck_id: null,
+                                                  original_trailer_id: null,
+                                                  original_miles: null,
+                                                  original_freight_amount: null,
+                                                  original_driver_price: null,
+                                                  recovery_miles: null,
+                                                  recovery_freight_amount: null,
+                                                  recovery_driver_price: null,
+                                                  recovery_date: null
+                                                })
+                                                .eq("id", order.id);
+                                              
+                                              if (orderError) throw orderError;
+                                              
+                                              // Re-assign truck to original driver
+                                              if (order.original_truck_id && order.original_driver1_id) {
+                                                const { error: truckError } = await supabase
+                                                  .from("trucks")
+                                                  .update({ 
+                                                    driver1_id: order.original_driver1_id,
+                                                    driver2_id: order.original_driver2_id,
+                                                    needs_recovery: false,
+                                                    left_by_driver_id: null
+                                                  })
+                                                  .eq("id", order.original_truck_id);
+                                                
+                                                if (truckError) throw truckError;
+                                              }
+                                              
+                                              toast({
+                                                title: "Recovery reverted",
+                                                description: `Load ${recoveryOrder.load_number} returned to original driver`
+                                              });
+                                              
+                                              queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                            } catch (error) {
+                                              toast({
+                                                title: "Failed to revert",
+                                                description: error instanceof Error ? error.message : "Unknown error",
+                                                variant: "destructive"
+                                              });
+                                            }
+                                          }}>
+                                            <span className="text-[10px] text-green-600">Revert</span>
+                                          </Button>
+                                        ) : (
+                                          <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border" onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleGameOverClick(truck.id, truck.driver);
+                                          }}>
+                                            <XCircle className="h-[19px] w-[19px] text-destructive" />
+                                          </Button>
+                                        )}
                                         {truck.editDate}
                                       </td>
                                     </tr>
@@ -2049,12 +2116,28 @@ const Reports = () => {
               left_by_driver_id: truck?.driverId || null,
             };
             
-            // If recovery driver selected, assign to them; otherwise unassign
+            // If recovery driver selected, assign to them and unassign dispatcher from original driver
             if (recoveryDriverId) {
               truckUpdate.driver1_id = recoveryDriverId;
               console.log("👤 Assigning recovery driver:", recoveryDriverId);
+              
+              // Unassign dispatcher from the original driver
+              if (truck?.driverId) {
+                console.log("🔄 Unassigning dispatcher from original driver...");
+                const { error: dispatcherError } = await supabase
+                  .from("drivers")
+                  .update({ dispatcher_id: null })
+                  .eq("id", truck.driverId);
+                  
+                if (dispatcherError) {
+                  console.error("❌ Dispatcher unassign failed:", dispatcherError);
+                  throw dispatcherError;
+                }
+                console.log("✅ Dispatcher unassigned from driver successfully");
+              }
             } else {
               truckUpdate.driver1_id = null;
+              truckUpdate.driver2_id = null;
               truckUpdate.trailer_id = null;
               console.log("🚫 Unassigning driver and trailer");
             }
