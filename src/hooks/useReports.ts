@@ -718,21 +718,263 @@ export const useReports = () => {
       // Filter to only include trucks with a dispatcher assigned to driver1
       const trucksWithDispatcher = reportData.filter(truck => truck.dispatcherId);
 
-      // Group trucks by dispatcher - use array to maintain stable order
-      const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; office: string | null; ext: string | null; trucks: typeof reportData }>();
+      // Fetch all active drivers to find unassigned drivers
+      const { data: allDrivers, error: driversError } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (driversError) throw driversError;
+
+      // Find drivers not assigned to any truck (neither as driver1 nor driver2)
+      const assignedDriverIds = new Set(trucks?.flatMap(t => [t.driver1_id, t.driver2_id].filter(Boolean)) || []);
+      const unassignedDrivers = allDrivers?.filter(driver => !assignedDriverIds.has(driver.id)) || [];
+
+      // Create report entries for unassigned drivers
+      const unassignedDriverReports = unassignedDrivers.map(driver => {
+        const now = new Date().getTime();
+        
+        // Get orders for this driver
+        const driverOrders = orders?.filter(order => 
+          (order.driver1_id === driver.id || order.driver2_id === driver.id)
+        ) || [];
+
+        // Categorize orders
+        const activeOrders = driverOrders.filter(order => {
+          if (order.notes === 'GAME|OVER') return false;
+          if (order.canceled) return false;
+          const isActiveStatus = order.status === 'pending' || order.status === 'in_transit';
+          const hasNoDeliveryDate = !order.delivery_datetime;
+          const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
+          return isActiveStatus && (hasNoDeliveryDate || deliveryInFuture);
+        }) || [];
+
+        const recentCompletedOrders = driverOrders.filter(order => {
+          if (order.notes === 'GAME|OVER') return false;
+          if (order.canceled) return false;
+          if (order.status === 'delivered') return true;
+          if (order.status === 'pending' && order.delivery_datetime) {
+            const deliveryTime = new Date(order.delivery_datetime).getTime();
+            const daysSinceDelivery = (now - deliveryTime) / (1000 * 60 * 60 * 24);
+            return deliveryTime <= now && daysSinceDelivery <= 7;
+          }
+          return false;
+        }) || [];
+
+        const allOrdersWithStops = driverOrders.filter(order => !order.canceled).map(order => {
+          const pickupStops = (order.pickup_drops?.filter(stop => stop.type === 'pickup') || [])
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
+          const deliveryStops = (order.pickup_drops?.filter(stop => stop.type === 'delivery') || [])
+            .sort((a, b) => (a.sequence_number || 0) - (b.sequence_number || 0));
+          
+          const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
+          const deliveryStop = deliveryStops.length > 0 ? deliveryStops[deliveryStops.length - 1] : null;
+          const documentStatus = getDocumentStatus(order.order_files || []);
+          const documentColors = getDocumentColorClass(documentStatus);
+          
+          return {
+            ...order,
+            pickupStop,
+            deliveryStop,
+            pickupStops,
+            deliveryStops,
+            isActive: activeOrders.some(activeOrder => activeOrder.id === order.id),
+            isRecentCompleted: recentCompletedOrders.some(completedOrder => completedOrder.id === order.id),
+            documentStatus,
+            documentColors,
+            loadDetails: {
+              loadNumber: order.internal_load_number || '—',
+              brokerLoadNumber: order.broker_load_number || '—',
+              pickupInfo: pickupStop ? {
+                address: pickupStop.address || '—',
+                city: pickupStop.city || '—',
+                state: pickupStop.state || '—',
+                zipCode: pickupStop.zip_code || '',
+                datetime: pickupStop.datetime || order.pickup_datetime || '—',
+                endDatetime: order.pickup_end_datetime || '—'
+              } : null,
+              deliveryInfo: deliveryStop ? {
+                address: deliveryStop.address || '—',
+                city: deliveryStop.city || '—',
+                state: deliveryStop.state || '—',
+                zipCode: deliveryStop.zip_code || '',
+                datetime: deliveryStop.datetime || order.delivery_datetime || '—',
+                endDatetime: order.delivery_end_datetime || '—'
+              } : null,
+              allPickupStops: pickupStops.map(stop => ({
+                address: stop.address || '—',
+                city: stop.city || '—',
+                state: stop.state || '—',
+                zipCode: stop.zip_code || '',
+                datetime: stop.datetime || order.pickup_datetime || '—',
+                endDatetime: order.pickup_end_datetime || '—'
+              })),
+              allDeliveryStops: deliveryStops.map(stop => ({
+                address: stop.address || '—',
+                city: stop.city || '—',
+                state: stop.state || '—',
+                zipCode: stop.zip_code || '',
+                datetime: stop.datetime || order.delivery_datetime || '—',
+                endDatetime: order.delivery_end_datetime || '—'
+              })),
+              documents: (order.order_files || []).map(file => ({
+                category: file.file_category
+              })),
+              notes: order.notes || '—'
+            }
+          };
+        }) || [];
+
+        const currentOrder = allOrdersWithStops.length > 0 
+          ? (activeOrders.length > 0 
+              ? allOrdersWithStops.find(order => order.isActive && activeOrders.some(active => active.id === order.id))
+              : recentCompletedOrders.length > 0
+                ? allOrdersWithStops.find(order => order.isRecentCompleted)
+                : allOrdersWithStops.find(order => order.notes !== 'GAME|OVER') || null)
+          : null;
+
+        const pickupStop = currentOrder?.pickupStop;
+        const deliveryStop = currentOrder?.deliveryStop;
+
+        const dispatcherInfo = dispatchers?.find(d => d.user_id === driver.dispatcher_id);
+
+        const formatLocation = (city: string | null, state: string | null) => {
+          if (city && state) return `${city}, ${state}`;
+          if (city) return city;
+          if (state) return state;
+          return "—";
+        };
+
+        const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
+          if (!stop) return { id: null, location: "—", date: "—", time: "—" };
+          
+          let location = "—";
+          const parts = [];
+          
+          if (stop.address) parts.push(stop.address);
+          if (stop.city) parts.push(stop.city);
+          if (stop.state) parts.push(stop.state);
+          
+          if (parts.length > 0) {
+            location = parts.join(', ');
+            if (location.length > 30) {
+              location = location.substring(0, 30) + '...';
+            }
+          }
+          
+          let date = "—";
+          let time = "—";
+          
+          const datetimeToUse = orderStartTime || stop.datetime;
+          const endDatetimeToUse = orderEndTime;
+          
+          if (datetimeToUse) {
+            const parsed = parseSimpleDateTime(datetimeToUse);
+            date = parsed.dateString;
+            const startTime = parsed.timeString;
+            
+            if (endDatetimeToUse) {
+              const parsedEnd = parseSimpleDateTime(endDatetimeToUse);
+              const endTime = parsedEnd.timeString;
+              
+              if (startTime !== endTime) {
+                time = `${startTime} - ${endTime}`;
+              } else {
+                time = startTime;
+              }
+            } else {
+              time = startTime;
+            }
+          }
+          
+          return { id: stop.id, location, date, time };
+        };
+
+        let status = "Available";
+        if (currentOrder) {
+          switch (currentOrder.status) {
+            case 'pending':
+              status = "Loading";
+              break;
+            case 'in_transit':
+              status = "In Transit";
+              break;
+            case 'delivered':
+              status = "Available";
+              break;
+            default:
+              status = "Available";
+          }
+        }
+
+        return {
+          id: `driver-${driver.id}`,
+          orderId: currentOrder?.id,
+          truckNumber: null,
+          companyName: null,
+          driver: driver.name,
+          driver1Name: driver.name,
+          driverId: driver.id,
+          driverPhone: driver.phone || null,
+          driverEmail: driver.email || null,
+          driver2Id: null,
+          driver2Name: null,
+          driver2Phone: null,
+          driver2Email: null,
+          trailerNumber: null,
+          home: driver.home_city && driver.home_state 
+            ? `${driver.home_city}, ${driver.home_state}`
+            : driver.home_city || driver.home_state || "—",
+          dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
+          dispatcherId: driver.dispatcher_id,
+          status,
+          pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
+          delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
+          awayDays: currentOrder ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+          driveHours: driver.hos_drive_minutes ? `${Math.floor(driver.hos_drive_minutes / 60)}:${String(driver.hos_drive_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          shiftHours: driver.hos_shift_minutes ? `${Math.floor(driver.hos_shift_minutes / 60)}:${String(driver.hos_shift_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          cycleHours: driver.hos_cycle_minutes ? `${Math.floor(driver.hos_cycle_minutes / 60)}:${String(driver.hos_cycle_minutes % 60).padStart(2, '0')}h` : '0:00h',
+          driveMinutes: driver.hos_drive_minutes || 0,
+          shiftMinutes: driver.hos_shift_minutes || 0,
+          breakMinutes: driver.hos_break_minutes || 0,
+          cycleMinutes: driver.hos_cycle_minutes || 0,
+          hosStatus: driver.hos_status || null,
+          hosLastUpdated: driver.hos_last_updated || null,
+          twoWeekBlockDate: driver.two_week_block_date || null,
+          note: "",
+          lastEdit: new Date().toLocaleTimeString(),
+          editDate: new Date().toLocaleDateString(),
+          allOrders: allOrdersWithStops,
+          activeOrdersCount: activeOrders.length,
+          totalOrdersCount: driverOrders.length || 0,
+          hasMultipleOrders: (driverOrders.length || 0) > 1,
+          lost_day_notes: [],
+          milesAway: 0
+        };
+      });
+
+      // Filter unassigned drivers to only include those with a dispatcher
+      const unassignedWithDispatcher = unassignedDriverReports.filter(driver => driver.dispatcherId);
+
+      // Combine truck reports and unassigned driver reports
+      const allReports = [...trucksWithDispatcher, ...unassignedWithDispatcher];
+
+      // Group by dispatcher
+      const dispatcherMap = new Map<string, { dispatcher: string; dispatcherId: string; office: string | null; ext: string | null; trucks: typeof allReports }>();
       
-      for (const truck of trucksWithDispatcher) {
-        if (!dispatcherMap.has(truck.dispatcherId)) {
-          const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.dispatcherId);
-          dispatcherMap.set(truck.dispatcherId, {
-            dispatcher: truck.dispatcher,
-            dispatcherId: truck.dispatcherId,
+      for (const report of allReports) {
+        if (!dispatcherMap.has(report.dispatcherId)) {
+          const dispatcherInfo = dispatchers?.find(d => d.user_id === report.dispatcherId);
+          dispatcherMap.set(report.dispatcherId, {
+            dispatcher: report.dispatcher,
+            dispatcherId: report.dispatcherId,
             office: dispatcherInfo?.office || null,
             ext: dispatcherInfo?.ext || null,
             trucks: []
           });
         }
-        dispatcherMap.get(truck.dispatcherId)!.trucks.push(truck);
+        dispatcherMap.get(report.dispatcherId)!.trucks.push(report);
       }
 
       // Convert Map to array
