@@ -1682,7 +1682,7 @@ const NewOrder = () => {
 
       const pickupDropData = pickupsDrops
         .filter(item => item.address?.trim())
-        .map(item => {
+        .map((item, index) => {
           // Ensure datetime fields are valid
           let datetime = null;
           let end_datetime = null;
@@ -1701,6 +1701,7 @@ const NewOrder = () => {
           return {
             order_id: orderId,
             type: item.type,
+            sequence_number: index + 1,
             address: item.address,
             city: item.city || null,
             state: item.state || null,
@@ -1731,11 +1732,16 @@ const NewOrder = () => {
         throw new Error('No valid pickup/delivery locations found. Please ensure all locations have valid addresses.');
       }
 
+      console.log(`📍 Inserting ${uniquePickupDropData.length} pickup/drop locations for order ${orderId}`);
+      
       const { error: pickupDropError } = await supabase.from('pickup_drops').insert(uniquePickupDropData);
       if (pickupDropError) {
-        console.error('Pickup/drop insert error:', pickupDropError);
+        console.error('❌ Pickup/drop insert error:', pickupDropError);
+        console.error('Failed data:', uniquePickupDropData);
         throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
+      
+      console.log(`✅ Successfully inserted ${uniquePickupDropData.length} pickup/drop locations`);
 
       toast({
         title: "Load Created",
