@@ -2007,7 +2007,7 @@ const Reports = () => {
             
             // Find the truck to get driver and active orders info
             const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
+            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
             console.log("📦 Found truck:", { truckId: truck?.truckId, driverId: truck?.driverId, driverName: truck?.driverName });
             
             if (!truck) {
