@@ -132,7 +132,7 @@ export const useOrders = () => {
             broker:brokers!broker_id(name, address),
             company:companies!company_id(name),
             booked_by_company:companies!booked_by_company_id(name),
-            pickup_drops(type, city, state, datetime, address),
+            pickup_drops(type, city, state, zip_code, datetime, address),
             order_files(id, file_name, file_path, file_size, content_type, file_category),
             escort_fee,
             escort_fee_broker_paid,
