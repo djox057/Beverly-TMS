@@ -356,15 +356,15 @@ const Reports = () => {
   // Delete lost day note mutation
   const deleteLostDayNote = useMutation({
     mutationFn: async ({
-      truckId,
+      driverId,
       date
     }: {
-      truckId: string;
+      driverId: string;
       date: string;
     }) => {
       const {
         error
-      } = await supabase.from("lost_day_notes").delete().eq("truck_id", truckId).eq("date", date);
+      } = await supabase.from("lost_day_notes").delete().eq("driver_id", driverId).eq("date", date);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -2094,9 +2094,17 @@ const Reports = () => {
             return;
           }
           try {
+            // Find the truck to get driver ID
+            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
+            const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
+            
+            if (!truck?.driverId) {
+              throw new Error("No driver found for this truck");
+            }
+            
             for (const date of gameOverDialog.existingDates) {
               await deleteLostDayNote.mutateAsync({
-                truckId: gameOverDialog.truckId,
+                driverId: truck.driverId,
                 date
               });
             }
