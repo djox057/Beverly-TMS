@@ -1950,44 +1950,34 @@ const Reports = () => {
                                             try {
                                               const order = recoveryOrder as any;
                                               
-                                              // First, fetch the original driver's dispatcher from the truck's left_by_driver
-                                              let originalDispatcherId = null;
-                                              if (order.original_driver1_id) {
-                                                const { data: originalTruckData } = await supabase
-                                                  .from("trucks")
-                                                  .select("left_by_driver_id")
-                                                  .eq("id", order.original_truck_id)
-                                                  .single();
-                                                
-                                                if (originalTruckData?.left_by_driver_id) {
-                                                  // Get the dispatcher that was assigned to the original driver before recovery
-                                                  const { data: originalDriverData } = await supabase
-                                                    .from("drivers")
-                                                    .select("id, dispatcher_id")
-                                                    .eq("id", originalTruckData.left_by_driver_id)
-                                                    .single();
-                                                  
-                                                  // If original driver has no dispatcher, try to get it from the current truck's dispatcher group
-                                                  if (!originalDriverData?.dispatcher_id && truck.dispatcherId) {
-                                                    originalDispatcherId = truck.dispatcherId;
-                                                  }
-                                                }
-                                                
-                                                // Fallback: use the current dispatcher of this truck group
-                                                if (!originalDispatcherId && truck.dispatcherId) {
-                                                  originalDispatcherId = truck.dispatcherId;
-                                                }
+                                              // Get recovery history from the table
+                                              const { data: recoveryHistory, error: historyError } = await supabase
+                                                .from("recovery_history")
+                                                .select("*")
+                                                .eq("order_id", order.id)
+                                                .is("reverted_at", null)
+                                                .order("created_at", { ascending: false })
+                                                .limit(1)
+                                                .single();
+
+                                              if (historyError || !recoveryHistory) {
+                                                toast({
+                                                  title: "No recovery history found",
+                                                  description: "Cannot revert this load",
+                                                  variant: "destructive"
+                                                });
+                                                return;
                                               }
                                               
-                                              // Revert the order back to original state
+                                              // Revert the order to original assignment
                                               const { error: orderError } = await supabase
                                                 .from("orders")
                                                 .update({
                                                   is_recovery: false,
-                                                  driver1_id: order.original_driver1_id,
-                                                  driver2_id: order.original_driver2_id,
-                                                  truck_id: order.original_truck_id,
-                                                  trailer_id: order.original_trailer_id,
+                                                  driver1_id: recoveryHistory.original_driver1_id,
+                                                  driver2_id: recoveryHistory.original_driver2_id,
+                                                  truck_id: recoveryHistory.original_truck_id,
+                                                  trailer_id: recoveryHistory.original_trailer_id,
                                                   original_driver1_id: null,
                                                   original_driver2_id: null,
                                                   original_truck_id: null,
@@ -2004,32 +1994,38 @@ const Reports = () => {
                                               
                                               if (orderError) throw orderError;
                                               
-                                              // Re-assign truck to original driver
-                                              if (order.original_truck_id && order.original_driver1_id) {
-                                                const { error: truckError } = await supabase
-                                                  .from("trucks")
-                                                  .update({ 
-                                                    driver1_id: order.original_driver1_id,
-                                                    driver2_id: order.original_driver2_id,
-                                                    needs_recovery: false,
-                                                    left_by_driver_id: null
-                                                  })
-                                                  .eq("id", order.original_truck_id);
-                                                
-                                                if (truckError) throw truckError;
-                                                
-                                                // Re-assign dispatcher to original driver
-                                                if (originalDispatcherId) {
-                                                  const { error: dispatcherError } = await supabase
-                                                    .from("drivers")
-                                                    .update({ dispatcher_id: originalDispatcherId })
-                                                    .eq("id", order.original_driver1_id);
-                                                  
-                                                  if (dispatcherError) {
-                                                    console.error("Failed to reassign dispatcher:", dispatcherError);
-                                                  }
-                                                }
+                                              // Update the original truck - reassign original drivers and clear recovery status
+                                              const { error: truckError } = await supabase
+                                                .from("trucks")
+                                                .update({
+                                                  driver1_id: recoveryHistory.original_driver1_id,
+                                                  driver2_id: recoveryHistory.original_driver2_id,
+                                                  needs_recovery: false,
+                                                  left_by_driver_id: null
+                                                })
+                                                .eq("id", recoveryHistory.original_truck_id);
+
+                                              if (truckError) throw truckError;
+
+                                              // Reassign original dispatcher to original driver
+                                              if (recoveryHistory.original_driver1_id && recoveryHistory.original_dispatcher_id) {
+                                                const { error: dispatcherError } = await supabase
+                                                  .from("drivers")
+                                                  .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
+                                                  .eq("id", recoveryHistory.original_driver1_id);
+
+                                                if (dispatcherError) throw dispatcherError;
                                               }
+
+                                              // Mark recovery history as reverted
+                                              const { data: { user } } = await supabase.auth.getUser();
+                                              await supabase
+                                                .from("recovery_history")
+                                                .update({
+                                                  reverted_at: new Date().toISOString(),
+                                                  reverted_by: user?.id || null
+                                                })
+                                                .eq("id", recoveryHistory.id);
                                               
                                               toast({
                                                 title: "Recovery reverted",
@@ -2210,6 +2206,18 @@ const Reports = () => {
             if (truck?.activeOrders && truck.activeOrders.length > 0) {
               console.log("📦 Updating active orders:", truck.activeOrders.length);
               const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+              
+              // Get original dispatcher ID
+              let originalDispatcherId = null;
+              if (truck?.driverId) {
+                const { data: originalDriver } = await supabase
+                  .from("drivers")
+                  .select("dispatcher_id")
+                  .eq("id", truck.driverId)
+                  .single();
+                originalDispatcherId = originalDriver?.dispatcher_id || null;
+              }
+              
               const orderUpdate: any = { 
                 is_recovery: true,
                 original_driver1_id: truck.driverId,
@@ -2241,6 +2249,28 @@ const Reports = () => {
                   console.log("✅ Recovery driver has truck:", recoveryTrucks[0].truck_number);
                 } else {
                   console.log("⚠️ Recovery driver has no assigned truck, keeping original truck");
+                }
+                
+                // Save recovery history for each order
+                for (const orderId of activeOrderIds) {
+                  const { error: historyError } = await supabase
+                    .from("recovery_history")
+                    .insert({
+                      order_id: orderId,
+                      original_driver1_id: truck.driverId,
+                      original_driver2_id: truck.driver2Id || null,
+                      original_truck_id: gameOverDialog.truckId,
+                      original_trailer_id: truck.trailerId || null,
+                      original_dispatcher_id: originalDispatcherId,
+                      recovery_driver1_id: recoveryDriverId,
+                      recovery_driver2_id: null,
+                      recovery_truck_id: recoveryTrucks && recoveryTrucks.length > 0 ? recoveryTrucks[0].id : null,
+                      recovery_trailer_id: null
+                    });
+                  
+                  if (historyError) {
+                    console.error("❌ Failed to save recovery history:", historyError);
+                  }
                 }
               } else {
                 // No recovery driver selected - unassign driver but keep truck

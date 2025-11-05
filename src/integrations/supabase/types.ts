@@ -965,6 +965,141 @@ export type Database = {
         }
         Relationships: []
       }
+      recovery_history: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          original_dispatcher_id: string | null
+          original_driver1_id: string | null
+          original_driver2_id: string | null
+          original_trailer_id: string | null
+          original_truck_id: string | null
+          recovery_date: string
+          recovery_driver1_id: string | null
+          recovery_driver2_id: string | null
+          recovery_trailer_id: string | null
+          recovery_truck_id: string | null
+          reverted_at: string | null
+          reverted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          original_dispatcher_id?: string | null
+          original_driver1_id?: string | null
+          original_driver2_id?: string | null
+          original_trailer_id?: string | null
+          original_truck_id?: string | null
+          recovery_date?: string
+          recovery_driver1_id?: string | null
+          recovery_driver2_id?: string | null
+          recovery_trailer_id?: string | null
+          recovery_truck_id?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          original_dispatcher_id?: string | null
+          original_driver1_id?: string | null
+          original_driver2_id?: string | null
+          original_trailer_id?: string | null
+          original_truck_id?: string | null
+          recovery_date?: string
+          recovery_driver1_id?: string | null
+          recovery_driver2_id?: string | null
+          recovery_trailer_id?: string | null
+          recovery_truck_id?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_original_dispatcher_id_fkey"
+            columns: ["original_dispatcher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "recovery_history_original_driver1_id_fkey"
+            columns: ["original_driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_original_driver2_id_fkey"
+            columns: ["original_driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_original_trailer_id_fkey"
+            columns: ["original_trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_original_truck_id_fkey"
+            columns: ["original_truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_recovery_driver1_id_fkey"
+            columns: ["recovery_driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_recovery_driver2_id_fkey"
+            columns: ["recovery_driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_recovery_trailer_id_fkey"
+            columns: ["recovery_trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_recovery_truck_id_fkey"
+            columns: ["recovery_truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_reverted_by_fkey"
+            columns: ["reverted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       route_cache: {
         Row: {
           created_at: string | null
