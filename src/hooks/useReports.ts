@@ -367,8 +367,7 @@ export const useReports = () => {
             driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id),
             trailer:trailer_id(trailer_number),
-            company:companies(name),
-            dispatcher:drivers!trucks_dispatcher_id_fkey(id, name)
+            company:companies(name)
           `)
           .order('id', { ascending: true });
 
@@ -570,9 +569,8 @@ export const useReports = () => {
         // Get lost day notes for this truck
         const truckLostDayNotes = lostDayNotes?.filter(note => note.truck_id === truck.id) || [];
 
-        // Find dispatcher info - prioritize truck's dispatcher_id over driver1's
-        const effectiveDispatcherId = (truck as any).dispatcher?.id || truck.driver1?.dispatcher_id;
-        const dispatcherInfo = dispatchers?.find(d => d.user_id === effectiveDispatcherId);
+        // Find dispatcher info from driver1
+        const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.driver1?.dispatcher_id);
 
         // Format location
         const formatLocation = (city: string | null, state: string | null) => {
@@ -678,8 +676,8 @@ export const useReports = () => {
           home: truck.driver1?.home_city && truck.driver1?.home_state 
             ? `${truck.driver1.home_city}, ${truck.driver1.home_state}`
             : truck.driver1?.home_city || truck.driver1?.home_state || "—",
-          dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || (truck as any).dispatcher?.name || "Unknown",
-          dispatcherId: effectiveDispatcherId,
+          dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
+          dispatcherId: truck.driver1?.dispatcher_id,
           status,
           pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
           delivery: formatStopInfo(deliveryStop, currentOrder?.delivery_datetime, currentOrder?.delivery_end_datetime),
