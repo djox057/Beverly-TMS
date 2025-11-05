@@ -45,18 +45,33 @@ export const useDrivers = () => {
       console.log('👤 Fetching drivers with relationships...');
       
       return queryWithTimeout(async () => {
-        const { data, error } = await supabase
-          .from('drivers')
-          .select('*')
-          .order('name', { ascending: true })
-          .limit(1000);
+        let allDrivers: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
         
-        if (error) {
-          console.error('❌ Error fetching drivers:', error);
-          throw error;
+        while (true) {
+          const { data, error } = await supabase
+            .from('drivers')
+            .select('*')
+            .order('name', { ascending: true })
+            .range(from, from + batchSize - 1);
+          
+          if (error) {
+            console.error('❌ Error fetching drivers:', error);
+            throw error;
+          }
+          
+          if (!data || data.length === 0) break;
+          
+          console.log(`✅ Fetched ${data.length} drivers (batch ${from / batchSize + 1})`);
+          allDrivers = [...allDrivers, ...data];
+          
+          if (data.length < batchSize) break;
+          
+          from += batchSize;
         }
         
-        console.log(`✅ Fetched ${data?.length || 0} drivers`);
+        console.log(`✅ Total drivers fetched: ${allDrivers.length}`);
         
         // Fetch trucks separately to avoid RLS issues with reverse joins
         const { data: trucksData, error: trucksError } = await supabase
@@ -117,7 +132,7 @@ export const useDrivers = () => {
         }
         
         // Transform the data to flatten truck/trailer and dispatcher info
-        const transformedData = data?.map(driver => {
+        const transformedData = allDrivers.map(driver => {
           const truck = trucksByDriverId.get(driver.id);
           const dispatcher = dispatchers?.find(d => d.user_id === driver.dispatcher_id);
           
