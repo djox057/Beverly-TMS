@@ -71,6 +71,7 @@ const Drivers = () => {
   const [terminationNote, setTerminationNote] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -166,7 +167,12 @@ const Drivers = () => {
       (truckFilter === "assigned" && hasTruck) || 
       (truckFilter === "unassigned" && !hasTruck);
     
-    return matchesSearch && matchesStatus && matchesTruck;
+    // Recovery filter
+    const matchesRecovery = recoveryFilter === "all" || 
+      (recoveryFilter === "recovery" && driver.is_recovery) || 
+      (recoveryFilter === "regular" && !driver.is_recovery);
+    
+    return matchesSearch && matchesStatus && matchesTruck && matchesRecovery;
   }) || [];
 
   // Pagination
@@ -937,6 +943,20 @@ const Drivers = () => {
                   <SelectItem value="all">All Trucks</SelectItem>
                   <SelectItem value="assigned">With Truck</SelectItem>
                   <SelectItem value="unassigned">No Truck</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={recoveryFilter} onValueChange={(value: any) => {
+                setRecoveryFilter(value);
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="recovery">Recovery Only</SelectItem>
+                  <SelectItem value="regular">Regular Only</SelectItem>
                 </SelectContent>
               </Select>
               
