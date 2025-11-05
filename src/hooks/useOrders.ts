@@ -138,7 +138,8 @@ export const useOrders = () => {
           recovery_driver_price,
           recovery_date
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100000);
       
       if (error) throw error;
       

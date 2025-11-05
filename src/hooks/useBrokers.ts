@@ -32,21 +32,51 @@ export const useBrokers = () => {
   return useQuery({
     queryKey: ['brokers', 'v2'],
     queryFn: async () => {
-      console.log('🔍 Fetching all brokers...');
+      console.log('🔍 Starting to fetch all brokers...');
       
       return queryWithTimeout(async () => {
-        const { data, error } = await supabase
-          .from('brokers')
-          .select('*')
-          .order('name');
+        let allBrokers: any[] = [];
+        let page = 0;
+        const pageSize = 1000;
         
-        if (error) {
-          console.error('❌ Error fetching brokers:', error);
-          throw error;
+        // Keep fetching until we get less than a full page
+        while (true) {
+          const from = page * pageSize;
+          const to = from + pageSize - 1;
+          
+          console.log(`🔍 Fetching batch ${page + 1}: range ${from}-${to}`);
+          
+          const { data, error } = await supabase
+            .from('brokers')
+            .select('*')
+            .order('name')
+            .range(from, to);
+          
+          if (error) {
+            console.error('❌ Error fetching brokers:', error);
+            throw error;
+          }
+          
+          if (data && data.length > 0) {
+            console.log(`✅ Fetched ${data.length} brokers in batch ${page + 1}`);
+            allBrokers = [...allBrokers, ...data];
+            
+            // If we got less than a full page, we're done
+            if (data.length < pageSize) {
+              console.log(`✅ Last batch - got ${data.length} brokers`);
+              break;
+            }
+            
+            page++;
+          } else {
+            // No more data
+            console.log('✅ No more data to fetch');
+            break;
+          }
         }
         
-        console.log(`✅ TOTAL BROKERS FETCHED: ${data?.length || 0}`);
-        return data || [];
+        console.log(`✅ TOTAL BROKERS FETCHED: ${allBrokers.length}`);
+        return allBrokers;
       }, 30000);
     },
     retry: 3,
