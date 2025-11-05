@@ -69,6 +69,8 @@ const Drivers = () => {
   const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
   const [showNoteDialog, setShowNoteDialog] = useState(false);
   const [terminationNote, setTerminationNote] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -140,8 +142,32 @@ const Drivers = () => {
     }
   };
 
-  // Filter drivers based on search term
-  const filteredDrivers = drivers?.filter((driver: any) => driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  // Filter drivers based on search term, status, and truck assignment
+  const filteredDrivers = drivers?.filter((driver: any) => {
+    // Search filter
+    const matchesSearch = driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Status filter
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && driver.is_active) || 
+      (statusFilter === "inactive" && !driver.is_active);
+    
+    // Truck filter
+    const hasTruck = !!driver.truck_info?.truck_number;
+    const matchesTruck = truckFilter === "all" || 
+      (truckFilter === "assigned" && hasTruck) || 
+      (truckFilter === "unassigned" && !hasTruck);
+    
+    return matchesSearch && matchesStatus && matchesTruck;
+  }) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
@@ -883,11 +909,41 @@ const Drivers = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <CardTitle>Driver Directory</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+            <div className="flex items-center gap-3">
+              <Select value={statusFilter} onValueChange={(value: any) => {
+                setStatusFilter(value);
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Drivers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Drivers</SelectItem>
+                  <SelectItem value="active">Active Only</SelectItem>
+                  <SelectItem value="inactive">Inactive Only</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={truckFilter} onValueChange={(value: any) => {
+                setTruckFilter(value);
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Trucks" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Trucks</SelectItem>
+                  <SelectItem value="assigned">With Truck</SelectItem>
+                  <SelectItem value="unassigned">No Truck</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+              </div>
             </div>
           </div>
         </CardHeader>
