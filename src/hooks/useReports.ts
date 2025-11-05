@@ -393,6 +393,7 @@ export const useReports = () => {
             driver1_id,
             driver2_id,
             truck_id,
+            is_recovery,
             pickup_drops(
               id,
               type,
@@ -410,24 +411,12 @@ export const useReports = () => {
               id,
               file_category
             )
-          `);
+          `)
+          .order('updated_at', { ascending: false });
 
         if (ordersError) throw ordersError;
         
-        // DEBUG: Check for specific order
-        const targetOrder = orders?.find(o => o.id === 'c2b5d630-792b-45aa-a028-8ca26e81180c');
-        console.log('🔍 DEBUG Orders Query Result:', {
-          totalOrders: orders?.length || 0,
-          targetOrderFound: !!targetOrder,
-          targetOrderData: targetOrder ? {
-            id: targetOrder.id,
-            load_number: targetOrder.load_number,
-            driver1_id: targetOrder.driver1_id,
-            driver2_id: targetOrder.driver2_id,
-            truck_id: targetOrder.truck_id,
-            pickup_drops_count: targetOrder.pickup_drops?.length || 0
-          } : null
-        });
+        console.log(`✅ Fetched ${orders?.length || 0} orders from database`);
 
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
@@ -465,31 +454,7 @@ export const useReports = () => {
         // DEBUG: Log for truck 1323
         if (truck.truck_number === '1323') {
           const targetOrder = driverOrders.find(o => o.id === 'c2b5d630-792b-45aa-a028-8ca26e81180c');
-          console.log('🔍 DEBUG Truck 1323:', {
-            truckId: truck.id,
-            driver1_id: truck.driver1_id,
-            driverOrdersCount: driverOrders.length,
-            driverOrderIds: driverOrders.map(o => o.id),
-            targetOrderId: 'c2b5d630-792b-45aa-a028-8ca26e81180c',
-            hasTargetOrder: !!targetOrder,
-            targetOrderData: targetOrder ? {
-              id: targetOrder.id,
-              load_number: targetOrder.load_number,
-              status: targetOrder.status,
-              canceled: targetOrder.canceled,
-              pickup_datetime: targetOrder.pickup_datetime,
-              delivery_datetime: targetOrder.delivery_datetime,
-              pickup_drops_count: targetOrder.pickup_drops?.length || 0,
-              pickup_drops: targetOrder.pickup_drops?.map((pd: any) => ({
-                id: pd.id,
-                type: pd.type,
-                sequence_number: pd.sequence_number,
-                datetime: pd.datetime,
-                city: pd.city,
-                state: pd.state
-              }))
-            } : null
-          });
+          console.log('🔍 DEBUG Truck 1323 - Found target order:', !!targetOrder);
         }
         
         // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
