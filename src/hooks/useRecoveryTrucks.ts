@@ -70,14 +70,18 @@ export const useRecoveryTrucks = () => {
 
       if (error) throw error;
 
-      // Fetch lost day notes separately
-      const truckIds = trucks?.map((t) => t.id) || [];
+      // Fetch lost day notes separately (by driver_id from trucks)
+      const driverIds = trucks?.map((t) => t.driver1_id).filter(Boolean) || [];
+      const leftByDriverIds = trucks?.map((t) => t.left_by_driver_id).filter(Boolean) || [];
+      const allDriverIds = [...new Set([...driverIds, ...leftByDriverIds])];
+      
       const { data: lostDayNotes } = await supabase
         .from("lost_day_notes")
         .select("*")
-        .in("truck_id", truckIds);
+        .in("driver_id", allDriverIds);
 
       // Fetch active orders for these trucks
+      const truckIds = trucks?.map((t) => t.id) || [];
       const { data: orders } = await supabase
         .from("orders")
         .select(
@@ -94,7 +98,10 @@ export const useRecoveryTrucks = () => {
         trucks?.map((truck) => {
           const truckOrders = orders?.filter((o) => o.truck_id === truck.id) || [];
           const lastLoad = truckOrders[truckOrders.length - 1];
-          const truckLostDayNotes = lostDayNotes?.filter((n) => n.truck_id === truck.id) || [];
+          
+          // Find lost day notes for this truck's driver or left_by_driver
+          const driverId = truck.driver1_id || truck.left_by_driver_id;
+          const truckLostDayNotes = lostDayNotes?.filter((n) => n.driver_id === driverId) || [];
 
           // Find when truck entered recovery (from lost_day_notes)
           const gameOverNote = truckLostDayNotes.find((note: any) =>

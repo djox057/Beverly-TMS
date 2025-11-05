@@ -495,34 +495,42 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          driver_id: string
           id: string
           note: string | null
           note_type: string | null
-          truck_id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           created_at?: string
           date: string
+          driver_id: string
           id?: string
           note?: string | null
           note_type?: string | null
-          truck_id: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           created_at?: string
           date?: string
+          driver_id?: string
           id?: string
           note?: string | null
           note_type?: string | null
-          truck_id?: string
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lost_day_notes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_files: {
         Row: {

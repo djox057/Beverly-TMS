@@ -190,11 +190,11 @@ export const useReports = () => {
   });
 
   const updateLostDayNote = useMutation({
-    mutationFn: async ({ truckId, date, note, noteType }: { truckId: string; date: string; note: string | null; noteType?: string | null }) => {
+    mutationFn: async ({ driverId, date, note, noteType }: { driverId: string; date: string; note: string | null; noteType?: string | null }) => {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       
       const upsertData = { 
-        truck_id: truckId,
+        driver_id: driverId,
         date: date,
         note: note,
         note_type: noteType,
@@ -204,7 +204,7 @@ export const useReports = () => {
       const { data, error: upsertError } = await supabase
         .from('lost_day_notes')
         .upsert(upsertData, {
-          onConflict: 'truck_id,date'
+          onConflict: 'driver_id,date'
         })
         .select();
       
@@ -576,8 +576,9 @@ export const useReports = () => {
         // Get the most recent truck note for this truck
         const truckNote = truckNotes?.find(note => note.truck_id === truck.id);
 
-        // Get lost day notes for this truck
-        const truckLostDayNotes = lostDayNotes?.filter(note => note.truck_id === truck.id) || [];
+        // Get lost day notes for this truck's driver
+        const driverId = truck.driver1_id;
+        const truckLostDayNotes = driverId ? lostDayNotes?.filter(note => note.driver_id === driverId) || [] : [];
 
         // Find dispatcher info from driver1
         const dispatcherInfo = dispatchers?.find(d => d.user_id === truck.driver1?.dispatcher_id);

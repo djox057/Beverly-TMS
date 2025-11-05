@@ -412,6 +412,7 @@ const Reports = () => {
   const [homeTimeDialog, setHomeTimeDialog] = useState<{
     truckId: string;
     truckNumber: string;
+    driverId: string;
     date: string;
     isCurrentlyHomeTime: boolean;
   } | null>(null);
@@ -419,6 +420,7 @@ const Reports = () => {
   const [redCellDialog, setRedCellDialog] = useState<{
     truckId: string;
     truckNumber: string;
+    driverId: string;
     date: string;
     currentNote: string;
   } | null>(null);
@@ -1128,6 +1130,7 @@ const Reports = () => {
                         setHomeTimeDialog({
                           truckId: truck.id,
                           truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          driverId: truck.driverId,
                           date: dayStr,
                           isCurrentlyHomeTime: hasHomeTime
                         });
@@ -1227,6 +1230,7 @@ const Reports = () => {
                         setRedCellDialog({
                           truckId: truck.id,
                           truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          driverId: truck.driverId,
                           date: dateStr,
                           currentNote: currentNote
                         });
@@ -1238,6 +1242,7 @@ const Reports = () => {
                         setHomeTimeDialog({
                           truckId: truck.id,
                           truckNumber: truck.truckNumber || truck.truck_number || 'Unknown',
+                          driverId: truck.driverId,
                           date: dateStr,
                           isCurrentlyHomeTime: hasHomeTime
                         });
@@ -2003,12 +2008,14 @@ const Reports = () => {
             const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
             const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
             
-            // Create lost day note
-            await updateLostDayNote.mutateAsync({
-              truckId: gameOverDialog.truckId,
-              date: dateStr,
-              note: noteText
-            });
+            // Create lost day note for the driver (not truck)
+            if (truck?.driverId) {
+              await updateLostDayNote.mutateAsync({
+                driverId: truck.driverId,
+                date: dateStr,
+                note: noteText
+              });
+            }
             
             // Update truck note
             await updateTruckNote.mutateAsync({
@@ -2595,7 +2602,7 @@ const Reports = () => {
               <Button onClick={() => {
                 if (homeTimeDialog) {
                   updateLostDayNote.mutate({
-                    truckId: homeTimeDialog.truckId,
+                    driverId: homeTimeDialog.driverId,
                     date: homeTimeDialog.date,
                     note: homeTimeDialog.isCurrentlyHomeTime ? '' : 'Home Time',
                     noteType: homeTimeDialog.isCurrentlyHomeTime ? null : 'home_time'
@@ -2630,7 +2637,7 @@ const Reports = () => {
         onSave={(note, isHomeTime) => {
           if (redCellDialog) {
             const mutationData = {
-              truckId: redCellDialog.truckId,
+              driverId: redCellDialog.driverId,
               date: redCellDialog.date,
               note: isHomeTime ? 'Home Time' : note,
               noteType: isHomeTime ? 'home_time' : null
