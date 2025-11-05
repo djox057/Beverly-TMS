@@ -114,35 +114,55 @@ export const useOrders = () => {
       console.log('🔍 Fetching orders...');
       
       return queryWithTimeout(async () => {
-        const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          truck:trucks!truck_id(truck_number, company:companies(name)),
-          driver1:drivers!driver1_id(name),
-          original_driver1:drivers!original_driver1_id(name),
-          original_truck:trucks!original_truck_id(truck_number),
-          broker:brokers!broker_id(name, address),
-          company:companies!company_id(name),
-          booked_by_company:companies!booked_by_company_id(name),
-          pickup_drops(type, city, state, datetime, address),
-          order_files(id, file_name, file_path, file_size, content_type, file_category),
-          escort_fee,
-          escort_fee_broker_paid,
-          is_recovery,
-          original_miles,
-          original_freight_amount,
-          original_driver_price,
-          recovery_miles,
-          recovery_freight_amount,
-          recovery_driver_price,
-          recovery_date
-        `)
-        .order('created_at', { ascending: false });
+        let allOrders: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        
+        while (true) {
+          console.log(`🔍 Fetching orders batch ${from / batchSize + 1}...`);
+          
+          const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            truck:trucks!truck_id(truck_number, company:companies(name)),
+            driver1:drivers!driver1_id(name),
+            original_driver1:drivers!original_driver1_id(name),
+            original_truck:trucks!original_truck_id(truck_number),
+            broker:brokers!broker_id(name, address),
+            company:companies!company_id(name),
+            booked_by_company:companies!booked_by_company_id(name),
+            pickup_drops(type, city, state, datetime, address),
+            order_files(id, file_name, file_path, file_size, content_type, file_category),
+            escort_fee,
+            escort_fee_broker_paid,
+            is_recovery,
+            original_miles,
+            original_freight_amount,
+            original_driver_price,
+            recovery_miles,
+            recovery_freight_amount,
+            recovery_driver_price,
+            recovery_date
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+        
+          if (error) throw error;
+          
+          if (!data || data.length === 0) break;
+          
+          console.log(`✅ Fetched ${data.length} orders in batch ${from / batchSize + 1}`);
+          allOrders = [...allOrders, ...data];
+          
+          if (data.length < batchSize) break;
+          
+          from += batchSize;
+        }
+        
+        console.log(`✅ TOTAL ORDERS FETCHED: ${allOrders.length}`);
       
-      if (error) throw error;
-      
-      const transformedOrders = data.map((order: any) => {
+      const transformedOrders = allOrders.map((order: any) => {
         const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
         const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
         
