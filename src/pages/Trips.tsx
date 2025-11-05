@@ -45,7 +45,7 @@ const Trips = () => {
   // Filter orders based on truck and driver filters
   const filteredOrders = orders?.filter(order => {
     const matchesTruck = !truckFilter || 
-      order.truckNumber?.toLowerCase().includes(truckFilter.toLowerCase());
+      order.truckNumber?.toLowerCase() === truckFilter.toLowerCase();
     
     const matchesDriver = !driverFilter || 
       order.driverName?.toLowerCase().includes(driverFilter.toLowerCase());
@@ -91,7 +91,7 @@ const Trips = () => {
             return;
           }
           
-          const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 1 }); // Monday
+          const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // Tuesday
           const weekKey = format(weekStart, 'yyyy-MM-dd');
           
           if (!groups[weekKey]) {
@@ -289,8 +289,8 @@ const Trips = () => {
                          freightAmount: acc.freightAmount + (order.totalFreightAmount || 0)
                        }), { miles: 0, driverPay: 0, freightAmount: 0 });
 
-                       const weekStartDate = parseISO(week.weekStart);
-                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
+                        const weekStartDate = parseISO(week.weekStart);
+                        const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
                         return (
                           <>
