@@ -48,6 +48,7 @@ const navigation = [
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Recovery", href: "/recovery", icon: Route },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
 ];
 

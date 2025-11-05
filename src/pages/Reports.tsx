@@ -721,6 +721,9 @@ const Reports = () => {
 
     // Helper to get pickup cell color based on status and previous load
     const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+      // Check if this is a recovery load first - purple background
+      if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
+      
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = order.pickupStop?.arrived_at;
@@ -732,6 +735,9 @@ const Reports = () => {
 
     // Helper to get delivery cell color based on status
     const getDeliveryCellColor = (order: any, stop?: any) => {
+      // Check if this is a recovery load first - purple background
+      if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
+      
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = stop?.arrived_at;
@@ -1992,20 +1998,56 @@ const Reports = () => {
             const dateStr = format(startDate, "yyyy-MM-dd");
             const noteText = type === "yard" ? "game over - yard" : "game over - at road";
             
+            // Find the truck to get driver and active orders info
+            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
+            const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
+            
+            // Create lost day note
             await updateLostDayNote.mutateAsync({
               truckId: gameOverDialog.truckId,
               date: dateStr,
               note: noteText
             });
             
+            // Update truck note
             await updateTruckNote.mutateAsync({
               truckId: gameOverDialog.truckId,
               note: note.trim()
             });
             
+            // Set recovery status on truck
+            const { error: truckError } = await supabase
+              .from("trucks")
+              .update({
+                needs_recovery: true,
+                left_by_driver_id: truck?.driverId || null,
+                driver1_id: null, // Unassign driver
+                trailer_id: null  // Unassign trailer
+              })
+              .eq("id", gameOverDialog.truckId);
+              
+            if (truckError) throw truckError;
+            
+            // Mark active orders as recovery loads
+            if (truck?.activeOrders && truck.activeOrders.length > 0) {
+              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+              const { error: orderError } = await supabase
+                .from("orders")
+                .update({ 
+                  is_recovery: true,
+                  original_driver1_id: truck.driverId,
+                  original_driver2_id: truck.driver2Id || null,
+                  original_truck_id: gameOverDialog.truckId,
+                  original_trailer_id: truck.trailerId || null
+                })
+                .in("id", activeOrderIds);
+                
+              if (orderError) throw orderError;
+            }
+            
             toast({
-              title: "Status set",
-              description: `Set ${type === "yard" ? "yard status" : "recovery status"} for truck ${gameOverDialog.truckNumber}`
+              title: "Truck sent to recovery",
+              description: `Truck ${gameOverDialog.truckNumber} marked for recovery${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""}`
             });
             setGameOverDialog(null);
           } catch (error) {

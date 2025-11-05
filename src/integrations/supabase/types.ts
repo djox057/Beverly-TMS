@@ -1259,8 +1259,10 @@ export type Database = {
           id: string
           insurance_expiration_date: string | null
           ipass: string | null
+          left_by_driver_id: string | null
           miles_away: number | null
           model: string | null
+          needs_recovery: boolean | null
           plate_expiration_date: string | null
           status: string | null
           trailer_id: string | null
@@ -1279,8 +1281,10 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
+          left_by_driver_id?: string | null
           miles_away?: number | null
           model?: string | null
+          needs_recovery?: boolean | null
           plate_expiration_date?: string | null
           status?: string | null
           trailer_id?: string | null
@@ -1299,8 +1303,10 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
+          left_by_driver_id?: string | null
           miles_away?: number | null
           model?: string | null
+          needs_recovery?: boolean | null
           plate_expiration_date?: string | null
           status?: string | null
           trailer_id?: string | null
@@ -1334,6 +1340,13 @@ export type Database = {
           {
             foreignKeyName: "trucks_driver2_id_fkey"
             columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trucks_left_by_driver_id_fkey"
+            columns: ["left_by_driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]
