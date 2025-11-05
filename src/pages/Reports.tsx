@@ -1931,15 +1931,54 @@ const Reports = () => {
                               minWidth: "80px",
                               maxWidth: "80px"
                             }}>
-                                        {activeTab === "Recovery" && truck.activeOrders?.some((o: any) => o.is_recovery) ? (
+                                        {activeTab === "Recovery" && truck.activeOrders?.some((o: any) => {
+                                          const order = o as any;
+                                          // Hide Revert button if POD is uploaded
+                                          const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+                                          return order.is_recovery && !hasPOD;
+                                        }) ? (
                                           <Button variant="ghost" size="sm" className="absolute top-1 right-1 h-auto px-2 py-1 bg-background hover:bg-green-500/20 rounded z-[50] border border-green-500/50" onClick={async (e) => {
                                             e.stopPropagation();
                                             // Revert recovery load
-                                            const recoveryOrder = truck.activeOrders.find((o: any) => o.is_recovery);
+                                            const recoveryOrder = truck.activeOrders.find((o: any) => {
+                                              const order = o as any;
+                                              const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+                                              return order.is_recovery && !hasPOD;
+                                            });
                                             if (!recoveryOrder) return;
                                             
                                             try {
                                               const order = recoveryOrder as any;
+                                              
+                                              // First, fetch the original driver's dispatcher from the truck's left_by_driver
+                                              let originalDispatcherId = null;
+                                              if (order.original_driver1_id) {
+                                                const { data: originalTruckData } = await supabase
+                                                  .from("trucks")
+                                                  .select("left_by_driver_id")
+                                                  .eq("id", order.original_truck_id)
+                                                  .single();
+                                                
+                                                if (originalTruckData?.left_by_driver_id) {
+                                                  // Get the dispatcher that was assigned to the original driver before recovery
+                                                  const { data: originalDriverData } = await supabase
+                                                    .from("drivers")
+                                                    .select("id, dispatcher_id")
+                                                    .eq("id", originalTruckData.left_by_driver_id)
+                                                    .single();
+                                                  
+                                                  // If original driver has no dispatcher, try to get it from the current truck's dispatcher group
+                                                  if (!originalDriverData?.dispatcher_id && truck.dispatcherId) {
+                                                    originalDispatcherId = truck.dispatcherId;
+                                                  }
+                                                }
+                                                
+                                                // Fallback: use the current dispatcher of this truck group
+                                                if (!originalDispatcherId && truck.dispatcherId) {
+                                                  originalDispatcherId = truck.dispatcherId;
+                                                }
+                                              }
+                                              
                                               // Revert the order back to original state
                                               const { error: orderError } = await supabase
                                                 .from("orders")
@@ -1978,6 +2017,18 @@ const Reports = () => {
                                                   .eq("id", order.original_truck_id);
                                                 
                                                 if (truckError) throw truckError;
+                                                
+                                                // Re-assign dispatcher to original driver
+                                                if (originalDispatcherId) {
+                                                  const { error: dispatcherError } = await supabase
+                                                    .from("drivers")
+                                                    .update({ dispatcher_id: originalDispatcherId })
+                                                    .eq("id", order.original_driver1_id);
+                                                  
+                                                  if (dispatcherError) {
+                                                    console.error("Failed to reassign dispatcher:", dispatcherError);
+                                                  }
+                                                }
                                               }
                                               
                                               toast({
