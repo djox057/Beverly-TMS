@@ -2036,6 +2036,13 @@ const Reports = () => {
             console.log("✅ Truck note updated");
             
             // Set recovery status on truck
+            console.log("🔍 Truck data before update:", {
+              truckId: gameOverDialog.truckId,
+              truck: truck,
+              driverId: truck?.driverId,
+              driverName: truck?.driverName
+            });
+            
             const truckUpdate: any = {
               needs_recovery: true,
               left_by_driver_id: truck?.driverId || null,
@@ -2051,7 +2058,8 @@ const Reports = () => {
               console.log("🚫 Unassigning driver and trailer");
             }
             
-            console.log("🚛 Updating truck status...", truckUpdate);
+            console.log("🚛 EXACT truck update object:", JSON.stringify(truckUpdate, null, 2));
+            console.log("🚛 Truck ID for update:", gameOverDialog.truckId);
             const { error: truckError } = await supabase
               .from("trucks")
               .update(truckUpdate)
