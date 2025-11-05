@@ -1,5 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.58.0';
-import { toZonedTime } from 'https://esm.sh/date-fns-tz@3.2.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,43 +11,25 @@ interface Coordinates {
   longitude: number;
 }
 
-interface OrderETA {
-  internal_load_number: number;
-  is_late: boolean;
-  estimated_arrival: string | null;
-  duration_minutes: number | null;
-}
-
-async function geocodeAddress(address: string): Promise<Coordinates | null> {
+async function geocodeAddress(address: string, supabaseClient: any): Promise<Coordinates | null> {
   if (!address || address.trim() === '') {
     return null;
   }
 
   try {
-    // Use cached geocode-address edge function
-    const response = await fetch(
-      `${Deno.env.get('SUPABASE_URL')}/functions/v1/geocode-address`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify({ address }),
-      }
-    );
+    const { data, error } = await supabaseClient.functions.invoke('geocode-address', {
+      body: { address }
+    });
 
-    if (!response.ok) {
-      console.error('Geocoding failed:', response.status);
+    if (error) {
+      console.error('Geocoding failed:', error);
       return null;
     }
 
-    const data = await response.json();
-    
     if (data?.success) {
       return {
         latitude: data.latitude,
-        longitude: data.longitude,
+        longitude: data.longitude
       };
     }
 
@@ -60,288 +42,169 @@ async function geocodeAddress(address: string): Promise<Coordinates | null> {
 
 async function calculateRouteDuration(
   start: Coordinates,
-  end: Coordinates
+  end: Coordinates,
+  supabaseClient: any
 ): Promise<number | null> {
   try {
-    // Use cached calculate-route edge function
-    const response = await fetch(
-      `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify({ 
-          start: { lat: start.latitude, lon: start.longitude },
-          end: { lat: end.latitude, lon: end.longitude }
-        }),
-      }
-    );
-    
-    if (!response.ok) {
+    const { data, error } = await supabaseClient.functions.invoke('calculate-route', {
+      body: { start, end }
+    });
+
+    if (error) {
+      console.error('Route calculation failed:', error);
       return null;
     }
-    
-    const data = await response.json();
-    
-    if (data?.success && data.duration) {
-      return data.duration; // Duration in seconds
+
+    if (data?.success) {
+      return data.duration;
     }
-    
+
     return null;
   } catch (error) {
-    console.error('Route duration calculation error:', error);
+    console.error('Error calculating route:', error);
     return null;
   }
 }
 
-function parseSimpleDateTime(datetimeString: string) {
-  const date = new Date(datetimeString);
-  return {
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hours: date.getHours(),
-    minutes: date.getMinutes(),
-  };
-}
-
-async function checkDeliveryETA(
-  truckLocation: Coordinates | null,
-  deliveryAddress: string,
-  deliveryEndDatetime: string | null
-): Promise<{ isLate: boolean; estimatedArrival: Date | null; durationMinutes: number | null }> {
-  const defaultResult = {
-    isLate: false,
-    estimatedArrival: null,
-    durationMinutes: null,
-  };
-
-  if (!truckLocation || !deliveryEndDatetime) {
-    return defaultResult;
-  }
-
-  try {
-    const deliveryCoords = await geocodeAddress(deliveryAddress);
-    if (!deliveryCoords) {
-      return defaultResult;
-    }
-
-    const durationSeconds = await calculateRouteDuration(truckLocation, deliveryCoords);
-    if (!durationSeconds) {
-      return defaultResult;
-    }
-
-    const durationMinutes = Math.ceil(durationSeconds / 60);
-
-    const now = new Date();
-    const chicagoNow = toZonedTime(now, 'America/Chicago');
-
-    const estimatedArrival = new Date(chicagoNow.getTime() + durationSeconds * 1000);
-
-    const parsed = parseSimpleDateTime(deliveryEndDatetime);
-    const deliveryEndTime = new Date(
-      parsed.year,
-      parsed.month - 1,
-      parsed.day,
-      parsed.hours,
-      parsed.minutes
-    );
-
-    const isLate = estimatedArrival > deliveryEndTime;
-
-    return {
-      isLate,
-      estimatedArrival,
-      durationMinutes,
-    };
-  } catch (error) {
-    console.error('ETA calculation error:', error);
-    return defaultResult;
-  }
-}
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('🚀 Starting delivery ETA check...');
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    console.log('🔍 Fetching orders and truck locations...');
+    // Get active orders with deliveries that are not completed
+    const { data: orders, error: ordersError } = await supabaseClient
+      .from('orders')
+      .select(`
+        id,
+        internal_load_number,
+        delivery_end_datetime,
+        truck_id,
+        pickup_drops!inner(
+          address,
+          city,
+          state,
+          zip,
+          type
+        )
+      `)
+      .eq('status', 'in_transit')
+      .not('delivery_end_datetime', 'is', null)
+      .order('delivery_end_datetime', { ascending: true });
 
-    // Get all orders with pickup/delivery stops and truck info - wrap in try-catch
-    let orders: any[] = [];
-    try {
-      const { data: ordersData, error: ordersError } = await supabaseClient
-        .from('orders')
-        .select(`
-          internal_load_number,
-          truck_id,
-          delivery_end_datetime,
-          delivery_datetime,
-          order_files(id, file_category),
-          trucks!orders_truck_id_fkey(
-            id,
-            truck_number
-          ),
-          pickup_drops!inner(
-            id,
-            order_id,
-            type,
-            address,
-            city,
-            state,
-            zip_code
-          )
-        `)
-        .in('status', ['pending', 'in_transit'])
-        .not('truck_id', 'is', null);
-
-      if (ordersError) {
-        console.error('⚠️ Error fetching orders:', ordersError);
-        return new Response(JSON.stringify({ success: true, results: [], error: 'Failed to fetch orders' }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      orders = ordersData || [];
-    } catch (ordersException) {
-      console.error('⚠️ Exception fetching orders:', ordersException);
-      return new Response(JSON.stringify({ success: true, results: [], error: 'Exception fetching orders' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (ordersError) {
+      throw ordersError;
     }
 
-    console.log(`📦 Found ${orders.length} orders to check`);
+    console.log(`📦 Found ${orders?.length || 0} active orders`);
 
-    // Get truck locations from Samsara - don't fail if this errors
-    let truckLocations: any[] = [];
-    try {
-      const { data: locationsData, error: locationsError } = await supabaseClient.functions.invoke(
-        'samsara-locations'
-      );
-
-      if (locationsError) {
-        console.error('⚠️ Error fetching locations (continuing anyway):', locationsError);
-      } else {
-        truckLocations = locationsData?.locations || [];
-        console.log(`📍 Found ${truckLocations.length} truck locations`);
-      }
-    } catch (locationsException) {
-      console.error('⚠️ Exception fetching locations (continuing anyway):', locationsException);
-    }
-
-    const results: OrderETA[] = [];
-
-    // Ensure we always have valid data
     if (!orders || orders.length === 0) {
-      console.log('⚠️ No orders to check');
-      return new Response(JSON.stringify({ success: true, results: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ message: 'No active orders to check', checked: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    // Get truck locations
+    const { data: locations, error: locationsError } = await supabaseClient
+      .from('truck_locations')
+      .select('truck_id, latitude, longitude, location_timestamp')
+      .in('truck_id', orders.map((o: any) => o.truck_id).filter(Boolean));
+
+    if (locationsError) {
+      console.error('Error fetching truck locations:', locationsError);
+    }
+
+    const locationMap = new Map();
+    if (locations) {
+      for (const loc of locations) {
+        if (!locationMap.has(loc.truck_id) || 
+            new Date(loc.location_timestamp) > new Date(locationMap.get(loc.truck_id).location_timestamp)) {
+          locationMap.set(loc.truck_id, loc);
+        }
+      }
+    }
+
+    let checkedCount = 0;
+    let lateCount = 0;
 
     for (const order of orders) {
-      try {
-        // Only check orders with BOL but no POD (in transit)
-        const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
-        const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-        
-        if (!hasBOL || hasPOD) {
-          continue;
-        }
+      if (!order.truck_id) continue;
 
-        // Find delivery stop
-        const deliveryStop = order.pickup_drops?.find((stop: any) => stop.type === 'delivery');
-        if (!deliveryStop?.address || !order.delivery_end_datetime) {
-          continue;
-        }
-
-        // Skip if delivery date is in the past
-        if (order.delivery_datetime) {
-          const deliveryDate = new Date(order.delivery_datetime);
-          const now = new Date();
-          if (deliveryDate < now) {
-            continue;
-          }
-        }
-
-        // Get truck number from the joined trucks table
-        const truckNumber = order.trucks?.truck_number;
-        if (!truckNumber) {
-          continue;
-        }
-
-        // Find truck location
-        const truckLocation = truckLocations.find(
-          (loc: any) => loc.truck_number === truckNumber
-        );
-
-        if (!truckLocation) {
-          console.log(`⏭️ No location for truck ${truckNumber}`);
-          continue;
-        }
-
-        // Build full delivery address
-        const deliveryAddress = [
-          deliveryStop.address,
-          deliveryStop.city,
-          deliveryStop.state,
-          deliveryStop.zip_code,
-        ]
-          .filter(Boolean)
-          .join(', ');
-
-        console.log(`⏱️ Calculating ETA for order ${order.internal_load_number} (Truck ${truckNumber})`);
-
-        const etaResult = await checkDeliveryETA(
-          { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
-          deliveryAddress,
-          order.delivery_end_datetime
-        );
-
-        results.push({
-          internal_load_number: order.internal_load_number,
-          is_late: etaResult.isLate,
-          estimated_arrival: etaResult.estimatedArrival?.toISOString() || null,
-          duration_minutes: etaResult.durationMinutes,
-        });
-
-        console.log(
-          `${etaResult.isLate ? '🔶 LATE' : '✅ ON TIME'}: Order ${order.internal_load_number}`
-        );
-      } catch (orderError) {
-        console.error(`❌ Error processing order ${order.internal_load_number}:`, orderError);
-        // Continue with other orders
+      const truckLocation = locationMap.get(order.truck_id);
+      if (!truckLocation) {
+        console.log(`⚠️ No location data for truck ${order.truck_id}`);
+        continue;
       }
+
+      // Get delivery address
+      const deliveryStop = order.pickup_drops.find((pd: any) => pd.type === 'delivery');
+      if (!deliveryStop) continue;
+
+      const deliveryAddress = `${deliveryStop.address}, ${deliveryStop.city}, ${deliveryStop.state} ${deliveryStop.zip}`;
+      
+      // Geocode delivery address
+      const deliveryCoords = await geocodeAddress(deliveryAddress, supabaseClient);
+      if (!deliveryCoords) {
+        console.log(`⚠️ Could not geocode delivery address: ${deliveryAddress}`);
+        continue;
+      }
+
+      // Calculate route duration
+      const durationMinutes = await calculateRouteDuration(
+        { latitude: truckLocation.latitude, longitude: truckLocation.longitude },
+        deliveryCoords,
+        supabaseClient
+      );
+
+      if (durationMinutes === null) {
+        console.log(`⚠️ Could not calculate route for order ${order.internal_load_number}`);
+        continue;
+      }
+
+      const estimatedArrival = new Date(Date.now() + durationMinutes * 60 * 1000);
+      const deliveryDeadline = new Date(order.delivery_end_datetime);
+      
+      const isLate = estimatedArrival > deliveryDeadline;
+      
+      if (isLate) {
+        lateCount++;
+        console.log(`🚨 Order ${order.internal_load_number} is running late!`);
+        console.log(`   ETA: ${estimatedArrival.toISOString()}`);
+        console.log(`   Deadline: ${deliveryDeadline.toISOString()}`);
+        console.log(`   Minutes late: ${Math.round((estimatedArrival.getTime() - deliveryDeadline.getTime()) / 60000)}`);
+      }
+
+      checkedCount++;
     }
 
-    console.log(`✅ Processed ${results.length} orders with ETA calculations`);
+    console.log(`✅ Checked ${checkedCount} orders, ${lateCount} running late`);
 
-    return new Response(JSON.stringify({ success: true, results }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        checked: checkedCount,
+        late: lateCount,
+        message: `Checked ${checkedCount} orders, ${lateCount} running late`
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
   } catch (error) {
-    console.error('Error:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return new Response(JSON.stringify({ success: false, error: errorMessage }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('❌ Failed to check ETAs:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
