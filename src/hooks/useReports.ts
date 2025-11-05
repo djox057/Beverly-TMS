@@ -438,15 +438,44 @@ export const useReports = () => {
 
       if (lostDayError) throw lostDayError;
 
-      // Process trucks and match orders to drivers and trucks
+      // Process trucks and match orders to drivers (not trucks)
       const reportData = trucks?.map(truck => {
         const now = new Date().getTime();
         
-        // Get orders for this truck (by truck_id OR driver_id)
+        // Get orders for this truck's driver (not the truck itself)
         const driverOrders = orders?.filter(order => 
-          order.truck_id === truck.id ||
           (order.driver1_id === truck.driver1_id || order.driver2_id === truck.driver1_id)
         ) || [];
+        
+        // DEBUG: Log for truck 1323
+        if (truck.truck_number === '1323') {
+          const targetOrder = driverOrders.find(o => o.id === 'c2b5d630-792b-45aa-a028-8ca26e81180c');
+          console.log('🔍 DEBUG Truck 1323:', {
+            truckId: truck.id,
+            driver1_id: truck.driver1_id,
+            driverOrdersCount: driverOrders.length,
+            driverOrderIds: driverOrders.map(o => o.id),
+            targetOrderId: 'c2b5d630-792b-45aa-a028-8ca26e81180c',
+            hasTargetOrder: !!targetOrder,
+            targetOrderData: targetOrder ? {
+              id: targetOrder.id,
+              load_number: targetOrder.load_number,
+              status: targetOrder.status,
+              canceled: targetOrder.canceled,
+              pickup_datetime: targetOrder.pickup_datetime,
+              delivery_datetime: targetOrder.delivery_datetime,
+              pickup_drops_count: targetOrder.pickup_drops?.length || 0,
+              pickup_drops: targetOrder.pickup_drops?.map((pd: any) => ({
+                id: pd.id,
+                type: pd.type,
+                sequence_number: pd.sequence_number,
+                datetime: pd.datetime,
+                city: pd.city,
+                state: pd.state
+              }))
+            } : null
+          });
+        }
         
         // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
         const activeOrders = driverOrders.filter(order => {
