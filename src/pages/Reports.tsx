@@ -2007,25 +2007,15 @@ const Reports = () => {
 
                                               if (truckError) throw truckError;
 
-              // Reassign original dispatcher to original driver
-              if (recoveryHistory.original_driver1_id && recoveryHistory.original_dispatcher_id) {
-                const { error: dispatcherError } = await supabase
-                  .from("drivers")
-                  .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
-                  .eq("id", recoveryHistory.original_driver1_id);
+                                              // Reassign original dispatcher to original driver
+                                              if (recoveryHistory.original_driver1_id && recoveryHistory.original_dispatcher_id) {
+                                                const { error: dispatcherError } = await supabase
+                                                  .from("drivers")
+                                                  .update({ dispatcher_id: recoveryHistory.original_dispatcher_id })
+                                                  .eq("id", recoveryHistory.original_driver1_id);
 
-                if (dispatcherError) throw dispatcherError;
-              }
-
-              // Unassign dispatcher from recovery driver (revert them back)
-              if (recoveryHistory.recovery_driver1_id) {
-                const { error: recoveryDispatcherError } = await supabase
-                  .from("drivers")
-                  .update({ dispatcher_id: null })
-                  .eq("id", recoveryHistory.recovery_driver1_id);
-
-                if (recoveryDispatcherError) throw recoveryDispatcherError;
-              }
+                                                if (dispatcherError) throw dispatcherError;
+                                              }
 
                                               // Mark recovery history as reverted
                                               const { data: { user } } = await supabase.auth.getUser();
@@ -2177,32 +2167,6 @@ const Reports = () => {
             if (recoveryDriverId) {
               truckUpdate.driver1_id = recoveryDriverId;
               console.log("👤 Assigning recovery driver:", recoveryDriverId);
-              
-              // Get original dispatcher to assign to recovery driver
-              let originalDispatcherForRecovery = null;
-              if (truck?.driverId) {
-                const { data: originalDriver } = await supabase
-                  .from("drivers")
-                  .select("dispatcher_id")
-                  .eq("id", truck.driverId)
-                  .single();
-                originalDispatcherForRecovery = originalDriver?.dispatcher_id || null;
-              }
-              
-              // Assign original driver's dispatcher to recovery driver
-              if (originalDispatcherForRecovery) {
-                console.log("🔄 Assigning dispatcher to recovery driver...");
-                const { error: recoveryDispatcherError } = await supabase
-                  .from("drivers")
-                  .update({ dispatcher_id: originalDispatcherForRecovery })
-                  .eq("id", recoveryDriverId);
-                  
-                if (recoveryDispatcherError) {
-                  console.error("❌ Recovery driver dispatcher assign failed:", recoveryDispatcherError);
-                  throw recoveryDispatcherError;
-                }
-                console.log("✅ Dispatcher assigned to recovery driver successfully");
-              }
               
               // Unassign dispatcher from the original driver
               if (truck?.driverId) {
