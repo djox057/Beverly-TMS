@@ -413,6 +413,21 @@ export const useReports = () => {
           `);
 
         if (ordersError) throw ordersError;
+        
+        // DEBUG: Check for specific order
+        const targetOrder = orders?.find(o => o.id === 'c2b5d630-792b-45aa-a028-8ca26e81180c');
+        console.log('🔍 DEBUG Orders Query Result:', {
+          totalOrders: orders?.length || 0,
+          targetOrderFound: !!targetOrder,
+          targetOrderData: targetOrder ? {
+            id: targetOrder.id,
+            load_number: targetOrder.load_number,
+            driver1_id: targetOrder.driver1_id,
+            driver2_id: targetOrder.driver2_id,
+            truck_id: targetOrder.truck_id,
+            pickup_drops_count: targetOrder.pickup_drops?.length || 0
+          } : null
+        });
 
       // Fetch dispatcher information separately
       const { data: dispatchers, error: dispatchersError } = await supabase
