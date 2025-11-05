@@ -373,6 +373,9 @@ export type Database = {
           created_at: string
           dispatcher_id: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
           hire_date: string | null
           home_address: string | null
           home_city: string | null
@@ -404,6 +407,9 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -435,6 +441,9 @@ export type Database = {
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null

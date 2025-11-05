@@ -29,6 +29,9 @@ interface DriverFormData {
   name: string;
   phone: string;
   email: string;
+  emergency_contact_name: string;
+  emergency_contact_relation: string;
+  emergency_contact_phone: string;
   truck_id: string;
   trailer_id: string;
   dispatcher_id: string;
@@ -77,6 +80,9 @@ const Drivers = () => {
     name: "",
     phone: "",
     email: "",
+    emergency_contact_name: "",
+    emergency_contact_relation: "",
+    emergency_contact_phone: "",
     truck_id: "",
     trailer_id: "",
     dispatcher_id: "",
@@ -191,6 +197,9 @@ const Drivers = () => {
       name: "",
       phone: "",
       email: "",
+      emergency_contact_name: "",
+      emergency_contact_relation: "",
+      emergency_contact_phone: "",
       truck_id: "",
       trailer_id: "",
       dispatcher_id: "",
@@ -226,6 +235,9 @@ const Drivers = () => {
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        emergency_contact_name: formData.emergency_contact_name || null,
+        emergency_contact_relation: formData.emergency_contact_relation || null,
+        emergency_contact_phone: formData.emergency_contact_phone || null,
         dispatcher_id: formData.dispatcher_id || null,
         home_address: formData.home_address || null,
         home_city: formData.home_city || null,
@@ -314,6 +326,9 @@ const Drivers = () => {
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        emergency_contact_name: formData.emergency_contact_name || null,
+        emergency_contact_relation: formData.emergency_contact_relation || null,
+        emergency_contact_phone: formData.emergency_contact_phone || null,
         dispatcher_id: formData.dispatcher_id || null,
         home_address: formData.home_address || null,
         home_city: formData.home_city || null,
@@ -633,6 +648,9 @@ const Drivers = () => {
       name: driver.name || "",
       phone: driver.phone || "",
       email: driver.email || "",
+      emergency_contact_name: driver.emergency_contact_name || "",
+      emergency_contact_relation: driver.emergency_contact_relation || "",
+      emergency_contact_phone: driver.emergency_contact_phone || "",
       truck_id: truckData?.id || "",
       trailer_id: truckData?.trailer_id || "",
       dispatcher_id: driver.dispatcher_id || "",
@@ -718,6 +736,30 @@ const Drivers = () => {
                   ...formData,
                   email: e.target.value
                 })} placeholder="john.smith@company.com" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                  <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
+                  ...formData,
+                  emergency_contact_name: e.target.value
+                })} placeholder="Jane Doe" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergency_contact_relation">Relation</Label>
+                  <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
+                  ...formData,
+                  emergency_contact_relation: e.target.value
+                })} placeholder="Spouse" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                  <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
+                  ...formData,
+                  emergency_contact_phone: e.target.value
+                })} placeholder="(555) 987-6543" />
                 </div>
               </div>
 
@@ -1155,6 +1197,30 @@ const Drivers = () => {
                     ...formData,
                     email: e.target.value
                   })} placeholder="john.smith@company.com" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_emergency_contact_name">Emergency Contact Name</Label>
+                    <Input id="edit_emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
+                    ...formData,
+                    emergency_contact_name: e.target.value
+                  })} placeholder="Jane Doe" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_emergency_contact_relation">Relation</Label>
+                    <Input id="edit_emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
+                    ...formData,
+                    emergency_contact_relation: e.target.value
+                  })} placeholder="Spouse" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_emergency_contact_phone">Emergency Contact Phone</Label>
+                    <Input id="edit_emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
+                    ...formData,
+                    emergency_contact_phone: e.target.value
+                  })} placeholder="(555) 987-6543" />
                   </div>
                 </div>
 
