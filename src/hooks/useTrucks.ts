@@ -50,40 +50,27 @@ export const useTrucks = () => {
       console.log('🚛 Fetching trucks with relationships...');
       
       return queryWithTimeout(async () => {
-        let allTrucks: any[] = [];
-        let from = 0;
-        const batchSize = 1000;
+        const { data, error } = await supabase
+          .from('trucks')
+          .select(`
+            *,
+            trailer:trailers!trailer_id(id, trailer_number, trailer_type),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id),
+            company:companies!company_id(id, name)
+          `)
+          .order('truck_number');
         
-        while (true) {
-          const { data, error } = await supabase
-            .from('trucks')
-            .select(`
-              *,
-              trailer:trailers!trailer_id(id, trailer_number, trailer_type),
-              driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id),
-              driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id),
-              company:companies!company_id(id, name)
-            `)
-            .order('truck_number')
-            .range(from, from + batchSize - 1);
-          
-          if (error) {
-            console.error('❌ Error fetching trucks:', error);
-            console.error('❌ Full error details:', JSON.stringify(error, null, 2));
-            throw error;
-          }
-          
-          console.log('✅ Raw truck data sample:', JSON.stringify(data?.[0], null, 2));
-          
-          if (!data || data.length === 0) break;
-          
-          console.log(`✅ Fetched ${data.length} trucks (batch ${from / batchSize + 1})`);
-          allTrucks = [...allTrucks, ...data];
-          
-          if (data.length < batchSize) break;
-          
-          from += batchSize;
+        if (error) {
+          console.error('❌ Error fetching trucks:', error);
+          console.error('❌ Full error details:', JSON.stringify(error, null, 2));
+          throw error;
         }
+        
+        console.log('✅ Raw truck data sample:', JSON.stringify(data?.[0], null, 2));
+        console.log(`✅ Fetched ${data?.length || 0} trucks`);
+        
+        const allTrucks = data || [];
         
         // Fetch all dispatchers to map to trucks
         const { data: dispatchers, error: dispatcherError } = await supabase

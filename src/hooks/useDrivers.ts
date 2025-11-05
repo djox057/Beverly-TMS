@@ -48,8 +48,7 @@ export const useDrivers = () => {
         const { data, error } = await supabase
           .from('drivers')
           .select('*')
-          .order('name', { ascending: true })
-          .limit(1000);
+          .order('name', { ascending: true });
         
         if (error) {
           console.error('❌ Error fetching drivers:', error);
