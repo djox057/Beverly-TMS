@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,49 +233,8 @@ const EditOrder = () => {
     fetchProfiles();
   }, []);
 
-  // Load order data
-  useEffect(() => {
-    console.log("EditOrder useEffect - id parameter:", id);
-    console.log("Current window location:", window.location.href);
-
-    if (id && id !== ":id") {
-      // Validate UUID format
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(id)) {
-        console.error("Invalid load ID format:", id);
-        toast({
-          title: "Error",
-          description: "Invalid load ID format",
-          variant: "destructive",
-        });
-        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-        if (shouldReturnToReports) {
-          localStorage.removeItem('returnToReports');
-          navigate("/reports");
-        } else {
-          navigate("/orders");
-        }
-        return;
-      }
-      loadOrderData();
-    } else {
-      console.error("No valid load ID provided. Received:", id);
-      toast({
-        title: "Error",
-        description: "No valid load ID provided in URL",
-        variant: "destructive",
-      });
-      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-      if (shouldReturnToReports) {
-        localStorage.removeItem('returnToReports');
-        navigate("/reports");
-      } else {
-        navigate("/orders");
-      }
-    }
-  }, [id]);
-
-  const loadOrderData = async () => {
+  // Memoize loadOrderData to prevent infinite loops
+  const loadOrderData = useCallback(async () => {
     console.log("Loading order data for ID:", id);
     console.log("Current URL:", window.location.href);
 
@@ -546,7 +505,92 @@ const EditOrder = () => {
       console.log("Setting loading to false");
       setIsLoading(false);
     }
-  };
+  }, [id, navigate, toast]);
+
+  // Real-time subscription for order updates
+  useEffect(() => {
+    if (!id || id === ":id") return;
+
+    console.log("Setting up real-time subscription for order:", id);
+
+    const channel = supabase
+      .channel(`order-${id}-changes`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          console.log('Order changed:', payload);
+          loadOrderData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pickup_drops',
+          filter: `order_id=eq.${id}`
+        },
+        (payload) => {
+          console.log('Pickup/drop changed:', payload);
+          loadOrderData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log("Cleaning up real-time subscription for order:", id);
+      supabase.removeChannel(channel);
+    };
+  }, [id, loadOrderData]);
+
+  // Load order data on mount
+  useEffect(() => {
+    console.log("EditOrder useEffect - id parameter:", id);
+    console.log("Current window location:", window.location.href);
+
+    if (id && id !== ":id") {
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        console.error("Invalid load ID format:", id);
+        toast({
+          title: "Error",
+          description: "Invalid load ID format",
+          variant: "destructive",
+        });
+        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+        if (shouldReturnToReports) {
+          localStorage.removeItem('returnToReports');
+          navigate("/reports");
+        } else {
+          navigate("/orders");
+        }
+        return;
+      }
+      loadOrderData();
+    } else {
+      console.error("No valid load ID provided. Received:", id);
+      toast({
+        title: "Error",
+        description: "No valid load ID provided in URL",
+        variant: "destructive",
+      });
+      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      if (shouldReturnToReports) {
+        localStorage.removeItem('returnToReports');
+        navigate("/reports");
+      } else {
+        navigate("/orders");
+      }
+    }
+  }, [id, loadOrderData, navigate, toast]);
+
 
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
