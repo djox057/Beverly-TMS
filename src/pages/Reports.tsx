@@ -2163,6 +2163,18 @@ const Reports = () => {
               left_by_driver_id: truck?.driverId || null,
             };
             
+            // Get original dispatcher ID BEFORE we unassign it
+            let originalDispatcherId = null;
+            if (truck?.driverId) {
+              const { data: originalDriver } = await supabase
+                .from("drivers")
+                .select("dispatcher_id")
+                .eq("id", truck.driverId)
+                .maybeSingle();
+              originalDispatcherId = originalDriver?.dispatcher_id || null;
+              console.log("📋 Original dispatcher ID:", originalDispatcherId);
+            }
+            
             // If recovery driver selected, assign to them and unassign dispatcher from original driver
             if (recoveryDriverId) {
               truckUpdate.driver1_id = recoveryDriverId;
@@ -2207,18 +2219,7 @@ const Reports = () => {
               console.log("📦 Updating active orders:", truck.activeOrders.length);
               const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
               
-              // Get original dispatcher ID
-              let originalDispatcherId = null;
-              if (truck?.driverId) {
-                const { data: originalDriver } = await supabase
-                  .from("drivers")
-                  .select("dispatcher_id")
-                  .eq("id", truck.driverId)
-                  .single();
-                originalDispatcherId = originalDriver?.dispatcher_id || null;
-              }
-              
-              const orderUpdate: any = { 
+              const orderUpdate: any = {
                 is_recovery: true,
                 original_driver1_id: truck.driverId,
                 original_driver2_id: truck.driver2Id || null,
