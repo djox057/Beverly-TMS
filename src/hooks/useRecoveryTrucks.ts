@@ -61,7 +61,8 @@ export const useRecoveryTrucks = () => {
           company:companies(name),
           trailer:trailers(trailer_number),
           driver:drivers!trucks_driver1_id_fkey(id, name, is_recovery),
-          left_by_driver:drivers!trucks_left_by_driver_id_fkey(id, name)
+          left_by_driver:drivers!trucks_left_by_driver_id_fkey(id, name),
+          dispatcher:drivers!trucks_dispatcher_id_fkey(name)
         `
         )
         .eq("needs_recovery", true)
@@ -106,6 +107,7 @@ export const useRecoveryTrucks = () => {
             trailerNumber: truck.trailer?.trailer_number,
             currentDriver: truck.driver,
             leftByDriver: truck.left_by_driver,
+            dispatcherName: (truck as any).dispatcher?.name || "Unassigned",
             lastLoad,
             activeOrders: truckOrders,
             enteredRecoveryDate: gameOverNote?.date,
