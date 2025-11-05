@@ -2001,27 +2001,39 @@ const Reports = () => {
           if (!gameOverDialog) return;
           
           try {
+            console.log("🚀 Starting set driver status...", { startDate, type, note, recoveryDriverId });
             const dateStr = format(startDate, "yyyy-MM-dd");
             const noteText = type === "yard" ? "game over - yard" : "game over - at road";
             
             // Find the truck to get driver and active orders info
             const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
             const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
+            console.log("📦 Found truck:", { truckId: truck?.truckId, driverId: truck?.driverId, driverName: truck?.driverName });
+            
+            if (!truck) {
+              throw new Error("Truck not found in reports data");
+            }
             
             // Create lost day note for the driver (not truck)
             if (truck?.driverId) {
+              console.log("📝 Creating lost day note for driver...");
               await updateLostDayNote.mutateAsync({
                 driverId: truck.driverId,
                 date: dateStr,
                 note: noteText
               });
+              console.log("✅ Lost day note created");
+            } else {
+              console.warn("⚠️ No driver assigned to truck, cannot create lost day note");
             }
             
             // Update truck note
+            console.log("📝 Updating truck note...");
             await updateTruckNote.mutateAsync({
               truckId: gameOverDialog.truckId,
               note: note.trim()
             });
+            console.log("✅ Truck note updated");
             
             // Set recovery status on truck
             const truckUpdate: any = {
@@ -2032,21 +2044,28 @@ const Reports = () => {
             // If recovery driver selected, assign to them; otherwise unassign
             if (recoveryDriverId) {
               truckUpdate.driver1_id = recoveryDriverId;
-              // Keep trailer assigned if recovery driver selected
+              console.log("👤 Assigning recovery driver:", recoveryDriverId);
             } else {
               truckUpdate.driver1_id = null;
               truckUpdate.trailer_id = null;
+              console.log("🚫 Unassigning driver and trailer");
             }
             
+            console.log("🚛 Updating truck status...", truckUpdate);
             const { error: truckError } = await supabase
               .from("trucks")
               .update(truckUpdate)
               .eq("id", gameOverDialog.truckId);
               
-            if (truckError) throw truckError;
+            if (truckError) {
+              console.error("❌ Truck update failed:", truckError);
+              throw truckError;
+            }
+            console.log("✅ Truck status updated");
             
             // Mark active orders as recovery loads
             if (truck?.activeOrders && truck.activeOrders.length > 0) {
+              console.log("📦 Updating active orders:", truck.activeOrders.length);
               const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
               const orderUpdate: any = { 
                 is_recovery: true,
@@ -2061,14 +2080,20 @@ const Reports = () => {
                 orderUpdate.driver1_id = recoveryDriverId;
               }
               
+              console.log("📦 Order update data:", orderUpdate);
               const { error: orderError } = await supabase
                 .from("orders")
                 .update(orderUpdate)
                 .in("id", activeOrderIds);
                 
-              if (orderError) throw orderError;
+              if (orderError) {
+                console.error("❌ Order update failed:", orderError);
+                throw orderError;
+              }
+              console.log("✅ Orders updated");
             }
             
+            console.log("🎉 Set driver status completed successfully");
             toast({
               title: "Truck sent to recovery",
               description: recoveryDriverId 
@@ -2077,9 +2102,10 @@ const Reports = () => {
             });
             setGameOverDialog(null);
           } catch (error) {
+            console.error("❌ Set driver status failed:", error);
             toast({
-              title: "Error",
-              description: error instanceof Error ? error.message : "Failed to set status",
+              title: "Failed to set status",
+              description: error instanceof Error ? error.message : "Unknown error occurred",
               variant: "destructive"
             });
           }
