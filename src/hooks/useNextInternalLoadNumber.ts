@@ -21,6 +21,10 @@ export const useNextInternalLoadNumber = (companyId?: string) => {
       const lastNumber = data?.[0]?.internal_load_number || 0;
       return lastNumber + 1;
     },
-    enabled: !!companyId, // Only run query if companyId is provided
+    enabled: !!companyId,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 };
