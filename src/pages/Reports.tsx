@@ -2130,7 +2130,13 @@ const Reports = () => {
           try {
             // Find the truck to get driver ID
             const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.truckId === gameOverDialog.truckId);
+            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
+            
+            console.log("🔍 Remove All - Finding truck:", {
+              searchingForTruckId: gameOverDialog.truckId,
+              foundTruck: truck,
+              driverId: truck?.driverId
+            });
             
             if (!truck?.driverId) {
               throw new Error("No driver found for this truck");
