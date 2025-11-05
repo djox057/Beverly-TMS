@@ -1,6 +1,6 @@
-# Local Supabase Edge Functions Setup Guide
+# Local Edge Functions Setup Guide (Cloud Database)
 
-This guide explains how to set up and run Supabase Edge Functions locally with scheduled execution.
+This guide explains how to run Supabase Edge Functions locally while connecting to your **cloud production database**.
 
 ## Restored Edge Functions
 
@@ -15,7 +15,7 @@ Based on the analysis:
 - **samsara-locations**: Should run every 5-10 minutes to keep truck locations fresh
 - **check-delivery-etas**: Should run every 10-20 minutes to monitor delivery ETAs
 
-## Step-by-Step Local Setup
+## Step-by-Step Local Setup (Cloud Database)
 
 ### 1. Install Supabase CLI (if not already installed)
 
@@ -25,80 +25,87 @@ brew install supabase/tap/supabase
 npm install -g supabase
 ```
 
-### 2. Start Local Supabase
+### 2. Skip Local Supabase - Use Cloud Database Instead
 
-```bash
-supabase start
-```
+**You do NOT need to run `supabase start` for this setup.** Your edge functions will connect directly to the cloud database.
 
-This will give you the endpoints you shared:
-- API URL: http://127.0.0.1:54321
-- Database URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-- Studio URL: http://127.0.0.1:54323
+### 3. Get Your Cloud Service Role Key
 
-### 3. Set Local Environment Variables
+You need to get your **Service Role Key** from the Supabase dashboard:
+
+1. Go to: https://supabase.com/dashboard/project/wjkbtagwgjniilmgwutb/settings/api
+2. Copy the **service_role** key (secret key - keep it safe!)
+
+### 4. Set Environment Variables for Cloud Database
 
 Create a `.env.local` file in your `supabase/functions` directory:
 
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz
-SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
+# Cloud Database Configuration
+SUPABASE_URL=https://wjkbtagwgjniilmgwutb.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_dashboard
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM
+
+# Get these from Supabase Dashboard > Edge Function Secrets
 SAMSARA_API_KEY_1=your_samsara_key_1
 SAMSARA_API_KEY_2=your_samsara_key_2
 ```
 
-### 4. Serve Functions Locally
+**Important:** Replace `your_service_role_key_from_dashboard` with the actual service role key from your Supabase dashboard.
+
+### 5. Serve Functions Locally (Connecting to Cloud Database)
 
 Open separate terminal windows for each function:
 
 **Terminal 1 - Geocode Address:**
 ```bash
-supabase functions serve geocode-address --env-file supabase/functions/.env.local
+supabase functions serve geocode-address --env-file supabase/functions/.env.local --no-verify-jwt
 ```
 
 **Terminal 2 - Calculate Route:**
 ```bash
-supabase functions serve calculate-route --env-file supabase/functions/.env.local
+supabase functions serve calculate-route --env-file supabase/functions/.env.local --no-verify-jwt
 ```
 
 **Terminal 3 - Samsara Locations:**
 ```bash
-supabase functions serve samsara-locations --env-file supabase/functions/.env.local
+supabase functions serve samsara-locations --env-file supabase/functions/.env.local --no-verify-jwt
 ```
 
 **Terminal 4 - Check Delivery ETAs:**
 ```bash
-supabase functions serve check-delivery-etas --env-file supabase/functions/.env.local
+supabase functions serve check-delivery-etas --env-file supabase/functions/.env.local --no-verify-jwt
 ```
 
-### 5. Test Functions Manually
+**Note:** Functions will connect to your **cloud database** at `https://wjkbtagwgjniilmgwutb.supabase.co` and write/read data there.
+
+### 6. Test Functions Manually
 
 ```bash
-# Test geocode-address
+# Test geocode-address (will cache results in cloud database)
 curl -X POST http://127.0.0.1:54321/functions/v1/geocode-address \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH" \
-  -d '{"address": "123 Main St, New York, NY 10001"}'
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM" \
+  -d '{"address": "1600 Amphitheatre Parkway, Mountain View, CA"}'
 
-# Test samsara-locations
+# Test samsara-locations (will fetch from Samsara and save to cloud database)
 curl -X POST http://127.0.0.1:54321/functions/v1/samsara-locations \
-  -H "Authorization: Bearer sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"
 
-# Test check-delivery-etas
+# Test check-delivery-etas (will check cloud database for active orders)
 curl -X POST http://127.0.0.1:54321/functions/v1/check-delivery-etas \
-  -H "Authorization: Bearer sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"
 ```
 
-### 6. Set Up Scheduled Execution Locally
+### 7. Set Up Scheduled Execution Locally
 
 Create a Node.js script `local-scheduler.js` in your project root:
 
 ```javascript
 const schedule = require('node-schedule');
 
-const SUPABASE_URL = 'http://127.0.0.1:54321';
-const ANON_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH';
+const SUPABASE_URL = 'http://127.0.0.1:54321'; // Local edge functions
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM';
 
 async function callFunction(functionName) {
   try {
@@ -147,61 +154,24 @@ Run the scheduler:
 node local-scheduler.js
 ```
 
-### 7. Alternative: Use pg_cron in Local Database
+### 8. View Cloud Database in Supabase Studio
 
-Connect to your local database:
-```bash
-psql postgresql://postgres:postgres@127.0.0.1:54322/postgres
-```
+While your functions run locally, you can view the cloud database data in real-time:
 
-Enable pg_cron extension:
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+**Cloud Database Studio:** https://supabase.com/dashboard/project/wjkbtagwgjniilmgwutb/editor
 
--- Schedule samsara-locations every 5 minutes
-SELECT cron.schedule(
-  'samsara-locations-local',
-  '*/5 * * * *',
-  $$
-  SELECT net.http_post(
-    url:='http://127.0.0.1:54321/functions/v1/samsara-locations',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"}'::jsonb,
-    body:='{}'::jsonb
-  ) as request_id;
-  $$
-);
-
--- Schedule check-delivery-etas every 10 minutes
-SELECT cron.schedule(
-  'check-delivery-etas-local',
-  '*/10 * * * *',
-  $$
-  SELECT net.http_post(
-    url:='http://127.0.0.1:54321/functions/v1/check-delivery-etas',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"}'::jsonb,
-    body:='{}'::jsonb
-  ) as request_id;
-  $$
-);
-
--- View scheduled jobs
-SELECT * FROM cron.job;
-
--- Unschedule (if needed)
--- SELECT cron.unschedule('samsara-locations-local');
--- SELECT cron.unschedule('check-delivery-etas-local');
-```
+Check these tables to verify functions are working:
+- `truck_locations` - Updated by `samsara-locations`
+- `geocoding_cache` - Updated by `geocode-address`
+- `orders` - Read by `check-delivery-etas`
 
 ## Monitoring Logs
 
-### View function logs in Supabase Studio:
-1. Open http://127.0.0.1:54323
-2. Go to Functions
-3. Click on a function to see logs
-
 ### View logs in terminal:
 The logs will appear in the terminal where you ran `supabase functions serve`.
+
+### View cloud function logs:
+https://supabase.com/dashboard/project/wjkbtagwgjniilmgwutb/functions
 
 ## Production Deployment
 
@@ -239,13 +209,22 @@ SELECT cron.schedule(
 
 ### Functions not responding:
 - Make sure all dependent functions are running (e.g., check-delivery-etas needs geocode-address and calculate-route)
-- Check that environment variables are set correctly
-- Verify Supabase local instance is running: `supabase status`
+- Check that environment variables in `.env.local` are set correctly
+- Verify service role key is correct from Supabase dashboard
+- Check terminal output for errors
 
 ### Scheduler not working:
-- For Node.js scheduler: Make sure all functions are served locally
-- For pg_cron: Verify extension is installed: `SELECT * FROM pg_extension WHERE extname = 'pg_cron';`
+- Make sure all 4 functions are served locally before running scheduler
+- Check that Node.js and node-schedule are installed
+- Verify functions respond to manual curl tests first
 
 ### Database connection issues:
-- Verify connection string: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
-- Make sure local Supabase is running: `supabase status`
+- Ensure SUPABASE_URL points to cloud: `https://wjkbtagwgjniilmgwutb.supabase.co`
+- Verify SUPABASE_SERVICE_ROLE_KEY is from cloud dashboard
+- Check cloud database is accessible: https://supabase.com/dashboard/project/wjkbtagwgjniilmgwutb
+
+### Data not appearing in cloud:
+- Check function logs in terminal for errors
+- Verify RLS policies allow function to write data
+- Check cloud database tables directly in Supabase Studio
+- Ensure Samsara API keys are valid
