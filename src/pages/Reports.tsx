@@ -325,7 +325,7 @@ const Reports = () => {
   };
 
   // Offices list
-  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD"];
+  const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
 
   // Set initial tab based on user's office, default to "Čačak" if not found
   const getInitialTab = () => {
@@ -1564,7 +1564,7 @@ const Reports = () => {
               </Button>
             </div>
             <div className="flex items-center justify-between mb-2">
-              <TabsList className="grid grid-cols-3 flex-1">
+              <TabsList className="grid grid-cols-4 flex-1">
                 {offices.map(office => <TabsTrigger key={office} value={office}>
                     {office}
                   </TabsTrigger>)}

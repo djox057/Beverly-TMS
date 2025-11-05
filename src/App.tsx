@@ -30,7 +30,6 @@ import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
-import Recovery from "./pages/Recovery";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -166,11 +165,6 @@ const AppContent = () => {
         <Route path="/reports" element={
           <ProtectedRoute>
             <Layout><Reports /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/recovery" element={
-          <ProtectedRoute>
-            <Recovery />
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={
