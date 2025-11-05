@@ -1,7 +1,31 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export const useTrailers = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("trailers-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trailers" },
+        () => queryClient.invalidateQueries({ queryKey: ["trailers"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => queryClient.invalidateQueries({ queryKey: ["trailers"] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['trailers'],
     queryFn: async () => {

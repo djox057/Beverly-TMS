@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 export interface DashboardStats {
   activeOrders: number;
@@ -97,6 +98,39 @@ const fetchRecentOrders = async (): Promise<RecentOrder[]> => {
 };
 
 export const useDashboardStats = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-stats-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers" },
+        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "brokers" },
+        () => queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
@@ -105,6 +139,29 @@ export const useDashboardStats = () => {
 };
 
 export const useRecentOrders = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("recent-orders-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => queryClient.invalidateQueries({ queryKey: ["recent-orders"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pickup_drops" },
+        () => queryClient.invalidateQueries({ queryKey: ["recent-orders"] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['recent-orders'],
     queryFn: fetchRecentOrders,

@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 // Utility function to add timeout protection to queries
 const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
@@ -10,6 +11,24 @@ const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number 
 };
 
 export const useBrokers = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("brokers-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "brokers" },
+        () => queryClient.invalidateQueries({ queryKey: ["brokers", "v2"] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['brokers', 'v2'],
     queryFn: async () => {

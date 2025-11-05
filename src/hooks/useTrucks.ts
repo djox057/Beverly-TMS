@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 // Utility function to add timeout protection to queries
 const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
@@ -10,6 +11,39 @@ const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number 
 };
 
 export const useTrucks = () => {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("trucks-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trucks" },
+        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "trailers" },
+        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "drivers" },
+        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "companies" },
+        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['trucks'],
     queryFn: async () => {
