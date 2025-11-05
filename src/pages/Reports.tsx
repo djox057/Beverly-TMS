@@ -1538,9 +1538,10 @@ const Reports = () => {
   };
   const handleGameOverClick = (truckId: string, driverName: string) => {
     // Find existing "game over" dates for this truck
-    const allTrucks = groupedReports?.flatMap(group => group.trucks) || [];
-    const truck = allTrucks.find(t => t.id === truckId);
+    const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
+    const truck = allTrucks.find((t: any) => t.id === truckId);
     const existingGameOverDates = truck?.lost_day_notes?.filter((note: any) => note.note && note.note.toLowerCase().includes("game over")).map((note: any) => note.date) || [];
+    console.log("🎮 Opening game over dialog for truck:", { truckId, driverName, truck, activeOrders: truck?.activeOrders });
     setGameOverDialog({
       truckId,
       truckNumber: driverName,

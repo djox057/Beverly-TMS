@@ -708,6 +708,7 @@ export const useReports = () => {
           editDate: truckNote ? new Date(truckNote.updated_at).toLocaleDateString() : new Date(truck.updated_at).toLocaleDateString(),
           // Multi-load support
           allOrders: allOrdersWithStops,
+          activeOrders: activeOrders,
           activeOrdersCount: activeOrders.length,
           totalOrdersCount: driverOrders.length || 0,
           hasMultipleOrders: (driverOrders.length || 0) > 1,
@@ -947,6 +948,7 @@ export const useReports = () => {
           lastEdit: new Date().toLocaleTimeString(),
           editDate: new Date().toLocaleDateString(),
           allOrders: allOrdersWithStops,
+          activeOrders: activeOrders,
           activeOrdersCount: activeOrders.length,
           totalOrdersCount: driverOrders.length || 0,
           hasMultipleOrders: (driverOrders.length || 0) > 1,
