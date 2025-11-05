@@ -438,12 +438,13 @@ export const useReports = () => {
 
       if (lostDayError) throw lostDayError;
 
-      // Process trucks and match orders to drivers (not trucks)
+      // Process trucks and match orders to drivers and trucks
       const reportData = trucks?.map(truck => {
         const now = new Date().getTime();
         
-        // Get orders for this truck's driver (not the truck itself)
+        // Get orders for this truck (by truck_id OR driver_id)
         const driverOrders = orders?.filter(order => 
+          order.truck_id === truck.id ||
           (order.driver1_id === truck.driver1_id || order.driver2_id === truck.driver1_id)
         ) || [];
         
