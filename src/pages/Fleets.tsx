@@ -590,7 +590,7 @@ const Fleets = () => {
                                               </button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto">
-                                              <div className="space-y-1">
+                                               <div className="space-y-1">
                                                 {isTeam ? (
                                                   <>
                                                     {drivers.map((driver, idx) => (
@@ -601,9 +601,6 @@ const Fleets = () => {
                                                         {driver.email && <p className="text-xs">✉️ {driver.email}</p>}
                                                       </div>
                                                     ))}
-                                                    <div className="border-t pt-1 mt-1">
-                                                      <p className="text-xs">🚚 Truck: {truckNum}</p>
-                                                    </div>
                                                   </>
                                                 ) : (
                                                   <>
@@ -623,47 +620,36 @@ const Fleets = () => {
                                     </div>
                                     {(hasRole('admin') || hasRole('manager') || hasRole('supervisor')) && (
                                       <div className="flex gap-2">
-                                        {isTeam ? (
-                                          drivers.map((driver) => (
-                                            <React.Fragment key={driver.id}>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                              >
-                                                <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                                Switch {driver.name.split(' ')[0]}
-                                              </Button>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleRemoveDriver(driver.id)}
-                                              >
-                                                <Minus className="h-4 w-4 mr-1" />
-                                                Remove {driver.name.split(' ')[0]}
-                                              </Button>
-                                            </React.Fragment>
-                                          ))
-                                        ) : (
-                                          <>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                            >
-                                              <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                              Switch
-                                            </Button>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => handleRemoveDriver(firstDriver.id)}
-                                            >
-                                              <Minus className="h-4 w-4 mr-1" />
-                                              Remove
-                                            </Button>
-                                          </>
-                                        )}
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            if (isTeam) {
+                                              // For teams, we'll switch the first driver (you can modify this logic as needed)
+                                              setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id });
+                                            } else {
+                                              setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id });
+                                            }
+                                          }}
+                                        >
+                                          <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                          Switch
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            if (isTeam) {
+                                              // Remove all drivers in the team
+                                              drivers.forEach(driver => handleRemoveDriver(driver.id));
+                                            } else {
+                                              handleRemoveDriver(firstDriver.id);
+                                            }
+                                          }}
+                                        >
+                                          <Minus className="h-4 w-4 mr-1" />
+                                          Remove
+                                        </Button>
                                       </div>
                                     )}
                                   </div>
