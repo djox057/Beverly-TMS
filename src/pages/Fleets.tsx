@@ -445,21 +445,21 @@ const Fleets = () => {
                               <div className="flex items-center gap-3">
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <div className="font-medium flex items-center gap-2">
+                                  <div className="font-medium flex items-center gap-2 flex-wrap">
                                     {driver.name}
                                     {driver.truck && (
-                                      <>
+                                      <div className="flex items-center gap-2 flex-nowrap">
                                         <span className="text-muted-foreground">•</span>
-                                        <span className="text-sm font-normal">Truck {driver.truck.truck_number}</span>
+                                        <span className="text-sm font-normal whitespace-nowrap">Truck {driver.truck.truck_number}</span>
                                         {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
                                         {dispatcherFleet.drivers.filter((d: any) => 
                                           d.truck?.truck_number === driver.truck?.truck_number
                                         ).length > 1 && (
-                                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded">
+                                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded whitespace-nowrap">
                                             TEAM
                                           </span>
                                         )}
-                                      </>
+                                      </div>
                                     )}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -516,15 +516,15 @@ const Fleets = () => {
                                         </PopoverContent>
                                       </Popover>
                                     </div>
-                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                    <div className="text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
                                       {driver.truck ? (
                                         <>
-                                          <span>Truck {driver.truck.truck_number}</span>
+                                          <span className="whitespace-nowrap">Truck {driver.truck.truck_number}</span>
                                           {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
                                           {dispatcherFleet.drivers.filter((d: any) => 
                                             d.truck?.truck_number === driver.truck?.truck_number
                                           ).length > 1 && (
-                                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded">
+                                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded whitespace-nowrap">
                                               TEAM
                                             </span>
                                           )}
