@@ -744,7 +744,27 @@ const Reports = () => {
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = stop?.arrived_at;
       const isLate = lateDeliveries.has(order.id);
-      if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      
+      // For multi-drop loads: POD should only turn the corresponding delivery dark green
+      // Get all delivery stops sorted by sequence_number
+      const deliveryStops = order.deliveryStops || order.pickup_drops?.filter((pd: any) => pd.type === "delivery").sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) || [];
+      
+      // Count POD files
+      const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
+      
+      // If there are multiple delivery stops and we have a specific stop
+      if (deliveryStops.length > 1 && stop) {
+        // Find the index of this stop
+        const stopIndex = deliveryStops.findIndex((s: any) => s.id === stop.id);
+        
+        // Only turn dark green if we have enough PODs for this delivery (1 POD per delivery in sequence)
+        if (podCount > stopIndex) {
+          return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+        }
+      } else {
+        // Single delivery or no specific stop - use original logic
+        if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      }
 
       // Check if ETA is late BEFORE checking other BOL statuses
       if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
