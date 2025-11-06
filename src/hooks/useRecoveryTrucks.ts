@@ -123,6 +123,5 @@ export const useRecoveryTrucks = () => {
       );
     },
     staleTime: 30000,
-    refetchInterval: 60000,
   });
 };

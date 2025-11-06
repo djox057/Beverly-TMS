@@ -247,7 +247,6 @@ export const useOrders = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     staleTime: 300000, // Cache for 5 minutes
     gcTime: 600000, // Keep in memory for 10 minutes
-    refetchInterval: 120000, // Refetch every 2 minutes
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
   });

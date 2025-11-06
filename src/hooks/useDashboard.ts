@@ -134,7 +134,6 @@ export const useDashboardStats = () => {
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
 };
 
@@ -165,6 +164,5 @@ export const useRecentOrders = () => {
   return useQuery({
     queryKey: ['recent-orders'],
     queryFn: fetchRecentOrders,
-    refetchInterval: 30000, // Refetch every 30 seconds
   });
 };

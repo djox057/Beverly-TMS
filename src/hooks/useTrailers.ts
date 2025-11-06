@@ -93,7 +93,7 @@ export const useTrailers = () => {
     },
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 60000,
+    staleTime: 300000, // Cache for 5 minutes
+    gcTime: 600000, // Keep in memory for 10 minutes
   });
 };

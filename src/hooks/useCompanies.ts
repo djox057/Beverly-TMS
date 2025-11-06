@@ -60,7 +60,7 @@ export const useCompanies = () => {
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 0, // Don't cache - always fetch fresh
+    staleTime: 600000, // Cache for 10 minutes (companies change rarely)
     gcTime: 600000, // Keep in memory for 10 minutes
     refetchOnWindowFocus: false, // Don't refetch on window focus
     refetchOnMount: true, // Always refetch on mount
