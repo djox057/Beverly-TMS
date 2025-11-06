@@ -110,16 +110,17 @@ const Orders = () => {
     }
     console.log('=== END NAVIGATION DEBUG ===');
   };
-  // Auto-set bookedBy filter for dispatchers (but not afterhours)
+  // Auto-set bookedBy filter for dispatchers (but not afterhours or safety)
   const isDispatcher = primaryRole === 'dispatch';
   
-  // Check if user has only dispatch role (afterhours excluded from auto-filter)
+  // Check if user has only dispatch role (afterhours and safety excluded from auto-filter)
   const isDispatchOnly = hasRole('dispatch') && 
     !hasRole('afterhours') &&
     !hasRole('admin') && 
     !hasRole('manager') && 
     !hasRole('accounting') && 
-    !hasRole('supervisor');
+    !hasRole('supervisor') &&
+    !hasRole('safety');
     
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders = (hasRole('dispatch') || hasRole('afterhours')) && 
@@ -182,12 +183,13 @@ const Orders = () => {
   }, []);
   
   // Set bookedBy filter for dispatchers when profile loads (only if not restoring)
+  // Exclude safety role from auto-filter
   useEffect(() => {
     const shouldRestore = localStorage.getItem('returnToOrders');
-    if (!shouldRestore && isDispatcher && profile?.full_name) {
+    if (!shouldRestore && isDispatcher && profile?.full_name && !hasRole('safety')) {
       setBookedByFilter(profile.full_name);
     }
-  }, [isDispatcher, profile?.full_name]);
+  }, [isDispatcher, profile?.full_name, hasRole]);
   
   const {
     data: orders,
