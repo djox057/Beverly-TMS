@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -437,38 +437,98 @@ const Fleets = () => {
                       /* Placeholder drivers for inactive dispatchers */
                       <div className="grid gap-2">
                         {paginatedDrivers.length > 0 ? (
-                          paginatedDrivers.map((driver) => (
-                            <div
-                              key={driver.id}
-                              className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <div className="font-medium flex items-center gap-2 flex-wrap">
-                                    {driver.name}
-                                    {driver.truck && (
-                                      <div className="flex items-center gap-2 flex-nowrap">
-                                        <span className="text-muted-foreground">•</span>
-                                        <span className="text-sm font-normal whitespace-nowrap">Truck {driver.truck.truck_number}</span>
-                                        {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
-                                        {dispatcherFleet.drivers.filter((d: any) => 
-                                          d.truck?.truck_number === driver.truck?.truck_number
-                                        ).length > 1 && (
-                                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded whitespace-nowrap">
-                                            TEAM
-                                          </span>
+                          (() => {
+                            // Group drivers by truck number
+                            const groupedByTruck = new Map<string, any[]>();
+                            const noTruckDrivers: any[] = [];
+                            
+                            paginatedDrivers.forEach((driver) => {
+                              if (driver.truck?.truck_number) {
+                                const truckNum = driver.truck.truck_number;
+                                if (!groupedByTruck.has(truckNum)) {
+                                  groupedByTruck.set(truckNum, []);
+                                }
+                                groupedByTruck.get(truckNum)!.push(driver);
+                              } else {
+                                noTruckDrivers.push(driver);
+                              }
+                            });
+
+                            // Render team drivers and individual drivers
+                            const renderedItems: JSX.Element[] = [];
+                            
+                            groupedByTruck.forEach((drivers, truckNum) => {
+                              const isTeam = drivers.length > 1;
+                              const firstDriver = drivers[0];
+                              
+                              renderedItems.push(
+                                <div
+                                  key={`truck-${truckNum}`}
+                                  className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <div className="font-medium flex items-center gap-2 flex-wrap">
+                                        {isTeam ? "TEAM" : firstDriver.name}
+                                        {isTeam && (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <button className="inline-flex">
+                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto">
+                                              <div className="space-y-1">
+                                                {drivers.map((driver, idx) => (
+                                                  <div key={driver.id}>
+                                                    {idx > 0 && <div className="border-t pt-1 mt-1" />}
+                                                    <p className="font-semibold text-sm">Driver {idx + 1}: {driver.name}</p>
+                                                    {driver.phone && <p className="text-xs">📞 {driver.phone}</p>}
+                                                    {driver.email && <p className="text-xs">✉️ {driver.email}</p>}
+                                                  </div>
+                                                ))}
+                                                <div className="border-t pt-1 mt-1">
+                                                  <p className="text-xs">🚚 Truck: {truckNum}</p>
+                                                </div>
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
                                         )}
+                                        <span className="text-muted-foreground">•</span>
+                                        <span className="text-sm font-normal whitespace-nowrap">Truck {truckNum}</span>
                                       </div>
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Temporarily reassigned
+                                      <div className="text-xs text-muted-foreground">
+                                        Temporarily reassigned
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </div>
-                          ))
+                              );
+                            });
+
+                            // Add drivers without trucks
+                            noTruckDrivers.forEach((driver) => {
+                              renderedItems.push(
+                                <div
+                                  key={driver.id}
+                                  className="flex items-center justify-between p-3 border rounded-lg opacity-60 bg-muted/30"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <div className="font-medium">{driver.name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Temporarily reassigned
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            });
+
+                            return renderedItems;
+                          })()
                         ) : (
                           <p className="text-sm text-muted-foreground p-3">No drivers were assigned</p>
                         )}
@@ -476,92 +536,216 @@ const Fleets = () => {
                     ) : (
                       /* Active dispatcher drivers with full functionality */
                       <div className="grid gap-2">
-                        {paginatedDrivers.map((driver, index) => (
-                          <Draggable key={driver.id} draggableId={driver.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
-                                  snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div 
-                                    {...provided.dragHandleProps}
-                                    className="cursor-grab active:cursor-grabbing"
+                        {(() => {
+                          // Group drivers by truck number
+                          const groupedByTruck = new Map<string, any[]>();
+                          const noTruckDrivers: any[] = [];
+                          
+                          paginatedDrivers.forEach((driver) => {
+                            if (driver.truck?.truck_number) {
+                              const truckNum = driver.truck.truck_number;
+                              if (!groupedByTruck.has(truckNum)) {
+                                groupedByTruck.set(truckNum, []);
+                              }
+                              groupedByTruck.get(truckNum)!.push(driver);
+                            } else {
+                              noTruckDrivers.push(driver);
+                            }
+                          });
+
+                          // Render team drivers and individual drivers
+                          const renderedItems: JSX.Element[] = [];
+                          let currentIndex = 0;
+                          
+                          groupedByTruck.forEach((drivers, truckNum) => {
+                            const isTeam = drivers.length > 1;
+                            const firstDriver = drivers[0];
+                            const draggableId = isTeam ? `team-${truckNum}` : firstDriver.id;
+                            
+                            renderedItems.push(
+                              <Draggable key={draggableId} draggableId={draggableId} index={currentIndex++}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                      snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
+                                    }`}
                                   >
-                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                  <Users className="h-4 w-4" />
-                                   <div>
-                                    <div className="font-medium flex items-center gap-2">
-                                      {driver.name}
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <button className="inline-flex">
-                                            <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-                                          </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto">
-                                          <div className="space-y-1">
-                                            <p className="font-semibold">{driver.name}</p>
-                                            {driver.phone && (
-                                              <p className="text-sm">📞 {driver.phone}</p>
-                                            )}
-                                            {driver.email && (
-                                              <p className="text-sm">✉️ {driver.email}</p>
-                                            )}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
+                                    <div className="flex items-center gap-3">
+                                      <div 
+                                        {...provided.dragHandleProps}
+                                        className="cursor-grab active:cursor-grabbing"
+                                      >
+                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                      <Users className="h-4 w-4" />
+                                      <div>
+                                        <div className="font-medium flex items-center gap-2">
+                                          {isTeam ? "TEAM" : firstDriver.name}
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <button className="inline-flex">
+                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto">
+                                              <div className="space-y-1">
+                                                {isTeam ? (
+                                                  <>
+                                                    {drivers.map((driver, idx) => (
+                                                      <div key={driver.id}>
+                                                        {idx > 0 && <div className="border-t pt-1 mt-1" />}
+                                                        <p className="font-semibold text-sm">Driver {idx + 1}: {driver.name}</p>
+                                                        {driver.phone && <p className="text-xs">📞 {driver.phone}</p>}
+                                                        {driver.email && <p className="text-xs">✉️ {driver.email}</p>}
+                                                      </div>
+                                                    ))}
+                                                    <div className="border-t pt-1 mt-1">
+                                                      <p className="text-xs">🚚 Truck: {truckNum}</p>
+                                                    </div>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <p className="font-semibold">{firstDriver.name}</p>
+                                                    {firstDriver.phone && <p className="text-sm">📞 {firstDriver.phone}</p>}
+                                                    {firstDriver.email && <p className="text-sm">✉️ {firstDriver.email}</p>}
+                                                  </>
+                                                )}
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                        <div className="text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
+                                          <span className="whitespace-nowrap">Truck {truckNum}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-sm text-muted-foreground flex items-center gap-2 flex-nowrap">
-                                      {driver.truck ? (
-                                        <>
-                                          <span className="whitespace-nowrap">Truck {driver.truck.truck_number}</span>
-                                          {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
-                                          {dispatcherFleet.drivers.filter((d: any) => 
-                                            d.truck?.truck_number === driver.truck?.truck_number
-                                          ).length > 1 && (
-                                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded whitespace-nowrap">
-                                              TEAM
-                                            </span>
-                                          )}
-                                        </>
-                                      ) : (
-                                        'No truck assigned'
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                {(hasRole('admin') || hasRole('manager') || hasRole('supervisor')) && (
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
-                                    >
-                                      <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                      Switch
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleRemoveDriver(driver.id)}
-                                    >
-                                      <Minus className="h-4 w-4 mr-1" />
-                                      Remove
-                                    </Button>
+                                    {(hasRole('admin') || hasRole('manager') || hasRole('supervisor')) && (
+                                      <div className="flex gap-2">
+                                        {isTeam ? (
+                                          drivers.map((driver) => (
+                                            <React.Fragment key={driver.id}>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                              >
+                                                <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                                Switch {driver.name.split(' ')[0]}
+                                              </Button>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleRemoveDriver(driver.id)}
+                                              >
+                                                <Minus className="h-4 w-4 mr-1" />
+                                                Remove {driver.name.split(' ')[0]}
+                                              </Button>
+                                            </React.Fragment>
+                                          ))
+                                        ) : (
+                                          <>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                            >
+                                              <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                              Switch
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => handleRemoveDriver(firstDriver.id)}
+                                            >
+                                              <Minus className="h-4 w-4 mr-1" />
+                                              Remove
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
+                              </Draggable>
+                            );
+                          });
+                          
+                          // Add drivers without trucks
+                          noTruckDrivers.forEach((driver) => {
+                            renderedItems.push(
+                              <Draggable key={driver.id} draggableId={driver.id} index={currentIndex++}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`flex items-center justify-between p-3 border rounded-lg transition-transform hover:shadow-md ${
+                                      snapshot.isDragging ? 'shadow-lg scale-105 bg-background rotate-2' : ''
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div 
+                                        {...provided.dragHandleProps}
+                                        className="cursor-grab active:cursor-grabbing"
+                                      >
+                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                      <Users className="h-4 w-4" />
+                                      <div>
+                                        <div className="font-medium flex items-center gap-2">
+                                          {driver.name}
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <button className="inline-flex">
+                                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto">
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{driver.name}</p>
+                                                {driver.phone && <p className="text-sm">📞 {driver.phone}</p>}
+                                                {driver.email && <p className="text-sm">✉️ {driver.email}</p>}
+                                              </div>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                          No truck assigned
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {(hasRole('admin') || hasRole('manager') || hasRole('supervisor')) && (
+                                      <div className="flex gap-2">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                        >
+                                          <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                          Switch
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleRemoveDriver(driver.id)}
+                                        >
+                                          <Minus className="h-4 w-4 mr-1" />
+                                          Remove
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          });
+
+                          return renderedItems;
+                        })()}
                         {provided.placeholder}
                       </div>
-                     )}
+                    )}
                     {totalPages > 1 && (
                       <div className="mt-4 pt-4 border-t">
                         <Pagination>
