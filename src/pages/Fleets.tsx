@@ -451,6 +451,14 @@ const Fleets = () => {
                                       <>
                                         <span className="text-muted-foreground">•</span>
                                         <span className="text-sm font-normal">Truck {driver.truck.truck_number}</span>
+                                        {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
+                                        {dispatcherFleet.drivers.filter((d: any) => 
+                                          d.truck?.truck_number === driver.truck?.truck_number
+                                        ).length > 1 && (
+                                          <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded">
+                                            TEAM
+                                          </span>
+                                        )}
                                       </>
                                     )}
                                   </div>
@@ -486,7 +494,7 @@ const Fleets = () => {
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                   <Users className="h-4 w-4" />
-                                  <div>
+                                   <div>
                                     <div className="font-medium flex items-center gap-2">
                                       {driver.name}
                                       <Popover>
@@ -508,8 +516,22 @@ const Fleets = () => {
                                         </PopoverContent>
                                       </Popover>
                                     </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {driver.truck ? `Truck ${driver.truck.truck_number}` : 'No truck assigned'}
+                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                      {driver.truck ? (
+                                        <>
+                                          <span>Truck {driver.truck.truck_number}</span>
+                                          {/* Check if there's another driver in this dispatcher's fleet with the same truck number */}
+                                          {dispatcherFleet.drivers.filter((d: any) => 
+                                            d.truck?.truck_number === driver.truck?.truck_number
+                                          ).length > 1 && (
+                                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-primary/20 text-primary border border-primary/30 rounded">
+                                              TEAM
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        'No truck assigned'
+                                      )}
                                     </div>
                                   </div>
                                 </div>
