@@ -36,7 +36,7 @@ const Fleets = () => {
   const [dispatcherFilter, setDispatcherFilter] = useState("");
   const [currentPages, setCurrentPages] = useState<Record<string, number>>({});
   const [driverToRemove, setDriverToRemove] = useState<string | null>(null);
-  const [driverToSwitch, setDriverToSwitch] = useState<{ driverId: string; currentDispatcherId: string } | null>(null);
+  const [driverToSwitch, setDriverToSwitch] = useState<{ driverIds: string[]; currentDispatcherId: string } | null>(null);
   const [dispatcherToToggle, setDispatcherToToggle] = useState<{
     id: string;
     name: string;
@@ -104,7 +104,10 @@ const Fleets = () => {
 
   const handleSwitchDispatcher = async () => {
     if (driverToSwitch && selectedDispatcher) {
-      await assignDriverToDispatcher(driverToSwitch.driverId, selectedDispatcher);
+      // Switch all drivers in the array
+      for (const driverId of driverToSwitch.driverIds) {
+        await assignDriverToDispatcher(driverId, selectedDispatcher);
+      }
       setDriverToSwitch(null);
       setSelectedDispatcher("");
     }
@@ -625,10 +628,16 @@ const Fleets = () => {
                                           size="sm"
                                           onClick={() => {
                                             if (isTeam) {
-                                              // For teams, we'll switch the first driver (you can modify this logic as needed)
-                                              setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id });
+                                              // For teams, switch all drivers together
+                                              setDriverToSwitch({ 
+                                                driverIds: drivers.map(d => d.id), 
+                                                currentDispatcherId: dispatcherFleet.dispatcher.id 
+                                              });
                                             } else {
-                                              setDriverToSwitch({ driverId: firstDriver.id, currentDispatcherId: dispatcherFleet.dispatcher.id });
+                                              setDriverToSwitch({ 
+                                                driverIds: [firstDriver.id], 
+                                                currentDispatcherId: dispatcherFleet.dispatcher.id 
+                                              });
                                             }
                                           }}
                                         >
@@ -706,7 +715,7 @@ const Fleets = () => {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => setDriverToSwitch({ driverId: driver.id, currentDispatcherId: dispatcherFleet.dispatcher.id })}
+                                          onClick={() => setDriverToSwitch({ driverIds: [driver.id], currentDispatcherId: dispatcherFleet.dispatcher.id })}
                                         >
                                           <ArrowRightLeft className="h-4 w-4 mr-1" />
                                           Switch
