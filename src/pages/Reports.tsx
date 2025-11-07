@@ -206,8 +206,17 @@ const Reports = () => {
     hasRole
   } = useAuthContext();
   const navigate = useNavigate();
-  const [showEmptyTrucks, setShowEmptyTrucks] = useState(false);
-  const [showNewDrivers, setShowNewDrivers] = useState(false);
+  
+  // Load filter values from localStorage
+  const [showEmptyTrucks, setShowEmptyTrucks] = useState(() => {
+    const saved = localStorage.getItem('reports-showEmptyTrucks');
+    return saved ? JSON.parse(saved) : false;
+  });
+  
+  const [showNewDrivers, setShowNewDrivers] = useState(() => {
+    const saved = localStorage.getItem('reports-showNewDrivers');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [drugTestDialog, setDrugTestDialog] = useState<{
     driverId: string;
     driverName: string;
@@ -390,9 +399,18 @@ const Reports = () => {
   } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
-  const [truckDriverFilter, setTruckDriverFilter] = useState("");
-  const [dispatchNameFilter, setDispatchNameFilter] = useState("");
-  const [loadNumberFilter, setLoadNumberFilter] = useState("");
+  
+  const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
+    return localStorage.getItem('reports-truckDriverFilter') || "";
+  });
+  
+  const [dispatchNameFilter, setDispatchNameFilter] = useState(() => {
+    return localStorage.getItem('reports-dispatchNameFilter') || "";
+  });
+  
+  const [loadNumberFilter, setLoadNumberFilter] = useState(() => {
+    return localStorage.getItem('reports-loadNumberFilter') || "";
+  });
   const [zoomedLoad, setZoomedLoad] = useState<{
     orderId: string;
     loadNumber: string;
@@ -529,6 +547,27 @@ const Reports = () => {
       driverNames: truck.driverNames
     };
   }, []);
+
+  // Save filter values to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('reports-showEmptyTrucks', JSON.stringify(showEmptyTrucks));
+  }, [showEmptyTrucks]);
+
+  useEffect(() => {
+    localStorage.setItem('reports-showNewDrivers', JSON.stringify(showNewDrivers));
+  }, [showNewDrivers]);
+
+  useEffect(() => {
+    localStorage.setItem('reports-truckDriverFilter', truckDriverFilter);
+  }, [truckDriverFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('reports-dispatchNameFilter', dispatchNameFilter);
+  }, [dispatchNameFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('reports-loadNumberFilter', loadNumberFilter);
+  }, [loadNumberFilter]);
 
   // Debounce filter values to prevent lag
   const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
