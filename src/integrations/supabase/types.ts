@@ -279,15 +279,7 @@ export type Database = {
           operation?: string
           user_agent?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "driver_pii_audit_log_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       driver_sensitive_pii: {
         Row: {
