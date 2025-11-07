@@ -387,7 +387,10 @@ const EditOrder = () => {
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
         if (orderData.delivery_datetime) {
-          setOriginalDeliveryDate(new Date(orderData.delivery_datetime));
+          // Parse without timezone conversion to match how we handle dates in the form
+          const parsed = parseSimpleDateTime(orderData.delivery_datetime);
+          const dateObj = new Date(parsed.year, parsed.month - 1, parsed.day);
+          setOriginalDeliveryDate(dateObj);
         }
 
         // Calculate miles from loaded_miles and dh_miles or use legacy mileage
