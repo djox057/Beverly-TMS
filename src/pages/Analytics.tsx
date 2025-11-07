@@ -76,7 +76,7 @@ const Analytics = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [filterType, setFilterType] = useState<"week" | "month" | "custom">("week");
   const [dispatcherProfiles, setDispatcherProfiles] = useState<
-    Record<string, { email: string; office: string | null }>
+    Record<string, { email: string; office: string | null; roles: string[] }>
   >({});
   const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
@@ -92,20 +92,38 @@ const Analytics = () => {
   // Merge database data with local state
   const driverTiers = useMemo(() => performanceData, [performanceData]);
 
-  // Fetch all profiles to get office locations indexed by full_name
+  // Fetch all profiles to get office locations and roles indexed by full_name
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office");
+      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
 
       if (profiles) {
+        // Fetch user roles for all users
+        const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
+        
+        const rolesMap = userRoles?.reduce(
+          (acc, ur) => {
+            if (!acc[ur.user_id]) {
+              acc[ur.user_id] = [];
+            }
+            acc[ur.user_id].push(ur.role);
+            return acc;
+          },
+          {} as Record<string, string[]>
+        ) || {};
+
         const profileMap = profiles.reduce(
           (acc, p) => {
             if (p.full_name) {
-              acc[p.full_name] = { email: p.email, office: p.office };
+              acc[p.full_name] = { 
+                email: p.email, 
+                office: p.office,
+                roles: rolesMap[p.user_id] || []
+              };
             }
             return acc;
           },
-          {} as Record<string, { email: string; office: string | null }>,
+          {} as Record<string, { email: string; office: string | null; roles: string[] }>,
         );
         setDispatcherProfiles(profileMap);
       }
@@ -361,14 +379,20 @@ const Analytics = () => {
       };
     })
     .filter((stat) => {
+      const dispatcherProfile = dispatcherProfiles[stat.name];
+      
+      // Only show users with 'dispatch' role
+      if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
+        return false;
+      }
+      
       // Admins, managers and accounting see all dispatchers
       if (hasRole("admin") || hasRole("manager") || hasRole("accounting")) {
         return true;
       }
       // Supervisors only see dispatchers from their office
       if (hasRole("supervisor") && profile?.office) {
-        const dispatcherProfile = dispatcherProfiles[stat.name];
-        return dispatcherProfile && dispatcherProfile.office === profile.office;
+        return dispatcherProfile.office === profile.office;
       }
       return false;
     })
