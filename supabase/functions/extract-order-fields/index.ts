@@ -315,14 +315,14 @@ deliveries: [XYZ Store 10/16, DEF Distribution 10/14] ← Correct! Matches docum
 
 **For SINGLE-DROP loads:**
 - ✅ **pickupShipper** - Company name at pickup (e.g., "ABC Warehouse", "Walmart DC #1234")
-- ✅ **pickupPuNumber** - Pickup/appointment number
+- ✅ **pickupPuNumber** - Pickup/appointment number (also check for BOL#, Bill of Lading number - these should map to PU Number)
 - ✅ **pickupPoNumber** - Purchase order number for pickup
 - ✅ **deliveryShipper** - Company name at delivery (e.g., "Target Store #567", "XYZ Distribution")
 - ✅ **deliveryPoNumber** - Purchase order number for delivery
 
 **For MULTI-DROP loads:**
 - ✅ **shipper** - Company name for EACH pickup stop
-- ✅ **puNumber** - Pickup number for EACH pickup stop
+- ✅ **puNumber** - Pickup number for EACH pickup stop (also check for BOL#, Bill of Lading number - these should map to PU Number)
 - ✅ **poNumber** - PO number for EACH pickup stop
 - ✅ **shipper** - Company name for EACH delivery stop
 - ✅ **poNumber** - PO number for EACH delivery stop
@@ -965,7 +965,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
   "pickupDate": "YYYY-MM-DD",
   "pickupStartTime": "HH:MM",
   "pickupEndTime": "HH:MM",
-  "pickupPuNumber": "pickup/appointment number",
+  "pickupPuNumber": "pickup/appointment number OR BOL# (Bill of Lading number)",
   "pickupPoNumber": "purchase order number",
   "pickupShipper": "COMPANY NAME - REQUIRED",
   "deliveryAddress": "street address with building/plant/gate",
@@ -1002,7 +1002,7 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       "date": "YYYY-MM-DD",
       "startTime": "HH:MM",
       "endTime": "HH:MM",
-      "puNumber": "pickup number",
+      "puNumber": "pickup number OR BOL# (Bill of Lading number)",
       "poNumber": "purchase order",
       "shipper": "COMPANY NAME - REQUIRED"
     }

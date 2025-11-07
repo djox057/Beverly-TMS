@@ -11,7 +11,7 @@ import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -154,6 +154,14 @@ const EditOrder = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
+  
+  // Email dispatch toggle states
+  const [confirmationGenerated, setConfirmationGenerated] = useState(false);
+  const [generatedConfirmationBlob, setGeneratedConfirmationBlob] = useState<Blob | null>(null);
+  const [generatedConfirmationFilename, setGeneratedConfirmationFilename] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailFiles, setEmailFiles] = useState<File[]>([]);
 
   // Track original delivery date and date change notes for audit trail
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
@@ -204,6 +212,7 @@ const EditOrder = () => {
     bol: false,
     pod: false,
     additional: false,
+    email: false,
   });
 
   // File input refs for programmatic access
@@ -211,12 +220,37 @@ const EditOrder = () => {
   const bolFileInputRef = useRef<HTMLInputElement>(null);
   const podFileInputRef = useRef<HTMLInputElement>(null);
   const additionalFileInputRef = useRef<HTMLInputElement>(null);
+  const emailFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data from database
   const { data: companies } = useCompanies();
   const { data: trucks } = useTrucks();
   const { data: drivers } = useDrivers();
   const [profiles, setProfiles] = useState<Array<{ id: string; full_name: string }>>([]);
+
+  // Company email configuration (same as NewOrder)
+  const COMPANY_EMAIL_CONFIG: Record<string, { sender: string; cc: string }> = {
+    "BF Prime LLC": {
+      sender: "BF Prime Dispatch <truckload@bfprime.net>",
+      cc: "dispatch@bfprime.net",
+    },
+    "BF Prime United LLC": {
+      sender: "BF Prime United Dispatch <truckload@bfprimeunited.net>",
+      cc: "dispatch@bfprimeunited.net",
+    },
+    "Beverly Group": {
+      sender: "Beverly Group Dispatch <truckload@beverlygroupllc.net>",
+      cc: "dispatch@beverlygroupllc.net",
+    },
+    "Beverly Freight": {
+      sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
+      cc: "dispatch@beverlyfreight.net",
+    },
+    "BG Prime Inc": {
+      sender: "BG Prime Dispatch <truckload@bgprime.net>",
+      cc: "dispatch@bgprime.net",
+    },
+  };
 
   // Fetch profiles for booked by dropdown
   useEffect(() => {
@@ -834,6 +868,117 @@ const EditOrder = () => {
     }
   };
 
+  // Build email subject line (same as NewOrder)
+  const buildEmailSubject = (): string => {
+    const selectedTruck = trucks?.find((t) => t.id === truck);
+    const selectedDriver = drivers?.find((d) => d.id === driver1);
+    const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+    const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
+    const truckNumber = selectedTruck?.truck_number || "TBD";
+    const driverFirstName = selectedDriver?.name?.split(" ")[0] || "Driver";
+    const pickupDate = pickups[0]?.dateRange?.from
+      ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, "0")}/${String(pickups[0].dateRange.from.getDate()).padStart(2, "0")}/${pickups[0].dateRange.from.getFullYear()}`
+      : "TBD";
+    const brokerLoad = brokerLoadNumber || "TBD";
+    const firstPickupState = pickups[0]?.state || "TBD";
+    const lastDeliveryState = deliveries[deliveries.length - 1]?.state || "TBD";
+    return `#${truckNumber} ${driverFirstName} // ${pickupDate} // Load#${brokerLoad} // ${firstPickupState} - ${lastDeliveryState}`;
+  };
+
+  // Send email to driver with uploaded file (same as NewOrder)
+  const handleSendEmailToDriver = async () => {
+    if (emailFiles.length === 0) {
+      toast({
+        title: "No File Attached",
+        description: "Please upload a file to send to the driver.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (emailSent) return;
+
+    try {
+      setIsSendingEmail(true);
+
+      const selectedDriver = drivers?.find((d) => d.id === driver1);
+      if (!selectedDriver?.email) {
+        throw new Error("Driver email not found. Please ensure the driver has an email address.");
+      }
+
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+      const companyName = selectedTruck?.company?.name;
+      if (!companyName) {
+        throw new Error("Truck company not found. Cannot determine sender email.");
+      }
+
+      const emailConfig = COMPANY_EMAIL_CONFIG[companyName];
+      if (!emailConfig) {
+        throw new Error(
+          `Email configuration not found for company: ${companyName}. Please contact support.`,
+        );
+      }
+
+      const subject = buildEmailSubject();
+      const emailFile = emailFiles[0];
+
+      const reader = new FileReader();
+      reader.readAsDataURL(emailFile);
+      await new Promise((resolve, reject) => {
+        reader.onloadend = async () => {
+          try {
+            const base64data = reader.result as string;
+            const base64Content = base64data.split(",")[1];
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(
+              "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+                },
+                body: JSON.stringify({
+                  to: selectedDriver.email,
+                  from: emailConfig.sender,
+                  cc: emailConfig.cc,
+                  subject: subject,
+                  bodyText: "Please see the rate confirmation attached below.",
+                  attachmentBase64: base64Content,
+                  attachmentFilename: emailFiles[0].name,
+                  attachmentContentType: emailFiles[0].type,
+                }),
+              },
+            );
+
+            const responseData = await response.json();
+            if (!response.ok) {
+              throw new Error(responseData.error || "Failed to send email");
+            }
+
+            setEmailSent(true);
+            toast({
+              title: "Email Sent",
+              description: `File sent to ${selectedDriver.email}`,
+            });
+            resolve(true);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
+      });
+    } catch (error: any) {
+      toast({
+        title: "Email Failed",
+        description: error.message || "Failed to send email to driver",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
 
@@ -1049,12 +1194,13 @@ const EditOrder = () => {
   };
 
   // File drag and drop handlers
-  const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional") => {
+  const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
       rc: setRcFiles,
       bol: setBolFiles,
       pod: setPodFiles,
       additional: setAdditionalFiles,
+      email: setEmailFiles,
     }[fileType];
 
     const fileInputRef = {
@@ -1062,6 +1208,7 @@ const EditOrder = () => {
       bol: bolFileInputRef,
       pod: podFileInputRef,
       additional: additionalFileInputRef,
+      email: emailFileInputRef,
     }[fileType];
 
     return {
@@ -1092,7 +1239,12 @@ const EditOrder = () => {
 
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          setFiles(files);
+          // Convert FileList to File[] for email type, otherwise use FileList
+          if (fileType === "email") {
+            (setFiles as React.Dispatch<React.SetStateAction<File[]>>)(Array.from(files));
+          } else {
+            (setFiles as React.Dispatch<React.SetStateAction<FileList>>)(files);
+          }
         }
       },
     };
@@ -1135,6 +1287,7 @@ const EditOrder = () => {
   const bolDragHandlers = createFileDragHandlers("bol");
   const podDragHandlers = createFileDragHandlers("pod");
   const additionalDragHandlers = createFileDragHandlers("additional");
+  const emailDragHandlers = createFileDragHandlers("email");
 
   // Prepare options for dropdowns
   const companyOptions =
@@ -2602,6 +2755,95 @@ const EditOrder = () => {
                 Generate Load Confirmation
               </Button>
             </div>
+
+            {/* Email to Driver Section */}
+            <Card className="bg-blue-50/30 border-blue-200 mt-6">
+              <CardHeader>
+                <CardTitle className="text-base">Email to Driver</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Upload a file to send to the driver via email
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Card
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 hover:shadow-md",
+                    dragStates.email && "border-blue-400 bg-blue-50/50 scale-[1.02]",
+                  )}
+                  {...emailDragHandlers}
+                >
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Load Confirmation File
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {dragStates.email ? (
+                      <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
+                        <FileText className="mx-auto h-6 w-6 text-blue-500 mb-1" />
+                        <p className="text-xs text-blue-600 font-medium">Drop file here</p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-blue-600 mb-2">
+                          {emailFiles.length > 0
+                            ? `${emailFiles.length} file(s) selected`
+                            : "Click or drag file here"}
+                        </p>
+                        {emailFiles.length > 0 && (
+                          <div className="space-y-1 mb-2">
+                            {emailFiles.map((file, index) => (
+                              <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                                <FileText className="h-3 w-3" />
+                                <span className="truncate">{file.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <input
+                      ref={emailFileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setEmailFiles(Array.from(e.target.files));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-blue-600">
+                      Upload the load confirmation to email to driver
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSendEmailToDriver}
+                    disabled={isSendingEmail || emailSent || emailFiles.length === 0}
+                    className="w-full max-w-md"
+                  >
+                    {isSendingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {emailSent ? (
+                      <>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email Sent ✓
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email to Driver
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="flex justify-end gap-4">
               <Button type="button" variant="outline" onClick={() => {
