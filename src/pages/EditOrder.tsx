@@ -1201,6 +1201,7 @@ const EditOrder = () => {
 
       // Check if delivery date changed (date only, not time) and append to date change notes
       let updatedDateChangeNotes = dateChangeNotes;
+      let dateWasChanged = false;
       if (originalDeliveryDate && newDeliveryDatetime) {
         const originalDateOnly = new Date(originalDeliveryDate.getFullYear(), originalDeliveryDate.getMonth(), originalDeliveryDate.getDate());
         const newDateOnly = new Date(newDeliveryDatetime);
@@ -1215,6 +1216,7 @@ const EditOrder = () => {
           });
           const changeNote = `Supposed to deliver on ${oldDateStr}`;
           updatedDateChangeNotes = dateChangeNotes ? `${dateChangeNotes}\n${changeNote}` : changeNote;
+          dateWasChanged = true;
         }
       }
       const {
@@ -1383,6 +1385,12 @@ const EditOrder = () => {
         title: "Success",
         description: "Load updated successfully"
       });
+
+      // Update original delivery date if it was changed to prevent duplicate notes
+      if (dateWasChanged && newDeliveryDatetime) {
+        setOriginalDeliveryDate(new Date(newDeliveryDatetime));
+        setDateChangeNotes(updatedDateChangeNotes);
+      }
 
       // Navigate back to where we came from
       if (returnToReports) {
