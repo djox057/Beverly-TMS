@@ -1579,6 +1579,18 @@ const NewOrder = () => {
         booked_by: profile?.full_name || 'Unknown User'
       };
 
+      // Log order data for debugging
+      console.log('📝 Creating order with data:', {
+        ...orderData,
+        company_id: truckCompanyId,
+        truck_company: selectedTruck?.company?.name
+      });
+
+      // Validate company_id exists
+      if (!truckCompanyId) {
+        throw new Error('Cannot create order: Selected truck has no company assigned. Please select a different truck or assign a company to this truck.');
+      }
+
       // Use the atomic function to create order with unique internal load number
       const {
         data: result,
@@ -1592,7 +1604,15 @@ const NewOrder = () => {
         };
         error: any;
       };
-      if (rpcError) throw rpcError;
+      
+      if (rpcError) {
+        console.error('❌ RPC Error:', rpcError);
+        throw new Error(`Database error: ${rpcError.message || 'Failed to create order'}`);
+      }
+      
+      if (!result?.id) {
+        throw new Error('Order creation failed: No order ID returned');
+      }
       const orderId = result.id;
       const newInternalLoadNumber = result.internal_load_number;
 
