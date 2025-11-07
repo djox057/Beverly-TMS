@@ -120,8 +120,8 @@ export const useTrucks = () => {
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    staleTime: 300000, // Cache for 5 minutes
+    refetchOnMount: "always", // Always fetch fresh data when component mounts
+    staleTime: 0, // Consider data stale immediately to ensure fresh data is fetched
     gcTime: 600000, // Keep in memory for 10 minutes
     placeholderData: (previousData) => previousData,
   });
