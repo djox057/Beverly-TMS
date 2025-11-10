@@ -2223,8 +2223,6 @@ const EditOrder = () => {
                 </div>
               </div>}
 
-            {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
-
             {/* Generate Load Confirmation Button */}
             <div className="flex justify-center mt-6">
               <Button type="button" variant="outline" onClick={handleGenerateConfirmation} disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2} className="w-full max-w-md">
