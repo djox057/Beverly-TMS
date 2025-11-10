@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home, Ban } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
@@ -423,6 +423,8 @@ const Reports = () => {
     driverNames: string;
   } | null>(null);
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
@@ -547,6 +549,104 @@ const Reports = () => {
       driverNames: truck.driverNames
     };
   }, []);
+
+  // Cancel order handlers
+  const handleCancelOrder = async () => {
+    if (!zoomedLoad?.orderId) return;
+
+    try {
+      // Validate inputs
+      const tonu = parseFloat(cancelFormData.tonu);
+      const driverRate = parseFloat(cancelFormData.driverRate);
+      const dhMiles = parseInt(cancelFormData.dhMiles);
+
+      if (isNaN(tonu) || isNaN(driverRate) || isNaN(dhMiles)) {
+        toast({
+          title: "Error",
+          description: "Please enter valid numbers for all fields",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!cancelFormData.notes.trim()) {
+        toast({
+          title: "Error",
+          description: "Notes are required",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // First, get current order values to backup
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('freight_amount, driver_price, loaded_miles, dh_miles, tonu, tonu_driver, notes')
+        .eq('id', zoomedLoad.orderId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Save backup of original values
+      const { error: backupError } = await supabase
+        .from('canceled_orders_backup')
+        .insert({
+          order_id: zoomedLoad.orderId,
+          canceled_by: user?.id,
+          original_freight_amount: currentOrder.freight_amount,
+          original_driver_price: currentOrder.driver_price,
+          original_loaded_miles: currentOrder.loaded_miles,
+          original_dh_miles: currentOrder.dh_miles,
+          original_tonu: currentOrder.tonu,
+          original_tonu_driver: currentOrder.tonu_driver,
+          original_notes: currentOrder.notes,
+          cancel_tonu: tonu,
+          cancel_driver_rate: driverRate,
+          cancel_dh_miles: dhMiles,
+          cancel_notes: cancelFormData.notes
+        });
+
+      if (backupError) throw backupError;
+
+      // Update order with cancel values
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          tonu: tonu,
+          tonu_driver: tonu,
+          driver_price: driverRate,
+          dh_miles: dhMiles,
+          notes: cancelFormData.notes,
+          freight_amount: 0,
+          loaded_miles: 0,
+          canceled: true
+        })
+        .eq('id', zoomedLoad.orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Load cancelled successfully"
+      });
+      setCancelDialogOpen(false);
+      setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+      setZoomedLoad(null);
+      
+      // Refresh reports list
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel load",
+        variant: "destructive"
+      });
+    }
+  };
 
   // Save filter values to localStorage when they change
   useEffect(() => {
@@ -2657,13 +2757,27 @@ const Reports = () => {
           <div className="mt-6 space-y-4 pt-4 border-t">
             <div>
               <h4 className="text-sm font-semibold mb-3">Document Status</h4>
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-3 flex-wrap items-center">
                 {["RC", "BOL", "POD"].map(doc => <div key={doc} className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${zoomedLoad?.documents.includes(doc) ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))]" : "bg-card text-muted-foreground border-border"}`}>
                     <div className="flex items-center gap-2">
                       {zoomedLoad?.documents.includes(doc) && <Check className="h-4 w-4" />}
                       <span>{doc}</span>
                     </div>
                   </div>)}
+                
+                {/* Cancel Button - centered right */}
+                <div className="ml-auto">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setCancelDialogOpen(true);
+                    }}
+                  >
+                    <Ban className="h-4 w-4 mr-2" />
+                    Cancel Load
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -2960,6 +3074,67 @@ const Reports = () => {
           }
         }}
       />
+
+      {/* Cancel Load Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Load #{zoomedLoad?.loadNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cancel-tonu">Company TONU ($)</Label>
+              <Input
+                id="cancel-tonu"
+                type="number"
+                step="0.01"
+                value={cancelFormData.tonu}
+                onChange={(e) => setCancelFormData({ ...cancelFormData, tonu: e.target.value })}
+                placeholder="Enter company TONU amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-driver-rate">Driver Rate ($)</Label>
+              <Input
+                id="cancel-driver-rate"
+                type="number"
+                step="0.01"
+                value={cancelFormData.driverRate}
+                onChange={(e) => setCancelFormData({ ...cancelFormData, driverRate: e.target.value })}
+                placeholder="Enter driver rate"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-dh-miles">DH Miles</Label>
+              <Input
+                id="cancel-dh-miles"
+                type="number"
+                value={cancelFormData.dhMiles}
+                onChange={(e) => setCancelFormData({ ...cancelFormData, dhMiles: e.target.value })}
+                placeholder="Enter DH miles"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-notes">Notes (required)</Label>
+              <Textarea
+                id="cancel-notes"
+                value={cancelFormData.notes}
+                onChange={(e) => setCancelFormData({ ...cancelFormData, notes: e.target.value })}
+                placeholder="Enter reason for cancellation"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleCancelOrder}>
+                Confirm Cancellation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>;
 };
 export default Reports;
