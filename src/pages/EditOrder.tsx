@@ -1094,6 +1094,17 @@ const EditOrder = () => {
         return;
       }
 
+      // Check if original financial data is valid (not zero/null)
+      if (!orderData.original_freight_amount || !orderData.original_miles) {
+        toast({
+          title: "Cannot Revert",
+          description: "This order needs to be updated first before it can be reverted. The original data is incomplete. Please update the order to save the current state.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Revert to original state
       const { error } = await supabase
         .from("orders")
