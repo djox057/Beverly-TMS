@@ -3088,8 +3088,8 @@ const Reports = () => {
                 id="cancel-tonu"
                 type="number"
                 step="0.01"
-                value={cancelFormData.tonu}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, tonu: e.target.value })}
+                defaultValue={cancelFormData.tonu}
+                onChange={(e) => cancelFormData.tonu = e.target.value}
                 placeholder="Enter company TONU amount"
               />
             </div>
@@ -3099,8 +3099,8 @@ const Reports = () => {
                 id="cancel-driver-rate"
                 type="number"
                 step="0.01"
-                value={cancelFormData.driverRate}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, driverRate: e.target.value })}
+                defaultValue={cancelFormData.driverRate}
+                onChange={(e) => cancelFormData.driverRate = e.target.value}
                 placeholder="Enter driver rate"
               />
             </div>
@@ -3109,8 +3109,8 @@ const Reports = () => {
               <Input
                 id="cancel-dh-miles"
                 type="number"
-                value={cancelFormData.dhMiles}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, dhMiles: e.target.value })}
+                defaultValue={cancelFormData.dhMiles}
+                onChange={(e) => cancelFormData.dhMiles = e.target.value}
                 placeholder="Enter DH miles"
               />
             </div>
@@ -3118,8 +3118,8 @@ const Reports = () => {
               <Label htmlFor="cancel-notes">Notes (required)</Label>
               <Textarea
                 id="cancel-notes"
-                value={cancelFormData.notes}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, notes: e.target.value })}
+                defaultValue={cancelFormData.notes}
+                onChange={(e) => cancelFormData.notes = e.target.value}
                 placeholder="Enter reason for cancellation"
                 rows={3}
               />
