@@ -56,6 +56,7 @@ export function RecoveryLoadDialog({
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [originalTrailerValue, setOriginalTrailerValue] = useState<string>("");
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -68,6 +69,15 @@ export function RecoveryLoadDialog({
       setRecoveryTrailerId(trailerId);
       setRecoveryDriverId(driverId);
     }
+  };
+
+  const handleSwitchTrailers = () => {
+    // Swap the trailer values
+    const tempOriginal = originalTrailerValue || currentTrailer;
+    const tempRecovery = recoveryTrailerId;
+    
+    setOriginalTrailerValue(tempRecovery);
+    setRecoveryTrailerId(tempOriginal);
   };
 
   const handleSave = () => {
@@ -121,7 +131,7 @@ export function RecoveryLoadDialog({
               </div>
               <div>
                 <Label>Trailer</Label>
-                <Input value={currentTrailer || "N/A"} disabled />
+                <Input value={originalTrailerValue || currentTrailer || "N/A"} disabled />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -148,7 +158,17 @@ export function RecoveryLoadDialog({
 
           {/* Transfer Driver Section */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Transfer Driver</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Transfer Driver</h3>
+              <Button 
+                type="button"
+                variant="outline" 
+                size="sm"
+                onClick={handleSwitchTrailers}
+              >
+                Switch Trailers
+              </Button>
+            </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Truck *</Label>
