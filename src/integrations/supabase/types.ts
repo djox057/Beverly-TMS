@@ -41,6 +41,74 @@ export type Database = {
         }
         Relationships: []
       }
+      canceled_orders_backup: {
+        Row: {
+          cancel_dh_miles: number | null
+          cancel_driver_rate: number | null
+          cancel_notes: string | null
+          cancel_tonu: number | null
+          canceled_at: string
+          canceled_by: string | null
+          created_at: string
+          id: string
+          order_id: string
+          original_dh_miles: number | null
+          original_driver_price: number | null
+          original_freight_amount: number | null
+          original_loaded_miles: number | null
+          original_notes: string | null
+          original_tonu: number | null
+          original_tonu_driver: number | null
+          updated_at: string
+        }
+        Insert: {
+          cancel_dh_miles?: number | null
+          cancel_driver_rate?: number | null
+          cancel_notes?: string | null
+          cancel_tonu?: number | null
+          canceled_at?: string
+          canceled_by?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          original_dh_miles?: number | null
+          original_driver_price?: number | null
+          original_freight_amount?: number | null
+          original_loaded_miles?: number | null
+          original_notes?: string | null
+          original_tonu?: number | null
+          original_tonu_driver?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cancel_dh_miles?: number | null
+          cancel_driver_rate?: number | null
+          cancel_notes?: string | null
+          cancel_tonu?: number | null
+          canceled_at?: string
+          canceled_by?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          original_dh_miles?: number | null
+          original_driver_price?: number | null
+          original_freight_amount?: number | null
+          original_loaded_miles?: number | null
+          original_notes?: string | null
+          original_tonu?: number | null
+          original_tonu_driver?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canceled_orders_backup_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string

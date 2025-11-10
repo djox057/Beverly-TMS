@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -436,11 +436,45 @@ const Orders = () => {
       // Validate inputs
       const validated = cancelSchema.parse(cancelFormData);
 
+      // First, get current order values to backup
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('freight_amount, driver_price, loaded_miles, dh_miles, tonu, tonu_driver, notes')
+        .eq('id', selectedOrderId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Save backup of original values
+      const { error: backupError } = await supabase
+        .from('canceled_orders_backup')
+        .insert({
+          order_id: selectedOrderId,
+          canceled_by: user?.id,
+          original_freight_amount: currentOrder.freight_amount,
+          original_driver_price: currentOrder.driver_price,
+          original_loaded_miles: currentOrder.loaded_miles,
+          original_dh_miles: currentOrder.dh_miles,
+          original_tonu: currentOrder.tonu,
+          original_tonu_driver: currentOrder.tonu_driver,
+          original_notes: currentOrder.notes,
+          cancel_tonu: validated.tonu,
+          cancel_driver_rate: validated.driverRate,
+          cancel_dh_miles: validated.dhMiles,
+          cancel_notes: validated.notes
+        });
+
+      if (backupError) throw backupError;
+
       // Update order with cancel values
       const { error } = await supabase
         .from('orders')
         .update({
           tonu: validated.tonu,
+          tonu_driver: validated.tonu,
           driver_price: validated.driverRate,
           dh_miles: validated.dhMiles,
           notes: validated.notes,
@@ -466,6 +500,62 @@ const Orders = () => {
         console.error('Error cancelling order:', error);
         toast.error("Failed to cancel load");
       }
+    }
+  };
+
+  const handleRevertCancellation = async (orderId: string) => {
+    if (!confirm("Are you sure you want to revert this cancellation? This will restore all original values.")) {
+      return;
+    }
+
+    try {
+      // Get the backup data
+      const { data: backup, error: fetchError } = await supabase
+        .from('canceled_orders_backup')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('canceled_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!backup) {
+        toast.error("No backup found for this order");
+        return;
+      }
+
+      // Restore original values
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          freight_amount: backup.original_freight_amount,
+          driver_price: backup.original_driver_price,
+          loaded_miles: backup.original_loaded_miles,
+          dh_miles: backup.original_dh_miles,
+          tonu: backup.original_tonu,
+          tonu_driver: backup.original_tonu_driver,
+          notes: backup.original_notes,
+          canceled: false
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Delete the backup record
+      const { error: deleteError } = await supabase
+        .from('canceled_orders_backup')
+        .delete()
+        .eq('id', backup.id);
+
+      if (deleteError) console.error('Error deleting backup:', deleteError);
+
+      toast.success("Load cancellation reverted successfully");
+      
+      // Refresh orders list
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    } catch (error) {
+      console.error('Error reverting cancellation:', error);
+      toast.error("Failed to revert cancellation");
     }
   };
   return (
@@ -788,16 +878,26 @@ const Orders = () => {
                                     <LockOpen className="h-4 w-4 text-muted-foreground" />
                                   )}
                                 </Button>
-                                {!order.locked && (
+                                {!order.locked && !order.canceled && (
                                    <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
                                     <XCircle className="h-4 w-4 text-destructive" />
                                   </Button>
                                 )}
+                                {order.canceled && (canLockOrders || canCancelOrders) && (
+                                  <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
+                                    <Undo2 className="h-4 w-4 text-primary" />
+                                  </Button>
+                                )}
                               </>
                             )}
-                            {canCancelOrders && !order.locked && (
+                            {canCancelOrders && !order.locked && !order.canceled && (
                               <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
                                 <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                            {canCancelOrders && order.canceled && (
+                              <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
+                                <Undo2 className="h-4 w-4 text-primary" />
                               </Button>
                             )}
                           </div>
