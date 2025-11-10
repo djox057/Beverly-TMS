@@ -1094,8 +1094,9 @@ const EditOrder = () => {
         return;
       }
 
-      // Check if original financial data is valid (not zero/null)
-      if (!orderData.original_freight_amount || !orderData.original_miles) {
+      // Check if original financial data exists (not null/undefined)
+      if (orderData.original_freight_amount === null || orderData.original_freight_amount === undefined || 
+          orderData.original_miles === null || orderData.original_miles === undefined) {
         toast({
           title: "Cannot Revert",
           description: "This order needs to be updated first before it can be reverted. The original data is incomplete. Please update the order to save the current state.",
