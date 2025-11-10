@@ -79,21 +79,22 @@ export function RecoveryLoadDialog({
   };
 
   const handleSwitchTrailers = () => {
-    // Swap the trailer IDs
-    const tempOriginalId = originalTrailerDisplay ? recoveryTrailerId : "";
-    const tempRecoveryId = originalTrailerDisplay || currentTrailer ? (originalTrailerDisplay ? "" : recoveryTrailerId) : recoveryTrailerId;
+    // Get current values
+    const currentOriginalDisplay = originalTrailerDisplay || currentTrailer;
+    const currentRecoveryDisplay = recoveryTrailerDisplay;
+    const currentRecoveryId = recoveryTrailerId;
     
-    // Swap the display values
-    const tempOriginalDisplay = originalTrailerDisplay || currentTrailer;
-    const tempRecoveryDisplay = recoveryTrailerDisplay;
+    // Swap display values
+    setOriginalTrailerDisplay(currentRecoveryDisplay);
+    setRecoveryTrailerDisplay(currentOriginalDisplay);
     
-    setOriginalTrailerDisplay(tempRecoveryDisplay);
-    setRecoveryTrailerDisplay(tempOriginalDisplay);
-    
-    // Swap the actual IDs
-    const originalTrailerId = originalTrailerDisplay || currentTrailer;
-    const recoveryId = recoveryTrailerId;
-    setRecoveryTrailerId(originalTrailerId);
+    // For the recovery trailer ID, we need to find the ID that matches the original trailer number
+    const originalTrailerObj = trailers?.find((t) => t.trailer_number === currentOriginalDisplay);
+    if (originalTrailerObj) {
+      setRecoveryTrailerId(originalTrailerObj.id);
+    } else {
+      setRecoveryTrailerId("");
+    }
   };
 
   const handleSave = () => {
