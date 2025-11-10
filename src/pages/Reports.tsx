@@ -2244,25 +2244,10 @@ const Reports = () => {
               console.log("📋 Original dispatcher ID:", originalDispatcherId);
             }
             
-            // If recovery driver selected, assign to them and unassign dispatcher from original driver
+            // If recovery driver selected, assign to them (keep dispatcher unchanged for original driver)
             if (recoveryDriverId) {
               truckUpdate.driver1_id = recoveryDriverId;
               console.log("👤 Assigning recovery driver:", recoveryDriverId);
-              
-              // Unassign dispatcher from the original driver ONLY (do NOT touch recovery driver's dispatcher)
-              if (truck?.driverId) {
-                console.log("🔄 Unassigning dispatcher from original driver...");
-                const { error: dispatcherError } = await supabase
-                  .from("drivers")
-                  .update({ dispatcher_id: null })
-                  .eq("id", truck.driverId);
-                  
-                if (dispatcherError) {
-                  console.error("❌ Dispatcher unassign failed:", dispatcherError);
-                  throw dispatcherError;
-                }
-                console.log("✅ Dispatcher unassigned from original driver successfully");
-              }
             } else {
               truckUpdate.driver1_id = null;
               truckUpdate.driver2_id = null;
