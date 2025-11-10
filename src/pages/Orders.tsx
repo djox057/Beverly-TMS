@@ -883,7 +883,7 @@ const Orders = () => {
                                     <XCircle className="h-4 w-4 text-destructive" />
                                   </Button>
                                 )}
-                                {order.canceled && (hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor') || canCancelOrders) && (
+                                {order.canceled && !order.locked && (hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor') || canCancelOrders) && (
                                   <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
                                     <Undo2 className="h-4 w-4 text-primary" />
                                   </Button>
@@ -895,7 +895,7 @@ const Orders = () => {
                                 <XCircle className="h-4 w-4 text-destructive" />
                               </Button>
                             )}
-                            {canCancelOrders && order.canceled && (
+                            {canCancelOrders && order.canceled && !order.locked && (
                               <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
                                 <Undo2 className="h-4 w-4 text-primary" />
                               </Button>
