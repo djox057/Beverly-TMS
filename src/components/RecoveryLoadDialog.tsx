@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
+import { useTrailers } from "@/hooks/useTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle } from "lucide-react";
@@ -44,6 +45,7 @@ export function RecoveryLoadDialog({
 }: RecoveryLoadDialogProps) {
   const { data: trucks } = useAvailableTrucks(true); // Pass true for recovery mode
   const { data: drivers } = useDrivers();
+  const { data: allTrailers } = useTrailers(); // Get ALL trailers for lookup
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
   
   const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
@@ -58,6 +60,7 @@ export function RecoveryLoadDialog({
   const [error, setError] = useState<string>("");
   const [originalTrailerDisplay, setOriginalTrailerDisplay] = useState<string>("");
   const [recoveryTrailerDisplay, setRecoveryTrailerDisplay] = useState<string>("");
+  const [originalTrailerId, setOriginalTrailerId] = useState<string>(""); // Track original trailer ID
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -79,21 +82,22 @@ export function RecoveryLoadDialog({
   };
 
   const handleSwitchTrailers = () => {
-    // Get current values
-    const currentOriginalDisplay = originalTrailerDisplay || currentTrailer;
-    const currentRecoveryDisplay = recoveryTrailerDisplay;
-    const currentRecoveryId = recoveryTrailerId;
+    // Get current trailer numbers and IDs
+    const currentOriginalNumber = originalTrailerDisplay || currentTrailer;
+    const currentRecoveryNumber = recoveryTrailerDisplay;
+    
+    // Find the trailer IDs from ALL trailers
+    const originalTrailer = allTrailers?.find((t) => t.trailer_number === currentOriginalNumber);
+    const recoveryTrailer = allTrailers?.find((t) => t.trailer_number === currentRecoveryNumber);
     
     // Swap display values
-    setOriginalTrailerDisplay(currentRecoveryDisplay);
-    setRecoveryTrailerDisplay(currentOriginalDisplay);
+    setOriginalTrailerDisplay(currentRecoveryNumber);
+    setRecoveryTrailerDisplay(currentOriginalNumber);
     
-    // For the recovery trailer ID, we need to find the ID that matches the original trailer number
-    const originalTrailerObj = trailers?.find((t) => t.trailer_number === currentOriginalDisplay);
-    if (originalTrailerObj) {
-      setRecoveryTrailerId(originalTrailerObj.id);
-    } else {
-      setRecoveryTrailerId("");
+    // Swap IDs
+    if (originalTrailer) {
+      setOriginalTrailerId(recoveryTrailer?.id || "");
+      setRecoveryTrailerId(originalTrailer.id);
     }
   };
 
