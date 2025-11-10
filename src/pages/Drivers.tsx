@@ -271,6 +271,21 @@ const Drivers = () => {
 
       // Update truck if selected
       if (formData.truck_id && driverData) {
+        // Remove driver from any other truck first
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', driverData.id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', driverData.id);
+        
+        // Remove trailer from any other truck if selected
+        if (formData.trailer_id) {
+          await supabase.from('trucks')
+            .update({ trailer_id: null })
+            .eq('trailer_id', formData.trailer_id);
+        }
+
         const {
           error: truckError
         } = await supabase.from('trucks').update({
@@ -380,6 +395,14 @@ const Drivers = () => {
 
       // Then assign to new truck if one is selected
       if (formData.truck_id) {
+        // Remove trailer from any other truck if selected
+        if (formData.trailer_id) {
+          await supabase.from('trucks')
+            .update({ trailer_id: null })
+            .eq('trailer_id', formData.trailer_id)
+            .neq('id', formData.truck_id);
+        }
+
         const {
           error: truckError
         } = await supabase.from('trucks').update({

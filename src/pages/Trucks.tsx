@@ -106,6 +106,31 @@ const Trucks = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Remove driver from any other truck if already assigned
+      if (formData.driver_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver_id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver_id);
+      }
+      if (formData.driver2_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver2_id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver2_id);
+      }
+      
+      // Remove trailer from any other truck if already assigned
+      if (formData.trailer_id) {
+        await supabase.from('trucks')
+          .update({ trailer_id: null })
+          .eq('trailer_id', formData.trailer_id);
+      }
+
       const {
         error
       } = await supabase.from('trucks').insert({
@@ -146,6 +171,36 @@ const Trucks = () => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
+      // Remove driver from any other truck if already assigned (excluding current truck)
+      if (formData.driver_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver_id)
+          .neq('id', editingTruck.id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver_id)
+          .neq('id', editingTruck.id);
+      }
+      if (formData.driver2_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver2_id)
+          .neq('id', editingTruck.id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver2_id)
+          .neq('id', editingTruck.id);
+      }
+      
+      // Remove trailer from any other truck if already assigned (excluding current truck)
+      if (formData.trailer_id) {
+        await supabase.from('trucks')
+          .update({ trailer_id: null })
+          .eq('trailer_id', formData.trailer_id)
+          .neq('id', editingTruck.id);
+      }
+
       const {
         error
       } = await supabase.from('trucks').update({
@@ -228,20 +283,11 @@ const Trucks = () => {
       </div>;
   }
 
-  // Filter out drivers who already have a truck assigned (excluding the current truck being edited)
-  const availableDrivers = drivers?.filter(driver => {
-    // If we're editing a truck, allow the currently assigned driver to remain in the list
-    if (editingTruck && (editingTruck.driver1_id === driver.id || editingTruck.driver2_id === driver.id)) {
-      return true;
-    }
-    // Check if this driver is assigned to any truck
-    const isAssigned = trucks?.some(truck => truck.driver1_id === driver.id || truck.driver2_id === driver.id);
-    return !isAssigned;
-  }) || [];
-  const driverOptions = availableDrivers.map(driver => ({
+  // Show all drivers (allow reassigning from other trucks)
+  const driverOptions = drivers?.map(driver => ({
     value: driver.id,
     label: driver.name
-  }));
+  })) || [];
   const trailerOptions = trailers?.map(trailer => ({
     value: trailer.id,
     label: trailer.trailer_number
