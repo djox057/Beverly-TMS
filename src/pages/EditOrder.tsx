@@ -2224,7 +2224,6 @@ const EditOrder = () => {
               </div>}
 
             {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
-            
 
             {/* Generate Load Confirmation Button */}
             <div className="flex justify-center mt-6">
