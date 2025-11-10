@@ -56,7 +56,8 @@ export function RecoveryLoadDialog({
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [originalTrailerValue, setOriginalTrailerValue] = useState<string>("");
+  const [originalTrailerDisplay, setOriginalTrailerDisplay] = useState<string>("");
+  const [recoveryTrailerDisplay, setRecoveryTrailerDisplay] = useState<string>("");
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -68,16 +69,31 @@ export function RecoveryLoadDialog({
       const driverId = selectedTruck.driver1_id || "";
       setRecoveryTrailerId(trailerId);
       setRecoveryDriverId(driverId);
+      
+      // Find and set the trailer display number
+      const selectedTrailer = trailers?.find((t) => t.id === trailerId);
+      if (selectedTrailer) {
+        setRecoveryTrailerDisplay(selectedTrailer.trailer_number);
+      }
     }
   };
 
   const handleSwitchTrailers = () => {
-    // Swap the trailer values
-    const tempOriginal = originalTrailerValue || currentTrailer;
-    const tempRecovery = recoveryTrailerId;
+    // Swap the trailer IDs
+    const tempOriginalId = originalTrailerDisplay ? recoveryTrailerId : "";
+    const tempRecoveryId = originalTrailerDisplay || currentTrailer ? (originalTrailerDisplay ? "" : recoveryTrailerId) : recoveryTrailerId;
     
-    setOriginalTrailerValue(tempRecovery);
-    setRecoveryTrailerId(tempOriginal);
+    // Swap the display values
+    const tempOriginalDisplay = originalTrailerDisplay || currentTrailer;
+    const tempRecoveryDisplay = recoveryTrailerDisplay;
+    
+    setOriginalTrailerDisplay(tempRecoveryDisplay);
+    setRecoveryTrailerDisplay(tempOriginalDisplay);
+    
+    // Swap the actual IDs
+    const originalTrailerId = originalTrailerDisplay || currentTrailer;
+    const recoveryId = recoveryTrailerId;
+    setRecoveryTrailerId(originalTrailerId);
   };
 
   const handleSave = () => {
@@ -131,7 +147,7 @@ export function RecoveryLoadDialog({
               </div>
               <div>
                 <Label>Trailer</Label>
-                <Input value={originalTrailerValue || currentTrailer || "N/A"} disabled />
+                <Input value={originalTrailerDisplay || currentTrailer || "N/A"} disabled />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -192,7 +208,13 @@ export function RecoveryLoadDialog({
                     label: trailer.trailer_number,
                   })) || []}
                   value={recoveryTrailerId}
-                  onValueChange={setRecoveryTrailerId}
+                  onValueChange={(value) => {
+                    setRecoveryTrailerId(value);
+                    const selectedTrailer = trailers?.find((t) => t.id === value);
+                    if (selectedTrailer) {
+                      setRecoveryTrailerDisplay(selectedTrailer.trailer_number);
+                    }
+                  }}
                   placeholder="Select trailer"
                   searchPlaceholder="Search trailers..."
                   emptyText="No trailer found."
