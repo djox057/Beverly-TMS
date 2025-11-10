@@ -1976,11 +1976,11 @@ const EditOrder = () => {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Miles:</span>{" "}
-                        <span className="font-medium">{originalMiles || "N/A"}</span>
+                        <span className="font-medium">{originalMiles || "0"}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Driver Rate:</span>{" "}
-                        <span className="font-medium">{originalDriverPrice ? `$${parseFloat(originalDriverPrice).toFixed(2)}` : "N/A"}</span>
+                        <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
