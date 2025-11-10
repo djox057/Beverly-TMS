@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
-import { useTrailers } from "@/hooks/useTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle } from "lucide-react";
@@ -45,7 +44,6 @@ export function RecoveryLoadDialog({
 }: RecoveryLoadDialogProps) {
   const { data: trucks } = useAvailableTrucks(true); // Pass true for recovery mode
   const { data: drivers } = useDrivers();
-  const { data: allTrailers } = useTrailers(); // Get ALL trailers for lookup
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
   
   const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
@@ -58,20 +56,6 @@ export function RecoveryLoadDialog({
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [originalTrailerDisplay, setOriginalTrailerDisplay] = useState<string>("");
-  const [recoveryTrailerDisplay, setRecoveryTrailerDisplay] = useState<string>("");
-  const [originalTrailerId, setOriginalTrailerId] = useState<string>(""); // Track original trailer ID
-
-  // Initialize original trailer when dialog opens or allTrailers loads
-  useEffect(() => {
-    if (open && currentTrailer && allTrailers && !originalTrailerId) {
-      const trailer = allTrailers.find(t => t.trailer_number === currentTrailer);
-      if (trailer) {
-        setOriginalTrailerId(trailer.id);
-        setOriginalTrailerDisplay(currentTrailer);
-      }
-    }
-  }, [open, currentTrailer, allTrailers, originalTrailerId]);
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -83,25 +67,7 @@ export function RecoveryLoadDialog({
       const driverId = selectedTruck.driver1_id || "";
       setRecoveryTrailerId(trailerId);
       setRecoveryDriverId(driverId);
-      
-      // Find and set the trailer display number
-      const selectedTrailer = trailers?.find((t) => t.id === trailerId);
-      if (selectedTrailer) {
-        setRecoveryTrailerDisplay(selectedTrailer.trailer_number);
-      }
     }
-  };
-
-  const handleSwitchTrailers = () => {
-    // Swap display values
-    const tempDisplay = originalTrailerDisplay;
-    setOriginalTrailerDisplay(recoveryTrailerDisplay);
-    setRecoveryTrailerDisplay(tempDisplay);
-    
-    // Swap IDs
-    const tempId = originalTrailerId;
-    setOriginalTrailerId(recoveryTrailerId);
-    setRecoveryTrailerId(tempId);
   };
 
   const handleSave = () => {
@@ -116,7 +82,7 @@ export function RecoveryLoadDialog({
       originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
       recoveryTruckId,
-      recoveryTrailerId: recoveryTrailerId || "", // Transfer driver gets this trailer
+      recoveryTrailerId,
       recoveryDriverId,
       recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
@@ -155,7 +121,7 @@ export function RecoveryLoadDialog({
               </div>
               <div>
                 <Label>Trailer</Label>
-                <Input value={originalTrailerDisplay || currentTrailer || "N/A"} disabled />
+                <Input value={currentTrailer || "N/A"} disabled />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -182,17 +148,7 @@ export function RecoveryLoadDialog({
 
           {/* Transfer Driver Section */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-lg">Transfer Driver</h3>
-              <Button 
-                type="button"
-                variant="outline" 
-                size="sm"
-                onClick={handleSwitchTrailers}
-              >
-                Switch Trailers
-              </Button>
-            </div>
+            <h3 className="font-semibold text-lg">Transfer Driver</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Truck *</Label>
@@ -216,13 +172,7 @@ export function RecoveryLoadDialog({
                     label: trailer.trailer_number,
                   })) || []}
                   value={recoveryTrailerId}
-                  onValueChange={(value) => {
-                    setRecoveryTrailerId(value);
-                    const selectedTrailer = trailers?.find((t) => t.id === value);
-                    if (selectedTrailer) {
-                      setRecoveryTrailerDisplay(selectedTrailer.trailer_number);
-                    }
-                  }}
+                  onValueChange={setRecoveryTrailerId}
                   placeholder="Select trailer"
                   searchPlaceholder="Search trailers..."
                   emptyText="No trailer found."
