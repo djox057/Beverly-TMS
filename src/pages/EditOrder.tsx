@@ -1083,6 +1083,17 @@ const EditOrder = () => {
 
       if (fetchError) throw fetchError;
 
+      // Check if original data exists (order was updated after migration)
+      if (!orderData.original_driver1_id && !orderData.original_truck_id) {
+        toast({
+          title: "Cannot Revert",
+          description: "This order needs to be updated first before it can be reverted. Please update the order to save the current state.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Revert to original state
       const { error } = await supabase
         .from("orders")
