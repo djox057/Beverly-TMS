@@ -1045,10 +1045,39 @@ const EditOrder = () => {
     try {
       setIsSubmitting(true);
 
-      // Get original values from database
+      // Get all original values from database
       const { data: orderData, error: fetchError } = await supabase
         .from("orders")
-        .select("original_driver1_id, original_driver2_id, original_truck_id, original_trailer_id, original_miles, original_driver_price, original_freight_amount")
+        .select(`
+          original_driver1_id, 
+          original_driver2_id, 
+          original_truck_id, 
+          original_trailer_id, 
+          original_miles, 
+          original_driver_price, 
+          original_freight_amount,
+          original_notes,
+          original_tonu,
+          original_tonu_driver,
+          original_dh_miles,
+          original_loaded_miles,
+          original_detention,
+          original_detention_driver,
+          original_layover,
+          original_layover_driver,
+          original_extra_stop,
+          original_extra_stop_driver,
+          original_lumper,
+          original_lumper_driver,
+          original_late_fee,
+          original_late_fee_driver,
+          original_no_tracking_fee,
+          original_no_tracking_fee_driver,
+          original_wrong_address_fee,
+          original_wrong_address_fee_driver,
+          original_escort_fee,
+          original_escort_fee_broker_paid
+        `)
         .eq("id", id)
         .single();
 
@@ -1065,9 +1094,29 @@ const EditOrder = () => {
           trailer_id: orderData.original_trailer_id,
           mileage: orderData.original_miles || 0,
           driver_price: orderData.original_driver_price || 0,
-          loaded_miles: orderData.original_miles || 0,
-          dh_miles: 0,
-          // Clear recovery fields
+          freight_amount: orderData.original_freight_amount || 0,
+          notes: orderData.original_notes || null,
+          tonu: orderData.original_tonu || 0,
+          tonu_driver: orderData.original_tonu_driver || 0,
+          dh_miles: orderData.original_dh_miles || 0,
+          loaded_miles: orderData.original_loaded_miles || 0,
+          detention: orderData.original_detention || 0,
+          detention_driver: orderData.original_detention_driver || 0,
+          layover: orderData.original_layover || 0,
+          layover_driver: orderData.original_layover_driver || 0,
+          extra_stop: orderData.original_extra_stop || 0,
+          extra_stop_driver: orderData.original_extra_stop_driver || 0,
+          lumper: orderData.original_lumper || 0,
+          lumper_driver: orderData.original_lumper_driver || 0,
+          late_fee: orderData.original_late_fee || 0,
+          late_fee_driver: orderData.original_late_fee_driver || 0,
+          no_tracking_fee: orderData.original_no_tracking_fee || 0,
+          no_tracking_fee_driver: orderData.original_no_tracking_fee_driver || 0,
+          wrong_address_fee: orderData.original_wrong_address_fee || 0,
+          wrong_address_fee_driver: orderData.original_wrong_address_fee_driver || 0,
+          escort_fee: orderData.original_escort_fee || 0,
+          escort_fee_broker_paid: orderData.original_escort_fee_broker_paid || false,
+          // Clear all recovery and original fields
           original_driver1_id: null,
           original_driver2_id: null,
           original_truck_id: null,
@@ -1075,6 +1124,27 @@ const EditOrder = () => {
           original_miles: null,
           original_driver_price: null,
           original_freight_amount: null,
+          original_notes: null,
+          original_tonu: null,
+          original_tonu_driver: null,
+          original_dh_miles: null,
+          original_loaded_miles: null,
+          original_detention: null,
+          original_detention_driver: null,
+          original_layover: null,
+          original_layover_driver: null,
+          original_extra_stop: null,
+          original_extra_stop_driver: null,
+          original_lumper: null,
+          original_lumper_driver: null,
+          original_late_fee: null,
+          original_late_fee_driver: null,
+          original_no_tracking_fee: null,
+          original_no_tracking_fee_driver: null,
+          original_wrong_address_fee: null,
+          original_wrong_address_fee_driver: null,
+          original_escort_fee: null,
+          original_escort_fee_broker_paid: null,
           recovery_miles: null,
           recovery_driver_price: null,
           recovery_freight_amount: null,
@@ -1512,18 +1582,6 @@ const EditOrder = () => {
                 {returnToReports ? 'Back to Reports' : 'Back to Orders'}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
-              {isRecovery && (hasRole('manager') || hasRole('supervisor') || hasRole('admin')) && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRevertTransfer}
-                  disabled={isSubmitting}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Revert Transfer
-                </Button>
-              )}
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
@@ -2228,6 +2286,17 @@ const EditOrder = () => {
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Transfer Load
                   </Button>}
+              {isRecovery && (hasRole('manager') || hasRole('supervisor') || hasRole('admin')) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRevertTransfer}
+                  disabled={isSubmitting}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Revert Transfer
+                </Button>
+              )}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
