@@ -427,7 +427,7 @@ const Reports = () => {
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
@@ -559,14 +559,14 @@ const Reports = () => {
   const handleDocumentClick = (docType: string, isChecked: boolean) => {
     if (!isChecked) {
       setUploadDocType(docType);
-      setUploadFile(null);
+      setUploadFiles([]);
       setUploadDialogOpen(true);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadFile(e.target.files[0]);
+    if (e.target.files) {
+      setUploadFiles(Array.from(e.target.files));
     }
   };
 
@@ -583,48 +583,54 @@ const Reports = () => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setUploadFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files) {
+      setUploadFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleUploadDocument = async () => {
-    if (!uploadFile || !zoomedLoad?.orderId) return;
+    if (!uploadFiles.length || !zoomedLoad?.orderId) return;
 
     setIsUploading(true);
     try {
-      const fileExt = uploadFile.name.split('.').pop();
-      const fileName = `${uploadDocType}_${Date.now()}.${fileExt}`;
-      const filePath = `${zoomedLoad.orderId}/${fileName}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('user_id', user?.id || '')
+        .single();
 
-      // Upload file to storage
-      const { error: uploadError } = await supabase.storage
-        .from('order-files')
-        .upload(filePath, uploadFile);
+      // Upload all files
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        const fileName = `${zoomedLoad.orderId}/${uploadDocType}/${Date.now()}_${file.name}`;
 
-      if (uploadError) throw uploadError;
+        // Upload file to storage
+        const { error: uploadError } = await supabase.storage
+          .from('order-files')
+          .upload(fileName, file);
 
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('order-files')
-        .getPublicUrl(filePath);
+        if (uploadError) throw uploadError;
 
-      // Insert into order_files table
-      const { error: dbError } = await supabase
-        .from('order_files')
-        .insert({
-          order_id: zoomedLoad.orderId,
-          file_name: uploadFile.name,
-          file_path: filePath,
-          file_url: publicUrl,
-          file_category: uploadDocType
-        });
+        // Insert into order_files table
+        const { error: fileError } = await supabase
+          .from('order_files')
+          .insert({
+            order_id: zoomedLoad.orderId,
+            file_name: file.name,
+            file_path: fileName,
+            file_size: file.size,
+            content_type: file.type,
+            file_category: uploadDocType,
+            uploaded_by: profile?.full_name || profile?.email || "Unknown User"
+          });
 
-      if (dbError) throw dbError;
+        if (fileError) throw fileError;
+      }
 
       toast({
         title: "Success",
-        description: `${uploadDocType} uploaded successfully`,
+        description: `${uploadFiles.length} file${uploadFiles.length > 1 ? 's' : ''} uploaded successfully`,
       });
 
       // Refresh the reports data
@@ -632,7 +638,7 @@ const Reports = () => {
 
       // Close dialog and reset state
       setUploadDialogOpen(false);
-      setUploadFile(null);
+      setUploadFiles([]);
       setUploadDocType("");
 
     } catch (error: any) {
@@ -3263,19 +3269,23 @@ const Reports = () => {
                   : "border-border bg-muted/50"
               }`}
             >
-              {uploadFile ? (
+              {uploadFiles.length > 0 ? (
                 <div className="space-y-2">
                   <Check className="h-12 w-12 mx-auto text-green-500" />
-                  <p className="font-medium">{uploadFile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+                  <p className="font-medium">{uploadFiles.length} file{uploadFiles.length > 1 ? 's' : ''} selected</p>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {uploadFiles.map((file, idx) => (
+                      <p key={idx} className="text-sm text-muted-foreground">
+                        {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    ))}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setUploadFile(null)}
+                    onClick={() => setUploadFiles([])}
                   >
-                    Choose Different File
+                    Choose Different Files
                   </Button>
                 </div>
               ) : (
@@ -3283,16 +3293,17 @@ const Reports = () => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
                   <div>
                     <p className="font-medium mb-1">
-                      Drag and drop your file here
+                      Drag and drop your files here
                     </p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      or click to browse
+                      or click to browse (multiple files allowed)
                     </p>
                     <Input
                       type="file"
                       onChange={handleFileSelect}
                       className="cursor-pointer"
                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      multiple
                     />
                   </div>
                 </div>
@@ -3304,7 +3315,7 @@ const Reports = () => {
                 variant="outline" 
                 onClick={() => {
                   setUploadDialogOpen(false);
-                  setUploadFile(null);
+                  setUploadFiles([]);
                 }}
                 disabled={isUploading}
               >
@@ -3312,7 +3323,7 @@ const Reports = () => {
               </Button>
               <Button 
                 onClick={handleUploadDocument}
-                disabled={!uploadFile || isUploading}
+                disabled={uploadFiles.length === 0 || isUploading}
               >
                 {isUploading ? (
                   <>
