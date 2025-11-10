@@ -136,6 +136,10 @@ const NewOrder = () => {
       sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
       cc: "dispatch@beverlyfreight.net"
     },
+    "Beverly Freight Inc": {
+      sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
+      cc: "dispatch@beverlyfreight.net"
+    },
     "BG Prime Inc": {
       sender: "BG Prime Dispatch <truckload@bgprime.net>",
       cc: "dispatch@bgprime.net"
