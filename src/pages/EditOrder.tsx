@@ -1079,7 +1079,7 @@ const EditOrder = () => {
           original_escort_fee_broker_paid
         `)
         .eq("id", id)
-        .single();
+        .single() as any;
 
       if (fetchError) throw fetchError;
 
