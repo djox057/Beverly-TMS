@@ -446,14 +446,13 @@ const Orders = () => {
           notes: validated.notes,
           freight_amount: 0,
           loaded_miles: 0,
-          locked: true,
           canceled: true
         })
         .eq('id', selectedOrderId);
 
       if (error) throw error;
 
-      toast.success("Load cancelled and locked successfully");
+      toast.success("Load cancelled successfully");
       setCancelDialogOpen(false);
       setSelectedOrderId(null);
       setCancelFormData({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
@@ -899,7 +898,7 @@ const Orders = () => {
           <DialogHeader>
             <DialogTitle>Cancel Load</DialogTitle>
             <DialogDescription>
-              Enter cancellation details. This will set freight amount and loaded miles to 0, and lock the load.
+              Enter cancellation details. This will set freight amount and loaded miles to 0.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
