@@ -1039,6 +1039,70 @@ const EditOrder = () => {
     }
   };
 
+  const handleRevertTransfer = async () => {
+    if (!isRecovery) return;
+
+    try {
+      setIsSubmitting(true);
+
+      // Get original values from database
+      const { data: orderData, error: fetchError } = await supabase
+        .from("orders")
+        .select("original_driver1_id, original_driver2_id, original_truck_id, original_trailer_id, original_miles, original_driver_price, original_freight_amount")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Revert to original state
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          is_recovery: false,
+          driver1_id: orderData.original_driver1_id,
+          driver2_id: orderData.original_driver2_id,
+          truck_id: orderData.original_truck_id,
+          trailer_id: orderData.original_trailer_id,
+          mileage: orderData.original_miles || 0,
+          driver_price: orderData.original_driver_price || 0,
+          loaded_miles: orderData.original_miles || 0,
+          dh_miles: 0,
+          // Clear recovery fields
+          original_driver1_id: null,
+          original_driver2_id: null,
+          original_truck_id: null,
+          original_trailer_id: null,
+          original_miles: null,
+          original_driver_price: null,
+          original_freight_amount: null,
+          recovery_miles: null,
+          recovery_driver_price: null,
+          recovery_freight_amount: null,
+          recovery_date: null,
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Load transfer has been reverted",
+      });
+
+      // Reload the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error("Error reverting transfer:", error);
+      toast({
+        title: "Error",
+        description: "Failed to revert load transfer",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // File drag and drop handlers
   const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
@@ -1448,6 +1512,18 @@ const EditOrder = () => {
                 {returnToReports ? 'Back to Reports' : 'Back to Orders'}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
+              {isRecovery && (hasRole('manager') || hasRole('supervisor') || hasRole('admin')) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRevertTransfer}
+                  disabled={isSubmitting}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Revert Transfer
+                </Button>
+              )}
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
