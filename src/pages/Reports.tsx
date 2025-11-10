@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home, Ban } from "lucide-react";
+import { MapPin, AlertCircle, Loader2, Edit3, Check, X, ChevronLeft, ChevronRight, Info, Clock, Maximize2, XCircle, UserPlus, History, HelpCircle, Home, Ban, Upload } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
@@ -425,6 +425,11 @@ const Reports = () => {
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadDocType, setUploadDocType] = useState<string>("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
@@ -549,6 +554,98 @@ const Reports = () => {
       driverNames: truck.driverNames
     };
   }, []);
+
+  // File upload handlers
+  const handleDocumentClick = (docType: string, isChecked: boolean) => {
+    if (!isChecked) {
+      setUploadDocType(docType);
+      setUploadFile(null);
+      setUploadDialogOpen(true);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setUploadFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!uploadFile || !zoomedLoad?.orderId) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = uploadFile.name.split('.').pop();
+      const fileName = `${uploadDocType}_${Date.now()}.${fileExt}`;
+      const filePath = `${zoomedLoad.orderId}/${fileName}`;
+
+      // Upload file to storage
+      const { error: uploadError } = await supabase.storage
+        .from('order-files')
+        .upload(filePath, uploadFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('order-files')
+        .getPublicUrl(filePath);
+
+      // Insert into order_files table
+      const { error: dbError } = await supabase
+        .from('order_files')
+        .insert({
+          order_id: zoomedLoad.orderId,
+          file_name: uploadFile.name,
+          file_path: filePath,
+          file_url: publicUrl,
+          file_category: uploadDocType
+        });
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: "Success",
+        description: `${uploadDocType} uploaded successfully`,
+      });
+
+      // Refresh the reports data
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+
+      // Close dialog and reset state
+      setUploadDialogOpen(false);
+      setUploadFile(null);
+      setUploadDocType("");
+
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload document",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Cancel order handlers
   const handleCancelOrder = async () => {
@@ -2758,12 +2855,25 @@ const Reports = () => {
             <div>
               <h4 className="text-sm font-semibold mb-3">Document Status</h4>
               <div className="flex gap-3 flex-wrap items-center">
-                {["RC", "BOL", "POD"].map(doc => <div key={doc} className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${zoomedLoad?.documents.includes(doc) ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))]" : "bg-card text-muted-foreground border-border"}`}>
-                    <div className="flex items-center gap-2">
-                      {zoomedLoad?.documents.includes(doc) && <Check className="h-4 w-4" />}
-                      <span>{doc}</span>
+                {["RC", "BOL", "POD"].map(doc => {
+                  const isChecked = zoomedLoad?.documents.includes(doc);
+                  return (
+                    <div 
+                      key={doc} 
+                      onClick={() => handleDocumentClick(doc, isChecked)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                        isChecked 
+                          ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))]" 
+                          : "bg-card text-muted-foreground border-border cursor-pointer hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isChecked ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                        <span>{doc}</span>
+                      </div>
                     </div>
-                  </div>)}
+                  );
+                })}
                 
                 {/* Cancel Button - centered right */}
                 <div className="ml-auto">
@@ -3130,6 +3240,88 @@ const Reports = () => {
               </Button>
               <Button variant="destructive" onClick={handleCancelOrder}>
                 Confirm Cancellation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Document Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload {uploadDocType}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging 
+                  ? "border-primary bg-primary/10" 
+                  : "border-border bg-muted/50"
+              }`}
+            >
+              {uploadFile ? (
+                <div className="space-y-2">
+                  <Check className="h-12 w-12 mx-auto text-green-500" />
+                  <p className="font-medium">{uploadFile.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUploadFile(null)}
+                  >
+                    Choose Different File
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Upload className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <div>
+                    <p className="font-medium mb-1">
+                      Drag and drop your file here
+                    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      or click to browse
+                    </p>
+                    <Input
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="cursor-pointer"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setUploadDialogOpen(false);
+                  setUploadFile(null);
+                }}
+                disabled={isUploading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUploadDocument}
+                disabled={!uploadFile || isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  "OK"
+                )}
               </Button>
             </div>
           </div>
