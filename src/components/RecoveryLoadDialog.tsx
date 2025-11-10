@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,17 @@ export function RecoveryLoadDialog({
   const [recoveryTrailerDisplay, setRecoveryTrailerDisplay] = useState<string>("");
   const [originalTrailerId, setOriginalTrailerId] = useState<string>(""); // Track original trailer ID
 
+  // Initialize original trailer when dialog opens or allTrailers loads
+  useEffect(() => {
+    if (open && currentTrailer && allTrailers && !originalTrailerId) {
+      const trailer = allTrailers.find(t => t.trailer_number === currentTrailer);
+      if (trailer) {
+        setOriginalTrailerId(trailer.id);
+        setOriginalTrailerDisplay(currentTrailer);
+      }
+    }
+  }, [open, currentTrailer, allTrailers, originalTrailerId]);
+
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
     setSelectedTruckId(truckId);
@@ -82,23 +93,15 @@ export function RecoveryLoadDialog({
   };
 
   const handleSwitchTrailers = () => {
-    // Get current trailer numbers and IDs
-    const currentOriginalNumber = originalTrailerDisplay || currentTrailer;
-    const currentRecoveryNumber = recoveryTrailerDisplay;
-    
-    // Find the trailer IDs from ALL trailers
-    const originalTrailer = allTrailers?.find((t) => t.trailer_number === currentOriginalNumber);
-    const recoveryTrailer = allTrailers?.find((t) => t.trailer_number === currentRecoveryNumber);
-    
     // Swap display values
-    setOriginalTrailerDisplay(currentRecoveryNumber);
-    setRecoveryTrailerDisplay(currentOriginalNumber);
+    const tempDisplay = originalTrailerDisplay;
+    setOriginalTrailerDisplay(recoveryTrailerDisplay);
+    setRecoveryTrailerDisplay(tempDisplay);
     
     // Swap IDs
-    if (originalTrailer) {
-      setOriginalTrailerId(recoveryTrailer?.id || "");
-      setRecoveryTrailerId(originalTrailer.id);
-    }
+    const tempId = originalTrailerId;
+    setOriginalTrailerId(recoveryTrailerId);
+    setRecoveryTrailerId(tempId);
   };
 
   const handleSave = () => {
@@ -113,7 +116,7 @@ export function RecoveryLoadDialog({
       originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
       recoveryTruckId,
-      recoveryTrailerId,
+      recoveryTrailerId: recoveryTrailerId || "", // Transfer driver gets this trailer
       recoveryDriverId,
       recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
