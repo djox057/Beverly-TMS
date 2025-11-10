@@ -931,16 +931,58 @@ zip: "" or null
 
 **For numeric fields, extract ONLY the number, but handle decimals correctly:**
 
-**Currency/Money (freightAmount):**
-- STEP 1: Remove dollar sign ($)
-- STEP 2: Remove commas (,)
-- STEP 3: Parse as decimal number (keep decimal point)
-- STEP 4: Return as number (not multiplied by 100)
+**Currency/Money (freightAmount) - CRITICAL INSTRUCTIONS:**
 
-**Examples:**
-- $1,300.00 → Remove $ → 1,300.00 → Remove commas → 1300.00 → Parse as number → 1300
-- $1,250.50 → 1250.50 (NOT 125050!)
-- $850 → 850
+🚨 **MANDATORY: ALWAYS extract the TOTAL freight amount, NOT individual line items!**
+
+**STEP-BY-STEP FREIGHT AMOUNT EXTRACTION:**
+
+1. **Find the Payment/Freight section** - Look for sections labeled:
+   - "Payment", "Carrier Payment", "Freight Payment", "Compensation"
+   - "Carrier Freight Pay", "Total Carrier Pay", "Total Pay"
+   - "Rate Confirmation", "Payment Terms"
+
+2. **Identify the TOTAL amount** - Look for labels indicating this is the final total:
+   - ✅ "Total Carrier Pay"
+   - ✅ "Total Pay"
+   - ✅ "Total Amount"
+   - ✅ "Grand Total"
+   - ✅ "Total Freight"
+   - ✅ The LAST/BOTTOM dollar amount in the payment section
+   - ✅ Amount on a line that sums up other line items
+
+3. **IGNORE individual line items** - Do NOT extract these:
+   - ❌ "Carrier Freight Pay" (without "Total")
+   - ❌ "Base Rate"
+   - ❌ "Fuel Surcharge" (individual line)
+   - ❌ "Accessorial Charges" (individual line)
+   - ❌ Any line item that is NOT the total
+
+4. **Extract the number:**
+   - STEP 1: Remove dollar sign ($)
+   - STEP 2: Remove commas (,)
+   - STEP 3: Parse as decimal number (keep decimal point)
+   - STEP 4: Return as number (not multiplied by 100)
+
+**REAL-WORLD EXAMPLE (STUDY THIS CAREFULLY):**
+
+Document shows:
+---
+Payment
+Carrier Freight Pay:      $2,987.16  ← DO NOT USE THIS (it's a line item)
+Fuel Surcharge:           812.84     ← DO NOT USE THIS (it's a line item)
+TRUCKER TOOLS - TRACKING: 200.00     ← DO NOT USE THIS (it's a line item)
+Total Carrier Pay:        $4,000.00  ← USE THIS! (it's the total)
+---
+
+❌ WRONG: freightAmount: 2987.16 (extracted line item instead of total)
+✅ CORRECT: freightAmount: 4000 (extracted the total)
+
+**More Examples:**
+- Document shows "$1,300.00 Base" and "$1,500.00 Total" → Extract 1500 (the total)
+- Document shows "$2,500 Freight" and "$2,750 Total Pay" → Extract 2750 (the total)
+- $1,250.50 (if this is labeled as total) → 1250.50 (NOT 125050!)
+- $850 Total → 850
 - $2,500.25 → 2500.25 (NOT 250025!)
 
 **Other numeric fields:**
