@@ -425,6 +425,11 @@ const Reports = () => {
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  
+  // Memoized handlers to prevent lag
+  const handleCancelFormChange = useCallback((field: keyof typeof cancelFormData, value: string) => {
+    setCancelFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
@@ -3089,7 +3094,7 @@ const Reports = () => {
                 type="number"
                 step="0.01"
                 value={cancelFormData.tonu}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, tonu: e.target.value })}
+                onChange={(e) => handleCancelFormChange('tonu', e.target.value)}
                 placeholder="Enter company TONU amount"
               />
             </div>
@@ -3100,7 +3105,7 @@ const Reports = () => {
                 type="number"
                 step="0.01"
                 value={cancelFormData.driverRate}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, driverRate: e.target.value })}
+                onChange={(e) => handleCancelFormChange('driverRate', e.target.value)}
                 placeholder="Enter driver rate"
               />
             </div>
@@ -3110,7 +3115,7 @@ const Reports = () => {
                 id="cancel-dh-miles"
                 type="number"
                 value={cancelFormData.dhMiles}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, dhMiles: e.target.value })}
+                onChange={(e) => handleCancelFormChange('dhMiles', e.target.value)}
                 placeholder="Enter DH miles"
               />
             </div>
@@ -3119,7 +3124,7 @@ const Reports = () => {
               <Textarea
                 id="cancel-notes"
                 value={cancelFormData.notes}
-                onChange={(e) => setCancelFormData({ ...cancelFormData, notes: e.target.value })}
+                onChange={(e) => handleCancelFormChange('notes', e.target.value)}
                 placeholder="Enter reason for cancellation"
                 rows={3}
               />
