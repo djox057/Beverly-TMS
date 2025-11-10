@@ -1399,6 +1399,7 @@ const EditOrder = () => {
       if (returnToReports) {
         localStorage.removeItem('returnToReports');
         navigate("/reports");
+        window.scrollTo(0, 0);
       } else {
         navigate("/orders");
       }
@@ -1430,6 +1431,7 @@ const EditOrder = () => {
               if (returnToReports) {
                 localStorage.removeItem('returnToReports');
                 navigate("/reports");
+                window.scrollTo(0, 0);
               } else {
                 navigate("/orders");
               }
@@ -2131,6 +2133,7 @@ const EditOrder = () => {
               if (returnToReports) {
                 localStorage.removeItem('returnToReports');
                 navigate("/reports");
+                window.scrollTo(0, 0);
               } else {
                 navigate("/orders");
               }
