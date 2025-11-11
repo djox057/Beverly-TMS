@@ -331,39 +331,29 @@ export default function YardLoads() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">Truck #</TableHead>
-                  <TableHead className="w-20">Load #</TableHead>
-                  <TableHead className="w-32">Pickup Date</TableHead>
-                  <TableHead className="w-28">Pickup City</TableHead>
-                  <TableHead className="w-20">Pickup State</TableHead>
                   <TableHead className="w-32">Delivery Date</TableHead>
                   <TableHead className="w-28">Delivery City</TableHead>
                   <TableHead className="w-20">Delivery State</TableHead>
                   <TableHead className="w-16">Miles</TableHead>
                   <TableHead className="w-24">Driver Pay</TableHead>
-                  <TableHead className="w-32">Driver</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
                   <TableHead className="w-28">Broker Load #</TableHead>
-                  <TableHead className="w-20">Invoiced</TableHead>
-                  <TableHead className="w-20">Notes</TableHead>
                   <TableHead className="w-28">Freight Amount</TableHead>
                   <TableHead className="w-28">Company</TableHead>
                   <TableHead className="w-24">Booked By</TableHead>
-                  <TableHead className="w-24">RC</TableHead>
-                  <TableHead className="w-24">POD</TableHead>
                   <TableHead className="w-16">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={21} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={21} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -389,11 +379,6 @@ export default function YardLoads() {
                     
                     return (
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                        <TableCell>{order.internalLoadNumber}</TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
@@ -403,25 +388,8 @@ export default function YardLoads() {
                             ${order.totalDriverPay?.toLocaleString() || '0'}
                           </div>
                         </TableCell>
-                        <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
-                        <TableCell>{order.invoiced}</TableCell>
-                        <TableCell>
-                          {order.notes && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-auto p-1 text-xs font-normal hover:underline"
-                              onClick={() => {
-                                setSelectedNotes(order.notes);
-                                setNotesDialogOpen(true);
-                              }}
-                            >
-                              {order.notes.length > 12 ? order.notes.substring(0, 12) + '...' : order.notes}
-                            </Button>
-                          )}
-                        </TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
                             ${order.totalFreightAmount?.toLocaleString() || '0'}
@@ -429,134 +397,12 @@ export default function YardLoads() {
                         </TableCell>
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
-                        <TableCell className="max-w-24">
-                          <div className="flex gap-1 flex-wrap">
-                            {order.rcFiles && order.rcFiles.length > 0 ? (
-                              <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
-                                const file = order.rcFiles[0];
-                                const { data, error } = await supabase.storage
-                                  .from('order-files')
-                                  .createSignedUrl(file.file_path, 3600);
-                                
-                                if (error) {
-                                  toast.error(`Failed to load file: ${error.message}`);
-                                  return;
-                                }
-                                
-                                const signedUrl = data?.signedUrl;
-                                if (signedUrl) {
-                                  try {
-                                    const response = await fetch(signedUrl);
-                                    if (!response.ok) throw new Error('Failed to fetch file');
-                                    
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    
-                                    const newWindow = window.open(blobUrl, '_blank');
-                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                                    
-                                    if (!newWindow) {
-                                      toast.error("Please allow popups for this site");
-                                    }
-                                  } catch (err) {
-                                    console.error('Error opening file:', err);
-                                    toast.error("Failed to open file");
-                                  }
-                                }
-                              }}>
-                                {order.rcFiles[0].file_name.length > 8 ? order.rcFiles[0].file_name.substring(0, 8) + '...' : order.rcFiles[0].file_name}
-                              </Button>
-                            ) : (
-                              <Badge variant="destructive" className="text-xs">Missing</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="max-w-24">
-                          <div className="flex gap-1 flex-wrap">
-                            {order.podFiles && order.podFiles.length > 0 ? (
-                              <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
-                                const file = order.podFiles[0];
-                                const { data, error } = await supabase.storage
-                                  .from('order-files')
-                                  .createSignedUrl(file.file_path, 3600);
-                                
-                                if (error) {
-                                  toast.error(`Failed to load file: ${error.message}`);
-                                  return;
-                                }
-                                
-                                const signedUrl = data?.signedUrl;
-                                if (signedUrl) {
-                                  try {
-                                    const response = await fetch(signedUrl);
-                                    if (!response.ok) throw new Error('Failed to fetch file');
-                                    
-                                    const blob = await response.blob();
-                                    const blobUrl = URL.createObjectURL(blob);
-                                    
-                                    const newWindow = window.open(blobUrl, '_blank');
-                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                                    
-                                    if (!newWindow) {
-                                      toast.error("Please allow popups for this site");
-                                    }
-                                  } catch (err) {
-                                    console.error('Error opening file:', err);
-                                    toast.error("Failed to open file");
-                                  }
-                                }
-                              }}>
-                                {order.podFiles[0].file_name.length > 8 ? order.podFiles[0].file_name.substring(0, 8) + '...' : order.podFiles[0].file_name}
-                              </Button>
-                            ) : (
-                              <Badge variant="destructive" className="text-xs">Missing</Badge>
-                            )}
-                          </div>
-                        </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            {!order.locked && (
-                              <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {(hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor')) && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleOrderLock(order.id, order.locked)}
-                                  title={order.locked ? 'Unlock load' : 'Lock load'}
-                                >
-                                  {order.locked ? (
-                                    <Lock className="h-4 w-4 text-destructive" />
-                                  ) : (
-                                    <LockOpen className="h-4 w-4 text-muted-foreground" />
-                                  )}
-                                </Button>
-                                {!order.locked && !order.canceled && (
-                                  <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
-                                    <XCircle className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                )}
-                                {order.canceled && !order.locked && (hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor') || canCancelOrders) && (
-                                  <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
-                                    <Undo2 className="h-4 w-4 text-primary" />
-                                  </Button>
-                                )}
-                              </>
-                            )}
-                            {canCancelOrders && !order.locked && !order.canceled && (
-                              <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
-                                <XCircle className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                            {canCancelOrders && order.canceled && !order.locked && (
-                              <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
-                                <Undo2 className="h-4 w-4 text-primary" />
-                              </Button>
-                            )}
-                          </div>
+                          {!order.locked && (
+                            <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
