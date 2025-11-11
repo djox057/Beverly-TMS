@@ -57,6 +57,14 @@ const getStatusBadge = (status: string) => {
 export default function YardLoads() {
   const navigate = useNavigate();
   const { hasRole } = useAuthContext();
+  
+  // Check if user has required roles
+  useEffect(() => {
+    if (!hasRole('manager') && !hasRole('admin')) {
+      navigate('/');
+    }
+  }, [hasRole, navigate]);
+  
   const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
   
   // Fetch data using the same hook as Orders page
