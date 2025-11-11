@@ -85,8 +85,13 @@ export default function YardLoads() {
   const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort();
   const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort();
 
-  // Filter orders
+  // Filter orders - only show loads with no driver AND no truck
   const filteredOrders = orders.filter(order => {
+    // First, filter for yard loads (no driver1_id AND no truck_id)
+    if (order.driver1Id || order.truckId) {
+      return false;
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -160,6 +165,8 @@ export default function YardLoads() {
   }, [searchQuery, selectedCompany, selectedTruck, selectedDriver, selectedBroker, selectedStatus, dateRange]);
 
   const navigateToEditOrder = (orderId: string) => {
+    // Set flag to return to yard loads
+    localStorage.setItem('returnToYardLoads', 'true');
     navigate(`/edit-order/${orderId}`);
   };
 

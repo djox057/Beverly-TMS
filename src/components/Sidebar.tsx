@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -57,6 +58,7 @@ export const Sidebar = () => {
   const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
   const { state, isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
+  const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   
   // On mobile, always show text when sidebar is open
   const showText = isMobile ? true : state !== "collapsed";
@@ -158,7 +160,16 @@ export const Sidebar = () => {
                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
                           )}
                           <item.icon className={cn("h-4 w-4", !showText ? "mx-auto" : "")} />
-                          {showText && <span>{item.name}</span>}
+                          {showText && (
+                            <div className="flex items-center gap-2 flex-1">
+                              <span>{item.name}</span>
+                              {item.href === "/yard-loads" && yardLoadsCount > 0 && (
+                                <Badge variant="secondary" className="ml-auto">
+                                  {yardLoadsCount}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                     </NavLink>

@@ -178,6 +178,8 @@ export const useOrders = () => {
         
         return {
           id: order.id,
+          truckId: order.truck_id,
+          driver1Id: order.driver1_id,
           truckNumber: order.truck?.truck_number || 'N/A',
           trailerNumber: order.trailer?.trailer_number || 'N/A',
           truckCompanyName: order.truck?.company?.name || 'N/A',

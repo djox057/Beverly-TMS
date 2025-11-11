@@ -279,13 +279,17 @@ const EditOrder = () => {
         description: "The load ID in the URL is invalid or missing",
         variant: "destructive"
       });
-      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-      if (shouldReturnToReports) {
-        localStorage.removeItem('returnToReports');
-        navigate("/reports");
-      } else {
-        navigate("/orders");
-      }
+        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+        const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+        if (shouldReturnToReports) {
+          localStorage.removeItem('returnToReports');
+          navigate("/reports");
+        } else if (shouldReturnToYardLoads) {
+          localStorage.removeItem('returnToYardLoads');
+          navigate("/yard-loads");
+        } else {
+          navigate("/orders");
+        }
       return;
     }
     try {
@@ -321,9 +325,13 @@ const EditOrder = () => {
             variant: "destructive"
           });
           const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+          const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
           if (shouldReturnToReports) {
             localStorage.removeItem('returnToReports');
             navigate("/reports");
+          } else if (shouldReturnToYardLoads) {
+            localStorage.removeItem('returnToYardLoads');
+            navigate("/yard-loads");
           } else {
             navigate("/orders");
           }
@@ -484,9 +492,13 @@ const EditOrder = () => {
         variant: "destructive"
       });
       const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
       if (shouldReturnToReports) {
         localStorage.removeItem('returnToReports');
         navigate("/reports");
+      } else if (shouldReturnToYardLoads) {
+        localStorage.removeItem('returnToYardLoads');
+        navigate("/yard-loads");
       } else {
         navigate("/orders");
       }
@@ -538,9 +550,13 @@ const EditOrder = () => {
           variant: "destructive"
         });
         const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+        const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
         if (shouldReturnToReports) {
           localStorage.removeItem('returnToReports');
           navigate("/reports");
+        } else if (shouldReturnToYardLoads) {
+          localStorage.removeItem('returnToYardLoads');
+          navigate("/yard-loads");
         } else {
           navigate("/orders");
         }
@@ -555,9 +571,13 @@ const EditOrder = () => {
         variant: "destructive"
       });
       const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
+      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
       if (shouldReturnToReports) {
         localStorage.removeItem('returnToReports');
         navigate("/reports");
+      } else if (shouldReturnToYardLoads) {
+        localStorage.removeItem('returnToYardLoads');
+        navigate("/yard-loads");
       } else {
         navigate("/orders");
       }
@@ -1404,9 +1424,14 @@ const EditOrder = () => {
       }
 
       // Navigate back to where we came from
+      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
       if (returnToReports) {
         localStorage.removeItem('returnToReports');
         navigate("/reports");
+        window.scrollTo(0, 0);
+      } else if (shouldReturnToYardLoads) {
+        localStorage.removeItem('returnToYardLoads');
+        navigate("/yard-loads");
         window.scrollTo(0, 0);
       } else {
         navigate("/orders");
@@ -1435,17 +1460,21 @@ const EditOrder = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" onClick={() => {
-              // Navigate back to where we came from
+              const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
               if (returnToReports) {
                 localStorage.removeItem('returnToReports');
                 navigate("/reports");
+                window.scrollTo(0, 0);
+              } else if (shouldReturnToYardLoads) {
+                localStorage.removeItem('returnToYardLoads');
+                navigate("/yard-loads");
                 window.scrollTo(0, 0);
               } else {
                 navigate("/orders");
               }
             }}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                {returnToReports ? 'Back to Reports' : 'Back to Orders'}
+                {returnToReports ? 'Back to Reports' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : 'Back to Orders'}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
             </div>
@@ -2137,10 +2166,14 @@ const EditOrder = () => {
 
             <div className="flex justify-end gap-4">
               <Button type="button" variant="outline" onClick={() => {
-              // Navigate back to where we came from
+              const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
               if (returnToReports) {
                 localStorage.removeItem('returnToReports');
                 navigate("/reports");
+                window.scrollTo(0, 0);
+              } else if (shouldReturnToYardLoads) {
+                localStorage.removeItem('returnToYardLoads');
+                navigate("/yard-loads");
                 window.scrollTo(0, 0);
               } else {
                 navigate("/orders");
