@@ -126,6 +126,7 @@ export const useOrders = () => {
           .select(`
             *,
             truck:trucks!truck_id(truck_number, company:companies(name)),
+            trailer:trailers!trailer_id(trailer_number),
             driver1:drivers!driver1_id(name),
             original_driver1:drivers!original_driver1_id(name),
             original_truck:trucks!original_truck_id(truck_number),
@@ -178,6 +179,7 @@ export const useOrders = () => {
         return {
           id: order.id,
           truckNumber: order.truck?.truck_number || 'N/A',
+          trailerNumber: order.trailer?.trailer_number || 'N/A',
           truckCompanyName: order.truck?.company?.name || 'N/A',
           internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
           pickupDate: formatDateRange(order.pickup_datetime, order.pickup_end_datetime),

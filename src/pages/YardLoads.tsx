@@ -331,6 +331,8 @@ export default function YardLoads() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-20">Trailer #</TableHead>
+                  <TableHead className="w-20">Load #</TableHead>
                   <TableHead className="w-32">Delivery Date</TableHead>
                   <TableHead className="w-28">Delivery City</TableHead>
                   <TableHead className="w-20">Delivery State</TableHead>
@@ -347,13 +349,13 @@ export default function YardLoads() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={13} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={13} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -379,6 +381,8 @@ export default function YardLoads() {
                     
                     return (
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                        <TableCell className="font-medium">{order.trailerNumber}</TableCell>
+                        <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
