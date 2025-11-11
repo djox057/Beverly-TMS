@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -25,9 +27,10 @@ import {
 } from "@/components/ui/pagination";
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Calendar, FileText, Lock, Unlock, Plus, Download } from "lucide-react";
+import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -53,8 +56,8 @@ const getStatusBadge = (status: string) => {
 
 export default function YardLoads() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { hasRole } = useAuthContext();
+  const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
   
   // Fetch data using the same hook as Orders page
   const { data: orders = [], isLoading } = useOrders();
@@ -72,6 +75,10 @@ export default function YardLoads() {
     to: undefined,
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedNotes, setSelectedNotes] = useState<string>("");
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
 
   // Get unique values for filters
   const trucks = Array.from(new Set(orders.map(o => o.truckNumber).filter(Boolean))).sort();
@@ -179,8 +186,7 @@ export default function YardLoads() {
     XLSX.utils.book_append_sheet(wb, ws, "Yard Loads");
     XLSX.writeFile(wb, `yard-loads-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 
-    toast({
-      title: "Export Successful",
+    toast.success("Export Successful", {
       description: `Exported ${filteredOrders.length} loads to Excel`,
     });
   };
@@ -194,19 +200,51 @@ export default function YardLoads() {
 
       if (error) throw error;
 
-      toast({
-        title: currentLockState ? "Load Unlocked" : "Load Locked",
-        description: currentLockState 
-          ? "Load can now be edited" 
-          : "Load is now locked from editing",
-      });
+      toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
     } catch (error) {
       console.error('Error toggling lock:', error);
-      toast({
-        title: "Error",
-        description: "Failed to toggle lock status",
-        variant: "destructive",
-      });
+      toast.error("Failed to toggle lock status");
+    }
+  };
+
+  const openCancelDialog = (orderId: string) => {
+    setOrderToCancel(orderId);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderToCancel) return;
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ canceled: true })
+        .eq('id', orderToCancel);
+
+      if (error) throw error;
+
+      toast.success("Load Canceled");
+      setCancelDialogOpen(false);
+      setOrderToCancel(null);
+    } catch (error) {
+      console.error('Error canceling order:', error);
+      toast.error("Failed to cancel load");
+    }
+  };
+
+  const handleRevertCancellation = async (orderId: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ canceled: false })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      toast.success("Cancellation Reverted");
+    } catch (error) {
+      console.error('Error reverting cancellation:', error);
+      toast.error("Failed to revert cancellation");
     }
   };
 
@@ -293,96 +331,236 @@ export default function YardLoads() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Load #</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Truck</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Broker</TableHead>
-                  <TableHead>Pickup</TableHead>
-                  <TableHead>Delivery</TableHead>
-                  <TableHead className="text-right">Miles</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-20">Truck #</TableHead>
+                  <TableHead className="w-20">Load #</TableHead>
+                  <TableHead className="w-32">Pickup Date</TableHead>
+                  <TableHead className="w-28">Pickup City</TableHead>
+                  <TableHead className="w-20">Pickup State</TableHead>
+                  <TableHead className="w-32">Delivery Date</TableHead>
+                  <TableHead className="w-28">Delivery City</TableHead>
+                  <TableHead className="w-20">Delivery State</TableHead>
+                  <TableHead className="w-16">Miles</TableHead>
+                  <TableHead className="w-24">Driver Pay</TableHead>
+                  <TableHead className="w-32">Driver</TableHead>
+                  <TableHead className="w-36">Broker Name</TableHead>
+                  <TableHead className="w-28">Broker Load #</TableHead>
+                  <TableHead className="w-20">Invoiced</TableHead>
+                  <TableHead className="w-20">Notes</TableHead>
+                  <TableHead className="w-28">Freight Amount</TableHead>
+                  <TableHead className="w-28">Company</TableHead>
+                  <TableHead className="w-24">Booked By</TableHead>
+                  <TableHead className="w-24">RC</TableHead>
+                  <TableHead className="w-24">POD</TableHead>
+                  <TableHead className="w-16">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={21} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={21} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedOrders.map((order) => (
-                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell 
-                        onClick={() => navigateToEditOrder(order.id)}
-                        className="font-medium"
-                      >
-                        {order.internalLoadNumber}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        {getStatusBadge(order.status)}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        {order.companyName || '-'}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        {order.truckNumber || '-'}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        {order.driverName || '-'}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        {order.brokerName || '-'}
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        <div className="max-w-[200px] truncate">
-                          {order.pickupCity}, {order.pickupState}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {order.pickupDate && format(new Date(order.pickupDate), 'MM/dd/yyyy')}
-                        </div>
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)}>
-                        <div className="max-w-[200px] truncate">
-                          {order.deliveryCity}, {order.deliveryState}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {order.deliveryDate && format(new Date(order.deliveryDate), 'MM/dd/yyyy')}
-                        </div>
-                      </TableCell>
-                      <TableCell onClick={() => navigateToEditOrder(order.id)} className="text-right">
-                        {order.mileage || 0}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {hasRole('manager') || hasRole('admin') ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleOrderLock(order.id, order.locked || false);
+                  paginatedOrders.map((order: any) => {
+                    const isRecovery = order.isRecovery;
+                    const hasRedFees = (order.lateFeeDriver > 0) || (order.noTrackingFeeDriver > 0) || (order.wrongAddressFeeDriver > 0);
+                    const hasGreenFees = (order.detentionDriver > 0) || (order.layoverDriver > 0);
+                    const hasYellowFees = (order.escortFee > 0) || (order.lumper > 0);
+                    const hasOrangeCondition = order.canceled || (order.dateChangeNotes && order.dateChangeNotes.trim() !== '');
+                    
+                    const rowClassName = isRecovery
+                      ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                      : hasRedFees 
+                      ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
+                      : hasGreenFees
+                      ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
+                      : hasYellowFees
+                      ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
+                      : hasOrangeCondition
+                      ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]'
+                      : '';
+                    
+                    return (
+                      <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                        <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                        <TableCell>{order.internalLoadNumber}</TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.pickupCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.pickupState}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                        <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${order.totalDriverPay?.toLocaleString() || '0'}
+                          </div>
+                        </TableCell>
+                        <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
+                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
+                        <TableCell>{order.brokerLoadNumber}</TableCell>
+                        <TableCell>{order.invoiced}</TableCell>
+                        <TableCell>
+                          {order.notes && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-auto p-1 text-xs font-normal hover:underline"
+                              onClick={() => {
+                                setSelectedNotes(order.notes);
+                                setNotesDialogOpen(true);
                               }}
                             >
-                              {order.locked ? (
-                                <Lock className="h-4 w-4" />
-                              ) : (
-                                <Unlock className="h-4 w-4" />
-                              )}
+                              {order.notes.length > 12 ? order.notes.substring(0, 12) + '...' : order.notes}
                             </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-green-600 dark:text-green-400">
+                            ${order.totalFreightAmount?.toLocaleString() || '0'}
+                          </div>
+                        </TableCell>
+                        <TableCell>{order.companyName}</TableCell>
+                        <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
+                        <TableCell className="max-w-24">
+                          <div className="flex gap-1 flex-wrap">
+                            {order.rcFiles && order.rcFiles.length > 0 ? (
+                              <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
+                                const file = order.rcFiles[0];
+                                const { data, error } = await supabase.storage
+                                  .from('order-files')
+                                  .createSignedUrl(file.file_path, 3600);
+                                
+                                if (error) {
+                                  toast.error(`Failed to load file: ${error.message}`);
+                                  return;
+                                }
+                                
+                                const signedUrl = data?.signedUrl;
+                                if (signedUrl) {
+                                  try {
+                                    const response = await fetch(signedUrl);
+                                    if (!response.ok) throw new Error('Failed to fetch file');
+                                    
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    
+                                    const newWindow = window.open(blobUrl, '_blank');
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                                    
+                                    if (!newWindow) {
+                                      toast.error("Please allow popups for this site");
+                                    }
+                                  } catch (err) {
+                                    console.error('Error opening file:', err);
+                                    toast.error("Failed to open file");
+                                  }
+                                }
+                              }}>
+                                {order.rcFiles[0].file_name.length > 8 ? order.rcFiles[0].file_name.substring(0, 8) + '...' : order.rcFiles[0].file_name}
+                              </Button>
+                            ) : (
+                              <Badge variant="destructive" className="text-xs">Missing</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-24">
+                          <div className="flex gap-1 flex-wrap">
+                            {order.podFiles && order.podFiles.length > 0 ? (
+                              <Button variant="outline" size="sm" className="text-xs" onClick={async () => {
+                                const file = order.podFiles[0];
+                                const { data, error } = await supabase.storage
+                                  .from('order-files')
+                                  .createSignedUrl(file.file_path, 3600);
+                                
+                                if (error) {
+                                  toast.error(`Failed to load file: ${error.message}`);
+                                  return;
+                                }
+                                
+                                const signedUrl = data?.signedUrl;
+                                if (signedUrl) {
+                                  try {
+                                    const response = await fetch(signedUrl);
+                                    if (!response.ok) throw new Error('Failed to fetch file');
+                                    
+                                    const blob = await response.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    
+                                    const newWindow = window.open(blobUrl, '_blank');
+                                    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                                    
+                                    if (!newWindow) {
+                                      toast.error("Please allow popups for this site");
+                                    }
+                                  } catch (err) {
+                                    console.error('Error opening file:', err);
+                                    toast.error("Failed to open file");
+                                  }
+                                }
+                              }}>
+                                {order.podFiles[0].file_name.length > 8 ? order.podFiles[0].file_name.substring(0, 8) + '...' : order.podFiles[0].file_name}
+                              </Button>
+                            ) : (
+                              <Badge variant="destructive" className="text-xs">Missing</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {!order.locked && (
+                              <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor')) && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleOrderLock(order.id, order.locked)}
+                                  title={order.locked ? 'Unlock load' : 'Lock load'}
+                                >
+                                  {order.locked ? (
+                                    <Lock className="h-4 w-4 text-destructive" />
+                                  ) : (
+                                    <LockOpen className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                                {!order.locked && !order.canceled && (
+                                  <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
+                                    <XCircle className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
+                                {order.canceled && !order.locked && (hasRole('manager') || hasRole('admin') || hasRole('accounting') || hasRole('supervisor') || canCancelOrders) && (
+                                  <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
+                                    <Undo2 className="h-4 w-4 text-primary" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {canCancelOrders && !order.locked && !order.canceled && (
+                              <Button variant="outline" size="sm" onClick={() => openCancelDialog(order.id)} title="Cancel load">
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                            {canCancelOrders && order.canceled && !order.locked && (
+                              <Button variant="outline" size="sm" onClick={() => handleRevertCancellation(order.id)} title="Revert cancellation">
+                                <Undo2 className="h-4 w-4 text-primary" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -445,6 +623,32 @@ export default function YardLoads() {
           </div>
         </div>
       </Card>
+
+      {/* Notes Dialog */}
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Load Notes</DialogTitle>
+          </DialogHeader>
+          <div className="whitespace-pre-wrap">{selectedNotes}</div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Load</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this load? This action can be reverted later if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelOrder}>Confirm Cancel</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
