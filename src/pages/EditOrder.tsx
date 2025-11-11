@@ -11,7 +11,8 @@ import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -136,6 +137,7 @@ const EditOrder = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
+  const [yardDialogOpen, setYardDialogOpen] = useState(false);
 
   // Email dispatch toggle states
   const [confirmationGenerated, setConfirmationGenerated] = useState(false);
@@ -1447,6 +1449,42 @@ const EditOrder = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleLeftAtYard = async () => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          driver1_id: null,
+          driver2_id: null,
+          truck_id: null
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Trailer left at the yard. Driver and truck assignments cleared.",
+      });
+
+      setYardDialogOpen(false);
+      
+      // Navigate back to yard loads
+      localStorage.setItem('returnToYardLoads', 'true');
+      navigate('/yard-loads');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update load",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (isLoading) {
     return <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center py-8">
@@ -1473,15 +1511,28 @@ const EditOrder = () => {
                 navigate("/orders");
               }
             }}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {returnToReports ? 'Back to Reports' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : 'Back to Orders'}
-              </Button>
-              <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground">Internal Load #</div>
-              <div className="text-lg font-medium">{internalLoadNumber}</div>
-            </div>
+                 <ArrowLeft className="h-4 w-4 mr-2" />
+                 {returnToReports ? 'Back to Reports' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : 'Back to Orders'}
+               </Button>
+               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
+             </div>
+             <div className="flex items-center gap-2">
+               {(truck || driver1) && !isLocked && (
+                 <Button 
+                   type="button"
+                   variant="outline" 
+                   size="sm"
+                   onClick={() => setYardDialogOpen(true)}
+                 >
+                   <Warehouse className="h-4 w-4 mr-2" />
+                   Left Trailer at the Yard
+                 </Button>
+               )}
+               <div className="text-right">
+                 <div className="text-sm text-muted-foreground">Internal Load #</div>
+                 <div className="text-lg font-medium">{internalLoadNumber}</div>
+               </div>
+             </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -2197,6 +2248,22 @@ const EditOrder = () => {
       </Card>
 
       <RecoveryLoadDialog open={recoveryDialogOpen} onOpenChange={setRecoveryDialogOpen} onSave={handleRecoverySave} currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"} currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"} currentTrailer={originalTrailerNumber || trailer || "N/A"} totalMiles={parseInt(loadedMiles) || 0} totalDriverRate={parseFloat(driverPrice) || 0} />
+
+      {/* Yard Dialog */}
+      <AlertDialog open={yardDialogOpen} onOpenChange={setYardDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Left Trailer at the Yard</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear the driver and truck assignments from this load. The trailer will be marked as available at the yard. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLeftAtYard}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>;
 };
 export default EditOrder;
