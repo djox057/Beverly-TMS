@@ -1516,22 +1516,9 @@ const EditOrder = () => {
                </Button>
                <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
              </div>
-             <div className="flex items-center gap-2">
-               {(truck || driver1) && !isLocked && (
-                 <Button 
-                   type="button"
-                   variant="outline" 
-                   size="sm"
-                   onClick={() => setYardDialogOpen(true)}
-                 >
-                   <Warehouse className="h-4 w-4 mr-2" />
-                   Left Trailer at the Yard
-                 </Button>
-               )}
-               <div className="text-right">
-                 <div className="text-sm text-muted-foreground">Internal Load #</div>
-                 <div className="text-lg font-medium">{internalLoadNumber}</div>
-               </div>
+             <div className="text-right">
+               <div className="text-sm text-muted-foreground">Internal Load #</div>
+               <div className="text-lg font-medium">{internalLoadNumber}</div>
              </div>
           </div>
         </CardHeader>
@@ -2215,33 +2202,48 @@ const EditOrder = () => {
               </CardContent>
             </Card>
 
-            <div className="flex justify-end gap-4">
-              <Button type="button" variant="outline" onClick={() => {
-              const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-              if (returnToReports) {
-                localStorage.removeItem('returnToReports');
-                navigate("/reports");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToYardLoads) {
-                localStorage.removeItem('returnToYardLoads');
-                navigate("/yard-loads");
-                window.scrollTo(0, 0);
-              } else {
-                navigate("/orders");
-              }
-            }}>
-                Cancel
-              </Button>
-              {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) && !isRecovery && !isLocked && <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Transfer Load
-                  </Button>}
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </> : "Update Order"}
-              </Button>
+
+            <div className="flex justify-between items-center">
+              <div>
+                {(truck || driver1) && !isLocked && (
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    onClick={() => setYardDialogOpen(true)}
+                  >
+                    <Warehouse className="h-4 w-4 mr-2" />
+                    Left Trailer at the Yard
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-4">
+                <Button type="button" variant="outline" onClick={() => {
+                const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+                if (returnToReports) {
+                  localStorage.removeItem('returnToReports');
+                  navigate("/reports");
+                  window.scrollTo(0, 0);
+                } else if (shouldReturnToYardLoads) {
+                  localStorage.removeItem('returnToYardLoads');
+                  navigate("/yard-loads");
+                  window.scrollTo(0, 0);
+                } else {
+                  navigate("/orders");
+                }
+              }}>
+                  Cancel
+                </Button>
+                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) && !isRecovery && !isLocked && <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Transfer Load
+                    </Button>}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </> : "Update Order"}
+                </Button>
+              </div>
             </div>
           </form>
         </CardContent>
