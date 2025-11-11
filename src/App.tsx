@@ -20,6 +20,7 @@ import AdminUsers from "./pages/AdminUsers";
 import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
 import Orders from "./pages/Orders";
+import YardLoads from "./pages/YardLoads";
 import Trucks from "./pages/Trucks";
 import Trailers from "./pages/Trailers";
 import Drivers from "./pages/Drivers";
@@ -135,6 +136,11 @@ const AppContent = () => {
         <Route path="/orders" element={
           <ProtectedRoute>
             <Layout><Orders /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/yard-loads" element={
+          <ProtectedRoute>
+            <Layout><YardLoads /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/trucks" element={

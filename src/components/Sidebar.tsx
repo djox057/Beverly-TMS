@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Moon,
   Sun,
-  Route
+  Route,
+  Warehouse
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
+  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse },
   { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
