@@ -8,8 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen } from "lucide-react";
@@ -20,54 +35,41 @@ import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRange } from "react-day-picker";
+
 const ITEMS_PER_PAGE = 50;
+
 const getStatusBadge = (status: string) => {
   const statusConfig = {
-    pending: {
-      label: "Pending",
-      variant: "secondary" as const
-    },
-    in_transit: {
-      label: "In Transit",
-      variant: "default" as const
-    },
-    delivered: {
-      label: "Delivered",
-      variant: "outline" as const
-    },
-    cancelled: {
-      label: "Cancelled",
-      variant: "destructive" as const
-    }
+    pending: { label: "Pending", variant: "secondary" as const },
+    in_transit: { label: "In Transit", variant: "default" as const },
+    delivered: { label: "Delivered", variant: "outline" as const },
+    cancelled: { label: "Cancelled", variant: "destructive" as const },
   };
-  const config = statusConfig[status as keyof typeof statusConfig] || {
-    label: status,
-    variant: "secondary" as const
+
+  const config = statusConfig[status as keyof typeof statusConfig] || { 
+    label: status, 
+    variant: "secondary" as const 
   };
+
   return <Badge variant={config.variant}>{config.label}</Badge>;
 };
+
 export default function YardLoads() {
   const navigate = useNavigate();
-  const {
-    hasRole
-  } = useAuthContext();
-
+  const { hasRole } = useAuthContext();
+  
   // Check if user has required roles
   useEffect(() => {
     if (!hasRole('manager') && !hasRole('admin')) {
       navigate('/');
     }
   }, [hasRole, navigate]);
+  
   const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
-
+  
   // Fetch data using the same hook as Orders page
-  const {
-    data: orders = [],
-    isLoading
-  } = useOrders();
-  const {
-    data: companies = []
-  } = useCompanies();
+  const { data: orders = [], isLoading } = useOrders();
+  const { data: companies = [] } = useCompanies();
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,7 +80,7 @@ export default function YardLoads() {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
-    to: undefined
+    to: undefined,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedNotes, setSelectedNotes] = useState<string>("");
@@ -101,7 +103,16 @@ export default function YardLoads() {
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const searchableFields = [order.internalLoadNumber, order.brokerLoadNumber, order.truckNumber, order.driverName, order.brokerName, `${order.pickupCity}, ${order.pickupState}`, `${order.deliveryCity}, ${order.deliveryState}`].filter(Boolean);
+      const searchableFields = [
+        order.internalLoadNumber,
+        order.brokerLoadNumber,
+        order.truckNumber,
+        order.driverName,
+        order.brokerName,
+        `${order.pickupCity}, ${order.pickupState}`,
+        `${order.deliveryCity}, ${order.deliveryState}`,
+      ].filter(Boolean);
+      
       if (!searchableFields.some(field => field?.toLowerCase().includes(query))) {
         return false;
       }
@@ -145,22 +156,28 @@ export default function YardLoads() {
         return false;
       }
     }
+
     return true;
   });
 
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
-  const paginatedOrders = filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCompany, selectedTruck, selectedDriver, selectedBroker, selectedStatus, dateRange]);
+
   const navigateToEditOrder = (orderId: string) => {
     // Set flag to return to yard loads
     localStorage.setItem('returnToYardLoads', 'true');
     navigate(`/edit-order/${orderId}`);
   };
+
   const exportToExcel = () => {
     const exportData = filteredOrders.map(order => ({
       'Load #': order.internalLoadNumber,
@@ -176,43 +193,51 @@ export default function YardLoads() {
       'Delivery Date': order.deliveryDate ? format(new Date(order.deliveryDate), 'MM/dd/yyyy') : '',
       'Miles': order.mileage || 0,
       'Driver Pay': order.driverPrice || 0,
-      'Broker Rate': order.freightAmount || 0
+      'Broker Rate': order.freightAmount || 0,
     }));
+
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Yard Loads");
     XLSX.writeFile(wb, `yard-loads-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+
     toast.success("Export Successful", {
-      description: `Exported ${filteredOrders.length} loads to Excel`
+      description: `Exported ${filteredOrders.length} loads to Excel`,
     });
   };
+
   const toggleOrderLock = async (orderId: string, currentLockState: boolean) => {
     try {
-      const {
-        error
-      } = await supabase.from('orders').update({
-        locked: !currentLockState
-      }).eq('id', orderId);
+      const { error } = await supabase
+        .from('orders')
+        .update({ locked: !currentLockState })
+        .eq('id', orderId);
+
       if (error) throw error;
+
       toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
     } catch (error) {
       console.error('Error toggling lock:', error);
       toast.error("Failed to toggle lock status");
     }
   };
+
   const openCancelDialog = (orderId: string) => {
     setOrderToCancel(orderId);
     setCancelDialogOpen(true);
   };
+
   const handleCancelOrder = async () => {
     if (!orderToCancel) return;
+
     try {
-      const {
-        error
-      } = await supabase.from('orders').update({
-        canceled: true
-      }).eq('id', orderToCancel);
+      const { error } = await supabase
+        .from('orders')
+        .update({ canceled: true })
+        .eq('id', orderToCancel);
+
       if (error) throw error;
+
       toast.success("Load Canceled");
       setCancelDialogOpen(false);
       setOrderToCancel(null);
@@ -221,21 +246,25 @@ export default function YardLoads() {
       toast.error("Failed to cancel load");
     }
   };
+
   const handleRevertCancellation = async (orderId: string) => {
     try {
-      const {
-        error
-      } = await supabase.from('orders').update({
-        canceled: false
-      }).eq('id', orderId);
+      const { error } = await supabase
+        .from('orders')
+        .update({ canceled: false })
+        .eq('id', orderId);
+
       if (error) throw error;
+
       toast.success("Cancellation Reverted");
     } catch (error) {
       console.error('Error reverting cancellation:', error);
       toast.error("Failed to revert cancellation");
     }
   };
-  return <div className="space-y-6">
+
+  return (
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Loads at the Yard</h1>
         <div className="flex gap-2">
@@ -254,43 +283,62 @@ export default function YardLoads() {
         <div className="space-y-4">
           {/* Search and Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input placeholder="Search loads..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full" />
+            <Input
+              placeholder="Search loads..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
             
-            
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+            />
 
-            <Combobox options={companies.map(c => ({
-            value: c.name,
-            label: c.name
-          }))} value={selectedCompany} onValueChange={setSelectedCompany} placeholder="All Companies" searchPlaceholder="Search companies..." />
+            <Combobox
+              options={companies.map(c => ({ value: c.name, label: c.name }))}
+              value={selectedCompany}
+              onValueChange={setSelectedCompany}
+              placeholder="All Companies"
+              searchPlaceholder="Search companies..."
+            />
 
-            <Combobox options={[{
-            value: "pending",
-            label: "Pending"
-          }, {
-            value: "in_transit",
-            label: "In Transit"
-          }, {
-            value: "delivered",
-            label: "Delivered"
-          }, {
-            value: "cancelled",
-            label: "Cancelled"
-          }]} value={selectedStatus} onValueChange={setSelectedStatus} placeholder="All Statuses" searchPlaceholder="Search status..." />
+            <Combobox
+              options={[
+                { value: "pending", label: "Pending" },
+                { value: "in_transit", label: "In Transit" },
+                { value: "delivered", label: "Delivered" },
+                { value: "cancelled", label: "Cancelled" },
+              ]}
+              value={selectedStatus}
+              onValueChange={setSelectedStatus}
+              placeholder="All Statuses"
+              searchPlaceholder="Search status..."
+            />
 
-            <Combobox options={trucks.map(t => ({
-            value: t,
-            label: t
-          }))} value={selectedTruck} onValueChange={setSelectedTruck} placeholder="All Trucks" searchPlaceholder="Search trucks..." />
+            <Combobox
+              options={trucks.map(t => ({ value: t, label: t }))}
+              value={selectedTruck}
+              onValueChange={setSelectedTruck}
+              placeholder="All Trucks"
+              searchPlaceholder="Search trucks..."
+            />
 
-            <Combobox options={drivers.map(d => ({
-            value: d,
-            label: d
-          }))} value={selectedDriver} onValueChange={setSelectedDriver} placeholder="All Drivers" searchPlaceholder="Search drivers..." />
+            <Combobox
+              options={drivers.map(d => ({ value: d, label: d }))}
+              value={selectedDriver}
+              onValueChange={setSelectedDriver}
+              placeholder="All Drivers"
+              searchPlaceholder="Search drivers..."
+            />
 
-            <Combobox options={brokers.map(b => ({
-            value: b,
-            label: b
-          }))} value={selectedBroker} onValueChange={setSelectedBroker} placeholder="All Brokers" searchPlaceholder="Search brokers..." />
+            <Combobox
+              options={brokers.map(b => ({ value: b, label: b }))}
+              value={selectedBroker}
+              onValueChange={setSelectedBroker}
+              placeholder="All Brokers"
+              searchPlaceholder="Search brokers..."
+            />
           </div>
 
           {/* Table */}
@@ -314,22 +362,40 @@ export default function YardLoads() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? <TableRow>
+                {isLoading ? (
+                  <TableRow>
                     <TableCell colSpan={13} className="text-center py-8">
                       Loading...
                     </TableCell>
-                  </TableRow> : paginatedOrders.length === 0 ? <TableRow>
+                  </TableRow>
+                ) : paginatedOrders.length === 0 ? (
+                  <TableRow>
                     <TableCell colSpan={13} className="text-center py-8">
                       No loads found
                     </TableCell>
-                  </TableRow> : paginatedOrders.map((order: any) => {
-                const isRecovery = order.isRecovery;
-                const hasRedFees = order.lateFeeDriver > 0 || order.noTrackingFeeDriver > 0 || order.wrongAddressFeeDriver > 0;
-                const hasGreenFees = order.detentionDriver > 0 || order.layoverDriver > 0;
-                const hasYellowFees = order.escortFee > 0 || order.lumper > 0;
-                const hasOrangeCondition = order.canceled || order.dateChangeNotes && order.dateChangeNotes.trim() !== '';
-                const rowClassName = isRecovery ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]' : hasRedFees ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]' : hasGreenFees ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]' : hasYellowFees ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]' : hasOrangeCondition ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]' : '';
-                return <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                  </TableRow>
+                ) : (
+                  paginatedOrders.map((order: any) => {
+                    const isRecovery = order.isRecovery;
+                    const hasRedFees = (order.lateFeeDriver > 0) || (order.noTrackingFeeDriver > 0) || (order.wrongAddressFeeDriver > 0);
+                    const hasGreenFees = (order.detentionDriver > 0) || (order.layoverDriver > 0);
+                    const hasYellowFees = (order.escortFee > 0) || (order.lumper > 0);
+                    const hasOrangeCondition = order.canceled || (order.dateChangeNotes && order.dateChangeNotes.trim() !== '');
+                    
+                    const rowClassName = isRecovery
+                      ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
+                      : hasRedFees 
+                      ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
+                      : hasGreenFees
+                      ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
+                      : hasYellowFees
+                      ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
+                      : hasOrangeCondition
+                      ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]'
+                      : '';
+                    
+                    return (
+                      <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.trailerNumber}</TableCell>
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
@@ -351,52 +417,71 @@ export default function YardLoads() {
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
-                          {!order.locked && <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                          {!order.locked && (
+                            <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                               <Edit className="h-4 w-4" />
-                            </Button>}
+                            </Button>
+                          )}
                         </TableCell>
-                      </TableRow>;
-              })}
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && <Pagination>
+          {totalPages > 1 && (
+            <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
                 </PaginationItem>
                 
-                {Array.from({
-              length: Math.min(5, totalPages)
-            }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-              return <PaginationItem key={pageNum}>
-                      <PaginationLink onClick={() => setCurrentPage(pageNum)} isActive={currentPage === pageNum} className="cursor-pointer">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(pageNum)}
+                        isActive={currentPage === pageNum}
+                        className="cursor-pointer"
+                      >
                         {pageNum}
                       </PaginationLink>
-                    </PaginationItem>;
-            })}
+                    </PaginationItem>
+                  );
+                })}
 
-                {totalPages > 5 && currentPage < totalPages - 2 && <PaginationItem>
+                {totalPages > 5 && currentPage < totalPages - 2 && (
+                  <PaginationItem>
                     <PaginationEllipsis />
-                  </PaginationItem>}
+                  </PaginationItem>
+                )}
                 
                 <PaginationItem>
-                  <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                  <PaginationNext
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
                 </PaginationItem>
               </PaginationContent>
-            </Pagination>}
+            </Pagination>
+          )}
 
           <div className="text-sm text-muted-foreground">
             Showing {paginatedOrders.length} of {filteredOrders.length} loads
@@ -429,5 +514,6 @@ export default function YardLoads() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>;
+    </div>
+  );
 }
