@@ -1744,10 +1744,10 @@ const NewOrder = () => {
       setTonu('');
       setDhMiles('');
       setLoadedMiles('');
-      setRcFiles(null);
-      setBolFiles(null);
-      setPodFiles(null);
-      setAdditionalFiles(null);
+      setRcFiles([]);
+      setBolFiles([]);
+      setPodFiles([]);
+      setAdditionalFiles([]);
       const rcInput = document.getElementById('rc-files') as HTMLInputElement;
       const bolInput = document.getElementById('bol-files') as HTMLInputElement;
       const podInput = document.getElementById('pod-files') as HTMLInputElement;
