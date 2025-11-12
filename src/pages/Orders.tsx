@@ -155,6 +155,7 @@ const Orders = () => {
   });
   const [recalculatingOrder, setRecalculatingOrder] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [hasRestoredFilters, setHasRestoredFilters] = useState(false);
   const ORDERS_PER_PAGE = 100;
 
   // Restore filter state from localStorage on mount
@@ -180,6 +181,7 @@ const Orders = () => {
             });
           }
           setCurrentPage(state.currentPage || 1);
+          setHasRestoredFilters(true);
         } catch (error) {
           console.error("Error restoring filter state:", error);
         }
@@ -193,11 +195,10 @@ const Orders = () => {
   // Set bookedBy filter for dispatchers when profile loads (only if not restoring)
   // Exclude safety role from auto-filter
   useEffect(() => {
-    const shouldRestore = localStorage.getItem("returnToOrders");
-    if (!shouldRestore && isDispatcher && profile?.full_name && !hasRole("safety")) {
+    if (!hasRestoredFilters && isDispatcher && profile?.full_name && !hasRole("safety")) {
       setBookedByFilter(profile.full_name);
     }
-  }, [isDispatcher, profile?.full_name, hasRole]);
+  }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
   const { data: orders, isLoading, error, refetch } = useOrders();
 
