@@ -110,11 +110,13 @@ export const useReports = () => {
     mutationFn: async ({ truckId, note, driverId }: { truckId: string; note: string; driverId?: string }) => {
       // Get truck to find driver if not provided
       if (!driverId) {
-        const { data: truck } = await supabase
+        const { data: truck, error: truckError } = await supabase
           .from('trucks')
           .select('driver1_id')
           .eq('id', truckId)
           .single();
+        
+        if (truckError) throw truckError;
         driverId = truck?.driver1_id;
       }
 
@@ -122,14 +124,19 @@ export const useReports = () => {
         throw new Error('Cannot save note: no driver assigned to truck');
       }
 
+      // Get current user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('Not authenticated');
+
       // First check if a note already exists for this driver
-      const { data: existingNote } = await supabase
+      const { data: existingNote, error: fetchError } = await supabase
         .from('truck_notes')
         .select('id')
         .eq('driver_id', driverId)
         .maybeSingle();
 
-      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (fetchError) throw fetchError;
 
       if (existingNote) {
         // Update existing note
@@ -138,9 +145,10 @@ export const useReports = () => {
           .update({ 
             note,
             truck_id: truckId,
-            updated_by: userId 
+            updated_by: user.id 
           })
           .eq('driver_id', driverId);
+        
         if (error) throw error;
       } else {
         // Create new note
@@ -150,8 +158,9 @@ export const useReports = () => {
             truck_id: truckId,
             driver_id: driverId,
             note,
-            updated_by: userId 
+            updated_by: user.id 
           });
+        
         if (error) throw error;
       }
     },
