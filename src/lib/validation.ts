@@ -34,7 +34,7 @@ export const createUserSchema = z.object({
     .trim()
     .max(100, "Name must be less than 100 characters")
     .optional(),
-  role: z.enum(['dispatch', 'afterhours', 'admin', 'manager', 'driver', 'safety', 'supervisor', 'accounting'], {
+  role: z.enum(['dispatch', 'afterhours', 'admin', 'manager', 'driver', 'safety', 'supervisor', 'accounting', 'maintenance'], {
     errorMap: () => ({ message: "Invalid role selected" }),
   }),
 });
