@@ -213,10 +213,25 @@ const Analytics = () => {
       // Dispatchers only see their own orders
       if (primaryRole === "dispatch") {
         if (!profile?.full_name && !profile?.user_id) {
+          console.log("❌ Dispatch filter: Missing profile name or ID");
           return false;
         }
         // Check both full_name and user_id to handle both old and new data formats
-        return matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
+        const matches = matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
+        
+        if (profile.full_name === "Stefan Vuckovic-Paul") {
+          console.log("🔍 Stefan order:", {
+            orderBookedBy: order.bookedBy,
+            profileFullName: profile.full_name,
+            profileUserId: profile.user_id,
+            matchesDate,
+            matches,
+            pickupDate: order.pickupDate,
+            totalFreight: order.totalFreightAmount
+          });
+        }
+        
+        return matches;
       }
 
       // Default: no access for other roles
