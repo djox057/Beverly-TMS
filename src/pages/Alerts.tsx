@@ -311,14 +311,14 @@ export default function Alerts() {
     return items;
   };
 
-  // Check if user has admin or safety role
-  if (!hasRole('admin') && !hasRole('safety')) {
+  // Check if user has admin, safety or maintenance role
+  if (!hasRole('admin') && !hasRole('safety') && !hasRole('maintenance')) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Denied</h2>
-            <p className="text-muted-foreground">This page is only accessible to Admin and Safety roles.</p>
+            <p className="text-muted-foreground">This page is only accessible to Admin, Safety and Maintenance roles.</p>
           </div>
         </div>
       </div>
