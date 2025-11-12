@@ -743,9 +743,19 @@ const Orders = () => {
                 <Button
                   variant={lockedNotInvoicedFilter ? "default" : "outline"}
                   onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
+                  className="w-[160px]"
                 >
-                  <Lock className="mr-2 h-4 w-4" />
-                  {lockedNotInvoicedFilter ? "Show Locked" : "Show Locked"}
+                  {lockedNotInvoicedFilter ? (
+                    <>
+                      <LockOpen className="mr-2 h-4 w-4" />
+                      Hide Locked
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Show Locked
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
