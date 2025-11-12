@@ -112,7 +112,7 @@ const Analytics = () => {
   // Merge database data with local state
   const driverTiers = useMemo(() => performanceData, [performanceData]);
 
-  // Fetch all profiles to get office locations and roles indexed by full_name
+  // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
       const {
@@ -131,8 +131,16 @@ const Analytics = () => {
           return acc;
         }, {} as Record<string, string[]>) || {};
         const profileMap = profiles.reduce((acc, p) => {
+          // Index by both full_name and user_id to handle both old and new booked_by formats
           if (p.full_name) {
             acc[p.full_name] = {
+              email: p.email,
+              office: p.office,
+              roles: rolesMap[p.user_id] || []
+            };
+          }
+          if (p.user_id) {
+            acc[p.user_id] = {
               email: p.email,
               office: p.office,
               roles: rolesMap[p.user_id] || []
@@ -205,16 +213,8 @@ const Analytics = () => {
       // Dispatchers only see their own orders
       if (primaryRole === "dispatch") {
         if (!profile?.full_name && !profile?.user_id) {
-          console.log("Dispatch filter: no profile name or ID");
           return false;
         }
-        console.log("Dispatch filter:", {
-          profileFullName: profile.full_name,
-          profileUserId: profile.user_id,
-          orderBookedBy: order.bookedBy,
-          matchesDate,
-          result: matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id)
-        });
         // Check both full_name and user_id to handle both old and new data formats
         return matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
       }
