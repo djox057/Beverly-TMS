@@ -347,7 +347,9 @@ const Analytics = () => {
     for (let i = 0; i < 12; i++) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      monthStart.setHours(0, 0, 0, 0);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+      monthEnd.setHours(23, 59, 59, 999);
       months.push({
         value: i.toString(),
         label: monthStart.toLocaleDateString("en-US", {
