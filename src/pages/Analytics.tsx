@@ -620,8 +620,8 @@ const Analytics = () => {
               </CardHeader>
               <CardContent>
                 {/* Totals Section */}
-                <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
-                  <div className="grid grid-cols-7 gap-4">
+                <div className="mb-6 p-6 bg-muted/50 rounded-lg border">
+                  <div className="grid grid-cols-5 gap-8">
                     
                     <div className="text-center">
                       <p className="text-sm font-medium text-muted-foreground mb-1">Total Freight</p>
