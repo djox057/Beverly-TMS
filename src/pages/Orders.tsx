@@ -646,11 +646,11 @@ const Orders = () => {
               <CardTitle>All Loads</CardTitle>
 
               <div className="flex flex-wrap gap-4 items-center">
-                <div className="relative w-72">
+                <div className="relative w-[288px] shrink-0">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
                     placeholder="Search loads..."
-                    className="pl-10"
+                    className="pl-10 w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -660,7 +660,7 @@ const Orders = () => {
                   date={dateRange}
                   onDateChange={setDateRange}
                   placeholder="Filter by delivery date"
-                  className="w-72"
+                  className="w-[288px] shrink-0"
                 />
 
                 <Combobox
@@ -672,7 +672,7 @@ const Orders = () => {
                     { value: "all-trucks", label: "All Trucks" },
                     ...uniqueTrucks.map((truck) => ({ value: truck, label: truck })),
                   ]}
-                  className="w-48"
+                  className="w-[192px] shrink-0"
                 />
 
                 <Combobox
@@ -684,7 +684,7 @@ const Orders = () => {
                     { value: "all-companies", label: "All Companies" },
                     ...uniqueCompanies.map((company) => ({ value: company, label: company })),
                   ]}
-                  className="w-48"
+                  className="w-[192px] shrink-0"
                 />
 
                 <Combobox
@@ -696,7 +696,7 @@ const Orders = () => {
                     { value: "all-truck-companies", label: "All Truck Companies" },
                     ...uniqueTruckCompanies.map((company) => ({ value: company, label: company })),
                   ]}
-                  className="w-48"
+                  className="w-[192px] shrink-0"
                 />
 
                 {!isDispatchOnly && (
@@ -709,7 +709,7 @@ const Orders = () => {
                       { value: "all-users", label: "All Users" },
                       ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
                     ]}
-                    className="w-48"
+                    className="w-[192px] shrink-0"
                   />
                 )}
 
@@ -722,7 +722,7 @@ const Orders = () => {
                     { value: "all-drivers", label: "All Drivers" },
                     ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
                   ]}
-                  className="w-48"
+                  className="w-[192px] shrink-0"
                 />
 
                 <Combobox
@@ -737,22 +737,22 @@ const Orders = () => {
                     { value: "missing-bol", label: "Missing BOL" },
                     { value: "missing-pod", label: "Missing POD" },
                   ]}
-                  className="w-48"
+                  className="w-[192px] shrink-0"
                 />
 
                 <Button
                   variant={lockedNotInvoicedFilter ? "default" : "outline"}
                   onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                  className="w-[160px]"
+                  className="w-[160px] shrink-0"
                 >
                   {lockedNotInvoicedFilter ? (
                     <>
-                      <LockOpen className="mr-2 h-4 w-4" />
+                      <LockOpen className="mr-2 h-4 w-4 shrink-0" />
                       Hide Locked
                     </>
                   ) : (
                     <>
-                      <Lock className="mr-2 h-4 w-4" />
+                      <Lock className="mr-2 h-4 w-4 shrink-0" />
                       Show Locked
                     </>
                   )}
