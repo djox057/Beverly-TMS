@@ -129,6 +129,8 @@ export const useReports = () => {
         .eq('driver_id', driverId)
         .maybeSingle();
 
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+
       if (existingNote) {
         // Update existing note
         const { error } = await supabase
@@ -136,9 +138,9 @@ export const useReports = () => {
           .update({ 
             note,
             truck_id: truckId,
-            updated_by: (await supabase.auth.getUser()).data.user?.id 
+            updated_by: userId 
           })
-          .eq('id', existingNote.id);
+          .eq('driver_id', driverId);
         if (error) throw error;
       } else {
         // Create new note
@@ -148,7 +150,7 @@ export const useReports = () => {
             truck_id: truckId,
             driver_id: driverId,
             note,
-            updated_by: (await supabase.auth.getUser()).data.user?.id 
+            updated_by: userId 
           });
         if (error) throw error;
       }
