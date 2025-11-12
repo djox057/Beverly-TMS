@@ -382,7 +382,17 @@ const Drivers = () => {
       }
 
       // Handle truck assignment changes
-      // First, clear this driver from any trucks they might be on
+      // First, find if driver is currently assigned to a truck
+      const { data: currentTrucks } = await supabase
+        .from('trucks')
+        .select('id')
+        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
+        .limit(1)
+        .single();
+      
+      const existingTruckId = currentTrucks?.id;
+
+      // Clear this driver from any trucks they might be on
       const { error: clearError } = await supabase
         .from('trucks')
         .update({ driver1_id: null })
@@ -397,9 +407,9 @@ const Drivers = () => {
       
       if (clearError2) throw clearError2;
 
-      // Then assign to new truck if one is selected
+      // Handle truck/trailer assignment
       if (formData.truck_id) {
-        // Remove trailer from any other truck if selected
+        // Truck is selected - assign both driver and trailer to it
         if (formData.trailer_id) {
           await supabase.from('trucks')
             .update({ trailer_id: null })
@@ -414,6 +424,28 @@ const Drivers = () => {
           trailer_id: formData.trailer_id || null
         }).eq('id', formData.truck_id);
         if (truckError) throw truckError;
+      } else if (formData.trailer_id && existingTruckId) {
+        // Only trailer is selected and driver has an existing truck - update trailer on existing truck
+        await supabase.from('trucks')
+          .update({ trailer_id: null })
+          .eq('trailer_id', formData.trailer_id)
+          .neq('id', existingTruckId);
+
+        const {
+          error: trailerError
+        } = await supabase.from('trucks').update({
+          driver1_id: editingDriver.id,
+          trailer_id: formData.trailer_id
+        }).eq('id', existingTruckId);
+        if (trailerError) throw trailerError;
+      } else if (formData.trailer_id && !existingTruckId) {
+        // Only trailer selected but no existing truck - can't assign trailer without truck
+        toast({
+          title: "Warning",
+          description: "Cannot assign a trailer without a truck. Please select a truck or assign the driver to a truck first.",
+          variant: "destructive"
+        });
+        throw new Error("Cannot assign trailer without truck");
       }
       toast({
         title: "Success",
