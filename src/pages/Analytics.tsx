@@ -160,13 +160,18 @@ const Analytics = () => {
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
+    // Return empty array if orders haven't loaded yet
+    if (!orders) {
+      return [];
+    }
+    
     const primaryRole = getPrimaryRole();
 
     // Wait for profiles to load for supervisors
     if (primaryRole === "supervisor" && Object.keys(dispatcherProfiles).length === 0) {
       return [];
     }
-    const filtered = orders?.filter(order => {
+    const filtered = orders.filter(order => {
       // Exclude canceled orders from analytics
       if (order.canceled) {
         return false;
