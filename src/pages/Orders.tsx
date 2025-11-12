@@ -279,8 +279,9 @@ const Orders = () => {
       }
     }
     
-    // Filter for locked but not invoiced loads
-    const matchesLockedNotInvoiced = !lockedNotInvoicedFilter || (order.locked && !order.invoiced);
+    // Filter for locked but not invoiced loads with freight amount > 0
+    const matchesLockedNotInvoiced = !lockedNotInvoicedFilter || 
+      (order.locked && !order.invoiced && (order.totalFreightAmount || 0) > 0);
     
     return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate && matchesLockedNotInvoiced;
   }) || [];
