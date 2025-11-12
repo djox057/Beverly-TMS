@@ -241,6 +241,7 @@ export const useOrders = () => {
           recoveryFreightAmount: order.recovery_freight_amount || 0,
           recoveryDriverPrice: order.recovery_driver_price || 0,
           recoveryDate: order.recovery_date || null,
+          pickup_drops: order.pickup_drops || [],
         };
       });
 
