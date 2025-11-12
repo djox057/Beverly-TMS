@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -25,6 +25,7 @@ import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 interface DriverFormData {
   name: string;
   phone: string;
@@ -75,6 +76,9 @@ const Drivers = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
+  const [historyDriverName, setHistoryDriverName] = useState<string>("");
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -1085,6 +1089,17 @@ const Drivers = () => {
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setHistoryDriverId(driver.id);
+                              setHistoryDriverName(driver.name);
+                              setIsHistoryDialogOpen(true);
+                            }}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm">
@@ -1544,6 +1559,15 @@ const Drivers = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* History Dialog */}
+      <AssignmentHistoryDialog
+        entityType="driver"
+        entityId={historyDriverId}
+        entityName={historyDriverName}
+        open={isHistoryDialogOpen}
+        onOpenChange={setIsHistoryDialogOpen}
+      />
     </div>;
 };
 export default Drivers;

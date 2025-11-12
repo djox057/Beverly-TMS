@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History } from "lucide-react";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrucks } from "@/hooks/useTrucks";
@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
+import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
@@ -32,6 +33,9 @@ const Trailers = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTrailer, setEditingTrailer] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [historyTrailerId, setHistoryTrailerId] = useState<string | null>(null);
+  const [historyTrailerName, setHistoryTrailerName] = useState<string>("");
   const [formData, setFormData] = useState<TrailerFormData>({
     trailer_number: "",
     trailer_type: "",
@@ -408,6 +412,17 @@ const Trailers = () => {
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(trailer)}>
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setHistoryTrailerId(trailer.id);
+                              setHistoryTrailerName(trailer.trailer_number);
+                              setIsHistoryDialogOpen(true);
+                            }}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="outline" size="sm">
@@ -659,6 +674,15 @@ const Trailers = () => {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* History Dialog */}
+      <AssignmentHistoryDialog
+        entityType="trailer"
+        entityId={historyTrailerId}
+        entityName={historyTrailerName}
+        open={isHistoryDialogOpen}
+        onOpenChange={setIsHistoryDialogOpen}
+      />
     </div>;
 };
 export default Trailers;
