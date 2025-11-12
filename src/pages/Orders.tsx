@@ -642,122 +642,124 @@ const Orders = () => {
 
         <Card className="w-fit min-w-full">
           <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <CardTitle>All Loads</CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="shrink-0">All Loads</CardTitle>
 
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="relative w-[288px] shrink-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search loads..."
-                    className="pl-10 w-full"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+              <ScrollArea className="w-full">
+                <div className="flex gap-4 items-center pb-4">
+                  <div className="relative w-[288px] shrink-0">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                    <Input
+                      placeholder="Search loads..."
+                      className="pl-10 w-full"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <DateRangePicker
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                    placeholder="Filter by delivery date"
+                    className="w-[288px] shrink-0"
                   />
-                </div>
 
-                <DateRangePicker
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                  placeholder="Filter by delivery date"
-                  className="w-[288px] shrink-0"
-                />
-
-                <Combobox
-                  value={truckFilter}
-                  onValueChange={setTruckFilter}
-                  placeholder="Filter by Truck"
-                  searchPlaceholder="Search trucks..."
-                  options={[
-                    { value: "all-trucks", label: "All Trucks" },
-                    ...uniqueTrucks.map((truck) => ({ value: truck, label: truck })),
-                  ]}
-                  className="w-[192px] shrink-0"
-                />
-
-                <Combobox
-                  value={companyFilter}
-                  onValueChange={setCompanyFilter}
-                  placeholder="Filter by Company"
-                  searchPlaceholder="Search companies..."
-                  options={[
-                    { value: "all-companies", label: "All Companies" },
-                    ...uniqueCompanies.map((company) => ({ value: company, label: company })),
-                  ]}
-                  className="w-[192px] shrink-0"
-                />
-
-                <Combobox
-                  value={truckCompanyFilter}
-                  onValueChange={setTruckCompanyFilter}
-                  placeholder="Filter by Truck Company"
-                  searchPlaceholder="Search truck companies..."
-                  options={[
-                    { value: "all-truck-companies", label: "All Truck Companies" },
-                    ...uniqueTruckCompanies.map((company) => ({ value: company, label: company })),
-                  ]}
-                  className="w-[192px] shrink-0"
-                />
-
-                {!isDispatchOnly && (
                   <Combobox
-                    value={bookedByFilter}
-                    onValueChange={setBookedByFilter}
-                    placeholder="Filter by Booked By"
-                    searchPlaceholder="Search users..."
+                    value={truckFilter}
+                    onValueChange={setTruckFilter}
+                    placeholder="Filter by Truck"
+                    searchPlaceholder="Search trucks..."
                     options={[
-                      { value: "all-users", label: "All Users" },
-                      ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
+                      { value: "all-trucks", label: "All Trucks" },
+                      ...uniqueTrucks.map((truck) => ({ value: truck, label: truck })),
                     ]}
                     className="w-[192px] shrink-0"
                   />
-                )}
 
-                <Combobox
-                  value={driverFilter}
-                  onValueChange={setDriverFilter}
-                  placeholder="Filter by Driver"
-                  searchPlaceholder="Search drivers..."
-                  options={[
-                    { value: "all-drivers", label: "All Drivers" },
-                    ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
-                  ]}
-                  className="w-[192px] shrink-0"
-                />
+                  <Combobox
+                    value={companyFilter}
+                    onValueChange={setCompanyFilter}
+                    placeholder="Filter by Company"
+                    searchPlaceholder="Search companies..."
+                    options={[
+                      { value: "all-companies", label: "All Companies" },
+                      ...uniqueCompanies.map((company) => ({ value: company, label: company })),
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
 
-                <Combobox
-                  value={missingDocsFilter}
-                  onValueChange={setMissingDocsFilter}
-                  placeholder="Filter by Missing Docs"
-                  searchPlaceholder="Search status..."
-                  options={[
-                    { value: "all", label: "All Orders" },
-                    { value: "complete", label: "Complete (RC + POD)" },
-                    { value: "missing-rc", label: "Missing RC" },
-                    { value: "missing-bol", label: "Missing BOL" },
-                    { value: "missing-pod", label: "Missing POD" },
-                  ]}
-                  className="w-[192px] shrink-0"
-                />
+                  <Combobox
+                    value={truckCompanyFilter}
+                    onValueChange={setTruckCompanyFilter}
+                    placeholder="Filter by Truck Company"
+                    searchPlaceholder="Search truck companies..."
+                    options={[
+                      { value: "all-truck-companies", label: "All Truck Companies" },
+                      ...uniqueTruckCompanies.map((company) => ({ value: company, label: company })),
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
 
-                <Button
-                  variant={lockedNotInvoicedFilter ? "default" : "outline"}
-                  onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                  className="w-[160px] shrink-0"
-                >
-                  {lockedNotInvoicedFilter ? (
-                    <>
-                      <LockOpen className="mr-2 h-4 w-4 shrink-0" />
-                      Hide Locked
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="mr-2 h-4 w-4 shrink-0" />
-                      Show Locked
-                    </>
+                  {!isDispatchOnly && (
+                    <Combobox
+                      value={bookedByFilter}
+                      onValueChange={setBookedByFilter}
+                      placeholder="Filter by Booked By"
+                      searchPlaceholder="Search users..."
+                      options={[
+                        { value: "all-users", label: "All Users" },
+                        ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
+                      ]}
+                      className="w-[192px] shrink-0"
+                    />
                   )}
-                </Button>
-              </div>
+
+                  <Combobox
+                    value={driverFilter}
+                    onValueChange={setDriverFilter}
+                    placeholder="Filter by Driver"
+                    searchPlaceholder="Search drivers..."
+                    options={[
+                      { value: "all-drivers", label: "All Drivers" },
+                      ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
+
+                  <Combobox
+                    value={missingDocsFilter}
+                    onValueChange={setMissingDocsFilter}
+                    placeholder="Filter by Missing Docs"
+                    searchPlaceholder="Search status..."
+                    options={[
+                      { value: "all", label: "All Orders" },
+                      { value: "complete", label: "Complete (RC + POD)" },
+                      { value: "missing-rc", label: "Missing RC" },
+                      { value: "missing-bol", label: "Missing BOL" },
+                      { value: "missing-pod", label: "Missing POD" },
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
+
+                  <Button
+                    variant={lockedNotInvoicedFilter ? "default" : "outline"}
+                    onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
+                    className="w-[160px] shrink-0"
+                  >
+                    {lockedNotInvoicedFilter ? (
+                      <>
+                        <LockOpen className="mr-2 h-4 w-4 shrink-0" />
+                        Hide Locked
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4 shrink-0" />
+                        Show Locked
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </ScrollArea>
             </div>
           </CardHeader>
           <CardContent className="p-0">
