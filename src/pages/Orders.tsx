@@ -744,7 +744,7 @@ const Orders = () => {
                   onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
                 >
                   <Lock className="mr-2 h-4 w-4" />
-                  {lockedNotInvoicedFilter ? "Showing Locked" : "Show Locked"}
+                  {lockedNotInvoicedFilter ? "Show Locked" : "Show Locked"}
                 </Button>
               </div>
             </div>
