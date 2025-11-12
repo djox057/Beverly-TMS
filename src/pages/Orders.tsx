@@ -403,24 +403,28 @@ const Orders = () => {
   const generateInvoices = async () => {
     if (!filteredOrders.length) return;
     try {
-      await generateInvoicePDF(filteredOrders);
+      const processedOrderIds = await generateInvoicePDF(filteredOrders);
 
-      // Update invoiced status for all orders that were processed
-      const orderIds = filteredOrders.map(order => order.id);
-      const {
-        error
-      } = await supabase.from('orders').update({
-        invoiced: true
-      }).in('id', orderIds);
-      if (error) {
-        console.error('Error updating invoice status:', error);
-      } else {
-        console.log(`Successfully updated ${orderIds.length} orders as invoiced`);
-        // Force refresh of orders data to show updated status
-        window.location.reload();
+      // Update invoiced status for all orders that were successfully processed
+      if (processedOrderIds.length > 0) {
+        const {
+          error
+        } = await supabase.from('orders').update({
+          invoiced: true
+        }).in('id', processedOrderIds);
+        if (error) {
+          console.error('Error updating invoice status:', error);
+          toast.error('Failed to update invoice status');
+        } else {
+          console.log(`Successfully updated ${processedOrderIds.length} orders as invoiced`);
+          toast.success(`${processedOrderIds.length} orders marked as invoiced`);
+          // Refresh orders data to show updated status
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
       }
     } catch (error) {
       console.error('Error generating invoices:', error);
+      toast.error('Failed to generate invoices');
     }
   };
 

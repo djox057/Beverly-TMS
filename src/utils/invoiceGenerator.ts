@@ -68,8 +68,8 @@ interface Order {
   podFiles?: OrderFile[];
 }
 
-export const generateInvoicePDF = async (orders: Order[]) => {
-  if (!orders.length) return;
+export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => {
+  if (!orders.length) return [];
 
   console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
 
@@ -445,7 +445,11 @@ export const generateInvoicePDF = async (orders: Order[]) => {
     URL.revokeObjectURL(url);
     
     console.log('ZIP file downloaded successfully');
+    
+    // Return the IDs of all orders that were processed
+    return orders.map(order => order.id);
   } catch (error) {
     console.error('Error creating ZIP file:', error);
+    return [];
   }
 };
