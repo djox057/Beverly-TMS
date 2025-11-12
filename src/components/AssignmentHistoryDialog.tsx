@@ -21,23 +21,27 @@ export const AssignmentHistoryDialog = ({
 }: AssignmentHistoryDialogProps) => {
   const { data: history, isLoading } = useAssignmentHistory(entityType, entityId);
 
+  const getChangeTypeLabel = (changeType: string) => {
+    const labels: Record<string, string> = {
+      'truck_assignment': 'Truck Assignment',
+      'trailer_assignment': 'Trailer Assignment',
+      'driver_assignment': 'Driver Assignment',
+      'assignment_change': 'Assignment Change',
+    };
+    return labels[changeType] || changeType.replace('_', ' ');
+  };
+
   const formatChangeDescription = (entry: any) => {
     const parts = [];
     
-    if (entry.truck_number) {
-      parts.push(`Truck: ${entry.truck_number}`);
-    }
-    if (entry.trailer_number) {
-      parts.push(`Trailer: ${entry.trailer_number}`);
-    }
-    if (entry.driver1_name) {
-      parts.push(`Driver 1: ${entry.driver1_name}`);
-    }
-    if (entry.driver2_name) {
-      parts.push(`Driver 2: ${entry.driver2_name}`);
+    parts.push(`Truck: ${entry.truck_number || 'None'}`);
+    parts.push(`Trailer: ${entry.trailer_number || 'None'}`);
+    parts.push(`Driver 1: ${entry.driver1_name || 'None'}`);
+    if (entry.driver2_name || entry.driver2_id) {
+      parts.push(`Driver 2: ${entry.driver2_name || 'None'}`);
     }
 
-    return parts.length > 0 ? parts.join(' • ') : 'No assignments';
+    return parts.join(' • ');
   };
 
   return (
@@ -65,6 +69,9 @@ export const AssignmentHistoryDialog = ({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
+                      <div className="font-semibold text-sm mb-1 text-primary">
+                        {getChangeTypeLabel(entry.change_type)}
+                      </div>
                       <div className="font-medium text-sm mb-2">
                         {formatChangeDescription(entry)}
                       </div>
@@ -76,9 +83,6 @@ export const AssignmentHistoryDialog = ({
                           <div>By: {entry.changed_by_name}</div>
                         )}
                       </div>
-                    </div>
-                    <div className="text-xs px-2 py-1 bg-muted rounded-md whitespace-nowrap">
-                      {entry.change_type.replace('_', ' ')}
                     </div>
                   </div>
                 </div>

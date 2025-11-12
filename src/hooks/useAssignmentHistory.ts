@@ -26,7 +26,7 @@ export const useAssignmentHistory = (
     queryFn: async () => {
       if (!entityId) return [];
 
-      const { data, error } = await supabase.rpc('get_assignment_history', {
+      const { data, error } = await supabase.rpc('get_assignment_history' as any, {
         p_entity_type: entityType,
         p_entity_id: entityId
       });
