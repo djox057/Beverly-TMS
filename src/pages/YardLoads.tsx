@@ -68,7 +68,7 @@ export default function YardLoads() {
   const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
   
   // Fetch data using the same hook as Orders page
-  const { data: orders = [], isLoading } = useOrders();
+  const { data: orders = [], isLoading, loadMore, hasMore } = useOrders();
   const { data: companies = [] } = useCompanies();
 
   // Filter states

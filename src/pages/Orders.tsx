@@ -200,7 +200,7 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
-  const { data: orders, isLoading, error, refetch } = useOrders();
+  const { data: orders, isLoading, error, refetch, loadMore, hasMore } = useOrders(profile?.full_name);
 
   const { data: companies } = useCompanies();
 
@@ -1153,6 +1153,15 @@ const Orders = () => {
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
+              </div>
+            )}
+            
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-4">
+                <Button onClick={loadMore} variant="outline">
+                  Load More Orders (50 at a time)
+                </Button>
               </div>
             )}
           </CardContent>

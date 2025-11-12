@@ -46,54 +46,44 @@ const queryClient = new QueryClient({
 // Prefetch common data on app load
 const prefetchData = async () => {
   const prefetchPromises = [
-    // Prefetch orders with full details
+    // Prefetch only last 50 orders initially
     queryClient.prefetchQuery({
       queryKey: ['orders'],
       queryFn: async () => {
-        console.log('🔍 Prefetching orders on app load...');
-        let allOrders: any[] = [];
-        let from = 0;
-        const batchSize = 1000;
+        console.log('🔍 Prefetching last 50 orders...');
         
-        while (true) {
-          const { data, error } = await supabase
-            .from('orders')
-            .select(`
-              *,
-              truck:trucks!truck_id(truck_number, company:companies(name)),
-              trailer:trailers!trailer_id(trailer_number),
-              driver1:drivers!driver1_id(name),
-              original_driver1:drivers!original_driver1_id(name),
-              original_truck:trucks!original_truck_id(truck_number),
-              broker:brokers!broker_id(name, address),
-              company:companies!company_id(name),
-              booked_by_company:companies!booked_by_company_id(name),
-              pickup_drops(type, city, state, zip_code, datetime, address),
-              order_files(id, file_name, file_path, file_size, content_type, file_category),
-              escort_fee,
-              escort_fee_broker_paid,
-              is_recovery,
-              original_miles,
-              original_freight_amount,
-              original_driver_price,
-              recovery_miles,
-              recovery_freight_amount,
-              recovery_driver_price,
-              recovery_date
-            `)
-            .order('created_at', { ascending: false })
-            .range(from, from + batchSize - 1);
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            truck:trucks!truck_id(truck_number, company:companies(name)),
+            trailer:trailers!trailer_id(trailer_number),
+            driver1:drivers!driver1_id(name),
+            original_driver1:drivers!original_driver1_id(name),
+            original_truck:trucks!original_truck_id(truck_number),
+            broker:brokers!broker_id(name, address),
+            company:companies!company_id(name),
+            booked_by_company:companies!booked_by_company_id(name),
+            pickup_drops(type, city, state, zip_code, datetime, address),
+            order_files(id, file_name, file_path, file_size, content_type, file_category),
+            escort_fee,
+            escort_fee_broker_paid,
+            is_recovery,
+            original_miles,
+            original_freight_amount,
+            original_driver_price,
+            recovery_miles,
+            recovery_freight_amount,
+            recovery_driver_price,
+            recovery_date
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+      
+        if (error) throw error;
         
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          
-          allOrders = [...allOrders, ...data];
-          if (data.length < batchSize) break;
-          from += batchSize;
-        }
-        
-        console.log(`✅ Prefetched ${allOrders.length} orders`);
-        return allOrders;
+        console.log(`✅ Prefetched ${data?.length || 0} orders`);
+        return data || [];
       },
     }),
     queryClient.prefetchQuery({

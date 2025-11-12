@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 // Utility function to add timeout protection to queries
@@ -11,8 +11,12 @@ const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number 
   return Promise.race([queryFn(), timeoutPromise]);
 };
 
-export const useOrders = () => {
+const BATCH_SIZE = 50;
+
+export const useOrders = (dispatcherName?: string) => {
   const queryClient = useQueryClient();
+  const [loadedBatches, setLoadedBatches] = useState(1); // Track how many batches loaded
+  const [hasMore, setHasMore] = useState(true);
 
   // Set up real-time subscriptions for orders and related tables
   useEffect(() => {
@@ -109,156 +113,113 @@ export const useOrders = () => {
     };
   }, [queryClient]);
 
-  return useQuery({
-    queryKey: ['orders'],
-    queryFn: async () => {
-      console.log('🔍 Fetching orders...');
+  // Function to load more batches
+  const loadMore = useCallback(async () => {
+    if (!hasMore) return;
+    
+    const nextBatch = loadedBatches + 1;
+    console.log(`📥 Loading batch ${nextBatch}...`);
+    
+    try {
+      const { data: newBatch, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          truck:trucks!truck_id(truck_number, company:companies(name)),
+          trailer:trailers!trailer_id(trailer_number),
+          driver1:drivers!driver1_id(name),
+          original_driver1:drivers!original_driver1_id(name),
+          original_truck:trucks!original_truck_id(truck_number),
+          broker:brokers!broker_id(name, address),
+          company:companies!company_id(name),
+          booked_by_company:companies!booked_by_company_id(name),
+          pickup_drops(type, city, state, zip_code, datetime, address),
+          order_files(id, file_name, file_path, file_size, content_type, file_category),
+          escort_fee,
+          escort_fee_broker_paid,
+          is_recovery,
+          original_miles,
+          original_freight_amount,
+          original_driver_price,
+          recovery_miles,
+          recovery_freight_amount,
+          recovery_driver_price,
+          recovery_date
+        `)
+        .order('created_at', { ascending: false })
+        .range((nextBatch - 1) * BATCH_SIZE, nextBatch * BATCH_SIZE - 1);
       
-      return queryWithTimeout(async () => {
-        // Check if we have cached data
-        const cachedData = queryClient.getQueryData<any[]>(['orders']);
+      if (error) throw error;
+      
+      if (newBatch && newBatch.length > 0) {
+        // Merge with existing data
+        const currentData = queryClient.getQueryData<any[]>(['orders']) || [];
+        queryClient.setQueryData(['orders'], [...currentData, ...newBatch]);
+        setLoadedBatches(nextBatch);
         
-        // If we have cached data, only fetch new orders (created after the most recent one)
-        if (cachedData && cachedData.length > 0) {
-          const mostRecentDate = cachedData[0]?.created_at;
-          
-          if (mostRecentDate) {
-            console.log('📥 Fetching only new orders since:', mostRecentDate);
-            
-            const { data: newOrders, error } = await supabase
-              .from('orders')
-              .select(`
-                *,
-                truck:trucks!truck_id(truck_number, company:companies(name)),
-                trailer:trailers!trailer_id(trailer_number),
-                driver1:drivers!driver1_id(name),
-                original_driver1:drivers!original_driver1_id(name),
-                original_truck:trucks!original_truck_id(truck_number),
-                broker:brokers!broker_id(name, address),
-                company:companies!company_id(name),
-                booked_by_company:companies!booked_by_company_id(name),
-                pickup_drops(type, city, state, zip_code, datetime, address),
-                order_files(id, file_name, file_path, file_size, content_type, file_category),
-                escort_fee,
-                escort_fee_broker_paid,
-                is_recovery,
-                original_miles,
-                original_freight_amount,
-                original_driver_price,
-                recovery_miles,
-                recovery_freight_amount,
-                recovery_driver_price,
-                recovery_date
-              `)
-              .gt('created_at', mostRecentDate)
-              .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            
-            if (newOrders && newOrders.length > 0) {
-              console.log(`✅ Found ${newOrders.length} new orders`);
-              // Merge new orders with cached data
-              const allOrders = [...newOrders, ...cachedData];
-              
-              // Transform and return
-              const transformedOrders = allOrders.map((order: any) => {
-                const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-                const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
-                
-                const formatDateRange = (startDate: string, endDate: string) => {
-                  if (!startDate) return 'N/A';
-                  const parsed = parseSimpleDateTime(startDate);
-                  return parsed.dateString;
-                };
-                
-                const totalMileage = (order.loaded_miles || 0) + (order.dh_miles || 0) || order.mileage || 0;
-                
-                return {
-                  id: order.id,
-                  truckId: order.truck_id,
-                  driver1Id: order.driver1_id,
-                  truckNumber: order.truck?.truck_number || 'N/A',
-                  trailerNumber: order.trailer?.trailer_number || 'N/A',
-                  truckCompanyName: order.truck?.company?.name || 'N/A',
-                  internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
-                  pickupDate: formatDateRange(order.pickup_datetime, order.pickup_end_datetime),
-                  pickupCity: pickupLocation?.city || 'N/A',
-                  pickupState: pickupLocation?.state || 'N/A',
-                  deliveryDate: formatDateRange(order.delivery_datetime, order.delivery_end_datetime),
-                  deliveryCity: deliveryLocation?.city || 'N/A',
-                  deliveryState: deliveryLocation?.state || 'N/A',
-                  mileage: totalMileage,
-                  driverPrice: order.driver_price || 0,
-                  detentionDriver: order.detention_driver || 0,
-                  layoverDriver: order.layover_driver || 0,
-                  extraStopDriver: order.extra_stop_driver || 0,
-                  lumperDriver: order.lumper_driver || 0,
-                  lateFeeDriver: order.late_fee_driver || 0,
-                  tonuDriver: order.tonu_driver || 0,
-                  noTrackingFeeDriver: order.no_tracking_fee_driver || 0,
-                  wrongAddressFeeDriver: order.wrong_address_fee_driver || 0,
-                  totalDriverPay: (order.driver_price || 0) + (order.detention_driver || 0) + (order.layover_driver || 0) - (order.late_fee_driver || 0) - (order.no_tracking_fee_driver || 0) - (order.wrong_address_fee_driver || 0) + (order.tonu_driver || 0),
-                  driverName: order.driver1?.name || 'N/A',
-                  brokerName: order.broker?.name || 'N/A',
-                  brokerAddress: order.broker?.address || '',
-                  brokerLoadNumber: order.broker_load_number || 'N/A',
-                  invoiced: order.invoiced ? 'Done' : '',
-                  freightAmount: order.freight_amount || 0,
-                  detention: order.detention || 0,
-                  layover: order.layover || 0,
-                  extraStop: order.extra_stop || 0,
-                  lumper: order.lumper || 0,
-                  lateFee: order.late_fee || 0,
-                  tonu: order.tonu || 0,
-                  escortFee: order.escort_fee || 0,
-                  escortFeeBrokerPaid: order.escort_fee_broker_paid || false,
-                  totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0) + (order.escort_fee_broker_paid ? (order.escort_fee || 0) : 0),
-                  notes: order.notes || '',
-                  bookedBy: order.booked_by || 'N/A',
-                  companyName: order.booked_by_company?.name || 'N/A',
-                  locked: order.locked || false,
-                  canceled: order.canceled || false,
-                  status: order.status || 'pending',
-                  createdAt: order.created_at,
-                  deliveryDatetime: order.delivery_datetime,
-                  deliveryEndDatetime: order.delivery_end_datetime,
-                  dateChangeNotes: order.date_change_notes || '',
-                  files: order.order_files || [],
-                  rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
-                  bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
-                  podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
-                  additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || [],
-                  isRecovery: order.is_recovery || false,
-                  originalDriverName: order.original_driver1?.name || null,
-                  originalTruckNumber: order.original_truck?.truck_number || null,
-                  originalMiles: order.original_miles || 0,
-                  originalFreightAmount: order.original_freight_amount || 0,
-                  originalDriverPrice: order.original_driver_price || 0,
-                  recoveryMiles: order.recovery_miles || 0,
-                  recoveryFreightAmount: order.recovery_freight_amount || 0,
-                  recoveryDriverPrice: order.recovery_driver_price || 0,
-                  recoveryDate: order.recovery_date || null,
-                  pickup_drops: order.pickup_drops || [],
-                };
-              });
-              
-              return transformedOrders;
-            } else {
-              console.log('✅ No new orders, using cached data');
-            }
-          }
+        if (newBatch.length < BATCH_SIZE) {
+          setHasMore(false);
         }
         
-        // If no cached data or mostRecentDate, fetch all orders
-        console.log('📥 Fetching all orders (no cache)...');
-        let allOrders: any[] = [];
-        let from = 0;
-        const batchSize = 1000;
+        console.log(`✅ Loaded ${newBatch.length} more orders (batch ${nextBatch})`);
+      } else {
+        setHasMore(false);
+        console.log('✅ No more orders to load');
+      }
+    } catch (error) {
+      console.error('Error loading more orders:', error);
+    }
+  }, [loadedBatches, hasMore, queryClient]);
+
+  const query = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      console.log('🔍 Fetching initial orders...');
+      
+      return queryWithTimeout(async () => {
+        // First, fetch dispatcher's own loads if dispatcher name is provided
+        let dispatcherOrders: any[] = [];
+        let generalOrders: any[] = [];
         
-        while (true) {
-          console.log(`🔍 Fetching orders batch ${from / batchSize + 1}...`);
+        if (dispatcherName) {
+          console.log(`📥 Fetching ${dispatcherName}'s orders first...`);
+          const { data: myOrders, error: myError } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              truck:trucks!truck_id(truck_number, company:companies(name)),
+              trailer:trailers!trailer_id(trailer_number),
+              driver1:drivers!driver1_id(name),
+              original_driver1:drivers!original_driver1_id(name),
+              original_truck:trucks!original_truck_id(truck_number),
+              broker:brokers!broker_id(name, address),
+              company:companies!company_id(name),
+              booked_by_company:companies!booked_by_company_id(name),
+              pickup_drops(type, city, state, zip_code, datetime, address),
+              order_files(id, file_name, file_path, file_size, content_type, file_category),
+              escort_fee,
+              escort_fee_broker_paid,
+              is_recovery,
+              original_miles,
+              original_freight_amount,
+              original_driver_price,
+              recovery_miles,
+              recovery_freight_amount,
+              recovery_driver_price,
+              recovery_date
+            `)
+            .eq('booked_by', dispatcherName)
+            .order('created_at', { ascending: false })
+            .limit(BATCH_SIZE);
           
-          const { data, error } = await supabase
+          if (myError) throw myError;
+          dispatcherOrders = myOrders || [];
+          console.log(`✅ Loaded ${dispatcherOrders.length} dispatcher's orders`);
+        }
+        
+        // Then fetch latest 50 general orders (excluding dispatcher's own if applicable)
+        console.log('📥 Fetching latest orders...');
+        let query = supabase
           .from('orders')
           .select(`
             *,
@@ -284,105 +245,108 @@ export const useOrders = () => {
             recovery_date
           `)
           .order('created_at', { ascending: false })
-          .range(from, from + batchSize - 1);
+          .limit(BATCH_SIZE);
         
-          if (error) throw error;
-          
-          if (!data || data.length === 0) break;
-          
-          console.log(`✅ Fetched ${data.length} orders in batch ${from / batchSize + 1}`);
-          allOrders = [...allOrders, ...data];
-          
-          if (data.length < batchSize) break;
-          
-          from += batchSize;
+        // If dispatcher, exclude their orders from general list (already loaded)
+        if (dispatcherName) {
+          query = query.neq('booked_by', dispatcherName);
         }
         
-        console.log(`✅ TOTAL ORDERS FETCHED: ${allOrders.length}`);
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        generalOrders = data || [];
+        
+        // Combine dispatcher orders first, then general orders
+        const allOrders = [...dispatcherOrders, ...generalOrders];
+        
+        // Set hasMore based on batch size
+        if (generalOrders.length < BATCH_SIZE) {
+          setHasMore(false);
+        }
+        
+        console.log(`✅ Initial load: ${allOrders.length} orders total`);
       
-      const transformedOrders = allOrders.map((order: any) => {
-        const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-        const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
-        
-        // Format date ranges - always show only the start date
-        // Use parseSimpleDateTime to avoid timezone conversion issues
-        const formatDateRange = (startDate: string, endDate: string) => {
-          if (!startDate) return 'N/A';
-          const parsed = parseSimpleDateTime(startDate);
-          return parsed.dateString;
-        };
-        
-        // Calculate total mileage from loaded_miles + dh_miles or use legacy mileage
-        const totalMileage = (order.loaded_miles || 0) + (order.dh_miles || 0) || order.mileage || 0;
-        
-        return {
-          id: order.id,
-          truckId: order.truck_id,
-          driver1Id: order.driver1_id,
-          truckNumber: order.truck?.truck_number || 'N/A',
-          trailerNumber: order.trailer?.trailer_number || 'N/A',
-          truckCompanyName: order.truck?.company?.name || 'N/A',
-          internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
-          pickupDate: formatDateRange(order.pickup_datetime, order.pickup_end_datetime),
-          pickupCity: pickupLocation?.city || 'N/A',
-          pickupState: pickupLocation?.state || 'N/A',
-          deliveryDate: formatDateRange(order.delivery_datetime, order.delivery_end_datetime),
-          deliveryCity: deliveryLocation?.city || 'N/A',
-          deliveryState: deliveryLocation?.state || 'N/A',
-          mileage: totalMileage,
-          driverPrice: order.driver_price || 0,
-          detentionDriver: order.detention_driver || 0,
-          layoverDriver: order.layover_driver || 0,
-          extraStopDriver: order.extra_stop_driver || 0,
-          lumperDriver: order.lumper_driver || 0,
-          lateFeeDriver: order.late_fee_driver || 0,
-          tonuDriver: order.tonu_driver || 0,
-          noTrackingFeeDriver: order.no_tracking_fee_driver || 0,
-          wrongAddressFeeDriver: order.wrong_address_fee_driver || 0,
-          totalDriverPay: (order.driver_price || 0) + (order.detention_driver || 0) + (order.layover_driver || 0) - (order.late_fee_driver || 0) - (order.no_tracking_fee_driver || 0) - (order.wrong_address_fee_driver || 0) + (order.tonu_driver || 0),
-          driverName: order.driver1?.name || 'N/A',
-          brokerName: order.broker?.name || 'N/A',
-          brokerAddress: order.broker?.address || '',
-          brokerLoadNumber: order.broker_load_number || 'N/A',
-          invoiced: order.invoiced ? 'Done' : '',
-          freightAmount: order.freight_amount || 0,
-          detention: order.detention || 0,
-          layover: order.layover || 0,
-          extraStop: order.extra_stop || 0,
-          lumper: order.lumper || 0,
-          lateFee: order.late_fee || 0,
-          tonu: order.tonu || 0,
-          escortFee: order.escort_fee || 0,
-          escortFeeBrokerPaid: order.escort_fee_broker_paid || false,
-          totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0) + (order.escort_fee_broker_paid ? (order.escort_fee || 0) : 0),
-          notes: order.notes || '',
-          bookedBy: order.booked_by || 'N/A',
-          companyName: order.booked_by_company?.name || 'N/A',
-          locked: order.locked || false,
-          canceled: order.canceled || false,
-          status: order.status || 'pending',
-          createdAt: order.created_at,
-          deliveryDatetime: order.delivery_datetime,
-          deliveryEndDatetime: order.delivery_end_datetime,
-          dateChangeNotes: order.date_change_notes || '',
-          files: order.order_files || [],
-          rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
-          bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
-          podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
-          additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || [],
-          isRecovery: order.is_recovery || false,
-          originalDriverName: order.original_driver1?.name || null,
-          originalTruckNumber: order.original_truck?.truck_number || null,
-          originalMiles: order.original_miles || 0,
-          originalFreightAmount: order.original_freight_amount || 0,
-          originalDriverPrice: order.original_driver_price || 0,
-          recoveryMiles: order.recovery_miles || 0,
-          recoveryFreightAmount: order.recovery_freight_amount || 0,
-          recoveryDriverPrice: order.recovery_driver_price || 0,
-          recoveryDate: order.recovery_date || null,
-          pickup_drops: order.pickup_drops || [],
-        };
-      });
+        const transformedOrders = allOrders.map((order: any) => {
+          const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+          const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
+          
+          const formatDateRange = (startDate: string, endDate: string) => {
+            if (!startDate) return 'N/A';
+            const parsed = parseSimpleDateTime(startDate);
+            return parsed.dateString;
+          };
+          
+          const totalMileage = (order.loaded_miles || 0) + (order.dh_miles || 0) || order.mileage || 0;
+          
+          return {
+            id: order.id,
+            truckId: order.truck_id,
+            driver1Id: order.driver1_id,
+            truckNumber: order.truck?.truck_number || 'N/A',
+            trailerNumber: order.trailer?.trailer_number || 'N/A',
+            truckCompanyName: order.truck?.company?.name || 'N/A',
+            internalLoadNumber: order.internal_load_number?.toString() || 'N/A',
+            pickupDate: formatDateRange(order.pickup_datetime, order.pickup_end_datetime),
+            pickupCity: pickupLocation?.city || 'N/A',
+            pickupState: pickupLocation?.state || 'N/A',
+            deliveryDate: formatDateRange(order.delivery_datetime, order.delivery_end_datetime),
+            deliveryCity: deliveryLocation?.city || 'N/A',
+            deliveryState: deliveryLocation?.state || 'N/A',
+            mileage: totalMileage,
+            driverPrice: order.driver_price || 0,
+            detentionDriver: order.detention_driver || 0,
+            layoverDriver: order.layover_driver || 0,
+            extraStopDriver: order.extra_stop_driver || 0,
+            lumperDriver: order.lumper_driver || 0,
+            lateFeeDriver: order.late_fee_driver || 0,
+            tonuDriver: order.tonu_driver || 0,
+            noTrackingFeeDriver: order.no_tracking_fee_driver || 0,
+            wrongAddressFeeDriver: order.wrong_address_fee_driver || 0,
+            totalDriverPay: (order.driver_price || 0) + (order.detention_driver || 0) + (order.layover_driver || 0) - (order.late_fee_driver || 0) - (order.no_tracking_fee_driver || 0) - (order.wrong_address_fee_driver || 0) + (order.tonu_driver || 0),
+            driverName: order.driver1?.name || 'N/A',
+            brokerName: order.broker?.name || 'N/A',
+            brokerAddress: order.broker?.address || '',
+            brokerLoadNumber: order.broker_load_number || 'N/A',
+            invoiced: order.invoiced ? 'Done' : '',
+            freightAmount: order.freight_amount || 0,
+            detention: order.detention || 0,
+            layover: order.layover || 0,
+            extraStop: order.extra_stop || 0,
+            lumper: order.lumper || 0,
+            lateFee: order.late_fee || 0,
+            tonu: order.tonu || 0,
+            escortFee: order.escort_fee || 0,
+            escortFeeBrokerPaid: order.escort_fee_broker_paid || false,
+            totalFreightAmount: (order.freight_amount || 0) + (order.detention || 0) + (order.layover || 0) + (order.extra_stop || 0) + (order.lumper || 0) + (order.tonu || 0) - (order.late_fee || 0) + (order.escort_fee_broker_paid ? (order.escort_fee || 0) : 0),
+            notes: order.notes || '',
+            bookedBy: order.booked_by || 'N/A',
+            companyName: order.booked_by_company?.name || 'N/A',
+            locked: order.locked || false,
+            canceled: order.canceled || false,
+            status: order.status || 'pending',
+            createdAt: order.created_at,
+            deliveryDatetime: order.delivery_datetime,
+            deliveryEndDatetime: order.delivery_end_datetime,
+            dateChangeNotes: order.date_change_notes || '',
+            files: order.order_files || [],
+            rcFiles: order.order_files?.filter((f: any) => f.file_category === 'RC') || [],
+            bolFiles: order.order_files?.filter((f: any) => f.file_category === 'BOL') || [],
+            podFiles: order.order_files?.filter((f: any) => f.file_category === 'POD') || [],
+            additionalFiles: order.order_files?.filter((f: any) => f.file_category === 'ADDITIONAL') || [],
+            isRecovery: order.is_recovery || false,
+            originalDriverName: order.original_driver1?.name || null,
+            originalTruckNumber: order.original_truck?.truck_number || null,
+            originalMiles: order.original_miles || 0,
+            originalFreightAmount: order.original_freight_amount || 0,
+            originalDriverPrice: order.original_driver_price || 0,
+            recoveryMiles: order.recovery_miles || 0,
+            recoveryFreightAmount: order.recovery_freight_amount || 0,
+            recoveryDriverPrice: order.recovery_driver_price || 0,
+            recoveryDate: order.recovery_date || null,
+            pickup_drops: order.pickup_drops || [],
+          };
+        });
 
         return transformedOrders;
       }, 30000);
@@ -394,4 +358,11 @@ export const useOrders = () => {
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
   });
+
+  return {
+    ...query,
+    loadMore,
+    hasMore,
+    loadedBatches,
+  };
 };
