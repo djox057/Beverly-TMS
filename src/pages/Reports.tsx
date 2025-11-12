@@ -274,14 +274,6 @@ const Reports = () => {
     if (!truck.driverId) return {};
     const drugTest = getDrugTestForDriver(truck.driverId);
     const isNew = isNewDriver(truck);
-    console.log("getDriverCellStyle:", {
-      truckNumber: truck.truckNumber,
-      driverId: truck.driverId,
-      driverName: truck.driver,
-      isNew,
-      drugTestResult: drugTest?.result,
-      drugTestDriverId: drugTest?.driver_id
-    });
     if (!isNew) return {};
     if (drugTest?.result === "positive") {
       return {
