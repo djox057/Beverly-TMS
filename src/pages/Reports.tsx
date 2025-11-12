@@ -1786,7 +1786,6 @@ const Reports = () => {
         note: newValue
       });
     } catch (error: any) {
-      console.error('Note update error:', error);
       toast({
         title: "Update failed",
         description: error?.message || "There was an error updating the note.",

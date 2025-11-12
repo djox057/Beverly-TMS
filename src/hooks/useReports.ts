@@ -108,8 +108,6 @@ export const useReports = () => {
 
   const updateTruckNote = useMutation({
     mutationFn: async ({ truckId, note, driverId }: { truckId: string; note: string; driverId?: string }) => {
-      console.log('updateTruckNote called with:', { truckId, note, driverId });
-      
       // Get truck to find driver if not provided
       if (!driverId) {
         const { data: truck, error: truckError } = await supabase
@@ -118,10 +116,7 @@ export const useReports = () => {
           .eq('id', truckId)
           .single();
         
-        if (truckError) {
-          console.error('Error fetching truck:', truckError);
-          throw truckError;
-        }
+        if (truckError) throw truckError;
         driverId = truck?.driver1_id;
       }
 
@@ -129,14 +124,9 @@ export const useReports = () => {
         throw new Error('Cannot save note: no driver assigned to truck');
       }
 
-      console.log('Using driver_id:', driverId);
-
       // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error('Auth error:', authError);
-        throw authError;
-      }
+      if (authError) throw authError;
       if (!user) throw new Error('Not authenticated');
 
       // First check if a note already exists for this driver
@@ -146,49 +136,32 @@ export const useReports = () => {
         .eq('driver_id', driverId)
         .maybeSingle();
 
-      if (fetchError) {
-        console.error('Error fetching existing note:', fetchError);
-        throw fetchError;
-      }
-
-      console.log('Existing note:', existingNote);
+      if (fetchError) throw fetchError;
 
       if (existingNote) {
         // Update existing note
-        console.log('Updating existing note...');
-        const { error, data } = await supabase
+        const { error } = await supabase
           .from('truck_notes')
           .update({ 
             note,
             truck_id: truckId,
             updated_by: user.id 
           })
-          .eq('driver_id', driverId)
-          .select();
+          .eq('driver_id', driverId);
         
-        if (error) {
-          console.error('Update error:', error);
-          throw error;
-        }
-        console.log('Update result:', data);
+        if (error) throw error;
       } else {
         // Create new note
-        console.log('Creating new note...');
-        const { error, data } = await supabase
+        const { error } = await supabase
           .from('truck_notes')
           .insert({ 
             truck_id: truckId,
             driver_id: driverId,
             note,
             updated_by: user.id 
-          })
-          .select();
+          });
         
-        if (error) {
-          console.error('Insert error:', error);
-          throw error;
-        }
-        console.log('Insert result:', data);
+        if (error) throw error;
       }
     },
     onMutate: async ({ truckId, note }) => {
