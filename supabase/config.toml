@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.calculate-route]
 verify_jwt = false
+
+[functions.samsara-locations]
+verify_jwt = false
