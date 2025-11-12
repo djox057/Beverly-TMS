@@ -120,9 +120,9 @@ export const Sidebar = () => {
       ];
     }
     
-    // Maintenance role: specific pages (Trucks, Trailers, Reports, Alerts)
+    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Alerts)
     if (hasRole('maintenance')) {
-      const maintenancePages = ['/trucks', '/trailers', '/reports'];
+      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/reports'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
