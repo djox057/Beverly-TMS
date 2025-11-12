@@ -27,37 +27,37 @@ export const AssignmentHistoryDialog = ({
     if (entityType === 'driver') {
       // From driver's perspective: what changed for them?
       const labels: Record<string, string> = {
-        'driver_assignment': 'Truck Assignment', // Driver was assigned to/from a truck
-        'trailer_assignment': 'Trailer Assignment', // Their truck's trailer changed
-        'assignment_change': 'Truck & Trailer Assignment', // Both changed
-        'truck_assignment': 'Truck Assignment',
-        'trailer_update': 'Trailer Assignment',
-        'driver_update': 'Truck Assignment',
-        'truck_update': 'Truck Assignment',
+        'driver_assignment': 'Truck Change', // Driver was assigned to/from a truck
+        'trailer_assignment': 'Trailer Change', // Their truck's trailer changed
+        'assignment_change': 'Truck & Trailer Change', // Both changed
+        'truck_assignment': 'Truck Change',
+        'trailer_update': 'Trailer Change',
+        'driver_update': 'Truck Change',
+        'truck_update': 'Truck Change',
       };
       return labels[changeType] || changeType.replace(/_/g, ' ');
     } else if (entityType === 'truck') {
       // From truck's perspective: what was assigned to it?
       const labels: Record<string, string> = {
-        'driver_assignment': 'Driver Assignment', // Truck got a new driver
-        'trailer_assignment': 'Trailer Assignment', // Truck got a new trailer
-        'assignment_change': 'Driver & Trailer Assignment', // Both changed
-        'truck_assignment': 'Truck Assignment',
-        'trailer_update': 'Trailer Assignment',
-        'driver_update': 'Driver Assignment',
+        'driver_assignment': 'Driver Change', // Truck got a new driver
+        'trailer_assignment': 'Trailer Change', // Truck got a new trailer
+        'assignment_change': 'Driver & Trailer Change', // Both changed
+        'truck_assignment': 'Truck Change',
+        'trailer_update': 'Trailer Change',
+        'driver_update': 'Driver Change',
         'truck_update': 'Truck Update',
       };
       return labels[changeType] || changeType.replace(/_/g, ' ');
     } else if (entityType === 'trailer') {
       // From trailer's perspective: what changed?
       const labels: Record<string, string> = {
-        'driver_assignment': 'Driver Assignment', // Trailer's truck got a new driver
-        'trailer_assignment': 'Truck Assignment', // Trailer was assigned to different truck
-        'assignment_change': 'Truck & Driver Assignment', // Both changed
-        'truck_assignment': 'Truck Assignment',
-        'trailer_update': 'Truck Assignment',
-        'driver_update': 'Driver Assignment',
-        'truck_update': 'Truck Assignment',
+        'driver_assignment': 'Driver Change', // Trailer's truck got a new driver
+        'trailer_assignment': 'Truck Change', // Trailer was assigned to different truck
+        'assignment_change': 'Truck & Driver Change', // Both changed
+        'truck_assignment': 'Truck Change',
+        'trailer_update': 'Truck Change',
+        'driver_update': 'Driver Change',
+        'truck_update': 'Truck Change',
       };
       return labels[changeType] || changeType.replace(/_/g, ' ');
     }
