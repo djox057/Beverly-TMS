@@ -1462,7 +1462,7 @@ export type Database = {
           edited_by: string | null
           id: string
           note: string | null
-          truck_id: string
+          truck_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1471,7 +1471,7 @@ export type Database = {
           edited_by?: string | null
           id?: string
           note?: string | null
-          truck_id: string
+          truck_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1480,7 +1480,7 @@ export type Database = {
           edited_by?: string | null
           id?: string
           note?: string | null
-          truck_id?: string
+          truck_id?: string | null
         }
         Relationships: [
           {
