@@ -291,7 +291,6 @@ const EditOrder = () => {
           localStorage.removeItem('returnToYardLoads');
           navigate("/yard-loads");
         } else if (shouldReturnToOrders) {
-          localStorage.removeItem('returnToOrders');
           navigate("/orders");
         } else {
           navigate("/orders");
@@ -340,7 +339,6 @@ const EditOrder = () => {
             localStorage.removeItem('returnToYardLoads');
             navigate("/yard-loads");
           } else if (shouldReturnToOrders) {
-            localStorage.removeItem('returnToOrders');
             navigate("/orders");
           } else {
             navigate("/orders");
@@ -511,7 +509,6 @@ const EditOrder = () => {
         localStorage.removeItem('returnToYardLoads');
         navigate("/yard-loads");
       } else if (shouldReturnToOrders) {
-        localStorage.removeItem('returnToOrders');
         navigate("/orders");
       } else {
         navigate("/orders");
@@ -573,7 +570,6 @@ const EditOrder = () => {
           localStorage.removeItem('returnToYardLoads');
           navigate("/yard-loads");
         } else if (shouldReturnToOrders) {
-          localStorage.removeItem('returnToOrders');
           navigate("/orders");
         } else {
           navigate("/orders");
@@ -598,7 +594,6 @@ const EditOrder = () => {
         localStorage.removeItem('returnToYardLoads');
         navigate("/yard-loads");
       } else if (shouldReturnToOrders) {
-        localStorage.removeItem('returnToOrders');
         navigate("/orders");
       } else {
         navigate("/orders");
@@ -1457,7 +1452,6 @@ const EditOrder = () => {
         navigate("/yard-loads");
         window.scrollTo(0, 0);
       } else if (shouldReturnToOrders) {
-        localStorage.removeItem('returnToOrders');
         navigate("/orders");
         window.scrollTo(0, 0);
       } else {
@@ -1534,7 +1528,6 @@ const EditOrder = () => {
                 navigate("/yard-loads");
                 window.scrollTo(0, 0);
               } else if (shouldReturnToOrders) {
-                localStorage.removeItem('returnToOrders');
                 navigate("/orders");
                 window.scrollTo(0, 0);
               } else {
@@ -2260,7 +2253,6 @@ const EditOrder = () => {
                 navigate("/yard-loads");
                 window.scrollTo(0, 0);
               } else if (shouldReturnToOrders) {
-                localStorage.removeItem('returnToOrders');
                 navigate("/orders");
                 window.scrollTo(0, 0);
               } else {
