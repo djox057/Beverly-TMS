@@ -92,6 +92,7 @@ const Analytics = () => {
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
+  const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
   const {
     data: orders,
     isLoading,
@@ -377,6 +378,7 @@ const Analytics = () => {
     const cut = stats.totalFreight - stats.totalDriverRate;
     const cutPercent = stats.totalFreight > 0 ? cut / stats.totalFreight * 100 : 0;
     const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+    const dispatcherProfile = dispatcherProfiles[name];
     return {
       name,
       totalFreight: stats.totalFreight,
@@ -385,7 +387,8 @@ const Analytics = () => {
       orderCount: stats.orderCount,
       cut,
       cutPercent,
-      ratePerMile
+      ratePerMile,
+      office: dispatcherProfile?.office || 'Unknown'
     };
   }).filter(stat => {
     const dispatcherProfile = dispatcherProfiles[stat.name];
@@ -394,6 +397,13 @@ const Analytics = () => {
     // Only show users with 'dispatch' role
     if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
       return false;
+    }
+
+    // Filter by selected offices (only for admin/manager)
+    if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager")) {
+      if (!selectedOffices.includes(stat.office)) {
+        return false;
+      }
     }
 
     // Admins, managers and accounting see all dispatchers
@@ -616,6 +626,38 @@ const Analytics = () => {
                         Clear Filter
                       </Button>}
                   </div>
+
+                  {/* Office Filter - Only for Admin/Manager */}
+                  {(hasRole('admin') || hasRole('manager')) && (
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-sm font-medium text-muted-foreground">Filter by Office:</span>
+                      {Array.from(new Set(Object.values(dispatcherProfiles).map(p => p.office).filter(Boolean))).map(office => (
+                        <Button
+                          key={office}
+                          variant={selectedOffices.includes(office as string) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedOffices(prev => 
+                              prev.includes(office as string)
+                                ? prev.filter(o => o !== office)
+                                : [...prev, office as string]
+                            );
+                          }}
+                        >
+                          {office}
+                        </Button>
+                      ))}
+                      {selectedOffices.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedOffices([])}
+                        >
+                          Clear Offices
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
