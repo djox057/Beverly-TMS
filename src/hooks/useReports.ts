@@ -130,13 +130,16 @@ export const useReports = () => {
       if (!user) throw new Error('Not authenticated');
 
       // First check if a note already exists for this driver
-      const { data: existingNote, error: fetchError } = await supabase
+      const { data: existingNotes, error: fetchError } = await supabase
         .from('truck_notes')
         .select('id')
         .eq('driver_id', driverId)
-        .maybeSingle();
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
       if (fetchError) throw fetchError;
+
+      const existingNote = existingNotes && existingNotes.length > 0 ? existingNotes[0] : null;
 
       if (existingNote) {
         // Update existing note
