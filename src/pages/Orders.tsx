@@ -97,8 +97,10 @@ const Orders = () => {
         : undefined,
       currentPage,
     };
+    console.log("💾 SAVING FILTER STATE:", filterState);
     localStorage.setItem("ordersFilterState", JSON.stringify(filterState));
     localStorage.setItem("returnToOrders", "true");
+    console.log("✅ Filter state saved to localStorage");
 
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
@@ -160,12 +162,19 @@ const Orders = () => {
 
   // Restore filter state from localStorage on mount
   useEffect(() => {
+    console.log("🔍 Checking for saved filter state...");
     const shouldRestore = localStorage.getItem("returnToOrders");
+    console.log("returnToOrders flag:", shouldRestore);
+    
     if (shouldRestore === "true") {
       const savedState = localStorage.getItem("ordersFilterState");
+      console.log("📦 Saved state from localStorage:", savedState);
+      
       if (savedState) {
         try {
           const state = JSON.parse(savedState);
+          console.log("🔄 Restoring filter state:", state);
+          
           setSearchTerm(state.searchTerm || "");
           setCompanyFilter(state.companyFilter || "all-companies");
           setTruckCompanyFilter(state.truckCompanyFilter || "all-truck-companies");
@@ -182,20 +191,32 @@ const Orders = () => {
           }
           setCurrentPage(state.currentPage || 1);
           setHasRestoredFilters(true);
+          console.log("✅ Filter state restored successfully");
         } catch (error) {
-          console.error("Error restoring filter state:", error);
+          console.error("❌ Error restoring filter state:", error);
         }
       }
       // Clear the flags
       localStorage.removeItem("returnToOrders");
       localStorage.removeItem("ordersFilterState");
+      console.log("🧹 Cleared localStorage flags");
+    } else {
+      console.log("ℹ️ No saved state to restore");
     }
   }, []);
 
   // Set bookedBy filter for dispatchers when profile loads (only if not restoring)
   // Exclude safety role from auto-filter
   useEffect(() => {
+    console.log("🔍 Dispatcher auto-filter check:", {
+      hasRestoredFilters,
+      isDispatcher,
+      profileFullName: profile?.full_name,
+      hasSafetyRole: hasRole("safety")
+    });
+    
     if (!hasRestoredFilters && isDispatcher && profile?.full_name && !hasRole("safety")) {
+      console.log("✅ Auto-setting bookedByFilter to:", profile.full_name);
       setBookedByFilter(profile.full_name);
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
