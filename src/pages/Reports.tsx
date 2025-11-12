@@ -1785,10 +1785,11 @@ const Reports = () => {
         driverId: driverId || undefined,
         note: newValue
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Note update error:', error);
       toast({
         title: "Update failed",
-        description: "There was an error updating the note.",
+        description: error?.message || "There was an error updating the note.",
         variant: "destructive"
       });
     }
