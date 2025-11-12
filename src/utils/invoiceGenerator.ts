@@ -196,18 +196,18 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     doc.rect(20, yPosition, 20, 8);
     doc.rect(40, yPosition, 20, 8);
     doc.rect(60, yPosition, 25, 8);
-    doc.rect(85, yPosition, 50, 8);
-    doc.rect(135, yPosition, 20, 8);
-    doc.rect(155, yPosition, 20, 8);
-    doc.rect(175, yPosition, 25, 8);
+    doc.rect(85, yPosition, 53, 8);
+    doc.rect(138, yPosition, 20, 8);
+    doc.rect(158, yPosition, 20, 8);
+    doc.rect(178, yPosition, 25, 8);
     
     doc.text('Date', 22, yPosition + 5);
     doc.text('Truck #', 42, yPosition + 5);
     doc.text('Load #', 62, yPosition + 5);
     doc.text('Origin - Destination', 87, yPosition + 5);
-    doc.text('Qty', 137, yPosition + 5);
-    doc.text('Rate', 157, yPosition + 5);
-    doc.text('Amount', 177, yPosition + 5);
+    doc.text('Qty', 140, yPosition + 5);
+    doc.text('Rate', 160, yPosition + 5);
+    doc.text('Amount', 180, yPosition + 5);
     
     // Table rows
     doc.setFont('helvetica', 'normal');
@@ -244,7 +244,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       }
       
       // Calculate required height based on text content
-      const lines = doc.splitTextToSize(originDestination.trim(), 48);
+      const lines = doc.splitTextToSize(originDestination.trim(), 50);
       const lineHeight = 4;
       const minHeight = 12;
       const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 4);
@@ -253,10 +253,10 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(20, yPosition, 20, calculatedHeight);
       doc.rect(40, yPosition, 20, calculatedHeight);
       doc.rect(60, yPosition, 25, calculatedHeight);
-      doc.rect(85, yPosition, 50, calculatedHeight);
-      doc.rect(135, yPosition, 20, calculatedHeight);
-      doc.rect(155, yPosition, 20, calculatedHeight);
-      doc.rect(175, yPosition, 25, calculatedHeight);
+      doc.rect(85, yPosition, 53, calculatedHeight);
+      doc.rect(138, yPosition, 20, calculatedHeight);
+      doc.rect(158, yPosition, 20, calculatedHeight);
+      doc.rect(178, yPosition, 25, calculatedHeight);
       
       // Position text vertically centered in the cells
       const textYOffset = (calculatedHeight - lines.length * lineHeight) / 2 + lineHeight;
@@ -265,9 +265,9 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.text(order.truckNumber, 42, yPosition + textYOffset + 1);
       doc.text(order.brokerLoadNumber, 62, yPosition + textYOffset + 1);
       doc.text(lines, 87, yPosition + textYOffset);
-      doc.text('1', 137, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 157, yPosition + textYOffset + 3);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 177, yPosition + textYOffset + 3);
+      doc.text('1', 140, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 160, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 180, yPosition + textYOffset + 3);
       
       freightTotal += order.freightAmount;
       detentionTotal += order.detention || 0;
@@ -280,68 +280,68 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     });
     
     // Freight Income and additional fees
-    doc.rect(135, yPosition, 40, 8);
-    doc.rect(175, yPosition, 25, 8);
+    doc.rect(138, yPosition, 40, 8);
+    doc.rect(178, yPosition, 25, 8);
     doc.setFont('helvetica', 'bold');
-    doc.text('Freight Income', 137, yPosition + 5);
-    doc.text(formatCurrency(freightTotal), 177, yPosition + 5);
+    doc.text('Freight Income', 140, yPosition + 5);
+    doc.text(formatCurrency(freightTotal), 180, yPosition + 5);
     yPosition += 8;
     
     // Additional fees sections...
     if (detentionTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('Detention', 137, yPosition + 5);
-      doc.text(formatCurrency(detentionTotal), 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Detention', 140, yPosition + 5);
+      doc.text(formatCurrency(detentionTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
     if (layoverTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('Layover', 137, yPosition + 5);
-      doc.text(formatCurrency(layoverTotal), 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Layover', 140, yPosition + 5);
+      doc.text(formatCurrency(layoverTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
     if (extraStopTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('Extra Stop', 137, yPosition + 5);
-      doc.text(formatCurrency(extraStopTotal), 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Extra Stop', 140, yPosition + 5);
+      doc.text(formatCurrency(extraStopTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
     if (lumperTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('Lumper', 137, yPosition + 5);
-      doc.text(formatCurrency(lumperTotal), 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Lumper', 140, yPosition + 5);
+      doc.text(formatCurrency(lumperTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
     if (tonuTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('TONU', 137, yPosition + 5);
-      doc.text(formatCurrency(tonuTotal), 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('TONU', 140, yPosition + 5);
+      doc.text(formatCurrency(tonuTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
     if (lateFeeTotal > 0) {
-      doc.rect(135, yPosition, 40, 8);
-      doc.rect(175, yPosition, 25, 8);
-      doc.text('Late Fee', 137, yPosition + 5);
-      doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 177, yPosition + 5);
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Late Fee', 140, yPosition + 5);
+      doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 180, yPosition + 5);
       yPosition += 8;
     }
     
     // Total
     const finalTotal = group.orders.reduce((sum, order) => sum + order.totalFreightAmount, 0);
-    doc.rect(155, yPosition, 20, 8);
-    doc.rect(175, yPosition, 25, 8);
-    doc.text('TOTAL:', 157, yPosition + 5);
-    doc.text(formatCurrency(finalTotal), 177, yPosition + 5);
+    doc.rect(158, yPosition, 20, 8);
+    doc.rect(178, yPosition, 25, 8);
+    doc.text('TOTAL:', 160, yPosition + 5);
+    doc.text(formatCurrency(finalTotal), 180, yPosition + 5);
     
     // Notice section
     yPosition += 30;
