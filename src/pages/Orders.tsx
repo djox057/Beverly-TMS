@@ -748,12 +748,12 @@ const Orders = () => {
                   >
                     {lockedNotInvoicedFilter ? (
                       <>
-                        <LockOpen className="mr-2 h-4 w-4 shrink-0" />
+                        <LockOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
                         Hide Locked
                       </>
                     ) : (
                       <>
-                        <Lock className="mr-2 h-4 w-4 shrink-0" />
+                        <Lock className="mr-2 h-3.5 w-3.5 shrink-0" />
                         Show Locked
                       </>
                     )}
