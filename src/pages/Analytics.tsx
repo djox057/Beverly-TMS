@@ -193,6 +193,14 @@ const Analytics = () => {
           return matchesDate && dispatcherProfile.office === profile.office;
         }
 
+        // Dispatchers only see their own orders
+        if (primaryRole === "dispatch") {
+          if (!profile?.full_name) {
+            return false;
+          }
+          return matchesDate && order.bookedBy === profile.full_name;
+        }
+
         // Default: no access for other roles
         return false;
       }) || [];
@@ -380,6 +388,7 @@ const Analytics = () => {
     })
     .filter((stat) => {
       const dispatcherProfile = dispatcherProfiles[stat.name];
+      const primaryRole = getPrimaryRole();
       
       // Only show users with 'dispatch' role
       if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
@@ -387,12 +396,16 @@ const Analytics = () => {
       }
       
       // Admins, managers and accounting see all dispatchers
-      if (hasRole("admin") || hasRole("manager") || hasRole("accounting")) {
+      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
         return true;
       }
       // Supervisors only see dispatchers from their office
-      if (hasRole("supervisor") && profile?.office) {
+      if (primaryRole === "supervisor" && profile?.office) {
         return dispatcherProfile.office === profile.office;
+      }
+      // Dispatchers only see themselves
+      if (primaryRole === "dispatch" && profile?.full_name) {
+        return stat.name === profile.full_name;
       }
       return false;
     })
@@ -644,6 +657,46 @@ const Analytics = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Totals Section */}
+                <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
+                  <div className="grid grid-cols-7 gap-4">
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Loads</p>
+                      <p className="text-2xl font-bold">{totals.orderCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Freight</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        ${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Miles</p>
+                      <p className="text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Avg Rate/Mile</p>
+                      <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Driver Rate</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        ${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Cut</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        ${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Avg Cut %</p>
+                      <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
