@@ -48,37 +48,45 @@ serve(async (req) => {
     
     const { data: cached } = await supabase
       .from('route_cache')
-      .select('distance_miles, duration_seconds, hit_count')
+      .select('distance_miles, duration_seconds, hit_count, created_at')
       .eq('start_lat', roundLat(startLat))
       .eq('start_lon', roundLat(startLon))
       .eq('end_lat', roundLat(endLat))
       .eq('end_lon', roundLat(endLon))
       .maybeSingle();
 
+    // Use cache if exists and is less than 30 days old
     if (cached) {
-      console.log('✅ Route cache hit');
+      const cacheAge = Date.now() - new Date(cached.created_at).getTime();
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
       
-      // Update hit count asynchronously (don't wait)
-      supabase
-        .from('route_cache')
-        .update({ hit_count: (cached.hit_count || 0) + 1 })
-        .eq('start_lat', roundLat(startLat))
-        .eq('start_lon', roundLat(startLon))
-        .eq('end_lat', roundLat(endLat))
-        .eq('end_lon', roundLat(endLon))
-        .then();
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          distance: cached.distance_miles,
-          distanceMeters: cached.distance_miles * 1609.34,
-          duration: cached.duration_seconds,
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (cacheAge < thirtyDaysMs) {
+        console.log('✅ Route cache hit');
+        
+        // Update hit count every 10th hit to reduce DB writes
+        if ((cached.hit_count || 0) % 10 === 0) {
+          supabase
+            .from('route_cache')
+            .update({ hit_count: (cached.hit_count || 0) + 1 })
+            .eq('start_lat', roundLat(startLat))
+            .eq('start_lon', roundLat(startLon))
+            .eq('end_lat', roundLat(endLat))
+            .eq('end_lon', roundLat(endLon))
+            .then();
         }
-      );
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            distance: cached.distance_miles,
+            distanceMeters: cached.distance_miles * 1609.34,
+            duration: cached.duration_seconds,
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
     }
 
     // Call OSRM API from server side (no CORS issues)

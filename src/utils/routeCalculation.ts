@@ -285,8 +285,78 @@ export const geocodeAddress = async (address: string): Promise<Coordinates | nul
   return null;
 };
 
+// In-memory cache for route calculations with 24-hour TTL
+const routeCache = new Map<string, { distance: number; duration: number; timestamp: number }>();
+const ROUTE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+// Batch route calculation requests
+let routeQueue: Array<{
+  start: Coordinates;
+  end: Coordinates;
+  resolve: (value: number | null) => void;
+}> = [];
+let routeTimer: NodeJS.Timeout | null = null;
+
+const processBatchRoutes = async () => {
+  const batch = routeQueue;
+  routeQueue = [];
+  routeTimer = null;
+
+  if (batch.length === 0) return;
+
+  // Deduplicate by creating unique keys
+  const uniqueRoutes = new Map<string, Array<(value: number | null) => void>>();
+  
+  for (const { start, end, resolve } of batch) {
+    const key = `${start.lat.toFixed(4)},${start.lon.toFixed(4)}-${end.lat.toFixed(4)},${end.lon.toFixed(4)}`;
+    if (!uniqueRoutes.has(key)) {
+      uniqueRoutes.set(key, []);
+    }
+    uniqueRoutes.get(key)!.push(resolve);
+  }
+
+  // Process each unique route
+  const url = `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/calculate-route`;
+  
+  for (const [key, resolvers] of uniqueRoutes.entries()) {
+    const [startStr, endStr] = key.split('-');
+    const [startLat, startLon] = startStr.split(',').map(Number);
+    const [endLat, endLon] = endStr.split(',').map(Number);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          start: { lat: startLat, lon: startLon },
+          end: { lat: endLat, lon: endLon }
+        })
+      });
+
+      if (!response.ok) throw new Error(`Route calculation failed: ${response.status}`);
+      
+      const data = await response.json();
+      const distance = data.success && data.distance !== undefined ? data.distance : null;
+
+      // Cache the result
+      if (distance !== null) {
+        routeCache.set(key, { 
+          distance, 
+          duration: data.duration || 0, 
+          timestamp: Date.now() 
+        });
+      }
+
+      resolvers.forEach(resolve => resolve(distance));
+    } catch (error) {
+      console.error('Batch route calculation error:', error);
+      resolvers.forEach(resolve => resolve(null));
+    }
+  }
+};
+
 /**
- * Calculate route distance using OSRM API
+ * Calculate route distance using OSRM API with batching and caching
  * @param start Starting coordinates
  * @param end Ending coordinates
  * @returns Promise<number | null> Distance in miles
@@ -295,51 +365,26 @@ export const calculateRouteDistance = async (
   start: Coordinates, 
   end: Coordinates
 ): Promise<number | null> => {
-  try {
-    // Use edge function to avoid CORS issues
-    const url = `https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/calculate-route`;
-    
-    console.log('🚗 =================================');
-    console.log('🚗 ROUTE CALCULATION VIA EDGE FUNCTION');
-    console.log('🚗 =================================');
-    console.log('🚗 Start Coordinates:', start);
-    console.log('🚗 End Coordinates:', end);
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ start, end })
-    });
-    
-    console.log('🚗 Edge function response status:', response.status);
-    
-    if (!response.ok) {
-      console.error('❌ Edge function error:', response.status, response.statusText);
-      throw new Error(`Route calculation failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    console.log('🚗 Edge function response data:', data);
-    
-    if (data.success && data.distance !== undefined) {
-      console.log('✅ =================================');
-      console.log('✅ ROUTE CALCULATION COMPLETE');
-      console.log('✅ =================================');
-      console.log('✅ Distance in miles:', data.distance);
-      console.log('✅ Duration in seconds:', data.duration);
-      console.log('✅ =================================');
-      return data.distance;
-    }
-    
-    console.warn('⚠️ No route found between coordinates');
-    return null;
-  } catch (error) {
-    console.error('❌ Route calculation error:', error);
-    return null;
+  // Create cache key (rounded to 4 decimals for ~11m precision)
+  const cacheKey = `${start.lat.toFixed(4)},${start.lon.toFixed(4)}-${end.lat.toFixed(4)},${end.lon.toFixed(4)}`;
+
+  // Check in-memory cache first
+  const cached = routeCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < ROUTE_CACHE_TTL) {
+    console.log('✅ Using in-memory route cache:', cacheKey);
+    return cached.distance;
   }
+
+  // Add to batch queue
+  return new Promise((resolve) => {
+    routeQueue.push({ start, end, resolve });
+
+    // Debounce: wait 100ms for more requests before processing
+    if (routeTimer) {
+      clearTimeout(routeTimer);
+    }
+    routeTimer = setTimeout(processBatchRoutes, 100);
+  });
 };
 
 /**

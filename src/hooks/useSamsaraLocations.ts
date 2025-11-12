@@ -22,8 +22,9 @@ export const useSamsaraLocations = () => {
       
       return data.locations as TruckLocation[];
     },
-    enabled: false, // DISABLED: Route calculation temporarily disabled
-    refetchInterval: false,
-    staleTime: Infinity,
+    enabled: true, // Re-enabled with optimizations
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes instead of constantly
+    staleTime: 4 * 60 * 1000, // Consider data fresh for 4 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 };
