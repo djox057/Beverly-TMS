@@ -130,6 +130,7 @@ const formatDocuments = (documents: Array<{
 // EditableNoteField component to avoid hooks violation
 const EditableNoteField = ({
   truckId,
+  driverId,
   value,
   handleNoteChange,
   setNoteDialogContent,
@@ -137,11 +138,12 @@ const EditableNoteField = ({
   onHistoryClick
 }: {
   truckId: string;
+  driverId: string | null;
   value: string;
-  handleNoteChange: (truckId: string, value: string) => Promise<void>;
+  handleNoteChange: (truckId: string, driverId: string | null, value: string) => Promise<void>;
   setNoteDialogContent: (value: string) => void;
-  setNoteDialogOpen: (truckId: string | null) => void;
-  onHistoryClick: (truckId: string) => void;
+  setNoteDialogOpen: (data: { truckId: string; driverId: string | null } | null) => void;
+  onHistoryClick: (driverId: string | null) => void;
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localValue, setLocalValue] = useState(value);
@@ -158,7 +160,7 @@ const EditableNoteField = ({
     if (localValue !== value) {
       setIsSaving(true);
       try {
-        await handleNoteChange(truckId, localValue);
+        await handleNoteChange(truckId, driverId, localValue);
       } finally {
         setIsSaving(false);
       }
@@ -191,11 +193,11 @@ const EditableNoteField = ({
       {hasContent && !isEditing && <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <History className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground" onClick={e => {
         e.stopPropagation();
-        onHistoryClick(truckId);
+        onHistoryClick(driverId);
       }} />
           <Maximize2 className="h-3 w-3 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => {
         setNoteDialogContent(localValue || "");
-        setNoteDialogOpen(truckId);
+        setNoteDialogOpen({ truckId, driverId });
       }} />
         </div>}
     </div>;
@@ -389,9 +391,9 @@ const Reports = () => {
   const [visibleTrucks, setVisibleTrucks] = useState<{
     [dispatcherId: string]: number;
   }>({});
-  const [noteDialogOpen, setNoteDialogOpen] = useState<string | null>(null);
+  const [noteDialogOpen, setNoteDialogOpen] = useState<{ truckId: string; driverId: string | null } | null>(null);
   const [noteDialogContent, setNoteDialogContent] = useState<string>("");
-  const [historyDialogTruckId, setHistoryDialogTruckId] = useState<string | null>(null);
+  const [historyDialogDriverId, setHistoryDialogDriverId] = useState<string | null>(null);
   const [truckMapView, setTruckMapView] = useState<{
     truckNumber: string;
     latitude: number;
@@ -1784,10 +1786,11 @@ const Reports = () => {
         </div>
       </div>;
   }
-  const handleNoteChange = async (truckId: string, newValue: string) => {
+  const handleNoteChange = async (truckId: string, driverId: string | null, newValue: string) => {
     try {
       await updateTruckNote.mutateAsync({
         truckId,
+        driverId: driverId || undefined,
         note: newValue
       });
     } catch (error) {
@@ -2188,7 +2191,7 @@ const Reports = () => {
                                 size={31} strokeWidth={3} />
                                         </div>
                                         <div className="h-8 p-0 w-full">
-                                          <EditableNoteField truckId={truck.id} value={truck.note} handleNoteChange={handleNoteChange} setNoteDialogContent={setNoteDialogContent} setNoteDialogOpen={setNoteDialogOpen} onHistoryClick={setHistoryDialogTruckId} />
+                                          <EditableNoteField truckId={truck.id} driverId={truck.driverId} value={truck.note} handleNoteChange={handleNoteChange} setNoteDialogContent={setNoteDialogContent} setNoteDialogOpen={setNoteDialogOpen} onHistoryClick={setHistoryDialogDriverId} />
                                         </div>
                                       </td>
                                       <td className={`border-b-[6px] border-gray-400 px-2 py-1 text-[10px] text-muted-foreground`} style={{
@@ -2366,7 +2369,7 @@ const Reports = () => {
               </Button>
               <Button onClick={async () => {
               if (noteDialogOpen) {
-                await handleNoteChange(noteDialogOpen, noteDialogContent);
+                await handleNoteChange(noteDialogOpen.truckId, noteDialogOpen.driverId, noteDialogContent);
                 setNoteDialogOpen(null);
               }
             }}>
@@ -2651,7 +2654,7 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      <TruckNoteHistoryDialog truckId={historyDialogTruckId} open={!!historyDialogTruckId} onOpenChange={open => !open && setHistoryDialogTruckId(null)} />
+      <TruckNoteHistoryDialog driverId={historyDialogDriverId} open={!!historyDialogDriverId} onOpenChange={open => !open && setHistoryDialogDriverId(null)} />
 
       {/* Load Zoom Dialog */}
       <Dialog open={!!zoomedLoad} onOpenChange={open => !open && setZoomedLoad(null)}>

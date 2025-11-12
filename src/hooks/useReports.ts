@@ -107,12 +107,26 @@ export const useReports = () => {
   });
 
   const updateTruckNote = useMutation({
-    mutationFn: async ({ truckId, note }: { truckId: string; note: string }) => {
-      // First check if a note already exists for this truck
+    mutationFn: async ({ truckId, note, driverId }: { truckId: string; note: string; driverId?: string }) => {
+      // Get truck to find driver if not provided
+      if (!driverId) {
+        const { data: truck } = await supabase
+          .from('trucks')
+          .select('driver1_id')
+          .eq('id', truckId)
+          .single();
+        driverId = truck?.driver1_id;
+      }
+
+      if (!driverId) {
+        throw new Error('Cannot save note: no driver assigned to truck');
+      }
+
+      // First check if a note already exists for this driver
       const { data: existingNote } = await supabase
         .from('truck_notes')
         .select('id')
-        .eq('truck_id', truckId)
+        .eq('driver_id', driverId)
         .maybeSingle();
 
       if (existingNote) {
@@ -121,6 +135,7 @@ export const useReports = () => {
           .from('truck_notes')
           .update({ 
             note,
+            truck_id: truckId,
             updated_by: (await supabase.auth.getUser()).data.user?.id 
           })
           .eq('id', existingNote.id);
@@ -131,6 +146,7 @@ export const useReports = () => {
           .from('truck_notes')
           .insert({ 
             truck_id: truckId,
+            driver_id: driverId,
             note,
             updated_by: (await supabase.auth.getUser()).data.user?.id 
           });
@@ -573,8 +589,8 @@ export const useReports = () => {
         const pickupStop = currentOrder?.pickupStop;
         const deliveryStop = currentOrder?.deliveryStop;
         
-        // Get the most recent truck note for this truck
-        const truckNote = truckNotes?.find(note => note.truck_id === truck.id);
+        // Get the most recent note for this driver
+        const truckNote = truckNotes?.find(note => note.driver_id === truck.driver1_id);
 
         // Get lost day notes for this truck's driver
         const driverId = truck.driver1_id;

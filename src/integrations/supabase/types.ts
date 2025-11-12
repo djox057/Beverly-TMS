@@ -689,13 +689,34 @@ export type Database = {
           no_tracking_fee: number | null
           no_tracking_fee_driver: number | null
           notes: string | null
+          original_detention: number | null
+          original_detention_driver: number | null
+          original_dh_miles: number | null
           original_driver_price: number | null
           original_driver1_id: string | null
           original_driver2_id: string | null
+          original_escort_fee: number | null
+          original_escort_fee_broker_paid: boolean | null
+          original_extra_stop: number | null
+          original_extra_stop_driver: number | null
           original_freight_amount: number | null
+          original_late_fee: number | null
+          original_late_fee_driver: number | null
+          original_layover: number | null
+          original_layover_driver: number | null
+          original_loaded_miles: number | null
+          original_lumper: number | null
+          original_lumper_driver: number | null
           original_miles: number | null
+          original_no_tracking_fee: number | null
+          original_no_tracking_fee_driver: number | null
+          original_notes: string | null
+          original_tonu: number | null
+          original_tonu_driver: number | null
           original_trailer_id: string | null
           original_truck_id: string | null
+          original_wrong_address_fee: number | null
+          original_wrong_address_fee_driver: number | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           po_number: string | null
@@ -755,13 +776,34 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_detention?: number | null
+          original_detention_driver?: number | null
+          original_dh_miles?: number | null
           original_driver_price?: number | null
           original_driver1_id?: string | null
           original_driver2_id?: string | null
+          original_escort_fee?: number | null
+          original_escort_fee_broker_paid?: boolean | null
+          original_extra_stop?: number | null
+          original_extra_stop_driver?: number | null
           original_freight_amount?: number | null
+          original_late_fee?: number | null
+          original_late_fee_driver?: number | null
+          original_layover?: number | null
+          original_layover_driver?: number | null
+          original_loaded_miles?: number | null
+          original_lumper?: number | null
+          original_lumper_driver?: number | null
           original_miles?: number | null
+          original_no_tracking_fee?: number | null
+          original_no_tracking_fee_driver?: number | null
+          original_notes?: string | null
+          original_tonu?: number | null
+          original_tonu_driver?: number | null
           original_trailer_id?: string | null
           original_truck_id?: string | null
+          original_wrong_address_fee?: number | null
+          original_wrong_address_fee_driver?: number | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
@@ -821,13 +863,34 @@ export type Database = {
           no_tracking_fee?: number | null
           no_tracking_fee_driver?: number | null
           notes?: string | null
+          original_detention?: number | null
+          original_detention_driver?: number | null
+          original_dh_miles?: number | null
           original_driver_price?: number | null
           original_driver1_id?: string | null
           original_driver2_id?: string | null
+          original_escort_fee?: number | null
+          original_escort_fee_broker_paid?: boolean | null
+          original_extra_stop?: number | null
+          original_extra_stop_driver?: number | null
           original_freight_amount?: number | null
+          original_late_fee?: number | null
+          original_late_fee_driver?: number | null
+          original_layover?: number | null
+          original_layover_driver?: number | null
+          original_loaded_miles?: number | null
+          original_lumper?: number | null
+          original_lumper_driver?: number | null
           original_miles?: number | null
+          original_no_tracking_fee?: number | null
+          original_no_tracking_fee_driver?: number | null
+          original_notes?: string | null
+          original_tonu?: number | null
+          original_tonu_driver?: number | null
           original_trailer_id?: string | null
           original_truck_id?: string | null
+          original_wrong_address_fee?: number | null
+          original_wrong_address_fee_driver?: number | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
@@ -1394,6 +1457,7 @@ export type Database = {
       truck_note_history: {
         Row: {
           created_at: string
+          driver_id: string
           edited_at: string
           edited_by: string | null
           id: string
@@ -1402,6 +1466,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          driver_id: string
           edited_at?: string
           edited_by?: string | null
           id?: string
@@ -1410,6 +1475,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          driver_id?: string
           edited_at?: string
           edited_by?: string | null
           id?: string
@@ -1417,6 +1483,13 @@ export type Database = {
           truck_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "truck_note_history_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "truck_note_history_edited_by_fkey"
             columns: ["edited_by"]
@@ -1436,6 +1509,7 @@ export type Database = {
       truck_notes: {
         Row: {
           created_at: string
+          driver_id: string
           id: string
           note: string | null
           truck_id: string
@@ -1444,6 +1518,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          driver_id: string
           id?: string
           note?: string | null
           truck_id: string
@@ -1452,13 +1527,22 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          driver_id?: string
           id?: string
           note?: string | null
           truck_id?: string
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "truck_notes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trucks: {
         Row: {

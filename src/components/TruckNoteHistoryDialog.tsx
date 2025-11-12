@@ -5,17 +5,17 @@ import { useTruckNoteHistory } from "@/hooks/useTruckNoteHistory";
 import { format } from "date-fns";
 
 interface TruckNoteHistoryDialogProps {
-  truckId: string | null;
+  driverId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export const TruckNoteHistoryDialog = ({
-  truckId,
+  driverId,
   open,
   onOpenChange,
 }: TruckNoteHistoryDialogProps) => {
-  const { data: history, isLoading } = useTruckNoteHistory(truckId);
+  const { data: history, isLoading } = useTruckNoteHistory(driverId);
 
   const getInitials = (name: string | null, email: string | null) => {
     if (name) {

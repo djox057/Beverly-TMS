@@ -10,11 +10,11 @@ export interface NoteHistoryEntry {
   editor_email: string | null;
 }
 
-export const useTruckNoteHistory = (truckId: string | null) => {
+export const useTruckNoteHistory = (driverId: string | null) => {
   return useQuery({
-    queryKey: ['truck-note-history', truckId],
+    queryKey: ['truck-note-history', driverId],
     queryFn: async () => {
-      if (!truckId) return [];
+      if (!driverId) return [];
 
       const { data, error } = await supabase
         .from('truck_note_history')
@@ -28,16 +28,16 @@ export const useTruckNoteHistory = (truckId: string | null) => {
             email
           )
         `)
-        .eq('truck_id', truckId)
+        .eq('driver_id', driverId)
         .order('edited_at', { ascending: false })
         .limit(7);
 
       if (error) {
-        console.error('Error fetching truck note history:', error);
+        console.error('Error fetching driver note history:', error);
         throw error;
       }
 
-      console.log('Truck note history data:', data);
+      console.log('Driver note history data:', data);
 
       return (data || []).map((entry: any) => ({
         id: entry.id,
@@ -48,6 +48,6 @@ export const useTruckNoteHistory = (truckId: string | null) => {
         editor_email: entry.profiles?.email || null,
       })) as NoteHistoryEntry[];
     },
-    enabled: !!truckId,
+    enabled: !!driverId,
   });
 };
