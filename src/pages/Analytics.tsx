@@ -204,10 +204,11 @@ const Analytics = () => {
 
       // Dispatchers only see their own orders
       if (primaryRole === "dispatch") {
-        if (!profile?.full_name) {
+        if (!profile?.full_name && !profile?.user_id) {
           return false;
         }
-        return matchesDate && order.bookedBy === profile.full_name;
+        // Check both full_name and user_id to handle both old and new data formats
+        return matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
       }
 
       // Default: no access for other roles
