@@ -114,7 +114,7 @@ export const useReports = () => {
           .from('trucks')
           .select('driver1_id')
           .eq('id', truckId)
-          .single();
+          .maybeSingle();
         
         if (truckError) throw truckError;
         driverId = truck?.driver1_id;
