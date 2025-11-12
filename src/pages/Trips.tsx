@@ -35,7 +35,7 @@ const getStatusBadge = (status: string) => {
 const Trips = () => {
   useDragPan();
   
-  const { data: orders, isLoading, loadMore, hasMore } = useOrders();
+  const { data: orders, isLoading } = useOrders();
   
   const [currentPage, setCurrentPage] = useState(1);
   const [truckFilter, setTruckFilter] = useState("");

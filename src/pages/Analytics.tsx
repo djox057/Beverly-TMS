@@ -96,10 +96,8 @@ const Analytics = () => {
   const {
     data: orders,
     isLoading,
-    error,
-    loadMore,
-    hasMore
-  } = useOrders(profile?.full_name);
+    error
+  } = useOrders();
   const {
     data: companies
   } = useCompanies();
