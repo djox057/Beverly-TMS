@@ -129,9 +129,9 @@ export const Sidebar = () => {
       ];
     }
     
-    // Dispatch role: all navigation except Analytics
+    // Dispatch role: all navigation
     if (primaryRole === 'dispatch') {
-      return filteredNav.filter(item => item.href !== '/analytics');
+      return filteredNav;
     }
     
     return filteredNav;
