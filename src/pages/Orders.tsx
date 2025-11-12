@@ -787,7 +787,7 @@ const Orders = () => {
                     <TableHead className="w-24">Booked By</TableHead>
                     <TableHead className="w-24">RC</TableHead>
                     <TableHead className="w-24">POD</TableHead>
-                    <TableHead className="w-16">Actions</TableHead>
+                    <TableHead className="w-32">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -989,8 +989,8 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
+                          <TableCell className="w-32">
+                            <div className="flex gap-1 w-32">
                               {!order.locked && (
                                 <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                                   <Edit className="h-4 w-4" />
