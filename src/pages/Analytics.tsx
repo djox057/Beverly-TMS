@@ -36,7 +36,11 @@ const getStatusBadge = (status: string) => {
 };
 const Analytics = () => {
   const navigate = useNavigate();
-  const { hasRole, profile, getPrimaryRole } = useAuthContext();
+  const {
+    hasRole,
+    profile,
+    getPrimaryRole
+  } = useAuthContext();
 
   // Debug navigation function
   const navigateToEditOrder = (orderId: string) => {
@@ -75,19 +79,34 @@ const Analytics = () => {
   const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [filterType, setFilterType] = useState<"week" | "month" | "custom">("week");
-  const [dispatcherProfiles, setDispatcherProfiles] = useState<
-    Record<string, { email: string; office: string | null; roles: string[] }>
-  >({});
-  const [selectedDriverNotice, setSelectedDriverNotice] = useState<{ name: string; notice: string } | null>(null);
+  const [dispatcherProfiles, setDispatcherProfiles] = useState<Record<string, {
+    email: string;
+    office: string | null;
+    roles: string[];
+  }>>({});
+  const [selectedDriverNotice, setSelectedDriverNotice] = useState<{
+    name: string;
+    notice: string;
+  } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
-
-  const { data: orders, isLoading, error } = useOrders();
-  const { data: companies } = useCompanies();
-  const { data: drivers } = useDrivers();
-  const { performanceData, updatePerformance } = useDriverPerformance();
+  const {
+    data: orders,
+    isLoading,
+    error
+  } = useOrders();
+  const {
+    data: companies
+  } = useCompanies();
+  const {
+    data: drivers
+  } = useDrivers();
+  const {
+    performanceData,
+    updatePerformance
+  } = useDriverPerformance();
 
   // Merge database data with local state
   const driverTiers = useMemo(() => performanceData, [performanceData]);
@@ -95,36 +114,35 @@ const Analytics = () => {
   // Fetch all profiles to get office locations and roles indexed by full_name
   useEffect(() => {
     const fetchProfiles = async () => {
-      const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
-
+      const {
+        data: profiles
+      } = await supabase.from("profiles").select("email, full_name, office, user_id");
       if (profiles) {
         // Fetch user roles for all users
-        const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
-        
-        const rolesMap = userRoles?.reduce(
-          (acc, ur) => {
-            if (!acc[ur.user_id]) {
-              acc[ur.user_id] = [];
-            }
-            acc[ur.user_id].push(ur.role);
-            return acc;
-          },
-          {} as Record<string, string[]>
-        ) || {};
-
-        const profileMap = profiles.reduce(
-          (acc, p) => {
-            if (p.full_name) {
-              acc[p.full_name] = { 
-                email: p.email, 
-                office: p.office,
-                roles: rolesMap[p.user_id] || []
-              };
-            }
-            return acc;
-          },
-          {} as Record<string, { email: string; office: string | null; roles: string[] }>,
-        );
+        const {
+          data: userRoles
+        } = await supabase.from("user_roles").select("user_id, role");
+        const rolesMap = userRoles?.reduce((acc, ur) => {
+          if (!acc[ur.user_id]) {
+            acc[ur.user_id] = [];
+          }
+          acc[ur.user_id].push(ur.role);
+          return acc;
+        }, {} as Record<string, string[]>) || {};
+        const profileMap = profiles.reduce((acc, p) => {
+          if (p.full_name) {
+            acc[p.full_name] = {
+              email: p.email,
+              office: p.office,
+              roles: rolesMap[p.user_id] || []
+            };
+          }
+          return acc;
+        }, {} as Record<string, {
+          email: string;
+          office: string | null;
+          roles: string[];
+        }>);
         setDispatcherProfiles(profileMap);
       }
     };
@@ -139,78 +157,65 @@ const Analytics = () => {
     if (primaryRole === "supervisor" && Object.keys(dispatcherProfiles).length === 0) {
       return [];
     }
+    const filtered = orders?.filter(order => {
+      // Exclude canceled orders from analytics
+      if (order.canceled) {
+        return false;
+      }
 
-    const filtered =
-      orders?.filter((order) => {
-        // Exclude canceled orders from analytics
-        if (order.canceled) {
+      // Date filtering - use pickup date for week filters, delivery date for month filters
+      let matchesDate = true;
+      if (dateRange?.from) {
+        const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
+        const orderDate = new Date(dateToFilter.split(" - ")[0]);
+        const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+        if (dateRange.to) {
+          // Date range filtering
+          const fromDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+          matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+        } else {
+          // Single date filtering
+          const selectedDateOnly = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
+          matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+        }
+      }
+
+      // Filter based on PRIMARY role only
+      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
+        return matchesDate;
+      }
+
+      // Supervisors only see orders from their office dispatchers
+      if (primaryRole === "supervisor") {
+        if (!profile?.office) {
           return false;
         }
-
-        // Date filtering - use pickup date for week filters, delivery date for month filters
-        let matchesDate = true;
-        if (dateRange?.from) {
-          const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
-          const orderDate = new Date(dateToFilter.split(" - ")[0]);
-          const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-          if (dateRange.to) {
-            // Date range filtering
-            const fromDateOnly = new Date(
-              dateRange.from.getFullYear(),
-              dateRange.from.getMonth(),
-              dateRange.from.getDate(),
-            );
-            const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-            matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
-          } else {
-            // Single date filtering
-            const selectedDateOnly = new Date(
-              dateRange.from.getFullYear(),
-              dateRange.from.getMonth(),
-              dateRange.from.getDate(),
-            );
-            matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
-          }
+        if (!order.bookedBy || order.bookedBy === "N/A" || order.bookedBy === "Unknown") {
+          return false;
         }
-
-        // Filter based on PRIMARY role only
-        if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
-          return matchesDate;
+        const dispatcherProfile = dispatcherProfiles[order.bookedBy];
+        if (!dispatcherProfile) {
+          return false;
         }
+        return matchesDate && dispatcherProfile.office === profile.office;
+      }
 
-        // Supervisors only see orders from their office dispatchers
-        if (primaryRole === "supervisor") {
-          if (!profile?.office) {
-            return false;
-          }
-          if (!order.bookedBy || order.bookedBy === "N/A" || order.bookedBy === "Unknown") {
-            return false;
-          }
-          const dispatcherProfile = dispatcherProfiles[order.bookedBy];
-          if (!dispatcherProfile) {
-            return false;
-          }
-          return matchesDate && dispatcherProfile.office === profile.office;
+      // Dispatchers only see their own orders
+      if (primaryRole === "dispatch") {
+        if (!profile?.full_name) {
+          return false;
         }
+        return matchesDate && order.bookedBy === profile.full_name;
+      }
 
-        // Dispatchers only see their own orders
-        if (primaryRole === "dispatch") {
-          if (!profile?.full_name) {
-            return false;
-          }
-          return matchesDate && order.bookedBy === profile.full_name;
-        }
-
-        // Default: no access for other roles
-        return false;
-      }) || [];
-
+      // Default: no access for other roles
+      return false;
+    }) || [];
     return filtered;
   }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile]);
-
   if (isLoading) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div className="h-8 w-48 bg-muted animate-pulse rounded" />
           <div className="flex gap-2">
@@ -219,8 +224,7 @@ const Analytics = () => {
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="rounded-lg border p-6 space-y-4">
+          {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="rounded-lg border p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="h-6 w-32 bg-muted animate-pulse rounded" />
                 <div className="h-6 w-20 bg-muted animate-pulse rounded" />
@@ -229,20 +233,16 @@ const Analytics = () => {
                 <div className="h-4 w-full bg-muted animate-pulse rounded" />
                 <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
               </div>
-            </div>
-          ))}
+            </div>)}
         </div>
-      </div>
-    );
+      </div>;
   }
   if (error) {
-    return (
-      <div className="space-y-6">
+    return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <p className="text-destructive">Error loading orders: {error.message}</p>
         </div>
-      </div>
-    );
+      </div>;
   }
 
   // Helper function to get week start date
@@ -255,13 +255,15 @@ const Analytics = () => {
     weekStart.setHours(0, 0, 0, 0);
     return weekStart;
   };
-
   const setWeekFilter = (weeks: number) => {
     const startDate = getWeekStartDate(weeks);
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 6);
     endDate.setHours(23, 59, 59, 999);
-    setDateRange({ from: startDate, to: endDate });
+    setDateRange({
+      from: startDate,
+      to: endDate
+    });
   };
 
   // Generate all weeks starting from current week
@@ -286,23 +288,22 @@ const Analytics = () => {
       const weekStart = getWeekStartDate(i);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
-
       const formatDate = (date: Date) => {
-        return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        return date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        });
       };
-
       weeks.push({
         value: i.toString(),
         label: i === 0 ? "This Week" : i === 1 ? "Last Week" : `${formatDate(weekStart)} - ${formatDate(weekEnd)}`,
-        weekNumber: weeksFromStart - i,
+        weekNumber: weeksFromStart - i
       });
     }
-
     return weeks;
   };
-
   const weekOptions = generateWeekOptions();
-
   const handleWeekChange = (value: string) => {
     setSelectedWeek(value);
     setSelectedMonth("all");
@@ -318,25 +319,23 @@ const Analytics = () => {
   const generateMonthOptions = () => {
     const months = [];
     const today = new Date();
-
     for (let i = 0; i < 12; i++) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-
       months.push({
         value: i.toString(),
-        label: monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+        label: monthStart.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric"
+        }),
         start: monthStart,
-        end: monthEnd,
+        end: monthEnd
       });
     }
-
     return months;
   };
-
   const monthOptions = generateMonthOptions();
-
   const handleMonthChange = (value: string) => {
     setSelectedMonth(value);
     setSelectedWeek("all");
@@ -346,153 +345,142 @@ const Analytics = () => {
     } else {
       const monthIndex = parseInt(value);
       const monthOption = monthOptions[monthIndex];
-      setDateRange({ from: monthOption.start, to: monthOption.end });
+      setDateRange({
+        from: monthOption.start,
+        to: monthOption.end
+      });
     }
   };
   // Calculate dispatcher analytics
-  const dispatcherAnalytics = filteredOrders.reduce(
-    (acc, order) => {
-      const dispatcher = order.bookedBy || "Unknown";
-      if (!acc[dispatcher]) {
-        acc[dispatcher] = {
-          totalFreight: 0,
-          totalDriverRate: 0,
-          totalMiles: 0,
-          orderCount: 0,
-        };
-      }
-      acc[dispatcher].totalFreight += order.totalFreightAmount;
-      acc[dispatcher].totalDriverRate += order.driverPrice;
-      acc[dispatcher].totalMiles += order.mileage;
-      acc[dispatcher].orderCount += 1;
-      return acc;
-    },
-    {} as Record<string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }>,
-  );
-
-  const dispatcherStats = Object.entries(dispatcherAnalytics)
-    .map(([name, stats]) => {
-      const cut = stats.totalFreight - stats.totalDriverRate;
-      const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
-      const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
-      return {
-        name,
-        totalFreight: stats.totalFreight,
-        totalDriverRate: stats.totalDriverRate,
-        totalMiles: stats.totalMiles,
-        orderCount: stats.orderCount,
-        cut,
-        cutPercent,
-        ratePerMile,
+  const dispatcherAnalytics = filteredOrders.reduce((acc, order) => {
+    const dispatcher = order.bookedBy || "Unknown";
+    if (!acc[dispatcher]) {
+      acc[dispatcher] = {
+        totalFreight: 0,
+        totalDriverRate: 0,
+        totalMiles: 0,
+        orderCount: 0
       };
-    })
-    .filter((stat) => {
-      const dispatcherProfile = dispatcherProfiles[stat.name];
-      const primaryRole = getPrimaryRole();
-      
-      // Only show users with 'dispatch' role
-      if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
-        return false;
-      }
-      
-      // Admins, managers and accounting see all dispatchers
-      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
-        return true;
-      }
-      // Supervisors only see dispatchers from their office
-      if (primaryRole === "supervisor" && profile?.office) {
-        return dispatcherProfile.office === profile.office;
-      }
-      // Dispatchers only see themselves
-      if (primaryRole === "dispatch" && profile?.full_name) {
-        return stat.name === profile.full_name;
-      }
+    }
+    acc[dispatcher].totalFreight += order.totalFreightAmount;
+    acc[dispatcher].totalDriverRate += order.driverPrice;
+    acc[dispatcher].totalMiles += order.mileage;
+    acc[dispatcher].orderCount += 1;
+    return acc;
+  }, {} as Record<string, {
+    totalFreight: number;
+    totalDriverRate: number;
+    totalMiles: number;
+    orderCount: number;
+  }>);
+  const dispatcherStats = Object.entries(dispatcherAnalytics).map(([name, stats]) => {
+    const cut = stats.totalFreight - stats.totalDriverRate;
+    const cutPercent = stats.totalFreight > 0 ? cut / stats.totalFreight * 100 : 0;
+    const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+    return {
+      name,
+      totalFreight: stats.totalFreight,
+      totalDriverRate: stats.totalDriverRate,
+      totalMiles: stats.totalMiles,
+      orderCount: stats.orderCount,
+      cut,
+      cutPercent,
+      ratePerMile
+    };
+  }).filter(stat => {
+    const dispatcherProfile = dispatcherProfiles[stat.name];
+    const primaryRole = getPrimaryRole();
+
+    // Only show users with 'dispatch' role
+    if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
       return false;
-    })
-    .sort((a, b) => {
-      const aValue = a[sortBy];
-      const bValue = b[sortBy];
-      return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
-    });
+    }
+
+    // Admins, managers and accounting see all dispatchers
+    if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
+      return true;
+    }
+    // Supervisors only see dispatchers from their office
+    if (primaryRole === "supervisor" && profile?.office) {
+      return dispatcherProfile.office === profile.office;
+    }
+    // Dispatchers only see themselves
+    if (primaryRole === "dispatch" && profile?.full_name) {
+      return stat.name === profile.full_name;
+    }
+    return false;
+  }).sort((a, b) => {
+    const aValue = a[sortBy];
+    const bValue = b[sortBy];
+    return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
+  });
 
   // Calculate totals
-  const totals = dispatcherStats.reduce(
-    (acc, stat) => {
-      acc.totalFreight += stat.totalFreight;
-      acc.totalDriverRate += stat.totalDriverRate;
-      acc.totalMiles += stat.totalMiles;
-      acc.orderCount += stat.orderCount;
-      return acc;
-    },
-    {
-      totalFreight: 0,
-      totalDriverRate: 0,
-      totalMiles: 0,
-      orderCount: 0,
-    },
-  );
-
+  const totals = dispatcherStats.reduce((acc, stat) => {
+    acc.totalFreight += stat.totalFreight;
+    acc.totalDriverRate += stat.totalDriverRate;
+    acc.totalMiles += stat.totalMiles;
+    acc.orderCount += stat.orderCount;
+    return acc;
+  }, {
+    totalFreight: 0,
+    totalDriverRate: 0,
+    totalMiles: 0,
+    orderCount: 0
+  });
   const totalCut = totals.totalFreight - totals.totalDriverRate;
-  const totalCutPercent = totals.totalFreight > 0 ? (totalCut / totals.totalFreight) * 100 : 0;
+  const totalCutPercent = totals.totalFreight > 0 ? totalCut / totals.totalFreight * 100 : 0;
   const totalRatePerMile = totals.totalMiles > 0 ? totals.totalFreight / totals.totalMiles : 0;
 
   // Calculate driver analytics
-  const driverAnalytics = filteredOrders.reduce(
-    (acc, order) => {
-      // Get driver name from the order (already transformed)
-      const driverName = order.driverName;
-      
-      if (driverName && driverName !== 'N/A') {
-        if (!acc[driverName]) {
-          acc[driverName] = {
-            totalDriverRate: 0,
-            totalMiles: 0,
-            orderCount: 0,
-          };
-        }
-        acc[driverName].totalDriverRate += order.driverPrice;
-        acc[driverName].totalMiles += order.mileage;
-        acc[driverName].orderCount += 1;
+  const driverAnalytics = filteredOrders.reduce((acc, order) => {
+    // Get driver name from the order (already transformed)
+    const driverName = order.driverName;
+    if (driverName && driverName !== 'N/A') {
+      if (!acc[driverName]) {
+        acc[driverName] = {
+          totalDriverRate: 0,
+          totalMiles: 0,
+          orderCount: 0
+        };
       }
-      
-      return acc;
-    },
-    {} as Record<string, { totalDriverRate: number; totalMiles: number; orderCount: number }>,
-  );
+      acc[driverName].totalDriverRate += order.driverPrice;
+      acc[driverName].totalMiles += order.mileage;
+      acc[driverName].orderCount += 1;
+    }
+    return acc;
+  }, {} as Record<string, {
+    totalDriverRate: number;
+    totalMiles: number;
+    orderCount: number;
+  }>);
+  const driverStats = Object.entries(driverAnalytics).map(([name, stats]) => {
+    const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
+    return {
+      name,
+      totalDriverRate: stats.totalDriverRate,
+      totalMiles: stats.totalMiles,
+      orderCount: stats.orderCount,
+      ratePerMile,
+      grossTier: driverTiers[name]?.grossTier || 'Tier 1',
+      safetyTier: driverTiers[name]?.safetyTier || 'Tier 1',
+      managementTier: driverTiers[name]?.managementTier || 'Tier 1',
+      notice: driverTiers[name]?.notice || ''
+    };
+  }).filter(stat => {
+    // Filter by driver name search
+    const matchesSearch = stat.name.toLowerCase().includes(driverSearchQuery.toLowerCase());
 
-  const driverStats = Object.entries(driverAnalytics)
-    .map(([name, stats]) => {
-      const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
-      
-      return {
-        name,
-        totalDriverRate: stats.totalDriverRate,
-        totalMiles: stats.totalMiles,
-        orderCount: stats.orderCount,
-        ratePerMile,
-        grossTier: driverTiers[name]?.grossTier || 'Tier 1',
-        safetyTier: driverTiers[name]?.safetyTier || 'Tier 1',
-        managementTier: driverTiers[name]?.managementTier || 'Tier 1',
-        notice: driverTiers[name]?.notice || ''
-      };
-    })
-    .filter((stat) => {
-      // Filter by driver name search
-      const matchesSearch = stat.name.toLowerCase().includes(driverSearchQuery.toLowerCase());
-      
-      // Filter by tiers
-      const matchesGrossTier = grossTierFilter === "all" || stat.grossTier === grossTierFilter;
-      const matchesSafetyTier = safetyTierFilter === "all" || stat.safetyTier === safetyTierFilter;
-      const matchesManagementTier = managementTierFilter === "all" || stat.managementTier === managementTierFilter;
-      
-      return matchesSearch && matchesGrossTier && matchesSafetyTier && matchesManagementTier;
-    })
-    .sort((a, b) => {
-      const aValue = a.totalDriverRate;
-      const bValue = b.totalDriverRate;
-      return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
-    });
-  
+    // Filter by tiers
+    const matchesGrossTier = grossTierFilter === "all" || stat.grossTier === grossTierFilter;
+    const matchesSafetyTier = safetyTierFilter === "all" || stat.safetyTier === safetyTierFilter;
+    const matchesManagementTier = managementTierFilter === "all" || stat.managementTier === managementTierFilter;
+    return matchesSearch && matchesGrossTier && matchesSafetyTier && matchesManagementTier;
+  }).sort((a, b) => {
+    const aValue = a.totalDriverRate;
+    const bValue = b.totalDriverRate;
+    return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
+  });
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'Tier 1':
@@ -505,7 +493,6 @@ const Analytics = () => {
         return 'bg-gray-500 text-white hover:bg-gray-600';
     }
   };
-  
   const handleTierChange = (driverName: string, tierType: 'grossTier' | 'safetyTier' | 'managementTier', value: string) => {
     const currentData = driverTiers[driverName] || {
       grossTier: 'Tier 1',
@@ -513,7 +500,6 @@ const Analytics = () => {
       managementTier: 'Tier 1',
       notice: ''
     };
-
     updatePerformance({
       driver_name: driverName,
       gross_tier: tierType === 'grossTier' ? value : currentData.grossTier,
@@ -522,7 +508,6 @@ const Analytics = () => {
       notice: currentData.notice
     });
   };
-
   const handleNoticeChange = (driverName: string, notice: string) => {
     const currentData = driverTiers[driverName] || {
       grossTier: 'Tier 1',
@@ -530,7 +515,6 @@ const Analytics = () => {
       managementTier: 'Tier 1',
       notice: ''
     };
-
     updatePerformance({
       driver_name: driverName,
       gross_tier: currentData.grossTier,
@@ -541,22 +525,17 @@ const Analytics = () => {
   };
 
   // Calculate driver totals
-  const driverTotals = driverStats.reduce(
-    (acc, stat) => {
-      acc.totalDriverRate += stat.totalDriverRate;
-      acc.totalMiles += stat.totalMiles;
-      acc.orderCount += stat.orderCount;
-      return acc;
-    },
-    {
-      totalDriverRate: 0,
-      totalMiles: 0,
-      orderCount: 0,
-    },
-  );
-
+  const driverTotals = driverStats.reduce((acc, stat) => {
+    acc.totalDriverRate += stat.totalDriverRate;
+    acc.totalMiles += stat.totalMiles;
+    acc.orderCount += stat.orderCount;
+    return acc;
+  }, {
+    totalDriverRate: 0,
+    totalMiles: 0,
+    orderCount: 0
+  });
   const driverTotalRatePerMile = driverTotals.totalMiles > 0 ? driverTotals.totalDriverRate / driverTotals.totalMiles : 0;
-
   const handleSort = (column: "totalFreight" | "ratePerMile" | "cut" | "cutPercent") => {
     if (sortBy === column) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
@@ -573,16 +552,14 @@ const Analytics = () => {
   todayEnd.setHours(23, 59, 59, 999);
 
   // Filter loads booked today with rate <= 1.7, respecting role permissions
-  const qualifyingLoads = filteredOrders.filter((order) => {
+  const qualifyingLoads = filteredOrders.filter(order => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
     const meetsRateThreshold = ratePerMile <= 1.7;
     return isToday && meetsRateThreshold;
   });
-
-  return (
-    <div className="h-full w-full">
+  return <div className="h-full w-full">
       <div className="space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
@@ -607,11 +584,9 @@ const Analytics = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All time weekly</SelectItem>
-                        {weekOptions.map((week) => (
-                          <SelectItem key={week.value} value={week.value}>
+                        {weekOptions.map(week => <SelectItem key={week.value} value={week.value}>
                             {week.label}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
 
@@ -621,38 +596,25 @@ const Analytics = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All time monthly</SelectItem>
-                        {monthOptions.map((month) => (
-                          <SelectItem key={month.value} value={month.value}>
+                        {monthOptions.map(month => <SelectItem key={month.value} value={month.value}>
                             {month.label}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
 
-                    <DateRangePicker
-                      date={dateRange}
-                      onDateChange={(range) => {
-                        setDateRange(range);
-                        setSelectedWeek("all");
-                        setSelectedMonth("all");
-                        setFilterType("custom");
-                      }}
-                      placeholder="Custom date range"
-                      className="w-72"
-                    />
-                    {dateRange && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDateRange(undefined);
-                          setSelectedWeek("all");
-                          setSelectedMonth("all");
-                        }}
-                      >
+                    <DateRangePicker date={dateRange} onDateChange={range => {
+                    setDateRange(range);
+                    setSelectedWeek("all");
+                    setSelectedMonth("all");
+                    setFilterType("custom");
+                  }} placeholder="Custom date range" className="w-72" />
+                    {dateRange && <Button variant="outline" size="sm" onClick={() => {
+                    setDateRange(undefined);
+                    setSelectedWeek("all");
+                    setSelectedMonth("all");
+                  }}>
                         Clear Filter
-                      </Button>
-                    )}
+                      </Button>}
                   </div>
                 </div>
               </CardHeader>
@@ -660,14 +622,14 @@ const Analytics = () => {
                 {/* Totals Section */}
                 <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
                   <div className="grid grid-cols-7 gap-4">
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Loads</p>
-                      <p className="text-2xl font-bold">{totals.orderCount}</p>
-                    </div>
+                    
                     <div className="text-center">
                       <p className="text-sm font-medium text-muted-foreground mb-1">Total Freight</p>
                       <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        ${totals.totalFreight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${totals.totalFreight.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                       </p>
                     </div>
                     <div className="text-center">
@@ -678,16 +640,14 @@ const Analytics = () => {
                       <p className="text-sm font-medium text-muted-foreground mb-1">Avg Rate/Mile</p>
                       <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Driver Rate</p>
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        ${totals.totalDriverRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                    </div>
+                    
                     <div className="text-center">
                       <p className="text-sm font-medium text-muted-foreground mb-1">Total Cut</p>
                       <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        ${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${totalCut.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                       </p>
                     </div>
                     <div className="text-center">
@@ -701,121 +661,54 @@ const Analytics = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Dispatcher</TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("totalFreight")}
-                      >
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("totalFreight")}>
                         Total Freight {sortBy === "totalFreight" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
                       <TableHead className="text-right">Total Miles</TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("ratePerMile")}
-                      >
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("ratePerMile")}>
                         Rate/Mile {sortBy === "ratePerMile" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
-                      <TableHead className="text-right">Driver Rate</TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("cut")}
-                      >
+                      
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cut")}>
                         Cut {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
-                      <TableHead
-                        className="text-right cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleSort("cutPercent")}
-                      >
+                      <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort("cutPercent")}>
                         Cut % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dispatcherStats.length === 0 ? (
-                      <TableRow>
+                    {dispatcherStats.length === 0 ? <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           No data available
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      dispatcherStats.map((stat, index) => (
-                        <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                      </TableRow> : dispatcherStats.map((stat, index) => <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
                           <TableCell className="font-medium">{stat.name}</TableCell>
                           <TableCell className="text-right">
                             $
                             {stat.totalFreight.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                           </TableCell>
                           <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                          
                           <TableCell className="text-right">
                             $
-                            {stat.totalDriverRate.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            $
-                            {stat.cut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {stat.cut.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                           </TableCell>
                           <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                        </TableRow>)}
                   </TableBody>
                 </Table>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Totals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-8">
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Freight Amount</p>
-                    <p className="text-2xl font-bold">
-                      $
-                      {totals.totalFreight.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Miles</p>
-                    <p className="text-2xl font-bold">{totals.totalMiles.toLocaleString()}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Rate/Mile</p>
-                    <p className="text-2xl font-bold">${totalRatePerMile.toFixed(2)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Driver Rate</p>
-                    <p className="text-2xl font-bold">
-                      $
-                      {totals.totalDriverRate.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Total Cut</p>
-                    <p className="text-2xl font-bold">
-                      ${totalCut.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Cut %</p>
-                    <p className="text-2xl font-bold">{totalCutPercent.toFixed(1)}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            
           </TabsContent>
 
           <TabsContent value="driver-performance" className="space-y-6">
@@ -824,12 +717,7 @@ const Analytics = () => {
                 <div className="flex flex-col gap-4">
                   <CardTitle>Driver Performance</CardTitle>
                   <div className="flex flex-wrap gap-2 items-center">
-                    <Input
-                      placeholder="Search driver name..."
-                      value={driverSearchQuery}
-                      onChange={(e) => setDriverSearchQuery(e.target.value)}
-                      className="w-64"
-                    />
+                    <Input placeholder="Search driver name..." value={driverSearchQuery} onChange={e => setDriverSearchQuery(e.target.value)} className="w-64" />
                     
                     <Select value={grossTierFilter} onValueChange={setGrossTierFilter}>
                       <SelectTrigger className="w-40">
@@ -867,20 +755,14 @@ const Analytics = () => {
                       </SelectContent>
                     </Select>
 
-                    {(driverSearchQuery || grossTierFilter !== "all" || safetyTierFilter !== "all" || managementTierFilter !== "all") && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setDriverSearchQuery("");
-                          setGrossTierFilter("all");
-                          setSafetyTierFilter("all");
-                          setManagementTierFilter("all");
-                        }}
-                      >
+                    {(driverSearchQuery || grossTierFilter !== "all" || safetyTierFilter !== "all" || managementTierFilter !== "all") && <Button variant="outline" size="sm" onClick={() => {
+                    setDriverSearchQuery("");
+                    setGrossTierFilter("all");
+                    setSafetyTierFilter("all");
+                    setManagementTierFilter("all");
+                  }}>
                         Clear Filters
-                      </Button>
-                    )}
+                      </Button>}
                   </div>
                 </div>
               </CardHeader>
@@ -899,30 +781,23 @@ const Analytics = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {driverStats.length === 0 ? (
-                      <TableRow>
+                    {driverStats.length === 0 ? <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No data available
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      driverStats.map((stat, index) => (
-                        <TableRow key={stat.name} className={index === driverStats.length - 1 ? "border-b" : ""}>
+                      </TableRow> : driverStats.map((stat, index) => <TableRow key={stat.name} className={index === driverStats.length - 1 ? "border-b" : ""}>
                           <TableCell className="font-medium">{stat.name}</TableCell>
                           <TableCell className="text-right">
                             $
                             {stat.totalDriverRate.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                           </TableCell>
                           <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
                           <TableCell>
-                            <Select 
-                              value={stat.grossTier} 
-                              onValueChange={(value) => handleTierChange(stat.name, 'grossTier', value)}
-                            >
+                            <Select value={stat.grossTier} onValueChange={value => handleTierChange(stat.name, 'grossTier', value)}>
                               <SelectTrigger className={`w-22 ${getTierColor(stat.grossTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
@@ -934,10 +809,7 @@ const Analytics = () => {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select 
-                              value={stat.safetyTier} 
-                              onValueChange={(value) => handleTierChange(stat.name, 'safetyTier', value)}
-                            >
+                            <Select value={stat.safetyTier} onValueChange={value => handleTierChange(stat.name, 'safetyTier', value)}>
                               <SelectTrigger className={`w-22 ${getTierColor(stat.safetyTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
@@ -949,10 +821,7 @@ const Analytics = () => {
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Select 
-                              value={stat.managementTier} 
-                              onValueChange={(value) => handleTierChange(stat.name, 'managementTier', value)}
-                            >
+                            <Select value={stat.managementTier} onValueChange={value => handleTierChange(stat.name, 'managementTier', value)}>
                               <SelectTrigger className={`w-22 ${getTierColor(stat.managementTier)}`}>
                                 <SelectValue />
                               </SelectTrigger>
@@ -966,14 +835,12 @@ const Analytics = () => {
                           <TableCell>
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => setSelectedDriverNotice({ name: stat.name, notice: stat.notice })}
-                                  className="h-auto p-2 text-left justify-start"
-                                >
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedDriverNotice({
+                            name: stat.name,
+                            notice: stat.notice
+                          })} className="h-auto p-2 text-left justify-start">
                                   <span className="line-clamp-2 text-xs">
-                                    {stat.notice ? (stat.notice.length > 44 ? stat.notice.substring(0, 44) + '...' : stat.notice) : 'Click to add note...'}
+                                    {stat.notice ? stat.notice.length > 44 ? stat.notice.substring(0, 44) + '...' : stat.notice : 'Click to add note...'}
                                   </span>
                                 </Button>
                               </DialogTrigger>
@@ -982,23 +849,19 @@ const Analytics = () => {
                                   <DialogTitle>Notice for {stat.name}</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4">
-                                  <Textarea
-                                    value={selectedDriverNotice?.name === stat.name ? selectedDriverNotice.notice : stat.notice}
-                                    onChange={(e) => {
-                                      const newNotice = e.target.value;
-                                      setSelectedDriverNotice({ name: stat.name, notice: newNotice });
-                                      handleNoticeChange(stat.name, newNotice);
-                                    }}
-                                    placeholder="Enter notice for this driver..."
-                                    className="min-h-[200px]"
-                                  />
+                                  <Textarea value={selectedDriverNotice?.name === stat.name ? selectedDriverNotice.notice : stat.notice} onChange={e => {
+                              const newNotice = e.target.value;
+                              setSelectedDriverNotice({
+                                name: stat.name,
+                                notice: newNotice
+                              });
+                              handleNoticeChange(stat.name, newNotice);
+                            }} placeholder="Enter notice for this driver..." className="min-h-[200px]" />
                                 </div>
                               </DialogContent>
                             </Dialog>
                           </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                        </TableRow>)}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -1015,9 +878,9 @@ const Analytics = () => {
                     <p className="text-2xl font-bold">
                       $
                       {driverTotals.totalDriverRate.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -1056,19 +919,15 @@ const Analytics = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {qualifyingLoads.length === 0 ? (
-                      <TableRow>
+                    {qualifyingLoads.length === 0 ? <TableRow>
                         <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           No qualifying loads booked today
                         </TableCell>
-                      </TableRow>
-                    ) : (
-                      qualifyingLoads.map((order) => {
-                        const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
-                        const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
-                        const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
-                        return (
-                          <TableRow key={order.id}>
+                      </TableRow> : qualifyingLoads.map(order => {
+                    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                    const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
+                    const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
+                    return <TableRow key={order.id}>
                             <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                             <TableCell>{order.brokerLoadNumber}</TableCell>
                             <TableCell>
@@ -1077,17 +936,15 @@ const Analytics = () => {
                             <TableCell className="text-right">
                               $
                               {order.totalFreightAmount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}
                             </TableCell>
                             <TableCell className="text-right">{order.mileage.toLocaleString()}</TableCell>
                             <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
                             <TableCell>{order.bookedBy}</TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
+                          </TableRow>;
+                  })}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -1095,7 +952,6 @@ const Analytics = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 };
 export default Analytics;
