@@ -829,41 +829,41 @@ const Orders = () => {
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                          <TableCell className="font-medium">{order.truckNumber}</TableCell>
-                          <TableCell>{order.internalLoadNumber}</TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
+                          <TableCell className="w-20">{order.internalLoadNumber}</TableCell>
+                          <TableCell className="w-32 p-0">
                             <div className="h-full p-4">{order.pickupDate}</div>
                           </TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-28 p-0">
                             <div className="h-full p-4 line-clamp-2">{order.pickupCity}</div>
                           </TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-20 p-0">
                             <div className="h-full p-4">{order.pickupState}</div>
                           </TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-32 p-0">
                             <div className="h-full p-4">{order.deliveryDate}</div>
                           </TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-28 p-0">
                             <div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div>
                           </TableCell>
-                          <TableCell className="p-0">
+                          <TableCell className="w-20 p-0">
                             <div className="h-full p-4">{order.deliveryState}</div>
                           </TableCell>
-                          <TableCell>{order.mileage?.toLocaleString() || "0"}</TableCell>
-                          <TableCell>
+                          <TableCell className="w-16">{order.mileage?.toLocaleString() || "0"}</TableCell>
+                          <TableCell className="w-24">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency((order as any).totalDriverPay)}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="w-32">
                             <div className="line-clamp-2">{order.driverName}</div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="w-36">
                             <div className="line-clamp-2">{order.brokerName}</div>
                           </TableCell>
-                          <TableCell>{order.brokerLoadNumber}</TableCell>
-                          <TableCell>{order.invoiced}</TableCell>
-                          <TableCell>
+                          <TableCell className="w-28">{order.brokerLoadNumber}</TableCell>
+                          <TableCell className="w-20">{order.invoiced}</TableCell>
+                          <TableCell className="w-20">
                             {order.notes && (
                               <Button
                                 variant="ghost"
@@ -878,16 +878,16 @@ const Orders = () => {
                               </Button>
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="w-28">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(order.totalFreightAmount)}
                             </div>
                           </TableCell>
-                          <TableCell>{order.companyName}</TableCell>
-                          <TableCell>
+                          <TableCell className="w-28">{order.companyName}</TableCell>
+                          <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
                           </TableCell>
-                          <TableCell className="max-w-24">
+                          <TableCell className="w-24">
                             <div className="flex gap-1 flex-wrap">
                               {order.rcFiles && order.rcFiles.length > 0 ? (
                                 <Button
@@ -938,7 +938,7 @@ const Orders = () => {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-24">
+                          <TableCell className="w-24">
                             <div className="flex gap-1 flex-wrap">
                               {order.podFiles && order.podFiles.length > 0 ? (
                                 <Button
