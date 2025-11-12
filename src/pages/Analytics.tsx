@@ -205,8 +205,16 @@ const Analytics = () => {
       // Dispatchers only see their own orders
       if (primaryRole === "dispatch") {
         if (!profile?.full_name && !profile?.user_id) {
+          console.log("Dispatch filter: no profile name or ID");
           return false;
         }
+        console.log("Dispatch filter:", {
+          profileFullName: profile.full_name,
+          profileUserId: profile.user_id,
+          orderBookedBy: order.bookedBy,
+          matchesDate,
+          result: matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id)
+        });
         // Check both full_name and user_id to handle both old and new data formats
         return matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
       }
