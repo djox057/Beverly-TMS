@@ -87,6 +87,7 @@ const Orders = () => {
       missingDocsFilter,
       truckFilter,
       driverFilter,
+      lockedNotInvoicedFilter,
       dateRange: dateRange ? {
         from: dateRange.from?.toISOString(),
         to: dateRange.to?.toISOString()
@@ -135,6 +136,7 @@ const Orders = () => {
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
+  const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -165,6 +167,7 @@ const Orders = () => {
           setMissingDocsFilter(state.missingDocsFilter || "all");
           setTruckFilter(state.truckFilter || "all-trucks");
           setDriverFilter(state.driverFilter || "all-drivers");
+          setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
           if (state.dateRange) {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
@@ -275,13 +278,17 @@ const Orders = () => {
         matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
       }
     }
-    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate;
+    
+    // Filter for locked but not invoiced loads
+    const matchesLockedNotInvoiced = !lockedNotInvoicedFilter || (order.locked && !order.invoiced);
+    
+    return matchesSearch && matchesCompany && matchesTruckCompany && matchesBookedBy && matchesTruck && matchesDriver && matchesMissingDocs && matchesDate && matchesLockedNotInvoiced;
   }) || [];
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, missingDocsFilter, dateRange]);
+  }, [searchTerm, companyFilter, truckCompanyFilter, bookedByFilter, truckFilter, driverFilter, missingDocsFilter, dateRange, lockedNotInvoicedFilter]);
 
   // Early returns after all hooks
   if (isLoading) {
@@ -677,6 +684,14 @@ const Orders = () => {
                 ]}
                 className="w-48"
               />
+              
+              <Button
+                variant={lockedNotInvoicedFilter ? "default" : "outline"}
+                onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
+              >
+                <Lock className="mr-2 h-4 w-4" />
+                {lockedNotInvoicedFilter ? "Showing Locked (Not Invoiced)" : "Show Locked (Not Invoiced)"}
+              </Button>
             </div>
           </div>
         </CardHeader>
