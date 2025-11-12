@@ -442,9 +442,23 @@ const Analytics = () => {
     return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
   });
 
-  // Calculate totals from ALL filtered orders (not just visible dispatcher rows)
-  // This ensures totals are consistent regardless of role-based table filtering
-  const totals = filteredOrders.reduce((acc, order) => {
+  // Calculate totals based on user role
+  // - Dispatchers see only their own totals
+  // - Supervisors see totals from their office
+  // - Admins/Managers/Accounting see all totals
+  const ordersForTotals = useMemo(() => {
+    const primaryRole = getPrimaryRole();
+    
+    if (primaryRole === "dispatch") {
+      // Dispatchers only see their own orders
+      return filteredOrders.filter(order => order.bookedBy === profile?.full_name);
+    }
+    
+    // Everyone else sees all filtered orders (supervisors already filtered by office in filteredOrders)
+    return filteredOrders;
+  }, [filteredOrders, getPrimaryRole, profile]);
+
+  const totals = ordersForTotals.reduce((acc, order) => {
     acc.totalFreight += order.totalFreightAmount;
     acc.totalDriverRate += order.driverPrice;
     acc.totalMiles += order.mileage;
