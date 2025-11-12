@@ -273,23 +273,18 @@ const Drivers = () => {
         if (piiError) throw piiError;
       }
 
-      // Update truck if selected
+      // Update truck if selected - ATOMIC OPERATION
       if (formData.truck_id && driverData) {
-        // Remove driver from any other truck first
-        await supabase.from('trucks')
-          .update({ driver1_id: null })
-          .eq('driver1_id', driverData.id);
-        await supabase.from('trucks')
-          .update({ driver2_id: null })
-          .eq('driver2_id', driverData.id);
-        
         // Remove trailer from any other truck if selected
         if (formData.trailer_id) {
           await supabase.from('trucks')
             .update({ trailer_id: null })
-            .eq('trailer_id', formData.trailer_id);
+            .eq('trailer_id', formData.trailer_id)
+            .neq('id', formData.truck_id);
         }
 
+        // Single atomic update: assign driver and trailer to target truck
+        // AND clear this driver from any other trucks in one transaction
         const {
           error: truckError
         } = await supabase.from('trucks').update({
@@ -297,6 +292,16 @@ const Drivers = () => {
           trailer_id: formData.trailer_id || null
         }).eq('id', formData.truck_id);
         if (truckError) throw truckError;
+
+        // Now safely clear driver from other trucks (excluding the one we just assigned)
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', driverData.id)
+          .neq('id', formData.truck_id);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', driverData.id)
+          .neq('id', formData.truck_id);
       }
 
       // Add drug test result if provided
@@ -381,7 +386,7 @@ const Drivers = () => {
         if (piiError) throw piiError;
       }
 
-      // Handle truck assignment changes
+      // Handle truck assignment changes - ATOMIC OPERATION
       // First, find if driver is currently assigned to a truck
       const { data: currentTrucks } = await supabase
         .from('trucks')
@@ -392,24 +397,9 @@ const Drivers = () => {
       
       const existingTruckId = currentTrucks?.id;
 
-      // Clear this driver from any trucks they might be on
-      const { error: clearError } = await supabase
-        .from('trucks')
-        .update({ driver1_id: null })
-        .eq('driver1_id', editingDriver.id);
-      
-      if (clearError) throw clearError;
-
-      const { error: clearError2 } = await supabase
-        .from('trucks')
-        .update({ driver2_id: null })
-        .eq('driver2_id', editingDriver.id);
-      
-      if (clearError2) throw clearError2;
-
       // Handle truck/trailer assignment
       if (formData.truck_id) {
-        // Truck is selected - assign both driver and trailer to it
+        // Truck is selected - assign both driver and trailer to it FIRST (atomic)
         if (formData.trailer_id) {
           await supabase.from('trucks')
             .update({ trailer_id: null })
@@ -424,6 +414,19 @@ const Drivers = () => {
           trailer_id: formData.trailer_id || null
         }).eq('id', formData.truck_id);
         if (truckError) throw truckError;
+
+        // Now safely clear driver from other trucks (excluding the one we just assigned)
+        await supabase
+          .from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', editingDriver.id)
+          .neq('id', formData.truck_id);
+
+        await supabase
+          .from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', editingDriver.id)
+          .neq('id', formData.truck_id);
       } else if (formData.trailer_id && existingTruckId) {
         // Only trailer is selected and driver has an existing truck - update trailer on existing truck
         await supabase.from('trucks')

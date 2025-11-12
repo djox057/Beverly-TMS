@@ -110,24 +110,6 @@ const Trucks = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      // Remove driver from any other truck if already assigned
-      if (formData.driver_id) {
-        await supabase.from('trucks')
-          .update({ driver1_id: null })
-          .eq('driver1_id', formData.driver_id);
-        await supabase.from('trucks')
-          .update({ driver2_id: null })
-          .eq('driver2_id', formData.driver_id);
-      }
-      if (formData.driver2_id) {
-        await supabase.from('trucks')
-          .update({ driver1_id: null })
-          .eq('driver1_id', formData.driver2_id);
-        await supabase.from('trucks')
-          .update({ driver2_id: null })
-          .eq('driver2_id', formData.driver2_id);
-      }
-      
       // Remove trailer from any other truck if already assigned
       if (formData.trailer_id) {
         await supabase.from('trucks')
@@ -135,6 +117,7 @@ const Trucks = () => {
           .eq('trailer_id', formData.trailer_id);
       }
 
+      // ATOMIC OPERATION: Insert the truck with driver assignments
       const {
         error
       } = await supabase.from('trucks').insert({
@@ -150,6 +133,29 @@ const Trucks = () => {
         insurance_expiration_date: formData.insurance_expiration_date || null
       });
       if (error) throw error;
+
+      // Now safely remove drivers from any other trucks (after successful insert)
+      if (formData.driver_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver_id)
+          .neq('truck_number', formData.truck_number);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver_id)
+          .neq('truck_number', formData.truck_number);
+      }
+      if (formData.driver2_id) {
+        await supabase.from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', formData.driver2_id)
+          .neq('truck_number', formData.truck_number);
+        await supabase.from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', formData.driver2_id)
+          .neq('truck_number', formData.truck_number);
+      }
+
       toast({
         title: "Success",
         description: "Truck added successfully"
@@ -175,7 +181,32 @@ const Trucks = () => {
     if (!editingTruck) return;
     setIsSubmitting(true);
     try {
-      // Remove driver from any other truck if already assigned (excluding current truck)
+      // Remove trailer from any other truck if already assigned (excluding current truck)
+      if (formData.trailer_id) {
+        await supabase.from('trucks')
+          .update({ trailer_id: null })
+          .eq('trailer_id', formData.trailer_id)
+          .neq('id', editingTruck.id);
+      }
+
+      // ATOMIC OPERATION: Update the truck with new driver assignments FIRST
+      const {
+        error
+      } = await supabase.from('trucks').update({
+        truck_number: formData.truck_number,
+        vin: formData.vin || null,
+        trailer_id: formData.trailer_id || null,
+        driver1_id: formData.driver_id || null,
+        driver2_id: formData.driver2_id || null,
+        company_id: formData.company_id || null,
+        ipass: formData.ipass || null,
+        dot_inspection_date: formData.dot_inspection_date || null,
+        plate_expiration_date: formData.plate_expiration_date || null,
+        insurance_expiration_date: formData.insurance_expiration_date || null
+      }).eq('id', editingTruck.id);
+      if (error) throw error;
+
+      // Now safely remove drivers from any other trucks (excluding current truck)
       if (formData.driver_id) {
         await supabase.from('trucks')
           .update({ driver1_id: null })
@@ -196,30 +227,7 @@ const Trucks = () => {
           .eq('driver2_id', formData.driver2_id)
           .neq('id', editingTruck.id);
       }
-      
-      // Remove trailer from any other truck if already assigned (excluding current truck)
-      if (formData.trailer_id) {
-        await supabase.from('trucks')
-          .update({ trailer_id: null })
-          .eq('trailer_id', formData.trailer_id)
-          .neq('id', editingTruck.id);
-      }
 
-      const {
-        error
-      } = await supabase.from('trucks').update({
-        truck_number: formData.truck_number,
-        vin: formData.vin || null,
-        trailer_id: formData.trailer_id || null,
-        driver1_id: formData.driver_id || null,
-        driver2_id: formData.driver2_id || null,
-        company_id: formData.company_id || null,
-        ipass: formData.ipass || null,
-        dot_inspection_date: formData.dot_inspection_date || null,
-        plate_expiration_date: formData.plate_expiration_date || null,
-        insurance_expiration_date: formData.insurance_expiration_date || null
-      }).eq('id', editingTruck.id);
-      if (error) throw error;
       toast({
         title: "Success",
         description: "Truck updated successfully"
