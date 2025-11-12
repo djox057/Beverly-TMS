@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History } from "lucide-react";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
+import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 interface TruckFormData {
   truck_number: string;
   vin: string;
@@ -40,6 +41,9 @@ const Trucks = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [historyTruckId, setHistoryTruckId] = useState<string | null>(null);
+  const [historyTruckName, setHistoryTruckName] = useState<string>("");
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
@@ -498,6 +502,17 @@ const Trucks = () => {
                             <Button variant="outline" size="sm" onClick={() => openEditDialog(truck)}>
                               <Edit className="h-4 w-4" />
                             </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setHistoryTruckId(truck.id);
+                                setHistoryTruckName(truck.truck_number);
+                                setIsHistoryDialogOpen(true);
+                              }}
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="outline" size="sm">
@@ -771,6 +786,15 @@ const Trucks = () => {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* History Dialog */}
+      <AssignmentHistoryDialog
+        entityType="truck"
+        entityId={historyTruckId}
+        entityName={historyTruckName}
+        open={isHistoryDialogOpen}
+        onOpenChange={setIsHistoryDialogOpen}
+      />
     </div>;
 };
 export default Trucks;
