@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_history: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          created_at: string
+          driver1_id: string | null
+          driver2_id: string | null
+          id: string
+          trailer_id: string | null
+          truck_id: string | null
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          driver1_id?: string | null
+          driver2_id?: string | null
+          id?: string
+          trailer_id?: string | null
+          truck_id?: string | null
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          driver1_id?: string | null
+          driver2_id?: string | null
+          id?: string
+          trailer_id?: string | null
+          truck_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_history_driver1_id_fkey"
+            columns: ["driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_driver2_id_fkey"
+            columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_history_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brokers: {
         Row: {
           address: string
@@ -1685,6 +1750,24 @@ export type Database = {
       create_order_with_unique_load_number: {
         Args: { order_data: Json }
         Returns: Json
+      }
+      get_assignment_history: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: {
+          change_type: string
+          changed_at: string
+          changed_by: string
+          changed_by_name: string
+          driver1_id: string
+          driver1_name: string
+          driver2_id: string
+          driver2_name: string
+          id: string
+          trailer_id: string
+          trailer_number: string
+          truck_id: string
+          truck_number: string
+        }[]
       }
       get_latest_truck_locations: {
         Args: never
