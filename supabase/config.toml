@@ -3,14 +3,14 @@ project_id = "wjkbtagwgjniilmgwutb"
 [functions.hello-world]
 verify_jwt = false
 
-[functions.geocode-address]
-verify_jwt = false
+# [functions.geocode-address]
+# verify_jwt = false
 
-[functions.calculate-route]
-verify_jwt = false
+# [functions.calculate-route]
+# verify_jwt = false
 
-[functions.samsara-locations]
-verify_jwt = false
+# [functions.samsara-locations]
+# verify_jwt = false
 
-[functions.check-delivery-etas]
-verify_jwt = true
+# [functions.check-delivery-etas]
+# verify_jwt = true
