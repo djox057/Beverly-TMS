@@ -23,38 +23,46 @@ export const AssignmentHistoryDialog = ({
 
   const getChangeTypeLabel = (changeType: string) => {
     // Context-aware labels based on which entity page we're viewing from
-    // The change_type is recorded from the truck's perspective, so we need to translate it
     
     if (entityType === 'driver') {
       // From driver's perspective: what changed for them?
       const labels: Record<string, string> = {
         'driver_assignment': 'Truck Assignment', // Driver was assigned to/from a truck
         'trailer_assignment': 'Trailer Assignment', // Their truck's trailer changed
-        'assignment_change': 'Assignment Change',
+        'assignment_change': 'Truck & Trailer Assignment', // Both changed
         'truck_assignment': 'Truck Assignment',
+        'trailer_update': 'Trailer Assignment',
+        'driver_update': 'Truck Assignment',
+        'truck_update': 'Truck Assignment',
       };
-      return labels[changeType] || changeType.replace('_', ' ');
+      return labels[changeType] || changeType.replace(/_/g, ' ');
     } else if (entityType === 'truck') {
       // From truck's perspective: what was assigned to it?
       const labels: Record<string, string> = {
         'driver_assignment': 'Driver Assignment', // Truck got a new driver
         'trailer_assignment': 'Trailer Assignment', // Truck got a new trailer
-        'assignment_change': 'Assignment Change',
+        'assignment_change': 'Driver & Trailer Assignment', // Both changed
         'truck_assignment': 'Truck Assignment',
+        'trailer_update': 'Trailer Assignment',
+        'driver_update': 'Driver Assignment',
+        'truck_update': 'Truck Update',
       };
-      return labels[changeType] || changeType.replace('_', ' ');
+      return labels[changeType] || changeType.replace(/_/g, ' ');
     } else if (entityType === 'trailer') {
       // From trailer's perspective: what changed?
       const labels: Record<string, string> = {
         'driver_assignment': 'Driver Assignment', // Trailer's truck got a new driver
         'trailer_assignment': 'Truck Assignment', // Trailer was assigned to different truck
-        'assignment_change': 'Assignment Change',
+        'assignment_change': 'Truck & Driver Assignment', // Both changed
         'truck_assignment': 'Truck Assignment',
+        'trailer_update': 'Truck Assignment',
+        'driver_update': 'Driver Assignment',
+        'truck_update': 'Truck Assignment',
       };
-      return labels[changeType] || changeType.replace('_', ' ');
+      return labels[changeType] || changeType.replace(/_/g, ' ');
     }
     
-    return changeType.replace('_', ' ');
+    return changeType.replace(/_/g, ' ');
   };
 
   const formatChangeDescription = (entry: any) => {
