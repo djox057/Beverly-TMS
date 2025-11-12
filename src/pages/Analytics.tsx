@@ -394,8 +394,16 @@ const Analytics = () => {
     const dispatcherProfile = dispatcherProfiles[stat.name];
     const primaryRole = getPrimaryRole();
 
-    // Only show users with 'dispatch' role
-    if (!dispatcherProfile || !dispatcherProfile.roles.includes('dispatch')) {
+    // Only show users with 'dispatch' role OR managers/supervisors who have booked orders (gross > 0)
+    if (!dispatcherProfile) {
+      return false;
+    }
+    
+    const hasDispatchRole = dispatcherProfile.roles.includes('dispatch');
+    const isManagerOrSupervisor = dispatcherProfile.roles.includes('manager') || dispatcherProfile.roles.includes('supervisor');
+    const hasBookedOrders = stat.totalFreight > 0;
+    
+    if (!hasDispatchRole && !(isManagerOrSupervisor && hasBookedOrders)) {
       return false;
     }
 
