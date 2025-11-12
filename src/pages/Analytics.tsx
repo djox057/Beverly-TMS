@@ -190,12 +190,14 @@ const Analytics = () => {
         }
       }
 
-      // Filter based on PRIMARY role only
+      // For analytics, all roles see all orders (filtered by date only)
+      // This ensures totals are consistent across roles
+      // Role-based filtering happens at the dispatcher stats level (table rows)
       if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
         return matchesDate;
       }
 
-      // Supervisors only see orders from their office dispatchers
+      // Supervisors see orders from their office dispatchers only
       if (primaryRole === "supervisor") {
         if (!profile?.office) {
           return false;
@@ -210,28 +212,9 @@ const Analytics = () => {
         return matchesDate && dispatcherProfile.office === profile.office;
       }
 
-      // Dispatchers only see their own orders
+      // Dispatchers see ALL orders for correct totals, but only their row in the table
       if (primaryRole === "dispatch") {
-        if (!profile?.full_name && !profile?.user_id) {
-          console.log("❌ Dispatch filter: Missing profile name or ID");
-          return false;
-        }
-        // Check both full_name and user_id to handle both old and new data formats
-        const matches = matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
-        
-        if (profile.full_name === "Stefan Vuckovic-Paul") {
-          console.log("🔍 Stefan order:", {
-            orderBookedBy: order.bookedBy,
-            profileFullName: profile.full_name,
-            profileUserId: profile.user_id,
-            matchesDate,
-            matches,
-            pickupDate: order.pickupDate,
-            totalFreight: order.totalFreightAmount
-          });
-        }
-        
-        return matches;
+        return matchesDate;
       }
 
       // Default: no access for other roles
