@@ -38,6 +38,13 @@ interface OrderFile {
   file_category: string;
 }
 
+interface PickupDrop {
+  type: 'pickup' | 'delivery';
+  city: string;
+  state: string;
+  datetime: string;
+}
+
 interface Order {
   id: string;
   truckNumber: string;
@@ -67,6 +74,7 @@ interface Order {
   mileage: number;
   rcFiles?: OrderFile[];
   podFiles?: OrderFile[];
+  pickup_drops?: PickupDrop[];
 }
 
 export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => {
@@ -214,28 +222,52 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     
     group.orders.forEach((order) => {
       const pickupDate = order.pickupDate.split(' - ')[0];
-      const origin = `${order.pickupCity}, ${order.pickupState}`;
-      const destination = `${order.deliveryCity}, ${order.deliveryState}`;
-      const originDestination = `Pickup: ${origin}\nDelivery: ${destination}`;
       
-      doc.rect(20, yPosition, 20, 12);
-      doc.rect(40, yPosition, 20, 12);
-      doc.rect(60, yPosition, 25, 12);
-      doc.rect(85, yPosition, 50, 12);
-      doc.rect(135, yPosition, 20, 12);
-      doc.rect(155, yPosition, 20, 12);
-      doc.rect(175, yPosition, 25, 12);
+      // Build origin-destination text with all pickups and deliveries
+      let originDestination = '';
+      const pickups = order.pickup_drops?.filter(pd => pd.type === 'pickup') || [];
+      const deliveries = order.pickup_drops?.filter(pd => pd.type === 'delivery') || [];
       
-      doc.text(pickupDate, 22, yPosition + 5);
-      doc.text(order.truckNumber, 42, yPosition + 5);
-      doc.text(order.brokerLoadNumber, 62, yPosition + 5);
+      // If we have pickup_drops data, use it
+      if (pickups.length > 0 || deliveries.length > 0) {
+        pickups.forEach((pickup, idx) => {
+          originDestination += `Pickup ${pickups.length > 1 ? idx + 1 : ''}: ${pickup.city}, ${pickup.state}\n`;
+        });
+        deliveries.forEach((delivery, idx) => {
+          originDestination += `Delivery ${deliveries.length > 1 ? idx + 1 : ''}: ${delivery.city}, ${delivery.state}\n`;
+        });
+      } else {
+        // Fallback to old single pickup/delivery format
+        const origin = `${order.pickupCity}, ${order.pickupState}`;
+        const destination = `${order.deliveryCity}, ${order.deliveryState}`;
+        originDestination = `Pickup: ${origin}\nDelivery: ${destination}`;
+      }
       
-      const lines = doc.splitTextToSize(originDestination, 48);
-      doc.text(lines, 87, yPosition + 4);
+      // Calculate required height based on text content
+      const lines = doc.splitTextToSize(originDestination.trim(), 48);
+      const lineHeight = 4;
+      const minHeight = 12;
+      const calculatedHeight = Math.max(minHeight, lines.length * lineHeight + 4);
       
-      doc.text('1', 137, yPosition + 7);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 157, yPosition + 7);
-      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 177, yPosition + 7);
+      // Draw all cells with the calculated height
+      doc.rect(20, yPosition, 20, calculatedHeight);
+      doc.rect(40, yPosition, 20, calculatedHeight);
+      doc.rect(60, yPosition, 25, calculatedHeight);
+      doc.rect(85, yPosition, 50, calculatedHeight);
+      doc.rect(135, yPosition, 20, calculatedHeight);
+      doc.rect(155, yPosition, 20, calculatedHeight);
+      doc.rect(175, yPosition, 25, calculatedHeight);
+      
+      // Position text vertically centered in the cells
+      const textYOffset = (calculatedHeight - lines.length * lineHeight) / 2 + lineHeight;
+      
+      doc.text(pickupDate, 22, yPosition + textYOffset + 1);
+      doc.text(order.truckNumber, 42, yPosition + textYOffset + 1);
+      doc.text(order.brokerLoadNumber, 62, yPosition + textYOffset + 1);
+      doc.text(lines, 87, yPosition + textYOffset);
+      doc.text('1', 137, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 157, yPosition + textYOffset + 3);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 177, yPosition + textYOffset + 3);
       
       freightTotal += order.freightAmount;
       detentionTotal += order.detention || 0;
@@ -244,7 +276,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       lumperTotal += order.lumper || 0;
       tonuTotal += order.tonu || 0;
       lateFeeTotal += order.lateFee || 0;
-      yPosition += 12;
+      yPosition += calculatedHeight;
     });
     
     // Freight Income and additional fees
