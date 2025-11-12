@@ -120,6 +120,15 @@ export const Sidebar = () => {
       ];
     }
     
+    // Maintenance role: specific pages (Trucks, Trailers, Reports, Alerts)
+    if (hasRole('maintenance')) {
+      const maintenancePages = ['/trucks', '/trailers', '/reports'];
+      return [
+        ...filteredNav.filter(item => maintenancePages.includes(item.href)),
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+      ];
+    }
+    
     // Dispatch role: all navigation except Analytics
     if (primaryRole === 'dispatch') {
       return filteredNav.filter(item => item.href !== '/analytics');
