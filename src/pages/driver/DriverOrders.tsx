@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { formatCurrency } from "@/lib/utils";
 
 export default function DriverOrders() {
   const { data, isLoading } = useDriverData();
@@ -35,7 +36,7 @@ export default function DriverOrders() {
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold text-primary">
-                ${Number(order.driver_price || 0).toLocaleString()}
+                {formatCurrency(Number(order.driver_price || 0))}
               </div>
               <div className="text-xs text-muted-foreground">{order.loaded_miles} mi</div>
             </div>

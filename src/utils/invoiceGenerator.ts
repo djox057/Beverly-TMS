@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/utils';
 
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
@@ -233,8 +234,8 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.text(lines, 87, yPosition + 4);
       
       doc.text('1', 137, yPosition + 7);
-      doc.text(`$${order.totalFreightAmount.toLocaleString()}`, 157, yPosition + 7);
-      doc.text(`$${order.totalFreightAmount.toLocaleString()}`, 177, yPosition + 7);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 157, yPosition + 7);
+      doc.text(formatCurrency(order.totalFreightAmount).replace('$', '$'), 177, yPosition + 7);
       
       freightTotal += order.freightAmount;
       detentionTotal += order.detention || 0;
@@ -251,7 +252,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     doc.rect(175, yPosition, 25, 8);
     doc.setFont('helvetica', 'bold');
     doc.text('Freight Income', 137, yPosition + 5);
-    doc.text(`$${freightTotal.toLocaleString()}`, 177, yPosition + 5);
+    doc.text(formatCurrency(freightTotal), 177, yPosition + 5);
     yPosition += 8;
     
     // Additional fees sections...
@@ -259,7 +260,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('Detention', 137, yPosition + 5);
-      doc.text(`$${detentionTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(formatCurrency(detentionTotal), 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -267,7 +268,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('Layover', 137, yPosition + 5);
-      doc.text(`$${layoverTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(formatCurrency(layoverTotal), 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -275,7 +276,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('Extra Stop', 137, yPosition + 5);
-      doc.text(`$${extraStopTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(formatCurrency(extraStopTotal), 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -283,7 +284,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('Lumper', 137, yPosition + 5);
-      doc.text(`$${lumperTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(formatCurrency(lumperTotal), 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -291,7 +292,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('TONU', 137, yPosition + 5);
-      doc.text(`$${tonuTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(formatCurrency(tonuTotal), 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -299,7 +300,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(135, yPosition, 40, 8);
       doc.rect(175, yPosition, 25, 8);
       doc.text('Late Fee', 137, yPosition + 5);
-      doc.text(`-$${lateFeeTotal.toLocaleString()}`, 177, yPosition + 5);
+      doc.text(`-${formatCurrency(lateFeeTotal).replace('$', '')}`, 177, yPosition + 5);
       yPosition += 8;
     }
     
@@ -308,7 +309,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     doc.rect(155, yPosition, 20, 8);
     doc.rect(175, yPosition, 25, 8);
     doc.text('TOTAL:', 157, yPosition + 5);
-    doc.text(`$${finalTotal.toLocaleString()}`, 177, yPosition + 5);
+    doc.text(formatCurrency(finalTotal), 177, yPosition + 5);
     
     // Notice section
     yPosition += 30;

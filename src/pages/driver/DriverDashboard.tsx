@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Truck, Package, MapPin, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { formatCurrency } from "@/lib/utils";
 
 export default function DriverDashboard() {
   const { data, isLoading } = useDriverData();
@@ -93,7 +94,7 @@ export default function DriverDashboard() {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-semibold text-primary">
-                          ${Number(order.driver_price || 0).toLocaleString()}
+                          {formatCurrency(Number(order.driver_price || 0))}
                         </div>
                         <div className="text-xs text-muted-foreground">{order.loaded_miles} mi</div>
                       </div>

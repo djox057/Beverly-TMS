@@ -40,6 +40,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
+import { formatCurrency } from "@/lib/utils";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -839,7 +840,7 @@ const Orders = () => {
                           <TableCell>{order.mileage?.toLocaleString() || "0"}</TableCell>
                           <TableCell>
                             <div className="font-semibold text-green-600 dark:text-green-400">
-                              ${(order as any).totalDriverPay?.toLocaleString() || "0"}
+                              {formatCurrency((order as any).totalDriverPay)}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -867,7 +868,7 @@ const Orders = () => {
                           </TableCell>
                           <TableCell>
                             <div className="font-semibold text-green-600 dark:text-green-400">
-                              ${order.totalFreightAmount?.toLocaleString() || "0"}
+                              {formatCurrency(order.totalFreightAmount)}
                             </div>
                           </TableCell>
                           <TableCell>{order.companyName}</TableCell>
