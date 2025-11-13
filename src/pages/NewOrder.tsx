@@ -30,6 +30,8 @@ import { combineDateAndTime } from "@/utils/dateUtils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
+import { DuplicateStopsConfirmDialog } from "@/components/DuplicateStopsConfirmDialog";
+
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -106,6 +108,10 @@ const NewOrder = () => {
     missingFields: string[];
   }>>([]);
   const [pendingSubmit, setPendingSubmit] = useState(false);
+
+  // Duplicate stops warning
+  const [showDuplicateStopsDialog, setShowDuplicateStopsDialog] = useState(false);
+  const [duplicateStops, setDuplicateStops] = useState<any[]>([]);
   const {
     toast
   } = useToast();
@@ -1361,7 +1367,7 @@ const NewOrder = () => {
     });
     return missingData;
   };
-  const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false) => {
+  const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false, skipDuplicateStopsCheck = false) => {
     e.preventDefault();
 
     // Prevent duplicate submissions
@@ -1376,6 +1382,51 @@ const NewOrder = () => {
       if (missingData.length > 0) {
         setMissingDataDetails(missingData);
         setShowMissingDataDialog(true);
+        setPendingSubmit(true);
+        return;
+      }
+    }
+
+    // Check for potential duplicate stops (same address within 1 hour)
+    if (!skipDuplicateStopsCheck && !pendingSubmit) {
+      const potentialDuplicates: any[] = [];
+      const addressMap = new Map<string, any[]>();
+
+      pickupsDrops.forEach((stop, index) => {
+        const key = `${stop.type}|${stop.address?.toLowerCase().trim()}|${stop.city?.toLowerCase().trim()}|${stop.state}`;
+        if (!addressMap.has(key)) {
+          addressMap.set(key, []);
+        }
+        addressMap.get(key)!.push({ ...stop, index: index + 1 });
+      });
+
+      addressMap.forEach((stops, key) => {
+        if (stops.length > 1) {
+          // Check if they're within 1 hour of each other or have no time set
+          const times = stops.map(s => s.dateRange?.from ? new Date(s.dateRange.from).getTime() : 0);
+          const maxTimeDiff = Math.max(...times) - Math.min(...times);
+          const oneHourMs = 60 * 60 * 1000;
+
+          if (maxTimeDiff <= oneHourMs || times.every(t => t === 0)) {
+            const [type, address, city, state] = key.split('|');
+            potentialDuplicates.push({
+              type,
+              address,
+              city,
+              state,
+              companyName: stops[0].companyName,
+              datetime: stops[0].dateRange?.from,
+              indices: stops.map(s => s.index)
+            });
+          }
+        }
+      });
+
+      if (potentialDuplicates.length > 0) {
+        console.log('⚠️ Potential duplicate stops detected:', potentialDuplicates);
+        setDuplicateStops(potentialDuplicates);
+        setShowDuplicateStopsDialog(true);
+        setPendingSubmit(true);
         return;
       }
     }
@@ -1698,25 +1749,22 @@ const NewOrder = () => {
         };
       }).filter(item => item.address && item.address.trim().length > 0); // Final safety check
 
-      // Deduplicate only exact matches (all fields must match)
-      const uniquePickupDropData = pickupDropData.filter((item, index, self) => {
-        return index === self.findIndex(t => t.type === item.type && t.address === item.address && t.city === item.city && t.state === item.state && t.zip_code === item.zip_code && t.company_name === item.company_name && t.datetime === item.datetime && t.end_datetime === item.end_datetime);
-      });
+      console.log(`📍 Prepared ${pickupDropData.length} pickup/drop locations for insertion:`, pickupDropData);
 
       // CRITICAL: Must have at least one valid pickup/drop after filtering
-      if (uniquePickupDropData.length === 0) {
+      if (pickupDropData.length === 0) {
         throw new Error('No valid pickup/delivery locations found. Please ensure all locations have valid addresses.');
       }
-      console.log(`📍 Inserting ${uniquePickupDropData.length} pickup/drop locations for order ${orderId}`);
+      console.log(`📍 Inserting ${pickupDropData.length} pickup/drop locations for order ${orderId}`);
       const {
         error: pickupDropError
-      } = await supabase.from('pickup_drops').insert(uniquePickupDropData);
+      } = await supabase.from('pickup_drops').insert(pickupDropData);
       if (pickupDropError) {
         console.error('❌ Pickup/drop insert error:', pickupDropError);
-        console.error('Failed data:', uniquePickupDropData);
+        console.error('Failed data:', pickupDropData);
         throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
-      console.log(`✅ Successfully inserted ${uniquePickupDropData.length} pickup/drop locations`);
+      console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
       toast({
         title: "Load Created",
         description: `Load ${newInternalLoadNumber} has been successfully created.`
@@ -2283,6 +2331,26 @@ const NewOrder = () => {
 
       {/* Missing Data Confirmation Dialog */}
       <MissingDataConfirmDialog open={showMissingDataDialog} onOpenChange={setShowMissingDataDialog} missingData={missingDataDetails} onConfirm={handleConfirmMissingData} />
+
+      {/* Duplicate Stops Confirmation Dialog */}
+      <DuplicateStopsConfirmDialog
+        open={showDuplicateStopsDialog}
+        duplicates={duplicateStops}
+        onCancel={() => {
+          setShowDuplicateStopsDialog(false);
+          setPendingSubmit(false);
+        }}
+        onConfirm={() => {
+          setShowDuplicateStopsDialog(false);
+          setPendingSubmit(true);
+          // Re-trigger form submission with duplicate stops check skipped
+          const form = document.querySelector('form');
+          if (form) {
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            form.dispatchEvent(submitEvent);
+          }
+        }}
+      />
     </div>;
 };
 export default NewOrder;
