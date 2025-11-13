@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -91,6 +92,7 @@ const Analytics = () => {
   } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
+  const [dispatcherDriverCounts, setDispatcherDriverCounts] = useState<Record<string, { totalDrivers: number; daysCount: number }>>({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
@@ -153,6 +155,55 @@ const Analytics = () => {
     };
     fetchProfiles();
   }, [profile, hasRole]);
+
+  // Fetch dispatcher driver counts for the selected date range
+  useEffect(() => {
+    const fetchDriverCounts = async () => {
+      try {
+        let fromDate: string;
+        let toDate: string;
+
+        if (!dateRange?.from) {
+          // If no date range, fetch today's count
+          fromDate = format(new Date(), 'yyyy-MM-dd');
+          toDate = fromDate;
+        } else {
+          fromDate = format(dateRange.from, 'yyyy-MM-dd');
+          toDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : fromDate;
+        }
+
+        // Use direct query with type assertion to bypass type checking
+        const { data, error } = await supabase
+          .from('dispatcher_daily_driver_counts' as any)
+          .select('*')
+          .gte('date', fromDate)
+          .lte('date', toDate);
+
+        if (error) {
+          console.error('Error fetching driver counts:', error);
+          return;
+        }
+
+        // Aggregate counts by dispatcher
+        const countsMap: Record<string, { totalDrivers: number; daysCount: number }> = {};
+        if (data && Array.isArray(data)) {
+          data.forEach((record: any) => {
+            if (!countsMap[record.dispatcher_id]) {
+              countsMap[record.dispatcher_id] = { totalDrivers: 0, daysCount: 0 };
+            }
+            countsMap[record.dispatcher_id].totalDrivers += record.driver_count;
+            countsMap[record.dispatcher_id].daysCount += 1;
+          });
+        }
+
+        setDispatcherDriverCounts(countsMap);
+      } catch (error) {
+        console.error('Error in fetchDriverCounts:', error);
+      }
+    };
+
+    fetchDriverCounts();
+  }, [dateRange]);
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
@@ -421,6 +472,16 @@ const Analytics = () => {
       const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
       const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
       const dispatcherProfile = dispatcherProfiles[name];
+      
+      // Get dispatcher user_id from profiles to match with driver counts
+      const dispatcherUserId = Object.keys(dispatcherProfiles).find(
+        key => dispatcherProfiles[key].email === name || key === name
+      );
+      const driverCountData = dispatcherUserId ? dispatcherDriverCounts[dispatcherUserId] : null;
+      const avgDrivers = driverCountData 
+        ? driverCountData.totalDrivers / driverCountData.daysCount 
+        : 0;
+
       return {
         name,
         totalFreight: stats.totalFreight,
@@ -431,6 +492,7 @@ const Analytics = () => {
         cutPercent,
         ratePerMile,
         office: dispatcherProfile?.office || "Unknown",
+        avgDrivers,
       };
     })
     .filter((stat) => {
@@ -821,12 +883,15 @@ const Analytics = () => {
                       >
                         Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
+                      <TableHead className="text-right">
+                        Avg Drivers
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dispatcherStats.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No data available
                         </TableCell>
                       </TableRow>
@@ -852,6 +917,9 @@ const Analytics = () => {
                             })}
                           </TableCell>
                           <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                          <TableCell className="text-right">
+                            {stat.avgDrivers > 0 ? stat.avgDrivers.toFixed(1) : '-'}
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
