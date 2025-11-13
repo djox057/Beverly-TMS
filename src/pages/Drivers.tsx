@@ -111,7 +111,7 @@ const Drivers = () => {
     cdl_number: "",
     cdl_expiration_date: "",
     medical_card_expiration_date: "",
-    hire_date: "",
+    hire_date: new Date().toISOString().split('T')[0],
     termination_date: "",
     mvr_date: "",
     clearing_house: "",
@@ -231,7 +231,7 @@ const Drivers = () => {
       cdl_number: "",
       cdl_expiration_date: "",
       medical_card_expiration_date: "",
-      hire_date: "",
+      hire_date: new Date().toISOString().split('T')[0],
       termination_date: "",
       mvr_date: "",
       clearing_house: "",
@@ -246,6 +246,43 @@ const Drivers = () => {
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.first_name.trim() || !formData.last_name.trim()) {
+      toast({
+        title: "Error",
+        description: "First name and last name are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.phone.trim()) {
+      toast({
+        title: "Error",
+        description: "Phone is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      toast({
+        title: "Error",
+        description: "Email is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.company_id) {
+      toast({
+        title: "Error",
+        description: "Company is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       // Create driver record including home address
@@ -889,26 +926,27 @@ const Drivers = () => {
                     })} placeholder="Smith" required />
                     </div>
                     <div className="space-y-2 col-span-3">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone">Phone *</Label>
                       <Input id="phone" value={formData.phone} onChange={e => setFormData({
                       ...formData,
                       phone: e.target.value
-                    })} placeholder="(555) 123-4567" />
+                    })} placeholder="(555) 123-4567" required />
                     </div>
                     <div className="space-y-2 col-span-4">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email *</Label>
                       <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
                       ...formData,
                       email: e.target.value
-                    })} placeholder="john.smith@company.com" />
+                    })} placeholder="john.smith@company.com" required />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="company">Company</Label>
+                    <Label htmlFor="company">Company *</Label>
                     <Select
                       value={formData.company_id}
                       onValueChange={value => setFormData({ ...formData, company_id: value })}
+                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select company..." />
