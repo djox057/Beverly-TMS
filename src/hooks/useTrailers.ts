@@ -92,8 +92,8 @@ export const useTrailers = () => {
       return allTrailers;
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: "always", // Always fetch fresh data when component mounts
-    staleTime: 0, // Consider data stale immediately to ensure fresh data is fetched
-    gcTime: 600000, // Keep in memory for 10 minutes
+    refetchOnMount: true,
+    staleTime: 0,
+    gcTime: 0,
   });
 };
