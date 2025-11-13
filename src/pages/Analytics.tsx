@@ -160,18 +160,13 @@ const Analytics = () => {
 
   // Filter orders based on date and role - wait for profiles to load
   const filteredOrders = useMemo(() => {
-    // Return empty array if orders haven't loaded yet
-    if (!orders) {
-      return [];
-    }
-    
     const primaryRole = getPrimaryRole();
 
     // Wait for profiles to load for supervisors
     if (primaryRole === "supervisor" && Object.keys(dispatcherProfiles).length === 0) {
       return [];
     }
-    const filtered = orders.filter(order => {
+    const filtered = orders?.filter(order => {
       // Exclude canceled orders from analytics
       if (order.canceled) {
         return false;
@@ -195,14 +190,12 @@ const Analytics = () => {
         }
       }
 
-      // For analytics, all roles see all orders (filtered by date only)
-      // This ensures totals are consistent across roles
-      // Role-based filtering happens at the dispatcher stats level (table rows)
+      // Filter based on PRIMARY role only
       if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
         return matchesDate;
       }
 
-      // Supervisors see orders from their office dispatchers only
+      // Supervisors only see orders from their office dispatchers
       if (primaryRole === "supervisor") {
         if (!profile?.office) {
           return false;
@@ -217,9 +210,28 @@ const Analytics = () => {
         return matchesDate && dispatcherProfile.office === profile.office;
       }
 
-      // Dispatchers see ALL orders for correct totals, but only their row in the table
+      // Dispatchers only see their own orders
       if (primaryRole === "dispatch") {
-        return matchesDate;
+        if (!profile?.full_name && !profile?.user_id) {
+          console.log("❌ Dispatch filter: Missing profile name or ID");
+          return false;
+        }
+        // Check both full_name and user_id to handle both old and new data formats
+        const matches = matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
+        
+        if (profile.full_name === "Stefan Vuckovic-Paul") {
+          console.log("🔍 Stefan order:", {
+            orderBookedBy: order.bookedBy,
+            profileFullName: profile.full_name,
+            profileUserId: profile.user_id,
+            matchesDate,
+            matches,
+            pickupDate: order.pickupDate,
+            totalFreight: order.totalFreightAmount
+          });
+        }
+        
+        return matches;
       }
 
       // Default: no access for other roles
@@ -335,9 +347,7 @@ const Analytics = () => {
     for (let i = 0; i < 12; i++) {
       const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-      monthStart.setHours(0, 0, 0, 0);
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-      monthEnd.setHours(23, 59, 59, 999);
       months.push({
         value: i.toString(),
         label: monthStart.toLocaleDateString("en-US", {
@@ -447,27 +457,12 @@ const Analytics = () => {
     return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
   });
 
-  // Calculate totals based on user role
-  // - Dispatchers see only their own totals
-  // - Supervisors see totals from their office
-  // - Admins/Managers/Accounting see all totals
-  const ordersForTotals = useMemo(() => {
-    const primaryRole = getPrimaryRole();
-    
-    if (primaryRole === "dispatch") {
-      // Dispatchers only see their own orders
-      return filteredOrders.filter(order => order.bookedBy === profile?.full_name);
-    }
-    
-    // Everyone else sees all filtered orders (supervisors already filtered by office in filteredOrders)
-    return filteredOrders;
-  }, [filteredOrders, getPrimaryRole, profile]);
-
-  const totals = ordersForTotals.reduce((acc, order) => {
-    acc.totalFreight += order.totalFreightAmount;
-    acc.totalDriverRate += order.driverPrice;
-    acc.totalMiles += order.mileage;
-    acc.orderCount += 1;
+  // Calculate totals
+  const totals = dispatcherStats.reduce((acc, stat) => {
+    acc.totalFreight += stat.totalFreight;
+    acc.totalDriverRate += stat.totalDriverRate;
+    acc.totalMiles += stat.totalMiles;
+    acc.orderCount += stat.orderCount;
     return acc;
   }, {
     totalFreight: 0,
