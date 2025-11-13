@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse, Download } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -131,6 +131,7 @@ const EditOrder = () => {
   const [podFiles, setPodFiles] = useState<FileList | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
+  const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [bookedBy, setBookedBy] = useState("");
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
@@ -1363,6 +1364,23 @@ const EditOrder = () => {
           }
         }
       }
+      
+      // Delete files marked for deletion
+      if (filesToDelete.length > 0) {
+        const filesToDeleteData = existingFiles.filter(f => filesToDelete.includes(f.id));
+        
+        for (const file of filesToDeleteData) {
+          // Delete from storage
+          await supabase.storage.from("order-files").remove([file.file_path]);
+          
+          // Delete from database
+          await supabase.from("order_files").delete().eq("id", file.id);
+        }
+        
+        // Update local state
+        setExistingFiles(existingFiles.filter(f => !filesToDelete.includes(f.id)));
+        setFilesToDelete([]);
+      }
 
       // Smart UPDATE/INSERT/DELETE to avoid unique constraint violations
       if (pickupsDrops.length > 0) {
@@ -2069,21 +2087,17 @@ const EditOrder = () => {
             {existingFiles.length > 0 && <div className="space-y-2">
                 <Label>Existing Files</Label>
                 <div className="flex flex-wrap gap-2">
-                  {existingFiles.map(file => <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
+                  {existingFiles.filter(file => !filesToDelete.includes(file.id)).map(file => <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
                       <span className="text-sm">
                         {file.file_name} ({file.file_category || "ADDITIONAL"})
                       </span>
-                      <Button type="button" variant="outline" size="sm" onClick={async () => {
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
                   console.log("Requesting signed URL for path:", file.file_path);
                   const {
                     data,
                     error
-                  } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600); // 1 hour expiry
+                  } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600);
 
-                  console.log("Signed URL response:", {
-                    data,
-                    error
-                  });
                   if (error) {
                     toast({
                       title: "Error",
@@ -2093,32 +2107,24 @@ const EditOrder = () => {
                     return;
                   }
                   const signedUrl = data?.signedUrl || (data as any)?.signedURL;
-                  console.log("Extracted signedUrl:", signedUrl);
                   if (signedUrl) {
                     try {
-                      // Fetch the file as a blob to avoid browser blocking
                       const response = await fetch(signedUrl);
                       if (!response.ok) throw new Error("Failed to fetch file");
                       const blob = await response.blob();
-                      const blobUrl = URL.createObjectURL(blob);
-
-                      // Open in new tab
-                      const newWindow = window.open(blobUrl, "_blank");
-
-                      // Clean up blob URL after a delay
-                      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                      if (!newWindow) {
-                        toast({
-                          title: "Popup Blocked",
-                          description: "Please allow popups for this site",
-                          variant: "destructive"
-                        });
-                      }
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = file.file_name;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      window.URL.revokeObjectURL(url);
                     } catch (err) {
-                      console.error("Error opening file:", err);
+                      console.error("Error downloading file:", err);
                       toast({
                         title: "Error",
-                        description: "Failed to open file",
+                        description: "Failed to download file",
                         variant: "destructive"
                       });
                     }
@@ -2130,33 +2136,30 @@ const EditOrder = () => {
                     });
                   }
                 }}>
-                        View
+                        <Download className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant="destructive" size="sm" onClick={async () => {
-                  try {
-                    // Delete from storage
-                    await supabase.storage.from("order-files").remove([file.file_path]);
-
-                    // Delete from database
-                    await supabase.from("order_files").delete().eq("id", file.id);
-
-                    // Update local state
-                    setExistingFiles(existingFiles.filter(f => f.id !== file.id));
-                    toast({
-                      title: "File deleted",
-                      description: "File has been successfully deleted"
-                    });
-                  } catch (error) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to delete file",
-                      variant: "destructive"
-                    });
-                  }
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => {
+                  setFilesToDelete(prev => [...prev, file.id]);
                 }}>
-                        Delete
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>)}
+                </div>
+              </div>}
+              
+              {filesToDelete.length > 0 && <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      {filesToDelete.length} file(s) marked for deletion
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      Files will be permanently deleted when you update the order
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setFilesToDelete([])}>
+                    Undo All
+                  </Button>
                 </div>
               </div>}
 
