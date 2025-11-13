@@ -93,7 +93,7 @@ const Analytics = () => {
   } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
-  const [dispatcherDriverCounts, setDispatcherDriverCounts] = useState<Record<string, { totalDrivers: number; daysCount: number }>>({});
+  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, { totalTrucks: number; daysCount: number }>>({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
@@ -189,18 +189,18 @@ const Analytics = () => {
         }
 
         // Aggregate counts by dispatcher
-        const countsMap: Record<string, { totalDrivers: number; daysCount: number }> = {};
+        const countsMap: Record<string, { totalTrucks: number; daysCount: number }> = {};
         if (data && Array.isArray(data)) {
           data.forEach((record: any) => {
             if (!countsMap[record.dispatcher_id]) {
-              countsMap[record.dispatcher_id] = { totalDrivers: 0, daysCount: 0 };
+              countsMap[record.dispatcher_id] = { totalTrucks: 0, daysCount: 0 };
             }
-            countsMap[record.dispatcher_id].totalDrivers += record.driver_count;
+            countsMap[record.dispatcher_id].totalTrucks += record.driver_count;
             countsMap[record.dispatcher_id].daysCount += 1;
           });
         }
 
-        setDispatcherDriverCounts(countsMap);
+        setDispatcherTruckCounts(countsMap);
       } catch (error) {
         console.error('Error in fetchDriverCounts:', error);
       }
@@ -479,9 +479,9 @@ const Analytics = () => {
       
       // Get dispatcher user_id from the profile - name can be either full_name or user_id
       const dispatcherUserId = dispatcherProfile?.user_id;
-      const driverCountData = dispatcherUserId ? dispatcherDriverCounts[dispatcherUserId] : null;
-      const avgDrivers = driverCountData 
-        ? driverCountData.totalDrivers / driverCountData.daysCount 
+      const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
+      const avgTrucks = truckCountData 
+        ? truckCountData.totalTrucks / truckCountData.daysCount 
         : 0;
 
       return {
@@ -494,7 +494,7 @@ const Analytics = () => {
         cutPercent,
         ratePerMile,
         office: dispatcherProfile?.office || "Unknown",
-        avgDrivers,
+        avgTrucks,
       };
     })
     .filter((stat) => {
@@ -886,7 +886,7 @@ const Analytics = () => {
                         Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
                       <TableHead className="text-right">
-                        Avg Drivers
+                        Avg Trucks
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -920,7 +920,7 @@ const Analytics = () => {
                           </TableCell>
                           <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
                           <TableCell className="text-right">
-                            {stat.avgDrivers > 0 ? stat.avgDrivers.toFixed(1) : '-'}
+                            {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : '-'}
                           </TableCell>
                         </TableRow>
                       ))
