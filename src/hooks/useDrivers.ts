@@ -52,7 +52,7 @@ export const useDrivers = () => {
         while (true) {
           const { data, error } = await supabase
             .from('drivers')
-            .select('*')
+            .select('*, company:companies!company_id(id, name)')
             .order('name', { ascending: true })
             .range(from, from + batchSize - 1);
           

@@ -55,7 +55,7 @@ export const useFleetManagement = () => {
       // Fetch all trucks to match with drivers
       const { data: trucks, error: trucksError } = await supabase
         .from('trucks')
-        .select('id, truck_number, company_id, trailer_id, driver1_id, driver2_id');
+        .select('id, truck_number, trailer_id, driver1_id, driver2_id');
 
       if (trucksError) throw trucksError;
 
@@ -64,7 +64,7 @@ export const useFleetManagement = () => {
         const truck = trucks?.find(t => t.driver1_id === driver.id || t.driver2_id === driver.id);
         return {
           ...driver,
-          truck: truck ? { id: truck.id, truck_number: truck.truck_number, company_id: truck.company_id, trailer_id: truck.trailer_id } : null
+          truck: truck ? { id: truck.id, truck_number: truck.truck_number, trailer_id: truck.trailer_id } : null
         };
       }) || [];
 

@@ -126,9 +126,10 @@ export const useOrders = () => {
           .from('orders')
           .select(`
             *,
-            truck:trucks!truck_id(truck_number, company:companies(name)),
+            truck:trucks!truck_id(truck_number),
             trailer:trailers!trailer_id(trailer_number),
-            driver1:drivers!driver1_id(name),
+            driver1:drivers!driver1_id(id, name, company:companies!company_id(id, name)),
+            driver2:drivers!driver2_id(id, name),
             original_driver1:drivers!original_driver1_id(name),
             original_truck:trucks!original_truck_id(truck_number),
             broker:brokers!broker_id(name, address),

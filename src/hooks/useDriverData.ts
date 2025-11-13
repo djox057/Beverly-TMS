@@ -13,7 +13,7 @@ export const useDriverData = () => {
       // Get driver info by email
       const { data: driverData, error: driverError } = await supabase
         .from('drivers')
-        .select('*')
+        .select('*, company:companies!company_id(id, name)')
         .eq('email', profile.email)
         .eq('is_active', true)
         .single();

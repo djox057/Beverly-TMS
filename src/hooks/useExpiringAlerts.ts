@@ -11,7 +11,7 @@ export const useExpiringTrucks = () => {
         .from('trucks')
         .select(`
           *,
-          driver1:drivers!trucks_driver1_id_fkey(id, name),
+          driver1:drivers!trucks_driver1_id_fkey(id, name, company:companies!company_id(id, name)),
           driver2:drivers!trucks_driver2_id_fkey(id, name),
           company:company_id(id, name)
         `)
