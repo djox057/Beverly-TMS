@@ -785,7 +785,7 @@ const Drivers = () => {
               Add Driver
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh]">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
@@ -797,296 +797,280 @@ const Drivers = () => {
               </TabsList>
               
               <TabsContent value="info">
-            <form onSubmit={handleAddDriver} className="space-y-4">
-              <ScrollArea className="h-[calc(90vh-180px)] pr-4">
-              <div className="grid grid-cols-12 gap-4">
-                <div className="space-y-2 col-span-3">
-                  <Label htmlFor="name">Name*</Label>
-                  <Input id="name" value={formData.name} onChange={e => setFormData({
-                  ...formData,
-                  name: e.target.value
-                })} placeholder="John Smith" required />
-                </div>
-            <div className="space-y-2 col-span-3">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" value={formData.phone} onChange={e => setFormData({
-              ...formData,
-              phone: e.target.value
-            })} placeholder="(555) 123-4567" />
-          </div>
-            <div className="space-y-2 col-span-6">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
-              ...formData,
-              email: e.target.value
-            })} placeholder="john.smith@company.com" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
-              <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
-              ...formData,
-              emergency_contact_name: e.target.value
-            })} placeholder="Jane Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_relation">Relation</Label>
-              <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
-              ...formData,
-              emergency_contact_relation: e.target.value
-            })} placeholder="Spouse" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
-              <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
-              ...formData,
-              emergency_contact_phone: e.target.value
-            })} placeholder="(555) 987-6543" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="truck">Truck Number</Label>
-              <Combobox options={(availableTrucks || []).map(truck => ({
-              value: truck.id,
-              label: truck.truck_number
-            }))} value={formData.truck_id} onValueChange={value => {
-              const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-              setFormData({
-                ...formData,
-                truck_id: value,
-                trailer_id: selectedTruck?.trailer_id || ""
-              });
-              setSelectedTruckId(value);
-            }} placeholder="Select truck..." emptyText="No available trucks" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="trailer">Trailer Number</Label>
-              <Combobox options={(availableTrailers || []).map(trailer => ({
-              value: trailer.id,
-              label: trailer.trailer_number
-            }))} value={formData.trailer_id} onValueChange={value => setFormData({
-              ...formData,
-              trailer_id: value
-            })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="company">Company</Label>
-            <Select
-              value={formData.company_id}
-              onValueChange={value => setFormData({ ...formData, company_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select company..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background">
-                {(companies || []).map(company => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="dispatcher">Dispatcher</Label>
-            <Select
-              value={formData.dispatcher_id}
-              onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select dispatcher..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background">
-                {allDispatchers.map(d => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.full_name || d.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
-              <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
-                ...formData,
-                emergency_contact_name: e.target.value
-              })} placeholder="John Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_relation">Relation</Label>
-              <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
-                ...formData,
-                emergency_contact_relation: e.target.value
-              })} placeholder="Spouse" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
-              <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
-                ...formData,
-                emergency_contact_phone: e.target.value
-              })} placeholder="(555) 123-4567" />
-            </div>
-          </div>
-
-              <div className="grid grid-cols-12 gap-4">
-                <div className="space-y-2 col-span-7">
-                  <Label htmlFor="home_address">Home Address</Label>
-                  <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
-                  ...formData,
-                  home_address: e.target.value
-                })} placeholder="1234 Oak Street" />
-                </div>
-                <div className="space-y-2 col-span-3">
-                  <Label htmlFor="home_city">Home City</Label>
-                  <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
-                  ...formData,
-                  home_city: e.target.value
-                })} placeholder="Chicago" />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="home_state">Home State</Label>
-                  <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
-                  ...formData,
-                  home_state: e.target.value
-                })} placeholder="IL" />
-                </div>
-              </div>
-
-              <div className="border-t pt-4 space-y-4">
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="personal_id">Personal ID</Label>
-                    <Input id="personal_id" value={formData.personal_id} onChange={e => setFormData({
-                    ...formData,
-                    personal_id: e.target.value
-                  })} placeholder="Personal ID" />
+                <form onSubmit={handleAddDriver} className="space-y-4">
+                  <div className="grid grid-cols-12 gap-4">
+                    <div className="space-y-2 col-span-3">
+                      <Label htmlFor="name">Name*</Label>
+                      <Input id="name" value={formData.name} onChange={e => setFormData({
+                      ...formData,
+                      name: e.target.value
+                    })} placeholder="John Smith" required />
+                    </div>
+                    <div className="space-y-2 col-span-3">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input id="phone" value={formData.phone} onChange={e => setFormData({
+                      ...formData,
+                      phone: e.target.value
+                    })} placeholder="(555) 123-4567" />
+                    </div>
+                    <div className="space-y-2 col-span-6">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
+                      ...formData,
+                      email: e.target.value
+                    })} placeholder="john.smith@company.com" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="fuel_card_number">Fuel Card #</Label>
-                    <Input id="fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                    ...formData,
-                    fuel_card_number: e.target.value
-                  })} placeholder="Fuel Card Number" />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cdl_number">CDL Number</Label>
-                    <Input id="cdl_number" value={formData.cdl_number} onChange={e => setFormData({
-                    ...formData,
-                    cdl_number: e.target.value
-                  })} placeholder="CDL Number" />
+                    <Label htmlFor="company">Company</Label>
+                    <Select
+                      value={formData.company_id}
+                      onValueChange={value => setFormData({ ...formData, company_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(companies || []).map(company => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
-                    <Input id="cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
-                    ...formData,
-                    cdl_expiration_date: e.target.value
-                  })} />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="hire_date">Hire Date</Label>
-                    <Input id="hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
-                    ...formData,
-                    hire_date: e.target.value
-                  })} />
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+                      <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
+                      ...formData,
+                      emergency_contact_name: e.target.value
+                    })} placeholder="Jane Doe" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergency_contact_relation">Relation</Label>
+                      <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
+                      ...formData,
+                      emergency_contact_relation: e.target.value
+                    })} placeholder="Spouse" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+                      <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
+                      ...formData,
+                      emergency_contact_phone: e.target.value
+                    })} placeholder="(555) 987-6543" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="termination_date">Termination Date</Label>
-                    <Input id="termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
-                    ...formData,
-                    termination_date: e.target.value
-                  })} />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mvr_date">MVR Date</Label>
-                    <Input id="mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
-                    ...formData,
-                    mvr_date: e.target.value
-                  })} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="truck">Truck Number</Label>
+                      <Combobox options={(availableTrucks || []).map(truck => ({
+                      value: truck.id,
+                      label: truck.truck_number
+                    }))} value={formData.truck_id} onValueChange={value => {
+                      const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+                      setFormData({
+                        ...formData,
+                        truck_id: value,
+                        trailer_id: selectedTruck?.trailer_id || ""
+                      });
+                      setSelectedTruckId(value);
+                    }} placeholder="Select truck..." emptyText="No available trucks" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="trailer">Trailer Number</Label>
+                      <Combobox options={(availableTrailers || []).map(trailer => ({
+                      value: trailer.id,
+                      label: trailer.trailer_number
+                    }))} value={formData.trailer_id} onValueChange={value => setFormData({
+                      ...formData,
+                      trailer_id: value
+                    })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                  <Label htmlFor="clearing_house">Clearing House</Label>
-                  <Input id="clearing_house" type="date" value={formData.clearing_house} onChange={e => setFormData({
-                    ...formData,
-                    clearing_house: e.target.value
-                  })} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="medical_card_expiration_date">Medical Card Exp</Label>
-                    <Input id="medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
-                    ...formData,
-                    medical_card_expiration_date: e.target.value
-                  })} />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="ssn">SSN #</Label>
-                    <Input id="ssn" value={formData.ssn} onChange={e => setFormData({
-                    ...formData,
-                    ssn: e.target.value
-                  })} placeholder="SSN" />
+                    <Label htmlFor="dispatcher">Dispatcher</Label>
+                    <Select
+                      value={formData.dispatcher_id}
+                      onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select dispatcher..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allDispatchers.map(dispatcher => (
+                          <SelectItem key={dispatcher.id} value={dispatcher.id}>
+                            {dispatcher.full_name || dispatcher.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  <div className="border-t pt-4">
+                    <div className="grid grid-cols-12 gap-4">
+                      <div className="space-y-2 col-span-7">
+                        <Label htmlFor="home_address">Home Address</Label>
+                        <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
+                        ...formData,
+                        home_address: e.target.value
+                      })} placeholder="1234 Oak Street" />
+                      </div>
+                      <div className="space-y-2 col-span-3">
+                        <Label htmlFor="home_city">Home City</Label>
+                        <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
+                        ...formData,
+                        home_city: e.target.value
+                      })} placeholder="Chicago" />
+                      </div>
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="home_state">Home State</Label>
+                        <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
+                        ...formData,
+                        home_state: e.target.value
+                      })} placeholder="IL" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {canViewSensitiveData && (
+                    <>
+                      <div className="border-t pt-4">
+                        <p className="text-sm font-medium text-muted-foreground mb-4">
+                          🔒 Sensitive Information (Managers/Admins Only)
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="personal_id">Personal ID</Label>
+                            <Input id="personal_id" value={formData.personal_id} onChange={e => setFormData({
+                            ...formData,
+                            personal_id: e.target.value
+                          })} placeholder="Personal ID" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="fuel_card_number">Fuel Card #</Label>
+                            <Input id="fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
+                            ...formData,
+                            fuel_card_number: e.target.value
+                          })} placeholder="Fuel Card Number" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                          <div className="space-y-2">
+                            <Label htmlFor="ssn">SSN #</Label>
+                            <Input id="ssn" value={formData.ssn} onChange={e => setFormData({
+                            ...formData,
+                            ssn: e.target.value
+                          })} placeholder="SSN" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="fein">FEIN #</Label>
+                            <Input id="fein" value={formData.fein} onChange={e => setFormData({
+                            ...formData,
+                            fein: e.target.value
+                          })} placeholder="FEIN" />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cdl_number">CDL Number</Label>
+                      <Input id="cdl_number" value={formData.cdl_number} onChange={e => setFormData({
+                      ...formData,
+                      cdl_number: e.target.value
+                    })} placeholder="CDL Number" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
+                      <Input id="cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
+                      ...formData,
+                      cdl_expiration_date: e.target.value
+                    })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="hire_date">Hire Date</Label>
+                      <Input id="hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
+                      ...formData,
+                      hire_date: e.target.value
+                    })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="termination_date">Termination Date</Label>
+                      <Input id="termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
+                      ...formData,
+                      termination_date: e.target.value
+                    })} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="mvr_date">MVR Date</Label>
+                      <Input id="mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
+                      ...formData,
+                      mvr_date: e.target.value
+                    })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="medical_card_expiration_date">Medical Card Expiration Date</Label>
+                      <Input id="medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
+                      ...formData,
+                      medical_card_expiration_date: e.target.value
+                    })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="clearing_house">Clearing House</Label>
+                      <Input id="clearing_house" value={formData.clearing_house} onChange={e => setFormData({
+                      ...formData,
+                      clearing_house: e.target.value
+                    })} placeholder="Clearing house number" />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="fein">FEIN #</Label>
-                    <Input id="fein" value={formData.fein} onChange={e => setFormData({
+                    <Label>Drug Test Result</Label>
+                    <Select value={formData.drugTestResult || "pending"} onValueChange={value => setFormData({
                     ...formData,
-                    fein: e.target.value
-                  })} placeholder="FEIN" />
+                    drugTestResult: value as "positive" | "negative" | "pending"
+                  })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select result" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="negative">Negative</SelectItem>
+                        <SelectItem value="positive">Positive</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-              </div>
 
-              <div className="border-t pt-4 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="drugTestResult">Drug Test Result</Label>
-                  <Select value={formData.drugTestResult || ""} onValueChange={value => setFormData({
-                  ...formData,
-                  drugTestResult: value as "positive" | "negative" | "pending" | null
-                })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select drug test result..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="negative">Negative</SelectItem>
-                      <SelectItem value="positive">Positive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              </ScrollArea>
-
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Add Driver
-                </Button>
-              </div>
-            </form>
-            </TabsContent>
+                  <Button type="submit" disabled={isSubmitting} className="w-full">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding Driver...
+                      </>
+                    ) : (
+                      "Add Driver"
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
             
             <TabsContent value="files">
               {newlyCreatedDriverId ? (
