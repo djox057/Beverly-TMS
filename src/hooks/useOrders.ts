@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 // Utility function to add timeout protection to queries
 const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
@@ -167,10 +168,11 @@ export const useOrders = () => {
         const pickupLocation = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
         const deliveryLocation = order.pickup_drops?.find((pd: any) => pd.type === 'delivery');
         
-        // Format date ranges - always show only the start date
+        // Format date ranges - always show only the start date without timezone conversion
         const formatDateRange = (startDate: string, endDate: string) => {
           if (!startDate) return 'N/A';
-          return new Date(startDate).toLocaleDateString();
+          const parsed = parseSimpleDateTime(startDate);
+          return parsed.dateString;
         };
         
         // Calculate total mileage from loaded_miles + dh_miles or use legacy mileage
