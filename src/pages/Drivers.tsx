@@ -481,6 +481,7 @@ const Drivers = () => {
         name: `${formData.first_name} ${formData.last_name}`.trim(),
         phone: formData.phone || null,
         email: formData.email || null,
+        company_id: formData.company_id || null,
         emergency_contact_name: formData.emergency_contact_name || null,
         emergency_contact_relation: formData.emergency_contact_relation || null,
         emergency_contact_phone: formData.emergency_contact_phone || null,
