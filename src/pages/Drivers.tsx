@@ -947,12 +947,18 @@ const Drivers = () => {
                       <Label htmlFor="phone">Phone *</Label>
                       <Input id="phone" value={formData.phone} onChange={e => {
                       const input = e.target.value.replace(/\D/g, '');
-                      const formatted = input.length <= 10 
-                        ? input.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
-                            .replace(/(\d{3})(\d{3})(\d{0,3})/, '($1) $2-$3')
-                            .replace(/(\d{3})(\d{0,3})/, '($1) $2')
-                            .replace(/(\d{0,3})/, input.length > 0 ? '($1' : input)
-                        : formData.phone;
+                      let formatted = '';
+                      
+                      if (input.length > 0) {
+                        formatted = '(' + input.substring(0, 3);
+                      }
+                      if (input.length >= 4) {
+                        formatted += ') ' + input.substring(3, 6);
+                      }
+                      if (input.length >= 7) {
+                        formatted += '-' + input.substring(6, 10);
+                      }
+                      
                       setFormData({
                         ...formData,
                         phone: formatted
