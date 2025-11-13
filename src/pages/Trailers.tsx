@@ -12,6 +12,7 @@ import { Search, Plus, Edit, Trash2, Loader2, History } from "lucide-react";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrucks } from "@/hooks/useTrucks";
+import { useDrivers } from "@/hooks/useDrivers";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
@@ -59,6 +60,9 @@ const Trailers = () => {
   const {
     data: trucks
   } = useTrucks();
+  const {
+    data: drivers
+  } = useDrivers();
 
   // Reset to first page when search changes
   useEffect(() => {

@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
+import { useTrucks } from "@/hooks/useTrucks";
+import { useTrailers } from "@/hooks/useTrailers";
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
@@ -130,6 +132,12 @@ const Drivers = () => {
   const {
     data: allTrucks
   } = useAvailableTrucks();
+  const {
+    data: trucks
+  } = useTrucks();
+  const {
+    data: trailers
+  } = useTrailers();
   const {
     data: availableTrailers
   } = useAvailableTrailers(selectedTruckId || formData.truck_id);
