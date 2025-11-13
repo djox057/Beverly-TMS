@@ -17,6 +17,7 @@ import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
+import { DriverFilesManagerPending } from "@/components/DriverFilesManagerPending";
 import { useDriverSensitivePII } from "@/hooks/useDriverSensitivePII";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,7 +59,8 @@ interface DriverFormData {
 }
 const Drivers = () => {
   const {
-    hasRole
+    hasRole,
+    profile
   } = useAuthContext();
   const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('accounting');
   const {
@@ -83,6 +85,8 @@ const Drivers = () => {
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
   const [newlyCreatedDriverId, setNewlyCreatedDriverId] = useState<string | null>(null);
   const [addDialogTab, setAddDialogTab] = useState<string>("info");
+  const [pendingFiles, setPendingFiles] = useState<Array<{ file: File; id: string }>>([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -235,6 +239,7 @@ const Drivers = () => {
     setSelectedTruckId("");
     setNewlyCreatedDriverId(null);
     setAddDialogTab("info");
+    setPendingFiles([]);
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -322,13 +327,64 @@ const Drivers = () => {
           truckId: formData.truck_id
         });
       }
-      toast({
-        title: "Success",
-        description: "Driver added successfully"
-      });
       
-      // Set the newly created driver ID and switch to files tab
+      // Set the newly created driver ID
       setNewlyCreatedDriverId(driverData.id);
+      
+      // Upload pending files if any
+      if (pendingFiles.length > 0) {
+        setIsUploadingFiles(true);
+        try {
+          const uploadPromises = pendingFiles.map(async (pendingFile) => {
+            const fileExt = pendingFile.file.name.split('.').pop();
+            const fileName = `${driverData.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('driver-files')
+              .upload(fileName, pendingFile.file);
+
+            if (uploadError) throw uploadError;
+
+            const { error: dbError } = await supabase
+              .from('driver_files')
+              .insert({
+                driver_id: driverData.id,
+                file_name: pendingFile.file.name,
+                file_path: fileName,
+                file_size: pendingFile.file.size,
+                content_type: pendingFile.file.type,
+                uploaded_by: profile?.email || 'unknown',
+              });
+
+            if (dbError) throw dbError;
+          });
+
+          await Promise.all(uploadPromises);
+          
+          toast({
+            title: "Success",
+            description: `Driver added and ${pendingFiles.length} file(s) uploaded successfully`
+          });
+          
+          setPendingFiles([]);
+        } catch (error) {
+          console.error('Error uploading files:', error);
+          toast({
+            title: "Partial Success",
+            description: "Driver added but some files failed to upload",
+            variant: "destructive",
+          });
+        } finally {
+          setIsUploadingFiles(false);
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Driver added successfully"
+        });
+      }
+      
+      // Switch to files tab
       setAddDialogTab("files");
       
       // Invalidate all related queries to sync with other pages
@@ -1059,11 +1115,11 @@ const Drivers = () => {
                     </Select>
                   </div>
 
-                  <Button type="submit" disabled={isSubmitting} className="w-full">
-                    {isSubmitting ? (
+                  <Button type="submit" disabled={isSubmitting || isUploadingFiles} className="w-full">
+                    {isSubmitting || isUploadingFiles ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Adding Driver...
+                        {isUploadingFiles ? 'Uploading Files...' : 'Adding Driver...'}
                       </>
                     ) : (
                       "Add Driver"
@@ -1091,11 +1147,11 @@ const Drivers = () => {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Please save the driver first to upload files.
-                  </p>
-                </div>
+                <DriverFilesManagerPending 
+                  pendingFiles={pendingFiles}
+                  onFilesChange={setPendingFiles}
+                  isUploading={isUploadingFiles}
+                />
               )}
             </TabsContent>
             </Tabs>
