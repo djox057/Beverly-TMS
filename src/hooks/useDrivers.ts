@@ -198,7 +198,7 @@ export const useDrivers = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
     refetchOnMount: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
-    gcTime: 10 * 60 * 1000, // 10 minutes - data stays in cache
+    staleTime: 0,
+    gcTime: 0,
   });
 };
