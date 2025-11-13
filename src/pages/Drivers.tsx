@@ -518,6 +518,17 @@ const Drivers = () => {
           variant: "destructive"
         });
         throw new Error("Cannot assign trailer without truck");
+      } else if (!formData.truck_id && !formData.trailer_id) {
+        // Both truck and trailer are cleared - remove driver from all trucks
+        await supabase
+          .from('trucks')
+          .update({ driver1_id: null })
+          .eq('driver1_id', editingDriver.id);
+
+        await supabase
+          .from('trucks')
+          .update({ driver2_id: null })
+          .eq('driver2_id', editingDriver.id);
       }
       toast({
         title: "Success",
