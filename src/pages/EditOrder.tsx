@@ -2091,8 +2091,55 @@ const EditOrder = () => {
                       <span className="text-sm">
                         {file.file_name} ({file.file_category || "ADDITIONAL"})
                       </span>
+                      <Button type="button" variant="outline" size="sm" onClick={async () => {
+                  const {
+                    data,
+                    error
+                  } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600);
+
+                  if (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to load file: " + error.message,
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+                  if (signedUrl) {
+                    try {
+                      const response = await fetch(signedUrl);
+                      if (!response.ok) throw new Error("Failed to fetch file");
+                      const blob = await response.blob();
+                      const blobUrl = URL.createObjectURL(blob);
+                      const newWindow = window.open(blobUrl, "_blank");
+                      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                      if (!newWindow) {
+                        toast({
+                          title: "Popup Blocked",
+                          description: "Please allow popups for this site",
+                          variant: "destructive"
+                        });
+                      }
+                    } catch (err) {
+                      console.error("Error opening file:", err);
+                      toast({
+                        title: "Error",
+                        description: "Failed to open file",
+                        variant: "destructive"
+                      });
+                    }
+                  } else {
+                    toast({
+                      title: "Error",
+                      description: "No signed URL received from server",
+                      variant: "destructive"
+                    });
+                  }
+                }}>
+                        View
+                      </Button>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                  console.log("Requesting signed URL for path:", file.file_path);
                   const {
                     data,
                     error
