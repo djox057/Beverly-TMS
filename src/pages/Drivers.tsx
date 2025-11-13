@@ -793,7 +793,7 @@ const Drivers = () => {
             <Tabs value={addDialogTab} onValueChange={setAddDialogTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="info">Driver Info</TabsTrigger>
-                <TabsTrigger value="files" disabled={!newlyCreatedDriverId}>Driver Files</TabsTrigger>
+                <TabsTrigger value="files">Driver Files</TabsTrigger>
               </TabsList>
               
               <TabsContent value="info">
