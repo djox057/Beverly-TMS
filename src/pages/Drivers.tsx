@@ -308,9 +308,9 @@ const Drivers = () => {
         data: driverData,
         error
       } = await supabase.from('drivers').insert({
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        name: `${formData.first_name} ${formData.last_name}`.trim(),
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        name: `${formData.first_name.trim()} ${formData.last_name.trim()}`.trim(),
         phone: formData.phone || null,
         email: formData.email || null,
         company_id: formData.company_id || null,
@@ -933,22 +933,31 @@ const Drivers = () => {
                       <Label htmlFor="first_name">First Name*</Label>
                       <Input id="first_name" value={formData.first_name} onChange={e => setFormData({
                       ...formData,
-                      first_name: e.target.value
+                      first_name: e.target.value.trimStart()
                     })} placeholder="John" required />
                     </div>
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="last_name">Last Name*</Label>
                       <Input id="last_name" value={formData.last_name} onChange={e => setFormData({
                       ...formData,
-                      last_name: e.target.value
+                      last_name: e.target.value.trimStart()
                     })} placeholder="Smith" required />
                     </div>
                     <div className="space-y-2 col-span-3">
                       <Label htmlFor="phone">Phone *</Label>
-                      <Input id="phone" value={formData.phone} onChange={e => setFormData({
-                      ...formData,
-                      phone: e.target.value
-                    })} placeholder="(555) 123-4567" required />
+                      <Input id="phone" value={formData.phone} onChange={e => {
+                      const input = e.target.value.replace(/\D/g, '');
+                      const formatted = input.length <= 10 
+                        ? input.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
+                            .replace(/(\d{3})(\d{3})(\d{0,3})/, '($1) $2-$3')
+                            .replace(/(\d{3})(\d{0,3})/, '($1) $2')
+                            .replace(/(\d{0,3})/, input.length > 0 ? '($1' : input)
+                        : formData.phone;
+                      setFormData({
+                        ...formData,
+                        phone: formatted
+                      });
+                    }} placeholder="(555) 123-4567" required />
                     </div>
                     <div className="space-y-2 col-span-4">
                       <Label htmlFor="email">Email *</Label>
