@@ -81,7 +81,7 @@ export const useDrivers = () => {
             truck_number, 
             driver1_id, 
             driver2_id,
-            trailer:trailers(trailer_number)
+            trailer:trailers!trucks_trailer_id_fkey(trailer_number)
           `);
         
         if (trucksError) {
