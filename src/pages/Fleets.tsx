@@ -347,7 +347,10 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-success">
-                    {dispatchers.reduce((total, d) => total + d.drivers.length, 0)}
+                    {dispatchers.reduce((total, d) => {
+                      const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                      return total + uniqueTrucks.size;
+                    }, 0)}
                   </div>
                 </CardContent>
               </Card>
@@ -359,7 +362,10 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-warning">
-                    {availableDrivers.length}
+                    {(() => {
+                      const uniqueTrucks = new Set(availableDrivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                      return uniqueTrucks.size;
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -371,10 +377,20 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
-                    {dispatchers.filter(d => d.drivers.length > 0).length > 0 
-                      ? (dispatchers.reduce((total, d) => total + d.drivers.length, 0) / 
-                         dispatchers.filter(d => d.drivers.length > 0).length).toFixed(1)
-                      : '0'}
+                    {(() => {
+                      const activeDispatchers = dispatchers.filter(d => {
+                        const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                        return uniqueTrucks.size > 0;
+                      });
+                      if (activeDispatchers.length === 0) return '0';
+                      
+                      const totalTrucks = dispatchers.reduce((total, d) => {
+                        const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                        return total + uniqueTrucks.size;
+                      }, 0);
+                      
+                      return (totalTrucks / activeDispatchers.length).toFixed(1);
+                    })()}
                   </div>
                 </CardContent>
               </Card>
@@ -408,7 +424,12 @@ const Fleets = () => {
                         {dispatcherFleet.dispatcher.ext && (
                           <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
                         )}
-                        <Badge variant="secondary">{filteredDrivers.length} trucks</Badge>
+                        <Badge variant="secondary">
+                          {(() => {
+                            const uniqueTrucks = new Set(filteredDrivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                            return uniqueTrucks.size;
+                          })()} trucks
+                        </Badge>
                         {snapshot.isDraggingOver && (
                           <Badge variant="outline" className="animate-pulse">Drop here</Badge>
                         )}

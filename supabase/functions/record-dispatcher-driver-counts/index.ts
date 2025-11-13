@@ -27,10 +27,10 @@ Deno.serve(async (req) => {
 
     console.log(`Recording counts for date: ${today}`);
 
-    // Get all active drivers grouped by dispatcher
+    // Get all active drivers with their truck assignments
     const { data: drivers, error: driversError } = await supabase
       .from('drivers')
-      .select('dispatcher_id')
+      .select('dispatcher_id, id')
       .eq('is_active', true)
       .not('dispatcher_id', 'is', null);
 
@@ -39,19 +39,49 @@ Deno.serve(async (req) => {
       throw driversError;
     }
 
-    // Count drivers per dispatcher
-    const dispatcherCounts = new Map<string, number>();
-    drivers?.forEach((driver) => {
-      const dispatcherId = driver.dispatcher_id;
-      if (dispatcherId) {
-        dispatcherCounts.set(
-          dispatcherId,
-          (dispatcherCounts.get(dispatcherId) || 0) + 1
-        );
+    // Get all trucks to determine unique truck counts per dispatcher
+    const { data: trucks, error: trucksError } = await supabase
+      .from('trucks')
+      .select('id, driver1_id, driver2_id');
+
+    if (trucksError) {
+      console.error('Error fetching trucks:', trucksError);
+      throw trucksError;
+    }
+
+    // Count unique trucks per dispatcher
+    const dispatcherTruckSets = new Map<string, Set<string>>();
+    
+    // For each truck, add it to the set of the dispatcher(s) of its driver(s)
+    trucks?.forEach((truck) => {
+      // Check driver1
+      if (truck.driver1_id) {
+        const driver1 = drivers?.find(d => d.id === truck.driver1_id);
+        if (driver1?.dispatcher_id) {
+          if (!dispatcherTruckSets.has(driver1.dispatcher_id)) {
+            dispatcherTruckSets.set(driver1.dispatcher_id, new Set());
+          }
+          dispatcherTruckSets.get(driver1.dispatcher_id)!.add(truck.id);
+        }
+      }
+      // Check driver2 (if exists, should use same dispatcher as driver1)
+      if (truck.driver2_id) {
+        const driver2 = drivers?.find(d => d.id === truck.driver2_id);
+        if (driver2?.dispatcher_id) {
+          if (!dispatcherTruckSets.has(driver2.dispatcher_id)) {
+            dispatcherTruckSets.set(driver2.dispatcher_id, new Set());
+          }
+          dispatcherTruckSets.get(driver2.dispatcher_id)!.add(truck.id);
+        }
       }
     });
 
-    console.log(`Found ${dispatcherCounts.size} dispatchers with drivers`);
+    const dispatcherCounts = new Map<string, number>();
+    dispatcherTruckSets.forEach((truckSet, dispatcherId) => {
+      dispatcherCounts.set(dispatcherId, truckSet.size);
+    });
+
+    console.log(`Found ${dispatcherCounts.size} dispatchers with trucks`);
 
     // Insert or update counts for each dispatcher
     const results = [];
@@ -72,7 +102,7 @@ Deno.serve(async (req) => {
       if (error) {
         console.error(`Error recording count for dispatcher ${dispatcherId}:`, error);
       } else {
-        console.log(`Recorded ${count} drivers for dispatcher ${dispatcherId}`);
+        console.log(`Recorded ${count} trucks for dispatcher ${dispatcherId}`);
         results.push({ dispatcher_id: dispatcherId, count });
       }
     }
@@ -82,7 +112,7 @@ Deno.serve(async (req) => {
         success: true,
         date: today,
         recorded_counts: results,
-        message: `Recorded driver counts for ${results.length} dispatchers`,
+        message: `Recorded truck counts for ${results.length} dispatchers`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
