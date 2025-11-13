@@ -872,7 +872,7 @@ const Drivers = () => {
               </TabsList>
               
               <TabsContent value="info">
-                <form onSubmit={handleAddDriver} className="space-y-4">
+                <form id="add-driver-form" onSubmit={handleAddDriver} className="space-y-4">
                   <div className="grid grid-cols-12 gap-4">
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="first_name">First Name*</Label>
@@ -1140,38 +1140,15 @@ const Drivers = () => {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <Button type="submit" disabled={isSubmitting || isUploadingFiles} className="w-full">
-                    {isSubmitting || isUploadingFiles ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {isUploadingFiles ? 'Uploading Files...' : 'Adding Driver...'}
-                      </>
-                    ) : (
-                      "Add Driver"
-                    )}
-                  </Button>
                 </form>
               </TabsContent>
             
             <TabsContent value="files">
               {newlyCreatedDriverId ? (
-                <div className="space-y-4">
-                  <DriverFilesManager 
-                    driverId={newlyCreatedDriverId} 
-                    driverName={`${formData.first_name} ${formData.last_name}`.trim()}
-                  />
-                  <div className="flex justify-end gap-3 mt-4">
-                    <Button 
-                      onClick={() => {
-                        resetForm();
-                        setIsAddDialogOpen(false);
-                      }}
-                    >
-                      Done
-                    </Button>
-                  </div>
-                </div>
+                <DriverFilesManager 
+                  driverId={newlyCreatedDriverId} 
+                  driverName={`${formData.first_name} ${formData.last_name}`.trim()}
+                />
               ) : (
                 <DriverFilesManagerPending 
                   pendingFiles={pendingFiles}
@@ -1180,7 +1157,43 @@ const Drivers = () => {
                 />
               )}
             </TabsContent>
-            </Tabs>
+          </Tabs>
+
+          {/* Action buttons - appear on all tabs */}
+          <div className="mt-6">
+            {newlyCreatedDriverId ? (
+              <div className="flex justify-end gap-3">
+                <Button 
+                  onClick={() => {
+                    resetForm();
+                    setIsAddDialogOpen(false);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            ) : (
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || isUploadingFiles} 
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const form = document.getElementById('add-driver-form') as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+              >
+                {isSubmitting || isUploadingFiles ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isUploadingFiles ? 'Uploading Files...' : 'Adding Driver...'}
+                  </>
+                ) : (
+                  "Add Driver"
+                )}
+              </Button>
+            )}
+          </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -1418,7 +1431,7 @@ const Drivers = () => {
             </TabsList>
             
             <TabsContent value="info">
-              <form onSubmit={handleEditDriver} className="space-y-4">
+              <form id="edit-driver-form" onSubmit={handleEditDriver} className="space-y-4">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="edit_first_name">First Name*</Label>
@@ -1684,42 +1697,51 @@ const Drivers = () => {
                   })} placeholder="FEIN" />
                       </div>
                     </div>}
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="files">
+                {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
+              </TabsContent>
+            </Tabs>
 
-                <div className="flex justify-between gap-3">
-                  <div className="flex gap-3">
-                    {!editingDriver?.is_active ? <Button type="button" variant="default" onClick={handleStartDriver} disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <Play className="mr-2 h-4 w-4" />
-                        Start
-                      </Button> : <>
-                        <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
-                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Done
-                        </Button>
-                        <Button type="button" variant={editingDriver?.two_week_block_date ? "outline" : "secondary"} onClick={handleTwoWeekBlock} disabled={isSubmitting}>
-                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
-                        </Button>
-                      </>}
-                  </div>
-                  <div className="flex gap-3">
-                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting}>
+            {/* Action buttons - appear on all tabs */}
+            <div className="flex justify-between gap-3 mt-6">
+              <div className="flex gap-3">
+                {!editingDriver?.is_active ? <Button type="button" variant="default" onClick={handleStartDriver} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Play className="mr-2 h-4 w-4" />
+                    Start
+                  </Button> : <>
+                    <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
                       {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Update Driver
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Done
                     </Button>
-                  </div>
-                </div>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="files">
-              {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
-            </TabsContent>
-          </Tabs>
+                    <Button type="button" variant={editingDriver?.two_week_block_date ? "outline" : "secondary"} onClick={handleTwoWeekBlock} disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
+                    </Button>
+                  </>}
+              </div>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const form = document.getElementById('edit-driver-form') as HTMLFormElement;
+                    if (form) form.requestSubmit();
+                  }}
+                >
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Update Driver
+                </Button>
+              </div>
+            </div>
 
           {/* Termination Notes Section - Show when driver is done */}
           {!editingDriver?.is_active && terminationNotes.length > 0 && <div className="mt-4 space-y-3">
