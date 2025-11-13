@@ -282,6 +282,24 @@ const Drivers = () => {
       });
       return;
     }
+
+    if (!formData.home_city.trim()) {
+      toast({
+        title: "Error",
+        description: "Home city is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.home_state.trim()) {
+      toast({
+        title: "Error",
+        description: "Home state is required",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -1042,18 +1060,18 @@ const Drivers = () => {
                       })} placeholder="1234 Oak Street" />
                       </div>
                       <div className="space-y-2 col-span-3">
-                        <Label htmlFor="home_city">Home City</Label>
+                        <Label htmlFor="home_city">Home City *</Label>
                         <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
                         ...formData,
                         home_city: e.target.value
-                      })} placeholder="Chicago" />
+                      })} placeholder="Chicago" required />
                       </div>
                       <div className="space-y-2 col-span-2">
-                        <Label htmlFor="home_state">Home State</Label>
+                        <Label htmlFor="home_state">Home State *</Label>
                         <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
                         ...formData,
                         home_state: e.target.value
-                      })} placeholder="IL" />
+                      })} placeholder="IL" required />
                       </div>
                     </div>
                   </div>
