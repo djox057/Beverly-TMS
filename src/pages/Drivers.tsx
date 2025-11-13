@@ -876,7 +876,7 @@ const Drivers = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="company">Company*</Label>
+            <Label htmlFor="company">Company</Label>
             <Select
               value={formData.company_id}
               onValueChange={value => setFormData({ ...formData, company_id: value })}
@@ -911,6 +911,30 @@ const Drivers = () => {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+              <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
+                ...formData,
+                emergency_contact_name: e.target.value
+              })} placeholder="John Doe" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_relation">Relation</Label>
+              <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
+                ...formData,
+                emergency_contact_relation: e.target.value
+              })} placeholder="Spouse" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+              <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
+                ...formData,
+                emergency_contact_phone: e.target.value
+              })} placeholder="(555) 123-4567" />
+            </div>
           </div>
 
               <div className="grid grid-cols-12 gap-4">
@@ -1178,6 +1202,7 @@ const Drivers = () => {
                             </span>}
                         </div>
                       </TableCell>
+                      <TableCell>{driver.company?.name || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.truck_number || "—"}</TableCell>
                       <TableCell>{driver.truck_info?.trailer_number || "—"}</TableCell>
                       <TableCell>{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
