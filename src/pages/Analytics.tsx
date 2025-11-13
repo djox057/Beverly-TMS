@@ -775,7 +775,7 @@ const Analytics = () => {
                     </div>
 
                     <div className="text-center">
-                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Cut</p>
+                      <p className="text-sm font-medium text-muted-foreground mb-1">Total Comm.</p>
                       <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                         $
                         {totalCut.toLocaleString(undefined, {
