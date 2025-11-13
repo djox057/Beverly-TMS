@@ -18,13 +18,12 @@ Deno.serve(async (req) => {
 
     console.log('Starting dispatcher driver count recording...');
 
-    // Get current date in Chicago timezone
-    const today = new Date().toLocaleDateString('en-US', {
-      timeZone: 'America/Chicago',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).split('/').reverse().join('-'); // Convert MM/DD/YYYY to YYYY-MM-DD
+    // Get current date in YYYY-MM-DD format
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
 
     console.log(`Recording counts for date: ${today}`);
 
