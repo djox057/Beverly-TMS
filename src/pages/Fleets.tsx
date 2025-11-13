@@ -327,7 +327,7 @@ const Fleets = () => {
         <div className="flex-1 overflow-auto">
           <div className="p-6 space-y-6">
             {/* Fleet Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Dispatchers</CardTitle>
@@ -342,8 +342,8 @@ const Fleets = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Assigned Drivers</CardTitle>
-                  <Users className="h-4 w-4 text-success" />
+                  <CardTitle className="text-sm font-medium">Assigned Trucks</CardTitle>
+                  <Truck className="h-4 w-4 text-success" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-success">
@@ -354,12 +354,27 @@ const Fleets = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Unassigned Drivers</CardTitle>
-                  <Users className="h-4 w-4 text-warning" />
+                  <CardTitle className="text-sm font-medium">Unassigned Trucks</CardTitle>
+                  <Truck className="h-4 w-4 text-warning" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-warning">
                     {availableDrivers.length}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Trucks per Dispatcher</CardTitle>
+                  <Truck className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">
+                    {dispatchers.filter(d => d.drivers.length > 0).length > 0 
+                      ? (dispatchers.reduce((total, d) => total + d.drivers.length, 0) / 
+                         dispatchers.filter(d => d.drivers.length > 0).length).toFixed(1)
+                      : '0'}
                   </div>
                 </CardContent>
               </Card>
@@ -393,7 +408,7 @@ const Fleets = () => {
                         {dispatcherFleet.dispatcher.ext && (
                           <span className="text-sm font-normal text-muted-foreground">ext {dispatcherFleet.dispatcher.ext}</span>
                         )}
-                        <Badge variant="secondary">{filteredDrivers.length} drivers</Badge>
+                        <Badge variant="secondary">{filteredDrivers.length} trucks</Badge>
                         {snapshot.isDraggingOver && (
                           <Badge variant="outline" className="animate-pulse">Drop here</Badge>
                         )}
