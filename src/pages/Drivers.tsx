@@ -29,7 +29,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { useCompanies } from "@/hooks/useCompanies";
 interface DriverFormData {
-  name: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   email: string;
   company_id: string;
@@ -89,7 +90,8 @@ const Drivers = () => {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
-    name: "",
+    first_name: "",
+    last_name: "",
     phone: "",
     email: "",
     company_id: "",
@@ -208,7 +210,8 @@ const Drivers = () => {
   };
   const resetForm = () => {
     setFormData({
-      name: "",
+      first_name: "",
+      last_name: "",
       phone: "",
       email: "",
       company_id: "",
@@ -250,7 +253,9 @@ const Drivers = () => {
         data: driverData,
         error
       } = await supabase.from('drivers').insert({
-        name: formData.name,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        name: `${formData.first_name} ${formData.last_name}`.trim(),
         phone: formData.phone || null,
         email: formData.email || null,
         company_id: formData.company_id || null,
@@ -416,7 +421,9 @@ const Drivers = () => {
       const {
         error
       } = await supabase.from('drivers').update({
-        name: formData.name,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        name: `${formData.first_name} ${formData.last_name}`.trim(),
         phone: formData.phone || null,
         email: formData.email || null,
         emergency_contact_name: formData.emergency_contact_name || null,
@@ -619,7 +626,7 @@ const Drivers = () => {
       }
       toast({
         title: "Success",
-        description: `${formData.name} has been marked as done and removed from active drivers`
+        description: `${formData.first_name} ${formData.last_name} has been marked as done and removed from active drivers`
       });
       setTerminationNote("");
       setShowNoteDialog(false);
@@ -662,7 +669,7 @@ const Drivers = () => {
       if (driverError) throw driverError;
       toast({
         title: "Success",
-        description: `${formData.name} has been reactivated`
+        description: `${formData.first_name} ${formData.last_name} has been reactivated`
       });
       resetForm();
       setIsEditDialogOpen(false);
@@ -787,7 +794,8 @@ const Drivers = () => {
       sensitivePIIData = data;
     }
     setFormData({
-      name: driver.name || "",
+      first_name: driver.first_name || "",
+      last_name: driver.last_name || "",
       phone: driver.phone || "",
       email: driver.email || "",
       company_id: driver.company_id || "",
@@ -866,12 +874,19 @@ const Drivers = () => {
               <TabsContent value="info">
                 <form onSubmit={handleAddDriver} className="space-y-4">
                   <div className="grid grid-cols-12 gap-4">
-                    <div className="space-y-2 col-span-3">
-                      <Label htmlFor="name">Name*</Label>
-                      <Input id="name" value={formData.name} onChange={e => setFormData({
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="first_name">First Name*</Label>
+                      <Input id="first_name" value={formData.first_name} onChange={e => setFormData({
                       ...formData,
-                      name: e.target.value
-                    })} placeholder="John Smith" required />
+                      first_name: e.target.value
+                    })} placeholder="John" required />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label htmlFor="last_name">Last Name*</Label>
+                      <Input id="last_name" value={formData.last_name} onChange={e => setFormData({
+                      ...formData,
+                      last_name: e.target.value
+                    })} placeholder="Smith" required />
                     </div>
                     <div className="space-y-2 col-span-3">
                       <Label htmlFor="phone">Phone</Label>
@@ -880,7 +895,7 @@ const Drivers = () => {
                       phone: e.target.value
                     })} placeholder="(555) 123-4567" />
                     </div>
-                    <div className="space-y-2 col-span-6">
+                    <div className="space-y-2 col-span-4">
                       <Label htmlFor="email">Email</Label>
                       <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
                       ...formData,
@@ -1144,7 +1159,7 @@ const Drivers = () => {
                 <div className="space-y-4">
                   <DriverFilesManager 
                     driverId={newlyCreatedDriverId} 
-                    driverName={formData.name}
+                    driverName={`${formData.first_name} ${formData.last_name}`.trim()}
                   />
                   <div className="flex justify-end gap-3 mt-4">
                     <Button 
@@ -1405,12 +1420,19 @@ const Drivers = () => {
             <TabsContent value="info">
               <form onSubmit={handleEditDriver} className="space-y-4">
                 <div className="grid grid-cols-12 gap-4">
-                  <div className="space-y-2 col-span-3">
-                    <Label htmlFor="edit_name">Name*</Label>
-                    <Input id="edit_name" value={formData.name} onChange={e => setFormData({
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="edit_first_name">First Name*</Label>
+                    <Input id="edit_first_name" value={formData.first_name} onChange={e => setFormData({
                     ...formData,
-                    name: e.target.value
-                  })} placeholder="John Smith" required />
+                    first_name: e.target.value
+                  })} placeholder="John" required />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="edit_last_name">Last Name*</Label>
+                    <Input id="edit_last_name" value={formData.last_name} onChange={e => setFormData({
+                    ...formData,
+                    last_name: e.target.value
+                  })} placeholder="Smith" required />
                   </div>
                   <div className="space-y-2 col-span-3">
                     <Label htmlFor="edit_phone">Phone</Label>
@@ -1419,7 +1441,7 @@ const Drivers = () => {
                     phone: e.target.value
                   })} placeholder="(555) 123-4567" />
                   </div>
-                  <div className="space-y-2 col-span-6">
+                  <div className="space-y-2 col-span-4">
                     <Label htmlFor="edit_email">Email</Label>
                     <Input id="edit_email" type="email" value={formData.email} onChange={e => setFormData({
                     ...formData,
