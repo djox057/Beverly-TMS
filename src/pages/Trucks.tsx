@@ -26,7 +26,6 @@ interface TruckFormData {
   trailer_id: string;
   driver_id: string;
   driver2_id: string;
-  company_id: string;
   ipass: string;
   dot_inspection_date: string;
   plate_expiration_date: string;
@@ -50,7 +49,6 @@ const Trucks = () => {
     trailer_id: "",
     driver_id: "",
     driver2_id: "",
-    company_id: "",
     ipass: "",
     dot_inspection_date: "",
     plate_expiration_date: "",
@@ -79,7 +77,7 @@ const Trucks = () => {
   } = useFleetManagement();
 
   // Filter trucks based on search term
-  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
@@ -99,7 +97,6 @@ const Trucks = () => {
       trailer_id: "",
       driver_id: "",
       driver2_id: "",
-      company_id: "",
       ipass: "",
       dot_inspection_date: "",
       plate_expiration_date: "",
@@ -126,7 +123,6 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
-        company_id: formData.company_id || null,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -198,7 +194,6 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
-        company_id: formData.company_id || null,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -279,7 +274,6 @@ const Trucks = () => {
       trailer_id: truck.trailer_id || "",
       driver_id: truck.driver1_id || "",
       driver2_id: truck.driver2_id || "",
-      company_id: truck.company_id || "",
       ipass: truck.ipass || "",
       dot_inspection_date: truck.dot_inspection_date || "",
       plate_expiration_date: truck.plate_expiration_date || "",
@@ -341,23 +335,6 @@ const Trucks = () => {
                   ...formData,
                   vin: e.target.value
                 })} placeholder="1HGBH41JXMN109186" maxLength={17} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="company_id">Company</Label>
-                  <Combobox
-                    options={companyOptions}
-                    value={formData.company_id}
-                    onValueChange={value => setFormData({
-                      ...formData,
-                      company_id: value
-                    })}
-                    placeholder="Select company"
-                    searchPlaceholder="Search companies..."
-                    emptyText="No company found."
-                  />
                 </div>
               </div>
 
@@ -474,7 +451,6 @@ const Trucks = () => {
                 <TableRow>
                   <TableHead className="text-center">Truck #</TableHead>
                   <TableHead className="text-center">VIN</TableHead>
-                  <TableHead className="text-center">Company</TableHead>
                   <TableHead className="text-center">Trailer #</TableHead>
                   <TableHead className="text-center">Driver 1</TableHead>
                   <TableHead className="text-center">Driver 2</TableHead>
@@ -488,7 +464,7 @@ const Trucks = () => {
               </TableHeader>
               <TableBody>
                   {paginatedTrucks.length === 0 ? <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow> : (
@@ -496,7 +472,6 @@ const Trucks = () => {
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
                         <TableCell className="font-medium text-center">{truck.truck_number}</TableCell>
                         <TableCell className="font-mono text-sm text-center">{truck.vin || "—"}</TableCell>
-                        <TableCell className="text-center">{truck.company?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.trailer?.trailer_number || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
@@ -669,23 +644,6 @@ const Trucks = () => {
                     ...formData,
                     vin: e.target.value
                   })} placeholder="1HGBH41JXMN109186" maxLength={17} />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_company_id">Company</Label>
-                    <Combobox
-                      options={companyOptions}
-                      value={formData.company_id}
-                      onValueChange={value => setFormData({
-                        ...formData,
-                        company_id: value
-                      })}
-                      placeholder="Select company"
-                      searchPlaceholder="Search companies..."
-                      emptyText="No company found."
-                    />
                   </div>
                 </div>
 
