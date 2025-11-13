@@ -813,13 +813,13 @@ const Analytics = () => {
                         className="text-right cursor-pointer hover:bg-muted/50"
                         onClick={() => handleSort("cut")}
                       >
-                        Cut {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
+                        Comm. {sortBy === "cut" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
                       <TableHead
                         className="text-right cursor-pointer hover:bg-muted/50"
                         onClick={() => handleSort("cutPercent")}
                       >
-                        Cut % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
+                        Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
