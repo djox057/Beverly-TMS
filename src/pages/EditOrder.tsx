@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse, Download } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse, Download, Eye } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -2091,7 +2091,7 @@ const EditOrder = () => {
                       <span className="text-sm">
                         {file.file_name} ({file.file_category || "ADDITIONAL"})
                       </span>
-                      <Button type="button" variant="outline" size="sm" onClick={async () => {
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
                   const {
                     data,
                     error
@@ -2137,7 +2137,7 @@ const EditOrder = () => {
                     });
                   }
                 }}>
-                        View
+                        <Eye className="h-4 w-4" />
                       </Button>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
                   const {
