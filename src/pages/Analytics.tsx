@@ -83,6 +83,7 @@ const Analytics = () => {
         email: string;
         office: string | null;
         roles: string[];
+        user_id: string;
       }
     >
   >({});
@@ -130,6 +131,7 @@ const Analytics = () => {
                 email: p.email,
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
+                user_id: p.user_id,
               };
             }
             if (p.user_id) {
@@ -137,6 +139,7 @@ const Analytics = () => {
                 email: p.email,
                 office: p.office,
                 roles: rolesMap[p.user_id] || [],
+                user_id: p.user_id,
               };
             }
             return acc;
@@ -147,6 +150,7 @@ const Analytics = () => {
               email: string;
               office: string | null;
               roles: string[];
+              user_id: string;
             }
           >,
         );
@@ -473,10 +477,8 @@ const Analytics = () => {
       const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
       const dispatcherProfile = dispatcherProfiles[name];
       
-      // Get dispatcher user_id from profiles to match with driver counts
-      const dispatcherUserId = Object.keys(dispatcherProfiles).find(
-        key => dispatcherProfiles[key].email === name || key === name
-      );
+      // Get dispatcher user_id from the profile - name can be either full_name or user_id
+      const dispatcherUserId = dispatcherProfile?.user_id;
       const driverCountData = dispatcherUserId ? dispatcherDriverCounts[dispatcherUserId] : null;
       const avgDrivers = driverCountData 
         ? driverCountData.totalDrivers / driverCountData.daysCount 
