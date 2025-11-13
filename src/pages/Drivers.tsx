@@ -26,6 +26,7 @@ import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
+import { useCompanies } from "@/hooks/useCompanies";
 interface DriverFormData {
   name: string;
   phone: string;
@@ -131,6 +132,7 @@ const Drivers = () => {
   const {
     allDispatchers
   } = useFleetManagement();
+  const { data: companies } = useCompanies();
 
   // Fetch termination notes for the editing driver
   const [terminationNotes, setTerminationNotes] = useState<any[]>([]);
@@ -779,6 +781,14 @@ const Drivers = () => {
             <DialogHeader>
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
+            
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="info">Driver Info</TabsTrigger>
+                <TabsTrigger value="files">Driver Files</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="info">
             <form onSubmit={handleAddDriver} className="space-y-4">
               <ScrollArea className="h-[calc(90vh-180px)] pr-4">
               <div className="grid grid-cols-12 gap-4">
@@ -795,7 +805,18 @@ const Drivers = () => {
                   ...formData,
                   phone: e.target.value
                 })} placeholder="(555) 123-4567" />
-                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="company">Company*</Label>
+                <Combobox
+                  options={(companies || []).map(company => ({ value: company.id, label: company.name }))}
+                  value={formData.company_id}
+                  onValueChange={value => setFormData({ ...formData, company_id: value })}
+                  placeholder="Select company..."
+                  emptyText="No companies found"
+                />
+              </div>
                 <div className="space-y-2 col-span-6">
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
@@ -1017,6 +1038,18 @@ const Drivers = () => {
                 </Button>
               </div>
             </form>
+            </TabsContent>
+            
+            <TabsContent value="files">
+              {formData.name && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Note: Save the driver first to upload files. This tab will be available after creating the driver.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
@@ -1081,6 +1114,7 @@ const Drivers = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Company</TableHead>
                   <TableHead>Truck #</TableHead>
                   <TableHead>Trailer #</TableHead>
                   <TableHead>Dispatcher</TableHead>
@@ -1091,7 +1125,7 @@ const Drivers = () => {
               </TableHeader>
               <TableBody>
                 {paginatedDrivers.length === 0 ? <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
                   </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
@@ -1275,6 +1309,17 @@ const Drivers = () => {
                     email: e.target.value
                   })} placeholder="john.smith@company.com" />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_company">Company*</Label>
+                  <Combobox
+                    options={(companies || []).map(company => ({ value: company.id, label: company.name }))}
+                    value={formData.company_id}
+                    onValueChange={value => setFormData({ ...formData, company_id: value })}
+                    placeholder="Select company..."
+                    emptyText="No companies found"
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">

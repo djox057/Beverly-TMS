@@ -216,13 +216,13 @@ const NewOrder = () => {
   // Show all companies to all users for "Booked by company" dropdown
   const filteredCompanies = companies;
 
-  // Get company_id from selected truck only (not from booked by company)
-  const selectedTruck = trucks?.find(t => t.id === truck);
-  const truckCompanyId = selectedTruck?.company_id;
+  // Get company_id from selected driver1 (not from truck)
+  const selectedDriver1 = allDrivers?.find(d => d.id === driver1);
+  const driverCompanyId = selectedDriver1?.company_id;
   const {
     data: nextInternalLoadNumber,
     isLoading: loadingNextNumber
-  } = useNextInternalLoadNumber(truckCompanyId);
+  } = useNextInternalLoadNumber(driverCompanyId);
 
   // Get the first pickup datetime for DH miles calculation
   const firstPickupDatetime = pickupsDrops.find(item => item.type === 'pickup')?.datetime || null;
@@ -1011,16 +1011,15 @@ const NewOrder = () => {
       setIsSendingEmail(true);
 
       // Get driver email
-      const selectedDriver = drivers?.find(d => d.id === driver1);
-      if (!selectedDriver?.email) {
+      const driverForEmail = allDrivers?.find(d => d.id === driver1);
+      if (!driverForEmail?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
 
-      // Get truck company for email configuration
-      const selectedTruck = trucks?.find(t => t.id === truck);
-      const companyName = selectedTruck?.company?.name;
+      // Get driver company for email configuration
+      const companyName = driverForEmail?.company?.name;
       if (!companyName) {
-        throw new Error("Truck company not found. Cannot determine sender email.");
+        throw new Error("Driver company not found. Cannot determine sender email.");
       }
       const emailConfig = COMPANY_EMAIL_CONFIG[companyName];
       if (!emailConfig) {
@@ -1043,7 +1042,7 @@ const NewOrder = () => {
             const base64Content = base64data.split(',')[1]; // Remove data:type;base64, prefix
 
             console.log('📧 Sending email with file:', emailFile.name);
-            console.log('📧 To:', selectedDriver.email);
+            console.log('📧 To:', driverForEmail.email);
             console.log('📧 From:', emailConfig.sender);
             console.log('📧 CC:', emailConfig.cc);
             console.log('📧 Subject:', subject);
@@ -1061,7 +1060,7 @@ const NewOrder = () => {
                 'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`
               },
               body: JSON.stringify({
-                to: selectedDriver.email,
+                to: driverForEmail.email,
                 from: emailConfig.sender,
                 cc: emailConfig.cc,
                 subject: subject,
@@ -1081,7 +1080,7 @@ const NewOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}`
+              description: `File sent to ${driverForEmail.email}`
             });
             resolve(true);
           } catch (err) {
@@ -1554,10 +1553,10 @@ const NewOrder = () => {
       });
       return;
     }
-    if (!truck) {
+    if (!driver1) {
       toast({
-        title: "Truck Required",
-        description: "Please select a truck. The internal load number is based on the truck's company.",
+        title: "Driver Required",
+        description: "Please select a driver. The internal load number is based on the driver's company.",
         variant: "destructive"
       });
       return;
@@ -1582,8 +1581,8 @@ const NewOrder = () => {
       // Create order data object for the atomic function
       const orderData = {
         load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
-        company_id: truckCompanyId,
-        // Truck's company for internal load numbering
+        company_id: driverCompanyId,
+        // Driver's company for internal load numbering
         booked_by_company_id: finalBookedByCompany,
         // Company that booked the order (defaults to BF Prime LLC)
         broker_id: broker || null,
@@ -1641,13 +1640,13 @@ const NewOrder = () => {
       // Log order data for debugging
       console.log('📝 Creating order with data:', {
         ...orderData,
-        company_id: truckCompanyId,
-        truck_company: selectedTruck?.company?.name
+        company_id: driverCompanyId,
+        driver_company: selectedDriver1?.company?.name
       });
 
       // Validate company_id exists
-      if (!truckCompanyId) {
-        throw new Error('Cannot create order: Selected truck has no company assigned. Please select a different truck or assign a company to this truck.');
+      if (!driverCompanyId) {
+        throw new Error('Cannot create order: Selected driver has no company assigned. Please select a different driver or assign a company to this driver.');
       }
 
       // Use the atomic function to create order with unique internal load number

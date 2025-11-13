@@ -1267,12 +1267,16 @@ const EditOrder = () => {
           dateWasChanged = true;
         }
       }
+      
+      // Get company from selected driver (driver1)
+      const selectedDriver1 = drivers?.find(d => d.id === driver1);
+      
       const {
         error: orderError
       } = await supabase.from("orders").update({
         broker_load_number: brokerLoadNumber || null,
         booked_by_company_id: bookedByCompany || null,
-        company_id: truck && trucks ? trucks.find(t => t.id === truck)?.company_id || null : null,
+        company_id: selectedDriver1?.company_id || null,
         broker_id: broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
