@@ -52,7 +52,7 @@ export const useDrivers = () => {
         while (true) {
           const { data, error } = await supabase
             .from('drivers')
-            .select('*, company:companies!company_id(id, name)')
+            .select('*, company:companies(id, name)')
             .order('name', { ascending: true })
             .range(from, from + batchSize - 1);
           
@@ -81,7 +81,7 @@ export const useDrivers = () => {
             truck_number, 
             driver1_id, 
             driver2_id,
-            trailer:trailers!trailer_id(trailer_number)
+            trailer:trailers(trailer_number)
           `);
         
         if (trucksError) {

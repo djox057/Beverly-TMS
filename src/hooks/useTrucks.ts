@@ -59,10 +59,10 @@ export const useTrucks = () => {
             .from('trucks')
             .select(`
               *,
-              trailer:trailers!trailer_id(id, trailer_number, trailer_type),
-              driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id, company:companies!company_id(id, name)),
-              driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id, company:companies!company_id(id, name)),
-              company:companies!company_id(id, name)
+              trailer:trailers(id, trailer_number, trailer_type),
+              driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id),
+              driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id),
+              company:companies(id, name)
             `)
             .order('truck_number')
             .range(from, from + batchSize - 1);
@@ -95,23 +95,63 @@ export const useTrucks = () => {
           throw dispatcherError;
         }
         
-        // Map dispatcher info to trucks based on driver1.dispatcher_id
-        // Also use driver1's company as truck's company for display
+        // Fetch companies for drivers
+        const driverCompanyIds = new Set(
+          allTrucks
+            .flatMap(truck => [truck.driver1?.dispatcher_id, truck.driver2?.dispatcher_id])
+            .filter(Boolean)
+        );
+        
+        const { data: companies, error: companiesError } = await supabase
+          .from('companies')
+          .select('id, name');
+        
+        if (companiesError) {
+          console.error('❌ Error fetching companies:', companiesError);
+        }
+        
+        // Map dispatcher info and company info to trucks
         const trucksWithDispatchers = allTrucks.map(truck => {
           const dispatcherId = truck.driver1?.dispatcher_id;
           const dispatcher = dispatcherId 
             ? dispatchers?.find(d => d.user_id === dispatcherId)
             : null;
           
+          // Get company info for driver1
+          let driver1WithCompany = truck.driver1;
+          if (truck.driver1 && companies) {
+            const driverCompany = companies.find(c => c.id === truck.driver1.company_id);
+            if (driverCompany) {
+              driver1WithCompany = {
+                ...truck.driver1,
+                company: driverCompany
+              };
+            }
+          }
+          
+          // Get company info for driver2
+          let driver2WithCompany = truck.driver2;
+          if (truck.driver2 && companies) {
+            const driverCompany = companies.find(c => c.id === truck.driver2.company_id);
+            if (driverCompany) {
+              driver2WithCompany = {
+                ...truck.driver2,
+                company: driverCompany
+              };
+            }
+          }
+          
           return {
             ...truck,
+            driver1: driver1WithCompany,
+            driver2: driver2WithCompany,
             dispatcher: dispatcher ? {
               id: dispatcher.user_id,
               full_name: dispatcher.full_name,
               email: dispatcher.email
             } : null,
-            // Override company with driver's company for display purposes
-            company: truck.driver1?.company || truck.company
+            // Use driver's company for display if available, otherwise truck's company
+            company: driver1WithCompany?.company || truck.company
           };
         });
         
