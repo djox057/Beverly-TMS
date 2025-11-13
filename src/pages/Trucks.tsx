@@ -451,6 +451,7 @@ const Trucks = () => {
                 <TableRow>
                   <TableHead className="text-center">Truck #</TableHead>
                   <TableHead className="text-center">VIN</TableHead>
+                  <TableHead className="text-center">Company</TableHead>
                   <TableHead className="text-center">Trailer #</TableHead>
                   <TableHead className="text-center">Driver 1</TableHead>
                   <TableHead className="text-center">Driver 2</TableHead>
@@ -464,7 +465,7 @@ const Trucks = () => {
               </TableHeader>
               <TableBody>
                   {paginatedTrucks.length === 0 ? <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No trucks found
                     </TableCell>
                   </TableRow> : (
@@ -472,6 +473,7 @@ const Trucks = () => {
                       {paginatedTrucks.map(truck => <TableRow key={truck.id}>
                         <TableCell className="font-medium text-center">{truck.truck_number}</TableCell>
                         <TableCell className="font-mono text-sm text-center">{truck.vin || "—"}</TableCell>
+                        <TableCell className="text-center">{truck.driver1?.company?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.trailer?.trailer_number || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver1?.name || "—"}</TableCell>
                         <TableCell className="text-center">{truck.driver2?.name || "—"}</TableCell>
