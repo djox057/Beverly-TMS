@@ -74,6 +74,7 @@ export const useDrivers = () => {
         console.log(`✅ Total drivers fetched: ${allDrivers.length}`);
         
         // Fetch trucks separately to avoid RLS issues with reverse joins
+        console.log('🔍 FETCHING TRUCKS DATA...');
         const { data: trucksData, error: trucksError } = await supabase
           .from('trucks')
           .select(`
@@ -89,6 +90,18 @@ export const useDrivers = () => {
         }
         
         console.log(`✅ Fetched ${trucksData?.length || 0} trucks for driver mapping`);
+        console.log('🔍 RAW TRUCKS DATA SAMPLE (first 3):');
+        console.log(JSON.stringify(trucksData?.slice(0, 3), null, 2));
+        
+        // Check how many trucks have trailer data
+        const trucksWithTrailers = trucksData?.filter(t => t.trailer !== null) || [];
+        const trucksWithoutTrailers = trucksData?.filter(t => t.trailer === null) || [];
+        console.log(`🔍 TRUCKS WITH TRAILER DATA: ${trucksWithTrailers.length}`);
+        console.log(`🔍 TRUCKS WITHOUT TRAILER DATA: ${trucksWithoutTrailers.length}`);
+        if (trucksWithTrailers.length > 0) {
+          console.log('🔍 SAMPLE TRUCK WITH TRAILER:');
+          console.log(JSON.stringify(trucksWithTrailers[0], null, 2));
+        }
         
         // Fetch dispatcher info
         const { data: dispatchers, error: dispatchersError } = await supabase
@@ -123,6 +136,7 @@ export const useDrivers = () => {
         }
         
         // Create a Map for faster truck lookups
+        console.log('🔍 CREATING TRUCK MAP BY DRIVER ID...');
         const trucksByDriverId = new Map();
         if (trucksData) {
           trucksData.forEach(truck => {
@@ -130,13 +144,15 @@ export const useDrivers = () => {
             if (truck.driver2_id) trucksByDriverId.set(truck.driver2_id, truck);
           });
         }
+        console.log(`🔍 TRUCK MAP SIZE: ${trucksByDriverId.size}`);
         
         // Transform the data to flatten truck/trailer and dispatcher info
-        const transformedData = allDrivers.map(driver => {
+        console.log('🔍 TRANSFORMING DRIVER DATA...');
+        const transformedData = allDrivers.map((driver, index) => {
           const truck = trucksByDriverId.get(driver.id);
           const dispatcher = dispatchers?.find(d => d.user_id === driver.dispatcher_id);
           
-          return {
+          const transformed = {
             ...driver,
             truck_info: truck ? {
               truck_number: truck.truck_number,
@@ -148,9 +164,33 @@ export const useDrivers = () => {
             } : null,
             has_account: driver.email ? driverEmails.has(driver.email.toLowerCase()) : false
           };
+          
+          // Debug first driver with truck
+          if (index < 5 && truck) {
+            console.log(`🔍 DRIVER #${index} (${driver.name}):`);
+            console.log('  - Driver ID:', driver.id);
+            console.log('  - Truck found:', !!truck);
+            console.log('  - Truck number:', truck?.truck_number);
+            console.log('  - Trailer object:', truck?.trailer);
+            console.log('  - Trailer number extracted:', truck?.trailer?.trailer_number);
+            console.log('  - Final truck_info:', transformed.truck_info);
+          }
+          
+          return transformed;
         });
         
-        console.log('Sample transformed driver:', transformedData?.[0]);
+        console.log('🔍 TRANSFORMATION COMPLETE');
+        console.log('Sample transformed driver (first):', JSON.stringify(transformedData?.[0], null, 2));
+        
+        // Count drivers with complete data
+        const driversWithTrucks = transformedData.filter(d => d.truck_info !== null).length;
+        const driversWithTrailers = transformedData.filter(d => d.truck_info?.trailer_number !== null).length;
+        const driversWithDispatchers = transformedData.filter(d => d.dispatcher_info !== null).length;
+        console.log(`🔍 FINAL STATS:`);
+        console.log(`  - Drivers with trucks: ${driversWithTrucks}/${transformedData.length}`);
+        console.log(`  - Drivers with trailers: ${driversWithTrailers}/${transformedData.length}`);
+        console.log(`  - Drivers with dispatchers: ${driversWithDispatchers}/${transformedData.length}`);
+        
         return transformedData;
       }, 30000);
     },
