@@ -157,8 +157,9 @@ export const useDrivers = () => {
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Don't refetch on every mount
-    staleTime: 30000, // Data is fresh for 30 seconds
+    refetchOnMount: "always", // Always fetch fresh data when component mounts
+    staleTime: 0, // Consider data stale immediately to ensure fresh data is fetched
     gcTime: 600000, // Keep in memory for 10 minutes
+    placeholderData: (previousData) => previousData,
   });
 };
