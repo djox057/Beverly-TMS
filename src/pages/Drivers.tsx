@@ -81,6 +81,8 @@ const Drivers = () => {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
+  const [newlyCreatedDriverId, setNewlyCreatedDriverId] = useState<string | null>(null);
+  const [addDialogTab, setAddDialogTab] = useState<string>("info");
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     name: "",
@@ -231,6 +233,8 @@ const Drivers = () => {
       drugTestResult: null
     });
     setSelectedTruckId("");
+    setNewlyCreatedDriverId(null);
+    setAddDialogTab("info");
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +248,7 @@ const Drivers = () => {
         name: formData.name,
         phone: formData.phone || null,
         email: formData.email || null,
+        company_id: formData.company_id || null,
         emergency_contact_name: formData.emergency_contact_name || null,
         emergency_contact_relation: formData.emergency_contact_relation || null,
         emergency_contact_phone: formData.emergency_contact_phone || null,
@@ -321,8 +326,11 @@ const Drivers = () => {
         title: "Success",
         description: "Driver added successfully"
       });
-      resetForm();
-      setIsAddDialogOpen(false);
+      
+      // Set the newly created driver ID and switch to files tab
+      setNewlyCreatedDriverId(driverData.id);
+      setAddDialogTab("files");
+      
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
@@ -782,10 +790,10 @@ const Drivers = () => {
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
             
-            <Tabs defaultValue="info" className="w-full">
+            <Tabs value={addDialogTab} onValueChange={setAddDialogTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="info">Driver Info</TabsTrigger>
-                <TabsTrigger value="files">Driver Files</TabsTrigger>
+                <TabsTrigger value="files" disabled={!newlyCreatedDriverId}>Driver Files</TabsTrigger>
               </TabsList>
               
               <TabsContent value="info">
@@ -799,95 +807,111 @@ const Drivers = () => {
                   name: e.target.value
                 })} placeholder="John Smith" required />
                 </div>
-                <div className="space-y-2 col-span-3">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" value={formData.phone} onChange={e => setFormData({
-                  ...formData,
-                  phone: e.target.value
-                })} placeholder="(555) 123-4567" />
-              </div>
+            <div className="space-y-2 col-span-3">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={formData.phone} onChange={e => setFormData({
+              ...formData,
+              phone: e.target.value
+            })} placeholder="(555) 123-4567" />
+          </div>
+            <div className="space-y-2 col-span-6">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
+              ...formData,
+              email: e.target.value
+            })} placeholder="john.smith@company.com" />
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="company">Company*</Label>
-                <Combobox
-                  options={(companies || []).map(company => ({ value: company.id, label: company.name }))}
-                  value={formData.company_id}
-                  onValueChange={value => setFormData({ ...formData, company_id: value })}
-                  placeholder="Select company..."
-                  emptyText="No companies found"
-                />
-              </div>
-                <div className="space-y-2 col-span-6">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
-                  ...formData,
-                  email: e.target.value
-                })} placeholder="john.smith@company.com" />
-                </div>
-              </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
+              <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
+              ...formData,
+              emergency_contact_name: e.target.value
+            })} placeholder="Jane Doe" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_relation">Relation</Label>
+              <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
+              ...formData,
+              emergency_contact_relation: e.target.value
+            })} placeholder="Spouse" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
+              <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
+              ...formData,
+              emergency_contact_phone: e.target.value
+            })} placeholder="(555) 987-6543" />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
-                  <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
-                  ...formData,
-                  emergency_contact_name: e.target.value
-                })} placeholder="Jane Doe" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact_relation">Relation</Label>
-                  <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
-                  ...formData,
-                  emergency_contact_relation: e.target.value
-                })} placeholder="Spouse" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
-                  <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
-                  ...formData,
-                  emergency_contact_phone: e.target.value
-                })} placeholder="(555) 987-6543" />
-                </div>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="truck">Truck Number</Label>
+              <Combobox options={(availableTrucks || []).map(truck => ({
+              value: truck.id,
+              label: truck.truck_number
+            }))} value={formData.truck_id} onValueChange={value => {
+              const selectedTruck = availableTrucks?.find(truck => truck.id === value);
+              setFormData({
+                ...formData,
+                truck_id: value,
+                trailer_id: selectedTruck?.trailer_id || ""
+              });
+              setSelectedTruckId(value);
+            }} placeholder="Select truck..." emptyText="No available trucks" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trailer">Trailer Number</Label>
+              <Combobox options={(availableTrailers || []).map(trailer => ({
+              value: trailer.id,
+              label: trailer.trailer_number
+            }))} value={formData.trailer_id} onValueChange={value => setFormData({
+              ...formData,
+              trailer_id: value
+            })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
+            </div>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="truck">Truck Number</Label>
-                  <Combobox options={(availableTrucks || []).map(truck => ({
-                  value: truck.id,
-                  label: truck.truck_number
-                }))} value={formData.truck_id} onValueChange={value => {
-                  const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-                  setFormData({
-                    ...formData,
-                    truck_id: value,
-                    trailer_id: selectedTruck?.trailer_id || ""
-                  });
-                  setSelectedTruckId(value);
-                }} placeholder="Select truck..." emptyText="No available trucks" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="trailer">Trailer Number</Label>
-                  <Combobox options={(availableTrailers || []).map(trailer => ({
-                  value: trailer.id,
-                  label: trailer.trailer_number
-                }))} value={formData.trailer_id} onValueChange={value => setFormData({
-                  ...formData,
-                  trailer_id: value
-                })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
-                </div>
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="company">Company*</Label>
+            <Select
+              value={formData.company_id}
+              onValueChange={value => setFormData({ ...formData, company_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select company..." />
+              </SelectTrigger>
+              <SelectContent className="bg-background">
+                {(companies || []).map(company => (
+                  <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="dispatcher">Dispatcher</Label>
-                <Combobox
-                  options={allDispatchers.map(d => ({ value: d.id, label: d.full_name || d.email }))}
-                  value={formData.dispatcher_id}
-                  onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
-                  placeholder="Select dispatcher..."
-                  emptyText="No dispatchers found"
-                />
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="dispatcher">Dispatcher</Label>
+            <Select
+              value={formData.dispatcher_id}
+              onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select dispatcher..." />
+              </SelectTrigger>
+              <SelectContent className="bg-background">
+                {allDispatchers.map(d => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.full_name || d.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
               <div className="grid grid-cols-12 gap-4">
                 <div className="space-y-2 col-span-7">
@@ -1041,10 +1065,27 @@ const Drivers = () => {
             </TabsContent>
             
             <TabsContent value="files">
-              {formData.name && (
+              {newlyCreatedDriverId ? (
+                <div className="space-y-4">
+                  <DriverFilesManager 
+                    driverId={newlyCreatedDriverId} 
+                    driverName={formData.name}
+                  />
+                  <div className="flex justify-end gap-3 mt-4">
+                    <Button 
+                      onClick={() => {
+                        resetForm();
+                        setIsAddDialogOpen(false);
+                      }}
+                    >
+                      Done
+                    </Button>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Note: Save the driver first to upload files. This tab will be available after creating the driver.
+                    Please save the driver first to upload files.
                   </p>
                 </div>
               )}
