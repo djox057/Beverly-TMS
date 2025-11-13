@@ -60,8 +60,8 @@ export const useTrucks = () => {
             .select(`
               *,
               trailer:trailers!trailer_id(id, trailer_number, trailer_type),
-              driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id),
-              driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id),
+              driver1:drivers!trucks_driver1_id_fkey(id, name, dispatcher_id, company:companies!company_id(id, name)),
+              driver2:drivers!trucks_driver2_id_fkey(id, name, dispatcher_id, company:companies!company_id(id, name)),
               company:companies!company_id(id, name)
             `)
             .order('truck_number')
@@ -96,6 +96,7 @@ export const useTrucks = () => {
         }
         
         // Map dispatcher info to trucks based on driver1.dispatcher_id
+        // Also use driver1's company as truck's company for display
         const trucksWithDispatchers = allTrucks.map(truck => {
           const dispatcherId = truck.driver1?.dispatcher_id;
           const dispatcher = dispatcherId 
@@ -108,7 +109,9 @@ export const useTrucks = () => {
               id: dispatcher.user_id,
               full_name: dispatcher.full_name,
               email: dispatcher.email
-            } : null
+            } : null,
+            // Override company with driver's company for display purposes
+            company: truck.driver1?.company || truck.company
           };
         });
         

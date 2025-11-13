@@ -60,7 +60,7 @@ export const useRecoveryTrucks = () => {
           *,
           company:companies(name),
           trailer:trailers(trailer_number),
-          driver:drivers!trucks_driver1_id_fkey(id, name, is_recovery),
+          driver:drivers!trucks_driver1_id_fkey(id, name, is_recovery, company:companies!company_id(name)),
           left_by_driver:drivers!trucks_left_by_driver_id_fkey(id, name),
           dispatcher:drivers!trucks_dispatcher_id_fkey(name)
         `

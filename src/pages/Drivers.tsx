@@ -30,6 +30,7 @@ interface DriverFormData {
   name: string;
   phone: string;
   email: string;
+  company_id: string;
   emergency_contact_name: string;
   emergency_contact_relation: string;
   emergency_contact_phone: string;
@@ -84,6 +85,7 @@ const Drivers = () => {
     name: "",
     phone: "",
     email: "",
+    company_id: "",
     emergency_contact_name: "",
     emergency_contact_relation: "",
     emergency_contact_phone: "",
@@ -201,6 +203,7 @@ const Drivers = () => {
       name: "",
       phone: "",
       email: "",
+      company_id: "",
       emergency_contact_name: "",
       emergency_contact_relation: "",
       emergency_contact_phone: "",
@@ -710,6 +713,7 @@ const Drivers = () => {
       name: driver.name || "",
       phone: driver.phone || "",
       email: driver.email || "",
+      company_id: driver.company_id || "",
       emergency_contact_name: driver.emergency_contact_name || "",
       emergency_contact_relation: driver.emergency_contact_relation || "",
       emergency_contact_phone: driver.emergency_contact_phone || "",
