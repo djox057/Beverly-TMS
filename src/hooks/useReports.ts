@@ -390,7 +390,7 @@ export const useReports = () => {
     queryFn: async () => {
       return queryWithTimeout(async () => {
         // Fetch trucks with their drivers and company info
-        const { data: trucks, error: trucksError } = await supabase
+        const { data: trucksRaw, error: trucksError } = await supabase
           .from('trucks')
           .select(`
             *,
@@ -400,6 +400,14 @@ export const useReports = () => {
             company:companies(name)
           `)
           .order('id', { ascending: true });
+
+        if (trucksError) throw trucksError;
+
+        // Fallback to driver's company if truck doesn't have one
+        const trucks = trucksRaw?.map(truck => ({
+          ...truck,
+          company: truck.company || truck.driver1?.company || null
+        }));
 
         if (trucksError) throw trucksError;
 
