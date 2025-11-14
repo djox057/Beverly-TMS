@@ -1998,16 +1998,16 @@ const Reports = () => {
                               maxWidth: "77px",
                               ...getCompanyBackgroundColor(truck.companyName)
                             }}>
-                                        <div className="flex flex-col gap-0.5">
-                                          <div className="flex items-center gap-1">
-                                            {truck.truckNumber}
-                                            {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
-                                          </div>
-                                          {truck.companyName && (
-                                            <div className="text-[9px] opacity-60 leading-tight">
-                                              {truck.companyName}
-                                            </div>
-                                          )}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1 font-bold">
+                            {truck.truckNumber}
+                            {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                          </div>
+                          {truck.companyName && (
+                            <div className="text-[9px] opacity-60 leading-tight font-semibold">
+                              {truck.companyName}
+                            </div>
+                          )}
                                             {truck.hasMultipleOrders && <TooltipProvider>
                                                 <Tooltip>
                                                   <TooltipContent>
