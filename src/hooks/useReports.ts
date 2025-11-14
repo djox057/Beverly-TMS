@@ -1049,7 +1049,7 @@ export const useReports = () => {
       }
       
       return groupedData;
-      }, 30000);
+      });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
@@ -1057,6 +1057,7 @@ export const useReports = () => {
     gcTime: 600000, // Keep in memory for 10 minutes
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
+    refetchInterval: 60000, // Refresh every minute
   });
 
   return {
