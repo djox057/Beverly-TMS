@@ -19,6 +19,7 @@ import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { useToast } from "@/components/ui/use-toast";
@@ -216,6 +217,9 @@ const EditOrder = () => {
   const {
     data: drivers
   } = useDrivers();
+  const {
+    data: trailers
+  } = useTrailers();
   const [profiles, setProfiles] = useState<Array<{
     id: string;
     full_name: string;
@@ -1184,6 +1188,10 @@ const EditOrder = () => {
     value: truck.id,
     label: truck.truck_number
   })) || [];
+  const trailerOptions = trailers?.map(trailer => ({
+    value: trailer.id,
+    label: trailer.trailer_number
+  })) || [];
   const driverOptions = drivers?.map(driver => ({
     value: driver.id,
     label: driver.name
@@ -1608,7 +1616,7 @@ const EditOrder = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer #</Label>
-                <Input id="trailer" placeholder="Trailer number" value={trailer} onChange={e => setTrailer(e.target.value)} />
+                <Combobox options={trailerOptions} value={trailerId} onValueChange={setTrailerId} placeholder="Select trailer" searchPlaceholder="Search trailers..." />
               </div>
             </div>
 
