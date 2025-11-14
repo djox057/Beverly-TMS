@@ -239,6 +239,33 @@ export type Database = {
           },
         ]
       }
+      dispatcher_daily_driver_counts: {
+        Row: {
+          created_at: string
+          date: string
+          dispatcher_id: string
+          driver_count: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          dispatcher_id: string
+          driver_count?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          dispatcher_id?: string
+          driver_count?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dispatcher_status: {
         Row: {
           created_at: string
@@ -495,12 +522,14 @@ export type Database = {
           cdl_expiration_date: string | null
           cdl_number: string | null
           clearing_house: string | null
+          company_id: string | null
           created_at: string
           dispatcher_id: string | null
           email: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           emergency_contact_relation: string | null
+          first_name: string | null
           hire_date: string | null
           home_address: string | null
           home_city: string | null
@@ -516,10 +545,11 @@ export type Database = {
           id: string
           is_active: boolean
           is_recovery: boolean | null
+          last_name: string | null
           license_number: string | null
           medical_card_expiration_date: string | null
           mvr_date: string | null
-          name: string
+          name: string | null
           phone: string | null
           termination_date: string | null
           two_week_block_date: string | null
@@ -529,12 +559,14 @@ export type Database = {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
+          company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
+          first_name?: string | null
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -550,10 +582,11 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_recovery?: boolean | null
+          last_name?: string | null
           license_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
-          name: string
+          name?: string | null
           phone?: string | null
           termination_date?: string | null
           two_week_block_date?: string | null
@@ -563,12 +596,14 @@ export type Database = {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
+          company_id?: string | null
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
+          first_name?: string | null
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -584,16 +619,25 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_recovery?: boolean | null
+          last_name?: string | null
           license_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
-          name?: string
+          name?: string | null
           phone?: string | null
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "drivers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       geocoding_cache: {
         Row: {
