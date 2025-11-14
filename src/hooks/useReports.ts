@@ -412,10 +412,10 @@ export const useReports = () => {
 
         if (trucksError) throw trucksError;
 
-        // Fallback to driver's company if truck doesn't have one
+        // Prioritize driver's company over truck's company
         const trucks = trucksRaw?.map(truck => ({
           ...truck,
-          company: truck.company || truck.driver1?.company || null
+          company: truck.driver1?.company || truck.company || null
         }));
 
         if (trucksError) throw trucksError;
