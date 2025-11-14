@@ -1269,15 +1269,14 @@ const EditOrder = () => {
         }
       }
       
-      // Get company from selected driver (driver1)
+      // Get company from selected truck or driver (driver1), or preserve existing
+      const selectedTruck = trucks?.find(t => t.id === truck);
       const selectedDriver1 = drivers?.find(d => d.id === driver1);
+      const companyId = selectedTruck?.company_id || selectedDriver1?.company_id;
       
-      const {
-        error: orderError
-      } = await supabase.from("orders").update({
+      const updateData: any = {
         broker_load_number: brokerLoadNumber || null,
         booked_by_company_id: bookedByCompany || null,
-        company_id: selectedDriver1?.company_id || null,
         broker_id: broker || null,
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
@@ -1318,7 +1317,16 @@ const EditOrder = () => {
         date_change_notes: updatedDateChangeNotes || null,
         canceled: Boolean(tonu && parseFloat(tonu) > 0),
         locked: Boolean(tonu && parseFloat(tonu) > 0) || isLocked
-      }).eq("id", id);
+      };
+      
+      // Only update company_id if we have a new one, otherwise preserve existing
+      if (companyId) {
+        updateData.company_id = companyId;
+      }
+      
+      const {
+        error: orderError
+      } = await supabase.from("orders").update(updateData).eq("id", id);
       if (orderError) throw orderError;
 
       // Upload new files if any
