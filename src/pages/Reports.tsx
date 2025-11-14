@@ -2002,6 +2002,12 @@ const Reports = () => {
                                           <div className="flex items-center gap-1">
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                                          </div>
+                                          {truck.companyName && (
+                                            <div className="text-[9px] opacity-60 leading-tight">
+                                              {truck.companyName}
+                                            </div>
+                                          )}
                                             {truck.hasMultipleOrders && <TooltipProvider>
                                                 <Tooltip>
                                                   <TooltipContent>
@@ -2013,8 +2019,6 @@ const Reports = () => {
                                                 </Tooltip>
                                               </TooltipProvider>}
                                           </div>
-                                          
-                                        </div>
                                       </td>
                       <td className={`border-r border-b-[6px] border-gray-400 px-2 py-1 text-xs ${shouldShowDrugTestUI ? "cursor-pointer hover:opacity-80" : ""}`} style={{
                               width: "163px",
