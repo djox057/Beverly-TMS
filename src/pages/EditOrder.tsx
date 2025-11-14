@@ -1470,6 +1470,12 @@ const EditOrder = () => {
         setDateChangeNotes(updatedDateChangeNotes);
       }
 
+      // Show success message
+      toast({
+        title: "Success",
+        description: "Load updated successfully",
+      });
+
       // Navigate back to where we came from
       const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
       const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
