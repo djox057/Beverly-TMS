@@ -27,6 +27,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
+import { useQueryClient } from "@tanstack/react-query";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -55,6 +56,7 @@ const EditOrder = () => {
     profile,
     hasRole
   } = useAuthContext();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [returnToReports, setReturnToReports] = useState(false);
@@ -1467,6 +1469,9 @@ const EditOrder = () => {
           if (deleteError) throw deleteError;
         }
       }
+      // Invalidate orders cache to refresh data across all pages
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      
       toast({
         title: "Success",
         description: "Load updated successfully"
@@ -1477,12 +1482,6 @@ const EditOrder = () => {
         setOriginalDeliveryDate(new Date(newDeliveryDatetime));
         setDateChangeNotes(updatedDateChangeNotes);
       }
-
-      // Show success message
-      toast({
-        title: "Success",
-        description: "Load updated successfully",
-      });
 
       // Navigate back to where we came from
       const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
