@@ -1103,6 +1103,7 @@ export type Database = {
         Row: {
           address: string
           arrived_at: string | null
+          checked_out_at: string | null
           city: string | null
           company_name: string | null
           contact_name: string | null
@@ -1123,6 +1124,7 @@ export type Database = {
         Insert: {
           address: string
           arrived_at?: string | null
+          checked_out_at?: string | null
           city?: string | null
           company_name?: string | null
           contact_name?: string | null
@@ -1143,6 +1145,7 @@ export type Database = {
         Update: {
           address?: string
           arrived_at?: string | null
+          checked_out_at?: string | null
           city?: string | null
           company_name?: string | null
           contact_name?: string | null

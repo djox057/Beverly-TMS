@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
+import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { useNavigate } from "react-router-dom";
@@ -405,6 +406,7 @@ const Reports = () => {
     updatePickupDrop,
     updateLostDayNote,
     updatePickupDropArrival,
+    updateCheckInOutTimes,
     markGoingToPickup,
     markGoingToDelivery,
   } = useReports();
@@ -474,6 +476,13 @@ const Reports = () => {
   const [arrivalTimeDialog, setArrivalTimeDialog] = useState<{
     pickupDropId: string;
     type: "pickup" | "delivery";
+  } | null>(null);
+  
+  const [checkInOutDialog, setCheckInOutDialog] = useState<{
+    pickupDropId: string;
+    type: "pickup" | "delivery";
+    checkInTime: string | null;
+    checkOutTime: string | null;
   } | null>(null);
   const [homeTimeDialog, setHomeTimeDialog] = useState<{
     truckId: string;
@@ -3426,8 +3435,27 @@ const Reports = () => {
                             {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                           {stop.arrived_at && (
-                            <div className="text-sm text-green-600 dark:text-green-400">
-                              Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
+                            <div className="flex items-center gap-2 justify-between">
+                              <div className="text-sm text-green-600 dark:text-green-400">
+                                <div>Check in: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}</div>
+                                {stop.checked_out_at && (
+                                  <div>Check out: {formatDateTime(stop.checked_out_at, "MM/dd/yyyy, HH:mm")}</div>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCheckInOutDialog({
+                                    pickupDropId: stop.id,
+                                    type: "pickup",
+                                    checkInTime: stop.arrived_at,
+                                    checkOutTime: stop.checked_out_at || null,
+                                  });
+                                }}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -3539,8 +3567,27 @@ const Reports = () => {
                             {formatTimeRange(stop.datetime, stop.end_datetime)}
                           </div>
                           {stop.arrived_at && (
-                            <div className="text-sm text-green-600 dark:text-green-400">
-                              Arrived: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}
+                            <div className="flex items-center gap-2 justify-between">
+                              <div className="text-sm text-green-600 dark:text-green-400">
+                                <div>Check in: {formatDateTime(stop.arrived_at, "MM/dd/yyyy, HH:mm")}</div>
+                                {stop.checked_out_at && (
+                                  <div>Check out: {formatDateTime(stop.checked_out_at, "MM/dd/yyyy, HH:mm")}</div>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCheckInOutDialog({
+                                    pickupDropId: stop.id,
+                                    type: "delivery",
+                                    checkInTime: stop.arrived_at,
+                                    checkOutTime: stop.checked_out_at || null,
+                                  });
+                                }}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -3887,6 +3934,29 @@ const Reports = () => {
           }
         }}
         title={arrivalTimeDialog?.type === "pickup" ? "Arrival at Pickup" : "Arrival at Delivery"}
+      />
+
+      {/* Check In/Out Time Dialog */}
+      <CheckInOutTimeDialog
+        open={!!checkInOutDialog}
+        onOpenChange={(open) => {
+          if (!open) setCheckInOutDialog(null);
+        }}
+        onConfirm={(checkInTime, checkOutTime) => {
+          if (checkInOutDialog) {
+            updateCheckInOutTimes.mutate({
+              pickupDropId: checkInOutDialog.pickupDropId,
+              checkInTime,
+              checkOutTime,
+            });
+            toast({
+              title: `Updated check in/out times for ${checkInOutDialog.type}`,
+            });
+          }
+        }}
+        title={checkInOutDialog?.type === "pickup" ? "Pickup Check In/Out Times" : "Delivery Check In/Out Times"}
+        checkInTime={checkInOutDialog?.checkInTime}
+        checkOutTime={checkInOutDialog?.checkOutTime}
       />
 
       {/* Home Time Dialog */}
