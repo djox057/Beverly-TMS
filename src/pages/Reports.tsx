@@ -2445,12 +2445,12 @@ const Reports = () => {
                                         }}
                                       >
                                         <div className="flex flex-col gap-0.5">
-                                          <div className="flex items-center gap-1 font-bold">
+                                          <div className="flex items-center gap-1 font-bold text-black">
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                           </div>
                                           {truck.companyName && (
-                                            <div className="text-[9px] opacity-60 leading-tight font-semibold">
+                                            <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
                                               {truck.companyName}
                                             </div>
                                           )}
