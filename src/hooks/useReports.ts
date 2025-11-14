@@ -41,6 +41,15 @@ export const useReports = () => {
         {
           event: '*',
           schema: 'public',
+          table: 'drivers'
+        },
+        debouncedInvalidate
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'orders'
         },
         debouncedInvalidate
