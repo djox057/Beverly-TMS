@@ -1279,7 +1279,7 @@ const EditOrder = () => {
         booked_by_company_id: bookedByCompany || null,
         broker_id: broker || null,
         truck_id: truck || null,
-        trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
+        trailer_id: trailerId || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         pickup_datetime: firstPickup?.dateRange?.from && firstPickup?.startTime ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime) : null,
