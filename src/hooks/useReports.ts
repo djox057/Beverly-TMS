@@ -283,6 +283,32 @@ export const useReports = () => {
     },
   });
 
+  const updateCheckInOutTimes = useMutation({
+    mutationFn: async ({ 
+      pickupDropId, 
+      checkInTime, 
+      checkOutTime 
+    }: { 
+      pickupDropId: string; 
+      checkInTime: string | null; 
+      checkOutTime: string | null;
+    }) => {
+      const updateData: any = {};
+      if (checkInTime !== undefined) updateData.arrived_at = checkInTime;
+      if (checkOutTime !== undefined) updateData.checked_out_at = checkOutTime;
+
+      const { error } = await supabase
+        .from("pickup_drops")
+        .update(updateData)
+        .eq("id", pickupDropId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    },
+  });
+
   const markGoingToPickup = useMutation({
     mutationFn: async ({ pickupDropId }: { pickupDropId: string }) => {
       const { error } = await supabase
@@ -457,6 +483,7 @@ export const useReports = () => {
               datetime,
               end_datetime,
               arrived_at,
+              checked_out_at,
               going_to_at,
               sequence_number
             ),
@@ -1157,6 +1184,7 @@ export const useReports = () => {
     updatePickupDrop,
     updateLostDayNote,
     updatePickupDropArrival,
+    updateCheckInOutTimes,
     markGoingToPickup,
     markGoingToDelivery,
   };
