@@ -228,25 +228,35 @@ const Analytics = () => {
         let matchesDate = true;
         if (dateRange?.from) {
           const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
-          const orderDate = new Date(dateToFilter.split(" - ")[0]);
-          const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-          if (dateRange.to) {
-            // Date range filtering
-            const fromDateOnly = new Date(
-              dateRange.from.getFullYear(),
-              dateRange.from.getMonth(),
-              dateRange.from.getDate(),
-            );
-            const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-            matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+          // Handle cases where dateToFilter might be undefined or invalid
+          if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date") {
+            matchesDate = false;
           } else {
-            // Single date filtering
-            const selectedDateOnly = new Date(
-              dateRange.from.getFullYear(),
-              dateRange.from.getMonth(),
-              dateRange.from.getDate(),
-            );
-            matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+            const orderDate = new Date(dateToFilter.split(" - ")[0]);
+            // Validate the parsed date
+            if (isNaN(orderDate.getTime())) {
+              matchesDate = false;
+            } else {
+              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+              if (dateRange.to) {
+                // Date range filtering
+                const fromDateOnly = new Date(
+                  dateRange.from.getFullYear(),
+                  dateRange.from.getMonth(),
+                  dateRange.from.getDate(),
+                );
+                const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+                matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+              } else {
+                // Single date filtering
+                const selectedDateOnly = new Date(
+                  dateRange.from.getFullYear(),
+                  dateRange.from.getMonth(),
+                  dateRange.from.getDate(),
+                );
+                matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+              }
+            }
           }
         }
 
@@ -278,18 +288,6 @@ const Analytics = () => {
           }
           // Check both full_name and user_id to handle both old and new data formats
           const matches = matchesDate && (order.bookedBy === profile.full_name || order.bookedBy === profile.user_id);
-
-          if (profile.full_name === "Stefan Vuckovic-Paul") {
-            console.log("🔍 Stefan order:", {
-              orderBookedBy: order.bookedBy,
-              profileFullName: profile.full_name,
-              profileUserId: profile.user_id,
-              matchesDate,
-              matches,
-              pickupDate: order.pickupDate,
-              totalFreight: order.totalFreightAmount,
-            });
-          }
 
           return matches;
         }
