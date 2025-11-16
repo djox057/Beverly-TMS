@@ -61,12 +61,6 @@ export const useFleetManagement = () => {
 
       if (trucksError) throw trucksError;
 
-      // Count assigned and unassigned trucks
-      const assignedCount = trucks?.filter(t => t.driver1_id || t.driver2_id).length || 0;
-      const unassignedCount = trucks?.filter(t => !t.driver1_id && !t.driver2_id).length || 0;
-      setAssignedTrucksCount(assignedCount);
-      setUnassignedTrucksCount(unassignedCount);
-
       // Match trucks to drivers (a driver can be either driver1 or driver2)
       const driversWithTrucks = drivers?.map(driver => {
         const truck = trucks?.find(t => t.driver1_id === driver.id || t.driver2_id === driver.id);
@@ -128,6 +122,39 @@ export const useFleetManagement = () => {
           isActive
         };
       }) || [];
+
+      // Count trucks correctly:
+      // Assigned trucks = trucks with drivers that have a dispatcher
+      // Unassigned trucks = trucks with no drivers OR trucks with drivers that have no dispatcher
+      const assignedTruckIds = new Set<string>();
+      const unassignedTruckIds = new Set<string>();
+      
+      trucks?.forEach(truck => {
+        const hasDrivers = truck.driver1_id || truck.driver2_id;
+        
+        if (!hasDrivers) {
+          // Truck has no drivers at all
+          unassignedTruckIds.add(truck.id);
+        } else {
+          // Check if the drivers assigned to this truck have a dispatcher
+          const driver1 = driversWithTrucks.find(d => d.id === truck.driver1_id);
+          const driver2 = driversWithTrucks.find(d => d.id === truck.driver2_id);
+          
+          const driver1HasDispatcher = driver1?.dispatcher_id;
+          const driver2HasDispatcher = driver2?.dispatcher_id;
+          
+          if (driver1HasDispatcher || driver2HasDispatcher) {
+            // At least one driver has a dispatcher
+            assignedTruckIds.add(truck.id);
+          } else {
+            // Truck has drivers but they don't have a dispatcher
+            unassignedTruckIds.add(truck.id);
+          }
+        }
+      });
+      
+      setAssignedTrucksCount(assignedTruckIds.size);
+      setUnassignedTrucksCount(unassignedTruckIds.size);
 
       // Filter out dispatchers with no drivers for the main list, but keep all for assignment  
       setDispatchers(dispatcherFleets);
