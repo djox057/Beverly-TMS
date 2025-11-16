@@ -18,6 +18,8 @@ export const useFleetManagement = () => {
   const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
   const [allDispatchers, setAllDispatchers] = useState<any[]>([]);
   const [dispatcherStatuses, setDispatcherStatuses] = useState<Map<string, boolean>>(new Map());
+  const [assignedTrucksCount, setAssignedTrucksCount] = useState(0);
+  const [unassignedTrucksCount, setUnassignedTrucksCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -58,6 +60,12 @@ export const useFleetManagement = () => {
         .select('id, truck_number, trailer_id, driver1_id, driver2_id');
 
       if (trucksError) throw trucksError;
+
+      // Count assigned and unassigned trucks
+      const assignedCount = trucks?.filter(t => t.driver1_id || t.driver2_id).length || 0;
+      const unassignedCount = trucks?.filter(t => !t.driver1_id && !t.driver2_id).length || 0;
+      setAssignedTrucksCount(assignedCount);
+      setUnassignedTrucksCount(unassignedCount);
 
       // Match trucks to drivers (a driver can be either driver1 or driver2)
       const driversWithTrucks = drivers?.map(driver => {
@@ -325,6 +333,8 @@ export const useFleetManagement = () => {
     availableDrivers,
     allDispatchers,
     dispatcherStatuses,
+    assignedTrucksCount,
+    unassignedTrucksCount,
     loading,
     fetchFleetData,
     assignDriverToDispatcher,

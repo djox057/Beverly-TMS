@@ -22,6 +22,8 @@ const Fleets = () => {
     dispatchers, 
     availableDrivers,
     allDispatchers,
+    assignedTrucksCount,
+    unassignedTrucksCount,
     loading, 
     assignDriverToDispatcher, 
     removeDriverFromDispatcher,
@@ -347,10 +349,7 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-success">
-                    {dispatchers.reduce((total, d) => {
-                      const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
-                      return total + uniqueTrucks.size;
-                    }, 0)}
+                    {assignedTrucksCount}
                   </div>
                 </CardContent>
               </Card>
@@ -362,10 +361,7 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-warning">
-                    {(() => {
-                      const uniqueTrucks = new Set(availableDrivers.map((driver: any) => driver.truck?.id).filter(Boolean));
-                      return uniqueTrucks.size;
-                    })()}
+                    {unassignedTrucksCount}
                   </div>
                 </CardContent>
               </Card>
