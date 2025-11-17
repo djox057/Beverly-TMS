@@ -268,6 +268,17 @@ const Analytics = () => {
         }
         // When dateRange is not set, all orders pass the date filter (matchesDate = true)
 
+        // Filter by selected offices (only for admin/manager/chicago_management)
+        if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")) {
+          if (!order.bookedBy || order.bookedBy === "N/A" || order.bookedBy === "Unknown") {
+            return false;
+          }
+          const dispatcherProfile = dispatcherProfiles[order.bookedBy];
+          if (!dispatcherProfile || !selectedOffices.includes(dispatcherProfile.office as string)) {
+            return false;
+          }
+        }
+
         // Filter based on PRIMARY role only
         if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting" || primaryRole === "chicago_management") {
           return matchesDate;
