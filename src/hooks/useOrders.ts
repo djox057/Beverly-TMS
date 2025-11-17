@@ -115,7 +115,6 @@ export const useOrders = () => {
     queryKey: ['orders'],
     queryFn: async () => {
       console.log('🔍 Fetching initial 200 orders...');
-      setIsLoadingBackground(false); // Reset background loading state
       
       return queryWithTimeout(async () => {
         // PHASE 1: Fetch first 200 orders (latest created)
@@ -240,10 +239,10 @@ export const useOrders = () => {
         
         // PHASE 2: Start background fetch for remaining orders if there are more
         if (totalCount > 200) {
+          // Small delay to ensure initial render completes
           setTimeout(() => {
-            setIsLoadingBackground(true);
-            
             (async () => {
+              setIsLoadingBackground(true);
               try {
                 let allRemainingOrders: any[] = [];
                 let from = 200;
@@ -319,9 +318,10 @@ export const useOrders = () => {
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 300000,
-    gcTime: 600000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch on mount if data exists
     placeholderData: (previousData) => previousData,
   });
 
