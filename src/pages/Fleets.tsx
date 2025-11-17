@@ -332,12 +332,12 @@ const Fleets = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Dispatchers</CardTitle>
+                  <CardTitle className="text-sm font-medium">On Duty Dispatchers</CardTitle>
                   <UserCheck className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
-                    {dispatchers.filter(d => d.drivers.length > 0).length}
+                    {dispatchers.filter(d => d.isActive).length} / {allDispatchers.length}
                   </div>
                 </CardContent>
               </Card>
