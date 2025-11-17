@@ -149,15 +149,15 @@ export const useOrders = () => {
             recovery_date
           `, { count: 'exact' })
           .order('created_at', { ascending: false })
-          .range(0, 199);
+          .range(0, 299);
         
         if (initialError) throw initialError;
         
         const totalCount = count || 0;
-        console.log(`✅ Fetched initial 200 orders. Total in DB: ${totalCount}`);
+        console.log(`✅ Fetched initial 300 orders. Total in DB: ${totalCount}`);
         
         // If we have cached data with all orders, return it instead of refetching
-        if (cachedCount >= totalCount && cachedCount > 200) {
+        if (cachedCount >= totalCount && cachedCount > 300) {
           console.log(`✅ Using cached data with all ${cachedCount} orders`);
           setLoadProgress({ loaded: cachedCount, total: totalCount });
           return cachedData;
@@ -250,14 +250,14 @@ export const useOrders = () => {
         const transformedInitial = initialData?.map(transformOrder) || [];
         
         // PHASE 2: Start background fetch for remaining orders if there are more
-        if (totalCount > 200) {
+        if (totalCount > 300) {
           // Small delay to ensure initial render completes
           setTimeout(() => {
             (async () => {
               setIsLoadingBackground(true);
               try {
                 let allRemainingOrders: any[] = [];
-                let from = 200;
+                let from = 300;
                 const batchSize = 1000;
                 
                 while (from < totalCount) {
@@ -300,8 +300,8 @@ export const useOrders = () => {
                   allRemainingOrders = [...allRemainingOrders, ...transformedBatch];
                   
                   // Update progress
-                  setLoadProgress({ loaded: 200 + allRemainingOrders.length, total: totalCount });
-                  console.log(`✅ Background: Loaded ${200 + allRemainingOrders.length}/${totalCount} orders`);
+                  setLoadProgress({ loaded: 300 + allRemainingOrders.length, total: totalCount });
+                  console.log(`✅ Background: Loaded ${300 + allRemainingOrders.length}/${totalCount} orders`);
                   
                   // Merge into cache
                   queryClient.setQueryData(['orders'], (oldData: any) => {
@@ -315,7 +315,7 @@ export const useOrders = () => {
                   from += batchSize;
                 }
                 
-                console.log(`✅ Background fetch complete! Total: ${200 + allRemainingOrders.length} orders`);
+                console.log(`✅ Background fetch complete! Total: ${300 + allRemainingOrders.length} orders`);
               } catch (error) {
                 console.error('Background fetch error:', error);
               } finally {
