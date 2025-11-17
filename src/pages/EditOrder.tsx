@@ -177,6 +177,7 @@ const EditOrder = () => {
   const [recoveryMiles, setRecoveryMiles] = useState("");
   const [recoveryDriverPrice, setRecoveryDriverPrice] = useState("");
   const [recoveryDate, setRecoveryDate] = useState("");
+  const [trailersSwapped, setTrailersSwapped] = useState(false);
 
   // Handlers for numeric input validation
   const handleNumericKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -405,6 +406,12 @@ const EditOrder = () => {
           const {
             data: origTrailer
           } = await supabase.from("trailers").select("trailer_number").eq("id", (orderData as any).original_trailer_id).maybeSingle();
+          
+          // Get recovery history to check if trailers were swapped
+          const {
+            data: recoveryHistory
+          } = await supabase.from("recovery_history").select("trailers_swapped").eq("order_id", id).is("reverted_at", null).maybeSingle();
+          
           setOriginalDriverName(origDriver?.name || "");
           setOriginalTruckNumber(origTruck?.truck_number || "");
           setOriginalTrailerNumber(origTrailer?.trailer_number || "");
@@ -413,6 +420,7 @@ const EditOrder = () => {
           setRecoveryMiles((orderData as any).recovery_miles?.toString() || "");
           setRecoveryDriverPrice((orderData as any).recovery_driver_price?.toString() || "");
           setRecoveryDate((orderData as any).recovery_date || "");
+          setTrailersSwapped(recoveryHistory?.trailers_swapped || false);
         }
 
         // Load date change notes and original delivery date for tracking changes
@@ -1222,6 +1230,24 @@ const EditOrder = () => {
       }).eq("id", id);
       if (error) throw error;
 
+      // Insert recovery history record
+      const { error: historyError } = await supabase.from("recovery_history").insert({
+        order_id: id,
+        original_driver1_id: driver1,
+        original_driver2_id: driver2 || null,
+        original_truck_id: truck,
+        original_trailer_id: trailerId || null,
+        recovery_driver1_id: data.recoveryDriverId,
+        recovery_driver2_id: null,
+        recovery_truck_id: data.recoveryTruckId,
+        recovery_trailer_id: data.recoveryTrailerId || null,
+        recovery_date: data.recoveryDate,
+        trailers_swapped: data.swapTrailers,
+        original_dispatcher_id: profile?.user_id || null
+      });
+      
+      if (historyError) throw historyError;
+
       // Handle trailer swap if requested
       if (data.swapTrailers && trailerId && data.recoveryTrailerId) {
         const originalTrailerId = trailerId;
@@ -1259,6 +1285,88 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to mark load as transfer",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRevertTransfer = async () => {
+    try {
+      // Get the recovery history for this order
+      const { data: recoveryHistory, error: historyError } = await supabase
+        .from("recovery_history")
+        .select("*")
+        .eq("order_id", id)
+        .is("reverted_at", null)
+        .single();
+
+      if (historyError) throw historyError;
+      if (!recoveryHistory) throw new Error("No recovery history found");
+
+      // Revert order back to original state
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({
+          is_recovery: false,
+          truck_id: recoveryHistory.original_truck_id,
+          trailer_id: recoveryHistory.original_trailer_id,
+          driver1_id: recoveryHistory.original_driver1_id,
+          driver2_id: recoveryHistory.original_driver2_id,
+          recovery_date: null,
+          recovery_miles: null,
+          recovery_driver_price: null
+        })
+        .eq("id", id);
+
+      if (orderError) throw orderError;
+
+      // If trailers were swapped, swap them back
+      if (recoveryHistory.trailers_swapped && recoveryHistory.original_trailer_id && recoveryHistory.recovery_trailer_id) {
+        // Revert original truck to have its original trailer
+        const { error: originalTruckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: recoveryHistory.original_trailer_id })
+          .eq('id', recoveryHistory.original_truck_id);
+        
+        if (originalTruckError) throw originalTruckError;
+        
+        // Revert recovery truck to have its original trailer
+        const { error: recoveryTruckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: recoveryHistory.recovery_trailer_id })
+          .eq('id', recoveryHistory.recovery_truck_id);
+        
+        if (recoveryTruckError) throw recoveryTruckError;
+
+        // Invalidate trucks cache
+        queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      }
+
+      // Mark recovery as reverted
+      const { error: revertError } = await supabase
+        .from("recovery_history")
+        .update({
+          reverted_at: new Date().toISOString(),
+          reverted_by: profile?.user_id || null
+        })
+        .eq("id", recoveryHistory.id);
+
+      if (revertError) throw revertError;
+
+      toast({
+        title: "Success",
+        description: recoveryHistory.trailers_swapped 
+          ? "Transfer reverted and trailers swapped back successfully"
+          : "Transfer reverted successfully"
+      });
+
+      // Reload order data
+      await loadOrderData();
+    } catch (error: any) {
+      console.error("Error reverting transfer:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to revert transfer",
         variant: "destructive"
       });
     }
@@ -1958,6 +2066,9 @@ const EditOrder = () => {
                   <span className="text-sm text-muted-foreground">
                     {recoveryDate && `Transfer Date: ${new Date(recoveryDate).toLocaleDateString()}`}
                   </span>
+                  {trailersSwapped && <Badge variant="secondary" className="bg-blue-500">
+                    TRAILERS SWAPPED
+                  </Badge>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2001,6 +2112,12 @@ const EditOrder = () => {
                     </div>
                   </div>
                 </div>
+                
+                {trailersSwapped && <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Note:</strong> Trailers were swapped during transfer. The load kept its original trailer, but the trucks exchanged trailers.
+                  </p>
+                </div>}
               </div>}
 
             {/* File Upload Sections - Disabled when locked */}
@@ -2365,6 +2482,10 @@ const EditOrder = () => {
                 {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) && !isRecovery && !isLocked && <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Transfer Load
+                    </Button>}
+                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && isRecovery && !isLocked && <Button type="button" variant="destructive" onClick={handleRevertTransfer}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Revert Transfer
                     </Button>}
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? <>

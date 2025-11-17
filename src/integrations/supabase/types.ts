@@ -1226,6 +1226,7 @@ export type Database = {
           recovery_truck_id: string | null
           reverted_at: string | null
           reverted_by: string | null
+          trailers_swapped: boolean | null
           updated_at: string
         }
         Insert: {
@@ -1244,6 +1245,7 @@ export type Database = {
           recovery_truck_id?: string | null
           reverted_at?: string | null
           reverted_by?: string | null
+          trailers_swapped?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -1262,6 +1264,7 @@ export type Database = {
           recovery_truck_id?: string | null
           reverted_at?: string | null
           reverted_by?: string | null
+          trailers_swapped?: boolean | null
           updated_at?: string
         }
         Relationships: [
