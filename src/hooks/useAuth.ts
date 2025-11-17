@@ -12,7 +12,7 @@ export interface UserProfile {
   office: string | null;
 }
 
-export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance';
+export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -233,6 +233,9 @@ export const useAuth = () => {
     // Supervisor has same access as admin (except user management which is checked separately)
     if (roles.includes('supervisor') && requiredRole !== 'driver') return true;
     
+    // Chicago Management has view-only access to everything except driver-only pages
+    if (roles.includes('chicago_management') && requiredRole !== 'driver') return true;
+    
     // Safety has access to dispatch functions (can create/edit orders, manage trucks/drivers)
     if (roles.includes('safety') && requiredRole === 'dispatch') return true;
     
@@ -247,6 +250,7 @@ export const useAuth = () => {
     if (roles.includes('accounting')) return 'accounting';
     if (roles.includes('manager')) return 'manager';
     if (roles.includes('supervisor')) return 'supervisor';
+    if (roles.includes('chicago_management')) return 'chicago_management';
     if (roles.includes('safety')) return 'safety';
     if (roles.includes('maintenance')) return 'maintenance';
     if (roles.includes('dispatch')) return 'dispatch';
