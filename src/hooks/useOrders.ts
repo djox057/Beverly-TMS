@@ -114,7 +114,11 @@ export const useOrders = () => {
   const query = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      console.log('🔍 Fetching initial 200 orders...');
+      // Check if we already have cached data with all orders loaded
+      const cachedData = queryClient.getQueryData(['orders']) as any[];
+      const cachedCount = cachedData?.length || 0;
+      
+      console.log('🔍 Fetching orders... (cached: ' + cachedCount + ')');
       
       return queryWithTimeout(async () => {
         // PHASE 1: Fetch first 200 orders (latest created)
@@ -151,6 +155,14 @@ export const useOrders = () => {
         
         const totalCount = count || 0;
         console.log(`✅ Fetched initial 200 orders. Total in DB: ${totalCount}`);
+        
+        // If we have cached data with all orders, return it instead of refetching
+        if (cachedCount >= totalCount && cachedCount > 200) {
+          console.log(`✅ Using cached data with all ${cachedCount} orders`);
+          setLoadProgress({ loaded: cachedCount, total: totalCount });
+          return cachedData;
+        }
+        
         setLoadProgress({ loaded: initialData?.length || 0, total: totalCount });
         
         // Transform initial data
