@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useProgressiveReports } from "./useProgressiveReports";
 
 // Utility function to add timeout protection to queries
 const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number = 30000): Promise<T> => {
@@ -423,81 +424,17 @@ export const useReports = () => {
     }
   };
 
+  // Use progressive loading hook
+  const progressiveData = useProgressiveReports();
+
   const reportsQuery = useQuery({
-    queryKey: ["reports"],
+    queryKey: ["reports", "processed", progressiveData.loadingPhase],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        // Fetch trucks with their drivers and company info
-        const { data: trucksRaw, error: trucksError } = await supabase
-          .from("trucks")
-          .select(
-            `
-            *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, company:companies!company_id(id, name)),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, company:companies!company_id(id, name)),
-            trailer:trailer_id(trailer_number),
-            company:companies(name)
-          `,
-          )
-          .order("id", { ascending: true });
+        const trucks = progressiveData.trucks;
+        const orders = progressiveData.orders;
 
-        if (trucksError) throw trucksError;
-
-        // Prioritize driver's company over truck's company
-        const trucks = trucksRaw?.map((truck) => ({
-          ...truck,
-          company: truck.driver1?.company || truck.company || null,
-        }));
-
-        if (trucksError) throw trucksError;
-
-        // Fetch all orders separately with their stops and files
-        const { data: orders, error: ordersError } = await supabase
-          .from("orders")
-          .select(
-            `
-            id,
-            load_number,
-            internal_load_number,
-            broker_load_number,
-            status,
-            notes,
-            date_change_notes,
-            updated_at,
-            pickup_datetime,
-            pickup_end_datetime,
-            delivery_datetime,
-            delivery_end_datetime,
-            canceled,
-            driver1_id,
-            driver2_id,
-            truck_id,
-            is_recovery,
-            pickup_drops(
-              id,
-              type,
-              address,
-              city,
-              state,
-              zip_code,
-              datetime,
-              end_datetime,
-              arrived_at,
-              checked_out_at,
-              going_to_at,
-              sequence_number
-            ),
-            order_files!left(
-              id,
-              file_category
-            )
-          `,
-          )
-          .order("updated_at", { ascending: false });
-
-        if (ordersError) throw ordersError;
-
-        console.log(`✅ Fetched ${orders?.length || 0} orders from database`);
+        console.log(`✅ Processing ${orders?.length || 0} orders with phase: ${progressiveData.loadingPhase}`);
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
@@ -1167,17 +1104,21 @@ export const useReports = () => {
         return groupedData;
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 300000, // Cache for 5 minutes
-    gcTime: 600000, // Keep in memory for 10 minutes
+    enabled: !progressiveData.isLoading && progressiveData.trucks.length > 0,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
+    gcTime: 15 * 60 * 1000, // 15 minutes
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
-    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   return {
     ...reportsQuery,
+    loadingPhase: progressiveData.loadingPhase,
+    isPhase1Loading: progressiveData.isPhase1Loading,
+    isPhase2Loading: progressiveData.isPhase2Loading,
+    isPhase3Loading: progressiveData.isPhase3Loading,
     updateTruckStatus,
     updateTruckMilesAway,
     updateTruckNote,
