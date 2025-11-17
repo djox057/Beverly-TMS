@@ -115,6 +115,7 @@ export const useOrders = () => {
     queryKey: ['orders'],
     queryFn: async () => {
       console.log('🔍 Fetching initial 200 orders...');
+      setIsLoadingBackground(false); // Reset background loading state
       
       return queryWithTimeout(async () => {
         // PHASE 1: Fetch first 200 orders (latest created)
