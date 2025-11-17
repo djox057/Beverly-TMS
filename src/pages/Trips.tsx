@@ -13,11 +13,13 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, FileDown } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo } from "react";
 import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from "date-fns";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -112,6 +114,90 @@ const Trips = () => {
         orders: groups[weekKey]
       }));
   }, [paginatedOrders]);
+
+  const exportWeekToExcel = (week: any, weekStartDate: Date, weekEndDate: Date) => {
+    try {
+      // Prepare data for Excel
+      const excelData = week.orders.map((order: any) => ({
+        'Truck #': order.truckNumber || '',
+        'Load #': order.internalLoadNumber || '',
+        'Pickup Date': order.pickupDate || '',
+        'Pickup City': order.pickupCity || '',
+        'Pickup State': order.pickupState || '',
+        'Delivery Date': order.deliveryDate || '',
+        'Delivery City': order.deliveryCity || '',
+        'Delivery State': order.deliveryState || '',
+        'Miles': order.mileage || 0,
+        'Driver Pay': order.totalDriverPay || 0,
+        'Driver': order.driverName || '',
+        'Broker Name': order.brokerName || '',
+        'Broker Load #': order.brokerLoadNumber || '',
+        'Invoiced': order.invoiced || '',
+        'Freight Amount': order.totalFreightAmount || 0
+      }));
+
+      // Calculate totals
+      const totals = {
+        'Truck #': '',
+        'Load #': '',
+        'Pickup Date': '',
+        'Pickup City': '',
+        'Pickup State': '',
+        'Delivery Date': '',
+        'Delivery City': '',
+        'Delivery State': 'TOTALS:',
+        'Miles': week.orders.reduce((acc: number, o: any) => acc + (o.mileage || 0), 0),
+        'Driver Pay': week.orders.reduce((acc: number, o: any) => acc + (o.totalDriverPay || 0), 0),
+        'Driver': '',
+        'Broker Name': '',
+        'Broker Load #': '',
+        'Invoiced': '',
+        'Freight Amount': week.orders.reduce((acc: number, o: any) => acc + (o.totalFreightAmount || 0), 0)
+      };
+
+      // Add totals row
+      excelData.push(totals);
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 10 }, // Truck #
+        { wch: 10 }, // Load #
+        { wch: 12 }, // Pickup Date
+        { wch: 20 }, // Pickup City
+        { wch: 12 }, // Pickup State
+        { wch: 12 }, // Delivery Date
+        { wch: 20 }, // Delivery City
+        { wch: 12 }, // Delivery State
+        { wch: 10 }, // Miles
+        { wch: 12 }, // Driver Pay
+        { wch: 25 }, // Driver
+        { wch: 25 }, // Broker Name
+        { wch: 15 }, // Broker Load #
+        { wch: 10 }, // Invoiced
+        { wch: 15 }  // Freight Amount
+      ];
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Trips');
+
+      // Generate filename
+      const weekRange = `${format(weekStartDate, 'MMM-d')}-${format(weekEndDate, 'MMM-d-yyyy')}`;
+      const truckInfo = truckFilter ? `_Truck-${truckFilter}` : '';
+      const filename = `Trips_Week_${weekRange}${truckInfo}.xlsx`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+      
+      toast.success(`Exported ${week.orders.length} trips to Excel`);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export to Excel');
+    }
+  };
 
   const renderPaginationItems = () => {
     const items = [];
@@ -337,8 +423,18 @@ const Trips = () => {
 
                             {/* Weekly Summary Row */}
                             <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-4 border-primary">
-                              <TableCell colSpan={8} className="py-3">
+                              <TableCell colSpan={7} className="py-3">
                                 Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
+                                  title="Export week to Excel"
+                                >
+                                  <FileDown className="h-4 w-4" />
+                                </Button>
                               </TableCell>
                               <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
                               <TableCell className="py-3">
