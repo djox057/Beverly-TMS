@@ -337,7 +337,7 @@ const Fleets = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
-                    {dispatchers.filter(d => d.isActive).length} / {allDispatchers.length}
+                    {dispatchers.filter(d => d.isActive && d.dispatcher.roles?.includes('dispatch')).length} / {allDispatchers.filter((d: any) => d.roles?.includes('dispatch')).length}
                   </div>
                 </CardContent>
               </Card>

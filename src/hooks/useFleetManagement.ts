@@ -8,6 +8,7 @@ interface DispatcherFleet {
     full_name: string;
     email: string;
     ext?: string;
+    roles?: string[];
   };
   drivers: any[];
   isActive: boolean;
@@ -30,7 +31,7 @@ export const useFleetManagement = () => {
       // Fetch dispatchers, managers, supervisors, and admins from user_roles (exclude accounting, safety, afterhours, and chicago_management)
       const { data: dispatchRoles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id')
+        .select('user_id, role')
         .in('role', ['dispatch', 'manager', 'supervisor', 'admin']);
 
       if (rolesError) throw rolesError;
@@ -101,10 +102,11 @@ export const useFleetManagement = () => {
         }
       });
 
-      // Create dispatcher fleets array
+      // Create dispatcher fleets array with role information
       const dispatcherFleets = dispatcherProfiles?.map(dispatcher => {
         const status = statusMap.get(dispatcher.user_id);
         const isActive = status?.isActive ?? true;
+        const userRoles = dispatchRoles?.filter(r => r.user_id === dispatcher.user_id).map(r => r.role) || [];
         
         // Use actual drivers if active, placeholder drivers if inactive
         const dispatcherDrivers = isActive 
@@ -116,7 +118,8 @@ export const useFleetManagement = () => {
             id: dispatcher.user_id,
             full_name: dispatcher.full_name,
             email: dispatcher.email,
-            ext: dispatcher.ext
+            ext: dispatcher.ext,
+            roles: userRoles
           },
           drivers: dispatcherDrivers,
           isActive
@@ -158,12 +161,16 @@ export const useFleetManagement = () => {
 
       // Filter out dispatchers with no drivers for the main list, but keep all for assignment  
       setDispatchers(dispatcherFleets);
-      setAllDispatchers(dispatcherProfiles?.map(d => ({ 
-        id: d.user_id, 
-        full_name: d.full_name, 
-        email: d.email,
-        ext: d.ext
-      })) || []);
+      setAllDispatchers(dispatcherProfiles?.map(d => {
+        const userRoles = dispatchRoles?.filter(r => r.user_id === d.user_id).map(r => r.role) || [];
+        return { 
+          id: d.user_id, 
+          full_name: d.full_name, 
+          email: d.email,
+          ext: d.ext,
+          roles: userRoles
+        };
+      }) || []);
       setAvailableDrivers(unassignedDrivers);
     } catch (error: any) {
       console.error('Error fetching fleet data:', error);
