@@ -315,7 +315,7 @@ const Analytics = () => {
         return false;
       }) || [];
     return filtered;
-  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile]);
+  }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
   if (isLoading) {
     return (
       <div className="space-y-6">
