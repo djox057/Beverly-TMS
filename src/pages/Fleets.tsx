@@ -374,8 +374,12 @@ const Fleets = () => {
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
                     {(() => {
-                      const onDutyDispatchers = dispatchers.filter(d => d.isActive);
-                      const totalTrucks = dispatchers.reduce((total, d) => {
+                      // Only count trucks assigned to users with 'dispatch' role
+                      const dispatchOnlyFleets = dispatchers.filter(d => d.dispatcher.roles?.includes('dispatch'));
+                      const onDutyDispatchers = dispatchOnlyFleets.filter(d => d.isActive);
+                      const allDispatchersCount = allDispatchers.filter((d: any) => d.roles?.includes('dispatch')).length;
+                      
+                      const totalTrucks = dispatchOnlyFleets.reduce((total, d) => {
                         const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
                         return total + uniqueTrucks.size;
                       }, 0);
@@ -383,8 +387,8 @@ const Fleets = () => {
                       const avgOnDuty = onDutyDispatchers.length > 0 
                         ? (totalTrucks / onDutyDispatchers.length).toFixed(1) 
                         : '0';
-                      const avgAll = allDispatchers.length > 0 
-                        ? (totalTrucks / allDispatchers.length).toFixed(1) 
+                      const avgAll = allDispatchersCount > 0 
+                        ? (totalTrucks / allDispatchersCount).toFixed(1) 
                         : '0';
                       
                       return `${avgOnDuty} / ${avgAll}`;
