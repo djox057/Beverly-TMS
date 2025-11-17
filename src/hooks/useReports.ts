@@ -431,10 +431,14 @@ export const useReports = () => {
     queryKey: ["reports", "processed", progressiveData.loadingPhase],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        const trucks = progressiveData.trucks;
+        // Prioritize driver's company over truck's company
+        const trucks = progressiveData.trucks?.map((truck) => ({
+          ...truck,
+          company: truck.driver1?.company || truck.company || null,
+        }));
         const orders = progressiveData.orders;
 
-        console.log(`✅ Processing ${orders?.length || 0} orders with phase: ${progressiveData.loadingPhase}`);
+        console.log(`✅ Processing ${trucks?.length || 0} trucks, ${orders?.length || 0} orders with phase: ${progressiveData.loadingPhase}`);
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
@@ -464,17 +468,22 @@ export const useReports = () => {
         const reportData =
           trucks?.map((truck) => {
             const now = new Date().getTime();
+            const driver = truck.driver1;
+
+            // Skip trucks without drivers
+            if (!driver) {
+              return null;
+            }
 
             // Get orders for this truck's driver (not the truck itself)
             const driverOrders =
               orders?.filter(
-                (order) => order.driver1_id === truck.driver1_id || order.driver2_id === truck.driver1_id,
+                (order) => order.driver1_id === driver.id || order.driver2_id === driver.id,
               ) || [];
 
-            // DEBUG: Log for truck 1323
-            if (truck.truck_number === "1323") {
-              const targetOrder = driverOrders.find((o) => o.id === "c2b5d630-792b-45aa-a028-8ca26e81180c");
-              console.log("🔍 DEBUG Truck 1323 - Found target order:", !!targetOrder);
+            // DEBUG: Log for first few trucks
+            if (trucks.indexOf(truck) < 3) {
+              console.log(`🔍 Truck ${truck.truck_number} - Driver: ${driver?.name}, Driver ID: ${driver?.id}, Orders found: ${driverOrders.length}`);
             }
 
             // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
@@ -608,14 +617,13 @@ export const useReports = () => {
             const deliveryStop = currentOrder?.deliveryStop;
 
             // Get the most recent note for this driver
-            const truckNote = truckNotes?.find((note) => note.driver_id === truck.driver1_id);
+            const truckNote = truckNotes?.find((note) => note.driver_id === driver.id);
 
             // Get lost day notes for this truck's driver
-            const driverId = truck.driver1_id;
-            const truckLostDayNotes = driverId ? lostDayNotes?.filter((note) => note.driver_id === driverId) || [] : [];
+            const truckLostDayNotes = lostDayNotes?.filter((note) => note.driver_id === driver.id) || [];
 
             // Find dispatcher info from driver1
-            const dispatcherInfo = dispatchers?.find((d) => d.user_id === truck.driver1?.dispatcher_id);
+            const dispatcherInfo = dispatchers?.find((d) => d.user_id === driver.dispatcher_id);
 
             // Format location
             const formatLocation = (city: string | null, state: string | null) => {
@@ -779,10 +787,11 @@ export const useReports = () => {
               lost_day_notes: truckLostDayNotes,
               milesAway: truck.miles_away || 0,
             };
-          }) || [];
+          })
+          .filter(Boolean) || []; // Remove null entries from trucks without drivers
 
         // Filter to only include trucks with a dispatcher assigned to driver1
-        const trucksWithDispatcher = reportData.filter((truck) => truck.dispatcherId);
+        const trucksWithDispatcher = reportData.filter((truck) => truck && truck.dispatcherId);
 
         // Fetch all active drivers to find unassigned drivers
         const { data: allDrivers, error: driversError } = await supabase

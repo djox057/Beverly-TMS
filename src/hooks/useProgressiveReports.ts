@@ -36,7 +36,7 @@ export const useProgressiveReports = () => {
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `)
-          .eq("dispatcher_id", user.id)
+          .filter("driver1.dispatcher_id", "eq", user.id)
           .order("id", { ascending: true });
 
         if (error) throw error;
@@ -129,7 +129,7 @@ export const useProgressiveReports = () => {
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `)
-          .in("dispatcher_id", dispatcherIds)
+          .filter("driver1.dispatcher_id", "in", `(${dispatcherIds.join(",")})`)
           .order("id", { ascending: true });
 
         if (error) throw error;
@@ -220,7 +220,7 @@ export const useProgressiveReports = () => {
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `)
-          .in("dispatcher_id", dispatcherIds)
+          .filter("driver1.dispatcher_id", "in", `(${dispatcherIds.join(",")})`)
           .order("id", { ascending: true });
 
         if (error) throw error;
