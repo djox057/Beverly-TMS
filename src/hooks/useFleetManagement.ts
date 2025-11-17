@@ -27,11 +27,11 @@ export const useFleetManagement = () => {
     try {
       setLoading(true);
       
-      // Fetch dispatchers, managers, and supervisors from user_roles (exclude accounting, safety, and afterhours)
+      // Fetch dispatchers, managers, supervisors, admins, and chicago_management from user_roles (exclude accounting, safety, and afterhours)
       const { data: dispatchRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id')
-        .in('role', ['dispatch', 'manager', 'supervisor']);
+        .in('role', ['dispatch', 'manager', 'supervisor', 'admin', 'chicago_management']);
 
       if (rolesError) throw rolesError;
 
