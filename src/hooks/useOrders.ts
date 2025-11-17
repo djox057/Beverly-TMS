@@ -118,8 +118,6 @@ export const useOrders = () => {
       const cachedData = queryClient.getQueryData(['orders']) as any[];
       const cachedCount = cachedData?.length || 0;
       
-      console.log('🔍 Fetching orders... (cached: ' + cachedCount + ')');
-      
       return queryWithTimeout(async () => {
         // PHASE 1: Fetch first 200 orders (latest created)
         const { data: initialData, error: initialError, count } = await supabase
@@ -154,11 +152,9 @@ export const useOrders = () => {
         if (initialError) throw initialError;
         
         const totalCount = count || 0;
-        console.log(`✅ Fetched initial 300 orders. Total in DB: ${totalCount}`);
         
         // If we have cached data with all orders, return it instead of refetching
         if (cachedCount >= totalCount && cachedCount > 300) {
-          console.log(`✅ Using cached data with all ${cachedCount} orders`);
           setLoadProgress({ loaded: cachedCount, total: totalCount });
           return cachedData;
         }
@@ -261,7 +257,6 @@ export const useOrders = () => {
                 const batchSize = 1000;
                 
                 while (from < totalCount) {
-                  console.log(`🔍 Background: Fetching batch starting at ${from}...`);
                   
                   const { data: batchData, error: batchError } = await supabase
                     .from('orders')
@@ -301,7 +296,6 @@ export const useOrders = () => {
                   
                   // Update progress
                   setLoadProgress({ loaded: 300 + allRemainingOrders.length, total: totalCount });
-                  console.log(`✅ Background: Loaded ${300 + allRemainingOrders.length}/${totalCount} orders`);
                   
                   // Merge into cache
                   queryClient.setQueryData(['orders'], (oldData: any) => {
@@ -314,8 +308,6 @@ export const useOrders = () => {
                   
                   from += batchSize;
                 }
-                
-                console.log(`✅ Background fetch complete! Total: ${300 + allRemainingOrders.length} orders`);
               } catch (error) {
                 console.error('Background fetch error:', error);
               } finally {
@@ -330,8 +322,8 @@ export const useOrders = () => {
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes - data stays fresh longer
+    gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache longer
     refetchOnWindowFocus: false,
     refetchOnMount: false, // Don't refetch on mount if data exists
     placeholderData: (previousData) => previousData,
