@@ -477,7 +477,7 @@ const Analytics = () => {
     >,
   );
   const dispatcherStats = Object.entries(dispatcherAnalytics)
-    .map(([name, stats]) => {
+    .map(([name, stats]: [string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }]) => {
       const cut = stats.totalFreight - stats.totalDriverRate;
       const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
       const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
@@ -598,7 +598,7 @@ const Analytics = () => {
     >,
   );
   const driverStats = Object.entries(driverAnalytics)
-    .map(([name, stats]) => {
+    .map(([name, stats]: [string, { totalDriverRate: number; totalMiles: number; orderCount: number }]) => {
       const ratePerMile = stats.totalMiles > 0 ? stats.totalDriverRate / stats.totalMiles : 0;
       return {
         name,
