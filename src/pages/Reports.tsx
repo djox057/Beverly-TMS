@@ -400,10 +400,6 @@ const Reports = () => {
     data: groupedReports,
     isLoading,
     error,
-    loadingPhase,
-    isPhase1Loading,
-    isPhase2Loading,
-    isPhase3Loading,
     updateTruckStatus,
     updateTruckMilesAway,
     updateTruckNote,
@@ -2083,28 +2079,6 @@ const Reports = () => {
           <div className="h-10 w-48 bg-muted animate-pulse rounded" />
           <div className="h-10 w-48 bg-muted animate-pulse rounded" />
         </div>
-        
-        {/* Progressive loading indicator */}
-        {loadingPhase && loadingPhase !== 'complete' && (
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  {loadingPhase === 'phase1' && 'Loading your trucks...'}
-                  {loadingPhase === 'phase2' && 'Loading your office trucks...'}
-                  {loadingPhase === 'phase3' && 'Loading other offices in background...'}
-                </div>
-                <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                  {loadingPhase === 'phase1' && 'Phase 1 of 3'}
-                  {loadingPhase === 'phase2' && 'Phase 2 of 3 - Your office data'}
-                  {loadingPhase === 'phase3' && 'Phase 3 of 3 - Background loading'}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="border rounded-lg p-4 space-y-3">
