@@ -368,24 +368,26 @@ const Fleets = () => {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Average Trucks per Dispatcher</CardTitle>
+                  <CardTitle className="text-sm font-medium">Avg. Trucks per Dispatcher</CardTitle>
                   <Truck className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-primary">
                     {(() => {
-                      const activeDispatchers = dispatchers.filter(d => {
-                        const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
-                        return uniqueTrucks.size > 0;
-                      });
-                      if (activeDispatchers.length === 0) return '0';
-                      
+                      const onDutyDispatchers = dispatchers.filter(d => d.isActive);
                       const totalTrucks = dispatchers.reduce((total, d) => {
                         const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
                         return total + uniqueTrucks.size;
                       }, 0);
                       
-                      return (totalTrucks / activeDispatchers.length).toFixed(1);
+                      const avgOnDuty = onDutyDispatchers.length > 0 
+                        ? (totalTrucks / onDutyDispatchers.length).toFixed(1) 
+                        : '0';
+                      const avgAll = allDispatchers.length > 0 
+                        ? (totalTrucks / allDispatchers.length).toFixed(1) 
+                        : '0';
+                      
+                      return `${avgOnDuty} / ${avgAll}`;
                     })()}
                   </div>
                 </CardContent>
