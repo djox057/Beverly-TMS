@@ -427,6 +427,19 @@ export const useReports = () => {
     queryKey: ["reports"],
     queryFn: async () => {
       return queryWithTimeout(async () => {
+        // Calculate date range: 2 days in past, today, 3 days in future
+        const now = new Date();
+        const twoDaysAgo = new Date(now);
+        twoDaysAgo.setDate(now.getDate() - 2);
+        twoDaysAgo.setHours(0, 0, 0, 0);
+        
+        const threeDaysAhead = new Date(now);
+        threeDaysAhead.setDate(now.getDate() + 3);
+        threeDaysAhead.setHours(23, 59, 59, 999);
+        
+        const startDate = twoDaysAgo.toISOString();
+        const endDate = threeDaysAhead.toISOString();
+
         // Fetch trucks with their drivers and company info
         const { data: trucksRaw, error: trucksError } = await supabase
           .from("trucks")
@@ -449,10 +462,8 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        if (trucksError) throw trucksError;
-
-        // Fetch all orders separately with their stops and files
-        const { data: orders, error: ordersError } = await supabase
+        // Fetch orders within date range first (priority loads)
+        const { data: priorityOrders, error: priorityOrdersError } = await supabase
           .from("orders")
           .select(
             `
@@ -493,11 +504,77 @@ export const useReports = () => {
             )
           `,
           )
+          .or(`pickup_datetime.gte.${startDate},pickup_datetime.lte.${endDate},delivery_datetime.gte.${startDate},delivery_datetime.lte.${endDate}`)
           .order("updated_at", { ascending: false });
 
-        if (ordersError) throw ordersError;
+        if (priorityOrdersError) throw priorityOrdersError;
 
-        console.log(`✅ Fetched ${orders?.length || 0} orders from database`);
+        console.log(`✅ Fetched ${priorityOrders?.length || 0} priority orders (within date range)`);
+
+        // Load remaining orders in the background
+        setTimeout(async () => {
+          try {
+            const { data: remainingOrders, error: remainingOrdersError } = await supabase
+              .from("orders")
+              .select(
+                `
+                id,
+                load_number,
+                internal_load_number,
+                broker_load_number,
+                status,
+                notes,
+                date_change_notes,
+                updated_at,
+                pickup_datetime,
+                pickup_end_datetime,
+                delivery_datetime,
+                delivery_end_datetime,
+                canceled,
+                driver1_id,
+                driver2_id,
+                truck_id,
+                is_recovery,
+                pickup_drops(
+                  id,
+                  type,
+                  address,
+                  city,
+                  state,
+                  zip_code,
+                  datetime,
+                  end_datetime,
+                  arrived_at,
+                  checked_out_at,
+                  going_to_at,
+                  sequence_number
+                ),
+                order_files!left(
+                  id,
+                  file_category
+                )
+              `,
+              )
+              .not('id', 'in', `(${priorityOrders?.map(o => o.id).join(',') || 'null'})`)
+              .order("updated_at", { ascending: false });
+
+            if (!remainingOrdersError && remainingOrders) {
+              console.log(`✅ Fetched ${remainingOrders.length} additional orders in background`);
+              // Trigger a query invalidation to merge all orders
+              queryClient.setQueryData(['reports'], (oldData: any) => {
+                if (!oldData) return oldData;
+                return {
+                  ...oldData,
+                  orders: [...(oldData.orders || []), ...remainingOrders]
+                };
+              });
+            }
+          } catch (error) {
+            console.error('Error loading remaining orders:', error);
+          }
+        }, 1000);
+
+        const orders = priorityOrders || [];
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
