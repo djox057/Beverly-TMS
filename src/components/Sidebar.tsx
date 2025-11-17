@@ -43,8 +43,8 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
-  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin'] },
-  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin'] },
+  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management'] },
+  { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
@@ -100,6 +100,14 @@ export const Sidebar = () => {
     
     // Supervisor role: all pages + Alerts (full access)
     if (primaryRole === 'supervisor') {
+      return [
+        ...filteredNav,
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+      ];
+    }
+    
+    // Chicago Management role: all pages + Alerts (view-only access to everything)
+    if (primaryRole === 'chicago_management') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
