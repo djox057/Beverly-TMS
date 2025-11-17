@@ -380,10 +380,38 @@ const Trips = () => {
 
                         return (
                           <>
+                            {/* Weekly Summary Row - Now appears FIRST */}
+                            <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-4 border-primary">
+                              <TableCell colSpan={7} className="py-3">
+                                Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
+                                  title="Export week to Excel"
+                                >
+                                  <FileDown className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                              <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
+                              <TableCell className="py-3">
+                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                  ${weekTotal.driverPay.toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell colSpan={4}></TableCell>
+                              <TableCell className="py-3">
+                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                  ${weekTotal.freightAmount.toLocaleString()}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+
                             {/* Orders for this week */}
                             {week.orders.map((order, orderIndex) => {
                               const isRecovery = order.isRecovery;
-                              const isLastInWeek = orderIndex === week.orders.length - 1;
                               
                               const rowClassName = isRecovery
                                 ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
@@ -420,35 +448,6 @@ const Trips = () => {
                                 </TableRow>
                               );
                             })}
-
-                            {/* Weekly Summary Row */}
-                            <TableRow key={`week-${week.weekStart}`} className="bg-muted/50 font-semibold border-4 border-primary">
-                              <TableCell colSpan={7} className="py-3">
-                                Week: {format(weekStartDate, 'MMM d')} - {format(weekEndDate, 'MMM d, yyyy')}
-                              </TableCell>
-                              <TableCell className="py-3">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => exportWeekToExcel(week, weekStartDate, weekEndDate)}
-                                  title="Export week to Excel"
-                                >
-                                  <FileDown className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                              <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
-                              <TableCell className="py-3">
-                                <div className="font-semibold text-green-600 dark:text-green-400">
-                                  ${weekTotal.driverPay.toLocaleString()}
-                                </div>
-                              </TableCell>
-                              <TableCell colSpan={4}></TableCell>
-                              <TableCell className="py-3">
-                                <div className="font-semibold text-green-600 dark:text-green-400">
-                                  ${weekTotal.freightAmount.toLocaleString()}
-                                </div>
-                              </TableCell>
-                            </TableRow>
                           </>
                         );
                      })
