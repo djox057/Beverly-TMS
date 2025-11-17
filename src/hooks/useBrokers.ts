@@ -32,7 +32,7 @@ export const useBrokers = () => {
   return useQuery({
     queryKey: ['brokers', 'v2'],
     queryFn: async () => {
-      console.log('🔍 Starting to fetch all brokers...');
+      
       
       return queryWithTimeout(async () => {
         let allBrokers: any[] = [];
@@ -43,8 +43,6 @@ export const useBrokers = () => {
         while (true) {
           const from = page * pageSize;
           const to = from + pageSize - 1;
-          
-          console.log(`🔍 Fetching batch ${page + 1}: range ${from}-${to}`);
           
           const { data, error } = await supabase
             .from('brokers')
@@ -58,12 +56,10 @@ export const useBrokers = () => {
           }
           
           if (data && data.length > 0) {
-            console.log(`✅ Fetched ${data.length} brokers in batch ${page + 1}`);
             allBrokers = [...allBrokers, ...data];
             
             // If we got less than a full page, we're done
             if (data.length < pageSize) {
-              console.log(`✅ Last batch - got ${data.length} brokers`);
               break;
             }
             
@@ -75,14 +71,13 @@ export const useBrokers = () => {
           }
         }
         
-        console.log(`✅ TOTAL BROKERS FETCHED: ${allBrokers.length}`);
         return allBrokers;
       }, 30000);
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 600000, // Cache for 10 minutes (brokers change rarely)
-    gcTime: 600000, // Keep in memory for 10 minutes
+    staleTime: 30 * 60 * 1000, // Cache for 30 minutes (brokers rarely change)
+    gcTime: 60 * 60 * 1000, // Keep in memory for 60 minutes
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
   });
