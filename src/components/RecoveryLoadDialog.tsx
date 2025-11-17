@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -17,6 +18,7 @@ interface RecoveryLoadDialogProps {
   currentDriver: string;
   currentTruck: string;
   currentTrailer: string;
+  currentTrailerId?: string;
   totalMiles: number;
   totalDriverRate: number;
 }
@@ -30,6 +32,7 @@ export interface RecoveryData {
   recoveryMiles: number;
   recoveryDriverRate: number;
   recoveryDate: string;
+  swapTrailers: boolean;
 }
 
 export function RecoveryLoadDialog({
@@ -39,6 +42,7 @@ export function RecoveryLoadDialog({
   currentDriver,
   currentTruck,
   currentTrailer,
+  currentTrailerId,
   totalMiles,
   totalDriverRate,
 }: RecoveryLoadDialogProps) {
@@ -55,6 +59,7 @@ export function RecoveryLoadDialog({
   const [recoveryDriverId, setRecoveryDriverId] = useState<string>("");
   const [recoveryMiles, setRecoveryMiles] = useState<string>("");
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
+  const [swapTrailers, setSwapTrailers] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
   const handleTruckChange = (truckId: string) => {
@@ -78,6 +83,11 @@ export function RecoveryLoadDialog({
       return;
     }
 
+    if (swapTrailers && (!currentTrailerId || !recoveryTrailerId)) {
+      setError("Both trucks must have trailers to perform a swap");
+      return;
+    }
+
     onSave({
       originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
@@ -87,6 +97,7 @@ export function RecoveryLoadDialog({
       recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
       recoveryDate: new Date().toISOString(),
+      swapTrailers,
     });
 
     onOpenChange(false);
@@ -213,6 +224,41 @@ export function RecoveryLoadDialog({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Swap Trailers Checkbox */}
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="swapTrailers"
+                checked={swapTrailers}
+                onCheckedChange={(checked) => setSwapTrailers(checked as boolean)}
+                disabled={!currentTrailerId || !recoveryTrailerId}
+              />
+              <div className="space-y-1">
+                <Label
+                  htmlFor="swapTrailers"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Swap trailers between trucks
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Original truck will get transfer truck's trailer, and transfer truck will get original truck's trailer
+                </p>
+              </div>
+            </div>
+
+            {swapTrailers && currentTrailerId && recoveryTrailerId && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="space-y-1 text-sm">
+                    <div><strong>{currentTruck}</strong> will receive <strong>Trailer {trailers?.find(t => t.id === recoveryTrailerId)?.trailer_number || recoveryTrailerId}</strong></div>
+                    <div><strong>{trucks?.find(t => t.id === recoveryTruckId)?.truck_number}</strong> will receive <strong>Trailer {currentTrailer}</strong></div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
 

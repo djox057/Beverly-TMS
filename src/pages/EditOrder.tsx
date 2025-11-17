@@ -1221,9 +1221,35 @@ const EditOrder = () => {
         driver2_id: null
       }).eq("id", id);
       if (error) throw error;
+
+      // Handle trailer swap if requested
+      if (data.swapTrailers && trailerId && data.recoveryTrailerId) {
+        const originalTrailerId = trailerId;
+        const transferTrailerId = data.recoveryTrailerId;
+        
+        // Update original truck to have transfer truck's trailer
+        const { error: originalTruckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: transferTrailerId })
+          .eq('id', truck);
+        
+        if (originalTruckError) throw originalTruckError;
+        
+        // Update transfer truck to have original trailer
+        const { error: transferTruckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: originalTrailerId })
+          .eq('id', data.recoveryTruckId);
+        
+        if (transferTruckError) throw transferTruckError;
+
+        // Invalidate trucks cache to refresh data
+        queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      }
+
       toast({
         title: "Success",
-        description: "Load marked as transfer successfully"
+        description: data.swapTrailers ? "Load transferred and trailers swapped successfully" : "Load marked as transfer successfully"
       });
 
       // Reload order data to reflect changes
@@ -2352,7 +2378,17 @@ const EditOrder = () => {
         </CardContent>
       </Card>
 
-      <RecoveryLoadDialog open={recoveryDialogOpen} onOpenChange={setRecoveryDialogOpen} onSave={handleRecoverySave} currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"} currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"} currentTrailer={originalTrailerNumber || trailer || "N/A"} totalMiles={parseInt(loadedMiles) || 0} totalDriverRate={parseFloat(driverPrice) || 0} />
+      <RecoveryLoadDialog 
+        open={recoveryDialogOpen} 
+        onOpenChange={setRecoveryDialogOpen} 
+        onSave={handleRecoverySave} 
+        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"} 
+        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"} 
+        currentTrailer={originalTrailerNumber || trailer || "N/A"}
+        currentTrailerId={trailerId}
+        totalMiles={parseInt(loadedMiles) || 0} 
+        totalDriverRate={parseFloat(driverPrice) || 0} 
+      />
 
       {/* Yard Dialog */}
       <AlertDialog open={yardDialogOpen} onOpenChange={setYardDialogOpen}>
