@@ -225,40 +225,48 @@ const Analytics = () => {
         }
 
         // Date filtering - use pickup date for week filters, delivery date for month filters
+        // CRITICAL: Only filter by date when dateRange is actually set
+        // Orders with invalid dates should only be excluded when date filtering is active
         let matchesDate = true;
         if (dateRange?.from) {
           const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
-          // Handle cases where dateToFilter might be undefined or invalid
+          // Only exclude orders with invalid dates when actively filtering by date
           if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date") {
             matchesDate = false;
           } else {
-            const orderDate = new Date(dateToFilter.split(" - ")[0]);
-            // Validate the parsed date
-            if (isNaN(orderDate.getTime())) {
-              matchesDate = false;
-            } else {
-              const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
-              if (dateRange.to) {
-                // Date range filtering
-                const fromDateOnly = new Date(
-                  dateRange.from.getFullYear(),
-                  dateRange.from.getMonth(),
-                  dateRange.from.getDate(),
-                );
-                const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-                matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+            try {
+              const orderDate = new Date(dateToFilter.split(" - ")[0]);
+              // Validate the parsed date
+              if (isNaN(orderDate.getTime())) {
+                matchesDate = false;
               } else {
-                // Single date filtering
-                const selectedDateOnly = new Date(
-                  dateRange.from.getFullYear(),
-                  dateRange.from.getMonth(),
-                  dateRange.from.getDate(),
-                );
-                matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+                const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
+                if (dateRange.to) {
+                  // Date range filtering
+                  const fromDateOnly = new Date(
+                    dateRange.from.getFullYear(),
+                    dateRange.from.getMonth(),
+                    dateRange.from.getDate(),
+                  );
+                  const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+                  matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+                } else {
+                  // Single date filtering
+                  const selectedDateOnly = new Date(
+                    dateRange.from.getFullYear(),
+                    dateRange.from.getMonth(),
+                    dateRange.from.getDate(),
+                  );
+                  matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+                }
               }
+            } catch (error) {
+              console.error("Date parsing error for order:", order.id, error);
+              matchesDate = false;
             }
           }
         }
+        // When dateRange is not set, all orders pass the date filter (matchesDate = true)
 
         // Filter based on PRIMARY role only
         if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
