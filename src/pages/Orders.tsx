@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
 import { formatCurrency } from "@/lib/utils";
@@ -648,30 +649,27 @@ const Orders = () => {
 
         <Card className="w-fit min-w-full">
           <CardHeader>
-            {isLoadingBackground && (
-              <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-md flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">
-                    Loading all orders in background... ({loadProgress.loaded.toLocaleString()}/{loadProgress.total.toLocaleString()})
-                  </span>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {loadProgress.total > 0 ? Math.round((loadProgress.loaded / loadProgress.total) * 100) : 0}%
-                </Badge>
-              </div>
-            )}
             <div className="flex items-center justify-between gap-4">
-              <CardTitle className="shrink-0">All Loads</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="shrink-0">All Loads</CardTitle>
+                {isLoadingBackground && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help">
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Loading orders: {loadProgress.loaded.toLocaleString()} / {loadProgress.total.toLocaleString()} ({loadProgress.total > 0 ? Math.round((loadProgress.loaded / loadProgress.total) * 100) : 0}%)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
 
               <ScrollArea className="w-full">
                 <div className="flex gap-4 items-center pb-4">
-                  {isLoadingBackground && (
-                    <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
-                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                      Searching in partial data
-                    </Badge>
-                  )}
                   <div className="relative w-[288px] shrink-0">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
@@ -1100,13 +1098,7 @@ const Orders = () => {
             {filteredOrders.length > ORDERS_PER_PAGE && (
               <div className="flex items-center justify-between px-6 py-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}
-                  {isLoadingBackground && '+'} loads
-                  {isLoadingBackground && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      Partial data
-                    </Badge>
-                  )}
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
                 </div>
                 <Pagination>
                   <PaginationContent>
