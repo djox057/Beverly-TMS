@@ -28,7 +28,7 @@ interface User {
   user_id: string;
   email: string;
   full_name: string | null;
-  roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance')[];
+  roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management')[];
   created_at: string;
 }
 
@@ -43,7 +43,7 @@ const AdminUsers = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance'>('dispatch');
+  const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
@@ -53,7 +53,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance'>('dispatch');
+  const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management'>('dispatch');
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   // Security check: Only admins and accounting should access this page
@@ -401,6 +401,8 @@ const AdminUsers = () => {
         return 'default';
       case 'maintenance':
         return 'default';
+      case 'chicago_management':
+        return 'default';
       case 'dispatch':
         return 'secondary';
       case 'afterhours':
@@ -530,7 +532,7 @@ const AdminUsers = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-role">Role</Label>
-                <Select value={role} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance') => {
+                <Select value={role} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management') => {
                   setRole(value);
                   setFormErrors(prev => ({ ...prev, role: undefined }));
                 }}>
@@ -546,6 +548,7 @@ const AdminUsers = () => {
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="accounting">Accounting</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="chicago_management">Chicago Management</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                   </SelectContent>
                 </Select>
@@ -676,7 +679,7 @@ const AdminUsers = () => {
             
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
-              <Select value={editRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance') => setEditRole(value)}>
+              <Select value={editRole} onValueChange={(value: 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management') => setEditRole(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -689,6 +692,7 @@ const AdminUsers = () => {
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="accounting">Accounting</SelectItem>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="chicago_management">Chicago Management</SelectItem>
                   <SelectItem value="driver">Driver</SelectItem>
                 </SelectContent>
               </Select>

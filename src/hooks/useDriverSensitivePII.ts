@@ -4,7 +4,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 
 export const useDriverSensitivePII = (driverId?: string) => {
   const { hasRole } = useAuthContext();
-  const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('supervisor') || hasRole('accounting');
+  const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('supervisor') || hasRole('accounting') || hasRole('chicago_management');
 
   return useQuery({
     queryKey: ['driver-sensitive-pii', driverId],
