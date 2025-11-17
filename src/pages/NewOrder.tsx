@@ -1836,17 +1836,12 @@ const NewOrder = () => {
       setIsSubmitting(false);
     }
   };
-  const handleConfirmMissingData = () => {
+  const handleConfirmMissingData = (e?: React.MouseEvent) => {
+    if (isSubmitting) return; // Prevent duplicate submissions
     setShowMissingDataDialog(false);
     setPendingSubmit(true);
-    // Re-trigger form submission
-    const form = document.querySelector('form');
-    if (form) {
-      form.dispatchEvent(new Event('submit', {
-        cancelable: true,
-        bubbles: true
-      }));
-    }
+    // Call handleSubmit directly instead of dispatching synthetic event
+    handleSubmit(e as any);
   };
   const isLoading = companiesLoading || trucksLoading || driversLoading || loadingNextNumber;
   if (isLoading) {
@@ -2318,10 +2313,15 @@ const NewOrder = () => {
           }}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={e => {
-            setShowDuplicateWarning(false);
-            handleSubmit(e as any, true);
-          }}>
+            <AlertDialogAction 
+              disabled={isSubmitting}
+              onClick={e => {
+                if (isSubmitting) return; // Prevent duplicate submissions
+                setShowDuplicateWarning(false);
+                handleSubmit(e as any, true);
+              }}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -2339,15 +2339,12 @@ const NewOrder = () => {
           setShowDuplicateStopsDialog(false);
           setPendingSubmit(false);
         }}
-        onConfirm={() => {
+        onConfirm={(e) => {
+          if (isSubmitting) return; // Prevent duplicate submissions
           setShowDuplicateStopsDialog(false);
           setPendingSubmit(true);
-          // Re-trigger form submission with duplicate stops check skipped
-          const form = document.querySelector('form');
-          if (form) {
-            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-            form.dispatchEvent(submitEvent);
-          }
+          // Call handleSubmit directly with skipDuplicateStopsCheck flag
+          handleSubmit(e as any, false, true);
         }}
       />
     </div>;

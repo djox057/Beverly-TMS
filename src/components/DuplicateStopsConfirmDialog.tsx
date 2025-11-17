@@ -24,7 +24,7 @@ interface DuplicateStop {
 interface DuplicateStopsConfirmDialogProps {
   open: boolean;
   duplicates: DuplicateStop[];
-  onConfirm: () => void;
+  onConfirm: (e?: React.MouseEvent) => void;
   onCancel: () => void;
 }
 
