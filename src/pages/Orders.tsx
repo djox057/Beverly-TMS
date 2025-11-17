@@ -263,6 +263,8 @@ const Orders = () => {
           matchesMissingDocs = order.podFiles?.length === 0;
         } else if (missingDocsFilter === "complete") {
           matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
+        } else if (missingDocsFilter === "canceled") {
+          matchesMissingDocs = order.canceled === true;
         }
       }
 
@@ -760,6 +762,7 @@ const Orders = () => {
                       { value: "missing-rc", label: "Missing RC" },
                       { value: "missing-bol", label: "Missing BOL" },
                       { value: "missing-pod", label: "Missing POD" },
+                      { value: "canceled", label: "Canceled Loads" },
                     ]}
                     className="w-[192px] shrink-0"
                   />
