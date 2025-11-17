@@ -1858,6 +1858,7 @@ export type Database = {
         | "accounting"
         | "afterhours"
         | "maintenance"
+        | "chicago_management"
       office_location: "Čačak" | "KRAGUJEVAC" | "BEOGRAD" | "Recovery"
     }
     CompositeTypes: {
@@ -1996,6 +1997,7 @@ export const Constants = {
         "accounting",
         "afterhours",
         "maintenance",
+        "chicago_management",
       ],
       office_location: ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"],
     },
