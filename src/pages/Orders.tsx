@@ -200,7 +200,7 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
-  const { data: orders, isLoading, error, refetch } = useOrders();
+  const { data: orders, isLoading, error, refetch, isLoadingBackground, loadProgress } = useOrders();
 
   const { data: companies } = useCompanies();
 
@@ -624,7 +624,12 @@ const Orders = () => {
           <div className="flex gap-2">
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
-                <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
+                <Button 
+                  variant="outline" 
+                  onClick={exportToExcel} 
+                  disabled={!filteredOrders.length || isLoadingBackground}
+                  title={isLoadingBackground ? "Wait for all orders to load" : ""}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Export to Excel
                 </Button>
@@ -643,11 +648,30 @@ const Orders = () => {
 
         <Card className="w-fit min-w-full">
           <CardHeader>
+            {isLoadingBackground && (
+              <div className="mb-4 p-3 bg-primary/10 border border-primary/20 rounded-md flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">
+                    Loading all orders in background... ({loadProgress.loaded.toLocaleString()}/{loadProgress.total.toLocaleString()})
+                  </span>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {loadProgress.total > 0 ? Math.round((loadProgress.loaded / loadProgress.total) * 100) : 0}%
+                </Badge>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-4">
               <CardTitle className="shrink-0">All Loads</CardTitle>
 
               <ScrollArea className="w-full">
                 <div className="flex gap-4 items-center pb-4">
+                  {isLoadingBackground && (
+                    <Badge variant="outline" className="shrink-0 border-primary/30 text-primary">
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      Searching in partial data
+                    </Badge>
+                  )}
                   <div className="relative w-[288px] shrink-0">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input
@@ -1076,8 +1100,13 @@ const Orders = () => {
             {filteredOrders.length > ORDERS_PER_PAGE && (
               <div className="flex items-center justify-between px-6 py-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}{" "}
-                  loads
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}
+                  {isLoadingBackground && '+'} loads
+                  {isLoadingBackground && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      Partial data
+                    </Badge>
+                  )}
                 </div>
                 <Pagination>
                   <PaginationContent>
