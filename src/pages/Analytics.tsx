@@ -548,13 +548,14 @@ const Analytics = () => {
       return sortDirection === "desc" ? bValue - aValue : aValue - bValue;
     });
 
-  // Calculate totals
-  const totals = dispatcherStats.reduce(
-    (acc, stat) => {
-      acc.totalFreight += stat.totalFreight;
-      acc.totalDriverRate += stat.totalDriverRate;
-      acc.totalMiles += stat.totalMiles;
-      acc.orderCount += stat.orderCount;
+  // Calculate totals DIRECTLY from filteredOrders, not from dispatcherStats
+  // This ensures ALL orders are counted in totals, even if dispatcher profiles are missing
+  const totals = filteredOrders.reduce(
+    (acc, order) => {
+      acc.totalFreight += order.totalFreightAmount || 0;
+      acc.totalDriverRate += order.driverPrice || 0;
+      acc.totalMiles += order.mileage || 0;
+      acc.orderCount += 1;
       return acc;
     },
     {
