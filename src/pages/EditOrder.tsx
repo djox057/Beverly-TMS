@@ -1216,7 +1216,7 @@ const EditOrder = () => {
         recovery_date: data.recoveryDate,
         // Update current assignment to transfer driver
         truck_id: data.recoveryTruckId,
-        trailer_id: data.recoveryTrailerId || null,
+        trailer_id: data.swapTrailers ? trailerId : (data.recoveryTrailerId || null),
         driver1_id: data.recoveryDriverId,
         driver2_id: null
       }).eq("id", id);
