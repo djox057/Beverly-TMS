@@ -269,7 +269,7 @@ const Analytics = () => {
         // When dateRange is not set, all orders pass the date filter (matchesDate = true)
 
         // Filter based on PRIMARY role only
-        if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
+        if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting" || primaryRole === "chicago_management") {
           return matchesDate;
         }
 
@@ -787,8 +787,8 @@ const Analytics = () => {
                     )}
                   </div>
 
-                  {/* Office Filter - Only for Admin/Manager */}
-                  {(hasRole("admin") || hasRole("manager")) && (
+                  {/* Office Filter - Only for Admin/Manager/Chicago Management */}
+                  {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
                     <div className="flex flex-wrap gap-2 items-center">
                       <span className="text-sm font-medium text-muted-foreground">Filter by Office:</span>
                       {Array.from(
