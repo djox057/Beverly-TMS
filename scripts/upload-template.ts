@@ -59,8 +59,29 @@ async function uploadTemplate() {
 
     console.log('✅ 2P1D Template uploaded successfully!');
     console.log('📁 File path:', data2.path);
+
+    // Upload 3P3D template
+    const template3Path = 'public/load_sheet_3p3d.pdf';
+    const fileBuffer3 = readFileSync(template3Path);
+
+    console.log('📤 Uploading 3P3D template to Supabase storage...');
+
+    const { data: data3, error: error3 } = await supabase.storage
+      .from('Profilne')
+      .upload('3p_3_d_sheet_1.pdf', fileBuffer3, {
+        contentType: 'application/pdf',
+        upsert: true
+      });
+
+    if (error3) {
+      console.error('❌ Error uploading 3P3D template:', error3);
+      process.exit(1);
+    }
+
+    console.log('✅ 3P3D Template uploaded successfully!');
+    console.log('📁 File path:', data3.path);
     console.log('');
-    console.log('🔒 Both templates are stored securely in your order-files bucket');
+    console.log('🔒 All templates are stored securely in your storage buckets');
     console.log('📄 The edge function will load them using the service role key');
   } catch (error) {
     console.error('❌ Error:', error);

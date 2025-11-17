@@ -146,6 +146,7 @@ serve(async (req) => {
       '2p1d': { bucket: 'Profilne', file: 'load_sheet 2p1d (1).pdf' },
       '2p2d': { bucket: 'Profilne', file: 'load_sheet 2p2d (1).pdf' },
       '3p1d': { bucket: 'Profilne', file: 'load_sheet 3p1d (1).pdf' },
+      '3p3d': { bucket: 'Profilne', file: '3p_3_d_sheet_1.pdf' },
     };
     
     if (templateMap[templateType]) {
@@ -456,6 +457,59 @@ serve(async (req) => {
         setTextField('Date_4', data.deliveryDate);
         setTextField('Time_4', data.deliveryTime);
         setTextField('PO_4', data.deliveryPoNumber);
+
+      } else if (templateType === '3p3d') {
+        console.log('Filling 3p3d template');
+        
+        // Pickups
+        setTextField('Shipper', data.pickupShipper);
+        setTextField('Address', data.pickupAddress);
+        setTextField('City state zip', data.pickupCityStateZip);
+        setTextField('Date', data.pickupDate);
+        setTextField('Time', data.pickupTime);
+        setTextField('PU', data.pickupPuNumber);
+        setTextField('PO', data.pickupPoNumber);
+
+        setTextField('Receiver', data.pickup2Shipper);
+        setTextField('Address_2', data.pickup2Address);
+        setTextField('City state zip_2', data.pickup2CityStateZip);
+        setTextField('Date_2', data.pickup2Date);
+        setTextField('Time_2', data.pickup2Time);
+        setTextField('Delivery', data.pickup2PoNumber);
+        setTextField('PO_2', data.pickup2PoNumber);
+
+        setTextField('Receiver_2', data.pickup3Shipper);
+        setTextField('Address_3', data.pickup3Address);
+        setTextField('City state zip_3', data.pickup3CityStateZip);
+        setTextField('Date_3', data.pickup3Date);
+        setTextField('Time_3', data.pickup3Time);
+        setTextField('Delivery_2', data.pickup3PoNumber);
+        setTextField('PO_3', data.pickup3PoNumber);
+
+        // Deliveries
+        setTextField('Receiver_3', data.deliveryReceiver);
+        setTextField('Address_4', data.deliveryAddress);
+        setTextField('City state zip_4', data.deliveryCityStateZip);
+        setTextField('Date_4', data.deliveryDate);
+        setTextField('Time_4', data.deliveryTime);
+        setTextField('Delivery_3', data.deliveryPoNumber);
+        setTextField('PO_4', data.deliveryPoNumber);
+
+        setTextField('Receiver_4', data.delivery2Receiver);
+        setTextField('Address_5', data.delivery2Address);
+        setTextField('City state zip_5', data.delivery2CityStateZip);
+        setTextField('Date_5', data.delivery2Date);
+        setTextField('Time_5', data.delivery2Time);
+        setTextField('Delivery_4', data.delivery2PoNumber);
+        setTextField('PO_5', data.delivery2PoNumber);
+
+        setTextField('Receiver_5', data.delivery3Receiver);
+        setTextField('Address_6', data.delivery3Address);
+        setTextField('City state zip_6', data.delivery3CityStateZip);
+        setTextField('Date_6', data.delivery3Date);
+        setTextField('Time_6', data.delivery3Time);
+        setTextField('Delivery_5', data.delivery3PoNumber);
+        setTextField('PO_6', data.delivery3PoNumber);
 
       } else {
         // Fill 1 Pickup + 1 Delivery template (original 1p1d)
