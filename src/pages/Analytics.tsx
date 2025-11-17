@@ -521,15 +521,15 @@ const Analytics = () => {
         return false;
       }
 
-      // Filter by selected offices (only for admin/manager)
-      if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager")) {
+      // Filter by selected offices (only for admin/manager/chicago_management)
+      if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")) {
         if (!selectedOffices.includes(stat.office)) {
           return false;
         }
       }
 
-      // Admins, managers and accounting see all dispatchers
-      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting") {
+      // Admins, managers, accounting, and chicago_management see all dispatchers
+      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting" || primaryRole === "chicago_management") {
         return true;
       }
       // Supervisors only see dispatchers from their office
