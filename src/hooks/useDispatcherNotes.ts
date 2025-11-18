@@ -47,6 +47,8 @@ export const useDispatcherNotes = (startDate?: string, endDate?: string) => {
         .upsert({
           ...note,
           created_by: user.id,
+        }, {
+          onConflict: 'dispatcher_id,date'
         })
         .select()
         .single();
