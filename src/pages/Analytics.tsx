@@ -23,6 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
+import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
+import { DispatcherNoteDialog } from "@/components/DispatcherNoteDialog";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -92,6 +94,22 @@ const Analytics = () => {
     notice: string;
   } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
+  
+  // Fetch dispatcher notes for the current date range
+  const startDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
+  const endDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : startDate;
+  const { notes: dispatcherNotes } = useDispatcherNotes(startDate, endDate);
+  
+  // Create a map of dispatcher notes by dispatcher_id and date for quick lookup
+  const notesByDispatcher = useMemo(() => {
+    const map: Record<string, { note: string; color: 'red' | 'yellow' | 'green'; id: string }> = {};
+    dispatcherNotes.forEach(note => {
+      // For each dispatcher, use the most recent note in the date range
+      const key = `${note.dispatcher_id}-${note.date}`;
+      map[key] = { note: note.note, color: note.color, id: note.id };
+    });
+    return map;
+  }, [dispatcherNotes]);
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
   const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, { totalTrucks: number; daysCount: number }>>({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
@@ -527,6 +545,7 @@ const Analytics = () => {
 
       return {
         name,
+        userId: dispatcherUserId || '',
         totalFreight: stats.totalFreight,
         totalDriverRate: stats.totalDriverRate,
         totalMiles: stats.totalMiles,
@@ -940,9 +959,37 @@ const Analytics = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      dispatcherStats.map((stat, index) => (
-                        <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
-                          <TableCell className="font-medium">{stat.name}</TableCell>
+                      dispatcherStats.map((stat, index) => {
+                        // Get the most recent note for this dispatcher in the date range
+                        const dispatcherNotesForUser = dispatcherNotes.filter(n => n.dispatcher_id === stat.userId);
+                        const mostRecentNote = dispatcherNotesForUser.length > 0 
+                          ? dispatcherNotesForUser.reduce((latest, current) => 
+                              new Date(current.date) > new Date(latest.date) ? current : latest
+                            )
+                          : null;
+                        
+                        const canEditNotes = hasRole('manager') || hasRole('supervisor') || hasRole('admin');
+                        const todayDate = format(new Date(), 'yyyy-MM-dd');
+                        
+                        return (
+                          <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center">
+                                {stat.name}
+                                {stat.userId && (
+                                  <DispatcherNoteDialog
+                                    dispatcherId={stat.userId}
+                                    date={todayDate}
+                                    existingNote={mostRecentNote ? {
+                                      id: mostRecentNote.id,
+                                      note: mostRecentNote.note,
+                                      color: mostRecentNote.color,
+                                    } : undefined}
+                                    canEdit={canEditNotes}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                           <TableCell className="text-right">
                             $
                             {stat.totalFreight.toLocaleString(undefined, {
@@ -965,7 +1012,8 @@ const Analytics = () => {
                             {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : '-'}
                           </TableCell>
                         </TableRow>
-                      ))
+                      );
+                    })
                     )}
                   </TableBody>
                 </Table>
