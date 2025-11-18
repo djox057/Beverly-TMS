@@ -1475,10 +1475,8 @@ const Reports = () => {
       });
       shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
 
-      // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
-      // But NOT if there's a game over day before this OR if it's a continuing delivery
-      // Also exclude "No pre-book?" case (exactly one day in future)
-      // Show red if no pickup AND (no delivery OR has delivery but no future deliveries)
+      // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
+      // Show red if no pickup on this day, regardless of transit state
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
@@ -1490,9 +1488,7 @@ const Reports = () => {
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
-        !isOneDayFuture &&
-        !isInTransitBetweenDeliveries &&
-        !shouldShowPickupInTransit;
+        !isOneDayFuture;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
