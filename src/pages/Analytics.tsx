@@ -968,7 +968,7 @@ const Analytics = () => {
                             )
                           : null;
                         
-                        const canEditNotes = hasRole('manager') || hasRole('supervisor') || hasRole('admin');
+                        const canViewAndEditNotes = hasRole('manager') || hasRole('admin') || hasRole('chicago_management');
                         const todayDate = format(new Date(), 'yyyy-MM-dd');
                         
                         return (
@@ -976,7 +976,7 @@ const Analytics = () => {
                             <TableCell className="font-medium">
                               <div className="flex items-center">
                                 {stat.name}
-                                {stat.userId && (
+                                {canViewAndEditNotes && stat.userId && (
                                   <DispatcherNoteDialog
                                     dispatcherId={stat.userId}
                                     initialDate={todayDate}
@@ -985,7 +985,7 @@ const Analytics = () => {
                                       note: mostRecentNote.note,
                                       color: mostRecentNote.color,
                                     } : undefined}
-                                    canEdit={canEditNotes}
+                                    canEdit={canViewAndEditNotes}
                                   />
                                 )}
                               </div>
