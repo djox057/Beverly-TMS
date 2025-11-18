@@ -1577,21 +1577,41 @@ const EditOrder = () => {
           };
         });
 
-        // Delete all existing pickup_drops first to avoid unique constraint violations when reordering
-        if (existing.length > 0) {
+        // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
+        for (let i = 0; i < existing.length; i++) {
+          const { error: tempError } = await supabase
+            .from("pickup_drops")
+            .update({ sequence_number: -(i + 1000) })
+            .eq("id", existing[i].id);
+          if (tempError) throw tempError;
+        }
+
+        // Step 2: Update existing pickup_drops with new data
+        for (let i = 0; i < Math.min(existing.length, formPickupDrops.length); i++) {
+          const { error: updateError } = await supabase
+            .from("pickup_drops")
+            .update(formPickupDrops[i])
+            .eq("id", existing[i].id);
+          if (updateError) throw updateError;
+        }
+
+        // Step 3: Insert new pickup_drops if form has more than existing
+        if (formPickupDrops.length > existing.length) {
+          const newPickupDrops = formPickupDrops.slice(existing.length);
+          const { error: insertError } = await supabase
+            .from("pickup_drops")
+            .insert(newPickupDrops);
+          if (insertError) throw insertError;
+        }
+
+        // Step 4: Delete extra pickup_drops if existing has more than form
+        if (existing.length > formPickupDrops.length) {
+          const idsToDelete = existing.slice(formPickupDrops.length).map(pd => pd.id);
           const { error: deleteError } = await supabase
             .from("pickup_drops")
             .delete()
-            .eq("order_id", id);
+            .in("id", idsToDelete);
           if (deleteError) throw deleteError;
-        }
-
-        // Insert all pickup_drops fresh
-        if (formPickupDrops.length > 0) {
-          const { error: insertError } = await supabase
-            .from("pickup_drops")
-            .insert(formPickupDrops);
-          if (insertError) throw insertError;
         }
       }
       // Invalidate orders cache to refresh data across all pages
