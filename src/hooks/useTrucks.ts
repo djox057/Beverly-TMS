@@ -20,22 +20,22 @@ export const useTrucks = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },
-        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trailers" },
-        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "drivers" },
-        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "companies" },
-        () => queryClient.invalidateQueries({ queryKey: ["trucks"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trucks", "v2"] })
       )
       .subscribe();
 
@@ -45,7 +45,7 @@ export const useTrucks = () => {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['trucks'],
+    queryKey: ['trucks', 'v2'], // Added version to force cache invalidation
     queryFn: async () => {
       console.log('🚛 Fetching trucks with relationships...');
       
@@ -166,5 +166,6 @@ export const useTrucks = () => {
     refetchOnMount: true,
     staleTime: 0,
     gcTime: 0,
+    structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
 };
