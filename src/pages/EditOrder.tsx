@@ -97,6 +97,8 @@ const EditOrder = () => {
   const [wrongAddressFeeDriver, setWrongAddressFeeDriver] = useState("");
   const [dhMiles, setDhMiles] = useState("");
   const [loadedMiles, setLoadedMiles] = useState("");
+  const [otherCharges, setOtherCharges] = useState("");
+  const [otherChargesDriver, setOtherChargesDriver] = useState("");
   const [escortFee, setEscortFee] = useState("");
   const [escortFeeBrokerPaid, setEscortFeeBrokerPaid] = useState(false);
 
@@ -109,21 +111,23 @@ const EditOrder = () => {
     const lump = parseFloat(lumper) || 0;
     const late = parseFloat(lateFee) || 0;
     const ton = parseFloat(tonu) || 0;
+    const other = parseFloat(otherCharges) || 0;
     const escort = escortFeeBrokerPaid ? parseFloat(escortFee) || 0 : 0;
     const noTracking = parseFloat(noTrackingFee) || 0;
     const wrongAddr = parseFloat(wrongAddressFee) || 0;
-    return base + det + lay + extra + lump - late + ton + escort - noTracking - wrongAddr;
-  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, escortFee, escortFeeBrokerPaid, noTrackingFee, wrongAddressFee]);
+    return base + det + lay + extra + lump - late + ton + other + escort - noTracking - wrongAddr;
+  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, otherCharges, escortFee, escortFeeBrokerPaid, noTrackingFee, wrongAddressFee]);
   const totalDriverPay = useMemo(() => {
     const base = parseFloat(driverPrice) || 0;
     const det = parseFloat(detentionDriver) || 0;
     const lay = parseFloat(layoverDriver) || 0;
     const late = parseFloat(lateFeeDriver) || 0;
     const ton = parseFloat(tonuDriver) || 0;
+    const other = parseFloat(otherChargesDriver) || 0;
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
-    return base + det + lay - late + ton - noTracking - wrongAddr;
-  }, [driverPrice, detentionDriver, layoverDriver, lateFeeDriver, tonuDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
+    return base + det + lay - late + ton + other - noTracking - wrongAddr;
+  }, [driverPrice, detentionDriver, layoverDriver, lateFeeDriver, tonuDriver, otherChargesDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
   const [commodity, setCommodity] = useState("");
   const [weight, setWeight] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -379,6 +383,8 @@ const EditOrder = () => {
         setNoTrackingFeeDriver((orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "");
         setWrongAddressFee((orderData as any).wrong_address_fee?.toString() || "");
         setWrongAddressFeeDriver((orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "");
+        setOtherCharges((orderData as any).other_charges?.toString() || "");
+        setOtherChargesDriver((orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "");
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
@@ -391,7 +397,7 @@ const EditOrder = () => {
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
 
         // Check if any additional fields have values > 0 to auto-show them
-        const hasAdditionalValues = (orderData as any).detention && parseFloat((orderData as any).detention) > 0 || (orderData as any).detention_driver && parseFloat((orderData as any).detention_driver) > 0 || (orderData as any).layover && parseFloat((orderData as any).layover) > 0 || (orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0 || (orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0 || (orderData as any).lumper && parseFloat((orderData as any).lumper) > 0 || (orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0 || (orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0 || (orderData as any).no_tracking_fee && parseFloat((orderData as any).no_tracking_fee) > 0 || (orderData as any).no_tracking_fee_driver && parseFloat((orderData as any).no_tracking_fee_driver) > 0 || (orderData as any).wrong_address_fee && parseFloat((orderData as any).wrong_address_fee) > 0 || (orderData as any).wrong_address_fee_driver && parseFloat((orderData as any).wrong_address_fee_driver) > 0 || (orderData as any).tonu && parseFloat((orderData as any).tonu) > 0 || (orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0 || (orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0;
+        const hasAdditionalValues = (orderData as any).detention && parseFloat((orderData as any).detention) > 0 || (orderData as any).detention_driver && parseFloat((orderData as any).detention_driver) > 0 || (orderData as any).layover && parseFloat((orderData as any).layover) > 0 || (orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0 || (orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0 || (orderData as any).lumper && parseFloat((orderData as any).lumper) > 0 || (orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0 || (orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0 || (orderData as any).no_tracking_fee && parseFloat((orderData as any).no_tracking_fee) > 0 || (orderData as any).no_tracking_fee_driver && parseFloat((orderData as any).no_tracking_fee_driver) > 0 || (orderData as any).wrong_address_fee && parseFloat((orderData as any).wrong_address_fee) > 0 || (orderData as any).wrong_address_fee_driver && parseFloat((orderData as any).wrong_address_fee_driver) > 0 || (orderData as any).tonu && parseFloat((orderData as any).tonu) > 0 || (orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0 || (orderData as any).other_charges && parseFloat((orderData as any).other_charges) > 0 || (orderData as any).other_charges_driver && parseFloat((orderData as any).other_charges_driver) > 0 || (orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0;
         setShowAdditionalFields(hasAdditionalValues);
 
         // Load recovery state
@@ -1447,6 +1453,8 @@ const EditOrder = () => {
         no_tracking_fee_driver: noTrackingFeeDriver !== "" ? parseFloat(noTrackingFeeDriver) : null,
         wrong_address_fee: wrongAddressFee !== "" ? parseFloat(wrongAddressFee) : null,
         wrong_address_fee_driver: wrongAddressFeeDriver !== "" ? parseFloat(wrongAddressFeeDriver) : null,
+        other_charges: otherCharges !== "" ? parseFloat(otherCharges) : null,
+        other_charges_driver: otherChargesDriver !== "" ? parseFloat(otherChargesDriver) : null,
         loaded_miles: loadedMiles ? parseInt(loadedMiles) : null,
         dh_miles: dhMiles ? parseInt(dhMiles) : null,
         mileage: (parseInt(loadedMiles) || 0) + (parseInt(dhMiles) || 0) || null,
@@ -2083,6 +2091,22 @@ const EditOrder = () => {
                       TONU - Driver
                     </Label>
                     <Input id="tonu-driver" type="number" step="0.01" min="0" placeholder="0.00" value={tonuDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setTonuDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                  </div>
+                </div>
+
+                {/* Other Charges Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="other-charges" className="text-sm">
+                      Other Charges - Company
+                    </Label>
+                    <Input id="other-charges" type="number" step="0.01" min="0" placeholder="0.00" value={otherCharges} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherCharges)} className="bg-blue-50/50 dark:bg-blue-950/20" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="other-charges-driver" className="text-sm">
+                      Other Charges - Driver
+                    </Label>
+                    <Input id="other-charges-driver" type="number" step="0.01" min="0" placeholder="0.00" value={otherChargesDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherChargesDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
                   </div>
                 </div>
 
