@@ -68,6 +68,7 @@ interface Order {
   extraStop?: number;
   lumper?: number;
   tonu?: number;
+  otherCharges?: number;
   lateFee?: number;
   companyName: string;
   driverName: string;
@@ -218,6 +219,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     let extraStopTotal = 0;
     let lumperTotal = 0;
     let tonuTotal = 0;
+    let otherChargesTotal = 0;
     let lateFeeTotal = 0;
     
     group.orders.forEach((order) => {
@@ -275,6 +277,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       extraStopTotal += order.extraStop || 0;
       lumperTotal += order.lumper || 0;
       tonuTotal += order.tonu || 0;
+      otherChargesTotal += order.otherCharges || 0;
       lateFeeTotal += order.lateFee || 0;
       yPosition += calculatedHeight;
     });
@@ -325,6 +328,14 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       doc.rect(178, yPosition, 25, 8);
       doc.text('TONU', 140, yPosition + 5);
       doc.text(formatCurrency(tonuTotal), 180, yPosition + 5);
+      yPosition += 8;
+    }
+    
+    if (otherChargesTotal > 0) {
+      doc.rect(138, yPosition, 40, 8);
+      doc.rect(178, yPosition, 25, 8);
+      doc.text('Other Charges', 140, yPosition + 5);
+      doc.text(formatCurrency(otherChargesTotal), 180, yPosition + 5);
       yPosition += 8;
     }
     
