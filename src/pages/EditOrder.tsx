@@ -2045,7 +2045,7 @@ const EditOrder = () => {
                     <Label htmlFor="no-tracking-fee" className="text-sm">
                       No Tracking Fee - Company
                     </Label>
-                    <Input id="no-tracking-fee" type="number" step="0.01" min="0" placeholder="0.00" value={noTrackingFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setNoTrackingFee)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input id="no-tracking-fee" type="number" step="0.01" min="0" placeholder="" value={noTrackingFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setNoTrackingFee)} className="bg-green-50/50 dark:bg-green-950/20" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="no-tracking-fee-driver" className="text-sm">
@@ -2060,7 +2060,7 @@ const EditOrder = () => {
                     <Label htmlFor="wrong-address-fee" className="text-sm">
                       Wrong Address Fee-Company
                     </Label>
-                    <Input id="wrong-address-fee" type="number" step="0.01" min="0" placeholder="0.00" value={wrongAddressFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setWrongAddressFee)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input id="wrong-address-fee" type="number" step="0.01" min="0" placeholder="" value={wrongAddressFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setWrongAddressFee)} className="bg-green-50/50 dark:bg-green-950/20" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="wrong-address-fee-driver" className="text-sm">
@@ -2100,7 +2100,7 @@ const EditOrder = () => {
                     <Label htmlFor="other-charges" className="text-sm">
                       Other Charges - Company
                     </Label>
-                    <Input id="other-charges" type="number" step="0.01" min="0" placeholder="0.00" value={otherCharges} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherCharges)} className="bg-blue-50/50 dark:bg-blue-950/20" />
+                    <Input id="other-charges" type="number" step="0.01" min="0" placeholder="0.00" value={otherCharges} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherCharges)} className="bg-green-50/50 dark:bg-green-950/20" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="other-charges-driver" className="text-sm">
