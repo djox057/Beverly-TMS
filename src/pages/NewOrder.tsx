@@ -1690,11 +1690,24 @@ const NewOrder = () => {
         files: additionalFiles,
         category: 'ADDITIONAL'
       }];
+      
+      // Track which file categories were newly uploaded for auto-setting checkout times
+      const checkoutTimestamp = new Date().toISOString();
+      let bolUploaded = false;
+      let podUploaded = false;
+      let newPodCount = 0;
+      
       for (const {
         files,
         category
       } of allFiles) {
         if (files && files.length > 0) {
+          if (category === 'BOL') bolUploaded = true;
+          if (category === 'POD') {
+            podUploaded = true;
+            newPodCount = files.length;
+          }
+          
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const fileName = `${orderId}/${category}/${Date.now()}_${file.name}`;
@@ -1766,6 +1779,44 @@ const NewOrder = () => {
         throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
       console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
+      
+      // Auto-set checked_out_at for newly uploaded BOL/POD files
+      if (bolUploaded || podUploaded) {
+        // Fetch all pickup_drops for this order
+        const { data: allPickupDrops } = await supabase
+          .from("pickup_drops")
+          .select("id, type, sequence_number")
+          .eq("order_id", orderId)
+          .order("sequence_number");
+        
+        if (allPickupDrops) {
+          const pickups = allPickupDrops.filter(pd => pd.type === "pickup");
+          const deliveries = allPickupDrops.filter(pd => pd.type === "delivery");
+          
+          // If BOL was uploaded, set checkout time for first pickup
+          if (bolUploaded && pickups.length > 0) {
+            const firstPickup = pickups[0];
+            await supabase
+              .from("pickup_drops")
+              .update({ checked_out_at: checkoutTimestamp })
+              .eq("id", firstPickup.id);
+          }
+          
+          // If POD was uploaded, set checkout time for corresponding delivery stops
+          if (podUploaded && deliveries.length > 0) {
+            // For new orders, we're uploading PODs for the first time
+            // Update checkout times for first N deliveries where N = number of PODs uploaded
+            for (let i = 0; i < newPodCount && i < deliveries.length; i++) {
+              const delivery = deliveries[i];
+              await supabase
+                .from("pickup_drops")
+                .update({ checked_out_at: checkoutTimestamp })
+                .eq("id", delivery.id);
+            }
+          }
+        }
+      }
+      
       toast({
         title: "Load Created",
         description: `Load ${newInternalLoadNumber} has been successfully created.`
