@@ -652,6 +652,9 @@ const Reports = () => {
         .eq("user_id", user?.id || "")
         .single();
 
+      // Get current timestamp for checkout time
+      const checkoutTimestamp = new Date().toISOString();
+
       // Upload all files
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i];
@@ -674,6 +677,46 @@ const Reports = () => {
         });
 
         if (fileError) throw fileError;
+      }
+
+      // Auto-set checked_out_at based on document type
+      if (uploadDocType === "BOL" && zoomedLoad.allPickupStops?.length > 0) {
+        // BOL upload → set checked_out_at for first pickup stop
+        const firstPickup = zoomedLoad.allPickupStops[0];
+        if (firstPickup?.id) {
+          const { error: updateError } = await supabase
+            .from("pickup_drops")
+            .update({ checked_out_at: checkoutTimestamp })
+            .eq("id", firstPickup.id);
+          
+          if (updateError) {
+            console.error("Error updating pickup checkout time:", updateError);
+          }
+        }
+      } else if (uploadDocType === "POD" && zoomedLoad.allDeliveryStops?.length > 0) {
+        // POD upload → count existing PODs to determine which delivery stop to update
+        const { data: existingFiles } = await supabase
+          .from("order_files")
+          .select("id")
+          .eq("order_id", zoomedLoad.orderId)
+          .eq("file_category", "POD");
+        
+        const podCount = existingFiles?.length || 0;
+        const deliveryIndex = podCount - 1; // 1st POD = index 0, 2nd POD = index 1, etc.
+        
+        if (deliveryIndex >= 0 && deliveryIndex < zoomedLoad.allDeliveryStops.length) {
+          const deliveryStop = zoomedLoad.allDeliveryStops[deliveryIndex];
+          if (deliveryStop?.id) {
+            const { error: updateError } = await supabase
+              .from("pickup_drops")
+              .update({ checked_out_at: checkoutTimestamp })
+              .eq("id", deliveryStop.id);
+            
+            if (updateError) {
+              console.error("Error updating delivery checkout time:", updateError);
+            }
+          }
+        }
       }
 
       toast({

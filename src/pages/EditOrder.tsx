@@ -1487,11 +1487,24 @@ const EditOrder = () => {
         files: additionalFiles,
         category: "ADDITIONAL"
       }];
+      
+      // Track which file categories were newly uploaded for auto-setting checkout times
+      const checkoutTimestamp = new Date().toISOString();
+      let bolUploaded = false;
+      let podUploaded = false;
+      let newPodCount = 0;
+      
       for (const {
         files,
         category
       } of allFiles) {
         if (files && files.length > 0) {
+          if (category === "BOL") bolUploaded = true;
+          if (category === "POD") {
+            podUploaded = true;
+            newPodCount = files.length;
+          }
+          
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const fileName = `${id}/${category}/${Date.now()}_${file.name}`;
@@ -1614,6 +1627,54 @@ const EditOrder = () => {
           if (deleteError) throw deleteError;
         }
       }
+      
+      // Auto-set checked_out_at for newly uploaded BOL/POD files
+      if (bolUploaded || podUploaded) {
+        // Fetch all pickup_drops for this order
+        const { data: allPickupDrops } = await supabase
+          .from("pickup_drops")
+          .select("id, type, sequence_number")
+          .eq("order_id", id)
+          .order("sequence_number");
+        
+        if (allPickupDrops) {
+          const pickups = allPickupDrops.filter(pd => pd.type === "pickup");
+          const deliveries = allPickupDrops.filter(pd => pd.type === "delivery");
+          
+          // If BOL was uploaded, set checkout time for first pickup
+          if (bolUploaded && pickups.length > 0) {
+            const firstPickup = pickups[0];
+            await supabase
+              .from("pickup_drops")
+              .update({ checked_out_at: checkoutTimestamp })
+              .eq("id", firstPickup.id);
+          }
+          
+          // If POD was uploaded, set checkout time for corresponding delivery stops
+          if (podUploaded && deliveries.length > 0) {
+            // Get existing POD count before these uploads
+            const { data: existingPods } = await supabase
+              .from("order_files")
+              .select("id")
+              .eq("order_id", id)
+              .eq("file_category", "POD");
+            
+            const totalPodCount = existingPods?.length || 0;
+            // Update checkout times for newly uploaded PODs
+            // If we had 2 PODs and uploaded 1 more, update delivery at index 2 (3rd delivery)
+            const startIndex = totalPodCount - newPodCount;
+            
+            for (let i = 0; i < newPodCount && (startIndex + i) < deliveries.length; i++) {
+              const delivery = deliveries[startIndex + i];
+              await supabase
+                .from("pickup_drops")
+                .update({ checked_out_at: checkoutTimestamp })
+                .eq("id", delivery.id);
+            }
+          }
+        }
+      }
+      
       // Invalidate orders cache to refresh data across all pages
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       
