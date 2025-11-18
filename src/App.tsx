@@ -57,7 +57,7 @@ const prefetchData = async () => {
       },
     }),
     queryClient.prefetchQuery({
-      queryKey: ['trailers'],
+      queryKey: ['trailers', 'v2'],
       queryFn: async () => {
         const { data } = await supabase
           .from('trailers')

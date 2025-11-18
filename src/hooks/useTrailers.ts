@@ -12,12 +12,12 @@ export const useTrailers = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trailers" },
-        () => queryClient.invalidateQueries({ queryKey: ["trailers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trailers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },
-        () => queryClient.invalidateQueries({ queryKey: ["trailers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["trailers", "v2"] })
       )
       .subscribe();
 
@@ -27,7 +27,7 @@ export const useTrailers = () => {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['trailers'],
+    queryKey: ['trailers', 'v2'], // Added version to force cache invalidation
     queryFn: async () => {
       console.log('🚛 Fetching trailers with relationships...');
       let allTrailers: any[] = [];
@@ -95,5 +95,6 @@ export const useTrailers = () => {
     refetchOnMount: true,
     staleTime: 0,
     gcTime: 0,
+    structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
 };
