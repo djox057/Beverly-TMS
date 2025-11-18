@@ -1416,6 +1416,21 @@ const Reports = () => {
         isInTransitBetweenDeliveries = hadPreviousDelivery && hasFutureDelivery;
       }
 
+      // Check if pickup cell should show ">>>" for in-transit days
+      // This applies from first delivery through second-to-last delivery (not on last delivery day)
+      let shouldShowPickupInTransit = false;
+      // Check if there was a delivery on this day or a previous day
+      const hadDeliveryOnOrBefore = days.slice(0, index + 1).some((prevDay) => {
+        const prevDayStr = format(prevDay, "yyyy-MM-dd");
+        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+      });
+      // Check if there is a delivery on a future day
+      const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
+        const futureDayStr = format(futureDay, "yyyy-MM-dd");
+        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
+      });
+      shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
+
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this OR if it's a continuing delivery
       // Also exclude "No pre-book?" case (exactly one day in future)
@@ -1434,7 +1449,8 @@ const Reports = () => {
         !shouldShowContinuingDelivery &&
         !isOneDayFuture &&
         !hasDeliveryThisDay &&
-        !isInTransitBetweenDeliveries;
+        !isInTransitBetweenDeliveries &&
+        !shouldShowPickupInTransit;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -1787,7 +1803,7 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowPickupInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
 
@@ -1807,7 +1823,7 @@ const Reports = () => {
                           // Show display text if no database value exists
                           setRedCellNote(actualNoteValue || currentNote);
                           setRedCellIsHomeTime(isCurrentlyHomeTime);
-                        } else if (!isInTransit) {
+                        } else if (!isInTransit && !shouldShowPickupInTransit) {
                           // Open home time dialog for empty cells
                           setHomeTimeDialog({
                             truckId: truck.id,
@@ -1821,7 +1837,7 @@ const Reports = () => {
                     >
                       {isMissingPickup ? (
                         getLostDayNote(day)
-                      ) : isInTransit ? (
+                      ) : isInTransit || shouldShowPickupInTransit ? (
                         hasRescheduledOrders ? (
                           "RESCHEDULED"
                         ) : (
