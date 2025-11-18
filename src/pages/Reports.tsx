@@ -1462,22 +1462,18 @@ const Reports = () => {
 
       // Check if pickup cell should show ">>>" for in-transit days
       // This applies from first delivery through second-to-last delivery (not on last delivery day)
-      // IMPORTANT: Only show ">>>" if there are NO pickups on this day
       let shouldShowPickupInTransit = false;
-      // Only consider showing ">>>" if there are no pickups or same-day orders
-      if (pickupOnlyOrders.length === 0 && sameDayOrders.length === 0) {
-        // Check if there was a delivery on this day or a previous day
-        const hadDeliveryOnOrBefore = days.slice(0, index + 1).some((prevDay) => {
-          const prevDayStr = format(prevDay, "yyyy-MM-dd");
-          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
-        });
-        // Check if there is a delivery on a future day
-        const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
-          const futureDayStr = format(futureDay, "yyyy-MM-dd");
-          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
-        });
-        shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
-      }
+      // Check if there was a delivery on this day or a previous day
+      const hadDeliveryOnOrBefore = days.slice(0, index + 1).some((prevDay) => {
+        const prevDayStr = format(prevDay, "yyyy-MM-dd");
+        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+      });
+      // Check if there is a delivery on a future day
+      const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
+        const futureDayStr = format(futureDay, "yyyy-MM-dd");
+        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
+      });
+      shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this OR if it's a continuing delivery
