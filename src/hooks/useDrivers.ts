@@ -29,6 +29,21 @@ export const useDrivers = () => {
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "trailers" },
+        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "companies" },
+        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "user_roles" },
         () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
       )
@@ -54,7 +69,7 @@ export const useDrivers = () => {
             .from('drivers')
             .select(`
               *,
-              company:companies!drivers_company_id_fkey(id, name)
+              companies!inner(id, name)
             `)
             .order('name', { ascending: true })
             .range(from, from + batchSize - 1);
@@ -66,9 +81,15 @@ export const useDrivers = () => {
           
           if (!data || data.length === 0) break;
           
-          allDrivers = [...allDrivers, ...data];
+          // Transform companies from array to single object
+          const transformedData = data.map(driver => ({
+            ...driver,
+            company: Array.isArray(driver.companies) ? driver.companies[0] : driver.companies
+          }));
           
-          if (data.length < batchSize) break;
+          allDrivers = [...allDrivers, ...transformedData];
+          
+          if (transformedData.length < batchSize) break;
           
           from += batchSize;
         }
@@ -155,8 +176,8 @@ export const useDrivers = () => {
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 60 * 60 * 1000, // 60 minutes
+    refetchOnMount: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 };
