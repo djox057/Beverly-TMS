@@ -129,9 +129,10 @@ const Orders = () => {
     !hasRole("safety");
 
   // For dispatch users, pass their name to filter at the database level
-  const orderFilterOptions = isDispatchOnly && profile?.full_name 
-    ? { bookedBy: profile.full_name } 
-    : undefined;
+  // Use null instead of undefined to prevent double fetch when profile loads
+  const orderFilterOptions = isDispatchOnly 
+    ? { bookedBy: profile?.full_name || null } 
+    : { bookedBy: null };
 
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders =
