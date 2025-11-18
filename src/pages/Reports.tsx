@@ -1397,6 +1397,25 @@ const Reports = () => {
         });
       }
 
+      // Check if this empty day is BETWEEN deliveries (should show ">>>")
+      // This applies to days with no pickups AND no deliveries, but between past and future deliveries
+      let isInTransitBetweenDeliveries = false;
+      if (pickupOnlyOrders.length === 0 && deliveryOnlyOrders.length === 0 && sameDayOrders.length === 0) {
+        // Check if there was a delivery on a previous day
+        const hadPreviousDelivery = index > 0 && days.slice(0, index).some((prevDay) => {
+          const prevDayStr = format(prevDay, "yyyy-MM-dd");
+          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+        });
+
+        // Check if there is a delivery on a future day
+        const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
+          const futureDayStr = format(futureDay, "yyyy-MM-dd");
+          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
+        });
+
+        isInTransitBetweenDeliveries = hadPreviousDelivery && hasFutureDelivery;
+      }
+
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this OR if it's a continuing delivery
       // Also exclude "No pre-book?" case (exactly one day in future)
@@ -1414,7 +1433,8 @@ const Reports = () => {
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
         !isOneDayFuture &&
-        !hasDeliveryThisDay;
+        !hasDeliveryThisDay &&
+        !isInTransitBetweenDeliveries;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
@@ -1767,7 +1787,7 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay || isInTransitBetweenDeliveries ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
 
@@ -1801,7 +1821,7 @@ const Reports = () => {
                     >
                       {isMissingPickup ? (
                         getLostDayNote(day)
-                      ) : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay ? (
+                      ) : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay || isInTransitBetweenDeliveries ? (
                         hasRescheduledOrders ? (
                           "RESCHEDULED"
                         ) : (
