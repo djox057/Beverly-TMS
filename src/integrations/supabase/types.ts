@@ -853,12 +853,16 @@ export type Database = {
           original_no_tracking_fee: number | null
           original_no_tracking_fee_driver: number | null
           original_notes: string | null
+          original_other_charges: number | null
+          original_other_charges_driver: number | null
           original_tonu: number | null
           original_tonu_driver: number | null
           original_trailer_id: string | null
           original_truck_id: string | null
           original_wrong_address_fee: number | null
           original_wrong_address_fee_driver: number | null
+          other_charges: number | null
+          other_charges_driver: number | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           po_number: string | null
@@ -940,12 +944,16 @@ export type Database = {
           original_no_tracking_fee?: number | null
           original_no_tracking_fee_driver?: number | null
           original_notes?: string | null
+          original_other_charges?: number | null
+          original_other_charges_driver?: number | null
           original_tonu?: number | null
           original_tonu_driver?: number | null
           original_trailer_id?: string | null
           original_truck_id?: string | null
           original_wrong_address_fee?: number | null
           original_wrong_address_fee_driver?: number | null
+          other_charges?: number | null
+          other_charges_driver?: number | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
@@ -1027,12 +1035,16 @@ export type Database = {
           original_no_tracking_fee?: number | null
           original_no_tracking_fee_driver?: number | null
           original_notes?: string | null
+          original_other_charges?: number | null
+          original_other_charges_driver?: number | null
           original_tonu?: number | null
           original_tonu_driver?: number | null
           original_trailer_id?: string | null
           original_truck_id?: string | null
           original_wrong_address_fee?: number | null
           original_wrong_address_fee_driver?: number | null
+          other_charges?: number | null
+          other_charges_driver?: number | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
