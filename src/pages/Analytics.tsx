@@ -109,6 +109,13 @@ const Analytics = () => {
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
+      
+      // Also fetch all unique booked_by values from orders to include deleted users
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("booked_by")
+        .not("booked_by", "is", null);
+      
       if (profiles) {
         // Fetch user roles for all users
         const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
@@ -154,6 +161,23 @@ const Analytics = () => {
             }
           >,
         );
+        
+        // Add deleted users (those who appear in orders but not in profiles)
+        if (ordersData) {
+          const uniqueBookedBy = [...new Set(ordersData.map(o => o.booked_by).filter(Boolean))];
+          uniqueBookedBy.forEach(bookedBy => {
+            if (!profileMap[bookedBy as string]) {
+              // This is a deleted user - add them with minimal info
+              profileMap[bookedBy as string] = {
+                email: `${bookedBy}@deleted.user`,
+                office: null,
+                roles: [],
+                user_id: bookedBy as string,
+              };
+            }
+          });
+        }
+        
         setDispatcherProfiles(profileMap);
       }
     };
