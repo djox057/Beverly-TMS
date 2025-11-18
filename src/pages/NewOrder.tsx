@@ -27,6 +27,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
+import { toZonedTime } from "date-fns-tz";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
@@ -1692,7 +1693,8 @@ const NewOrder = () => {
       }];
       
       // Track which file categories were newly uploaded for auto-setting checkout times
-      const checkoutTimestamp = new Date().toISOString();
+      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const checkoutTimestamp = chicagoTime.toISOString();
       let bolUploaded = false;
       let podUploaded = false;
       let newPodCount = 0;

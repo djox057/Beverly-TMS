@@ -26,6 +26,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
+import { toZonedTime } from "date-fns-tz";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
 import { useQueryClient } from "@tanstack/react-query";
 interface PickupDrop {
@@ -1489,7 +1490,8 @@ const EditOrder = () => {
       }];
       
       // Track which file categories were newly uploaded for auto-setting checkout times
-      const checkoutTimestamp = new Date().toISOString();
+      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const checkoutTimestamp = chicagoTime.toISOString();
       let bolUploaded = false;
       let podUploaded = false;
       let newPodCount = 0;
