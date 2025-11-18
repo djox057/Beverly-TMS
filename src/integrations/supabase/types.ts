@@ -266,6 +266,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatcher_notes: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string
+          date: string
+          dispatcher_id: string
+          id: string
+          note: string
+          updated_at: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          created_by: string
+          date: string
+          dispatcher_id: string
+          id?: string
+          note: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          dispatcher_id?: string
+          id?: string
+          note?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dispatcher_status: {
         Row: {
           created_at: string
