@@ -1621,10 +1621,10 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${isInTransit || shouldShowContinuingDelivery ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${isInTransit || shouldShowContinuingDelivery || isInTransitBetweenDeliveries ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isInTransit && !shouldShowContinuingDelivery) {
+                        if (!isInTransit && !shouldShowContinuingDelivery && !isInTransitBetweenDeliveries) {
                           setHomeTimeDialog({
                             truckId: truck.id,
                             truckNumber: truck.truckNumber || truck.truck_number || "Unknown",
@@ -1640,7 +1640,7 @@ const Reports = () => {
                           return <Home className="h-4 w-4" />;
                         }
 
-                        if (isInTransit || shouldShowContinuingDelivery) {
+                        if (isInTransit || shouldShowContinuingDelivery || isInTransitBetweenDeliveries) {
                           return hasRescheduledOrders ? "RESCHEDULED" : ">>>";
                         }
 
@@ -1787,7 +1787,7 @@ const Reports = () => {
 
                   return (
                     <div
-                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay || isInTransitBetweenDeliveries ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
+                      className={`text-xs h-full flex items-center justify-center ${isMissingPickup ? "text-white dark:text-[hsl(var(--destructive-light-foreground))] font-semibold cursor-pointer" : isInTransit ? (hasRescheduledOrders ? "bg-orange-500 text-black font-semibold" : "text-foreground font-semibold") : "text-muted-foreground cursor-pointer"}`}
                       onClick={(e) => {
                         e.stopPropagation();
 
@@ -1807,7 +1807,7 @@ const Reports = () => {
                           // Show display text if no database value exists
                           setRedCellNote(actualNoteValue || currentNote);
                           setRedCellIsHomeTime(isCurrentlyHomeTime);
-                        } else if (!isInTransit && !shouldShowContinuingDelivery && !hasDeliveryThisDay) {
+                        } else if (!isInTransit) {
                           // Open home time dialog for empty cells
                           setHomeTimeDialog({
                             truckId: truck.id,
@@ -1821,7 +1821,7 @@ const Reports = () => {
                     >
                       {isMissingPickup ? (
                         getLostDayNote(day)
-                      ) : isInTransit || shouldShowContinuingDelivery || hasDeliveryThisDay || isInTransitBetweenDeliveries ? (
+                      ) : isInTransit ? (
                         hasRescheduledOrders ? (
                           "RESCHEDULED"
                         ) : (
