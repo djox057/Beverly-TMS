@@ -46,6 +46,14 @@ export const DispatcherNoteDialog = ({ dispatcherId, initialDate, existingNote, 
     n => n.dispatcher_id === dispatcherId && n.date === selectedDateStr
   );
   
+  // Create a map of dates with notes for this dispatcher
+  const datesWithNotes = dispatcherNotes
+    .filter(n => n.dispatcher_id === dispatcherId)
+    .reduce((acc, n) => {
+      acc[n.date] = n.color;
+      return acc;
+    }, {} as Record<string, 'red' | 'yellow' | 'green'>);
+  
   // Update note and color when selected date changes
   useEffect(() => {
     if (noteForSelectedDate) {
@@ -96,22 +104,22 @@ export const DispatcherNoteDialog = ({ dispatcherId, initialDate, existingNote, 
             className={cn(
               "ml-2 p-1 rounded border transition-colors",
               getColorClasses(existingNote.color),
-              canModify && "cursor-pointer hover:opacity-80"
+              "cursor-pointer hover:opacity-80"
             )}
-            title={`${existingNote.note}${canModify ? ' (Click to edit)' : ''}`}
+            title={`${existingNote.note} (Click to view/edit)`}
           >
             <MessageSquare className="h-4 w-4" />
           </button>
-        ) : canEdit && isToday ? (
+        ) : (
           <Button
             variant="ghost"
             size="sm"
             className="ml-2 h-7 px-2"
-            title="Add note for today"
+            title="Add/view notes"
           >
             <MessageSquare className="h-4 w-4" />
           </Button>
-        ) : null}
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -138,12 +146,75 @@ export const DispatcherNoteDialog = ({ dispatcherId, initialDate, existingNote, 
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
+                <style>{`
+                  .has-green-note {
+                    position: relative;
+                  }
+                  .has-green-note::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 2px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 50%;
+                    background-color: hsl(var(--success));
+                  }
+                  .has-yellow-note {
+                    position: relative;
+                  }
+                  .has-yellow-note::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 2px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 50%;
+                    background-color: hsl(var(--warning));
+                  }
+                  .has-red-note {
+                    position: relative;
+                  }
+                  .has-red-note::after {
+                    content: '';
+                    position: absolute;
+                    bottom: 2px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 50%;
+                    background-color: hsl(var(--destructive));
+                  }
+                `}</style>
                 <Calendar
                   mode="single"
                   selected={selectedDate}
                   onSelect={(date) => date && setSelectedDate(date)}
                   initialFocus
                   className="pointer-events-auto"
+                  modifiers={{
+                    hasGreenNote: (date) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      return datesWithNotes[dateStr] === 'green';
+                    },
+                    hasYellowNote: (date) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      return datesWithNotes[dateStr] === 'yellow';
+                    },
+                    hasRedNote: (date) => {
+                      const dateStr = format(date, 'yyyy-MM-dd');
+                      return datesWithNotes[dateStr] === 'red';
+                    },
+                  }}
+                  modifiersClassNames={{
+                    hasGreenNote: 'has-green-note',
+                    hasYellowNote: 'has-yellow-note',
+                    hasRedNote: 'has-red-note',
+                  }}
                 />
               </PopoverContent>
             </Popover>
