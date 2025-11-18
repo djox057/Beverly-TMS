@@ -11,7 +11,11 @@ const queryWithTimeout = async <T>(queryFn: () => Promise<T>, timeoutMs: number 
   return Promise.race([queryFn(), timeoutPromise]);
 };
 
-export const useOrders = () => {
+interface UseOrdersOptions {
+  bookedBy?: string | null;
+}
+
+export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
   const [isLoadingBackground, setIsLoadingBackground] = useState(false);
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: 0 });
@@ -112,15 +116,15 @@ export const useOrders = () => {
   }, [queryClient]);
 
   const query = useQuery({
-    queryKey: ['orders'],
+    queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
       // Check if we already have cached data with all orders loaded
-      const cachedData = queryClient.getQueryData(['orders']) as any[];
+      const cachedData = queryClient.getQueryData(['orders', options?.bookedBy]) as any[];
       const cachedCount = cachedData?.length || 0;
       
       return queryWithTimeout(async () => {
-        // PHASE 1: Fetch first 200 orders (latest created)
-        const { data: initialData, error: initialError, count } = await supabase
+        // PHASE 1: Fetch first 300 orders (latest created)
+        let initialQuery = supabase
           .from('orders')
           .select(`
             *,
@@ -145,7 +149,14 @@ export const useOrders = () => {
             recovery_freight_amount,
             recovery_driver_price,
             recovery_date
-          `, { count: 'exact' })
+          `, { count: 'exact' });
+        
+        // Apply bookedBy filter if provided
+        if (options?.bookedBy) {
+          initialQuery = initialQuery.eq('booked_by', options.bookedBy);
+        }
+        
+        const { data: initialData, error: initialError, count } = await initialQuery
           .order('created_at', { ascending: false })
           .range(0, 299);
         
@@ -259,7 +270,7 @@ export const useOrders = () => {
                 
                 while (from < totalCount) {
                   
-                  const { data: batchData, error: batchError } = await supabase
+                  let batchQuery = supabase
                     .from('orders')
                     .select(`
                       *,
@@ -284,7 +295,14 @@ export const useOrders = () => {
                       recovery_freight_amount,
                       recovery_driver_price,
                       recovery_date
-                    `)
+                    `);
+                  
+                  // Apply bookedBy filter if provided
+                  if (options?.bookedBy) {
+                    batchQuery = batchQuery.eq('booked_by', options.bookedBy);
+                  }
+                  
+                  const { data: batchData, error: batchError } = await batchQuery
                     .order('created_at', { ascending: false })
                     .range(from, from + batchSize - 1);
                   
@@ -299,7 +317,7 @@ export const useOrders = () => {
                   setLoadProgress({ loaded: 300 + allRemainingOrders.length, total: totalCount });
                   
                   // Merge into cache
-                  queryClient.setQueryData(['orders'], (oldData: any) => {
+                  queryClient.setQueryData(['orders', options?.bookedBy], (oldData: any) => {
                     if (!oldData) return [...transformedInitial, ...allRemainingOrders];
                     // Avoid duplicates by checking IDs
                     const existingIds = new Set(oldData.map((o: any) => o.id));
