@@ -1020,7 +1020,25 @@ const NewOrder = () => {
       }
 
       // Get driver company for email configuration
-      const companyName = driverForEmail?.company?.name;
+      let companyName = driverForEmail?.company?.name;
+      
+      // If company name is not in the driver object, fetch it from companies table
+      if (!companyName && driverForEmail?.company_id) {
+        console.log('📧 Company not in driver object, fetching from companies table...');
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', driverForEmail.company_id)
+          .maybeSingle();
+        
+        if (companyError) {
+          console.error('❌ Error fetching company:', companyError);
+        } else if (companyData) {
+          companyName = companyData.name;
+          console.log('✅ Company fetched:', companyName);
+        }
+      }
+      
       if (!companyName) {
         throw new Error("Driver company not found. Cannot determine sender email.");
       }
