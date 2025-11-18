@@ -1577,30 +1577,21 @@ const EditOrder = () => {
           };
         });
 
-        // Update existing pickup_drops (match by sequence number)
-        for (let i = 0; i < Math.min(existing.length, formPickupDrops.length); i++) {
-          const {
-            error: updateError
-          } = await supabase.from("pickup_drops").update(formPickupDrops[i]).eq("id", existing[i].id);
-          if (updateError) throw updateError;
-        }
-
-        // Insert new pickup_drops if form has more than existing
-        if (formPickupDrops.length > existing.length) {
-          const newPickupDrops = formPickupDrops.slice(existing.length);
-          const {
-            error: insertError
-          } = await supabase.from("pickup_drops").insert(newPickupDrops);
-          if (insertError) throw insertError;
-        }
-
-        // Delete extra pickup_drops if existing has more than form
-        if (existing.length > formPickupDrops.length) {
-          const idsToDelete = existing.slice(formPickupDrops.length).map(pd => pd.id);
-          const {
-            error: deleteError
-          } = await supabase.from("pickup_drops").delete().in("id", idsToDelete);
+        // Delete all existing pickup_drops first to avoid unique constraint violations when reordering
+        if (existing.length > 0) {
+          const { error: deleteError } = await supabase
+            .from("pickup_drops")
+            .delete()
+            .eq("order_id", id);
           if (deleteError) throw deleteError;
+        }
+
+        // Insert all pickup_drops fresh
+        if (formPickupDrops.length > 0) {
+          const { error: insertError } = await supabase
+            .from("pickup_drops")
+            .insert(formPickupDrops);
+          if (insertError) throw insertError;
         }
       }
       // Invalidate orders cache to refresh data across all pages
