@@ -115,7 +115,23 @@ const Analytics = () => {
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
-  const { data: orders, isLoading, error } = useOrders();
+  
+  // Check if user has only dispatch role (same logic as Orders page)
+  const isDispatchOnly =
+    hasRole("dispatch") &&
+    !hasRole("afterhours") &&
+    !hasRole("admin") &&
+    !hasRole("manager") &&
+    !hasRole("accounting") &&
+    !hasRole("supervisor") &&
+    !hasRole("safety");
+
+  // For dispatch users, pass their name to filter at the database level
+  const orderFilterOptions = isDispatchOnly 
+    ? { bookedBy: profile?.full_name || null } 
+    : { bookedBy: null };
+
+  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();
