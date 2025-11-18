@@ -20,32 +20,32 @@ export const useDrivers = () => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "drivers" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trucks" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "trailers" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "companies" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "user_roles" },
-        () => queryClient.invalidateQueries({ queryKey: ["drivers"] })
+        () => queryClient.invalidateQueries({ queryKey: ["drivers", "v2"] })
       )
       .subscribe();
 
@@ -55,7 +55,7 @@ export const useDrivers = () => {
   }, [queryClient]);
 
   return useQuery({
-    queryKey: ['drivers'],
+    queryKey: ['drivers', 'v2'], // Added version to force cache invalidation
     queryFn: async () => {
       console.log('👤 Fetching drivers with relationships...');
       
@@ -102,10 +102,6 @@ export const useDrivers = () => {
           
           from += batchSize;
         }
-        
-        console.log(`📊 Total drivers fetched: ${allDrivers.length}`);
-        console.log(`📊 Drivers with company: ${allDrivers.filter(d => d.company).length}`);
-        console.log(`📊 Drivers without company: ${allDrivers.filter(d => !d.company).length}`);
         
         // Fetch trucks separately to avoid RLS issues with reverse joins
         const { data: trucksData, error: trucksError } = await supabase
@@ -183,10 +179,6 @@ export const useDrivers = () => {
           return transformed;
         });
         
-        console.log(`✅ Final transformed drivers count: ${transformedData.length}`);
-        console.log(`✅ Drivers with truck_info: ${transformedData.filter(d => d.truck_info).length}`);
-        console.log(`✅ Drivers with dispatcher_info: ${transformedData.filter(d => d.dispatcher_info).length}`);
-        
         return transformedData;
       }, 30000);
     },
@@ -196,5 +188,6 @@ export const useDrivers = () => {
     refetchOnMount: true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+    structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
 };
