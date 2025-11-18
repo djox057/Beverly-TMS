@@ -1478,12 +1478,11 @@ const Reports = () => {
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
       // But NOT if there's a game over day before this OR if it's a continuing delivery
       // Also exclude "No pre-book?" case (exactly one day in future)
-      // IMPORTANT: Also exclude days that have deliveries (those are in-transit days, not lost days)
+      // Show red if no pickup AND (no delivery OR has delivery but no future deliveries)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
       const isOneDayFuture = isSameDay(day, oneDayInFuture);
-      const hasDeliveryThisDay = deliveryOnlyOrders.length > 0;
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
@@ -1492,7 +1491,6 @@ const Reports = () => {
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
         !isOneDayFuture &&
-        !hasDeliveryThisDay &&
         !isInTransitBetweenDeliveries &&
         !shouldShowPickupInTransit;
 
