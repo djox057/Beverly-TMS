@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Trash2 } from "lucide-react";
+import { MessageSquare, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { useDispatcherNotes } from "@/hooks/useDispatcherNotes";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface DispatcherNoteDialogProps {
   dispatcherId: string;
-  date: string;
+  initialDate?: string;
   existingNote?: {
     id: string;
     note: string;
@@ -24,21 +26,43 @@ const colorOptions = [
   { value: 'red' as const, label: 'Bad', bgClass: 'bg-destructive/20', hoverClass: 'hover:bg-destructive/30', borderClass: 'border-destructive' },
 ];
 
-export const DispatcherNoteDialog = ({ dispatcherId, date, existingNote, canEdit }: DispatcherNoteDialogProps) => {
+export const DispatcherNoteDialog = ({ dispatcherId, initialDate, existingNote, canEdit }: DispatcherNoteDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [note, setNote] = useState(existingNote?.note || '');
-  const [color, setColor] = useState<'red' | 'yellow' | 'green'>(existingNote?.color || 'yellow');
-  const { upsertNote, deleteNote } = useDispatcherNotes();
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate ? new Date(initialDate) : new Date());
+  const [note, setNote] = useState('');
+  const [color, setColor] = useState<'red' | 'yellow' | 'green'>('yellow');
   
-  const isToday = format(new Date(), 'yyyy-MM-dd') === date;
+  const startDate = format(new Date(selectedDate.getFullYear(), 0, 1), 'yyyy-MM-dd');
+  const endDate = format(new Date(selectedDate.getFullYear(), 11, 31), 'yyyy-MM-dd');
+  const { notes: dispatcherNotes, upsertNote, deleteNote } = useDispatcherNotes(startDate, endDate);
+  
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const isToday = selectedDateStr === todayStr;
   const canModify = canEdit && isToday;
+  
+  // Find note for selected date
+  const noteForSelectedDate = dispatcherNotes.find(
+    n => n.dispatcher_id === dispatcherId && n.date === selectedDateStr
+  );
+  
+  // Update note and color when selected date changes
+  useEffect(() => {
+    if (noteForSelectedDate) {
+      setNote(noteForSelectedDate.note);
+      setColor(noteForSelectedDate.color);
+    } else {
+      setNote('');
+      setColor('yellow');
+    }
+  }, [noteForSelectedDate]);
 
   const handleSave = async () => {
     if (!note.trim()) return;
     
     await upsertNote.mutateAsync({
       dispatcher_id: dispatcherId,
-      date,
+      date: selectedDateStr,
       note: note.trim(),
       color,
     });
@@ -46,8 +70,8 @@ export const DispatcherNoteDialog = ({ dispatcherId, date, existingNote, canEdit
   };
 
   const handleDelete = async () => {
-    if (existingNote?.id) {
-      await deleteNote.mutateAsync(existingNote.id);
+    if (noteForSelectedDate?.id) {
+      await deleteNote.mutateAsync(noteForSelectedDate.id);
       setNote('');
       setOpen(false);
     }
@@ -92,11 +116,38 @@ export const DispatcherNoteDialog = ({ dispatcherId, date, existingNote, canEdit
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            Dispatcher Note - {format(new Date(date), 'MMM d, yyyy')}
+            Dispatcher Note - {format(selectedDate, 'MMM d, yyyy')}
             {!isToday && ' (View Only)'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-4">
+          {/* Date Picker */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Select Date</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, "PPP")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {canModify && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
@@ -130,35 +181,35 @@ export const DispatcherNoteDialog = ({ dispatcherId, date, existingNote, canEdit
             />
           </div>
 
-          {canModify && (
-            <div className="flex justify-between gap-2 pt-2">
-              {existingNote && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDelete}
-                  disabled={deleteNote.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-              )}
-              <div className="flex gap-2 ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancel
-                </Button>
+          <div className="flex justify-between gap-2 pt-2">
+            {canModify && noteForSelectedDate && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                disabled={deleteNote.isPending}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
+                {canModify ? 'Cancel' : 'Close'}
+              </Button>
+              {canModify && (
                 <Button
                   onClick={handleSave}
                   disabled={!note.trim() || upsertNote.isPending}
                 >
                   Save
                 </Button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
