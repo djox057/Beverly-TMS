@@ -244,11 +244,9 @@ const Orders = () => {
         truckCompanyFilter === "all-truck-companies" ||
         order.truckCompanyName === truckCompanyFilter;
 
-      // For dispatch-only users, STRICTLY filter by their name
+      // For dispatch users, respect the filter but default to their own loads
       const matchesBookedBy =
-        isDispatchOnly && profile?.full_name
-          ? order.bookedBy === profile.full_name
-          : !bookedByFilter || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
+        !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
 
       const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
       const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
@@ -725,19 +723,17 @@ const Orders = () => {
                     className="w-[192px] shrink-0"
                   />
 
-                  {!isDispatchOnly && (
-                    <Combobox
-                      value={bookedByFilter}
-                      onValueChange={setBookedByFilter}
-                      placeholder="Filter by Booked By"
-                      searchPlaceholder="Search users..."
-                      options={[
-                        { value: "all-users", label: "All Users" },
-                        ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
-                      ]}
-                      className="w-[192px] shrink-0"
-                    />
-                  )}
+                  <Combobox
+                    value={bookedByFilter}
+                    onValueChange={setBookedByFilter}
+                    placeholder="Filter by Booked By"
+                    searchPlaceholder="Search users..."
+                    options={[
+                      { value: "all-users", label: "All Users" },
+                      ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
 
                   <Combobox
                     value={driverFilter}
