@@ -148,46 +148,31 @@ export const DispatcherNoteDialog = ({ dispatcherId, initialDate, existingNote, 
               <PopoverContent className="w-auto p-0" align="start">
                 <style>{`
                   .has-green-note {
-                    position: relative;
+                    background-color: hsl(var(--success)) !important;
+                    color: hsl(var(--success-foreground)) !important;
+                    font-weight: 600;
                   }
-                  .has-green-note::after {
-                    content: '';
-                    position: absolute;
-                    bottom: 2px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 4px;
-                    height: 4px;
-                    border-radius: 50%;
-                    background-color: hsl(var(--success));
+                  .has-green-note:hover {
+                    background-color: hsl(var(--success)) !important;
+                    opacity: 0.9;
                   }
                   .has-yellow-note {
-                    position: relative;
+                    background-color: hsl(var(--warning)) !important;
+                    color: hsl(var(--warning-foreground)) !important;
+                    font-weight: 600;
                   }
-                  .has-yellow-note::after {
-                    content: '';
-                    position: absolute;
-                    bottom: 2px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 4px;
-                    height: 4px;
-                    border-radius: 50%;
-                    background-color: hsl(var(--warning));
+                  .has-yellow-note:hover {
+                    background-color: hsl(var(--warning)) !important;
+                    opacity: 0.9;
                   }
                   .has-red-note {
-                    position: relative;
+                    background-color: hsl(var(--destructive)) !important;
+                    color: hsl(var(--destructive-foreground)) !important;
+                    font-weight: 600;
                   }
-                  .has-red-note::after {
-                    content: '';
-                    position: absolute;
-                    bottom: 2px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    width: 4px;
-                    height: 4px;
-                    border-radius: 50%;
-                    background-color: hsl(var(--destructive));
+                  .has-red-note:hover {
+                    background-color: hsl(var(--destructive)) !important;
+                    opacity: 0.9;
                   }
                 `}</style>
                 <Calendar
