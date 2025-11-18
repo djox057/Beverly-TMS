@@ -1381,28 +1381,20 @@ const Reports = () => {
       });
 
       // Check if this is a "continuing delivery" scenario
-      // This happens when TODAY has deliveries and NEXT day also has deliveries (without pickups) for the same orders
-      // OR when there was a delivery on a PREVIOUS day and TODAY also has deliveries (without pickups)
+      // This happens when TODAY has deliveries and there are MORE deliveries coming after
+      // Show ">>>" only if truck is still in transit (not on final delivery day)
       let shouldShowContinuingDelivery = false;
       if (deliveryOnlyOrders.length > 0) {
-        // Check if continuing to next day
-        if (index < days.length - 1) {
-          const nextDayStr = format(days[index + 1], "yyyy-MM-dd");
-          shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
-            const hasDeliveryNextDay = order.deliveryStopsByDate?.has(nextDayStr);
-            const hasPickupNextDay = order.pickupStopsByDate?.has(nextDayStr);
-            return hasDeliveryNextDay && !hasPickupNextDay;
+        // Check if any delivery-only order has MORE deliveries after this day
+        const currentDayStr = format(day, "yyyy-MM-dd");
+        shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
+          // Check all future days to see if there are more deliveries
+          const futureDeliveries = days.slice(index + 1).some((futureDay) => {
+            const futureDayStr = format(futureDay, "yyyy-MM-dd");
+            return order.deliveryStopsByDate?.has(futureDayStr);
           });
-        }
-        
-        // Also check if continuing from previous day (delivery -> delivery without pickup between)
-        if (!shouldShowContinuingDelivery && index > 0) {
-          const prevDayStr = format(days[index - 1], "yyyy-MM-dd");
-          shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
-            const hadDeliveryPrevDay = order.deliveryStopsByDate?.has(prevDayStr);
-            return hadDeliveryPrevDay;
-          });
-        }
+          return futureDeliveries;
+        });
       }
 
       // Check if this is a missing pickup (red XXX) - empty pickup cell after first pickup
