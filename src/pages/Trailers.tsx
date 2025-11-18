@@ -57,6 +57,15 @@ const Trailers = () => {
     isLoading,
     refetch
   } = useTrailers();
+  
+  // Force immediate refetch on mount to clear any stale cache
+  useEffect(() => {
+    // Clear old query cache if it exists
+    queryClient.removeQueries({ queryKey: ['trailers'] });
+    // Trigger a fresh fetch
+    refetch();
+  }, []); // Only on mount
+  
   const {
     data: trucks
   } = useTrucks();
