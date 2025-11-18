@@ -339,110 +339,112 @@ const NewOrder = () => {
   }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
   // Auto-calculate loaded miles when pickup and delivery addresses change
-  useEffect(() => {
-    const calculateMiles = async () => {
-      if (pickupsDrops.length < 2) return;
+  // COMMENTED OUT: Manual entry only
+  // useEffect(() => {
+  //   const calculateMiles = async () => {
+  //     if (pickupsDrops.length < 2) return;
 
-      // Get all addresses in order (all pickups first, then all deliveries)
-      // Combine address components for better geocoding accuracy
-      const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
-        // Always concatenate all available address parts
-        const parts = [item.address];
-        if (item.city) parts.push(item.city);
-        if (item.state) parts.push(item.state);
-        if (item.zipCode) parts.push(item.zipCode);
-        return parts.join(', ');
-      });
-      if (addresses.length < 2) {
-        return;
-      }
-      setIsCalculatingMiles(true);
-      try {
-        let miles: number | null = null;
-        if (addresses.length === 2) {
-          // Single pickup to single delivery
-          miles = await calculateLoadedMiles(addresses[0], addresses[1]);
-        } else {
-          // Multi-drop route calculation
-          miles = await calculateMultiStopMiles(addresses);
-        }
-        if (miles !== null) {
-          setLoadedMiles(miles.toString());
-          toast({
-            title: "Loaded Miles Calculated",
-            description: addresses.length > 2 ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops` : `Route distance: ${miles} miles`
-          });
-        }
-      } catch (error) {
-        console.error('Error calculating loaded miles:', error);
-        toast({
-          title: "Calculation Failed",
-          description: "Unable to calculate loaded miles automatically",
-          variant: "destructive"
-        });
-      } finally {
-        setIsCalculatingMiles(false);
-      }
-    };
+  //     // Get all addresses in order (all pickups first, then all deliveries)
+  //     // Combine address components for better geocoding accuracy
+  //     const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
+  //       // Always concatenate all available address parts
+  //       const parts = [item.address];
+  //       if (item.city) parts.push(item.city);
+  //       if (item.state) parts.push(item.state);
+  //       if (item.zipCode) parts.push(item.zipCode);
+  //       return parts.join(', ');
+  //     });
+  //     if (addresses.length < 2) {
+  //       return;
+  //     }
+  //     setIsCalculatingMiles(true);
+  //     try {
+  //       let miles: number | null = null;
+  //       if (addresses.length === 2) {
+  //         // Single pickup to single delivery
+  //         miles = await calculateLoadedMiles(addresses[0], addresses[1]);
+  //       } else {
+  //         // Multi-drop route calculation
+  //         miles = await calculateMultiStopMiles(addresses);
+  //       }
+  //       if (miles !== null) {
+  //         setLoadedMiles(miles.toString());
+  //         toast({
+  //           title: "Loaded Miles Calculated",
+  //           description: addresses.length > 2 ? `Multi-stop route distance: ${miles} miles through ${addresses.length} stops` : `Route distance: ${miles} miles`
+  //         });
+  //       }
+  //     } catch (error) {
+  //       console.error('Error calculating loaded miles:', error);
+  //       toast({
+  //         title: "Calculation Failed",
+  //         description: "Unable to calculate loaded miles automatically",
+  //         variant: "destructive"
+  //       });
+  //     } finally {
+  //       setIsCalculatingMiles(false);
+  //     }
+  //   };
 
-    // Debounce the calculation to avoid too many API calls
-    const timeoutId = setTimeout(calculateMiles, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [pickupsDrops, toast]);
+  //   // Debounce the calculation to avoid too many API calls
+  //   const timeoutId = setTimeout(calculateMiles, 1000);
+  //   return () => clearTimeout(timeoutId);
+  // }, [pickupsDrops, toast]);
 
   // Auto-calculate DH miles when truck is selected and pickup address is entered
-  useEffect(() => {
-    const calculateDh = async () => {
-      if (!truck || !lastDelivery) {
-        return;
-      }
-      const firstPickup = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
-      if (!firstPickup) {
-        return;
-      }
+  // COMMENTED OUT: Manual entry only
+  // useEffect(() => {
+  //   const calculateDh = async () => {
+  //     if (!truck || !lastDelivery) {
+  //       return;
+  //     }
+  //     const firstPickup = pickupsDrops.find(item => item.type === 'pickup' && item.address.trim());
+  //     if (!firstPickup) {
+  //       return;
+  //     }
 
-      // Build full address for better geocoding accuracy
-      const addressParts = [firstPickup.address];
-      if (firstPickup.city) addressParts.push(firstPickup.city);
-      if (firstPickup.state) addressParts.push(firstPickup.state);
-      if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
-      const pickupAddress = addressParts.join(', ');
-      console.log('🚚 =================================');
-      console.log('🚚 DH MILES AUTO-CALCULATION');
-      console.log('🚚 =================================');
-      console.log('🚚 Truck ID:', truck);
-      console.log('🚚 Last Delivery Address:', lastDelivery.deliveryAddress);
-      console.log('🚚 Current Pickup Address:', pickupAddress);
-      console.log('🚚 Last Order ID:', lastDelivery.orderId);
-      console.log('🚚 =================================');
-      setIsCalculatingDhMiles(true);
-      try {
-        const miles = await calculateDhMiles(lastDelivery.deliveryAddress, pickupAddress);
-        if (miles !== null) {
-          setDhMiles(miles.toString());
-          toast({
-            title: "DH Miles Calculated",
-            description: `Distance from last delivery: ${miles} miles`
-          });
-        } else {
-          setDhMiles('0');
-        }
-      } catch (error) {
-        console.error('Error calculating DH miles:', error);
-        toast({
-          title: "DH Calculation Failed",
-          description: "Unable to calculate DH miles automatically",
-          variant: "destructive"
-        });
-      } finally {
-        setIsCalculatingDhMiles(false);
-      }
-    };
+  //     // Build full address for better geocoding accuracy
+  //     const addressParts = [firstPickup.address];
+  //     if (firstPickup.city) addressParts.push(firstPickup.city);
+  //     if (firstPickup.state) addressParts.push(firstPickup.state);
+  //     if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
+  //     const pickupAddress = addressParts.join(', ');
+  //     console.log('🚚 =================================');
+  //     console.log('🚚 DH MILES AUTO-CALCULATION');
+  //     console.log('🚚 =================================');
+  //     console.log('🚚 Truck ID:', truck);
+  //     console.log('🚚 Last Delivery Address:', lastDelivery.deliveryAddress);
+  //     console.log('🚚 Current Pickup Address:', pickupAddress);
+  //     console.log('🚚 Last Order ID:', lastDelivery.orderId);
+  //     console.log('🚚 =================================');
+  //     setIsCalculatingDhMiles(true);
+  //     try {
+  //       const miles = await calculateDhMiles(lastDelivery.deliveryAddress, pickupAddress);
+  //       if (miles !== null) {
+  //         setDhMiles(miles.toString());
+  //         toast({
+  //           title: "DH Miles Calculated",
+  //           description: `Distance from last delivery: ${miles} miles`
+  //         });
+  //       } else {
+  //         setDhMiles('0');
+  //       }
+  //     } catch (error) {
+  //       console.error('Error calculating DH miles:', error);
+  //       toast({
+  //         title: "DH Calculation Failed",
+  //         description: "Unable to calculate DH miles automatically",
+  //         variant: "destructive"
+  //       });
+  //     } finally {
+  //       setIsCalculatingDhMiles(false);
+  //     }
+  //   };
 
-    // Debounce the calculation
-    const timeoutId = setTimeout(calculateDh, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [truck, lastDelivery, pickupsDrops, toast]);
+  //   // Debounce the calculation
+  //   const timeoutId = setTimeout(calculateDh, 1000);
+  //   return () => clearTimeout(timeoutId);
+  // }, [truck, lastDelivery, pickupsDrops, toast]);
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
       id: Date.now().toString(),
