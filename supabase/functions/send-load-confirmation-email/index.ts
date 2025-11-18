@@ -19,6 +19,16 @@ interface EmailRequest {
   attachmentContentType: string;
 }
 
+// Escape HTML special characters to prevent XSS
+const escapeHtml = (text: string): string => {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -46,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`📧 Subject: ${subject}`);
     console.log(`📧 Attachment: ${attachmentFilename}`);
     console.log(`📧 Attachment Type: ${attachmentContentType}`);
-    console.log(`📧 Body Text: ${bodyText}`);
+    console.log(`📧 Body Text length: ${bodyText?.length || 0}`);
     console.log(`📧 Base64 length: ${attachmentBase64?.length || 0}`);
     console.log('📧 ========================================');
 
@@ -55,11 +65,16 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error('Missing required fields: to, from, or subject');
     }
 
-    // Build email HTML
+    // Validate bodyText length to prevent abuse
+    if (bodyText && bodyText.length > 5000) {
+      throw new Error('Body text exceeds maximum length of 5000 characters');
+    }
+
+    // Build email HTML with escaped bodyText
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <p style="font-size: 16px; color: #333;">
-          ${bodyText}
+          ${escapeHtml(bodyText)}
         </p>
         <br/>
         <p style="font-size: 14px; color: #666;">

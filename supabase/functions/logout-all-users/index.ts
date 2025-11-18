@@ -34,14 +34,13 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
     
-    // Decode JWT to get user ID (we don't validate here, Supabase handles that)
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    const userId = payload.sub;
-    
-    if (!userId) {
-      throw new Error('Invalid token - no user ID found');
+    // Validate token and get user securely
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    if (userError || !user) {
+      throw new Error('Invalid token or unauthorized');
     }
     
+    const userId = user.id;
     console.log(`✓ User ID from token: ${userId}`);
 
     // Check if user has admin or accounting role
