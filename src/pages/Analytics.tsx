@@ -979,7 +979,7 @@ const Analytics = () => {
                                 {stat.userId && (
                                   <DispatcherNoteDialog
                                     dispatcherId={stat.userId}
-                                    date={todayDate}
+                                    initialDate={todayDate}
                                     existingNote={mostRecentNote ? {
                                       id: mostRecentNote.id,
                                       note: mostRecentNote.note,
