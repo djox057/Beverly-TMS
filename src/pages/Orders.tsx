@@ -128,6 +128,11 @@ const Orders = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
+  // For dispatch users, pass their name to filter at the database level
+  const orderFilterOptions = isDispatchOnly && profile?.full_name 
+    ? { bookedBy: profile.full_name } 
+    : undefined;
+
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders =
     (hasRole("dispatch") || hasRole("afterhours")) &&
@@ -201,7 +206,7 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
-  const { data: orders, isLoading, error, refetch, isLoadingBackground, loadProgress } = useOrders();
+  const { data: orders, isLoading, error, refetch, isLoadingBackground, loadProgress } = useOrders(orderFilterOptions);
 
   const { data: companies } = useCompanies();
 
