@@ -652,8 +652,9 @@ const Reports = () => {
         .eq("user_id", user?.id || "")
         .single();
 
-      // Get current timestamp for checkout time
-      const checkoutTimestamp = new Date().toISOString();
+      // Get current timestamp in Chicago timezone for checkout time
+      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const checkoutTimestamp = chicagoTime.toISOString();
 
       // Upload all files
       for (let i = 0; i < uploadFiles.length; i++) {
