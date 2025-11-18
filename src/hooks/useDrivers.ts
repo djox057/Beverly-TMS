@@ -69,7 +69,7 @@ export const useDrivers = () => {
             .from('drivers')
             .select(`
               *,
-              companies!inner(id, name)
+              companies(id, name)
             `)
             .order('name', { ascending: true })
             .range(from, from + batchSize - 1);
@@ -81,11 +81,20 @@ export const useDrivers = () => {
           
           if (!data || data.length === 0) break;
           
-          // Transform companies from array to single object
-          const transformedData = data.map(driver => ({
-            ...driver,
-            company: Array.isArray(driver.companies) ? driver.companies[0] : driver.companies
-          }));
+          // Transform companies from array to single object and clean up
+          const transformedData = data.map(driver => {
+            const company = Array.isArray(driver.companies) 
+              ? (driver.companies.length > 0 ? driver.companies[0] : null)
+              : driver.companies || null;
+            
+            // Remove the companies property to avoid redundancy
+            const { companies, ...cleanDriver } = driver;
+            
+            return {
+              ...cleanDriver,
+              company
+            };
+          });
           
           allDrivers = [...allDrivers, ...transformedData];
           
@@ -93,6 +102,10 @@ export const useDrivers = () => {
           
           from += batchSize;
         }
+        
+        console.log(`📊 Total drivers fetched: ${allDrivers.length}`);
+        console.log(`📊 Drivers with company: ${allDrivers.filter(d => d.company).length}`);
+        console.log(`📊 Drivers without company: ${allDrivers.filter(d => !d.company).length}`);
         
         // Fetch trucks separately to avoid RLS issues with reverse joins
         const { data: trucksData, error: trucksError } = await supabase
@@ -169,6 +182,10 @@ export const useDrivers = () => {
           
           return transformed;
         });
+        
+        console.log(`✅ Final transformed drivers count: ${transformedData.length}`);
+        console.log(`✅ Drivers with truck_info: ${transformedData.filter(d => d.truck_info).length}`);
+        console.log(`✅ Drivers with dispatcher_info: ${transformedData.filter(d => d.dispatcher_info).length}`);
         
         return transformedData;
       }, 30000);
