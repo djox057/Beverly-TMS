@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -129,6 +129,15 @@ const Drivers = () => {
     isLoading,
     refetch
   } = useDrivers();
+  
+  // Force immediate refetch on mount to clear any stale cache
+  useEffect(() => {
+    // Clear old query cache if it exists
+    queryClient.removeQueries({ queryKey: ['drivers'] });
+    // Trigger a fresh fetch
+    refetch();
+  }, []); // Only on mount
+  
   const {
     data: allTrucks
   } = useAvailableTrucks();
