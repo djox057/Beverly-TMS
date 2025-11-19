@@ -186,10 +186,10 @@ const Trips = () => {
       }
 
       // Fill in header information
-      worksheet.getCell('B2').value = format(thursdayDate, 'M/d/yy'); // Thursday date
-      worksheet.getCell('C3').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range
-      worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name
-      worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number
+      worksheet.getCell('B1').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date
+      worksheet.getCell('C2').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range
+      worksheet.getCell('B6').value = driver?.name || firstOrder.driverName || ''; // Driver name
+      worksheet.getCell('F7').value = firstOrder.truckNumber || ''; // Truck number
 
       // Clear the trip rows (rows 11-17) by directly setting values to null
       for (let row = 11; row <= 17; row++) {
@@ -206,7 +206,6 @@ const Trips = () => {
 
       // Fill in trip details starting at row 11
       let currentRow = 11;
-      let totalDriverPay = 0;
 
       week.orders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || '';
@@ -224,27 +223,21 @@ const Trips = () => {
         cellI.value = driverPay;
         cellI.numFmt = '$#,##0.00';
         
-        totalDriverPay += driverPay;
-        
         currentRow++;
       });
 
-      // Add totals at row 18 (or after last trip)
-      const totalsRow = 18;
-      worksheet.getCell(`I${totalsRow}`).value = totalDriverPay;
-      worksheet.getCell(`I${totalsRow}`).numFmt = '$#,##0.00';
-
       // Add fixed deductions
-      const endDateFormatted = format(weekEndDate, 'M/d/yy');
+      const endDateFormatted = format(weekEndDate, 'M/d/yyyy');
       const deductions = [
-        { row: 39, description: 'Cargo Insurance', amount: 245.00 },
-        { row: 40, description: 'Trailer + Insurance', amount: 225.00 },
-        { row: 41, description: 'ELD', amount: 35.00 },
-        { row: 42, description: 'Pre-Pass', amount: 10.00 },
-        { row: 44, description: 'Truck Insurance', amount: 195.00 }
+        { row: 39, description: 'Cargo Insurance' },
+        { row: 40, description: 'Trailer + Insurance' },
+        { row: 41, description: 'ELD' },
+        { row: 42, description: 'Pre-Pass' },
+        { row: 43, description: 'Truck Insurance' },
+        { row: 44, description: 'Truck Payment' }
       ];
 
-      deductions.forEach(({ row, description, amount }) => {
+      deductions.forEach(({ row, description }) => {
         worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
       });
