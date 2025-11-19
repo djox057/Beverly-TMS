@@ -2888,6 +2888,53 @@ const Reports = () => {
                                             size={31}
                                             strokeWidth={3}
                                           />
+                                          
+                                          {/* 2-Week Notice Widget */}
+                                          {truck.twoWeekBlockDate && (
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <div className="flex flex-col items-center cursor-pointer">
+                                                    <div
+                                                      className="relative flex items-center justify-center"
+                                                      style={{
+                                                        width: 31,
+                                                        height: 31,
+                                                      }}
+                                                    >
+                                                      <svg
+                                                        className="transform -rotate-90"
+                                                        width={31}
+                                                        height={31}
+                                                      >
+                                                        <circle
+                                                          cx={15.5}
+                                                          cy={15.5}
+                                                          r={12.5}
+                                                          stroke="#ef4444"
+                                                          strokeWidth={3}
+                                                          fill="transparent"
+                                                        />
+                                                      </svg>
+                                                      <div className="absolute inset-0 flex items-center justify-center">
+                                                        <span className="text-[9px] font-bold text-destructive">
+                                                          2W
+                                                        </span>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="text-xs font-medium">
+                                                    2-Week Notice
+                                                  </p>
+                                                  <p className="text-xs">
+                                                    Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
+                                                  </p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          )}
                                         </div>
                                         <div className="h-8 p-0 w-full">
                                           <EditableNoteField
