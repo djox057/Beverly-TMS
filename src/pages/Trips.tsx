@@ -153,7 +153,7 @@ const Trips = () => {
       // Fetch driver and company info
       const { data: driver, error: driverError } = await supabase
         .from('drivers')
-        .select('name, company_id, companies!drivers_company_id_fkey(name)')
+        .select('name, company_id, company_name, agreement_start_date, weekly_payment, weeks_count, companies!drivers_company_id_fkey(name)')
         .eq('id', firstOrder.driver1Id)
         .single();
 
@@ -243,6 +243,13 @@ const Trips = () => {
       // Fill in header information
       worksheet.getCell('C2').value = invoiceNumber; // Trips invoice number
       worksheet.getCell('B3').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date (moved down 2)
+      worksheet.getCell('B8').value = driver?.company_name || ''; // Company name from driver
+      worksheet.getCell('F7').value = driver?.agreement_start_date ? format(new Date(driver.agreement_start_date), 'M/d/yyyy') : ''; // Agreement start date
+      
+      // Weekly payment and weeks count in F9
+      if (driver?.weekly_payment && driver?.weeks_count) {
+        worksheet.getCell('F9').value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      }
       worksheet.getCell('C4').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range (moved down 2)
       worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name (moved down 1)
       worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number (moved down 1)
