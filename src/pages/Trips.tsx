@@ -15,7 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Loader2, FileDown, Edit } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, getDay, addDays } from "date-fns";
@@ -45,9 +45,22 @@ const Trips = () => {
   const { data: orders, isLoading } = useOrders();
   
   const [currentPage, setCurrentPage] = useState(1);
-  const [truckFilter, setTruckFilter] = useState("");
-  const [driverFilter, setDriverFilter] = useState("");
+  const [truckFilter, setTruckFilter] = useState(() => {
+    return localStorage.getItem('trips_truckFilter') || "";
+  });
+  const [driverFilter, setDriverFilter] = useState(() => {
+    return localStorage.getItem('trips_driverFilter') || "";
+  });
   const itemsPerPage = 50;
+
+  // Save filters to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('trips_truckFilter', truckFilter);
+  }, [truckFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('trips_driverFilter', driverFilter);
+  }, [driverFilter]);
 
   // Filter orders based on truck and driver filters
   const filteredOrders = orders?.filter(order => {
