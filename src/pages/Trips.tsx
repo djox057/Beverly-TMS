@@ -253,7 +253,7 @@ const Trips = () => {
         worksheet.getCell('F8').value = `${driver.weeks_count} weeks`;
       }
 
-      // Clear the trip rows (rows 12-18) by directly setting values to null
+      // Clear the trip rows (rows 12-18) - but preserve formulas in column J
       for (let row = 12; row <= 18; row++) {
         worksheet.getCell(`A${row}`).value = null;
         worksheet.getCell(`B${row}`).value = null;
@@ -262,7 +262,7 @@ const Trips = () => {
         worksheet.getCell(`F${row}`).value = null;
         worksheet.getCell(`H${row}`).value = null;
         worksheet.getCell(`I${row}`).value = null;
-        worksheet.getCell(`J${row}`).value = null;
+        // Don't clear J column - it has formulas
       }
 
       // Fill in trip details starting at row 12
@@ -289,10 +289,7 @@ const Trips = () => {
         cellI.value = freightAmount; // Freight Amount
         cellI.numFmt = '$#,##0.00';
         
-        // Calculate 88% of freight amount
-        const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = freightAmount * 0.88; // Freight Amount (88%)
-        cellJ.numFmt = '$#,##0.00';
+        // Let the template formula in column J calculate 88% automatically
         
         currentRow++;
       });
