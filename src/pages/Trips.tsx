@@ -251,20 +251,6 @@ const Trips = () => {
         worksheet.getCell('F9').value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
       }
       worksheet.getCell('C4').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range (moved down 2)
-      
-      // Calculate weeks passed from agreement_start_date to current date for E44
-      if (driver?.agreement_start_date && driver?.weeks_count) {
-        const startDate = new Date(driver.agreement_start_date);
-        const currentDate = new Date();
-        const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        const cellE44 = worksheet.getCell('E44');
-        cellE44.value = `${weeksPassed}/${driver.weeks_count}`;
-        cellE44.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFAEABAB' }
-        };
-      }
       worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name (moved down 1)
       worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number (moved down 1)
 
@@ -320,11 +306,6 @@ const Trips = () => {
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
           cellJ.value = amount;
-          cellJ.numFmt = '$#,##0.00';
-        } else if (description === 'Truck Payment' && driver?.weekly_payment) {
-          // Use weekly_payment for truck payment deductions
-          const cellJ = worksheet.getCell(`J${row}`);
-          cellJ.value = driver.weekly_payment;
           cellJ.numFmt = '$#,##0.00';
         }
       });
