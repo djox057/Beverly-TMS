@@ -427,17 +427,17 @@ export const useReports = () => {
     queryKey: ["reports"],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        // Calculate date range: 7 days in past (for recently completed orders), today, 3 days in future
+        // Calculate date range: 2 days in past, today, 3 days in future
         const now = new Date();
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const twoDaysAgo = new Date(now);
+        twoDaysAgo.setDate(now.getDate() - 2);
+        twoDaysAgo.setHours(0, 0, 0, 0);
         
         const threeDaysAhead = new Date(now);
         threeDaysAhead.setDate(now.getDate() + 3);
         threeDaysAhead.setHours(23, 59, 59, 999);
         
-        const startDate = sevenDaysAgo.toISOString();
+        const startDate = twoDaysAgo.toISOString();
         const endDate = threeDaysAhead.toISOString();
 
         // Fetch trucks with their drivers and company info
@@ -642,10 +642,6 @@ export const useReports = () => {
                 if (order.canceled) return false;
 
                 if (order.status === "delivered") return true;
-
-                // Consider orders with POD files as completed regardless of status
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                if (hasPOD) return true;
 
                 // Consider pending orders past delivery time as recently completed
                 if (order.status === "pending" && order.delivery_datetime) {
@@ -967,11 +963,6 @@ export const useReports = () => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
               if (order.status === "delivered") return true;
-              
-              // Consider orders with POD files as completed regardless of status
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-              if (hasPOD) return true;
-              
               if (order.status === "pending" && order.delivery_datetime) {
                 const deliveryTime = new Date(order.delivery_datetime).getTime();
                 const daysSinceDelivery = (now - deliveryTime) / (1000 * 60 * 60 * 24);
