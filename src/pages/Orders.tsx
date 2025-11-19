@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2 } from "lucide-react";
+import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2, Info } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -154,6 +154,7 @@ const Orders = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedNotes, setSelectedNotes] = useState("");
+  const [showLegendDialog, setShowLegendDialog] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({
     tonu: "",
     driverRate: "",
@@ -649,6 +650,14 @@ const Orders = () => {
             <Button onClick={() => navigate("/new-order")}>
               <FileText className="mr-2 h-4 w-4" />
               New Load
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setShowLegendDialog(true)}
+              title="Color Legend"
+            >
+              <Info className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -1258,6 +1267,58 @@ const Orders = () => {
             </div>
             <DialogFooter>
               <Button onClick={() => setNotesDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Color Legend Dialog */}
+        <Dialog open={showLegendDialog} onOpenChange={setShowLegendDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Load Background Colors Legend</DialogTitle>
+              <DialogDescription>
+                Background colors indicate special conditions for loads
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] border border-border" />
+                <div>
+                  <p className="font-semibold">Purple - Recovery Load</p>
+                  <p className="text-sm text-muted-foreground">Load assigned to recovery driver (highest priority)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] border border-border" />
+                <div>
+                  <p className="font-semibold">Red - Driver Penalty Fees</p>
+                  <p className="text-sm text-muted-foreground">Late fee, no tracking fee, or wrong address fee applied to driver</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] border border-border" />
+                <div>
+                  <p className="font-semibold">Green - Driver Bonus Fees</p>
+                  <p className="text-sm text-muted-foreground">Detention or layover fees paid to driver</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] border border-border" />
+                <div>
+                  <p className="font-semibold">Yellow - Escort/Lumper Fees</p>
+                  <p className="text-sm text-muted-foreground">Escort fee or lumper fee applied to load</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] border border-border" />
+                <div>
+                  <p className="font-semibold">Orange - Canceled or Date Changed</p>
+                  <p className="text-sm text-muted-foreground">Load has been canceled or has date change notes</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setShowLegendDialog(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
