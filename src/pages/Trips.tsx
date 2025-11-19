@@ -229,17 +229,22 @@ const Trips = () => {
       // Add fixed deductions
       const endDateFormatted = format(weekEndDate, 'M/d/yyyy');
       const deductions = [
-        { row: 39, description: 'Cargo Insurance' },
-        { row: 40, description: 'Trailer + Insurance' },
-        { row: 41, description: 'ELD' },
-        { row: 42, description: 'Pre-Pass' },
-        { row: 43, description: 'Truck Insurance' },
+        { row: 39, description: 'Cargo Insurance', amount: 245.00 },
+        { row: 40, description: 'Trailer + Insurance', amount: 225.00 },
+        { row: 41, description: 'ELD', amount: 35.00 },
+        { row: 42, description: 'Pre-Pass', amount: 10.00 },
+        { row: 43, description: 'Truck Insurance', amount: 195.00 },
         { row: 44, description: 'Truck Payment' }
       ];
 
-      deductions.forEach(({ row, description }) => {
+      deductions.forEach(({ row, description, amount }) => {
         worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amount !== undefined) {
+          const cellJ = worksheet.getCell(`J${row}`);
+          cellJ.value = amount;
+          cellJ.numFmt = '$#,##0.00';
+        }
       });
 
       // Generate filename
