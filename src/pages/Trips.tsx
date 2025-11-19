@@ -190,8 +190,13 @@ const Trips = () => {
         throw new Error('Template worksheet not found');
       }
 
-      // Set row 12 height to 28 pixels
-      worksheet.getRow(12).height = 28;
+      // Set all rows to height 28 pixels (rows 1-50)
+      for (let i = 1; i <= 50; i++) {
+        worksheet.getRow(i).height = 28;
+      }
+      
+      // Set row 12 to auto-fit (fit to data)
+      worksheet.getRow(12).height = undefined; // Auto-fit
 
       // Fetch and update invoice number from database
       const { data: configData, error: configError } = await supabase
