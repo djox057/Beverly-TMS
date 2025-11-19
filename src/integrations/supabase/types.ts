@@ -552,6 +552,7 @@ export type Database = {
       }
       drivers: {
         Row: {
+          agreement_start_date: string | null
           cdl_expiration_date: string | null
           cdl_number: string | null
           clearing_house: string | null
@@ -594,6 +595,7 @@ export type Database = {
           weeks_count: number | null
         }
         Insert: {
+          agreement_start_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
@@ -636,6 +638,7 @@ export type Database = {
           weeks_count?: number | null
         }
         Update: {
+          agreement_start_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
