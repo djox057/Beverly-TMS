@@ -1100,7 +1100,7 @@ const Drivers = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label htmlFor="weekly_payment">Weekly Payment</Label>
                       <Input id="weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
@@ -1108,13 +1108,6 @@ const Drivers = () => {
                       weekly_payment: e.target.value
                     })} placeholder="Weekly Payment" />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="trailer_number">Trailer Number</Label>
-                      <Input id="trailer_number" type="text" placeholder="Trailer Number" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="weeks_count">Weeks</Label>
                       <Input id="weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
@@ -1721,7 +1714,7 @@ const Drivers = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="edit_weekly_payment">Weekly Payment</Label>
                     <Input id="edit_weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
@@ -1729,13 +1722,6 @@ const Drivers = () => {
                     weekly_payment: e.target.value
                   })} placeholder="Weekly Payment" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit_trailer_number">Trailer Number</Label>
-                    <Input id="edit_trailer_number" type="text" placeholder="Trailer Number" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_weeks_count">Weeks</Label>
                     <Input id="edit_weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
