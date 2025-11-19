@@ -643,6 +643,10 @@ export const useReports = () => {
 
                 if (order.status === "delivered") return true;
 
+                // Consider orders with POD files as completed regardless of status
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                if (hasPOD) return true;
+
                 // Consider pending orders past delivery time as recently completed
                 if (order.status === "pending" && order.delivery_datetime) {
                   const deliveryTime = new Date(order.delivery_datetime).getTime();
@@ -963,6 +967,11 @@ export const useReports = () => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
               if (order.status === "delivered") return true;
+              
+              // Consider orders with POD files as completed regardless of status
+              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              if (hasPOD) return true;
+              
               if (order.status === "pending" && order.delivery_datetime) {
                 const deliveryTime = new Date(order.delivery_datetime).getTime();
                 const daysSinceDelivery = (now - deliveryTime) / (1000 * 60 * 60 * 24);
