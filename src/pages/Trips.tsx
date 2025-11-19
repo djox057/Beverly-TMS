@@ -186,13 +186,13 @@ const Trips = () => {
       }
 
       // Fill in header information
-      worksheet.getCell('B1').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date
-      worksheet.getCell('C2').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range
-      worksheet.getCell('B6').value = driver?.name || firstOrder.driverName || ''; // Driver name
-      worksheet.getCell('F7').value = firstOrder.truckNumber || ''; // Truck number
+      worksheet.getCell('B3').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date (moved down 2)
+      worksheet.getCell('C4').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range (moved down 2)
+      worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name (moved down 1)
+      worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number (moved down 1)
 
-      // Clear the trip rows (rows 11-17) by directly setting values to null
-      for (let row = 11; row <= 17; row++) {
+      // Clear the trip rows (rows 13-19) by directly setting values to null
+      for (let row = 13; row <= 19; row++) {
         worksheet.getCell(`A${row}`).value = null;
         worksheet.getCell(`B${row}`).value = null;
         worksheet.getCell(`C${row}`).value = null;
@@ -204,8 +204,8 @@ const Trips = () => {
         worksheet.getCell(`I${row}`).value = null;
       }
 
-      // Fill in trip details starting at row 11
-      let currentRow = 11;
+      // Fill in trip details starting at row 13
+      let currentRow = 13;
 
       week.orders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || '';
