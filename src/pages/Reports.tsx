@@ -2539,6 +2539,21 @@ const Reports = () => {
                                           <div className="flex items-center gap-1 font-bold text-black">
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
+                                            {truck.twoWeekBlockDate && (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Ban className="h-3 w-3 text-destructive" />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p className="text-xs font-medium">2-Week Notice</p>
+                                                    <p className="text-xs">
+                                                      Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
+                                                    </p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            )}
                                           </div>
                                           {truck.companyName && (
                                             <div className="text-[9px] leading-tight font-semibold text-black opacity-60">
@@ -2888,35 +2903,6 @@ const Reports = () => {
                                             size={31}
                                             strokeWidth={3}
                                           />
-                                          
-                                          {/* 2-Week Notice Widget */}
-                                          {truck.twoWeekBlockDate && (
-                                            <TooltipProvider>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <div className="flex flex-col items-center cursor-pointer">
-                                                    <div
-                                                      className="relative flex items-center justify-center bg-destructive rounded-full"
-                                                      style={{
-                                                        width: 31,
-                                                        height: 31,
-                                                      }}
-                                                    >
-                                                      <Ban className="w-5 h-5 text-destructive-foreground" />
-                                                    </div>
-                                                  </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p className="text-xs font-medium">
-                                                    2-Week Notice
-                                                  </p>
-                                                  <p className="text-xs">
-                                                    Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
-                                                  </p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
-                                          )}
                                         </div>
                                         <div className="h-8 p-0 w-full">
                                           <EditableNoteField
