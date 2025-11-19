@@ -107,12 +107,16 @@ const Trips = () => {
       }
     });
     
-    // Sort weeks by date
+    // Sort weeks by date (newest first)
     return Object.keys(groups)
-      .sort()
+      .sort((a, b) => b.localeCompare(a))
       .map(weekKey => ({
         weekStart: weekKey,
-        orders: groups[weekKey]
+        orders: groups[weekKey].sort((a, b) => {
+          const dateA = new Date(a.deliveryDate || a.pickupDate).getTime();
+          const dateB = new Date(b.deliveryDate || b.pickupDate).getTime();
+          return dateB - dateA; // Newest first
+        })
       }));
   }, [paginatedOrders]);
 
