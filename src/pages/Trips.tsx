@@ -416,11 +416,33 @@ const Trips = () => {
 
                             {/* Orders for this week */}
                             {week.orders.map((order, orderIndex) => {
+                              // Background color rules - Recovery orders get purple background that overrides all other colors
                               const isRecovery = order.isRecovery;
-                              
+
+                              const hasRedFees =
+                                (order as any).lateFeeDriver > 0 ||
+                                (order as any).noTrackingFeeDriver > 0 ||
+                                (order as any).wrongAddressFeeDriver > 0;
+
+                              const hasGreenFees = (order as any).detentionDriver > 0 || (order as any).layoverDriver > 0;
+
+                              const hasYellowFees = (order as any).escortFee > 0 || (order as any).lumper > 0;
+
+                              const hasOrangeCondition =
+                                order.canceled ||
+                                ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
+
                               const rowClassName = isRecovery
                                 ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
-                                : '';
+                                : hasRedFees
+                                  ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
+                                  : hasGreenFees
+                                    ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
+                                    : hasYellowFees
+                                      ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
+                                      : hasOrangeCondition
+                                        ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]'
+                                        : '';
                               
                               return (
                                 <TableRow 
