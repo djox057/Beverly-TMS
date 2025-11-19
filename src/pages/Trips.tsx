@@ -193,11 +193,42 @@ const Trips = () => {
       // Set row 12 height to 28 pixels
       worksheet.getRow(12).height = 28;
 
-      // Calculate weekly invoice number (starts at 7892, increments every Monday)
-      const startDate = new Date('2025-01-06'); // First Monday reference (adjust as needed)
-      const startInvoiceNumber = 7892;
-      const weeksDiff = Math.floor((weekStartDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-      const invoiceNumber = startInvoiceNumber + weeksDiff;
+      // Fetch and update invoice number from database
+      const { data: configData, error: configError } = await supabase
+        .from('invoice_number_config')
+        .select('*')
+        .eq('statement_type', 'bf_prime_united')
+        .single();
+
+      if (configError) {
+        console.error('Error fetching invoice config:', configError);
+        throw new Error('Failed to fetch invoice configuration');
+      }
+
+      let invoiceNumber = configData.current_number;
+      
+      // Calculate the Monday of the week for weekStartDate
+      const currentMonday = startOfWeek(weekStartDate, { weekStartsOn: 1 });
+      const lastMonday = new Date(configData.last_monday);
+      
+      // If it's a new week (different Monday), increment the invoice number
+      if (currentMonday.getTime() !== lastMonday.getTime()) {
+        invoiceNumber = configData.current_number + 1;
+        
+        // Update the database with new invoice number and Monday date
+        const { error: updateError } = await supabase
+          .from('invoice_number_config')
+          .update({
+            current_number: invoiceNumber,
+            last_monday: format(currentMonday, 'yyyy-MM-dd')
+          })
+          .eq('statement_type', 'bf_prime_united');
+
+        if (updateError) {
+          console.error('Error updating invoice config:', updateError);
+          throw new Error('Failed to update invoice configuration');
+        }
+      }
 
       // Find Thursday in the date range
       let thursdayDate = weekStartDate;

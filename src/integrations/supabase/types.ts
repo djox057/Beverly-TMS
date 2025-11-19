@@ -720,6 +720,33 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_number_config: {
+        Row: {
+          created_at: string | null
+          current_number: number
+          id: string
+          last_monday: string
+          statement_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_number: number
+          id?: string
+          last_monday: string
+          statement_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_number?: number
+          id?: string
+          last_monday?: string
+          statement_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lost_day_notes: {
         Row: {
           created_at: string
