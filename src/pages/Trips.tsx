@@ -317,17 +317,6 @@ const Trips = () => {
       deductions.forEach(({ row, description, amount }) => {
         worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
-        
-        // Clear background for row 44 cells (except E44)
-        if (row === 44) {
-          ['B', 'C', 'D', 'F', 'G', 'H', 'I', 'J', 'K'].forEach(col => {
-            worksheet.getCell(`${col}${row}`).fill = {
-              type: 'pattern',
-              pattern: 'none'
-            };
-          });
-        }
-        
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
           cellJ.value = amount;
