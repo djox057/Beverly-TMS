@@ -17,10 +17,12 @@ import { Search, Loader2, FileDown } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo } from "react";
 import { useDragPan } from "@/hooks/useDragPan";
-import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from "date-fns";
+import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, getDay, addDays } from "date-fns";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -120,7 +122,144 @@ const Trips = () => {
       }));
   }, [paginatedOrders]);
 
-  const exportWeekToExcel = (week: any, weekStartDate: Date, weekEndDate: Date) => {
+  const exportWeekToExcel = async (week: any, weekStartDate: Date, weekEndDate: Date) => {
+    try {
+      // Get the first order to determine driver/truck info
+      const firstOrder = week.orders[0];
+      if (!firstOrder) {
+        toast.error('No orders to export');
+        return;
+      }
+
+      // Fetch driver and company info
+      const { data: driver } = await supabase
+        .from('drivers')
+        .select('name, company_id, companies(name)')
+        .eq('id', firstOrder.driver1Id)
+        .single();
+
+      const companyName = driver?.companies?.name || '';
+
+      // Only use template for BF Prime United LLC
+      if (companyName === 'BF Prime United LLC') {
+        await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+      } else {
+        // Use the old export method for other companies
+        exportGenericExcel(week, weekStartDate, weekEndDate);
+      }
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export to Excel');
+    }
+  };
+
+  const exportBFPrimeTemplate = async (week: any, weekStartDate: Date, weekEndDate: Date, firstOrder: any, driver: any) => {
+    try {
+      // Load the template
+      const response = await fetch('/templates/BF_Prime_UNITED_template.xlsx');
+      const arrayBuffer = await response.arrayBuffer();
+      
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+
+      if (!worksheet) {
+        throw new Error('Template worksheet not found');
+      }
+
+      // Find Thursday in the date range
+      let thursdayDate = weekStartDate;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = addDays(weekStartDate, i);
+        if (getDay(checkDate) === 4) { // Thursday is day 4
+          thursdayDate = checkDate;
+          break;
+        }
+      }
+
+      // Fill in header information
+      worksheet.getCell('B2').value = format(thursdayDate, 'M/d/yy'); // Thursday date
+      worksheet.getCell('C3').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range
+      worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name
+      worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number
+
+      // Fill in trip details starting at row 11
+      let currentRow = 11;
+      let totalDriverPay = 0;
+      let totalDriverPay88 = 0;
+
+      week.orders.forEach((order: any) => {
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || '';
+        worksheet.getCell(`B${currentRow}`).value = order.pickupDate || '';
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || '';
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || '';
+        worksheet.getCell(`E${currentRow}`).value = order.deliveryDate || '';
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || '';
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || '';
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
+        
+        const driverPay = order.totalDriverPay || 0;
+        const driverPay88 = driverPay * 0.88;
+        
+        worksheet.getCell(`I${currentRow}`).value = driverPay;
+        worksheet.getCell(`I${currentRow}`).numFmt = '$#,##0.00';
+        
+        worksheet.getCell(`J${currentRow}`).value = driverPay88;
+        worksheet.getCell(`J${currentRow}`).numFmt = '$#,##0.00';
+        
+        totalDriverPay += driverPay;
+        totalDriverPay88 += driverPay88;
+        
+        currentRow++;
+      });
+
+      // Add totals at row 18 (or after last trip)
+      const totalsRow = 18;
+      worksheet.getCell(`I${totalsRow}`).value = totalDriverPay;
+      worksheet.getCell(`I${totalsRow}`).numFmt = '$#,##0.00';
+      worksheet.getCell(`J${totalsRow}`).value = totalDriverPay88;
+      worksheet.getCell(`J${totalsRow}`).numFmt = '$#,##0.00';
+
+      // Add fixed deductions
+      const endDateFormatted = format(weekEndDate, 'M/d/yy');
+      const deductions = [
+        { row: 39, description: 'Cargo Insurance', amount: 245.00 },
+        { row: 40, description: 'Trailer + Insurance', amount: 225.00 },
+        { row: 41, description: 'ELD', amount: 35.00 },
+        { row: 42, description: 'Pre-Pass', amount: 10.00 },
+        { row: 44, description: 'Truck Insurance', amount: 195.00 }
+      ];
+
+      deductions.forEach(({ row, description, amount }) => {
+        worksheet.getCell(`B${row}`).value = description;
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
+        worksheet.getCell(`J${row}`).value = amount;
+        worksheet.getCell(`J${row}`).numFmt = '$#,##0.00';
+      });
+
+      // Generate filename
+      const weekRange = `${format(weekStartDate, 'MMM-d')}-${format(weekEndDate, 'MMM-d-yyyy')}`;
+      const driverInfo = driver?.name ? `_${driver.name.replace(/\s+/g, '-')}` : '';
+      const filename = `BF_Prime_${weekRange}${driverInfo}.xlsx`;
+
+      // Save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${week.orders.length} trips to Excel`);
+    } catch (error) {
+      console.error('Error exporting BF Prime template:', error);
+      toast.error('Failed to export to Excel');
+    }
+  };
+
+  const exportGenericExcel = (week: any, weekStartDate: Date, weekEndDate: Date) => {
     try {
       // Prepare data for Excel
       const excelData = week.orders.map((order: any) => ({
