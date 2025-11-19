@@ -13,9 +13,10 @@ import {
   PaginationEllipsis
 } from "@/components/ui/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Loader2, FileDown } from "lucide-react";
+import { Search, Loader2, FileDown, Edit } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, getDay, addDays } from "date-fns";
 import * as XLSX from "xlsx";
@@ -39,6 +40,7 @@ const getStatusBadge = (status: string) => {
 
 const Trips = () => {
   useDragPan();
+  const navigate = useNavigate();
   
   const { data: orders, isLoading } = useOrders();
   
@@ -513,6 +515,7 @@ const Trips = () => {
                     <TableHead className="w-28">Broker Load #</TableHead>
                     <TableHead className="w-20">Invoiced</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
                  </TableHeader>
                  <TableBody>
@@ -621,6 +624,18 @@ const Trips = () => {
                                     <div className="font-semibold text-green-600 dark:text-green-400">
                                       {formatCurrency(order.totalFreightAmount)}
                                     </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        localStorage.setItem('returnToTrips', 'true');
+                                        navigate(`/edit-order/${order.id}`);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
                                   </TableCell>
                                 </TableRow>
                               );

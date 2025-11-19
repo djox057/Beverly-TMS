@@ -65,7 +65,8 @@ const EditOrder = () => {
   // Check on mount if we should return to reports
   useEffect(() => {
     const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-    setReturnToReports(shouldReturnToReports);
+    const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
+    setReturnToReports(shouldReturnToReports || shouldReturnToTrips);
   }, []);
 
   // Form states
@@ -296,6 +297,7 @@ const EditOrder = () => {
       });
         const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
         const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+        const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
         const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
         if (shouldReturnToReports) {
           localStorage.removeItem('returnToReports');
@@ -303,6 +305,9 @@ const EditOrder = () => {
         } else if (shouldReturnToYardLoads) {
           localStorage.removeItem('returnToYardLoads');
           navigate("/yard-loads");
+        } else if (shouldReturnToTrips) {
+          localStorage.removeItem('returnToTrips');
+          navigate("/trips");
         } else if (shouldReturnToOrders) {
           navigate("/orders");
         } else {
@@ -344,6 +349,7 @@ const EditOrder = () => {
           });
           const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
           const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+          const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
           const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
           if (shouldReturnToReports) {
             localStorage.removeItem('returnToReports');
@@ -351,6 +357,9 @@ const EditOrder = () => {
           } else if (shouldReturnToYardLoads) {
             localStorage.removeItem('returnToYardLoads');
             navigate("/yard-loads");
+          } else if (shouldReturnToTrips) {
+            localStorage.removeItem('returnToTrips');
+            navigate("/trips");
           } else if (shouldReturnToOrders) {
             navigate("/orders");
           } else {
@@ -523,6 +532,7 @@ const EditOrder = () => {
       });
       const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
       const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+      const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
       const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
       if (shouldReturnToReports) {
         localStorage.removeItem('returnToReports');
@@ -530,6 +540,9 @@ const EditOrder = () => {
       } else if (shouldReturnToYardLoads) {
         localStorage.removeItem('returnToYardLoads');
         navigate("/yard-loads");
+      } else if (shouldReturnToTrips) {
+        localStorage.removeItem('returnToTrips');
+        navigate("/trips");
       } else if (shouldReturnToOrders) {
         navigate("/orders");
       } else {
@@ -584,6 +597,7 @@ const EditOrder = () => {
         });
         const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
         const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+        const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
         const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
         if (shouldReturnToReports) {
           localStorage.removeItem('returnToReports');
@@ -591,6 +605,9 @@ const EditOrder = () => {
         } else if (shouldReturnToYardLoads) {
           localStorage.removeItem('returnToYardLoads');
           navigate("/yard-loads");
+        } else if (shouldReturnToTrips) {
+          localStorage.removeItem('returnToTrips');
+          navigate("/trips");
         } else if (shouldReturnToOrders) {
           navigate("/orders");
         } else {
@@ -608,6 +625,7 @@ const EditOrder = () => {
       });
       const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
       const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+      const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
       const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
       if (shouldReturnToReports) {
         localStorage.removeItem('returnToReports');
@@ -615,6 +633,9 @@ const EditOrder = () => {
       } else if (shouldReturnToYardLoads) {
         localStorage.removeItem('returnToYardLoads');
         navigate("/yard-loads");
+      } else if (shouldReturnToTrips) {
+        localStorage.removeItem('returnToTrips');
+        navigate("/trips");
       } else if (shouldReturnToOrders) {
         navigate("/orders");
       } else {
@@ -1721,6 +1742,7 @@ const EditOrder = () => {
 
       // Navigate back to where we came from
       const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+      const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
       const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
       if (returnToReports) {
         localStorage.removeItem('returnToReports');
@@ -1729,6 +1751,10 @@ const EditOrder = () => {
       } else if (shouldReturnToYardLoads) {
         localStorage.removeItem('returnToYardLoads');
         navigate("/yard-loads");
+        window.scrollTo(0, 0);
+      } else if (shouldReturnToTrips) {
+        localStorage.removeItem('returnToTrips');
+        navigate("/trips");
         window.scrollTo(0, 0);
       } else if (shouldReturnToOrders) {
         navigate("/orders");
@@ -1797,6 +1823,7 @@ const EditOrder = () => {
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" onClick={() => {
               const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+              const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
               const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
               if (returnToReports) {
                 localStorage.removeItem('returnToReports');
@@ -1806,6 +1833,10 @@ const EditOrder = () => {
                 localStorage.removeItem('returnToYardLoads');
                 navigate("/yard-loads");
                 window.scrollTo(0, 0);
+              } else if (shouldReturnToTrips) {
+                localStorage.removeItem('returnToTrips');
+                navigate("/trips");
+                window.scrollTo(0, 0);
               } else if (shouldReturnToOrders) {
                 navigate("/orders");
                 window.scrollTo(0, 0);
@@ -1814,7 +1845,7 @@ const EditOrder = () => {
               }
             }}>
                  <ArrowLeft className="h-4 w-4 mr-2" />
-                 {returnToReports ? 'Back to Reports' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : 'Back to Orders'}
+                 {returnToReports ? 'Back to Reports' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : localStorage.getItem('returnToTrips') === 'true' ? 'Back to Trips' : 'Back to Orders'}
                </Button>
                <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
              </div>
@@ -2578,6 +2609,7 @@ const EditOrder = () => {
               <div className="flex gap-4">
               <Button type="button" variant="outline" onClick={() => {
               const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
+              const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
               const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
               
               if (returnToReports) {
@@ -2587,6 +2619,10 @@ const EditOrder = () => {
               } else if (shouldReturnToYardLoads) {
                 localStorage.removeItem('returnToYardLoads');
                 navigate("/yard-loads");
+                window.scrollTo(0, 0);
+              } else if (shouldReturnToTrips) {
+                localStorage.removeItem('returnToTrips');
+                navigate("/trips");
                 window.scrollTo(0, 0);
               } else if (shouldReturnToOrders) {
                 navigate("/orders");
