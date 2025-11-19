@@ -20,6 +20,7 @@ import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval } from "date-fns";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -295,7 +296,7 @@ const Trips = () => {
         <h1 className="text-3xl font-bold">Trips</h1>
       </div>
 
-      <Card>
+      <Card className="sticky top-0 z-10 bg-background">
         <CardHeader>
           <CardTitle>Filters</CardTitle>
         </CardHeader>
@@ -398,13 +399,13 @@ const Trips = () => {
                               <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
                               <TableCell className="py-3">
                                 <div className="font-semibold text-green-600 dark:text-green-400">
-                                  ${weekTotal.driverPay.toLocaleString()}
+                                  {formatCurrency(weekTotal.driverPay)}
                                 </div>
                               </TableCell>
                               <TableCell colSpan={4}></TableCell>
                               <TableCell className="py-3">
                                 <div className="font-semibold text-green-600 dark:text-green-400">
-                                  ${weekTotal.freightAmount.toLocaleString()}
+                                  {formatCurrency(weekTotal.freightAmount)}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -433,7 +434,7 @@ const Trips = () => {
                                   <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
                                   <TableCell>
                                     <div className="font-semibold text-green-600 dark:text-green-400">
-                                      ${order.totalDriverPay?.toLocaleString() || '0'}
+                                      {formatCurrency(order.totalDriverPay)}
                                     </div>
                                   </TableCell>
                                   <TableCell><div className="line-clamp-2">{order.driverName}</div></TableCell>
@@ -442,7 +443,7 @@ const Trips = () => {
                                   <TableCell>{order.invoiced}</TableCell>
                                   <TableCell>
                                     <div className="font-semibold text-green-600 dark:text-green-400">
-                                      ${order.totalFreightAmount?.toLocaleString() || '0'}
+                                      {formatCurrency(order.totalFreightAmount)}
                                     </div>
                                   </TableCell>
                                 </TableRow>
