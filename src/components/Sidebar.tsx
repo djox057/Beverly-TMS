@@ -148,7 +148,7 @@ export const Sidebar = () => {
   const allNavigation = getFilteredNavigation();
 
   return (
-    <SidebarPrimitive>
+    <SidebarPrimitive className="z-50">
       <SidebarContent>
         <SidebarGroup>
           <div className="flex items-center justify-between">
