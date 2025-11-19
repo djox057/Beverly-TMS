@@ -1730,7 +1730,12 @@ const NewOrder = () => {
           
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
-            const fileName = `${orderId}/${category}/${Date.now()}_${file.name}`;
+            // Sanitize filename: replace special characters with safe alternatives
+            const sanitizedFileName = file.name
+              .replace(/[–—]/g, '-') // Replace en-dash and em-dash with regular hyphen
+              .replace(/[^\w\s.-]/g, '') // Remove any non-word, non-space, non-dot, non-hyphen characters
+              .replace(/\s+/g, '_'); // Replace spaces with underscores
+            const fileName = `${orderId}/${category}/${Date.now()}_${sanitizedFileName}`;
             const {
               error: uploadError
             } = await supabase.storage.from('order-files').upload(fileName, file);
