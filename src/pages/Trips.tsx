@@ -240,95 +240,65 @@ const Trips = () => {
         }
       }
 
-      // Fill in header information
-      worksheet.getCell('C2').value = invoiceNumber; // Trips invoice number
-      worksheet.getCell('B3').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date (moved down 2)
-      worksheet.getCell('B8').value = driver?.company_name || ''; // Company name from driver
-      worksheet.getCell('F7').value = driver?.agreement_start_date ? format(new Date(driver.agreement_start_date), 'M/d/yyyy') : ''; // Agreement start date
+      // Fill in header information based on new template
+      worksheet.getCell('B2').value = invoiceNumber; // Invoice number
+      worksheet.getCell('B3').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Pay Period date range
+      worksheet.getCell('B6').value = driver?.name || firstOrder.driverName || ''; // Driver name
+      worksheet.getCell('B7').value = driver?.company_name || ''; // Company name
+      worksheet.getCell('F6').value = driver?.agreement_start_date ? format(new Date(driver.agreement_start_date), 'M/d/yyyy') : ''; // Agreement start date
+      worksheet.getCell('F7').value = firstOrder.truckNumber || ''; // Truck number
       
-      // Weekly payment and weeks count in F9
-      if (driver?.weekly_payment && driver?.weeks_count) {
-        worksheet.getCell('F9').value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      // Agreement terms with weeks count
+      if (driver?.weeks_count) {
+        worksheet.getCell('F8').value = `${driver.weeks_count} weeks`;
       }
-      worksheet.getCell('C4').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range (moved down 2)
-      worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name (moved down 1)
-      worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number (moved down 1)
 
-      // Clear the trip rows (rows 13-19) by directly setting values to null
-      for (let row = 13; row <= 19; row++) {
+      // Clear the trip rows (rows 12-18) by directly setting values to null
+      for (let row = 12; row <= 18; row++) {
         worksheet.getCell(`A${row}`).value = null;
         worksheet.getCell(`B${row}`).value = null;
         worksheet.getCell(`C${row}`).value = null;
-        worksheet.getCell(`D${row}`).value = null;
         worksheet.getCell(`E${row}`).value = null;
         worksheet.getCell(`F${row}`).value = null;
-        worksheet.getCell(`G${row}`).value = null;
         worksheet.getCell(`H${row}`).value = null;
         worksheet.getCell(`I${row}`).value = null;
+        worksheet.getCell(`J${row}`).value = null;
       }
 
-      // Fill in trip details starting at row 13
-      let currentRow = 13;
+      // Fill in trip details starting at row 12
+      let currentRow = 12;
 
       week.orders.forEach((order: any) => {
-        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || '';
-        worksheet.getCell(`B${currentRow}`).value = order.pickupDate || '';
-        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || '';
-        worksheet.getCell(`D${currentRow}`).value = order.pickupState || '';
-        worksheet.getCell(`E${currentRow}`).value = order.deliveryDate || '';
-        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || '';
-        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || '';
-        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || ''; // Trip #
+        worksheet.getCell(`B${currentRow}`).value = order.pickupDate || ''; // Pick UP Date
         
-        const driverPay = order.totalDriverPay || 0;
+        // Pick Up Location (combining city and state)
+        const pickupLocation = [order.pickupCity, order.pickupState].filter(Boolean).join(', ');
+        worksheet.getCell(`C${currentRow}`).value = pickupLocation;
         
+        worksheet.getCell(`E${currentRow}`).value = order.deliveryDate || ''; // Delivery Date
+        
+        // Delivery Location (combining city and state)
+        const deliveryLocation = [order.deliveryCity, order.deliveryState].filter(Boolean).join(', ');
+        worksheet.getCell(`F${currentRow}`).value = deliveryLocation;
+        
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0; // Mileage
+        
+        const freightAmount = order.totalFreightAmount || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = driverPay;
+        cellI.value = freightAmount; // Freight Amount
         cellI.numFmt = '$#,##0.00';
+        
+        // Calculate 88% of freight amount
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = freightAmount * 0.88; // Freight Amount (88%)
+        cellJ.numFmt = '$#,##0.00';
         
         currentRow++;
       });
 
-      // Add fixed deductions
-      const endDateFormatted = format(weekEndDate, 'M/d/yyyy');
-      const deductions = [
-        { row: 39, description: 'Cargo Insurance', amount: 285.00 },
-        { row: 40, description: 'Trailer + Insurance', amount: 285.00 },
-        { row: 41, description: 'ELD', amount: 50.00 },
-        { row: 42, description: 'Pre-Pass', amount: 20.00 },
-        { row: 43, description: 'Truck Insurance', amount: 195.00 },
-        { row: 44, description: 'Truck Payment' }
-      ];
-
-      deductions.forEach(({ row, description, amount }) => {
-        const cellB = worksheet.getCell(`B${row}`);
-        cellB.value = description;
-        cellB.font = { size: 16 };
-        worksheet.getCell(`I${row}`).value = endDateFormatted;
-        if (amount !== undefined) {
-          const cellJ = worksheet.getCell(`J${row}`);
-          cellJ.value = amount;
-          cellJ.numFmt = '$#,##0.00';
-        }
-      });
-
-      // Set E44: Calculate weeks passed from agreement_start_date
-      if (driver?.agreement_start_date && driver?.weeks_count) {
-        const startDate = new Date(driver.agreement_start_date);
-        const currentDate = new Date();
-        const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-        
-        const e44Cell = worksheet.getCell('E44');
-        e44Cell.value = `${weeksPassed}/${driver.weeks_count}`;
-        e44Cell.font = { bold: true, size: 16 };
-      }
-
-      // Set J44 (truck payment deduction) to weekly_payment
-      if (driver?.weekly_payment) {
-        const j44Cell = worksheet.getCell('J44');
-        j44Cell.value = driver.weekly_payment;
-        j44Cell.numFmt = '$#,##0.00';
-      }
+      // Note: Deductions, Credits, and NET PAY sections are in the template
+      // These will be calculated by the template formulas
 
       // Generate filename
       const weekRange = `${format(weekStartDate, 'MMM-d')}-${format(weekEndDate, 'MMM-d-yyyy')}`;
