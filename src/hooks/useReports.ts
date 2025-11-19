@@ -427,17 +427,17 @@ export const useReports = () => {
     queryKey: ["reports"],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        // Calculate date range: 2 days in past, today, 3 days in future
+        // Calculate date range: 7 days in past (for recently completed orders), today, 3 days in future
         const now = new Date();
-        const twoDaysAgo = new Date(now);
-        twoDaysAgo.setDate(now.getDate() - 2);
-        twoDaysAgo.setHours(0, 0, 0, 0);
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
         
         const threeDaysAhead = new Date(now);
         threeDaysAhead.setDate(now.getDate() + 3);
         threeDaysAhead.setHours(23, 59, 59, 999);
         
-        const startDate = twoDaysAgo.toISOString();
+        const startDate = sevenDaysAgo.toISOString();
         const endDate = threeDaysAhead.toISOString();
 
         // Fetch trucks with their drivers and company info
