@@ -49,6 +49,11 @@ interface DriverFormData {
   home_longitude: string;
   personal_id: string;
   fuel_card_number: string;
+  company_name: string;
+  company_address: string;
+  mc_number: string;
+  weekly_payment: string;
+  weeks_count: string;
   cdl_number: string;
   cdl_expiration_date: string;
   medical_card_expiration_date: string;
@@ -110,6 +115,11 @@ const Drivers = () => {
     home_longitude: "",
     personal_id: "",
     fuel_card_number: "",
+    company_name: "",
+    company_address: "",
+    mc_number: "",
+    weekly_payment: "",
+    weeks_count: "",
     cdl_number: "",
     cdl_expiration_date: "",
     medical_card_expiration_date: "",
@@ -245,6 +255,11 @@ const Drivers = () => {
       home_longitude: "",
       personal_id: "",
       fuel_card_number: "",
+      company_name: "",
+      company_address: "",
+      mc_number: "",
+      weekly_payment: "",
+      weeks_count: "",
       cdl_number: "",
       cdl_expiration_date: "",
       medical_card_expiration_date: "",
@@ -347,7 +362,12 @@ const Drivers = () => {
         termination_date: formData.termination_date || null,
         mvr_date: formData.mvr_date || null,
         clearing_house: formData.clearing_house || null,
-        license_number: formData.cdl_number || null
+        license_number: formData.cdl_number || null,
+        company_name: formData.company_name || null,
+        company_address: formData.company_address || null,
+        mc_number: formData.mc_number || null,
+        weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
+        weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
       }).select().single();
       if (error) throw error;
 
@@ -515,7 +535,12 @@ const Drivers = () => {
         termination_date: formData.termination_date || null,
         mvr_date: formData.mvr_date || null,
         clearing_house: formData.clearing_house || null,
-        license_number: formData.cdl_number || null
+        license_number: formData.cdl_number || null,
+        company_name: formData.company_name || null,
+        company_address: formData.company_address || null,
+        mc_number: formData.mc_number || null,
+        weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
+        weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
       }).eq('id', editingDriver.id);
       if (error) throw error;
 
@@ -885,6 +910,11 @@ const Drivers = () => {
       home_longitude: driver.home_longitude?.toString() || "",
       personal_id: sensitivePIIData?.personal_id || "",
       fuel_card_number: sensitivePIIData?.fuel_card_number || "",
+      company_name: driver.company_name || "",
+      company_address: driver.company_address || "",
+      mc_number: driver.mc_number || "",
+      weekly_payment: driver.weekly_payment?.toString() || "",
+      weeks_count: driver.weeks_count?.toString() || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date || "",
       medical_card_expiration_date: driver.medical_card_expiration_date || "",
@@ -1064,6 +1094,23 @@ const Drivers = () => {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label htmlFor="weekly_payment">Weekly Payment</Label>
+                      <Input id="weekly_payment" type="number" value={formData.weekly_payment} onChange={e => setFormData({
+                      ...formData,
+                      weekly_payment: e.target.value
+                    })} placeholder="Weekly Payment" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="weeks_count">Weeks</Label>
+                      <Input id="weeks_count" type="number" value={formData.weeks_count} onChange={e => setFormData({
+                      ...formData,
+                      weeks_count: e.target.value
+                    })} placeholder="Weeks" />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="dispatcher">Dispatcher</Label>
                     <Select
@@ -1132,6 +1179,30 @@ const Drivers = () => {
                             ...formData,
                             fuel_card_number: e.target.value
                           })} placeholder="Fuel Card Number" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="company_name">Company Name</Label>
+                            <Input id="company_name" value={formData.company_name} onChange={e => setFormData({
+                            ...formData,
+                            company_name: e.target.value
+                          })} placeholder="Company Name" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="company_address">Company Address</Label>
+                            <Input id="company_address" value={formData.company_address} onChange={e => setFormData({
+                            ...formData,
+                            company_address: e.target.value
+                          })} placeholder="Company Address" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="mc_number">MC #</Label>
+                            <Input id="mc_number" value={formData.mc_number} onChange={e => setFormData({
+                            ...formData,
+                            mc_number: e.target.value
+                          })} placeholder="MC Number" />
                           </div>
                         </div>
 
@@ -1630,6 +1701,23 @@ const Drivers = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_weekly_payment">Weekly Payment</Label>
+                    <Input id="edit_weekly_payment" type="number" value={formData.weekly_payment} onChange={e => setFormData({
+                    ...formData,
+                    weekly_payment: e.target.value
+                  })} placeholder="Weekly Payment" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_weeks_count">Weeks</Label>
+                    <Input id="edit_weeks_count" type="number" value={formData.weeks_count} onChange={e => setFormData({
+                    ...formData,
+                    weeks_count: e.target.value
+                  })} placeholder="Weeks" />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="edit_dispatcher">Dispatcher</Label>
                   <Combobox
@@ -1690,6 +1778,30 @@ const Drivers = () => {
                         ...formData,
                         fuel_card_number: e.target.value
                       })} placeholder="Fuel Card Number" />
+                      </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_company_name">Company Name</Label>
+                          <Input id="edit_company_name" value={formData.company_name} onChange={e => setFormData({
+                        ...formData,
+                        company_name: e.target.value
+                      })} placeholder="Company Name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_company_address">Company Address</Label>
+                          <Input id="edit_company_address" value={formData.company_address} onChange={e => setFormData({
+                        ...formData,
+                        company_address: e.target.value
+                      })} placeholder="Company Address" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit_mc_number">MC #</Label>
+                          <Input id="edit_mc_number" value={formData.mc_number} onChange={e => setFormData({
+                        ...formData,
+                        mc_number: e.target.value
+                      })} placeholder="MC Number" />
                         </div>
                       </div>
 
