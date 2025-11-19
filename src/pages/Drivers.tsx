@@ -54,6 +54,7 @@ interface DriverFormData {
   mc_number: string;
   weekly_payment: string;
   weeks_count: string;
+  agreement_start_date: string;
   cdl_number: string;
   cdl_expiration_date: string;
   medical_card_expiration_date: string;
@@ -120,6 +121,7 @@ const Drivers = () => {
     mc_number: "",
     weekly_payment: "",
     weeks_count: "",
+    agreement_start_date: "",
     cdl_number: "",
     cdl_expiration_date: "",
     medical_card_expiration_date: "",
@@ -260,6 +262,7 @@ const Drivers = () => {
       mc_number: "",
       weekly_payment: "",
       weeks_count: "",
+      agreement_start_date: "",
       cdl_number: "",
       cdl_expiration_date: "",
       medical_card_expiration_date: "",
@@ -368,6 +371,7 @@ const Drivers = () => {
         mc_number: formData.mc_number || null,
         weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
         weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
+        agreement_start_date: formData.agreement_start_date || null,
       }).select().single();
       if (error) throw error;
 
@@ -541,6 +545,7 @@ const Drivers = () => {
         mc_number: formData.mc_number || null,
         weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
         weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
+        agreement_start_date: formData.agreement_start_date || null,
       }).eq('id', editingDriver.id);
       if (error) throw error;
 
@@ -915,6 +920,7 @@ const Drivers = () => {
       mc_number: driver.mc_number || "",
       weekly_payment: driver.weekly_payment?.toString() || "",
       weeks_count: driver.weeks_count?.toString() || "",
+      agreement_start_date: driver.agreement_start_date || "",
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date || "",
       medical_card_expiration_date: driver.medical_card_expiration_date || "",
@@ -1097,17 +1103,31 @@ const Drivers = () => {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label htmlFor="weekly_payment">Weekly Payment</Label>
-                      <Input id="weekly_payment" type="number" value={formData.weekly_payment} onChange={e => setFormData({
+                      <Input id="weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
                       ...formData,
                       weekly_payment: e.target.value
                     })} placeholder="Weekly Payment" />
                     </div>
                     <div className="space-y-2">
+                      <Label htmlFor="trailer_number">Trailer Number</Label>
+                      <Input id="trailer_number" type="text" placeholder="Trailer Number" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="weeks_count">Weeks</Label>
-                      <Input id="weeks_count" type="number" value={formData.weeks_count} onChange={e => setFormData({
+                      <Input id="weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
                       ...formData,
                       weeks_count: e.target.value
                     })} placeholder="Weeks" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="agreement_start_date">Agreement Start Date</Label>
+                      <Input id="agreement_start_date" type="date" value={formData.agreement_start_date} onChange={e => setFormData({
+                      ...formData,
+                      agreement_start_date: e.target.value
+                    })} />
                     </div>
                   </div>
 
@@ -1704,17 +1724,31 @@ const Drivers = () => {
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="edit_weekly_payment">Weekly Payment</Label>
-                    <Input id="edit_weekly_payment" type="number" value={formData.weekly_payment} onChange={e => setFormData({
+                    <Input id="edit_weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
                     ...formData,
                     weekly_payment: e.target.value
                   })} placeholder="Weekly Payment" />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="edit_trailer_number">Trailer Number</Label>
+                    <Input id="edit_trailer_number" type="text" placeholder="Trailer Number" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="edit_weeks_count">Weeks</Label>
-                    <Input id="edit_weeks_count" type="number" value={formData.weeks_count} onChange={e => setFormData({
+                    <Input id="edit_weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
                     ...formData,
                     weeks_count: e.target.value
                   })} placeholder="Weeks" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_agreement_start_date">Agreement Start Date</Label>
+                    <Input id="edit_agreement_start_date" type="date" value={formData.agreement_start_date} onChange={e => setFormData({
+                    ...formData,
+                    agreement_start_date: e.target.value
+                  })} />
                   </div>
                 </div>
 
