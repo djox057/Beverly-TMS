@@ -190,6 +190,15 @@ const Trips = () => {
         throw new Error('Template worksheet not found');
       }
 
+      // Set row 12 height to 28 pixels
+      worksheet.getRow(12).height = 28;
+
+      // Calculate weekly invoice number (starts at 7892, increments every Monday)
+      const startDate = new Date('2025-01-06'); // First Monday reference (adjust as needed)
+      const startInvoiceNumber = 7892;
+      const weeksDiff = Math.floor((weekStartDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const invoiceNumber = startInvoiceNumber + weeksDiff;
+
       // Find Thursday in the date range
       let thursdayDate = weekStartDate;
       for (let i = 0; i < 7; i++) {
@@ -201,6 +210,7 @@ const Trips = () => {
       }
 
       // Fill in header information
+      worksheet.getCell('C2').value = invoiceNumber; // Trips invoice number
       worksheet.getCell('B3').value = format(thursdayDate, 'M/d/yyyy'); // Thursday date (moved down 2)
       worksheet.getCell('C4').value = `${format(weekStartDate, 'M/d/yyyy')}-${format(weekEndDate, 'M/d/yyyy')}`; // Date range (moved down 2)
       worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name (moved down 1)
