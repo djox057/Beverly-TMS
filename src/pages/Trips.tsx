@@ -202,13 +202,11 @@ const Trips = () => {
         worksheet.getCell(`G${row}`).value = null;
         worksheet.getCell(`H${row}`).value = null;
         worksheet.getCell(`I${row}`).value = null;
-        worksheet.getCell(`J${row}`).value = null;
       }
 
       // Fill in trip details starting at row 11
       let currentRow = 11;
       let totalDriverPay = 0;
-      let totalDriverPay88 = 0;
 
       week.orders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || '';
@@ -221,18 +219,12 @@ const Trips = () => {
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         
         const driverPay = order.totalDriverPay || 0;
-        const driverPay88 = driverPay * 0.88;
         
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = '$#,##0.00';
         
-        const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = driverPay88;
-        cellJ.numFmt = '$#,##0.00';
-        
         totalDriverPay += driverPay;
-        totalDriverPay88 += driverPay88;
         
         currentRow++;
       });
@@ -241,8 +233,6 @@ const Trips = () => {
       const totalsRow = 18;
       worksheet.getCell(`I${totalsRow}`).value = totalDriverPay;
       worksheet.getCell(`I${totalsRow}`).numFmt = '$#,##0.00';
-      worksheet.getCell(`J${totalsRow}`).value = totalDriverPay88;
-      worksheet.getCell(`J${totalsRow}`).numFmt = '$#,##0.00';
 
       // Add fixed deductions
       const endDateFormatted = format(weekEndDate, 'M/d/yy');
@@ -257,8 +247,6 @@ const Trips = () => {
       deductions.forEach(({ row, description, amount }) => {
         worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
-        worksheet.getCell(`J${row}`).value = amount;
-        worksheet.getCell(`J${row}`).numFmt = '$#,##0.00';
       });
 
       // Generate filename
