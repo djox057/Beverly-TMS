@@ -831,6 +831,12 @@ const Drivers = () => {
       }
       return;
     }
+    
+    // Show confirmation before creating 2-week block
+    if (!confirm("Are you sure you want to set a 2-week notice for this driver? This will set their last day to 14 days from today.")) {
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       // Set the block date (14 days from today)
