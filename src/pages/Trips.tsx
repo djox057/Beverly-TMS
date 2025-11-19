@@ -318,11 +318,6 @@ const Trips = () => {
         
         const e44Cell = worksheet.getCell('E44');
         e44Cell.value = `${weeksPassed}/${driver.weeks_count}`;
-        e44Cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFAEABAB' }
-        };
         e44Cell.font = { bold: true };
       }
 
