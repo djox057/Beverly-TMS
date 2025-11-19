@@ -277,6 +277,11 @@ const Reports = () => {
     const saved = localStorage.getItem("reports-showNewDrivers");
     return saved ? JSON.parse(saved) : false;
   });
+
+  const [showTwoWeekNotice, setShowTwoWeekNotice] = useState(() => {
+    const saved = localStorage.getItem("reports-showTwoWeekNotice");
+    return saved ? JSON.parse(saved) : false;
+  });
   const [drugTestDialog, setDrugTestDialog] = useState<{
     driverId: string;
     driverName: string;
@@ -850,6 +855,10 @@ const Reports = () => {
   useEffect(() => {
     localStorage.setItem("reports-showNewDrivers", JSON.stringify(showNewDrivers));
   }, [showNewDrivers]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-showTwoWeekNotice", JSON.stringify(showTwoWeekNotice));
+  }, [showTwoWeekNotice]);
 
   useEffect(() => {
     localStorage.setItem("reports-truckDriverFilter", truckDriverFilter);
@@ -2035,6 +2044,21 @@ const Reports = () => {
   const activeOfficeReports = useMemo(() => {
     const reports = filterReportsByOffice(activeTab);
 
+    // Two week notice filter: show only trucks with drivers on 2-week notice
+    if (showTwoWeekNotice) {
+      return reports
+        .map((group) => {
+          const twoWeekNoticeTrucks = group.trucks.filter((truck) => {
+            return truck.twoWeekBlockDate != null;
+          });
+          return {
+            ...group,
+            trucks: twoWeekNoticeTrucks,
+          };
+        })
+        .filter((group) => group.trucks.length > 0);
+    }
+
     // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
       const today = new Date();
@@ -2152,7 +2176,7 @@ const Reports = () => {
         };
       })
       .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers]);
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice]);
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -2285,6 +2309,15 @@ const Reports = () => {
                     onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
                   >
                     Empty trucks
+                  </Button>
+                  <Button
+                    variant={showTwoWeekNotice ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowTwoWeekNotice(!showTwoWeekNotice)}
+                    className="gap-2"
+                  >
+                    <Ban className="h-4 w-4" />
+                    2 Week Notice
                   </Button>
                   <Button
                     variant={showNewDrivers ? "default" : "outline"}
