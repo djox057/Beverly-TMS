@@ -146,9 +146,6 @@ const Trips = () => {
         console.error('Error fetching driver:', driverError);
       }
 
-      console.log('Driver data:', driver);
-      console.log('Company name:', driver?.companies?.name);
-
       const companyName = driver?.companies?.name || '';
 
       // Only use template for BF Prime United LLC
@@ -194,14 +191,18 @@ const Trips = () => {
       worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name
       worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number
 
-      // Clear formulas in the trip rows (rows 11-17) to avoid shared formula errors
+      // Clear the trip rows (rows 11-17) by directly setting values to null
       for (let row = 11; row <= 17; row++) {
-        for (let col = 1; col <= 10; col++) {
-          const cell = worksheet.getCell(row, col);
-          if (cell.formula) {
-            cell.value = null;
-          }
-        }
+        worksheet.getCell(`A${row}`).value = null;
+        worksheet.getCell(`B${row}`).value = null;
+        worksheet.getCell(`C${row}`).value = null;
+        worksheet.getCell(`D${row}`).value = null;
+        worksheet.getCell(`E${row}`).value = null;
+        worksheet.getCell(`F${row}`).value = null;
+        worksheet.getCell(`G${row}`).value = null;
+        worksheet.getCell(`H${row}`).value = null;
+        worksheet.getCell(`I${row}`).value = null;
+        worksheet.getCell(`J${row}`).value = null;
       }
 
       // Fill in trip details starting at row 11
