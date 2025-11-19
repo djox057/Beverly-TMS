@@ -301,7 +301,9 @@ const Trips = () => {
       ];
 
       deductions.forEach(({ row, description, amount }) => {
-        worksheet.getCell(`B${row}`).value = description;
+        const cellB = worksheet.getCell(`B${row}`);
+        cellB.value = description;
+        cellB.font = { size: 16 };
         worksheet.getCell(`I${row}`).value = endDateFormatted;
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
@@ -318,7 +320,7 @@ const Trips = () => {
         
         const e44Cell = worksheet.getCell('E44');
         e44Cell.value = `${weeksPassed}/${driver.weeks_count}`;
-        e44Cell.font = { bold: true };
+        e44Cell.font = { bold: true, size: 16 };
       }
 
       // Set J44 (truck payment deduction) to weekly_payment
