@@ -555,7 +555,9 @@ export type Database = {
           cdl_expiration_date: string | null
           cdl_number: string | null
           clearing_house: string | null
+          company_address: string | null
           company_id: string | null
+          company_name: string | null
           created_at: string
           dispatcher_id: string | null
           email: string | null
@@ -580,6 +582,7 @@ export type Database = {
           is_recovery: boolean | null
           last_name: string | null
           license_number: string | null
+          mc_number: string | null
           medical_card_expiration_date: string | null
           mvr_date: string | null
           name: string | null
@@ -587,12 +590,16 @@ export type Database = {
           termination_date: string | null
           two_week_block_date: string | null
           updated_at: string
+          weekly_payment: number | null
+          weeks_count: number | null
         }
         Insert: {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
+          company_address?: string | null
           company_id?: string | null
+          company_name?: string | null
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
@@ -617,6 +624,7 @@ export type Database = {
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
+          mc_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string | null
@@ -624,12 +632,16 @@ export type Database = {
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string
+          weekly_payment?: number | null
+          weeks_count?: number | null
         }
         Update: {
           cdl_expiration_date?: string | null
           cdl_number?: string | null
           clearing_house?: string | null
+          company_address?: string | null
           company_id?: string | null
+          company_name?: string | null
           created_at?: string
           dispatcher_id?: string | null
           email?: string | null
@@ -654,6 +666,7 @@ export type Database = {
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
+          mc_number?: string | null
           medical_card_expiration_date?: string | null
           mvr_date?: string | null
           name?: string | null
@@ -661,6 +674,8 @@ export type Database = {
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string
+          weekly_payment?: number | null
+          weeks_count?: number | null
         }
         Relationships: [
           {
