@@ -136,11 +136,18 @@ const Trips = () => {
       }
 
       // Fetch driver and company info
-      const { data: driver } = await supabase
+      const { data: driver, error: driverError } = await supabase
         .from('drivers')
-        .select('name, company_id, companies(name)')
+        .select('name, company_id, companies!drivers_company_id_fkey(name)')
         .eq('id', firstOrder.driver1Id)
         .single();
+
+      if (driverError) {
+        console.error('Error fetching driver:', driverError);
+      }
+
+      console.log('Driver data:', driver);
+      console.log('Company name:', driver?.companies?.name);
 
       const companyName = driver?.companies?.name || '';
 
@@ -255,7 +262,8 @@ const Trips = () => {
 
       // Generate filename
       const weekRange = `${format(weekStartDate, 'MMM-d')}-${format(weekEndDate, 'MMM-d-yyyy')}`;
-      const driverInfo = driver?.name ? `_${driver.name.replace(/\s+/g, '-')}` : '';
+      const driverName = driver?.name || firstOrder?.driverName || '';
+      const driverInfo = driverName && typeof driverName === 'string' ? `_${driverName.replace(/\s+/g, '-')}` : '';
       const filename = `BF_Prime_${weekRange}${driverInfo}.xlsx`;
 
       // Save file
