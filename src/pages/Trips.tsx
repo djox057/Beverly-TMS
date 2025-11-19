@@ -368,8 +368,8 @@ const Trips = () => {
     try {
       // Prepare data for Excel
       const excelData = week.orders.map((order: any) => ({
-        "Truck#": order.truckNumber || "",
-        "Load#": order.internalLoadNumber || "",
+        "Truck #": order.truckNumber || "",
+        "Load #": order.internalLoadNumber || "",
         "Pickup Date": order.pickupDate || "",
         "Pickup City": order.pickupCity || "",
         "Pickup State": order.pickupState || "",
@@ -380,7 +380,7 @@ const Trips = () => {
         "Driver Pay": order.totalDriverPay || 0,
         Driver: order.driverName || "",
         "Broker Name": order.brokerName || "",
-        "Broker Load#": order.brokerLoadNumber || "",
+        "Broker Load #": order.brokerLoadNumber || "",
         Invoiced: order.invoiced || "",
         "Freight Amount": order.totalFreightAmount || 0,
       }));
@@ -587,8 +587,8 @@ const Trips = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">Truck #</TableHead>
-                  <TableHead className="w-20">Load #</TableHead>
+                  <TableHead className="w-20">Truck#</TableHead>
+                  <TableHead className="w-20">Load#</TableHead>
                   <TableHead className="w-32">Pickup Date</TableHead>
                   <TableHead className="w-28">Pickup City</TableHead>
                   <TableHead className="w-20">Pickup State</TableHead>
@@ -599,7 +599,7 @@ const Trips = () => {
                   <TableHead className="w-24">Driver Pay</TableHead>
                   <TableHead className="w-32">Driver</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
-                  <TableHead className="w-28">Broker Load #</TableHead>
+                  <TableHead className="w-28">Broker Load#</TableHead>
                   <TableHead className="w-20">Invoiced</TableHead>
                   <TableHead className="w-28">Freight Amount</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
