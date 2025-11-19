@@ -1268,8 +1268,8 @@ const Reports = () => {
       if (isBlockDay || isGameOver) {
         const displayText = isBlockDay
           ? {
-              line1: "GAME",
-              line2: "OVER",
+              line1: "TWO WEEK",
+              line2: "NOTICE",
             }
           : gameOverType === "yard"
             ? {
@@ -2896,31 +2896,13 @@ const Reports = () => {
                                                 <TooltipTrigger asChild>
                                                   <div className="flex flex-col items-center cursor-pointer">
                                                     <div
-                                                      className="relative flex items-center justify-center"
+                                                      className="relative flex items-center justify-center bg-destructive rounded-full"
                                                       style={{
                                                         width: 31,
                                                         height: 31,
                                                       }}
                                                     >
-                                                      <svg
-                                                        className="transform -rotate-90"
-                                                        width={31}
-                                                        height={31}
-                                                      >
-                                                        <circle
-                                                          cx={15.5}
-                                                          cy={15.5}
-                                                          r={12.5}
-                                                          stroke="#ef4444"
-                                                          strokeWidth={3}
-                                                          fill="transparent"
-                                                        />
-                                                      </svg>
-                                                      <div className="absolute inset-0 flex items-center justify-center">
-                                                        <span className="text-[9px] font-bold text-destructive">
-                                                          2W
-                                                        </span>
-                                                      </div>
+                                                      <Ban className="w-5 h-5 text-destructive-foreground" />
                                                     </div>
                                                   </div>
                                                 </TooltipTrigger>
