@@ -54,8 +54,12 @@ const Trips = () => {
     
     const matchesDriver = !driverFilter || 
       order.driverName?.toLowerCase().includes(driverFilter.toLowerCase());
+    
+    // Exclude orders with both freight amount and driver pay equal to 0
+    const hasValue = (order.totalFreightAmount && order.totalFreightAmount !== 0) || 
+                     (order.totalDriverPay && order.totalDriverPay !== 0);
 
-    return matchesTruck && matchesDriver;
+    return matchesTruck && matchesDriver && hasValue;
   }) || [];
 
   // Pagination - paginate individual orders first
@@ -183,6 +187,16 @@ const Trips = () => {
       worksheet.getCell('B7').value = driver?.name || firstOrder.driverName || ''; // Driver name
       worksheet.getCell('F8').value = firstOrder.truckNumber || ''; // Truck number
 
+      // Clear formulas in the trip rows (rows 11-17) to avoid shared formula errors
+      for (let row = 11; row <= 17; row++) {
+        for (let col = 1; col <= 10; col++) {
+          const cell = worksheet.getCell(row, col);
+          if (cell.formula) {
+            cell.value = null;
+          }
+        }
+      }
+
       // Fill in trip details starting at row 11
       let currentRow = 11;
       let totalDriverPay = 0;
@@ -201,11 +215,13 @@ const Trips = () => {
         const driverPay = order.totalDriverPay || 0;
         const driverPay88 = driverPay * 0.88;
         
-        worksheet.getCell(`I${currentRow}`).value = driverPay;
-        worksheet.getCell(`I${currentRow}`).numFmt = '$#,##0.00';
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = driverPay;
+        cellI.numFmt = '$#,##0.00';
         
-        worksheet.getCell(`J${currentRow}`).value = driverPay88;
-        worksheet.getCell(`J${currentRow}`).numFmt = '$#,##0.00';
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = driverPay88;
+        cellJ.numFmt = '$#,##0.00';
         
         totalDriverPay += driverPay;
         totalDriverPay88 += driverPay88;
