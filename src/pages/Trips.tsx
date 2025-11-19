@@ -301,10 +301,7 @@ const Trips = () => {
       ];
 
       deductions.forEach(({ row, description, amount }) => {
-        const descriptionCell = worksheet.getCell(`B${row}`);
-        descriptionCell.value = description;
-        descriptionCell.font = { size: 16 };
-        
+        worksheet.getCell(`B${row}`).value = description;
         worksheet.getCell(`I${row}`).value = endDateFormatted;
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
@@ -313,7 +310,7 @@ const Trips = () => {
         }
       });
 
-      // Set E44: Calculate weeks passed from agreement_start_date with gray background
+      // Set E44: Calculate weeks passed from agreement_start_date
       if (driver?.agreement_start_date && driver?.weeks_count) {
         const startDate = new Date(driver.agreement_start_date);
         const currentDate = new Date();
@@ -322,11 +319,6 @@ const Trips = () => {
         const e44Cell = worksheet.getCell('E44');
         e44Cell.value = `${weeksPassed}/${driver.weeks_count}`;
         e44Cell.font = { bold: true };
-        e44Cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFAEABAB' }
-        };
       }
 
       // Set J44 (truck payment deduction) to weekly_payment
