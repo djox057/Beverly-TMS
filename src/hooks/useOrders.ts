@@ -81,29 +81,43 @@ export const useOrders = (options?: UseOrdersOptions) => {
     queryFn: async () => {
       console.log("[useOrders] Fetching from materialized view...");
       
-      // Query the pre-computed materialized view (refreshed every 5 minutes)
-      // Set limit to 5000 to handle large datasets (default is 1000)
-      let ordersQuery = supabase
-        .from("orders_materialized_view")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5000);
+      // Fetch all orders using pagination to bypass row limits
+      let allOrders: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (options?.bookedBy) {
-        ordersQuery = ordersQuery.eq("booked_by", options.bookedBy);
+      while (hasMore) {
+        let ordersQuery = supabase
+          .from("orders_materialized_view")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+
+        if (options?.bookedBy) {
+          ordersQuery = ordersQuery.eq("booked_by", options.bookedBy);
+        }
+
+        const { data: batch, error: batchError } = await ordersQuery;
+
+        if (batchError) {
+          console.error("[useOrders] Error:", batchError);
+          throw batchError;
+        }
+
+        if (batch && batch.length > 0) {
+          allOrders = [...allOrders, ...batch];
+          offset += batchSize;
+          hasMore = batch.length === batchSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await ordersQuery;
-
-      if (error) {
-        console.error("[useOrders] Error:", error);
-        throw error;
-      }
-
-      console.log(`[useOrders] Fetched ${data?.length || 0} orders from materialized view`);
+      console.log(`[useOrders] Fetched ${allOrders.length} orders from materialized view`);
 
       // Transform the data to match the expected format
-      return (data || []).map((order: any) => {
+      return (allOrders || []).map((order: any) => {
         // Parse JSONB fields back to arrays
         const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
         const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];

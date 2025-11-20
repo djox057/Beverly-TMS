@@ -451,19 +451,34 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch orders from materialized view (limit to 5000 for performance)
-        const { data: ordersRaw, error: ordersError } = await supabase
-          .from("orders_materialized_view")
-          .select("*")
-          .order("updated_at", { ascending: false })
-          .limit(5000);
+        // Fetch orders from materialized view - fetch all orders using pagination
+        let allOrders: any[] = [];
+        let offset = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        if (ordersError) throw ordersError;
+        while (hasMore) {
+          const { data: ordersRaw, error: ordersError } = await supabase
+            .from("orders_materialized_view")
+            .select("*")
+            .order("updated_at", { ascending: false })
+            .range(offset, offset + batchSize - 1);
 
-        console.log(`[useReports] Fetched ${ordersRaw?.length || 0} orders from materialized view`);
+          if (ordersError) throw ordersError;
+
+          if (ordersRaw && ordersRaw.length > 0) {
+            allOrders = [...allOrders, ...ordersRaw];
+            offset += batchSize;
+            hasMore = ordersRaw.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        console.log(`[useReports] Fetched ${allOrders.length} orders from materialized view`);
 
         // Transform materialized view data to match expected structure
-        const orders = ordersRaw?.map((row: any) => {
+        const orders = allOrders?.map((row: any) => {
           // Materialized view already returns these as parsed JSON arrays
           const pickup_drops = row.pickup_drops || [];
           const order_files = row.order_files || [];
