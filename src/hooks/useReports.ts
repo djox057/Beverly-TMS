@@ -429,10 +429,6 @@ export const useReports = () => {
       return queryWithTimeout(async () => {
         console.log("[useReports] Fetching from materialized view...");
         
-        // Get current user
-        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-        
         // Fetch trucks with their drivers and company info
         const { data: trucksRaw, error: trucksError } = await supabase
           .from("trucks")
@@ -455,78 +451,31 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Get driver IDs for current dispatcher's trucks
-        const myDriverIds = new Set(
-          trucks
-            ?.filter(t => t.driver1?.dispatcher_id === currentUser?.id)
-            .flatMap(t => [t.driver1_id, t.driver2_id].filter(Boolean)) || []
-        );
+        // Fetch orders from materialized view - fetch all orders using pagination
+        let allOrders: any[] = [];
+        let offset = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        console.log(`[useReports] Found ${myDriverIds.size} drivers for current dispatcher`);
+        while (hasMore) {
+          const { data: ordersRaw, error: ordersError } = await supabase
+            .from("orders_materialized_view")
+            .select("*")
+            .order("updated_at", { ascending: false })
+            .range(offset, offset + batchSize - 1);
 
-        // First, fetch orders for current dispatcher's drivers (priority load)
-        const { data: myOrdersRaw, error: myOrdersError } = await supabase
-          .from("orders_materialized_view")
-          .select("*")
-          .in("driver1_id", Array.from(myDriverIds))
-          .order("updated_at", { ascending: false })
-          .limit(500);
+          if (ordersError) throw ordersError;
 
-        if (myOrdersError) throw myOrdersError;
-
-        let allOrders: any[] = myOrdersRaw || [];
-        console.log(`[useReports] Fetched ${allOrders.length} orders for current dispatcher (priority)`);
-
-        // Start background fetch for remaining orders
-        const fetchRemainingOrders = async () => {
-          try {
-            console.log("[useReports] Starting background fetch for remaining orders...");
-            let offset = 0;
-            const batchSize = 1000;
-            let hasMore = true;
-            const remainingOrders: any[] = [];
-
-            while (hasMore) {
-              const { data: ordersRaw, error: ordersError } = await supabase
-                .from("orders_materialized_view")
-                .select("*")
-                .not("driver1_id", "in", `(${Array.from(myDriverIds).join(",")})`)
-                .order("updated_at", { ascending: false })
-                .range(offset, offset + batchSize - 1);
-
-              if (ordersError) throw ordersError;
-
-              if (ordersRaw && ordersRaw.length > 0) {
-                remainingOrders.push(...ordersRaw);
-                offset += batchSize;
-                hasMore = ordersRaw.length === batchSize;
-              } else {
-                hasMore = false;
-              }
-            }
-
-            console.log(`[useReports] Background fetch complete: ${remainingOrders.length} additional orders`);
-            
-            // Merge and update cache
-            const existingData = queryClient.getQueryData(["reports"]);
-            if (existingData) {
-              // Re-process with all orders
-              queryClient.setQueryData(["reports"], (old: any) => {
-                // We'll trigger a silent refetch to reprocess all data
-                return old;
-              });
-              // Trigger background refetch with all orders
-              queryClient.invalidateQueries({ queryKey: ["reports"] });
-            }
-          } catch (error) {
-            console.error("[useReports] Background fetch failed:", error);
+          if (ordersRaw && ordersRaw.length > 0) {
+            allOrders = [...allOrders, ...ordersRaw];
+            offset += batchSize;
+            hasMore = ordersRaw.length === batchSize;
+          } else {
+            hasMore = false;
           }
-        };
+        }
 
-        // Start background fetch (non-blocking)
-        setTimeout(() => fetchRemainingOrders(), 100);
-
-        console.log(`[useReports] Processing ${allOrders.length} orders initially`);
+        console.log(`[useReports] Fetched ${allOrders.length} orders from materialized view`);
 
         // Transform materialized view data to match expected structure
         const orders = allOrders?.map((row: any) => {
