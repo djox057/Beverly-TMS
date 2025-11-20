@@ -535,10 +535,15 @@ export const useReports = () => {
           trucks?.map((truck) => {
             const now = new Date().getTime();
 
-            // Get orders for this truck's driver (not the truck itself)
+            // Get orders for this truck - include both truck assignment and driver assignment
             const driverOrders =
               orders?.filter(
-                (order) => order.driver1_id === truck.driver1_id || order.driver2_id === truck.driver1_id,
+                (order) => 
+                  // Order is assigned to this truck
+                  order.truck_id === truck.id ||
+                  // OR order is assigned to this truck's driver
+                  order.driver1_id === truck.driver1_id || 
+                  order.driver2_id === truck.driver1_id,
               ) || [];
 
             // DEBUG: Log for truck 1323
