@@ -172,6 +172,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "canceled_orders_backup_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_materialized_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       companies: {
@@ -833,6 +840,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "order_files_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_materialized_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       orders: {
@@ -1261,6 +1275,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pickup_drops_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_materialized_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
@@ -1363,6 +1384,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recovery_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders_materialized_view"
             referencedColumns: ["id"]
           },
           {
@@ -1884,7 +1912,202 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      orders_materialized_view: {
+        Row: {
+          booked_by: string | null
+          booked_by_company_id: string | null
+          booked_by_company_name: string | null
+          broker_address: string | null
+          broker_id: string | null
+          broker_load_number: string | null
+          broker_mc_number: string | null
+          broker_name: string | null
+          canceled: boolean | null
+          commodity: string | null
+          company_id: string | null
+          company_name: string | null
+          created_at: string | null
+          date_change_notes: string | null
+          delivery_datetime: string | null
+          delivery_end_datetime: string | null
+          detention: number | null
+          detention_driver: number | null
+          dh_miles: number | null
+          driver_price: number | null
+          driver1_id: string | null
+          driver1_name: string | null
+          driver2_id: string | null
+          driver2_name: string | null
+          escort_fee: number | null
+          escort_fee_broker_paid: boolean | null
+          extra_stop: number | null
+          extra_stop_driver: number | null
+          freight_amount: number | null
+          id: string | null
+          internal_load_number: number | null
+          invoiced: boolean | null
+          is_recovery: boolean | null
+          late_fee: number | null
+          late_fee_driver: number | null
+          layover: number | null
+          layover_driver: number | null
+          load_number: string | null
+          loaded_miles: number | null
+          locked: boolean | null
+          lumper: number | null
+          lumper_driver: number | null
+          mileage: number | null
+          no_tracking_fee: number | null
+          no_tracking_fee_driver: number | null
+          notes: string | null
+          order_files: Json | null
+          original_detention: number | null
+          original_detention_driver: number | null
+          original_dh_miles: number | null
+          original_driver_price: number | null
+          original_driver1_id: string | null
+          original_driver1_name: string | null
+          original_driver2_id: string | null
+          original_driver2_name: string | null
+          original_escort_fee: number | null
+          original_escort_fee_broker_paid: boolean | null
+          original_extra_stop: number | null
+          original_extra_stop_driver: number | null
+          original_freight_amount: number | null
+          original_late_fee: number | null
+          original_late_fee_driver: number | null
+          original_layover: number | null
+          original_layover_driver: number | null
+          original_loaded_miles: number | null
+          original_lumper: number | null
+          original_lumper_driver: number | null
+          original_miles: number | null
+          original_no_tracking_fee: number | null
+          original_no_tracking_fee_driver: number | null
+          original_notes: string | null
+          original_other_charges: number | null
+          original_other_charges_driver: number | null
+          original_tonu: number | null
+          original_tonu_driver: number | null
+          original_trailer_id: string | null
+          original_trailer_number: string | null
+          original_truck_id: string | null
+          original_truck_number: string | null
+          original_wrong_address_fee: number | null
+          original_wrong_address_fee_driver: number | null
+          other_charges: number | null
+          other_charges_driver: number | null
+          pickup_datetime: string | null
+          pickup_drops: Json | null
+          pickup_end_datetime: string | null
+          po_number: string | null
+          pu_number: string | null
+          recovery_date: string | null
+          recovery_driver_price: number | null
+          recovery_freight_amount: number | null
+          recovery_miles: number | null
+          reference_number: string | null
+          status: string | null
+          tonu: number | null
+          tonu_driver: number | null
+          trailer_id: string | null
+          trailer_number: string | null
+          truck_company_id: string | null
+          truck_company_name: string | null
+          truck_id: string | null
+          truck_number: string | null
+          updated_at: string | null
+          weight: number | null
+          wrong_address_fee: number | null
+          wrong_address_fee_driver: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_booked_by_company_id_fkey"
+            columns: ["booked_by_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver1_id_fkey"
+            columns: ["driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver2_id_fkey"
+            columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_driver1_id_fkey"
+            columns: ["original_driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_driver2_id_fkey"
+            columns: ["original_driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_trailer_id_fkey"
+            columns: ["original_trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_original_truck_id_fkey"
+            columns: ["original_truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trucks_company_id_fkey"
+            columns: ["truck_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       create_order_with_unique_load_number: {
