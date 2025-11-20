@@ -181,11 +181,11 @@ function transformOrders(allOrders: any[]) {
           bookedByCompanyId: order.booked_by_company_id,
           bookedByCompanyName: order.booked_by_company_name,
           
-          // Pickup/Delivery extracted info
-          pickupDate: firstPickup?.datetime ? new Date(firstPickup.datetime).toLocaleDateString() : '',
+          // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
+          pickupDate: firstPickup?.datetime ? firstPickup.datetime : '',
           pickupCity: firstPickup?.city || '',
           pickupState: firstPickup?.state || '',
-          deliveryDate: lastDelivery?.datetime ? new Date(lastDelivery.datetime).toLocaleDateString() : '',
+          deliveryDate: lastDelivery?.datetime ? lastDelivery.datetime : '',
           deliveryCity: lastDelivery?.city || '',
           deliveryState: lastDelivery?.state || '',
           
