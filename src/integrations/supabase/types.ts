@@ -573,6 +573,7 @@ export type Database = {
           emergency_contact_phone: string | null
           emergency_contact_relation: string | null
           first_name: string | null
+          going_yard: boolean
           hire_date: string | null
           home_address: string | null
           home_city: string | null
@@ -616,6 +617,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
           first_name?: string | null
+          going_yard?: boolean
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
@@ -659,6 +661,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relation?: string | null
           first_name?: string | null
+          going_yard?: boolean
           hire_date?: string | null
           home_address?: string | null
           home_city?: string | null
