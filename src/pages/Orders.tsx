@@ -858,7 +858,9 @@ const Orders = () => {
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
                           <TableCell className="w-20">{order.internalLoadNumber}</TableCell>
                           <TableCell className="w-32 p-0">
-                            <div className="h-full p-4">{order.pickupDate}</div>
+                            <div className="h-full p-4">
+                              {order.pickupDate ? new Date(order.pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
+                            </div>
                           </TableCell>
                           <TableCell className="w-28 p-0">
                             <div className="h-full p-4 line-clamp-2">{order.pickupCity}</div>
@@ -867,7 +869,9 @@ const Orders = () => {
                             <div className="h-full p-4">{order.pickupState}</div>
                           </TableCell>
                           <TableCell className="w-32 p-0">
-                            <div className="h-full p-4">{order.deliveryDate}</div>
+                            <div className="h-full p-4">
+                              {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
+                            </div>
                           </TableCell>
                           <TableCell className="w-28 p-0">
                             <div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div>
