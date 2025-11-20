@@ -5,10 +5,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 import { useDrivers } from "@/hooks/useDrivers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -67,14 +85,9 @@ interface DriverFormData {
   drugTestResult: "positive" | "negative" | "pending" | null;
 }
 const Drivers = () => {
-  const {
-    hasRole,
-    profile
-  } = useAuthContext();
-  const canViewSensitiveData = hasRole('manager') || hasRole('admin') || hasRole('accounting');
-  const {
-    upsertDrugTest
-  } = useDriverDrugTests();
+  const { hasRole, profile } = useAuthContext();
+  const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
+  const { upsertDrugTest } = useDriverDrugTests();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,50 +138,31 @@ const Drivers = () => {
     cdl_number: "",
     cdl_expiration_date: "",
     medical_card_expiration_date: "",
-    hire_date: new Date().toISOString().split('T')[0],
+    hire_date: new Date().toISOString().split("T")[0],
     termination_date: "",
     mvr_date: "",
     clearing_house: "",
     ssn: "",
     fein: "",
-    drugTestResult: null
+    drugTestResult: null,
   });
-  const {
-    toast
-  } = useToast();
-  const {
-    data: drivers,
-    isLoading,
-    refetch
-  } = useDrivers();
-  
+  const { toast } = useToast();
+  const { data: drivers, isLoading, refetch } = useDrivers();
+
   // Force immediate refetch on mount to clear any stale cache
   useEffect(() => {
     // Clear old query cache if it exists
-    queryClient.removeQueries({ queryKey: ['drivers'] });
+    queryClient.removeQueries({ queryKey: ["drivers"] });
     // Trigger a fresh fetch
     refetch();
   }, []); // Only on mount
-  
-  const {
-    data: allTrucks
-  } = useAvailableTrucks();
-  const {
-    data: trucks
-  } = useTrucks();
-  const {
-    data: trailers
-  } = useTrailers();
-  const {
-    data: availableTrailers
-  } = useAvailableTrailers(selectedTruckId || formData.truck_id);
-  const {
-    data: sensitivePII,
-    refetch: refetchSensitivePII
-  } = useDriverSensitivePII(editingDriver?.id);
-  const {
-    allDispatchers
-  } = useFleetManagement();
+
+  const { data: allTrucks } = useAvailableTrucks();
+  const { data: trucks } = useTrucks();
+  const { data: trailers } = useTrailers();
+  const { data: availableTrailers } = useAvailableTrailers(selectedTruckId || formData.truck_id);
+  const { data: sensitivePII, refetch: refetchSensitivePII } = useDriverSensitivePII(editingDriver?.id);
+  const { allDispatchers } = useFleetManagement();
   const { data: companies } = useCompanies();
 
   // Fetch termination notes for the editing driver
@@ -179,52 +173,58 @@ const Drivers = () => {
   const fetchTerminationNotes = async (driverId: string) => {
     setIsLoadingNotes(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('driver_termination_notes').select('*').eq('driver_id', driverId).order('created_at', {
-        ascending: false
-      });
+      const { data, error } = await supabase
+        .from("driver_termination_notes")
+        .select("*")
+        .eq("driver_id", driverId)
+        .order("created_at", {
+          ascending: false,
+        });
       if (error) throw error;
       setTerminationNotes(data || []);
     } catch (error) {
-      console.error('Error fetching termination notes:', error);
+      console.error("Error fetching termination notes:", error);
     } finally {
       setIsLoadingNotes(false);
     }
   };
 
   // Filter drivers based on search term, status, and truck assignment
-  const filteredDrivers = drivers?.filter((driver: any) => {
-    // Search filter
-    const matchesSearch = driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Status filter
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "active" && driver.is_active) || 
-      (statusFilter === "inactive" && !driver.is_active);
-    
-    // Truck filter
-    const hasTruck = !!driver.truck_info?.truck_number;
-    const matchesTruck = truckFilter === "all" || 
-      (truckFilter === "assigned" && hasTruck) || 
-      (truckFilter === "unassigned" && !hasTruck);
-    
-    // Recovery filter
-    const matchesRecovery = recoveryFilter === "all" || 
-      (recoveryFilter === "recovery" && driver.is_recovery) || 
-      (recoveryFilter === "regular" && !driver.is_recovery);
-    
-    return matchesSearch && matchesStatus && matchesTruck && matchesRecovery;
-  }) || [];
+  const filteredDrivers =
+    drivers?.filter((driver: any) => {
+      // Search filter
+      const matchesSearch =
+        driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.home_city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.home_state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.truck_info?.truck_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.truck_info?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.dispatcher_info?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        driver.dispatcher_info?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Status filter
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && driver.is_active) ||
+        (statusFilter === "inactive" && !driver.is_active);
+
+      // Truck filter
+      const hasTruck = !!driver.truck_info?.truck_number;
+      const matchesTruck =
+        truckFilter === "all" ||
+        (truckFilter === "assigned" && hasTruck) ||
+        (truckFilter === "unassigned" && !hasTruck);
+
+      // Recovery filter
+      const matchesRecovery =
+        recoveryFilter === "all" ||
+        (recoveryFilter === "recovery" && driver.is_recovery) ||
+        (recoveryFilter === "regular" && !driver.is_recovery);
+
+      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery;
+    }) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
@@ -266,13 +266,13 @@ const Drivers = () => {
       cdl_number: "",
       cdl_expiration_date: "",
       medical_card_expiration_date: "",
-      hire_date: new Date().toISOString().split('T')[0],
+      hire_date: new Date().toISOString().split("T")[0],
       termination_date: "",
       mvr_date: "",
       clearing_house: "",
       ssn: "",
       fein: "",
-      drugTestResult: null
+      drugTestResult: null,
     });
     setSelectedTruckId("");
     setNewlyCreatedDriverId(null);
@@ -281,12 +281,12 @@ const Drivers = () => {
   };
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.first_name.trim() || !formData.last_name.trim()) {
       toast({
         title: "Error",
         description: "First name and last name are required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -295,7 +295,7 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Phone is required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -304,7 +304,7 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Email is required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -313,7 +313,7 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Company is required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -322,7 +322,7 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Home city is required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -331,60 +331,59 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Home state is required",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       // Create driver record including home address
-      const {
-        data: driverData,
-        error
-      } = await supabase.from('drivers').insert({
-        first_name: formData.first_name.trim(),
-        last_name: formData.last_name.trim(),
-        name: `${formData.first_name.trim()} ${formData.last_name.trim()}`.trim(),
-        phone: formData.phone || null,
-        email: formData.email || null,
-        company_id: formData.company_id || null,
-        emergency_contact_name: formData.emergency_contact_name || null,
-        emergency_contact_relation: formData.emergency_contact_relation || null,
-        emergency_contact_phone: formData.emergency_contact_phone || null,
-        dispatcher_id: formData.dispatcher_id || null,
-        home_address: formData.home_address || null,
-        home_city: formData.home_city || null,
-        home_state: formData.home_state || null,
-        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
-        cdl_number: formData.cdl_number || null,
-        cdl_expiration_date: formData.cdl_expiration_date || null,
-        medical_card_expiration_date: formData.medical_card_expiration_date || null,
-        hire_date: formData.hire_date || null,
-        termination_date: formData.termination_date || null,
-        mvr_date: formData.mvr_date || null,
-        clearing_house: formData.clearing_house || null,
-        license_number: formData.cdl_number || null,
-        company_name: formData.company_name || null,
-        company_address: formData.company_address || null,
-        mc_number: formData.mc_number || null,
-        weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
-        weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
-        agreement_start_date: formData.agreement_start_date || null,
-      }).select().single();
+      const { data: driverData, error } = await supabase
+        .from("drivers")
+        .insert({
+          first_name: formData.first_name.trim(),
+          last_name: formData.last_name.trim(),
+          name: `${formData.first_name.trim()} ${formData.last_name.trim()}`.trim(),
+          phone: formData.phone || null,
+          email: formData.email || null,
+          company_id: formData.company_id || null,
+          emergency_contact_name: formData.emergency_contact_name || null,
+          emergency_contact_relation: formData.emergency_contact_relation || null,
+          emergency_contact_phone: formData.emergency_contact_phone || null,
+          dispatcher_id: formData.dispatcher_id || null,
+          home_address: formData.home_address || null,
+          home_city: formData.home_city || null,
+          home_state: formData.home_state || null,
+          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+          cdl_number: formData.cdl_number || null,
+          cdl_expiration_date: formData.cdl_expiration_date || null,
+          medical_card_expiration_date: formData.medical_card_expiration_date || null,
+          hire_date: formData.hire_date || null,
+          termination_date: formData.termination_date || null,
+          mvr_date: formData.mvr_date || null,
+          clearing_house: formData.clearing_house || null,
+          license_number: formData.cdl_number || null,
+          company_name: formData.company_name || null,
+          company_address: formData.company_address || null,
+          mc_number: formData.mc_number || null,
+          weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
+          weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
+          agreement_start_date: formData.agreement_start_date || null,
+        })
+        .select()
+        .single();
       if (error) throw error;
 
       // Insert sensitive PII if user has permission (managers/admins only)
       if (canViewSensitiveData && driverData) {
-        const {
-          error: piiError
-        } = await supabase.from('driver_sensitive_pii').insert({
+        const { error: piiError } = await supabase.from("driver_sensitive_pii").insert({
           driver_id: driverData.id,
           ssn: formData.ssn || null,
           fein: formData.fein || null,
           fuel_card_number: formData.fuel_card_number || null,
-          personal_id: formData.personal_id || null
+          personal_id: formData.personal_id || null,
         });
         if (piiError) throw piiError;
       }
@@ -393,31 +392,35 @@ const Drivers = () => {
       if (formData.truck_id && driverData) {
         // Remove trailer from any other truck if selected
         if (formData.trailer_id) {
-          await supabase.from('trucks')
+          await supabase
+            .from("trucks")
             .update({ trailer_id: null })
-            .eq('trailer_id', formData.trailer_id)
-            .neq('id', formData.truck_id);
+            .eq("trailer_id", formData.trailer_id)
+            .neq("id", formData.truck_id);
         }
 
         // Single atomic update: assign driver and trailer to target truck
         // AND clear this driver from any other trucks in one transaction
-        const {
-          error: truckError
-        } = await supabase.from('trucks').update({
-          driver1_id: driverData.id,
-          trailer_id: formData.trailer_id || null
-        }).eq('id', formData.truck_id);
+        const { error: truckError } = await supabase
+          .from("trucks")
+          .update({
+            driver1_id: driverData.id,
+            trailer_id: formData.trailer_id || null,
+          })
+          .eq("id", formData.truck_id);
         if (truckError) throw truckError;
 
         // Now safely clear driver from other trucks (excluding the one we just assigned)
-        await supabase.from('trucks')
+        await supabase
+          .from("trucks")
           .update({ driver1_id: null })
-          .eq('driver1_id', driverData.id)
-          .neq('id', formData.truck_id);
-        await supabase.from('trucks')
+          .eq("driver1_id", driverData.id)
+          .neq("id", formData.truck_id);
+        await supabase
+          .from("trucks")
           .update({ driver2_id: null })
-          .eq('driver2_id', driverData.id)
-          .neq('id', formData.truck_id);
+          .eq("driver2_id", driverData.id)
+          .neq("id", formData.truck_id);
       }
 
       // Add drug test result if provided
@@ -425,51 +428,49 @@ const Drivers = () => {
         await upsertDrugTest.mutateAsync({
           driverId: driverData.id,
           result: formData.drugTestResult,
-          truckId: formData.truck_id
+          truckId: formData.truck_id,
         });
       }
-      
+
       // Set the newly created driver ID
       setNewlyCreatedDriverId(driverData.id);
-      
+
       // Upload pending files if any
       if (pendingFiles.length > 0) {
         setIsUploadingFiles(true);
         try {
           const uploadPromises = pendingFiles.map(async (pendingFile) => {
-            const fileExt = pendingFile.file.name.split('.').pop();
+            const fileExt = pendingFile.file.name.split(".").pop();
             const fileName = `${driverData.id}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-            
+
             const { error: uploadError } = await supabase.storage
-              .from('driver-files')
+              .from("driver-files")
               .upload(fileName, pendingFile.file);
 
             if (uploadError) throw uploadError;
 
-            const { error: dbError } = await supabase
-              .from('driver_files')
-              .insert({
-                driver_id: driverData.id,
-                file_name: pendingFile.file.name,
-                file_path: fileName,
-                file_size: pendingFile.file.size,
-                content_type: pendingFile.file.type,
-                uploaded_by: profile?.email || 'unknown',
-              });
+            const { error: dbError } = await supabase.from("driver_files").insert({
+              driver_id: driverData.id,
+              file_name: pendingFile.file.name,
+              file_path: fileName,
+              file_size: pendingFile.file.size,
+              content_type: pendingFile.file.type,
+              uploaded_by: profile?.email || "unknown",
+            });
 
             if (dbError) throw dbError;
           });
 
           await Promise.all(uploadPromises);
-          
+
           toast({
             title: "Success",
-            description: `Driver added and ${pendingFiles.length} file(s) uploaded successfully`
+            description: `Driver added and ${pendingFiles.length} file(s) uploaded successfully`,
           });
-          
+
           setPendingFiles([]);
         } catch (error) {
-          console.error('Error uploading files:', error);
+          console.error("Error uploading files:", error);
           toast({
             title: "Partial Success",
             description: "Driver added but some files failed to upload",
@@ -481,28 +482,29 @@ const Drivers = () => {
       } else {
         toast({
           title: "Success",
-          description: "Driver added successfully"
+          description: "Driver added successfully",
         });
       }
-      
+
       // Switch to files tab
       setAddDialogTab("files");
-      
+
       // Invalidate all related queries to sync with other pages
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["trailers"] });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to add driver";
 
       // Check for duplicate email error
-      if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
-        errorMessage = "A driver with this email already exists. Please use a different email or update the existing driver.";
+      if (error.message?.includes("duplicate key value") && error.message?.includes("drivers_email_key")) {
+        errorMessage =
+          "A driver with this email already exists. Please use a different email or update the existing driver.";
       }
       toast({
         title: "Error",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -514,154 +516,155 @@ const Drivers = () => {
     setIsSubmitting(true);
     try {
       // Update driver record including home address
-      const {
-        error
-      } = await supabase.from('drivers').update({
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        name: `${formData.first_name} ${formData.last_name}`.trim(),
-        phone: formData.phone || null,
-        email: formData.email || null,
-        company_id: formData.company_id || null,
-        emergency_contact_name: formData.emergency_contact_name || null,
-        emergency_contact_relation: formData.emergency_contact_relation || null,
-        emergency_contact_phone: formData.emergency_contact_phone || null,
-        dispatcher_id: formData.dispatcher_id || null,
-        home_address: formData.home_address || null,
-        home_city: formData.home_city || null,
-        home_state: formData.home_state || null,
-        home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
-        home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
-        cdl_number: formData.cdl_number || null,
-        cdl_expiration_date: formData.cdl_expiration_date || null,
-        medical_card_expiration_date: formData.medical_card_expiration_date || null,
-        hire_date: formData.hire_date || null,
-        termination_date: formData.termination_date || null,
-        mvr_date: formData.mvr_date || null,
-        clearing_house: formData.clearing_house || null,
-        license_number: formData.cdl_number || null,
-        company_name: formData.company_name || null,
-        company_address: formData.company_address || null,
-        mc_number: formData.mc_number || null,
-        weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
-        weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
-        agreement_start_date: formData.agreement_start_date || null,
-      }).eq('id', editingDriver.id);
+      const { error } = await supabase
+        .from("drivers")
+        .update({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          name: `${formData.first_name} ${formData.last_name}`.trim(),
+          phone: formData.phone || null,
+          email: formData.email || null,
+          company_id: formData.company_id || null,
+          emergency_contact_name: formData.emergency_contact_name || null,
+          emergency_contact_relation: formData.emergency_contact_relation || null,
+          emergency_contact_phone: formData.emergency_contact_phone || null,
+          dispatcher_id: formData.dispatcher_id || null,
+          home_address: formData.home_address || null,
+          home_city: formData.home_city || null,
+          home_state: formData.home_state || null,
+          home_latitude: formData.home_latitude ? parseFloat(formData.home_latitude) : null,
+          home_longitude: formData.home_longitude ? parseFloat(formData.home_longitude) : null,
+          cdl_number: formData.cdl_number || null,
+          cdl_expiration_date: formData.cdl_expiration_date || null,
+          medical_card_expiration_date: formData.medical_card_expiration_date || null,
+          hire_date: formData.hire_date || null,
+          termination_date: formData.termination_date || null,
+          mvr_date: formData.mvr_date || null,
+          clearing_house: formData.clearing_house || null,
+          license_number: formData.cdl_number || null,
+          company_name: formData.company_name || null,
+          company_address: formData.company_address || null,
+          mc_number: formData.mc_number || null,
+          weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
+          weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
+          agreement_start_date: formData.agreement_start_date || null,
+        })
+        .eq("id", editingDriver.id);
       if (error) throw error;
 
       // Update sensitive PII if user has permission (managers/admins only)
       if (canViewSensitiveData) {
-        const {
-          error: piiError
-        } = await supabase.from('driver_sensitive_pii').upsert({
-          driver_id: editingDriver.id,
-          ssn: formData.ssn || null,
-          fein: formData.fein || null,
-          fuel_card_number: formData.fuel_card_number || null,
-          personal_id: formData.personal_id || null
-        }, {
-          onConflict: 'driver_id'
-        });
+        const { error: piiError } = await supabase.from("driver_sensitive_pii").upsert(
+          {
+            driver_id: editingDriver.id,
+            ssn: formData.ssn || null,
+            fein: formData.fein || null,
+            fuel_card_number: formData.fuel_card_number || null,
+            personal_id: formData.personal_id || null,
+          },
+          {
+            onConflict: "driver_id",
+          },
+        );
         if (piiError) throw piiError;
       }
 
       // Handle truck assignment changes - ATOMIC OPERATION
       // First, find if driver is currently assigned to a truck
       const { data: currentTrucks } = await supabase
-        .from('trucks')
-        .select('id')
+        .from("trucks")
+        .select("id")
         .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
         .limit(1)
         .single();
-      
+
       const existingTruckId = currentTrucks?.id;
 
       // Handle truck/trailer assignment
       if (formData.truck_id) {
         // Truck is selected - assign both driver and trailer to it FIRST (atomic)
         if (formData.trailer_id) {
-          await supabase.from('trucks')
+          await supabase
+            .from("trucks")
             .update({ trailer_id: null })
-            .eq('trailer_id', formData.trailer_id)
-            .neq('id', formData.truck_id);
+            .eq("trailer_id", formData.trailer_id)
+            .neq("id", formData.truck_id);
         }
 
-        const {
-          error: truckError
-        } = await supabase.from('trucks').update({
-          driver1_id: editingDriver.id,
-          trailer_id: formData.trailer_id || null
-        }).eq('id', formData.truck_id);
+        const { error: truckError } = await supabase
+          .from("trucks")
+          .update({
+            driver1_id: editingDriver.id,
+            trailer_id: formData.trailer_id || null,
+          })
+          .eq("id", formData.truck_id);
         if (truckError) throw truckError;
 
         // Now safely clear driver from other trucks (excluding the one we just assigned)
         await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ driver1_id: null })
-          .eq('driver1_id', editingDriver.id)
-          .neq('id', formData.truck_id);
+          .eq("driver1_id", editingDriver.id)
+          .neq("id", formData.truck_id);
 
         await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ driver2_id: null })
-          .eq('driver2_id', editingDriver.id)
-          .neq('id', formData.truck_id);
+          .eq("driver2_id", editingDriver.id)
+          .neq("id", formData.truck_id);
       } else if (formData.trailer_id && existingTruckId) {
         // Only trailer is selected and driver has an existing truck - update trailer on existing truck
-        await supabase.from('trucks')
+        await supabase
+          .from("trucks")
           .update({ trailer_id: null })
-          .eq('trailer_id', formData.trailer_id)
-          .neq('id', existingTruckId);
+          .eq("trailer_id", formData.trailer_id)
+          .neq("id", existingTruckId);
 
-        const {
-          error: trailerError
-        } = await supabase.from('trucks').update({
-          driver1_id: editingDriver.id,
-          trailer_id: formData.trailer_id
-        }).eq('id', existingTruckId);
+        const { error: trailerError } = await supabase
+          .from("trucks")
+          .update({
+            driver1_id: editingDriver.id,
+            trailer_id: formData.trailer_id,
+          })
+          .eq("id", existingTruckId);
         if (trailerError) throw trailerError;
       } else if (formData.trailer_id && !existingTruckId) {
         // Only trailer selected but no existing truck - can't assign trailer without truck
         toast({
           title: "Warning",
-          description: "Cannot assign a trailer without a truck. Please select a truck or assign the driver to a truck first.",
-          variant: "destructive"
+          description:
+            "Cannot assign a trailer without a truck. Please select a truck or assign the driver to a truck first.",
+          variant: "destructive",
         });
         throw new Error("Cannot assign trailer without truck");
       } else if (!formData.truck_id && !formData.trailer_id) {
         // Both truck and trailer are cleared - remove driver from all trucks
-        await supabase
-          .from('trucks')
-          .update({ driver1_id: null })
-          .eq('driver1_id', editingDriver.id);
+        await supabase.from("trucks").update({ driver1_id: null }).eq("driver1_id", editingDriver.id);
 
-        await supabase
-          .from('trucks')
-          .update({ driver2_id: null })
-          .eq('driver2_id', editingDriver.id);
+        await supabase.from("trucks").update({ driver2_id: null }).eq("driver2_id", editingDriver.id);
       }
       toast({
         title: "Success",
-        description: "Driver updated successfully"
+        description: "Driver updated successfully",
       });
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       // Invalidate all related queries to sync with other pages
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["trailers"] });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to update driver";
 
       // Check for duplicate email error
-      if (error.message?.includes('duplicate key value') && error.message?.includes('drivers_email_key')) {
+      if (error.message?.includes("duplicate key value") && error.message?.includes("drivers_email_key")) {
         errorMessage = "A driver with this email already exists. Please use a different email.";
       }
       toast({
         title: "Error",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -679,42 +682,42 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: "Please enter a note",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
     setIsSubmitting(true);
     try {
       // Save termination note
-      const {
-        error: noteError
-      } = await supabase.from('driver_termination_notes').insert({
+      const { error: noteError } = await supabase.from("driver_termination_notes").insert({
         driver_id: editingDriver.id,
         note: terminationNote.trim(),
-        created_by: (await supabase.auth.getUser()).data.user?.id
+        created_by: (await supabase.auth.getUser()).data.user?.id,
       });
       if (noteError) throw noteError;
 
       // Set termination date, mark as inactive, and clear dispatcher
-      const {
-        error: driverError
-      } = await supabase.from('drivers').update({
-        is_active: false,
-        termination_date: new Date().toISOString().split('T')[0],
-        dispatcher_id: null
-      }).eq('id', editingDriver.id);
+      const { error: driverError } = await supabase
+        .from("drivers")
+        .update({
+          is_active: false,
+          termination_date: new Date().toISOString().split("T")[0],
+          dispatcher_id: null,
+        })
+        .eq("id", editingDriver.id);
       if (driverError) throw driverError;
 
       // Find and disconnect truck/trailer
-      const {
-        data: truck,
-        error: truckFindError
-      } = await supabase.from('trucks').select('id, driver1_id, driver2_id, company_id').or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`).maybeSingle();
+      const { data: truck, error: truckFindError } = await supabase
+        .from("trucks")
+        .select("id, driver1_id, driver2_id, company_id")
+        .or(`driver1_id.eq.${editingDriver.id},driver2_id.eq.${editingDriver.id}`)
+        .maybeSingle();
       if (truckFindError) throw truckFindError;
       if (truck) {
         // Determine which driver field to clear
         const updateData: any = {
-          trailer_id: null
+          trailer_id: null,
         };
         if (truck.driver1_id === editingDriver.id) {
           updateData.driver1_id = null;
@@ -722,14 +725,12 @@ const Drivers = () => {
         if (truck.driver2_id === editingDriver.id) {
           updateData.driver2_id = null;
         }
-        const {
-          error: truckUpdateError
-        } = await supabase.from('trucks').update(updateData).eq('id', truck.id);
+        const { error: truckUpdateError } = await supabase.from("trucks").update(updateData).eq("id", truck.id);
         if (truckUpdateError) throw truckUpdateError;
       }
       toast({
         title: "Success",
-        description: `${formData.first_name} ${formData.last_name} has been marked as done and removed from active drivers`
+        description: `${formData.first_name} ${formData.last_name} has been marked as done and removed from active drivers`,
       });
       setTerminationNote("");
       setShowNoteDialog(false);
@@ -737,16 +738,16 @@ const Drivers = () => {
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       refetch();
-      
+
       // Invalidate reports cache so Reports page updates immediately
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+
       fetchTerminationNotes(editingDriver.id);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to mark driver as done",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -757,35 +758,37 @@ const Drivers = () => {
     setIsSubmitting(true);
     try {
       // Delete all termination notes for this driver
-      const {
-        error: deleteError
-      } = await supabase.from('driver_termination_notes').delete().eq('driver_id', editingDriver.id);
+      const { error: deleteError } = await supabase
+        .from("driver_termination_notes")
+        .delete()
+        .eq("driver_id", editingDriver.id);
       if (deleteError) throw deleteError;
 
       // Reactivate driver and clear termination date
-      const {
-        error: driverError
-      } = await supabase.from('drivers').update({
-        is_active: true,
-        termination_date: null
-      }).eq('id', editingDriver.id);
+      const { error: driverError } = await supabase
+        .from("drivers")
+        .update({
+          is_active: true,
+          termination_date: null,
+        })
+        .eq("id", editingDriver.id);
       if (driverError) throw driverError;
       toast({
         title: "Success",
-        description: `${formData.first_name} ${formData.last_name} has been reactivated`
+        description: `${formData.first_name} ${formData.last_name} has been reactivated`,
       });
       resetForm();
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       // Invalidate all related queries to sync with other pages
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['trucks'] });
-      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["trailers"] });
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to reactivate driver",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -803,18 +806,19 @@ const Drivers = () => {
       setIsSubmitting(true);
       try {
         // Remove the block date
-        const {
-          error
-        } = await supabase.from('drivers').update({
-          two_week_block_date: null
-        }).eq('id', editingDriver.id);
+        const { error } = await supabase
+          .from("drivers")
+          .update({
+            two_week_block_date: null,
+          })
+          .eq("id", editingDriver.id);
         if (error) throw error;
 
         // Delete the GAME-OVER order if it exists
-        await supabase.from('orders').delete().eq('driver1_id', editingDriver.id).eq('load_number', 'GAME-OVER');
+        await supabase.from("orders").delete().eq("driver1_id", editingDriver.id).eq("load_number", "GAME-OVER");
         toast({
           title: "Success",
-          description: "2-week block cancelled"
+          description: "2-week block cancelled",
         });
         setIsEditDialogOpen(false);
         setEditingDriver(null);
@@ -824,33 +828,38 @@ const Drivers = () => {
         toast({
           title: "Error",
           description: error.message || "Failed to cancel 2-week block",
-          variant: "destructive"
+          variant: "destructive",
         });
       } finally {
         setIsSubmitting(false);
       }
       return;
     }
-    
+
     // Show confirmation before creating 2-week block
-    if (!confirm("Are you sure you want to set a 2-week notice for this driver? This will set their last day to 14 days from today.")) {
+    if (
+      !confirm(
+        "Are you sure you want to set a 2-week notice for this driver? This will set their last day to 14 days from today.",
+      )
+    ) {
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       // Set the block date (14 days from today)
       const today = new Date();
-      const blockDate = new Date(today.setDate(today.getDate() + 14)).toISOString().split('T')[0];
-      const {
-        error: blockError
-      } = await supabase.from('drivers').update({
-        two_week_block_date: blockDate
-      }).eq('id', editingDriver.id);
+      const blockDate = new Date(today.setDate(today.getDate() + 14)).toISOString().split("T")[0];
+      const { error: blockError } = await supabase
+        .from("drivers")
+        .update({
+          two_week_block_date: blockDate,
+        })
+        .eq("id", editingDriver.id);
       if (blockError) throw blockError;
       toast({
         title: "Success",
-        description: "2-week block created successfully"
+        description: "2-week block created successfully",
       });
       setIsEditDialogOpen(false);
       setEditingDriver(null);
@@ -860,7 +869,7 @@ const Drivers = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to create 2-week block",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -868,20 +877,18 @@ const Drivers = () => {
   };
   const handleDeleteDriver = async (driverId: string) => {
     try {
-      const {
-        error
-      } = await supabase.from('drivers').delete().eq('id', driverId);
+      const { error } = await supabase.from("drivers").delete().eq("id", driverId);
       if (error) throw error;
       toast({
         title: "Success",
-        description: "Driver deleted successfully"
+        description: "Driver deleted successfully",
       });
       refetch();
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to delete driver",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -890,16 +897,16 @@ const Drivers = () => {
     fetchTerminationNotes(driver.id);
 
     // Get current truck assignment
-    const {
-      data: truckData
-    } = await supabase.from('trucks').select('id, trailer_id').or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`).maybeSingle();
+    const { data: truckData } = await supabase
+      .from("trucks")
+      .select("id, trailer_id")
+      .or(`driver1_id.eq.${driver.id},driver2_id.eq.${driver.id}`)
+      .maybeSingle();
 
     // Fetch sensitive PII if user has permission
     let sensitivePIIData = null;
     if (canViewSensitiveData) {
-      const {
-        data
-      } = await supabase.from('driver_sensitive_pii').select('*').eq('driver_id', driver.id).maybeSingle();
+      const { data } = await supabase.from("driver_sensitive_pii").select("*").eq("driver_id", driver.id).maybeSingle();
       sensitivePIIData = data;
     }
     setFormData({
@@ -936,7 +943,7 @@ const Drivers = () => {
       clearing_house: driver.clearing_house || "",
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
-      drugTestResult: null
+      drugTestResult: null,
     });
     if (truckData?.id) {
       setSelectedTruckId(truckData.id);
@@ -944,28 +951,33 @@ const Drivers = () => {
     setIsEditDialogOpen(true);
   };
   if (isLoading) {
-    return <div className="space-y-6">
+    return (
+      <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>;
+      </div>
+    );
   }
 
   // Get the truck ID for the driver being edited
-  const editingDriverTruckId = editingDriver ? 
-    allTrucks?.find(truck => truck.driver1_id === editingDriver.id)?.id : null;
+  const editingDriverTruckId = editingDriver
+    ? allTrucks?.find((truck) => truck.driver1_id === editingDriver.id)?.id
+    : null;
 
   // Filter out trucks that are already assigned to other drivers
-  const availableTrucks = allTrucks?.filter(truck => {
-    // If we're editing a driver, allow their currently assigned truck to remain in the list
-    if (editingDriver && truck.id === editingDriverTruckId) {
-      return true;
-    }
-    // Truck is available if it has no driver assigned
-    return !truck.driver1_id;
-  }) || [];
+  const availableTrucks =
+    allTrucks?.filter((truck) => {
+      // If we're editing a driver, allow their currently assigned truck to remain in the list
+      if (editingDriver && truck.id === editingDriverTruckId) {
+        return true;
+      }
+      // Truck is available if it has no driver assigned
+      return !truck.driver1_id;
+    }) || [];
 
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Drivers</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -979,58 +991,89 @@ const Drivers = () => {
             <DialogHeader>
               <DialogTitle>Add New Driver</DialogTitle>
             </DialogHeader>
-            
+
             <Tabs value={addDialogTab} onValueChange={setAddDialogTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="info">Driver Info</TabsTrigger>
                 <TabsTrigger value="files">Driver Files</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="info">
                 <form id="add-driver-form" onSubmit={handleAddDriver} className="space-y-4">
                   <div className="grid grid-cols-12 gap-4">
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="first_name">First Name*</Label>
-                      <Input id="first_name" value={formData.first_name} onChange={e => setFormData({
-                      ...formData,
-                      first_name: e.target.value.trimStart()
-                    })} placeholder="John" required />
+                      <Input
+                        id="first_name"
+                        value={formData.first_name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            first_name: e.target.value.trimStart(),
+                          })
+                        }
+                        placeholder="John"
+                        required
+                      />
                     </div>
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="last_name">Last Name*</Label>
-                      <Input id="last_name" value={formData.last_name} onChange={e => setFormData({
-                      ...formData,
-                      last_name: e.target.value.trimStart()
-                    })} placeholder="Smith" required />
+                      <Input
+                        id="last_name"
+                        value={formData.last_name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            last_name: e.target.value.trimStart(),
+                          })
+                        }
+                        placeholder="Smith"
+                        required
+                      />
                     </div>
                     <div className="space-y-2 col-span-3">
                       <Label htmlFor="phone">Phone *</Label>
-                      <Input id="phone" value={formData.phone} onChange={e => {
-                      const input = e.target.value.replace(/\D/g, '');
-                      let formatted = '';
-                      
-                      if (input.length > 0) {
-                        formatted = '(' + input.substring(0, 3);
-                      }
-                      if (input.length >= 4) {
-                        formatted += ') ' + input.substring(3, 6);
-                      }
-                      if (input.length >= 7) {
-                        formatted += '-' + input.substring(6, 10);
-                      }
-                      
-                      setFormData({
-                        ...formData,
-                        phone: formatted
-                      });
-                    }} placeholder="(555) 123-4567" required />
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => {
+                          const input = e.target.value.replace(/\D/g, "");
+                          let formatted = "";
+
+                          if (input.length > 0) {
+                            formatted = "(" + input.substring(0, 3);
+                          }
+                          if (input.length >= 4) {
+                            formatted += ") " + input.substring(3, 6);
+                          }
+                          if (input.length >= 7) {
+                            formatted += "-" + input.substring(6, 10);
+                          }
+
+                          setFormData({
+                            ...formData,
+                            phone: formatted,
+                          });
+                        }}
+                        placeholder="(555) 123-4567"
+                        required
+                      />
                     </div>
                     <div className="space-y-2 col-span-4">
                       <Label htmlFor="email">Email *</Label>
-                      <Input id="email" type="email" value={formData.email} onChange={e => setFormData({
-                      ...formData,
-                      email: e.target.value
-                    })} placeholder="john.smith@company.com" required />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            email: e.target.value,
+                          })
+                        }
+                        placeholder="john.smith@company.com"
+                        required
+                      />
                     </div>
                   </div>
 
@@ -1038,14 +1081,14 @@ const Drivers = () => {
                     <Label htmlFor="company">Company *</Label>
                     <Select
                       value={formData.company_id}
-                      onValueChange={value => setFormData({ ...formData, company_id: value })}
+                      onValueChange={(value) => setFormData({ ...formData, company_id: value })}
                       required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select company..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {(companies || []).map(company => (
+                        {(companies || []).map((company) => (
                           <SelectItem key={company.id} value={company.id}>
                             {company.name}
                           </SelectItem>
@@ -1057,76 +1100,136 @@ const Drivers = () => {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="emergency_contact_name">Emergency Contact Name</Label>
-                      <Input id="emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
-                      ...formData,
-                      emergency_contact_name: e.target.value
-                    })} placeholder="Jane Doe" />
+                      <Input
+                        id="emergency_contact_name"
+                        value={formData.emergency_contact_name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            emergency_contact_name: e.target.value,
+                          })
+                        }
+                        placeholder="Jane Doe"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="emergency_contact_relation">Relation</Label>
-                      <Input id="emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
-                      ...formData,
-                      emergency_contact_relation: e.target.value
-                    })} placeholder="Spouse" />
+                      <Input
+                        id="emergency_contact_relation"
+                        value={formData.emergency_contact_relation}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            emergency_contact_relation: e.target.value,
+                          })
+                        }
+                        placeholder="Spouse"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="emergency_contact_phone">Emergency Contact Phone</Label>
-                      <Input id="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
-                      ...formData,
-                      emergency_contact_phone: e.target.value
-                    })} placeholder="(555) 987-6543" />
+                      <Input
+                        id="emergency_contact_phone"
+                        value={formData.emergency_contact_phone}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            emergency_contact_phone: e.target.value,
+                          })
+                        }
+                        placeholder="(555) 987-6543"
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="truck">Truck Number</Label>
-                      <Combobox options={(availableTrucks || []).map(truck => ({
-                      value: truck.id,
-                      label: truck.truck_number
-                    }))} value={formData.truck_id} onValueChange={value => {
-                      const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-                      setFormData({
-                        ...formData,
-                        truck_id: value,
-                        trailer_id: selectedTruck?.trailer_id || ""
-                      });
-                      setSelectedTruckId(value);
-                    }} placeholder="Select truck..." emptyText="No available trucks" />
+                      <Combobox
+                        options={(availableTrucks || []).map((truck) => ({
+                          value: truck.id,
+                          label: truck.truck_number,
+                        }))}
+                        value={formData.truck_id}
+                        onValueChange={(value) => {
+                          const selectedTruck = availableTrucks?.find((truck) => truck.id === value);
+                          setFormData({
+                            ...formData,
+                            truck_id: value,
+                            trailer_id: selectedTruck?.trailer_id || "",
+                          });
+                          setSelectedTruckId(value);
+                        }}
+                        placeholder="Select truck..."
+                        emptyText="No available trucks"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="trailer">Trailer Number</Label>
-                      <Combobox options={(availableTrailers || []).map(trailer => ({
-                      value: trailer.id,
-                      label: trailer.trailer_number
-                    }))} value={formData.trailer_id} onValueChange={value => setFormData({
-                      ...formData,
-                      trailer_id: value
-                    })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
+                      <Combobox
+                        options={(availableTrailers || []).map((trailer) => ({
+                          value: trailer.id,
+                          label: trailer.trailer_number,
+                        }))}
+                        value={formData.trailer_id}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            trailer_id: value,
+                          })
+                        }
+                        placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
+                        emptyText="No available trailers"
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label htmlFor="weekly_payment">Weekly Payment</Label>
-                      <Input id="weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
-                      ...formData,
-                      weekly_payment: e.target.value
-                    })} placeholder="Weekly Payment" />
+                      <Input
+                        id="weekly_payment"
+                        type="number"
+                        step="1"
+                        value={formData.weekly_payment}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            weekly_payment: e.target.value,
+                          })
+                        }
+                        placeholder="Weekly Payment"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="weeks_count">Weeks</Label>
-                      <Input id="weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
-                      ...formData,
-                      weeks_count: e.target.value
-                    })} placeholder="Weeks" />
+                      <Input
+                        id="weeks_count"
+                        type="number"
+                        step="1"
+                        value={formData.weeks_count}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            weeks_count: e.target.value,
+                          })
+                        }
+                        placeholder="Weeks"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="agreement_start_date">Agreement Start Date</Label>
-                      <Input id="agreement_start_date" type="date" value={formData.agreement_start_date} onChange={e => setFormData({
-                      ...formData,
-                      agreement_start_date: e.target.value
-                    })} />
+                      <Input
+                        id="agreement_start_date"
+                        type="date"
+                        value={formData.agreement_start_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            agreement_start_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
@@ -1134,13 +1237,13 @@ const Drivers = () => {
                     <Label htmlFor="dispatcher">Dispatcher</Label>
                     <Select
                       value={formData.dispatcher_id}
-                      onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                      onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select dispatcher..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {allDispatchers.map(dispatcher => (
+                        {allDispatchers.map((dispatcher) => (
                           <SelectItem key={dispatcher.id} value={dispatcher.id}>
                             {dispatcher.full_name || dispatcher.email}
                           </SelectItem>
@@ -1153,24 +1256,47 @@ const Drivers = () => {
                     <div className="grid grid-cols-12 gap-4">
                       <div className="space-y-2 col-span-7">
                         <Label htmlFor="home_address">Home Address</Label>
-                        <Input id="home_address" value={formData.home_address} onChange={e => setFormData({
-                        ...formData,
-                        home_address: e.target.value
-                      })} placeholder="1234 Oak Street" />
+                        <Input
+                          id="home_address"
+                          value={formData.home_address}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              home_address: e.target.value,
+                            })
+                          }
+                          placeholder="1234 Oak Street"
+                        />
                       </div>
                       <div className="space-y-2 col-span-3">
                         <Label htmlFor="home_city">Home City *</Label>
-                        <Input id="home_city" value={formData.home_city} onChange={e => setFormData({
-                        ...formData,
-                        home_city: e.target.value
-                      })} placeholder="Chicago" required />
+                        <Input
+                          id="home_city"
+                          value={formData.home_city}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              home_city: e.target.value,
+                            })
+                          }
+                          placeholder="Chicago"
+                          required
+                        />
                       </div>
                       <div className="space-y-2 col-span-2">
                         <Label htmlFor="home_state">Home State *</Label>
-                        <Input id="home_state" value={formData.home_state} onChange={e => setFormData({
-                        ...formData,
-                        home_state: e.target.value
-                      })} placeholder="IL" required />
+                        <Input
+                          id="home_state"
+                          value={formData.home_state}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              home_state: e.target.value,
+                            })
+                          }
+                          placeholder="IL"
+                          required
+                        />
                       </div>
                     </div>
                   </div>
@@ -1187,58 +1313,107 @@ const Drivers = () => {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="personal_id">Personal ID</Label>
-                            <Input id="personal_id" value={formData.personal_id} onChange={e => setFormData({
-                            ...formData,
-                            personal_id: e.target.value
-                          })} placeholder="Personal ID" />
+                            <Input
+                              id="personal_id"
+                              value={formData.personal_id}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  personal_id: e.target.value,
+                                })
+                              }
+                              placeholder="Personal ID"
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="fuel_card_number">Fuel Card #</Label>
-                            <Input id="fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                            ...formData,
-                            fuel_card_number: e.target.value
-                          })} placeholder="Fuel Card Number" />
+                            <Input
+                              id="fuel_card_number"
+                              value={formData.fuel_card_number}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  fuel_card_number: e.target.value,
+                                })
+                              }
+                              placeholder="Fuel Card Number"
+                            />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="company_name">Company Name</Label>
-                            <Input id="company_name" value={formData.company_name} onChange={e => setFormData({
-                            ...formData,
-                            company_name: e.target.value
-                          })} placeholder="Company Name" />
+                            <Input
+                              id="company_name"
+                              value={formData.company_name}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  company_name: e.target.value,
+                                })
+                              }
+                              placeholder="Company Name"
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="company_address">Company Address</Label>
-                            <Input id="company_address" value={formData.company_address} onChange={e => setFormData({
-                            ...formData,
-                            company_address: e.target.value
-                          })} placeholder="Company Address" />
+                            <Input
+                              id="company_address"
+                              value={formData.company_address}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  company_address: e.target.value,
+                                })
+                              }
+                              placeholder="Company Address"
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="mc_number">MC #</Label>
-                            <Input id="mc_number" value={formData.mc_number} onChange={e => setFormData({
-                            ...formData,
-                            mc_number: e.target.value
-                          })} placeholder="MC Number" />
+                            <Label htmlFor="mc_number">FEIN #</Label>
+                            <Input
+                              id="mc_number"
+                              value={formData.mc_number}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  mc_number: e.target.value,
+                                })
+                              }
+                              placeholder="MC Number"
+                            />
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                           <div className="space-y-2">
                             <Label htmlFor="ssn">SSN #</Label>
-                            <Input id="ssn" value={formData.ssn} onChange={e => setFormData({
-                            ...formData,
-                            ssn: e.target.value
-                          })} placeholder="SSN" />
+                            <Input
+                              id="ssn"
+                              value={formData.ssn}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  ssn: e.target.value,
+                                })
+                              }
+                              placeholder="SSN"
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="fein">FEIN #</Label>
-                            <Input id="fein" value={formData.fein} onChange={e => setFormData({
-                            ...formData,
-                            fein: e.target.value
-                          })} placeholder="FEIN" />
+                            <Input
+                              id="fein"
+                              value={formData.fein}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  fein: e.target.value,
+                                })
+                              }
+                              placeholder="FEIN"
+                            />
                           </div>
                         </div>
                       </div>
@@ -1248,67 +1423,121 @@ const Drivers = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cdl_number">CDL Number</Label>
-                      <Input id="cdl_number" value={formData.cdl_number} onChange={e => setFormData({
-                      ...formData,
-                      cdl_number: e.target.value
-                    })} placeholder="CDL Number" />
+                      <Input
+                        id="cdl_number"
+                        value={formData.cdl_number}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            cdl_number: e.target.value,
+                          })
+                        }
+                        placeholder="CDL Number"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="cdl_expiration_date">CDL Expiration Date</Label>
-                      <Input id="cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
-                      ...formData,
-                      cdl_expiration_date: e.target.value
-                    })} />
+                      <Input
+                        id="cdl_expiration_date"
+                        type="date"
+                        value={formData.cdl_expiration_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            cdl_expiration_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="hire_date">Hire Date</Label>
-                      <Input id="hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
-                      ...formData,
-                      hire_date: e.target.value
-                    })} />
+                      <Input
+                        id="hire_date"
+                        type="date"
+                        value={formData.hire_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            hire_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="termination_date">Termination Date</Label>
-                      <Input id="termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
-                      ...formData,
-                      termination_date: e.target.value
-                    })} />
+                      <Input
+                        id="termination_date"
+                        type="date"
+                        value={formData.termination_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            termination_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="mvr_date">MVR Date</Label>
-                      <Input id="mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
-                      ...formData,
-                      mvr_date: e.target.value
-                    })} />
+                      <Input
+                        id="mvr_date"
+                        type="date"
+                        value={formData.mvr_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            mvr_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="medical_card_expiration_date">Medical Card Expiration Date</Label>
-                      <Input id="medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
-                      ...formData,
-                      medical_card_expiration_date: e.target.value
-                    })} />
+                      <Input
+                        id="medical_card_expiration_date"
+                        type="date"
+                        value={formData.medical_card_expiration_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            medical_card_expiration_date: e.target.value,
+                          })
+                        }
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="clearing_house">Clearing House</Label>
-                      <Input id="clearing_house" value={formData.clearing_house} onChange={e => setFormData({
-                      ...formData,
-                      clearing_house: e.target.value
-                    })} placeholder="Clearing house number" />
+                      <Input
+                        id="clearing_house"
+                        value={formData.clearing_house}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            clearing_house: e.target.value,
+                          })
+                        }
+                        placeholder="Clearing house number"
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label>Drug Test Result</Label>
-                    <Select value={formData.drugTestResult || "pending"} onValueChange={value => setFormData({
-                    ...formData,
-                    drugTestResult: value as "positive" | "negative" | "pending"
-                  })}>
+                    <Select
+                      value={formData.drugTestResult || "pending"}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          drugTestResult: value as "positive" | "negative" | "pending",
+                        })
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select result" />
                       </SelectTrigger>
@@ -1321,58 +1550,58 @@ const Drivers = () => {
                   </div>
                 </form>
               </TabsContent>
-            
-            <TabsContent value="files">
-              {newlyCreatedDriverId ? (
-                <DriverFilesManager 
-                  driverId={newlyCreatedDriverId} 
-                  driverName={`${formData.first_name} ${formData.last_name}`.trim()}
-                />
-              ) : (
-                <DriverFilesManagerPending 
-                  pendingFiles={pendingFiles}
-                  onFilesChange={setPendingFiles}
-                  isUploading={isUploadingFiles}
-                />
-              )}
-            </TabsContent>
-          </Tabs>
 
-          {/* Action buttons - appear on all tabs */}
-          <div className="mt-6">
-            {newlyCreatedDriverId ? (
-              <div className="flex justify-end gap-3">
-                <Button 
-                  onClick={() => {
-                    resetForm();
-                    setIsAddDialogOpen(false);
+              <TabsContent value="files">
+                {newlyCreatedDriverId ? (
+                  <DriverFilesManager
+                    driverId={newlyCreatedDriverId}
+                    driverName={`${formData.first_name} ${formData.last_name}`.trim()}
+                  />
+                ) : (
+                  <DriverFilesManagerPending
+                    pendingFiles={pendingFiles}
+                    onFilesChange={setPendingFiles}
+                    isUploading={isUploadingFiles}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
+
+            {/* Action buttons - appear on all tabs */}
+            <div className="mt-6">
+              {newlyCreatedDriverId ? (
+                <div className="flex justify-end gap-3">
+                  <Button
+                    onClick={() => {
+                      resetForm();
+                      setIsAddDialogOpen(false);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || isUploadingFiles}
+                  className="w-full"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const form = document.getElementById("add-driver-form") as HTMLFormElement;
+                    if (form) form.requestSubmit();
                   }}
                 >
-                  Done
+                  {isSubmitting || isUploadingFiles ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isUploadingFiles ? "Uploading Files..." : "Adding Driver..."}
+                    </>
+                  ) : (
+                    "Add Driver"
+                  )}
                 </Button>
-              </div>
-            ) : (
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || isUploadingFiles} 
-                className="w-full"
-                onClick={(e) => {
-                  e.preventDefault();
-                  const form = document.getElementById('add-driver-form') as HTMLFormElement;
-                  if (form) form.requestSubmit();
-                }}
-              >
-                {isSubmitting || isUploadingFiles ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isUploadingFiles ? 'Uploading Files...' : 'Adding Driver...'}
-                  </>
-                ) : (
-                  "Add Driver"
-                )}
-              </Button>
-            )}
-          </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -1382,10 +1611,13 @@ const Drivers = () => {
           <div className="flex items-center justify-between gap-4">
             <CardTitle>Driver Directory</CardTitle>
             <div className="flex items-center gap-3">
-              <Select value={statusFilter} onValueChange={(value: any) => {
-                setStatusFilter(value);
-                setCurrentPage(1);
-              }}>
+              <Select
+                value={statusFilter}
+                onValueChange={(value: any) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Drivers" />
                 </SelectTrigger>
@@ -1395,11 +1627,14 @@ const Drivers = () => {
                   <SelectItem value="inactive">Inactive Only</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select value={truckFilter} onValueChange={(value: any) => {
-                setTruckFilter(value);
-                setCurrentPage(1);
-              }}>
+
+              <Select
+                value={truckFilter}
+                onValueChange={(value: any) => {
+                  setTruckFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Trucks" />
                 </SelectTrigger>
@@ -1409,11 +1644,14 @@ const Drivers = () => {
                   <SelectItem value="unassigned">No Truck</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select value={recoveryFilter} onValueChange={(value: any) => {
-                setRecoveryFilter(value);
-                setCurrentPage(1);
-              }}>
+
+              <Select
+                value={recoveryFilter}
+                onValueChange={(value: any) => {
+                  setRecoveryFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
@@ -1423,10 +1661,15 @@ const Drivers = () => {
                   <SelectItem value="regular">Regular Only</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input placeholder="Search drivers..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+                <Input
+                  placeholder="Search drivers..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -1443,21 +1686,26 @@ const Drivers = () => {
                   <TableHead>Dispatcher</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Home Location</TableHead>
-                  
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedDrivers.length === 0 ? <TableRow>
+                {paginatedDrivers.length === 0 ? (
+                  <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No drivers found
                     </TableCell>
-                  </TableRow> : paginatedDrivers.map((driver: any) => <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
+                  </TableRow>
+                ) : (
+                  paginatedDrivers.map((driver: any) => (
+                    <TableRow key={driver.id} className={!driver.is_active ? "opacity-60" : ""}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {driver.name}
-                          {!driver.is_active && <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                          {!driver.is_active && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                               Inactive
-                            </span>}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{driver.company?.name || "—"}</TableCell>
@@ -1466,29 +1714,35 @@ const Drivers = () => {
                       <TableCell>{driver.dispatcher_info?.full_name || driver.dispatcher_info?.email || "—"}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          {driver.phone && <div className="flex items-center gap-2 text-sm">
+                          {driver.phone && (
+                            <div className="flex items-center gap-2 text-sm">
                               <Phone className="h-3 w-3 text-muted-foreground" />
                               {driver.phone}
-                            </div>}
-                          {driver.email && <div className="flex items-center gap-2 text-sm">
+                            </div>
+                          )}
+                          {driver.email && (
+                            <div className="flex items-center gap-2 text-sm">
                               <Mail className="h-3 w-3 text-muted-foreground" />
                               {driver.email}
-                            </div>}
+                            </div>
+                          )}
                           {!driver.phone && !driver.email && "—"}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {driver.home_city && driver.home_state ? `${driver.home_city}, ${driver.home_state}` : driver.home_city || driver.home_state || "—"}
+                        {driver.home_city && driver.home_state
+                          ? `${driver.home_city}, ${driver.home_state}`
+                          : driver.home_city || driver.home_state || "—"}
                       </TableCell>
-                      
+
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => openEditDialog(driver)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setHistoryDriverId(driver.id);
                               setHistoryDriverName(driver.name);
@@ -1520,79 +1774,107 @@ const Drivers = () => {
                           </AlertDialog>
                         </div>
                       </TableCell>
-                    </TableRow>)}
+                    </TableRow>
+                  ))
+                )}
                 {/* Empty rows to maintain consistent table height */}
-                {paginatedDrivers.length > 0 && Array.from({
-                length: itemsPerPage - paginatedDrivers.length
-              }).map((_, index) => <TableRow key={`empty-${index}`} className="hover:bg-transparent">
-                    <TableCell colSpan={7} className="h-[57px]">&nbsp;</TableCell>
-                  </TableRow>)}
+                {paginatedDrivers.length > 0 &&
+                  Array.from({
+                    length: itemsPerPage - paginatedDrivers.length,
+                  }).map((_, index) => (
+                    <TableRow key={`empty-${index}`} className="hover:bg-transparent">
+                      <TableCell colSpan={7} className="h-[57px]">
+                        &nbsp;
+                      </TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </div>
-          
+
           {/* Pagination */}
-          {filteredDrivers.length > itemsPerPage && <div className="flex items-center justify-between px-2 py-4 border-t">
+          {filteredDrivers.length > itemsPerPage && (
+            <div className="flex items-center justify-between px-2 py-4 border-t">
               <div className="text-sm text-muted-foreground">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredDrivers.length)} of {filteredDrivers.length} drivers
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredDrivers.length)} of {filteredDrivers.length}{" "}
+                drivers
               </div>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
-                    <PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
                   </PaginationItem>
-                  
+
                   {/* First page */}
-                  {currentPage > 2 && <PaginationItem>
+                  {currentPage > 2 && (
+                    <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">
                         1
                       </PaginationLink>
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   {/* Ellipsis before current */}
-                  {currentPage > 3 && <PaginationItem>
+                  {currentPage > 3 && (
+                    <PaginationItem>
                       <PaginationEllipsis />
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   {/* Previous page */}
-                  {currentPage > 1 && <PaginationItem>
+                  {currentPage > 1 && (
+                    <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(currentPage - 1)} className="cursor-pointer">
                         {currentPage - 1}
                       </PaginationLink>
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   {/* Current page */}
                   <PaginationItem>
                     <PaginationLink isActive className="cursor-default">
                       {currentPage}
                     </PaginationLink>
                   </PaginationItem>
-                  
+
                   {/* Next page */}
-                  {currentPage < totalPages && <PaginationItem>
+                  {currentPage < totalPages && (
+                    <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(currentPage + 1)} className="cursor-pointer">
                         {currentPage + 1}
                       </PaginationLink>
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   {/* Ellipsis after current */}
-                  {currentPage < totalPages - 2 && <PaginationItem>
+                  {currentPage < totalPages - 2 && (
+                    <PaginationItem>
                       <PaginationEllipsis />
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   {/* Last page */}
-                  {currentPage < totalPages - 1 && <PaginationItem>
+                  {currentPage < totalPages - 1 && (
+                    <PaginationItem>
                       <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">
                         {totalPages}
                       </PaginationLink>
-                    </PaginationItem>}
-                  
+                    </PaginationItem>
+                  )}
+
                   <PaginationItem>
-                    <PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"} />
+                    <PaginationNext
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
-            </div>}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1602,52 +1884,83 @@ const Drivers = () => {
           <DialogHeader>
             <DialogTitle>Edit Driver</DialogTitle>
           </DialogHeader>
-          
+
           <Tabs defaultValue="info" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info">Driver Info</TabsTrigger>
               <TabsTrigger value="files">Driver Files</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="info">
               <form id="edit-driver-form" onSubmit={handleEditDriver} className="space-y-4">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="edit_first_name">First Name*</Label>
-                    <Input id="edit_first_name" value={formData.first_name} onChange={e => setFormData({
-                    ...formData,
-                    first_name: e.target.value
-                  })} placeholder="John" required />
+                    <Input
+                      id="edit_first_name"
+                      value={formData.first_name}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          first_name: e.target.value,
+                        })
+                      }
+                      placeholder="John"
+                      required
+                    />
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="edit_last_name">Last Name*</Label>
-                    <Input id="edit_last_name" value={formData.last_name} onChange={e => setFormData({
-                    ...formData,
-                    last_name: e.target.value
-                  })} placeholder="Smith" required />
+                    <Input
+                      id="edit_last_name"
+                      value={formData.last_name}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          last_name: e.target.value,
+                        })
+                      }
+                      placeholder="Smith"
+                      required
+                    />
                   </div>
                   <div className="space-y-2 col-span-3">
                     <Label htmlFor="edit_phone">Phone</Label>
-                    <Input id="edit_phone" value={formData.phone} onChange={e => setFormData({
-                    ...formData,
-                    phone: e.target.value
-                  })} placeholder="(555) 123-4567" />
+                    <Input
+                      id="edit_phone"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          phone: e.target.value,
+                        })
+                      }
+                      placeholder="(555) 123-4567"
+                    />
                   </div>
                   <div className="space-y-2 col-span-4">
                     <Label htmlFor="edit_email">Email</Label>
-                    <Input id="edit_email" type="email" value={formData.email} onChange={e => setFormData({
-                    ...formData,
-                    email: e.target.value
-                  })} placeholder="john.smith@company.com" />
+                    <Input
+                      id="edit_email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          email: e.target.value,
+                        })
+                      }
+                      placeholder="john.smith@company.com"
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="edit_company">Company*</Label>
                   <Combobox
-                    options={(companies || []).map(company => ({ value: company.id, label: company.name }))}
+                    options={(companies || []).map((company) => ({ value: company.id, label: company.name }))}
                     value={formData.company_id}
-                    onValueChange={value => setFormData({ ...formData, company_id: value })}
+                    onValueChange={(value) => setFormData({ ...formData, company_id: value })}
                     placeholder="Select company..."
                     emptyText="No companies found"
                   />
@@ -1656,63 +1969,100 @@ const Drivers = () => {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit_emergency_contact_name">Emergency Contact Name</Label>
-                    <Input id="edit_emergency_contact_name" value={formData.emergency_contact_name} onChange={e => setFormData({
-                    ...formData,
-                    emergency_contact_name: e.target.value
-                  })} placeholder="Jane Doe" />
+                    <Input
+                      id="edit_emergency_contact_name"
+                      value={formData.emergency_contact_name}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_name: e.target.value,
+                        })
+                      }
+                      placeholder="Jane Doe"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_emergency_contact_relation">Relation</Label>
-                    <Input id="edit_emergency_contact_relation" value={formData.emergency_contact_relation} onChange={e => setFormData({
-                    ...formData,
-                    emergency_contact_relation: e.target.value
-                  })} placeholder="Spouse" />
+                    <Input
+                      id="edit_emergency_contact_relation"
+                      value={formData.emergency_contact_relation}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_relation: e.target.value,
+                        })
+                      }
+                      placeholder="Spouse"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_emergency_contact_phone">Emergency Contact Phone</Label>
-                    <Input id="edit_emergency_contact_phone" value={formData.emergency_contact_phone} onChange={e => setFormData({
-                    ...formData,
-                    emergency_contact_phone: e.target.value
-                  })} placeholder="(555) 987-6543" />
+                    <Input
+                      id="edit_emergency_contact_phone"
+                      value={formData.emergency_contact_phone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          emergency_contact_phone: e.target.value,
+                        })
+                      }
+                      placeholder="(555) 987-6543"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 gap-4 items-end">
                   <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_truck">Truck Number</Label>
-                    <Combobox options={(availableTrucks || []).map(truck => ({
-                    value: truck.id,
-                    label: truck.truck_number
-                  }))} value={formData.truck_id} onValueChange={value => {
-                    const selectedTruck = availableTrucks?.find(truck => truck.id === value);
-                    setFormData({
-                      ...formData,
-                      truck_id: value,
-                      trailer_id: selectedTruck?.trailer_id || ""
-                    });
-                    setSelectedTruckId(value);
-                  }} placeholder="Select truck..." emptyText="No available trucks" />
+                    <Combobox
+                      options={(availableTrucks || []).map((truck) => ({
+                        value: truck.id,
+                        label: truck.truck_number,
+                      }))}
+                      value={formData.truck_id}
+                      onValueChange={(value) => {
+                        const selectedTruck = availableTrucks?.find((truck) => truck.id === value);
+                        setFormData({
+                          ...formData,
+                          truck_id: value,
+                          trailer_id: selectedTruck?.trailer_id || "",
+                        });
+                        setSelectedTruckId(value);
+                      }}
+                      placeholder="Select truck..."
+                      emptyText="No available trucks"
+                    />
                   </div>
                   <div className="space-y-2 col-span-5">
                     <Label htmlFor="edit_trailer">Trailer Number</Label>
-                    <Combobox options={(availableTrailers || []).map(trailer => ({
-                    value: trailer.id,
-                    label: trailer.trailer_number
-                  }))} value={formData.trailer_id} onValueChange={value => setFormData({
-                    ...formData,
-                    trailer_id: value
-                  })} placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"} emptyText="No available trailers" />
+                    <Combobox
+                      options={(availableTrailers || []).map((trailer) => ({
+                        value: trailer.id,
+                        label: trailer.trailer_number,
+                      }))}
+                      value={formData.trailer_id}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          trailer_id: value,
+                        })
+                      }
+                      placeholder={formData.truck_id ? "Select trailer..." : "Select truck first"}
+                      emptyText="No available trailers"
+                    />
                   </div>
                   <div className="col-span-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setFormData({
-                        ...formData,
-                        truck_id: "",
-                        trailer_id: ""
-                      })}
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          truck_id: "",
+                          trailer_id: "",
+                        })
+                      }
                       className="w-full"
                     >
                       <RefreshCw className="h-4 w-4" />
@@ -1723,33 +2073,58 @@ const Drivers = () => {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="edit_weekly_payment">Weekly Payment</Label>
-                    <Input id="edit_weekly_payment" type="number" step="1" value={formData.weekly_payment} onChange={e => setFormData({
-                    ...formData,
-                    weekly_payment: e.target.value
-                  })} placeholder="Weekly Payment" />
+                    <Input
+                      id="edit_weekly_payment"
+                      type="number"
+                      step="1"
+                      value={formData.weekly_payment}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          weekly_payment: e.target.value,
+                        })
+                      }
+                      placeholder="Weekly Payment"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_weeks_count">Weeks</Label>
-                    <Input id="edit_weeks_count" type="number" step="1" value={formData.weeks_count} onChange={e => setFormData({
-                    ...formData,
-                    weeks_count: e.target.value
-                  })} placeholder="Weeks" />
+                    <Input
+                      id="edit_weeks_count"
+                      type="number"
+                      step="1"
+                      value={formData.weeks_count}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          weeks_count: e.target.value,
+                        })
+                      }
+                      placeholder="Weeks"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit_agreement_start_date">Agreement Start Date</Label>
-                    <Input id="edit_agreement_start_date" type="date" value={formData.agreement_start_date} onChange={e => setFormData({
-                    ...formData,
-                    agreement_start_date: e.target.value
-                  })} />
+                    <Input
+                      id="edit_agreement_start_date"
+                      type="date"
+                      value={formData.agreement_start_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          agreement_start_date: e.target.value,
+                        })
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="edit_dispatcher">Dispatcher</Label>
                   <Combobox
-                    options={allDispatchers.map(d => ({ value: d.id, label: d.full_name || d.email }))}
+                    options={allDispatchers.map((d) => ({ value: d.id, label: d.full_name || d.email }))}
                     value={formData.dispatcher_id}
-                    onValueChange={value => setFormData({ ...formData, dispatcher_id: value })}
+                    onValueChange={(value) => setFormData({ ...formData, dispatcher_id: value })}
                     placeholder="Select dispatcher..."
                     emptyText="No dispatchers found"
                   />
@@ -1759,29 +2134,51 @@ const Drivers = () => {
                   <div className="grid grid-cols-12 gap-4">
                     <div className="space-y-2 col-span-7">
                       <Label htmlFor="edit_home_address">Home Address</Label>
-                      <Input id="edit_home_address" value={formData.home_address} onChange={e => setFormData({
-                      ...formData,
-                      home_address: e.target.value
-                    })} placeholder="1234 Oak Street" />
+                      <Input
+                        id="edit_home_address"
+                        value={formData.home_address}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            home_address: e.target.value,
+                          })
+                        }
+                        placeholder="1234 Oak Street"
+                      />
                     </div>
                     <div className="space-y-2 col-span-3">
                       <Label htmlFor="edit_home_city">Home City</Label>
-                      <Input id="edit_home_city" value={formData.home_city} onChange={e => setFormData({
-                      ...formData,
-                      home_city: e.target.value
-                    })} placeholder="Chicago" />
+                      <Input
+                        id="edit_home_city"
+                        value={formData.home_city}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            home_city: e.target.value,
+                          })
+                        }
+                        placeholder="Chicago"
+                      />
                     </div>
                     <div className="space-y-2 col-span-2">
                       <Label htmlFor="edit_home_state">Home State</Label>
-                      <Input id="edit_home_state" value={formData.home_state} onChange={e => setFormData({
-                      ...formData,
-                      home_state: e.target.value
-                    })} placeholder="IL" />
+                      <Input
+                        id="edit_home_state"
+                        value={formData.home_state}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            home_state: e.target.value,
+                          })
+                        }
+                        placeholder="IL"
+                      />
                     </div>
                   </div>
                 </div>
 
-                {canViewSensitiveData && <>
+                {canViewSensitiveData && (
+                  <>
                     <div className="border-t pt-4">
                       <p className="text-sm font-medium text-muted-foreground mb-4">
                         🔒 Sensitive Information (Managers/Admins Only)
@@ -1789,203 +2186,334 @@ const Drivers = () => {
                     </div>
 
                     <div className="space-y-4">
-                      
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="edit_personal_id">Personal ID</Label>
-                          <Input id="edit_personal_id" value={formData.personal_id} onChange={e => setFormData({
-                        ...formData,
-                        personal_id: e.target.value
-                      })} placeholder="Personal ID" />
+                          <Input
+                            id="edit_personal_id"
+                            value={formData.personal_id}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                personal_id: e.target.value,
+                              })
+                            }
+                            placeholder="Personal ID"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit_fuel_card_number">Fuel Card #</Label>
-                          <Input id="edit_fuel_card_number" value={formData.fuel_card_number} onChange={e => setFormData({
-                        ...formData,
-                        fuel_card_number: e.target.value
-                      })} placeholder="Fuel Card Number" />
-                      </div>
+                          <Input
+                            id="edit_fuel_card_number"
+                            value={formData.fuel_card_number}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                fuel_card_number: e.target.value,
+                              })
+                            }
+                            placeholder="Fuel Card Number"
+                          />
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="edit_company_name">Company Name</Label>
-                          <Input id="edit_company_name" value={formData.company_name} onChange={e => setFormData({
-                        ...formData,
-                        company_name: e.target.value
-                      })} placeholder="Company Name" />
+                          <Input
+                            id="edit_company_name"
+                            value={formData.company_name}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                company_name: e.target.value,
+                              })
+                            }
+                            placeholder="Company Name"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit_company_address">Company Address</Label>
-                          <Input id="edit_company_address" value={formData.company_address} onChange={e => setFormData({
-                        ...formData,
-                        company_address: e.target.value
-                      })} placeholder="Company Address" />
+                          <Input
+                            id="edit_company_address"
+                            value={formData.company_address}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                company_address: e.target.value,
+                              })
+                            }
+                            placeholder="Company Address"
+                          />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="edit_mc_number">MC #</Label>
-                          <Input id="edit_mc_number" value={formData.mc_number} onChange={e => setFormData({
-                        ...formData,
-                        mc_number: e.target.value
-                      })} placeholder="MC Number" />
+                          <Label htmlFor="edit_mc_number">FEIN #</Label>
+                          <Input
+                            id="edit_mc_number"
+                            value={formData.mc_number}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                mc_number: e.target.value,
+                              })
+                            }
+                            placeholder="MC Number"
+                          />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                         <div className="space-y-2">
                           <Label htmlFor="edit_ssn">SSN #</Label>
-                          <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
-                        ...formData,
-                        ssn: e.target.value
-                      })} placeholder="SSN" />
+                          <Input
+                            id="edit_ssn"
+                            value={formData.ssn}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                ssn: e.target.value,
+                              })
+                            }
+                            placeholder="SSN"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit_fein">FEIN #</Label>
-                          <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
-                        ...formData,
-                        fein: e.target.value
-                      })} placeholder="FEIN" />
+                          <Input
+                            id="edit_fein"
+                            value={formData.fein}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                fein: e.target.value,
+                              })
+                            }
+                            placeholder="FEIN"
+                          />
                         </div>
                       </div>
                     </div>
-                  </>}
+                  </>
+                )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_cdl_number">CDL Number</Label>
+                    <Input
+                      id="edit_cdl_number"
+                      value={formData.cdl_number}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          cdl_number: e.target.value,
+                        })
+                      }
+                      placeholder="CDL Number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_cdl_expiration_date">CDL Expiration Date</Label>
+                    <Input
+                      id="edit_cdl_expiration_date"
+                      type="date"
+                      value={formData.cdl_expiration_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          cdl_expiration_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_hire_date">Hire Date</Label>
+                    <Input
+                      id="edit_hire_date"
+                      type="date"
+                      value={formData.hire_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          hire_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_termination_date">Termination Date</Label>
+                    <Input
+                      id="edit_termination_date"
+                      type="date"
+                      value={formData.termination_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          termination_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_mvr_date">MVR Date</Label>
+                    <Input
+                      id="edit_mvr_date"
+                      type="date"
+                      value={formData.mvr_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          mvr_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_clearing_house">Clearing House</Label>
+                    <Input
+                      id="edit_clearing_house"
+                      type="date"
+                      value={formData.clearing_house}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          clearing_house: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_medical_card_expiration_date">Medical Card Exp</Label>
+                    <Input
+                      id="edit_medical_card_expiration_date"
+                      type="date"
+                      value={formData.medical_card_expiration_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          medical_card_expiration_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {canViewSensitiveData && (
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div className="space-y-2">
-                      <Label htmlFor="edit_cdl_number">CDL Number</Label>
-                      <Input id="edit_cdl_number" value={formData.cdl_number} onChange={e => setFormData({
-                    ...formData,
-                    cdl_number: e.target.value
-                  })} placeholder="CDL Number" />
+                      <Label htmlFor="edit_ssn">SSN #</Label>
+                      <Input
+                        id="edit_ssn"
+                        value={formData.ssn}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            ssn: e.target.value,
+                          })
+                        }
+                        placeholder="SSN"
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit_cdl_expiration_date">CDL Expiration Date</Label>
-                      <Input id="edit_cdl_expiration_date" type="date" value={formData.cdl_expiration_date} onChange={e => setFormData({
-                    ...formData,
-                    cdl_expiration_date: e.target.value
-                  })} />
+                      <Label htmlFor="edit_fein">FEIN #</Label>
+                      <Input
+                        id="edit_fein"
+                        value={formData.fein}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fein: e.target.value,
+                          })
+                        }
+                        placeholder="FEIN"
+                      />
                     </div>
                   </div>
+                )}
+              </form>
+            </TabsContent>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_hire_date">Hire Date</Label>
-                      <Input id="edit_hire_date" type="date" value={formData.hire_date} onChange={e => setFormData({
-                    ...formData,
-                    hire_date: e.target.value
-                  })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_termination_date">Termination Date</Label>
-                      <Input id="edit_termination_date" type="date" value={formData.termination_date} onChange={e => setFormData({
-                    ...formData,
-                    termination_date: e.target.value
-                  })} />
-                    </div>
-                  </div>
+            <TabsContent value="files">
+              {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
+            </TabsContent>
+          </Tabs>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_mvr_date">MVR Date</Label>
-                      <Input id="edit_mvr_date" type="date" value={formData.mvr_date} onChange={e => setFormData({
-                    ...formData,
-                    mvr_date: e.target.value
-                  })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_clearing_house">Clearing House</Label>
-                      <Input id="edit_clearing_house" type="date" value={formData.clearing_house} onChange={e => setFormData({
-                    ...formData,
-                    clearing_house: e.target.value
-                  })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit_medical_card_expiration_date">Medical Card Exp</Label>
-                      <Input id="edit_medical_card_expiration_date" type="date" value={formData.medical_card_expiration_date} onChange={e => setFormData({
-                    ...formData,
-                    medical_card_expiration_date: e.target.value
-                  })} />
-                    </div>
-                  </div>
-
-                  {canViewSensitiveData && <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                      <div className="space-y-2">
-                        <Label htmlFor="edit_ssn">SSN #</Label>
-                        <Input id="edit_ssn" value={formData.ssn} onChange={e => setFormData({
-                    ...formData,
-                    ssn: e.target.value
-                  })} placeholder="SSN" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit_fein">FEIN #</Label>
-                        <Input id="edit_fein" value={formData.fein} onChange={e => setFormData({
-                    ...formData,
-                    fein: e.target.value
-                  })} placeholder="FEIN" />
-                      </div>
-                    </div>}
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="files">
-                {editingDriver && <DriverFilesManager driverId={editingDriver.id} driverName={editingDriver.name} />}
-              </TabsContent>
-            </Tabs>
-
-            {/* Action buttons - appear on all tabs */}
-            <div className="flex justify-between gap-3 mt-6">
-              <div className="flex gap-3">
-                {!editingDriver?.is_active ? <Button type="button" variant="default" onClick={handleStartDriver} disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Play className="mr-2 h-4 w-4" />
-                    Start
-                  </Button> : <>
-                    <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Done
-                    </Button>
-                    <Button type="button" variant={editingDriver?.two_week_block_date ? "outline" : "secondary"} onClick={handleTwoWeekBlock} disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
-                    </Button>
-                  </>}
-              </div>
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const form = document.getElementById('edit-driver-form') as HTMLFormElement;
-                    if (form) form.requestSubmit();
-                  }}
-                >
+          {/* Action buttons - appear on all tabs */}
+          <div className="flex justify-between gap-3 mt-6">
+            <div className="flex gap-3">
+              {!editingDriver?.is_active ? (
+                <Button type="button" variant="default" onClick={handleStartDriver} disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Update Driver
+                  <Play className="mr-2 h-4 w-4" />
+                  Start
                 </Button>
-              </div>
+              ) : (
+                <>
+                  <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Done
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={editingDriver?.two_week_block_date ? "outline" : "secondary"}
+                    onClick={handleTwoWeekBlock}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {editingDriver?.two_week_block_date ? "Cancel 2 Week" : "2 Week"}
+                  </Button>
+                </>
+              )}
             </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  const form = document.getElementById("edit-driver-form") as HTMLFormElement;
+                  if (form) form.requestSubmit();
+                }}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Driver
+              </Button>
+            </div>
+          </div>
 
           {/* Termination Notes Section - Show when driver is done */}
-          {!editingDriver?.is_active && terminationNotes.length > 0 && <div className="mt-4 space-y-3">
+          {!editingDriver?.is_active && terminationNotes.length > 0 && (
+            <div className="mt-4 space-y-3">
               <h3 className="text-sm font-semibold">Termination Notes</h3>
-              {isLoadingNotes ? <div className="flex items-center justify-center p-4">
+              {isLoadingNotes ? (
+                <div className="flex items-center justify-center p-4">
                   <Loader2 className="h-6 w-6 animate-spin" />
-                </div> : <div className="space-y-2">
-                  {terminationNotes.map(note => <Card key={note.id}>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {terminationNotes.map((note) => (
+                    <Card key={note.id}>
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{note.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
                       </CardContent>
-                    </Card>)}
-                </div>}
-            </div>}
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -2014,16 +2542,30 @@ const Drivers = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="termination_note">Note</Label>
-              <Textarea id="termination_note" value={terminationNote} onChange={e => setTerminationNote(e.target.value)} placeholder="Enter termination note..." className="min-h-[100px]" />
+              <Textarea
+                id="termination_note"
+                value={terminationNote}
+                onChange={(e) => setTerminationNote(e.target.value)}
+                placeholder="Enter termination note..."
+                className="min-h-[100px]"
+              />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => {
-              setShowNoteDialog(false);
-              setTerminationNote("");
-            }}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowNoteDialog(false);
+                  setTerminationNote("");
+                }}
+              >
                 Cancel
               </Button>
-              <Button type="button" onClick={handleSaveTerminationNote} disabled={isSubmitting || !terminationNote.trim()}>
+              <Button
+                type="button"
+                onClick={handleSaveTerminationNote}
+                disabled={isSubmitting || !terminationNote.trim()}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save
               </Button>
@@ -2040,6 +2582,7 @@ const Drivers = () => {
         open={isHistoryDialogOpen}
         onOpenChange={setIsHistoryDialogOpen}
       />
-    </div>;
+    </div>
+  );
 };
 export default Drivers;
