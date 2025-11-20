@@ -27,6 +27,7 @@ import Drivers from "./pages/Drivers";
 import Brokers from "./pages/Brokers";
 import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
+import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
@@ -171,6 +172,11 @@ const AppContent = () => {
         <Route path="/reports" element={
           <ProtectedRoute>
             <Layout><Reports /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/yard-arrivals" element={
+          <ProtectedRoute>
+            <Layout><YardArrivals /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/analytics" element={
