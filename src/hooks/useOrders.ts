@@ -79,45 +79,93 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
-      console.log("[useOrders] Fetching from materialized view...");
+      console.log("[useOrders] Fetching first 500 orders from materialized view...");
       
-      // Fetch all orders using pagination to bypass row limits
-      let allOrders: any[] = [];
-      let offset = 0;
+      const initialBatchSize = 500;
       const batchSize = 1000;
-      let hasMore = true;
+      
+      // Fetch first 500 orders immediately
+      let initialQuery = supabase
+        .from("orders_materialized_view")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(0, initialBatchSize - 1);
 
-      while (hasMore) {
-        let ordersQuery = supabase
-          .from("orders_materialized_view")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .range(offset, offset + batchSize - 1);
-
-        if (options?.bookedBy) {
-          ordersQuery = ordersQuery.eq("booked_by", options.bookedBy);
-        }
-
-        const { data: batch, error: batchError } = await ordersQuery;
-
-        if (batchError) {
-          console.error("[useOrders] Error:", batchError);
-          throw batchError;
-        }
-
-        if (batch && batch.length > 0) {
-          allOrders = [...allOrders, ...batch];
-          offset += batchSize;
-          hasMore = batch.length === batchSize;
-        } else {
-          hasMore = false;
-        }
+      if (options?.bookedBy) {
+        initialQuery = initialQuery.eq("booked_by", options.bookedBy);
       }
 
-      console.log(`[useOrders] Fetched ${allOrders.length} orders from materialized view`);
+      const { data: initialBatch, error: initialError } = await initialQuery;
 
-      // Transform the data to match the expected format
-      return (allOrders || []).map((order: any) => {
+      if (initialError) {
+        console.error("[useOrders] Error:", initialError);
+        throw initialError;
+      }
+
+      console.log(`[useOrders] Loaded initial ${initialBatch?.length || 0} orders, loading rest in background...`);
+
+      // Continue loading remaining orders in background
+      if (initialBatch && initialBatch.length === initialBatchSize) {
+        setTimeout(async () => {
+          try {
+            const backgroundOrders = [...initialBatch];
+            let offset = initialBatchSize;
+            let hasMore = true;
+
+            while (hasMore) {
+              let bgQuery = supabase
+                .from("orders_materialized_view")
+                .select("*")
+                .order("created_at", { ascending: false })
+                .range(offset, offset + batchSize - 1);
+
+              if (options?.bookedBy) {
+                bgQuery = bgQuery.eq("booked_by", options.bookedBy);
+              }
+
+              const { data: batch, error: batchError } = await bgQuery;
+
+              if (batchError || !batch || batch.length === 0) {
+                hasMore = false;
+                break;
+              }
+
+              backgroundOrders.push(...batch);
+              offset += batchSize;
+
+              if (batch.length < batchSize) {
+                hasMore = false;
+              }
+            }
+
+            console.log(`[useOrders] Background loading complete: ${backgroundOrders.length} total orders`);
+            
+            // Update the cache with all orders - transform the data
+            queryClient.setQueryData(['orders', options?.bookedBy], transformOrders(backgroundOrders));
+          } catch (error) {
+            console.error("[useOrders] Background loading error:", error);
+          }
+        }, 0);
+      }
+
+      const allOrders = initialBatch || [];
+
+      // Transform and return initial batch
+      return transformOrders(allOrders);
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // Data refreshes every 5 minutes via materialized view
+  });
+
+  return query;
+};
+
+// Helper function to transform orders data
+function transformOrders(allOrders: any[]) {
+  return (allOrders || []).map((order: any) => {
         // Parse JSONB fields back to arrays
         const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
         const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
@@ -348,13 +396,4 @@ export const useOrders = (options?: UseOrdersOptions) => {
           bolFiles,
         };
       });
-    },
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 2,
-    staleTime: 5 * 60 * 1000, // Data refreshes every 5 minutes via materialized view
-  });
-
-  return query;
-};
+}
