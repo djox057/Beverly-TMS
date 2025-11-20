@@ -47,19 +47,26 @@ export const useDriverData = () => {
         }
       }
 
-      // Get current/recent orders
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          broker:brokers(name),
-          pickup_drops:pickup_drops(*)
-        `)
+      // Get current/recent orders from materialized view
+      const { data: ordersRaw, error: ordersError } = await supabase
+        .from('orders_materialized_view')
+        .select('*')
         .or(`driver1_id.eq.${driverData.id},driver2_id.eq.${driverData.id}`)
         .order('pickup_datetime', { ascending: false })
         .limit(10);
 
       if (ordersError) throw ordersError;
+
+      // Transform materialized view data to match expected structure
+      const ordersData = ordersRaw?.map((row: any) => {
+        const pickup_drops = row.pickup_drops || [];
+        
+        return {
+          ...row,
+          broker: row.broker_name ? { name: row.broker_name } : null,
+          pickup_drops,
+        };
+      }) || [];
 
       return {
         driver: driverData,
