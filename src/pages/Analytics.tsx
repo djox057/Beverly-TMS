@@ -285,11 +285,12 @@ const Analytics = () => {
         if (dateRange?.from) {
           const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
           // Only exclude orders with invalid dates when actively filtering by date
-          if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date") {
+          if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
             matchesDate = false;
           } else {
             try {
-              const orderDate = new Date(dateToFilter.split(" - ")[0]);
+              // Parse ISO date string directly
+              const orderDate = new Date(dateToFilter);
               // Validate the parsed date
               if (isNaN(orderDate.getTime())) {
                 matchesDate = false;
