@@ -557,6 +557,44 @@ export type Database = {
           },
         ]
       }
+      driver_yard_actions: {
+        Row: {
+          action_type: string
+          comment: string
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          comment: string
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          comment?: string
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_yard_actions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           agreement_start_date: string | null

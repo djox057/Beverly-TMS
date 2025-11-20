@@ -447,6 +447,12 @@ const Reports = () => {
   } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
+  const [yardActionDialog, setYardActionDialog] = useState<{
+    driverId: string;
+    driverName: string;
+  } | null>(null);
+  const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "">("");
+  const [yardActionComment, setYardActionComment] = useState("");
 
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
@@ -2656,33 +2662,6 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
-                                          {truck.driverId && (
-                                            <button
-                                              onClick={async (e) => {
-                                                e.stopPropagation();
-                                                const { error } = await supabase
-                                                  .from("drivers")
-                                                  .update({ going_yard: true })
-                                                  .eq("id", truck.driverId);
-                                                if (error) {
-                                                  toast({
-                                                    title: "Error",
-                                                    description: "Failed to update going yard status",
-                                                    variant: "destructive",
-                                                  });
-                                                } else {
-                                                  toast({
-                                                    title: "Success",
-                                                    description: `${truck.driver} marked as going to yard`,
-                                                  });
-                                                  queryClient.invalidateQueries({ queryKey: ["reports"] });
-                                                }
-                                              }}
-                                              className="inline-flex hover:opacity-70 transition-opacity"
-                                            >
-                                              <Home className="h-3 w-3 text-muted-foreground hover:text-foreground transition-colors" />
-                                            </button>
-                                          )}
                                           {(truck.driverPhone ||
                                             truck.driverEmail ||
                                             truck.trailerNumber ||
@@ -2747,7 +2726,25 @@ const Reports = () => {
                                                     </>
                                                   ) : (
                                                     <>
-                                                      <p className="font-semibold text-sm">{truck.driver}</p>
+                                                      <div className="flex items-center justify-between gap-2">
+                                                        <p className="font-semibold text-sm">{truck.driver}</p>
+                                                        {truck.driverId && (
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setYardActionDialog({
+                                                                driverId: truck.driverId!,
+                                                                driverName: truck.driver,
+                                                              });
+                                                            }}
+                                                          >
+                                                            <Home className="h-3 w-3" />
+                                                          </Button>
+                                                        )}
+                                                      </div>
                                                       <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
                                                       {truck.trailerNumber && (
                                                         <p className="text-xs">🚛 Trailer: {truck.trailerNumber}</p>
@@ -3499,6 +3496,112 @@ const Reports = () => {
                   <SelectItem value="positive">Positive</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Yard Action Dialog */}
+      <Dialog
+        open={!!yardActionDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setYardActionDialog(null);
+            setYardActionType("");
+            setYardActionComment("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Yard Action - {yardActionDialog?.driverName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                Action Type <span className="text-destructive">*</span>
+              </label>
+              <Select value={yardActionType} onValueChange={(value: "maintenance" | "return_truck") => setYardActionType(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select action" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="return_truck">Return the truck</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                Comment <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                value={yardActionComment}
+                onChange={(e) => setYardActionComment(e.target.value)}
+                placeholder="Enter comment..."
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setYardActionDialog(null);
+                  setYardActionType("");
+                  setYardActionComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!yardActionType || !yardActionComment.trim()}
+                onClick={async () => {
+                  if (!yardActionDialog || !yardActionType || !yardActionComment.trim()) return;
+                  
+                  const { error: insertError } = await supabase
+                    .from("driver_yard_actions")
+                    .insert({
+                      driver_id: yardActionDialog.driverId,
+                      action_type: yardActionType,
+                      comment: yardActionComment.trim(),
+                      created_by: profile?.user_id,
+                    });
+
+                  if (insertError) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to save yard action",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  const { error: updateError } = await supabase
+                    .from("drivers")
+                    .update({ going_yard: true })
+                    .eq("id", yardActionDialog.driverId);
+
+                  if (updateError) {
+                    toast({
+                      title: "Warning",
+                      description: "Yard action saved but failed to update going_yard status",
+                      variant: "destructive",
+                    });
+                  } else {
+                    toast({
+                      title: "Success",
+                      description: `Yard action saved for ${yardActionDialog.driverName}`,
+                    });
+                    queryClient.invalidateQueries({ queryKey: ["reports"] });
+                  }
+
+                  setYardActionDialog(null);
+                  setYardActionType("");
+                  setYardActionComment("");
+                }}
+              >
+                Save
+              </Button>
             </div>
           </div>
         </DialogContent>
