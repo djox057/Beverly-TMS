@@ -619,7 +619,7 @@ const Analytics = () => {
   const totals = filteredOrders.reduce(
     (acc, order) => {
       acc.totalFreight += order.totalFreightAmount || 0;
-      acc.totalDriverRate += order.driverPrice || 0;
+      acc.totalDriverRate += order.totalDriverPay || 0;
       acc.totalMiles += order.mileage || 0;
       acc.orderCount += 1;
       return acc;
@@ -648,7 +648,7 @@ const Analytics = () => {
             orderCount: 0,
           };
         }
-        acc[driverName].totalDriverRate += order.driverPrice;
+        acc[driverName].totalDriverRate += order.totalDriverPay;
         acc[driverName].totalMiles += order.mileage;
         acc[driverName].orderCount += 1;
       }
