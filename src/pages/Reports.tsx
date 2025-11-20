@@ -2656,6 +2656,33 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
+                                          {truck.driverId && (
+                                            <button
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                const { error } = await supabase
+                                                  .from("drivers")
+                                                  .update({ going_yard: true })
+                                                  .eq("id", truck.driverId);
+                                                if (error) {
+                                                  toast({
+                                                    title: "Error",
+                                                    description: "Failed to update going yard status",
+                                                    variant: "destructive",
+                                                  });
+                                                } else {
+                                                  toast({
+                                                    title: "Success",
+                                                    description: `${truck.driver} marked as going to yard`,
+                                                  });
+                                                  queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                }
+                                              }}
+                                              className="inline-flex hover:opacity-70 transition-opacity"
+                                            >
+                                              <Home className="h-3 w-3 text-muted-foreground hover:text-foreground transition-colors" />
+                                            </button>
+                                          )}
                                           {(truck.driverPhone ||
                                             truck.driverEmail ||
                                             truck.trailerNumber ||
