@@ -26,6 +26,7 @@ import {
   History,
   HelpCircle,
   Home,
+  Warehouse,
   Ban,
   Upload,
 } from "lucide-react";
@@ -2741,7 +2742,7 @@ const Reports = () => {
                                                               });
                                                             }}
                                                           >
-                                                            <Home className="h-3 w-3" />
+                                                            <Warehouse className="h-3 w-3" />
                                                           </Button>
                                                         )}
                                                       </div>
