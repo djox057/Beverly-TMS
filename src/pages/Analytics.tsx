@@ -289,13 +289,15 @@ const Analytics = () => {
             matchesDate = false;
           } else {
             try {
-              // Parse ISO date string directly
-              const orderDate = new Date(dateToFilter);
+              // Extract just the date part from ISO datetime string (YYYY-MM-DD)
+              const isoDate = dateToFilter.split('T')[0];
+              const [year, month, day] = isoDate.split('-').map(Number);
+              const orderDateOnly = new Date(year, month - 1, day); // month is 0-indexed
+              
               // Validate the parsed date
-              if (isNaN(orderDate.getTime())) {
+              if (isNaN(orderDateOnly.getTime())) {
                 matchesDate = false;
               } else {
-                const orderDateOnly = new Date(orderDate.getFullYear(), orderDate.getMonth(), orderDate.getDate());
                 if (dateRange.to) {
                   // Date range filtering
                   const fromDateOnly = new Date(
