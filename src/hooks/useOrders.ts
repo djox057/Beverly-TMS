@@ -82,10 +82,12 @@ export const useOrders = (options?: UseOrdersOptions) => {
       console.log("[useOrders] Fetching from materialized view...");
       
       // Query the pre-computed materialized view (refreshed every 5 minutes)
+      // Set limit to 5000 to handle large datasets (default is 1000)
       let ordersQuery = supabase
         .from("orders_materialized_view")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(5000);
 
       if (options?.bookedBy) {
         ordersQuery = ordersQuery.eq("booked_by", options.bookedBy);
