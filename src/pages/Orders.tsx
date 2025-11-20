@@ -17,7 +17,19 @@ import {
 } from "@/components/ui/pagination";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, FileText, Edit, Loader2, Download, Lock, LockOpen, XCircle, Calculator, Undo2, Info } from "lucide-react";
+import {
+  Search,
+  FileText,
+  Edit,
+  Loader2,
+  Download,
+  Lock,
+  LockOpen,
+  XCircle,
+  Calculator,
+  Undo2,
+  Info,
+} from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useState, useEffect } from "react";
@@ -130,9 +142,7 @@ const Orders = () => {
 
   // For dispatch users, pass their name to filter at the database level
   // Use null instead of undefined to prevent double fetch when profile loads
-  const orderFilterOptions = isDispatchOnly 
-    ? { bookedBy: profile?.full_name || null } 
-    : { bookedBy: null };
+  const orderFilterOptions = isDispatchOnly ? { bookedBy: profile?.full_name || null } : { bookedBy: null };
 
   // Check if user can cancel orders (includes both dispatch and afterhours)
   const canCancelOrders =
@@ -253,7 +263,10 @@ const Orders = () => {
 
       // For dispatch users, respect the filter but default to their own loads
       const matchesBookedBy =
-        !bookedByFilter || bookedByFilter === "all-booked-by" || bookedByFilter === "all-users" || order.bookedBy === bookedByFilter;
+        !bookedByFilter ||
+        bookedByFilter === "all-booked-by" ||
+        bookedByFilter === "all-users" ||
+        order.bookedBy === bookedByFilter;
 
       const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
       const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
@@ -632,11 +645,7 @@ const Orders = () => {
           <div className="flex gap-2">
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
-                <Button 
-                  variant="outline" 
-                  onClick={exportToExcel} 
-                  disabled={!filteredOrders.length}
-                >
+                <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
                   <Download className="mr-2 h-4 w-4" />
                   Export to Excel
                 </Button>
@@ -650,12 +659,7 @@ const Orders = () => {
               <FileText className="mr-2 h-4 w-4" />
               New Load
             </Button>
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={() => setShowLegendDialog(true)}
-              title="Color Legend"
-            >
+            <Button variant="outline" size="icon" onClick={() => setShowLegendDialog(true)} title="Color Legend">
               <Info className="h-4 w-4" />
             </Button>
           </div>
@@ -666,7 +670,6 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <CardTitle className="shrink-0">All Loads</CardTitle>
-                <span className="text-xs text-muted-foreground">(refreshes every 5 minutes)</span>
               </div>
 
               <ScrollArea className="w-full">
@@ -1100,7 +1103,8 @@ const Orders = () => {
             {filteredOrders.length > ORDERS_PER_PAGE && (
               <div className="flex items-center justify-between px-6 py-4 border-t">
                 <div className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} loads
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length}{" "}
+                  loads
                 </div>
                 <Pagination>
                   <PaginationContent>
@@ -1262,9 +1266,7 @@ const Orders = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Load Background Colors Legend</DialogTitle>
-              <DialogDescription>
-                Background colors indicate special conditions for loads
-              </DialogDescription>
+              <DialogDescription>Background colors indicate special conditions for loads</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-4">
               <div className="flex items-center gap-3">
@@ -1278,7 +1280,9 @@ const Orders = () => {
                 <div className="w-12 h-8 rounded bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] border border-border" />
                 <div>
                   <p className="font-semibold">Red - Driver Penalty Fees</p>
-                  <p className="text-sm text-muted-foreground">Late fee, no tracking fee, or wrong address fee applied to driver</p>
+                  <p className="text-sm text-muted-foreground">
+                    Late fee, no tracking fee, or wrong address fee applied to driver
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
