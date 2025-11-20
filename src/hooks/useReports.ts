@@ -427,19 +427,8 @@ export const useReports = () => {
     queryKey: ["reports"],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        // Calculate date range: 7 days in past (for recently completed orders), today, 3 days in future
-        const now = new Date();
-        const sevenDaysAgo = new Date(now);
-        sevenDaysAgo.setDate(now.getDate() - 7);
-        sevenDaysAgo.setHours(0, 0, 0, 0);
+        console.log("[useReports] Fetching from materialized view...");
         
-        const threeDaysAhead = new Date(now);
-        threeDaysAhead.setDate(now.getDate() + 3);
-        threeDaysAhead.setHours(23, 59, 59, 999);
-        
-        const startDate = sevenDaysAgo.toISOString();
-        const endDate = threeDaysAhead.toISOString();
-
         // Fetch trucks with their drivers and company info
         const { data: trucksRaw, error: trucksError } = await supabase
           .from("trucks")
@@ -462,119 +451,47 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch orders within date range first (priority loads)
-        const { data: priorityOrders, error: priorityOrdersError } = await supabase
-          .from("orders")
-          .select(
-            `
-            id,
-            load_number,
-            internal_load_number,
-            broker_load_number,
-            status,
-            notes,
-            date_change_notes,
-            updated_at,
-            pickup_datetime,
-            pickup_end_datetime,
-            delivery_datetime,
-            delivery_end_datetime,
-            canceled,
-            driver1_id,
-            driver2_id,
-            truck_id,
-            is_recovery,
-            pickup_drops(
-              id,
-              type,
-              address,
-              city,
-              state,
-              zip_code,
-              datetime,
-              end_datetime,
-              arrived_at,
-              checked_out_at,
-              going_to_at,
-              sequence_number
-            ),
-            order_files!left(
-              id,
-              file_category
-            )
-          `,
-          )
-          .or(`pickup_datetime.gte.${startDate},pickup_datetime.lte.${endDate},delivery_datetime.gte.${startDate},delivery_datetime.lte.${endDate}`)
-          .order("updated_at", { ascending: false });
+        // Fetch orders from materialized view (limit to 5000 for performance)
+        const { data: ordersRaw, error: ordersError } = await supabase
+          .from("orders_materialized_view")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .limit(5000);
 
-        if (priorityOrdersError) throw priorityOrdersError;
+        if (ordersError) throw ordersError;
 
-        console.log(`✅ Fetched ${priorityOrders?.length || 0} priority orders (within date range)`);
+        console.log(`[useReports] Fetched ${ordersRaw?.length || 0} orders from materialized view`);
 
-        // Load remaining orders in the background
-        setTimeout(async () => {
-          try {
-            const { data: remainingOrders, error: remainingOrdersError } = await supabase
-              .from("orders")
-              .select(
-                `
-                id,
-                load_number,
-                internal_load_number,
-                broker_load_number,
-                status,
-                notes,
-                date_change_notes,
-                updated_at,
-                pickup_datetime,
-                pickup_end_datetime,
-                delivery_datetime,
-                delivery_end_datetime,
-                canceled,
-                driver1_id,
-                driver2_id,
-                truck_id,
-                is_recovery,
-                pickup_drops(
-                  id,
-                  type,
-                  address,
-                  city,
-                  state,
-                  zip_code,
-                  datetime,
-                  end_datetime,
-                  arrived_at,
-                  checked_out_at,
-                  going_to_at,
-                  sequence_number
-                ),
-                order_files!left(
-                  id,
-                  file_category
-                )
-              `,
-              )
-              .not('id', 'in', `(${priorityOrders?.map(o => o.id).join(',') || 'null'})`)
-              .order("updated_at", { ascending: false });
+        // Transform materialized view data to match expected structure
+        const orders = ordersRaw?.map((row: any) => {
+          // Parse pickup_drops from JSON
+          const pickup_drops = row.pickup_drops ? JSON.parse(row.pickup_drops as string) : [];
+          
+          // Parse order_files from JSON
+          const order_files = row.order_files ? JSON.parse(row.order_files as string) : [];
 
-            if (!remainingOrdersError && remainingOrders) {
-              console.log(`✅ Fetched ${remainingOrders.length} additional orders in background`);
-              // Trigger a query invalidation to merge all orders
-              queryClient.setQueryData(['reports'], (oldData: any) => {
-                if (!oldData) return oldData;
-                return {
-                  ...oldData,
-                  orders: [...(oldData.orders || []), ...remainingOrders]
-                };
-              });
-            }
-          } catch (error) {
-            console.error('Error loading remaining orders:', error);
-          }
-        }, 1000);
-
-        const orders = priorityOrders || [];
+          return {
+            id: row.id,
+            load_number: row.load_number,
+            internal_load_number: row.internal_load_number,
+            broker_load_number: row.broker_load_number,
+            status: row.status,
+            notes: row.notes,
+            date_change_notes: row.date_change_notes,
+            updated_at: row.updated_at,
+            pickup_datetime: row.pickup_datetime,
+            pickup_end_datetime: row.pickup_end_datetime,
+            delivery_datetime: row.delivery_datetime,
+            delivery_end_datetime: row.delivery_end_datetime,
+            canceled: row.canceled,
+            driver1_id: row.driver1_id,
+            driver2_id: row.driver2_id,
+            truck_id: row.truck_id,
+            is_recovery: row.is_recovery,
+            pickup_drops,
+            order_files,
+          };
+        }) || [];
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
