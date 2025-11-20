@@ -464,11 +464,9 @@ export const useReports = () => {
 
         // Transform materialized view data to match expected structure
         const orders = ordersRaw?.map((row: any) => {
-          // Parse pickup_drops from JSON
-          const pickup_drops = row.pickup_drops ? JSON.parse(row.pickup_drops as string) : [];
-          
-          // Parse order_files from JSON
-          const order_files = row.order_files ? JSON.parse(row.order_files as string) : [];
+          // Materialized view already returns these as parsed JSON arrays
+          const pickup_drops = row.pickup_drops || [];
+          const order_files = row.order_files || [];
 
           return {
             id: row.id,
