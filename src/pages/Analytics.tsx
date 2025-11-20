@@ -126,12 +126,8 @@ const Analytics = () => {
     !hasRole("supervisor") &&
     !hasRole("safety");
 
-  // For dispatch users, pass their name to filter at the database level
-  const orderFilterOptions = isDispatchOnly 
-    ? { bookedBy: profile?.full_name || null } 
-    : { bookedBy: null };
-
-  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
+  // Don't use database-level filtering for dispatch users - let client-side filtering handle both full_name and user_id formats
+  const { data: orders, isLoading, error } = useOrders();
   const { data: companies } = useCompanies();
   const { data: drivers } = useDrivers();
   const { performanceData, updatePerformance } = useDriverPerformance();
