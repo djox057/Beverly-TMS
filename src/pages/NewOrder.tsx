@@ -1396,6 +1396,9 @@ const NewOrder = () => {
       return;
     }
 
+    // Set submitting flag immediately to prevent race conditions
+    setIsSubmitting(true);
+
     // CRITICAL: Validate pickup/drop data before submission (unless pending from missing data confirmation)
     if (!pendingSubmit) {
       const missingData = validatePickupDropData();
@@ -1403,6 +1406,7 @@ const NewOrder = () => {
         setMissingDataDetails(missingData);
         setShowMissingDataDialog(true);
         setPendingSubmit(true);
+        setIsSubmitting(false);
         return;
       }
     }
@@ -1447,6 +1451,7 @@ const NewOrder = () => {
         setDuplicateStops(potentialDuplicates);
         setShowDuplicateStopsDialog(true);
         setPendingSubmit(true);
+        setIsSubmitting(false);
         return;
       }
     }
@@ -1458,6 +1463,7 @@ const NewOrder = () => {
         description: "Please select a booked by company.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (!brokerLoadNumber?.trim()) {
@@ -1466,6 +1472,7 @@ const NewOrder = () => {
         description: "Please enter a broker load number.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (!broker) {
@@ -1474,6 +1481,7 @@ const NewOrder = () => {
         description: "Please select a broker.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (!truck) {
@@ -1482,6 +1490,7 @@ const NewOrder = () => {
         description: "Please select a truck.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -1493,6 +1502,7 @@ const NewOrder = () => {
         description: "Please add at least one pickup location.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     for (const pickup of pickups) {
@@ -1502,6 +1512,7 @@ const NewOrder = () => {
           description: "Please enter an address for all pickup locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (!pickup.dateRange?.from) {
@@ -1510,6 +1521,7 @@ const NewOrder = () => {
           description: "Please select a date range for all pickup locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (!pickup.startTime?.trim() || !pickup.endTime?.trim()) {
@@ -1518,6 +1530,7 @@ const NewOrder = () => {
           description: "Please enter start and end times for all pickup locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -1530,6 +1543,7 @@ const NewOrder = () => {
         description: "Please add at least one delivery location.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     for (const delivery of deliveries) {
@@ -1539,6 +1553,7 @@ const NewOrder = () => {
           description: "Please enter an address for all delivery locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (!delivery.dateRange?.from) {
@@ -1547,6 +1562,7 @@ const NewOrder = () => {
           description: "Please select a date range for all delivery locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (!delivery.startTime?.trim() || !delivery.endTime?.trim()) {
@@ -1555,6 +1571,7 @@ const NewOrder = () => {
           description: "Please enter start and end times for all delivery locations.",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -1564,6 +1581,7 @@ const NewOrder = () => {
         description: "Please enter a valid freight amount.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (!loadedMiles?.trim() || parseInt(loadedMiles) <= 0) {
@@ -1572,6 +1590,7 @@ const NewOrder = () => {
         description: "Please enter valid total miles (loaded miles).",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (!driver1) {
@@ -1580,24 +1599,26 @@ const NewOrder = () => {
         description: "Please select a driver. The internal load number is based on the driver's company.",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
 
-    // Check for duplicates unless explicitly skipped
-    if (!skipDuplicateCheck) {
-      const duplicates = await checkForDuplicates();
-      if (duplicates.length > 0) {
-        setDuplicateOrders(duplicates);
-        setShowDuplicateWarning(true);
-        return;
+      // Check for duplicates unless explicitly skipped
+      if (!skipDuplicateCheck) {
+        const duplicates = await checkForDuplicates();
+        if (duplicates.length > 0) {
+          setDuplicateOrders(duplicates);
+          setShowDuplicateWarning(true);
+          setIsSubmitting(false);
+          return;
+        }
       }
-    }
-    setPendingSubmit(false);
-    setIsSubmitting(true);
-    try {
-      // Default to BF Prime LLC if booked by company is not selected
-      const bfPrimeCompany = companies?.find(c => c.name === 'BF Prime');
-      const finalBookedByCompany = bookedByCompany || bfPrimeCompany?.id || null;
+      setPendingSubmit(false);
+      
+      try {
+        // Default to BF Prime LLC if booked by company is not selected
+        const bfPrimeCompany = companies?.find(c => c.name === 'BF Prime');
+        const finalBookedByCompany = bookedByCompany || bfPrimeCompany?.id || null;
 
       // Create order data object for the atomic function
       const orderData = {
@@ -1910,7 +1931,6 @@ const NewOrder = () => {
         variant: "destructive",
         duration: 8000
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
