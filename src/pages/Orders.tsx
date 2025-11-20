@@ -208,7 +208,7 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
-  const { data: orders, isLoading, error, refetch, isLoadingBackground, loadProgress } = useOrders(orderFilterOptions);
+  const { data: orders, isLoading, error, refetch } = useOrders(orderFilterOptions);
 
   const { data: companies } = useCompanies();
 
@@ -635,8 +635,7 @@ const Orders = () => {
                 <Button 
                   variant="outline" 
                   onClick={exportToExcel} 
-                  disabled={!filteredOrders.length || isLoadingBackground}
-                  title={isLoadingBackground ? "Wait for all orders to load" : ""}
+                  disabled={!filteredOrders.length}
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Export to Excel
@@ -667,20 +666,7 @@ const Orders = () => {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <CardTitle className="shrink-0">All Loads</CardTitle>
-                {isLoadingBackground && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help">
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Loading orders: {loadProgress.loaded.toLocaleString()} / {loadProgress.total.toLocaleString()} ({loadProgress.total > 0 ? Math.round((loadProgress.loaded / loadProgress.total) * 100) : 0}%)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
+                <span className="text-xs text-muted-foreground">(refreshes every 5 minutes)</span>
               </div>
 
               <ScrollArea className="w-full">
