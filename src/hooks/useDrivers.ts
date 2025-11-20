@@ -186,9 +186,8 @@ export const useDrivers = () => {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
     refetchOnMount: false, // Use cached data when available
-    refetchOnReconnect: false, // Don't refetch on reconnect
-    staleTime: 30 * 60 * 1000, // 30 minutes - data stays fresh longer
-    gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache
+    staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
     structuralSharing: false, // Prevent React Query from merging old/new data structures
   });
 };
