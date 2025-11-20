@@ -539,9 +539,6 @@ export const useReports = () => {
             const driverOrders =
               orders?.filter(
                 (order) => 
-                  // Order is assigned to this truck
-                  order.truck_id === truck.id ||
-                  // OR order is assigned to this truck's driver
                   order.driver1_id === truck.driver1_id || 
                   order.driver2_id === truck.driver1_id,
               ) || [];
