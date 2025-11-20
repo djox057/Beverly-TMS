@@ -240,11 +240,11 @@ const Orders = () => {
     orders?.filter((order) => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        (order.internalLoadNumber?.toLowerCase() || "").includes(searchLower) ||
-        (order.truckNumber?.toLowerCase() || "").includes(searchLower) ||
+        (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+        (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
         (order.driverName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
-        (order.brokerLoadNumber?.toLowerCase() || "").includes(searchLower);
+        (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
       const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.companyName === companyFilter;
       const matchesTruckCompany =
         !truckCompanyFilter ||
@@ -275,7 +275,7 @@ const Orders = () => {
 
       // Date filtering based on delivery date
       let matchesDate = true;
-      if (dateRange?.from) {
+      if (dateRange?.from && order.deliveryDate) {
         const orderDeliveryDate = new Date(order.deliveryDate.split(" - ")[0]);
         const orderDateOnly = new Date(
           orderDeliveryDate.getFullYear(),
