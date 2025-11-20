@@ -1484,15 +1484,21 @@ const Reports = () => {
       });
       shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
 
-      // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
-      // Show red if no pickup on this day, regardless of transit state
+      // Check if this is a missing pickup (red cell) - empty pickup cell after a completed delivery
+      // Only show "Lost day" when there was a PREVIOUS delivery (load complete) and no new pickup yet
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
-      const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
+      
+      // Check if there was a delivery on ANY previous day (meaning a load was completed)
+      const hadPreviousDelivery = index > 0 && days.slice(0, index).some((prevDay) => {
+        const prevDayStr = format(prevDay, "yyyy-MM-dd");
+        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+      });
+      
       const isWithinTimeframe = day <= oneDayInFuture;
       const isOneDayFuture = isSameDay(day, oneDayInFuture);
       const isMissingPickup =
         isEmptyPickup &&
-        isAfterFirstPickup &&
+        hadPreviousDelivery && // Changed: only after a delivery, not after first pickup
         isWithinTimeframe &&
         !isInTransit &&
         !hasGameOverBefore &&
