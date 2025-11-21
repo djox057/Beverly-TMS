@@ -634,7 +634,7 @@ const Trips = () => {
           <div className="p-6 relative">
             <Table>
               <TableHeader className="sticky top-0 z-20">
-                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-2 border-black">
+                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-b-4 border-transparent">
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
@@ -683,7 +683,7 @@ const Trips = () => {
                           key={`week-${week.weekStart}`}
                           className={`font-semibold border-4 border-primary ${
                             isExported ? "bg-primary text-primary-foreground" : "bg-muted/50"
-                          } hover:bg-current`}
+                          }`}
                         >
                           <TableCell colSpan={9} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
