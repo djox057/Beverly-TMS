@@ -100,9 +100,14 @@ export default function YardArrivals() {
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
-    // Parse without timezone conversion
+    // Format as MM/DD/YYYY HH:mm without timezone conversion
     const date = new Date(dateString);
-    return formatDate(date, "yyyy-MM-dd HH:mm");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
   };
 
   if (isLoading) {
@@ -134,16 +139,16 @@ export default function YardArrivals() {
                 {maintenanceActions.map((action) => (
                   <div key={action.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 space-y-1">
                         <p className="font-semibold">
-                          {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                          #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Truck: {action.truck?.truck_number || "N/A"}
+                          Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Arrived: {formatDateTime(action.arrival_datetime || action.created_at)}
-                        </p>
+                        <div className="pt-1">
+                          <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
@@ -152,10 +157,6 @@ export default function YardArrivals() {
                       >
                         <X className="h-4 w-4 text-destructive" />
                       </Button>
-                    </div>
-                    <div className="bg-muted p-3 rounded">
-                      <p className="text-sm font-medium mb-1">Comment:</p>
-                      <p className="text-sm">{action.comment}</p>
                     </div>
                   </div>
                 ))}
@@ -180,16 +181,16 @@ export default function YardArrivals() {
                 {returnTruckActions.map((action) => (
                   <div key={action.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 space-y-1">
                         <p className="font-semibold">
-                          {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                          #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Truck: {action.truck?.truck_number || "N/A"}
+                          Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Arrived: {formatDateTime(action.arrival_datetime || action.created_at)}
-                        </p>
+                        <div className="pt-1">
+                          <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
@@ -198,10 +199,6 @@ export default function YardArrivals() {
                       >
                         <X className="h-4 w-4 text-destructive" />
                       </Button>
-                    </div>
-                    <div className="bg-muted p-3 rounded">
-                      <p className="text-sm font-medium mb-1">Comment:</p>
-                      <p className="text-sm">{action.comment}</p>
                     </div>
                   </div>
                 ))}

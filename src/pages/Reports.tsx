@@ -3577,12 +3577,12 @@ const Reports = () => {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium">
-                Comment <span className="text-destructive">*</span>
+                Reason <span className="text-destructive">*</span>
               </label>
               <Textarea
                 value={yardActionComment}
                 onChange={(e) => setYardActionComment(e.target.value)}
-                placeholder="Enter comment..."
+                placeholder="Enter reason..."
                 rows={4}
               />
             </div>
