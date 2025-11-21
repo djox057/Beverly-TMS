@@ -914,7 +914,7 @@ const Orders = () => {
                             </div>
                           </TableCell>
                           <TableCell className="w-28">
-                            <div className="line-clamp-2">{order.companyName}</div>
+                            <div className="line-clamp-2">{order.bookedByCompanyName}</div>
                           </TableCell>
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
