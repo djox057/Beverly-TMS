@@ -29,6 +29,7 @@ import {
   Warehouse,
   Ban,
   Upload,
+  CalendarIcon,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -46,8 +47,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
+import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
@@ -454,6 +457,7 @@ const Reports = () => {
   } | null>(null);
   const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
+  const [yardActionDatetime, setYardActionDatetime] = useState<Date | undefined>(new Date());
 
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
@@ -3548,6 +3552,7 @@ const Reports = () => {
             setYardActionDialog(null);
             setYardActionType("");
             setYardActionComment("");
+            setYardActionDatetime(new Date());
           }
         }}
       >
@@ -3581,6 +3586,78 @@ const Reports = () => {
                 rows={4}
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">
+                Arrival Date & Time <span className="text-destructive">*</span>
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !yardActionDatetime && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {yardActionDatetime ? format(yardActionDatetime, "PPP p") : <span>Pick a date and time</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={yardActionDatetime}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Preserve existing time when selecting new date
+                        const newDate = new Date(date);
+                        if (yardActionDatetime) {
+                          newDate.setHours(yardActionDatetime.getHours());
+                          newDate.setMinutes(yardActionDatetime.getMinutes());
+                        }
+                        setYardActionDatetime(newDate);
+                      }
+                    }}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                  <div className="border-t p-3 space-y-2">
+                    <label className="text-sm font-medium">Time</label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={yardActionDatetime?.getHours() || 0}
+                        onChange={(e) => {
+                          const hours = parseInt(e.target.value) || 0;
+                          const newDate = yardActionDatetime ? new Date(yardActionDatetime) : new Date();
+                          newDate.setHours(Math.min(23, Math.max(0, hours)));
+                          setYardActionDatetime(newDate);
+                        }}
+                        className="w-20"
+                        placeholder="HH"
+                      />
+                      <span className="flex items-center">:</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={yardActionDatetime?.getMinutes() || 0}
+                        onChange={(e) => {
+                          const minutes = parseInt(e.target.value) || 0;
+                          const newDate = yardActionDatetime ? new Date(yardActionDatetime) : new Date();
+                          newDate.setMinutes(Math.min(59, Math.max(0, minutes)));
+                          setYardActionDatetime(newDate);
+                        }}
+                        className="w-20"
+                        placeholder="MM"
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -3588,14 +3665,15 @@ const Reports = () => {
                   setYardActionDialog(null);
                   setYardActionType("");
                   setYardActionComment("");
+                  setYardActionDatetime(new Date());
                 }}
               >
                 Cancel
               </Button>
               <Button
-                disabled={!yardActionType || !yardActionComment.trim()}
+                disabled={!yardActionType || !yardActionComment.trim() || !yardActionDatetime}
                 onClick={async () => {
-                  if (!yardActionDialog || !yardActionType || !yardActionComment.trim()) return;
+                  if (!yardActionDialog || !yardActionType || !yardActionComment.trim() || !yardActionDatetime) return;
                   
                   const { error: insertError } = await supabase
                     .from("driver_yard_actions")
@@ -3603,6 +3681,7 @@ const Reports = () => {
                       driver_id: yardActionDialog.driverId,
                       action_type: yardActionType,
                       comment: yardActionComment.trim(),
+                      arrival_datetime: yardActionDatetime.toISOString(),
                       created_by: profile?.user_id,
                     });
 
@@ -3637,6 +3716,7 @@ const Reports = () => {
                   setYardActionDialog(null);
                   setYardActionType("");
                   setYardActionComment("");
+                  setYardActionDatetime(new Date());
                 }}
               >
                 Save

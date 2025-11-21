@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Wrench, TruckIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { format as formatDate } from "date-fns";
 
 interface YardAction {
   id: string;
@@ -12,6 +13,7 @@ interface YardAction {
   action_type: "maintenance" | "return_truck";
   comment: string;
   created_at: string;
+  arrival_datetime: string | null;
   created_by: string | null;
   driver: {
     name: string;
@@ -38,6 +40,7 @@ export default function YardArrivals() {
           action_type,
           comment,
           created_at,
+          arrival_datetime,
           created_by,
           drivers!driver_yard_actions_driver_id_fkey (
             name,
@@ -95,15 +98,11 @@ export default function YardArrivals() {
     }
   };
 
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return "N/A";
     // Parse without timezone conversion
     const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
+    return formatDate(date, "yyyy-MM-dd HH:mm");
   };
 
   if (isLoading) {
@@ -143,7 +142,7 @@ export default function YardArrivals() {
                           Truck: {action.truck?.truck_number || "N/A"}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Arrived: {formatDateTime(action.created_at)}
+                          Arrived: {formatDateTime(action.arrival_datetime || action.created_at)}
                         </p>
                       </div>
                       <Button
@@ -189,7 +188,7 @@ export default function YardArrivals() {
                           Truck: {action.truck?.truck_number || "N/A"}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Arrived: {formatDateTime(action.created_at)}
+                          Arrived: {formatDateTime(action.arrival_datetime || action.created_at)}
                         </p>
                       </div>
                       <Button

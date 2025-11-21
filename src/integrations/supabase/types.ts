@@ -560,6 +560,7 @@ export type Database = {
       driver_yard_actions: {
         Row: {
           action_type: string
+          arrival_datetime: string | null
           comment: string
           created_at: string
           created_by: string | null
@@ -569,6 +570,7 @@ export type Database = {
         }
         Insert: {
           action_type: string
+          arrival_datetime?: string | null
           comment: string
           created_at?: string
           created_by?: string | null
@@ -578,6 +580,7 @@ export type Database = {
         }
         Update: {
           action_type?: string
+          arrival_datetime?: string | null
           comment?: string
           created_at?: string
           created_by?: string | null
