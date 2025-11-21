@@ -25,6 +25,23 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
+// Helper to format datetime strings without timezone conversion
+const formatDateDisplay = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "";
+  try {
+    // Parse the date and format as MM/DD/YYYY HH:mm
+    const date = new Date(dateStr);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${month}/${day}/${year} ${hours}:${minutes}`;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -283,10 +300,10 @@ const Trips = () => {
 
       week.orders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
-        worksheet.getCell(`B${currentRow}`).value = order.pickupDate || "";
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
         worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
-        worksheet.getCell(`E${currentRow}`).value = order.deliveryDate || "";
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
         worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
@@ -370,10 +387,10 @@ const Trips = () => {
       const excelData = week.orders.map((order: any) => ({
         "Truck #": order.truckNumber || "",
         "Load #": order.internalLoadNumber || "",
-        "Pickup Date": order.pickupDate || "",
+        "Pickup Date": formatDateDisplay(order.pickupDate),
         "Pickup City": order.pickupCity || "",
         "Pickup State": order.pickupState || "",
-        "Delivery Date": order.deliveryDate || "",
+        "Delivery Date": formatDateDisplay(order.deliveryDate),
         "Delivery City": order.deliveryCity || "",
         "Delivery State": order.deliveryState || "",
         Miles: order.mileage || 0,
@@ -695,7 +712,7 @@ const Trips = () => {
                               <TableCell className="font-medium">{order.truckNumber}</TableCell>
                               <TableCell>{order.internalLoadNumber}</TableCell>
                               <TableCell className="p-0">
-                                <div className="h-full p-4">{order.pickupDate}</div>
+                                <div className="h-full p-4">{formatDateDisplay(order.pickupDate)}</div>
                               </TableCell>
                               <TableCell className="p-0">
                                 <div className="h-full p-4 line-clamp-2">{order.pickupCity}</div>
@@ -704,7 +721,7 @@ const Trips = () => {
                                 <div className="h-full p-4">{order.pickupState}</div>
                               </TableCell>
                               <TableCell className="p-0">
-                                <div className="h-full p-4">{order.deliveryDate}</div>
+                                <div className="h-full p-4">{formatDateDisplay(order.deliveryDate)}</div>
                               </TableCell>
                               <TableCell className="p-0">
                                 <div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div>
