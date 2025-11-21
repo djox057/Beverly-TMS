@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Loader2, GripVertical, Sparkles, Upload, FileText, AlertCircle, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { DateRange } from "react-day-picker";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
@@ -476,14 +476,14 @@ const NewOrder = () => {
       if (item.id === id) {
         const updated = {
           ...item,
-          [field]: value
+          [field]: field === 'city' && typeof value === 'string' ? toTitleCase(value) : value
         };
 
         // If updating address field, immediately parse it to preserve city/state/zipCode
         if (field === 'address' && typeof value === 'string' && value.trim()) {
           const parsed = parseAddress(value);
           updated.address = parsed.address || value;
-          updated.city = parsed.city || undefined;
+          updated.city = parsed.city ? toTitleCase(parsed.city) : undefined;
           updated.state = parsed.state || undefined;
           updated.zipCode = parsed.zipCode || undefined;
         }
@@ -509,7 +509,7 @@ const NewOrder = () => {
         return {
           ...item,
           address: parsed.address || item.address,
-          city: parsed.city || undefined,
+          city: parsed.city ? toTitleCase(parsed.city) : undefined,
           state: parsed.state || undefined,
           zipCode: parsed.zipCode || undefined
         };
@@ -849,7 +849,7 @@ const NewOrder = () => {
             id: `pickup-${index + 1}`,
             type: "pickup",
             address: pickup.address || "",
-            city: pickup.city || "",
+            city: pickup.city ? toTitleCase(pickup.city) : "",
             state: pickup.state || "",
             zipCode: pickup.zip || "",
             datetime: pickup.date || "",
@@ -878,7 +878,7 @@ const NewOrder = () => {
           id: "pickup-1",
           type: "pickup",
           address: extractedData.pickupAddress || "",
-          city: extractedData.pickupCity || "",
+          city: extractedData.pickupCity ? toTitleCase(extractedData.pickupCity) : "",
           state: extractedData.pickupState || "",
           zipCode: extractedData.pickupZip || "",
           datetime: extractedData.pickupDate || "",
@@ -896,7 +896,7 @@ const NewOrder = () => {
             id: `delivery-${index + 1}`,
             type: "delivery",
             address: delivery.address || "",
-            city: delivery.city || "",
+            city: delivery.city ? toTitleCase(delivery.city) : "",
             state: delivery.state || "",
             zipCode: delivery.zip || "",
             datetime: delivery.date || "",
@@ -925,7 +925,7 @@ const NewOrder = () => {
           id: "delivery-1",
           type: "delivery",
           address: extractedData.deliveryAddress || "",
-          city: extractedData.deliveryCity || "",
+          city: extractedData.deliveryCity ? toTitleCase(extractedData.deliveryCity) : "",
           state: extractedData.deliveryState || "",
           zipCode: extractedData.deliveryZip || "",
           datetime: extractedData.deliveryDate || "",
