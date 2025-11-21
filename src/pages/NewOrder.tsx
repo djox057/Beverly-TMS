@@ -1467,13 +1467,18 @@ const NewOrder = () => {
   const handleSubmit = async (e: React.FormEvent, skipDuplicateCheck = false, skipDuplicateStopsCheck = false) => {
     e.preventDefault();
 
-    // Prevent duplicate submissions
+    // CRITICAL: Prevent duplicate submissions with debouncing
     if (isSubmitting) {
-      console.log("Form submission already in progress, ignoring duplicate submission");
+      console.log("⛔ Form submission already in progress, blocking duplicate submission");
+      toast({
+        title: "Please Wait",
+        description: "Order is being created. Please do not submit again.",
+        variant: "default",
+      });
       return;
     }
 
-    // Set submitting flag immediately to prevent race conditions
+    // Set submitting flag IMMEDIATELY to prevent race conditions from double-clicks
     setIsSubmitting(true);
 
     // CRITICAL: Validate pickup/drop data before submission (unless pending from missing data confirmation)
@@ -2774,9 +2779,13 @@ const NewOrder = () => {
               <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || isExtracting || isCalculatingMiles}
+                className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Load
+                {isSubmitting ? "Creating Load..." : "Create Load"}
               </Button>
             </div>
           </form>
@@ -2816,14 +2825,18 @@ const NewOrder = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={isSubmitting}
+              className={cn(isSubmitting && "opacity-50 cursor-not-allowed")}
               onClick={(e) => {
-                if (isSubmitting) return; // Prevent duplicate submissions
+                if (isSubmitting) {
+                  console.log("⛔ Already submitting, blocking duplicate dialog action");
+                  return;
+                }
                 setShowDuplicateWarning(false);
                 handleSubmit(e as any, true);
               }}
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Anyway
+              {isSubmitting ? "Creating..." : "Create Anyway"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2846,12 +2859,16 @@ const NewOrder = () => {
           setPendingSubmit(false);
         }}
         onConfirm={(e) => {
-          if (isSubmitting) return; // Prevent duplicate submissions
+          if (isSubmitting) {
+            console.log("⛔ Already submitting, blocking duplicate stops dialog action");
+            return;
+          }
           setShowDuplicateStopsDialog(false);
           setPendingSubmit(true);
           // Call handleSubmit directly with skipDuplicateStopsCheck flag
           handleSubmit(e as any, false, true);
         }}
+        isSubmitting={isSubmitting}
       />
     </div>
   );
