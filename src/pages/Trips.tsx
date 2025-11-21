@@ -707,42 +707,52 @@ const Trips = () => {
 
                           return (
                             <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                              <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                              <TableCell className="font-medium">
+                                <div className="line-clamp-2">{order.truckNumber}</div>
+                              </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{order.driverName}</div>
                               </TableCell>
-                              <TableCell>{order.internalLoadNumber}</TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4">{formatDateDisplay(order.pickupDate)}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.internalLoadNumber}</div>
                               </TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4 line-clamp-2">{order.pickupCity}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
                               </TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4">{order.pickupState}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.pickupCity}</div>
                               </TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4">{formatDateDisplay(order.deliveryDate)}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.pickupState}</div>
                               </TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{formatDateDisplay(order.deliveryDate)}</div>
                               </TableCell>
-                              <TableCell className="p-0">
-                                <div className="h-full p-4">{order.deliveryState}</div>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.deliveryCity}</div>
                               </TableCell>
-                              <TableCell>{order.mileage?.toLocaleString() || "0"}</TableCell>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.deliveryState}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
+                              </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{order.brokerName}</div>
                               </TableCell>
-                              <TableCell>{order.brokerLoadNumber}</TableCell>
-                              <TableCell>{order.bookedBy}</TableCell>
                               <TableCell>
-                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                <div className="line-clamp-2">{order.brokerLoadNumber}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.bookedBy}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalDriverPay)}
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="font-semibold text-green-600 dark:text-green-400">
+                                <div className="font-semibold text-green-600 dark:text-green-400 line-clamp-2">
                                   {formatCurrency(order.totalFreightAmount)}
                                 </div>
                               </TableCell>
