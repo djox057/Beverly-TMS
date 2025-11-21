@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/utils';
+import ExcelJS from 'exceljs';
 
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
@@ -458,15 +459,27 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       // Add company-specific XLSX file
       const xlsxData = xlsxDataByCompany[companyFolder];
       if (xlsxData && xlsxData.length > 0) {
-        const headers = ['ClientNo', 'Invoice#', 'Debtor Debtor Name', 'Pono', 'InvDate', 'InvAmt'];
-        const csvRows = [
-          headers.join('\t'),
-          ...xlsxData.map(row => 
-            headers.map(h => row[h as keyof typeof row] || '').join('\t')
-          )
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Invoice Data');
+        
+        // Add headers
+        worksheet.columns = [
+          { header: 'ClientNo', key: 'ClientNo', width: 15 },
+          { header: 'Invoice#', key: 'Invoice#', width: 15 },
+          { header: 'Debtor Debtor Name', key: 'Debtor Debtor Name', width: 30 },
+          { header: 'Pono', key: 'Pono', width: 20 },
+          { header: 'InvDate', key: 'InvDate', width: 15 },
+          { header: 'InvAmt', key: 'InvAmt', width: 15 }
         ];
-        const csvContent = csvRows.join('\n');
-        folder.file('invoice_data.xls', csvContent);
+        
+        // Add data rows
+        xlsxData.forEach(row => {
+          worksheet.addRow(row);
+        });
+        
+        // Generate Excel file buffer
+        const buffer = await workbook.xlsx.writeBuffer();
+        folder.file('invoice_data.xlsx', buffer);
       }
     }
     
