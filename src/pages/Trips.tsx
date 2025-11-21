@@ -598,32 +598,32 @@ const Trips = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-6">
+          <div className="p-6 relative">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-20">
                 <TableRow>
-                  <TableHead className="w-20">Truck#</TableHead>
-                  <TableHead className="w-20">Load#</TableHead>
-                  <TableHead className="w-32">Pickup Date</TableHead>
-                  <TableHead className="w-28">Pickup City</TableHead>
-                  <TableHead className="w-20">Pickup State</TableHead>
-                  <TableHead className="w-32">Delivery Date</TableHead>
-                  <TableHead className="w-28">Delivery City</TableHead>
-                  <TableHead className="w-20">Delivery State</TableHead>
-                  <TableHead className="w-16">Miles</TableHead>
-                  <TableHead className="w-24">Driver Pay</TableHead>
-                  <TableHead className="w-32">Driver</TableHead>
-                  <TableHead className="w-36">Broker Name</TableHead>
-                  <TableHead className="w-28">Broker Load#</TableHead>
-                  <TableHead className="w-20">Invoiced</TableHead>
-                  <TableHead className="w-28">Freight Amount</TableHead>
-                  <TableHead className="w-20">Actions</TableHead>
+                  <TableHead className="w-20 bg-background">Truck#</TableHead>
+                  <TableHead className="w-32 bg-background">Driver</TableHead>
+                  <TableHead className="w-20 bg-background">Load#</TableHead>
+                  <TableHead className="w-32 bg-background">Pickup Date</TableHead>
+                  <TableHead className="w-28 bg-background">Pickup City</TableHead>
+                  <TableHead className="w-20 bg-background">Pickup State</TableHead>
+                  <TableHead className="w-32 bg-background">Delivery Date</TableHead>
+                  <TableHead className="w-28 bg-background">Delivery City</TableHead>
+                  <TableHead className="w-20 bg-background">Delivery State</TableHead>
+                  <TableHead className="w-16 bg-background">Miles</TableHead>
+                  <TableHead className="w-36 bg-background">Broker Name</TableHead>
+                  <TableHead className="w-28 bg-background">Broker Load#</TableHead>
+                  <TableHead className="w-28 bg-background">Booked By</TableHead>
+                  <TableHead className="w-24 bg-background">Driver Pay</TableHead>
+                  <TableHead className="w-28 bg-background">Freight Amount</TableHead>
+                  <TableHead className="w-20 bg-background">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
                       No trips found
                     </TableCell>
                   </TableRow>
@@ -667,12 +667,13 @@ const Trips = () => {
                               {formatCurrency(weekTotal.driverPay)}
                             </div>
                           </TableCell>
-                          <TableCell colSpan={4}></TableCell>
+                          <TableCell colSpan={3}></TableCell>
                           <TableCell className="py-3">
                             <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.freightAmount)}
                             </div>
                           </TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
 
                         {/* Orders for this week */}
@@ -708,6 +709,9 @@ const Trips = () => {
                           return (
                             <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                               <TableCell className="font-medium">{order.truckNumber}</TableCell>
+                              <TableCell>
+                                <div className="line-clamp-2">{order.driverName}</div>
+                              </TableCell>
                               <TableCell>{order.internalLoadNumber}</TableCell>
                               <TableCell className="p-0">
                                 <div className="h-full p-4">{formatDateDisplay(order.pickupDate)}</div>
@@ -729,18 +733,15 @@ const Trips = () => {
                               </TableCell>
                               <TableCell>{order.mileage?.toLocaleString() || "0"}</TableCell>
                               <TableCell>
+                                <div className="line-clamp-2">{order.brokerName}</div>
+                              </TableCell>
+                              <TableCell>{order.brokerLoadNumber}</TableCell>
+                              <TableCell>{order.bookedBy}</TableCell>
+                              <TableCell>
                                 <div className="font-semibold text-green-600 dark:text-green-400">
                                   {formatCurrency(order.totalDriverPay)}
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.driverName}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.brokerName}</div>
-                              </TableCell>
-                              <TableCell>{order.brokerLoadNumber}</TableCell>
-                              <TableCell>{order.invoiced}</TableCell>
                               <TableCell>
                                 <div className="font-semibold text-green-600 dark:text-green-400">
                                   {formatCurrency(order.totalFreightAmount)}
