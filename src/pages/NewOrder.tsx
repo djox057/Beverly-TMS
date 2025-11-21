@@ -23,12 +23,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import { toZonedTime } from "date-fns-tz";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MissingDataConfirmDialog } from "@/components/MissingDataConfirmDialog";
 import { DuplicateStopsConfirmDialog } from "@/components/DuplicateStopsConfirmDialog";
@@ -103,58 +112,58 @@ const NewOrder = () => {
 
   // Missing data warning
   const [showMissingDataDialog, setShowMissingDataDialog] = useState(false);
-  const [missingDataDetails, setMissingDataDetails] = useState<Array<{
-    location: string;
-    type: 'pickup' | 'delivery';
-    missingFields: string[];
-  }>>([]);
+  const [missingDataDetails, setMissingDataDetails] = useState<
+    Array<{
+      location: string;
+      type: "pickup" | "delivery";
+      missingFields: string[];
+    }>
+  >([]);
   const [pendingSubmit, setPendingSubmit] = useState(false);
 
   // Duplicate stops warning
   const [showDuplicateStopsDialog, setShowDuplicateStopsDialog] = useState(false);
   const [duplicateStops, setDuplicateStops] = useState<any[]>([]);
-  const {
-    toast
-  } = useToast();
-  const {
-    profile,
-    hasRole
-  } = useAuthContext();
+  const { toast } = useToast();
+  const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
 
   // Company email configuration
-  const COMPANY_EMAIL_CONFIG: Record<string, {
-    sender: string;
-    cc: string;
-  }> = {
+  const COMPANY_EMAIL_CONFIG: Record<
+    string,
+    {
+      sender: string;
+      cc: string;
+    }
+  > = {
     "BF Prime LLC": {
       sender: "BF Prime Dispatch <truckload@bfprime.net>",
-      cc: "dispatch@bfprime.net"
+      cc: "dispatch@bfprime.net",
     },
     "BF Prime United LLC": {
       sender: "BF Prime United Dispatch <truckload@bfprimeunited.net>",
-      cc: "dispatch@bfprimeunited.net"
+      cc: "dispatch@bfprimeunited.net",
     },
     "Beverly Group": {
       sender: "Beverly Group Dispatch <truckload@beverlygroupllc.net>",
-      cc: "dispatch@beverlygroupllc.net"
+      cc: "dispatch@beverlygroupllc.net",
     },
     "Beverly group": {
       sender: "Beverly Group Dispatch <truckload@beverlygroupllc.net>",
-      cc: "dispatch@beverlygroupllc.net"
+      cc: "dispatch@beverlygroupllc.net",
     },
     "Beverly Freight": {
       sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
-      cc: "dispatch@beverlyfreight.net"
+      cc: "dispatch@beverlyfreight.net",
     },
     "Beverly Freight Inc": {
       sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
-      cc: "dispatch@beverlyfreight.net"
+      cc: "dispatch@beverlyfreight.net",
     },
     "BG Prime Inc": {
       sender: "BG Prime Dispatch <truckload@bgprime.net>",
-      cc: "dispatch@bgprime.net"
-    }
+      cc: "dispatch@bgprime.net",
+    },
   };
 
   // Drag states for file uploads
@@ -163,7 +172,7 @@ const NewOrder = () => {
     bol: false,
     pod: false,
     additional: false,
-    email: false
+    email: false,
   });
 
   // File input refs for programmatic access
@@ -178,24 +187,26 @@ const NewOrder = () => {
     data: companies,
     isLoading: companiesLoading,
     error: companiesError,
-    refetch: refetchCompanies
+    refetch: refetchCompanies,
   } = useCompanies();
-  const {
-    data: allTrucks,
-    isLoading: trucksLoading,
-    error: trucksError
-  } = useTrucks();
-  const {
-    data: allDrivers,
-    isLoading: driversLoading,
-    error: driversError
-  } = useDrivers();
+  const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
+  const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
 
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   // First, get the list of driver IDs assigned to this dispatcher
-  const isDispatchOnly = hasRole('dispatch') && !hasRole('manager') && !hasRole('admin') && !hasRole('afterhours') && !hasRole('accounting') && !hasRole('supervisor') && !hasRole('safety');
-  const dispatcherDriverIds = isDispatchOnly && profile?.user_id ? allDrivers?.filter(driver => driver.dispatcher_id === profile.user_id).map(d => d.id) || [] : [];
-  const trucks = allTrucks?.filter(truck => {
+  const isDispatchOnly =
+    hasRole("dispatch") &&
+    !hasRole("manager") &&
+    !hasRole("admin") &&
+    !hasRole("afterhours") &&
+    !hasRole("accounting") &&
+    !hasRole("supervisor") &&
+    !hasRole("safety");
+  const dispatcherDriverIds =
+    isDispatchOnly && profile?.user_id
+      ? allDrivers?.filter((driver) => driver.dispatcher_id === profile.user_id).map((d) => d.id) || []
+      : [];
+  const trucks = allTrucks?.filter((truck) => {
     if (profile?.user_id && isDispatchOnly) {
       // Show ONLY trucks that have a driver assigned to this dispatcher
       // Dispatch users should only see trucks from their /fleets
@@ -205,7 +216,7 @@ const NewOrder = () => {
   });
 
   // Filter drivers by dispatcher for dispatch role
-  const drivers = allDrivers?.filter(driver => {
+  const drivers = allDrivers?.filter((driver) => {
     if (profile?.user_id && isDispatchOnly) {
       // If driver has no dispatcher assigned, show to all dispatchers (so they can be assigned)
       // Otherwise, only show if dispatcher_id matches current user
@@ -218,18 +229,13 @@ const NewOrder = () => {
   const filteredCompanies = companies;
 
   // Get company_id from selected driver1 (not from truck)
-  const selectedDriver1 = allDrivers?.find(d => d.id === driver1);
+  const selectedDriver1 = allDrivers?.find((d) => d.id === driver1);
   const driverCompanyId = selectedDriver1?.company_id;
-  const {
-    data: nextInternalLoadNumber,
-    isLoading: loadingNextNumber
-  } = useNextInternalLoadNumber(driverCompanyId);
+  const { data: nextInternalLoadNumber, isLoading: loadingNextNumber } = useNextInternalLoadNumber(driverCompanyId);
 
   // Get the first pickup datetime for DH miles calculation
-  const firstPickupDatetime = pickupsDrops.find(item => item.type === 'pickup')?.datetime || null;
-  const {
-    data: lastDelivery
-  } = useTruckLastDelivery(truck || null, firstPickupDatetime);
+  const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
+  const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
 
   // Auto-extract AI when RC file is uploaded
   useEffect(() => {
@@ -241,7 +247,7 @@ const NewOrder = () => {
 
     // Auto-trigger extraction once when PDF is uploaded
     if (!hasAutoExtracted && !isExtracting) {
-      const pdfFile = rcFiles.find(file => file.type === 'application/pdf');
+      const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
       if (pdfFile) {
         setHasAutoExtracted(true);
         handleExtractWithAI();
@@ -251,21 +257,24 @@ const NewOrder = () => {
 
   // Pre-select BF Prime company as default
   useEffect(() => {
-    console.log('🏢 Companies effect triggered', {
+    console.log("🏢 Companies effect triggered", {
       companiesCount: companies?.length,
       bookedByCompany,
       companiesLoading,
-      companiesError: companiesError?.message
+      companiesError: companiesError?.message,
     });
 
     // Wait for companies to load and only set if not already selected
     if (!companiesLoading && companies && companies.length > 0 && !bookedByCompany) {
-      const bfPrime = companies.find(c => c.name === 'BF Prime');
+      const bfPrime = companies.find((c) => c.name === "BF Prime");
       if (bfPrime) {
-        console.log('🏢 Auto-selecting BF Prime company:', bfPrime.id);
+        console.log("🏢 Auto-selecting BF Prime company:", bfPrime.id);
         setBookedByCompany(bfPrime.id);
       } else {
-        console.log('🏢 BF Prime not found, available companies:', companies.map(c => c.name));
+        console.log(
+          "🏢 BF Prime not found, available companies:",
+          companies.map((c) => c.name),
+        );
       }
     }
   }, [companies, bookedByCompany, companiesLoading, companiesError]);
@@ -279,7 +288,7 @@ const NewOrder = () => {
       datetime: "",
       dateRange: undefined,
       startTime: "",
-      endTime: ""
+      endTime: "",
     };
     const defaultDelivery: PickupDrop = {
       id: "delivery-1",
@@ -288,19 +297,19 @@ const NewOrder = () => {
       datetime: "",
       dateRange: undefined,
       startTime: "",
-      endTime: ""
+      endTime: "",
     };
     setPickupsDrops([defaultPickup, defaultDelivery]);
   }, []);
 
   // Track if trailer was manually edited to prevent auto-overwrite
   const [trailerManuallyEdited, setTrailerManuallyEdited] = useState(false);
-  const [lastSelectedTruckId, setLastSelectedTruckId] = useState<string>('');
+  const [lastSelectedTruckId, setLastSelectedTruckId] = useState<string>("");
 
   // Auto-populate trailer and drivers when truck is selected
   useEffect(() => {
     if (truck && trucks) {
-      const selectedTruck = trucks.find(t => t.id === truck);
+      const selectedTruck = trucks.find((t) => t.id === truck);
       if (selectedTruck) {
         // Reset manual edit flag when switching to a different truck
         if (truck !== lastSelectedTruckId) {
@@ -319,23 +328,23 @@ const NewOrder = () => {
         } else if (selectedTruck.driver1_id) {
           setDriver1(selectedTruck.driver1_id);
         } else {
-          setDriver1('');
+          setDriver1("");
         }
         if (selectedTruck.driver2?.id) {
           setDriver2(selectedTruck.driver2.id);
         } else if (selectedTruck.driver2_id) {
           setDriver2(selectedTruck.driver2_id);
         } else {
-          setDriver2('');
+          setDriver2("");
         }
       }
     } else {
       // Clear fields when truck is deselected
-      setTrailer('');
-      setDriver1('');
-      setDriver2('');
+      setTrailer("");
+      setDriver1("");
+      setDriver2("");
       setTrailerManuallyEdited(false);
-      setLastSelectedTruckId('');
+      setLastSelectedTruckId("");
     }
   }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
@@ -454,7 +463,7 @@ const NewOrder = () => {
       datetime: "",
       dateRange: undefined,
       startTime: "",
-      endTime: ""
+      endTime: "",
     };
     if (type === "pickup") {
       const lastPickupIndex = pickupsDrops.reduce((lastIndex, item, index) => {
@@ -469,102 +478,112 @@ const NewOrder = () => {
     }
   };
   const removePickupDrop = (id: string) => {
-    setPickupsDrops(pickupsDrops.filter(item => item.id !== id));
+    setPickupsDrops(pickupsDrops.filter((item) => item.id !== id));
   };
   const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id) {
-        const updated = {
-          ...item,
-          [field]: field === 'city' && typeof value === 'string' ? toTitleCase(value) : value
-        };
+    setPickupsDrops(
+      pickupsDrops.map((item) => {
+        if (item.id === id) {
+          const updated = {
+            ...item,
+            [field]: field === "city" && typeof value === "string" ? toTitleCase(value) : value,
+          };
 
-        // If updating address field, immediately parse it to preserve city/state/zipCode
-        if (field === 'address' && typeof value === 'string' && value.trim()) {
-          const parsed = parseAddress(value);
-          updated.address = parsed.address || value;
-          updated.city = parsed.city ? toTitleCase(parsed.city) : undefined;
-          updated.state = parsed.state || undefined;
-          updated.zipCode = parsed.zipCode || undefined;
+          // If updating address field, immediately parse it to preserve city/state/zipCode
+          if (field === "address" && typeof value === "string" && value.trim()) {
+            const parsed = parseAddress(value);
+            updated.address = parsed.address || value;
+            updated.city = parsed.city ? toTitleCase(parsed.city) : undefined;
+            updated.state = parsed.state || undefined;
+            updated.zipCode = parsed.zipCode || undefined;
+          }
+
+          // Auto-update datetime when relevant fields change
+          if (field === "dateRange" || field === "startTime") {
+            if (updated.dateRange?.from && updated.startTime) {
+              const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
+              updated.datetime = combined || "";
+            } else {
+              updated.datetime = "";
+            }
+          }
+          return updated;
         }
-
-        // Auto-update datetime when relevant fields change
-        if (field === 'dateRange' || field === 'startTime') {
+        return item;
+      }),
+    );
+  };
+  const parsePickupDropAddress = (id: string) => {
+    setPickupsDrops(
+      pickupsDrops.map((item) => {
+        if (item.id === id && item.address && item.address.trim()) {
+          const parsed = parseAddress(item.address);
+          return {
+            ...item,
+            address: parsed.address || item.address,
+            city: parsed.city ? toTitleCase(parsed.city) : undefined,
+            state: parsed.state || undefined,
+            zipCode: parsed.zipCode || undefined,
+          };
+        }
+        return item;
+      }),
+    );
+  };
+  const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
+    setPickupsDrops(
+      pickupsDrops.map((item) => {
+        if (item.id === id) {
+          const updated = {
+            ...item,
+            dateRange,
+          };
+          // Auto-update datetime when dateRange changes
           if (updated.dateRange?.from && updated.startTime) {
             const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
             updated.datetime = combined || "";
           } else {
             updated.datetime = "";
           }
+          return updated;
         }
-        return updated;
-      }
-      return item;
-    }));
+        return item;
+      }),
+    );
   };
-  const parsePickupDropAddress = (id: string) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id && item.address && item.address.trim()) {
-        const parsed = parseAddress(item.address);
-        return {
-          ...item,
-          address: parsed.address || item.address,
-          city: parsed.city ? toTitleCase(parsed.city) : undefined,
-          state: parsed.state || undefined,
-          zipCode: parsed.zipCode || undefined
-        };
-      }
-      return item;
-    }));
-  };
-  const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id) {
-        const updated = {
-          ...item,
-          dateRange
-        };
-        // Auto-update datetime when dateRange changes
-        if (updated.dateRange?.from && updated.startTime) {
-          const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
-          updated.datetime = combined || "";
-        } else {
-          updated.datetime = "";
+  const updatePickupDropTime = (id: string, timeType: "startTime" | "endTime", time: string) => {
+    setPickupsDrops(
+      pickupsDrops.map((item) => {
+        if (item.id === id) {
+          const updated = {
+            ...item,
+            [timeType]: time,
+          };
+          // Auto-update datetime when startTime changes
+          if (timeType === "startTime" && updated.dateRange?.from && updated.startTime) {
+            const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
+            updated.datetime = combined || "";
+          } else if (timeType === "startTime") {
+            updated.datetime = "";
+          }
+          return updated;
         }
-        return updated;
-      }
-      return item;
-    }));
-  };
-  const updatePickupDropTime = (id: string, timeType: 'startTime' | 'endTime', time: string) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id) {
-        const updated = {
-          ...item,
-          [timeType]: time
-        };
-        // Auto-update datetime when startTime changes
-        if (timeType === 'startTime' && updated.dateRange?.from && updated.startTime) {
-          const combined = combineDateAndTime(updated.dateRange.from, updated.startTime);
-          updated.datetime = combined || "";
-        } else if (timeType === 'startTime') {
-          updated.datetime = "";
-        }
-        return updated;
-      }
-      return item;
-    }));
+        return item;
+      }),
+    );
   };
   const togglePickupDropType = (id: string) => {
-    setPickupsDrops(pickupsDrops.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          type: item.type === "pickup" ? "delivery" : "pickup"
-        };
-      }
-      return item;
-    }));
+    setPickupsDrops(
+      pickupsDrops.map((item) => {
+        if (item.id === id) {
+          return {
+            ...item,
+            type: item.type === "pickup" ? "delivery" : "pickup",
+          };
+        }
+        return item;
+      }),
+    );
   };
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -575,27 +594,27 @@ const NewOrder = () => {
   };
 
   // File drag and drop handlers
-  const createFileDragHandlers = (fileType: 'rc' | 'bol' | 'pod' | 'additional' | 'email') => {
+  const createFileDragHandlers = (fileType: "rc" | "bol" | "pod" | "additional" | "email") => {
     const setFiles = {
       rc: setRcFiles,
       bol: setBolFiles,
       pod: setPodFiles,
       additional: setAdditionalFiles,
-      email: setEmailFiles
+      email: setEmailFiles,
     }[fileType];
     const fileInputRef = {
       rc: rcFileInputRef,
       bol: bolFileInputRef,
       pod: podFileInputRef,
       additional: additionalFileInputRef,
-      email: emailFileInputRef
+      email: emailFileInputRef,
     }[fileType];
     return {
       onDragEnter: (e: React.DragEvent) => {
         e.preventDefault();
-        setDragStates(prev => ({
+        setDragStates((prev) => ({
           ...prev,
-          [fileType]: true
+          [fileType]: true,
         }));
       },
       onDragLeave: (e: React.DragEvent) => {
@@ -605,9 +624,9 @@ const NewOrder = () => {
         const x = e.clientX;
         const y = e.clientY;
         if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
-          setDragStates(prev => ({
+          setDragStates((prev) => ({
             ...prev,
-            [fileType]: false
+            [fileType]: false,
           }));
         }
       },
@@ -616,9 +635,9 @@ const NewOrder = () => {
       },
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
-        setDragStates(prev => ({
+        setDragStates((prev) => ({
           ...prev,
-          [fileType]: false
+          [fileType]: false,
         }));
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
@@ -628,87 +647,85 @@ const NewOrder = () => {
       onClick: (e: React.MouseEvent) => {
         // Don't trigger if clicking on buttons or interactive elements
         const target = e.target as HTMLElement;
-        if (target.closest('button, input, a')) {
+        if (target.closest("button, input, a")) {
           return;
         }
         fileInputRef.current?.click();
-      }
+      },
     };
   };
-  const rcDragHandlers = createFileDragHandlers('rc');
-  const bolDragHandlers = createFileDragHandlers('bol');
-  const podDragHandlers = createFileDragHandlers('pod');
-  const additionalDragHandlers = createFileDragHandlers('additional');
-  const emailDragHandlers = createFileDragHandlers('email');
+  const rcDragHandlers = createFileDragHandlers("rc");
+  const bolDragHandlers = createFileDragHandlers("bol");
+  const podDragHandlers = createFileDragHandlers("pod");
+  const additionalDragHandlers = createFileDragHandlers("additional");
+  const emailDragHandlers = createFileDragHandlers("email");
   const handleExtractWithAI = async () => {
     // Prevent multiple simultaneous extractions
     if (isExtracting) {
-      console.log('Extraction already in progress, skipping...');
+      console.log("Extraction already in progress, skipping...");
       return;
     }
     if (rcFiles.length === 0) {
       toast({
         title: "No RC File Selected",
         description: "Please select a PDF file in the RC section to extract data from.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    const pdfFile = rcFiles.find(file => file.type === 'application/pdf');
+    const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
     if (!pdfFile) {
       toast({
         title: "PDF Required",
         description: "Please select a PDF file for AI extraction.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
     setIsExtracting(true);
     try {
-      console.log('Starting PDF extraction with OpenAI...');
+      console.log("Starting PDF extraction with OpenAI...");
       const formData = new FormData();
-      formData.append('pdf', pdfFile);
-      console.log('Calling extract-order-fields edge function...');
+      formData.append("pdf", pdfFile);
+      console.log("Calling extract-order-fields edge function...");
       const {
-        data: {
-          session
-        }
+        data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`
+          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
         },
-        body: formData
+        body: formData,
       });
-      console.log('Edge function response status:', response.status);
+      console.log("Edge function response status:", response.status);
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Edge function error:', errorText);
+        console.error("Edge function error:", errorText);
         throw new Error(`Edge function failed with status ${response.status}`);
       }
       const data = await response.json();
       if (!data?.success) {
-        console.error('Extraction failed:', data?.error);
-        throw new Error(data?.error || 'Failed to extract data');
+        console.error("Extraction failed:", data?.error);
+        throw new Error(data?.error || "Failed to extract data");
       }
       const extractedData = data.data;
-      console.log('Successfully extracted data:', extractedData);
+      console.log("Successfully extracted data:", extractedData);
 
       // Auto-fill broker if matched
       if (extractedData.matchedBrokerId) {
-        console.log('✅ Auto-filling broker with matched ID:', extractedData.matchedBrokerId);
+        console.log("✅ Auto-filling broker with matched ID:", extractedData.matchedBrokerId);
         setBroker(extractedData.matchedBrokerId);
         toast({
           title: "Broker Matched",
-          description: `Automatically matched broker: ${extractedData.brokerName || 'from database'}`
+          description: `Automatically matched broker: ${extractedData.brokerName || "from database"}`,
         });
       } else if (extractedData.brokerName) {
-        console.log('⚠️ Broker extracted but not matched:', extractedData.brokerName);
+        console.log("⚠️ Broker extracted but not matched:", extractedData.brokerName);
         toast({
           title: "Broker Not Matched",
           description: `Extracted broker "${extractedData.brokerName}" but couldn't find a match in database. Please select manually.`,
-          variant: "destructive"
+          variant: "destructive",
         });
       }
 
@@ -727,26 +744,26 @@ const NewOrder = () => {
       // Handle date ranges from AI extraction - fix timezone offset
       if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
         setPickupDateRange({
-          from: new Date(extractedData.pickupStartDate + 'T12:00:00'),
-          to: new Date(extractedData.pickupEndDate + 'T12:00:00')
+          from: new Date(extractedData.pickupStartDate + "T12:00:00"),
+          to: new Date(extractedData.pickupEndDate + "T12:00:00"),
         });
       } else if (extractedData.pickupDate) {
-        const pickupDate = new Date(extractedData.pickupDate + 'T12:00:00');
+        const pickupDate = new Date(extractedData.pickupDate + "T12:00:00");
         setPickupDateRange({
           from: pickupDate,
-          to: pickupDate
+          to: pickupDate,
         });
       }
       if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
         setDeliveryDateRange({
-          from: new Date(extractedData.deliveryStartDate + 'T12:00:00'),
-          to: new Date(extractedData.deliveryEndDate + 'T12:00:00')
+          from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
+          to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
         });
       } else if (extractedData.deliveryDate) {
-        const deliveryDate = new Date(extractedData.deliveryDate + 'T12:00:00');
+        const deliveryDate = new Date(extractedData.deliveryDate + "T12:00:00");
         setDeliveryDateRange({
           from: deliveryDate,
-          to: deliveryDate
+          to: deliveryDate,
         });
       }
 
@@ -755,18 +772,22 @@ const NewOrder = () => {
         const firstPickup = extractedData.pickups[0];
         if (firstPickup.date) {
           setDriverPickupDateRange({
-            from: new Date(firstPickup.date + 'T12:00:00'),
-            to: new Date(firstPickup.date + 'T12:00:00')
+            from: new Date(firstPickup.date + "T12:00:00"),
+            to: new Date(firstPickup.date + "T12:00:00"),
           });
         }
         setDriverPickupStartTime(firstPickup.startTime || "");
         setDriverPickupEndTime(firstPickup.endTime || "");
-      } else if (extractedData.pickupDate || extractedData.pickupStartDate && extractedData.pickupEndDate) {
-        const pickupDate = extractedData.pickupStartDate ? new Date(extractedData.pickupStartDate + 'T12:00:00') : new Date(extractedData.pickupDate + 'T12:00:00');
-        const pickupEndDate = extractedData.pickupEndDate ? new Date(extractedData.pickupEndDate + 'T12:00:00') : pickupDate;
+      } else if (extractedData.pickupDate || (extractedData.pickupStartDate && extractedData.pickupEndDate)) {
+        const pickupDate = extractedData.pickupStartDate
+          ? new Date(extractedData.pickupStartDate + "T12:00:00")
+          : new Date(extractedData.pickupDate + "T12:00:00");
+        const pickupEndDate = extractedData.pickupEndDate
+          ? new Date(extractedData.pickupEndDate + "T12:00:00")
+          : pickupDate;
         setDriverPickupDateRange({
           from: pickupDate,
-          to: pickupEndDate
+          to: pickupEndDate,
         });
 
         // Handle both single time and time range
@@ -779,20 +800,29 @@ const NewOrder = () => {
           setDriverPickupEndTime(extractedData.pickupTime);
         }
       }
-      if (extractedData.deliveries && extractedData.deliveries.length > 0 && extractedData.deliveries[0] && extractedData.deliveries[0].date) {
+      if (
+        extractedData.deliveries &&
+        extractedData.deliveries.length > 0 &&
+        extractedData.deliveries[0] &&
+        extractedData.deliveries[0].date
+      ) {
         const firstDelivery = extractedData.deliveries[0];
         setDriverDeliveryDateRange({
-          from: new Date(firstDelivery.date + 'T12:00:00'),
-          to: new Date(firstDelivery.date + 'T12:00:00')
+          from: new Date(firstDelivery.date + "T12:00:00"),
+          to: new Date(firstDelivery.date + "T12:00:00"),
         });
         setDriverDeliveryStartTime(firstDelivery.startTime || "");
         setDriverDeliveryEndTime(firstDelivery.endTime || "");
-      } else if (extractedData.deliveryDate || extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
-        const deliveryDate = extractedData.deliveryStartDate ? new Date(extractedData.deliveryStartDate + 'T12:00:00') : new Date(extractedData.deliveryDate + 'T12:00:00');
-        const deliveryEndDate = extractedData.deliveryEndDate ? new Date(extractedData.deliveryEndDate + 'T12:00:00') : deliveryDate;
+      } else if (extractedData.deliveryDate || (extractedData.deliveryStartDate && extractedData.deliveryEndDate)) {
+        const deliveryDate = extractedData.deliveryStartDate
+          ? new Date(extractedData.deliveryStartDate + "T12:00:00")
+          : new Date(extractedData.deliveryDate + "T12:00:00");
+        const deliveryEndDate = extractedData.deliveryEndDate
+          ? new Date(extractedData.deliveryEndDate + "T12:00:00")
+          : deliveryDate;
         setDriverDeliveryDateRange({
           from: deliveryDate,
-          to: deliveryEndDate
+          to: deliveryEndDate,
         });
 
         // Handle both single time and time range
@@ -813,11 +843,11 @@ const NewOrder = () => {
       const createSafeDateRange = (dateStr: string | undefined): DateRange | undefined => {
         if (!dateStr) return undefined;
         try {
-          const date = new Date(dateStr + 'T12:00:00');
+          const date = new Date(dateStr + "T12:00:00");
           if (isNaN(date.getTime())) return undefined;
           return {
             from: date,
-            to: date
+            to: date,
           };
         } catch {
           return undefined;
@@ -827,15 +857,15 @@ const NewOrder = () => {
       // Sort pickups and deliveries by datetime before processing
       if (extractedData.pickups && extractedData.pickups.length > 1) {
         extractedData.pickups.sort((a: any, b: any) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || "";
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || "";
           return dateA.localeCompare(dateB);
         });
       }
       if (extractedData.deliveries && extractedData.deliveries.length > 1) {
         extractedData.deliveries.sort((a: any, b: any) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || "";
+          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || "";
           return dateA.localeCompare(dateB);
         });
       }
@@ -856,24 +886,27 @@ const NewOrder = () => {
             dateRange: pickupDateRange,
             startTime: pickup.startTime || "",
             endTime: pickup.endTime || "",
-            companyName: pickup.shipper || ""
+            companyName: pickup.shipper || "",
           });
         });
       } else if (extractedData.pickupAddress) {
         // Single pickup (legacy format)
-        const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate ? (() => {
-          try {
-            const from = new Date(extractedData.pickupStartDate + 'T12:00:00');
-            const to = new Date(extractedData.pickupEndDate + 'T12:00:00');
-            if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
-            return {
-              from,
-              to
-            };
-          } catch {
-            return undefined;
-          }
-        })() : createSafeDateRange(extractedData.pickupDate);
+        const pickupDateRange =
+          extractedData.pickupStartDate && extractedData.pickupEndDate
+            ? (() => {
+                try {
+                  const from = new Date(extractedData.pickupStartDate + "T12:00:00");
+                  const to = new Date(extractedData.pickupEndDate + "T12:00:00");
+                  if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
+                  return {
+                    from,
+                    to,
+                  };
+                } catch {
+                  return undefined;
+                }
+              })()
+            : createSafeDateRange(extractedData.pickupDate);
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
@@ -885,7 +918,7 @@ const NewOrder = () => {
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
           endTime: extractedData.pickupEndTime || extractedData.pickupTime || "",
-          companyName: extractedData.pickupShipper || ""
+          companyName: extractedData.pickupShipper || "",
         });
       }
       if (extractedData.deliveries && extractedData.deliveries.length > 0) {
@@ -903,24 +936,27 @@ const NewOrder = () => {
             dateRange: deliveryDateRange,
             startTime: delivery.startTime || "",
             endTime: delivery.endTime || "",
-            companyName: delivery.receiver || delivery.shipper || ""
+            companyName: delivery.receiver || delivery.shipper || "",
           });
         });
       } else if (extractedData.deliveryAddress) {
         // Single delivery (legacy format)
-        const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate ? (() => {
-          try {
-            const from = new Date(extractedData.deliveryStartDate + 'T12:00:00');
-            const to = new Date(extractedData.deliveryEndDate + 'T12:00:00');
-            if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
-            return {
-              from,
-              to
-            };
-          } catch {
-            return undefined;
-          }
-        })() : createSafeDateRange(extractedData.deliveryDate);
+        const deliveryDateRange =
+          extractedData.deliveryStartDate && extractedData.deliveryEndDate
+            ? (() => {
+                try {
+                  const from = new Date(extractedData.deliveryStartDate + "T12:00:00");
+                  const to = new Date(extractedData.deliveryEndDate + "T12:00:00");
+                  if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
+                  return {
+                    from,
+                    to,
+                  };
+                } catch {
+                  return undefined;
+                }
+              })()
+            : createSafeDateRange(extractedData.deliveryDate);
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery",
@@ -932,7 +968,7 @@ const NewOrder = () => {
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
           endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || "",
-          companyName: extractedData.deliveryShipper || ""
+          companyName: extractedData.deliveryShipper || "",
         });
       }
       if (newPickupsDrops.length > 0) {
@@ -966,14 +1002,14 @@ const NewOrder = () => {
       }
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted ${data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? ' (Multi-drop load detected)' : ''}. Please review and adjust as needed.`
+        description: `Extracted ${data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? " (Multi-drop load detected)" : ""}. Please review and adjust as needed.`,
       });
     } catch (error: any) {
-      console.error('Extraction error:', error);
+      console.error("Extraction error:", error);
       toast({
         title: "Extraction Failed",
         description: error.message || "Failed to extract data from PDF",
-        variant: "destructive"
+        variant: "destructive",
       });
       // Ensure isExtracting is reset even on error
       setIsExtracting(false);
@@ -985,13 +1021,15 @@ const NewOrder = () => {
 
   // Build email subject line
   const buildEmailSubject = (): string => {
-    const selectedTruck = trucks?.find(t => t.id === truck);
-    const selectedDriver = drivers?.find(d => d.id === driver1);
-    const pickups = pickupsDrops.filter(p => p.type === "pickup");
-    const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+    const selectedTruck = trucks?.find((t) => t.id === truck);
+    const selectedDriver = drivers?.find((d) => d.id === driver1);
+    const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+    const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
     const truckNumber = selectedTruck?.truck_number || "TBD";
-    const driverFirstName = selectedDriver?.name?.split(' ')[0] || "Driver";
-    const pickupDate = pickups[0]?.dateRange?.from ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, '0')}/${String(pickups[0].dateRange.from.getDate()).padStart(2, '0')}/${pickups[0].dateRange.from.getFullYear()}` : "TBD";
+    const driverFirstName = selectedDriver?.name?.split(" ")[0] || "Driver";
+    const pickupDate = pickups[0]?.dateRange?.from
+      ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, "0")}/${String(pickups[0].dateRange.from.getDate()).padStart(2, "0")}/${pickups[0].dateRange.from.getFullYear()}`
+      : "TBD";
     const brokerLoad = brokerLoadNumber || "TBD";
     const firstPickupState = pickups[0]?.state || "TBD";
     const lastDeliveryState = deliveries[deliveries.length - 1]?.state || "TBD";
@@ -1005,7 +1043,7 @@ const NewOrder = () => {
       toast({
         title: "No File Attached",
         description: "Please upload a file to send to the driver.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1014,31 +1052,31 @@ const NewOrder = () => {
       setIsSendingEmail(true);
 
       // Get driver email
-      const driverForEmail = allDrivers?.find(d => d.id === driver1);
+      const driverForEmail = allDrivers?.find((d) => d.id === driver1);
       if (!driverForEmail?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
 
       // Get driver company for email configuration
       let companyName = driverForEmail?.company?.name;
-      
+
       // If company name is not in the driver object, fetch it from companies table
       if (!companyName && driverForEmail?.company_id) {
-        console.log('📧 Company not in driver object, fetching from companies table...');
+        console.log("📧 Company not in driver object, fetching from companies table...");
         const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('name')
-          .eq('id', driverForEmail.company_id)
+          .from("companies")
+          .select("name")
+          .eq("id", driverForEmail.company_id)
           .maybeSingle();
-        
+
         if (companyError) {
-          console.error('❌ Error fetching company:', companyError);
+          console.error("❌ Error fetching company:", companyError);
         } else if (companyData) {
           companyName = companyData.name;
-          console.log('✅ Company fetched:', companyName);
+          console.log("✅ Company fetched:", companyName);
         }
       }
-      
+
       if (!companyName) {
         throw new Error("Driver company not found. Cannot determine sender email.");
       }
@@ -1060,63 +1098,64 @@ const NewOrder = () => {
         reader.onloadend = async () => {
           try {
             const base64data = reader.result as string;
-            const base64Content = base64data.split(',')[1]; // Remove data:type;base64, prefix
+            const base64Content = base64data.split(",")[1]; // Remove data:type;base64, prefix
 
-            console.log('📧 Sending email with file:', emailFile.name);
-            console.log('📧 To:', driverForEmail.email);
-            console.log('📧 From:', emailConfig.sender);
-            console.log('📧 CC:', emailConfig.cc);
-            console.log('📧 Subject:', subject);
+            console.log("📧 Sending email with file:", emailFile.name);
+            console.log("📧 To:", driverForEmail.email);
+            console.log("📧 From:", emailConfig.sender);
+            console.log("📧 CC:", emailConfig.cc);
+            console.log("📧 Subject:", subject);
 
             // Call edge function to send email
             const {
-              data: {
-                session
-              }
+              data: { session },
             } = await supabase.auth.getSession();
-            const response = await fetch('https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`
+            const response = await fetch(
+              "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+                },
+                body: JSON.stringify({
+                  to: driverForEmail.email,
+                  from: emailConfig.sender,
+                  cc: emailConfig.cc,
+                  subject: subject,
+                  bodyText: "Please see the load sheet attached below.",
+                  attachmentBase64: base64Content,
+                  attachmentFilename: emailFiles[0].name,
+                  attachmentContentType: emailFiles[0].type,
+                }),
               },
-              body: JSON.stringify({
-                to: driverForEmail.email,
-                from: emailConfig.sender,
-                cc: emailConfig.cc,
-                subject: subject,
-                bodyText: "Please see the rate confirmation attached below.",
-                attachmentBase64: base64Content,
-                attachmentFilename: emailFiles[0].name,
-                attachmentContentType: emailFiles[0].type
-              })
-            });
+            );
             const responseData = await response.json();
-            console.log('📧 Email response:', responseData);
+            console.log("📧 Email response:", responseData);
             if (!response.ok) {
-              console.error('❌ Error sending email - Status:', response.status);
-              console.error('❌ Error response:', responseData);
-              throw new Error(responseData.error || 'Failed to send email');
+              console.error("❌ Error sending email - Status:", response.status);
+              console.error("❌ Error response:", responseData);
+              throw new Error(responseData.error || "Failed to send email");
             }
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${driverForEmail.email}`
+              description: `File sent to ${driverForEmail.email}`,
             });
             resolve(true);
           } catch (err) {
-            console.error('❌ Email error:', err);
+            console.error("❌ Email error:", err);
             reject(err);
           }
         };
         reader.onerror = reject;
       });
     } catch (error: any) {
-      console.error('❌ Email sending error:', error);
+      console.error("❌ Email sending error:", error);
       toast({
         title: "Email Failed",
         description: error.message || "Failed to send email to driver",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSendingEmail(false);
@@ -1126,19 +1165,20 @@ const NewOrder = () => {
     if (!bookedByCompany || !truck || !driver1 || pickupsDrops.length < 2) {
       toast({
         title: "Missing Information",
-        description: "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
-        variant: "destructive"
+        description:
+          "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
+        variant: "destructive",
       });
       return;
     }
     setIsGeneratingConfirmation(true);
     try {
-      const selectedTruck = trucks?.find(t => t.id === truck);
-      const selectedDriver = drivers?.find(d => d.id === driver1);
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+      const selectedDriver = drivers?.find((d) => d.id === driver1);
 
       // Get all pickups and deliveries
-      const pickups = pickupsDrops.filter(p => p.type === "pickup");
-      const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+      const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+      const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
       if (!selectedTruck || !selectedDriver || pickups.length === 0 || deliveries.length === 0) {
         throw new Error("Missing required data");
       }
@@ -1147,7 +1187,7 @@ const NewOrder = () => {
       const formatDate = (dateRange?: DateRange) => {
         if (!dateRange?.from) return "";
         const date = dateRange.from;
-        return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+        return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
       };
       const formatTime = (time?: string) => time || "";
 
@@ -1156,20 +1196,21 @@ const NewOrder = () => {
         brokerLoadNumber: brokerLoadNumber || "TBD",
         driverName: selectedDriver.name,
         truckNumber: selectedTruck.truck_number,
-        trailerNumber: trailer ? trucks?.find(t => t.id === truck)?.trailer?.trailer_number || "" : "",
+        trailerNumber: trailer ? trucks?.find((t) => t.id === truck)?.trailer?.trailer_number || "" : "",
         phoneNumber: selectedDriver.phone || "",
         commodity: commodity || "",
         weight: weight || "",
         miles: loadedMiles || "",
-        rate: driverPrice || ""
+        rate: driverPrice || "",
       };
 
       // Helper to format location data
       const formatLocationData = (location: any) => ({
         address: location.address,
-        cityStateZip: `${location.city || ''}${location.city && location.state ? ', ' : ''}${location.state || ''}${(location.city || location.state) && location.zipCode ? ' ' : ''}${location.zipCode || ''}`.trim(),
+        cityStateZip:
+          `${location.city || ""}${location.city && location.state ? ", " : ""}${location.state || ""}${(location.city || location.state) && location.zipCode ? " " : ""}${location.zipCode || ""}`.trim(),
         date: formatDate(location.dateRange),
-        time: formatTime(location.startTime) + (location.endTime ? ` - ${formatTime(location.endTime)}` : "")
+        time: formatTime(location.startTime) + (location.endTime ? ` - ${formatTime(location.endTime)}` : ""),
       });
 
       // Build confirmation data with all pickups and deliveries
@@ -1182,7 +1223,7 @@ const NewOrder = () => {
         pickupDate: formatLocationData(pickups[0]).date,
         pickupTime: formatLocationData(pickups[0]).time,
         pickupPuNumber: pickupPuNumber || "",
-        pickupPoNumber: pickupPoNumber || ""
+        pickupPoNumber: pickupPoNumber || "",
       };
 
       // Add second pickup if exists
@@ -1265,21 +1306,19 @@ const NewOrder = () => {
 
       // Generate PDF via edge function (using fetch for binary data)
       const {
-        data: {
-          session
-        }
+        data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/generate-load-confirmation`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
         },
-        body: JSON.stringify(confirmationData)
+        body: JSON.stringify(confirmationData),
       });
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || 'Failed to generate confirmation');
+        throw new Error(errorText || "Failed to generate confirmation");
       }
 
       // Create a blob from the response
@@ -1294,7 +1333,7 @@ const NewOrder = () => {
 
       // Download the PDF
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = filename;
       document.body.appendChild(a);
@@ -1303,14 +1342,14 @@ const NewOrder = () => {
       document.body.removeChild(a);
       toast({
         title: "Confirmation Generated",
-        description: "Load confirmation PDF has been generated. You can now email it to the driver."
+        description: "Load confirmation PDF has been generated. You can now email it to the driver.",
       });
     } catch (error: any) {
-      console.error('Confirmation generation error:', error);
+      console.error("Confirmation generation error:", error);
       toast({
         title: "Generation Failed",
         description: error.message || "Failed to generate load confirmation",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsGeneratingConfirmation(false);
@@ -1318,44 +1357,48 @@ const NewOrder = () => {
   };
 
   // Prepare options for dropdowns
-  const companyOptions = filteredCompanies?.map(company => ({
-    value: company.id,
-    label: company.name
-  })) || [];
-  const truckOptions = trucks?.map(truck => ({
-    value: truck.id,
-    label: truck.truck_number
-  })) || [];
-  const driverOptions = drivers?.map(driver => ({
-    value: driver.id,
-    label: driver.name
-  })) || [];
+  const companyOptions =
+    filteredCompanies?.map((company) => ({
+      value: company.id,
+      label: company.name,
+    })) || [];
+  const truckOptions =
+    trucks?.map((truck) => ({
+      value: truck.id,
+      label: truck.truck_number,
+    })) || [];
+  const driverOptions =
+    drivers?.map((driver) => ({
+      value: driver.id,
+      label: driver.name,
+    })) || [];
 
   // Import timezone-agnostic date utilities
 
   // Check for duplicate orders with same broker load# and pickup date
   const checkForDuplicates = async () => {
     if (!brokerLoadNumber?.trim()) return [];
-    const pickups = pickupsDrops.filter(item => item.type === 'pickup');
+    const pickups = pickupsDrops.filter((item) => item.type === "pickup");
     if (pickups.length === 0 || !pickups[0].dateRange?.from) return [];
     const pickupDate = pickups[0].dateRange.from;
-    const pickupDateStr = pickupDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const pickupDateStr = pickupDate.toISOString().split("T")[0]; // YYYY-MM-DD format
 
     // Query for orders with same broker load number
-    const {
-      data: existingOrders,
-      error
-    } = await supabase.from('orders').select('id, internal_load_number, broker_load_number, pickup_datetime, status').eq('broker_load_number', brokerLoadNumber.trim()).not('status', 'eq', 'canceled');
+    const { data: existingOrders, error } = await supabase
+      .from("orders")
+      .select("id, internal_load_number, broker_load_number, pickup_datetime, status")
+      .eq("broker_load_number", brokerLoadNumber.trim())
+      .not("status", "eq", "canceled");
     if (error) {
-      console.error('Error checking for duplicate orders:', error);
+      console.error("Error checking for duplicate orders:", error);
       return [];
     }
     if (!existingOrders || existingOrders.length === 0) return [];
 
     // Filter orders with the same pickup date
-    const duplicates = existingOrders.filter(order => {
+    const duplicates = existingOrders.filter((order) => {
       if (!order.pickup_datetime) return false;
-      const orderPickupDate = new Date(order.pickup_datetime).toISOString().split('T')[0];
+      const orderPickupDate = new Date(order.pickup_datetime).toISOString().split("T")[0];
       return orderPickupDate === pickupDateStr;
     });
     return duplicates;
@@ -1363,25 +1406,28 @@ const NewOrder = () => {
   const validatePickupDropData = () => {
     const missingData: Array<{
       location: string;
-      type: 'pickup' | 'delivery';
+      type: "pickup" | "delivery";
       missingFields: string[];
     }> = [];
     pickupsDrops.forEach((item, index) => {
       const missing: string[] = [];
-      const parsed = parseAddress(item.address || '');
+      const parsed = parseAddress(item.address || "");
       const city = item.city || parsed.city;
       const state = item.state || parsed.state;
       const hasDateTime = item.dateRange?.from && item.startTime;
-      if (!city) missing.push('City');
-      if (!state) missing.push('State');
-      if (!hasDateTime) missing.push('Date/Time');
+      if (!city) missing.push("City");
+      if (!state) missing.push("State");
+      if (!hasDateTime) missing.push("Date/Time");
       if (missing.length > 0) {
         // Build full address string
-        const fullAddress = item.city || item.state || item.zipCode ? `${item.address}${item.city ? `, ${item.city}` : ''}${item.state ? `, ${item.state}` : ''}${item.zipCode ? ` ${item.zipCode}` : ''}` : item.address || `${item.type} ${index + 1}`;
+        const fullAddress =
+          item.city || item.state || item.zipCode
+            ? `${item.address}${item.city ? `, ${item.city}` : ""}${item.state ? `, ${item.state}` : ""}${item.zipCode ? ` ${item.zipCode}` : ""}`
+            : item.address || `${item.type} ${index + 1}`;
         missingData.push({
           location: fullAddress,
           type: item.type,
-          missingFields: missing
+          missingFields: missing,
         });
       }
     });
@@ -1392,7 +1438,7 @@ const NewOrder = () => {
 
     // Prevent duplicate submissions
     if (isSubmitting) {
-      console.log('Form submission already in progress, ignoring duplicate submission');
+      console.log("Form submission already in progress, ignoring duplicate submission");
       return;
     }
 
@@ -1427,12 +1473,12 @@ const NewOrder = () => {
       addressMap.forEach((stops, key) => {
         if (stops.length > 1) {
           // Check if they're within 1 hour of each other or have no time set
-          const times = stops.map(s => s.dateRange?.from ? new Date(s.dateRange.from).getTime() : 0);
+          const times = stops.map((s) => (s.dateRange?.from ? new Date(s.dateRange.from).getTime() : 0));
           const maxTimeDiff = Math.max(...times) - Math.min(...times);
           const oneHourMs = 60 * 60 * 1000;
 
-          if (maxTimeDiff <= oneHourMs || times.every(t => t === 0)) {
-            const [type, address, city, state] = key.split('|');
+          if (maxTimeDiff <= oneHourMs || times.every((t) => t === 0)) {
+            const [type, address, city, state] = key.split("|");
             potentialDuplicates.push({
               type,
               address,
@@ -1440,14 +1486,14 @@ const NewOrder = () => {
               state,
               companyName: stops[0].companyName,
               datetime: stops[0].dateRange?.from,
-              indices: stops.map(s => s.index)
+              indices: stops.map((s) => s.index),
             });
           }
         }
       });
 
       if (potentialDuplicates.length > 0) {
-        console.log('⚠️ Potential duplicate stops detected:', potentialDuplicates);
+        console.log("⚠️ Potential duplicate stops detected:", potentialDuplicates);
         setDuplicateStops(potentialDuplicates);
         setShowDuplicateStopsDialog(true);
         setPendingSubmit(true);
@@ -1461,7 +1507,7 @@ const NewOrder = () => {
       toast({
         title: "Booked by Company Required",
         description: "Please select a booked by company.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1470,7 +1516,7 @@ const NewOrder = () => {
       toast({
         title: "Broker Load# Required",
         description: "Please enter a broker load number.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1479,7 +1525,7 @@ const NewOrder = () => {
       toast({
         title: "Broker Required",
         description: "Please select a broker.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1488,19 +1534,19 @@ const NewOrder = () => {
       toast({
         title: "Truck# Required",
         description: "Please select a truck.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
     }
 
     // Validate pickup addresses and date/time ranges
-    const pickups = pickupsDrops.filter(item => item.type === 'pickup');
+    const pickups = pickupsDrops.filter((item) => item.type === "pickup");
     if (pickups.length === 0) {
       toast({
         title: "Pickup Required",
         description: "Please add at least one pickup location.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1510,7 +1556,7 @@ const NewOrder = () => {
         toast({
           title: "Pickup Address Required",
           description: "Please enter an address for all pickup locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1519,7 +1565,7 @@ const NewOrder = () => {
         toast({
           title: "Pickup Date Required",
           description: "Please select a date range for all pickup locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1528,7 +1574,7 @@ const NewOrder = () => {
         toast({
           title: "Pickup Time Required",
           description: "Please enter start and end times for all pickup locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1536,12 +1582,12 @@ const NewOrder = () => {
     }
 
     // Validate delivery addresses and date/time ranges
-    const deliveries = pickupsDrops.filter(item => item.type === 'delivery');
+    const deliveries = pickupsDrops.filter((item) => item.type === "delivery");
     if (deliveries.length === 0) {
       toast({
         title: "Delivery Required",
         description: "Please add at least one delivery location.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1551,7 +1597,7 @@ const NewOrder = () => {
         toast({
           title: "Delivery Address Required",
           description: "Please enter an address for all delivery locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1560,7 +1606,7 @@ const NewOrder = () => {
         toast({
           title: "Delivery Date Required",
           description: "Please select a date range for all delivery locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1569,7 +1615,7 @@ const NewOrder = () => {
         toast({
           title: "Delivery Time Required",
           description: "Please enter start and end times for all delivery locations.",
-          variant: "destructive"
+          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -1579,7 +1625,7 @@ const NewOrder = () => {
       toast({
         title: "Freight Amount Required",
         description: "Please enter a valid freight amount.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1588,7 +1634,7 @@ const NewOrder = () => {
       toast({
         title: "Total Miles Required",
         description: "Please enter valid total miles (loaded miles).",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
@@ -1597,28 +1643,28 @@ const NewOrder = () => {
       toast({
         title: "Driver Required",
         description: "Please select a driver. The internal load number is based on the driver's company.",
-        variant: "destructive"
+        variant: "destructive",
       });
       setIsSubmitting(false);
       return;
     }
 
-      // Check for duplicates unless explicitly skipped
-      if (!skipDuplicateCheck) {
-        const duplicates = await checkForDuplicates();
-        if (duplicates.length > 0) {
-          setDuplicateOrders(duplicates);
-          setShowDuplicateWarning(true);
-          setIsSubmitting(false);
-          return;
-        }
+    // Check for duplicates unless explicitly skipped
+    if (!skipDuplicateCheck) {
+      const duplicates = await checkForDuplicates();
+      if (duplicates.length > 0) {
+        setDuplicateOrders(duplicates);
+        setShowDuplicateWarning(true);
+        setIsSubmitting(false);
+        return;
       }
-      setPendingSubmit(false);
-      
-      try {
-        // Default to BF Prime LLC if booked by company is not selected
-        const bfPrimeCompany = companies?.find(c => c.name === 'BF Prime');
-        const finalBookedByCompany = bookedByCompany || bfPrimeCompany?.id || null;
+    }
+    setPendingSubmit(false);
+
+    try {
+      // Default to BF Prime LLC if booked by company is not selected
+      const bfPrimeCompany = companies?.find((c) => c.name === "BF Prime");
+      const finalBookedByCompany = bookedByCompany || bfPrimeCompany?.id || null;
 
       // Create order data object for the atomic function
       const orderData = {
@@ -1629,12 +1675,12 @@ const NewOrder = () => {
         // Company that booked the order (defaults to BF Prime LLC)
         broker_id: broker || null,
         truck_id: truck || null,
-        trailer_id: truck && trucks ? trucks.find(t => t.id === truck)?.trailer_id || null : null,
+        trailer_id: truck && trucks ? trucks.find((t) => t.id === truck)?.trailer_id || null : null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
         broker_load_number: brokerLoadNumber || null,
         pickup_datetime: (() => {
-          const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
+          const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
           const firstPickup = allPickups[0];
           if (firstPickup?.dateRange?.from && firstPickup?.startTime) {
             return combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime);
@@ -1642,7 +1688,7 @@ const NewOrder = () => {
           return null;
         })(),
         pickup_end_datetime: (() => {
-          const allPickups = pickupsDrops.filter(item => item.type === 'pickup');
+          const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
           const lastPickup = allPickups[allPickups.length - 1];
           if (lastPickup?.dateRange?.from && lastPickup?.endTime) {
             return combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime);
@@ -1650,7 +1696,7 @@ const NewOrder = () => {
           return null;
         })(),
         delivery_datetime: (() => {
-          const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
+          const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
           const firstDelivery = allDeliveries[0];
           if (firstDelivery?.dateRange?.from && firstDelivery?.startTime) {
             return combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime);
@@ -1658,7 +1704,7 @@ const NewOrder = () => {
           return null;
         })(),
         delivery_end_datetime: (() => {
-          const allDeliveries = pickupsDrops.filter(item => item.type === 'delivery');
+          const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
           const lastDelivery = allDeliveries[allDeliveries.length - 1];
           if (lastDelivery?.dateRange?.from && lastDelivery?.endTime) {
             return combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime);
@@ -1676,27 +1722,26 @@ const NewOrder = () => {
         reference_number: pickupPuNumber || null,
         po_number: pickupPoNumber || deliveryPoNumber || null,
         pu_number: pickupPuNumber || null,
-        booked_by: profile?.full_name || 'Unknown User'
+        booked_by: profile?.full_name || "Unknown User",
       };
 
       // Log order data for debugging
-      console.log('📝 Creating order with data:', {
+      console.log("📝 Creating order with data:", {
         ...orderData,
         company_id: driverCompanyId,
-        driver_company: selectedDriver1?.company?.name
+        driver_company: selectedDriver1?.company?.name,
       });
 
       // Validate company_id exists
       if (!driverCompanyId) {
-        throw new Error('Cannot create order: Selected driver has no company assigned. Please select a different driver or assign a company to this driver.');
+        throw new Error(
+          "Cannot create order: Selected driver has no company assigned. Please select a different driver or assign a company to this driver.",
+        );
       }
 
       // Use the atomic function to create order with unique internal load number
-      const {
-        data: result,
-        error: rpcError
-      } = (await supabase.rpc('create_order_with_unique_load_number', {
-        order_data: orderData
+      const { data: result, error: rpcError } = (await supabase.rpc("create_order_with_unique_load_number", {
+        order_data: orderData,
       })) as {
         data: {
           id: string;
@@ -1704,73 +1749,71 @@ const NewOrder = () => {
         };
         error: any;
       };
-      
+
       if (rpcError) {
-        console.error('❌ RPC Error:', rpcError);
-        throw new Error(`Database error: ${rpcError.message || 'Failed to create order'}`);
+        console.error("❌ RPC Error:", rpcError);
+        throw new Error(`Database error: ${rpcError.message || "Failed to create order"}`);
       }
-      
+
       if (!result?.id) {
-        throw new Error('Order creation failed: No order ID returned');
+        throw new Error("Order creation failed: No order ID returned");
       }
       const orderId = result.id;
       const newInternalLoadNumber = result.internal_load_number;
 
       // Upload files if any
-      const allFiles = [{
-        files: rcFiles,
-        category: 'RC'
-      }, {
-        files: bolFiles,
-        category: 'BOL'
-      }, {
-        files: podFiles,
-        category: 'POD'
-      }, {
-        files: additionalFiles,
-        category: 'ADDITIONAL'
-      }];
-      
+      const allFiles = [
+        {
+          files: rcFiles,
+          category: "RC",
+        },
+        {
+          files: bolFiles,
+          category: "BOL",
+        },
+        {
+          files: podFiles,
+          category: "POD",
+        },
+        {
+          files: additionalFiles,
+          category: "ADDITIONAL",
+        },
+      ];
+
       // Track which file categories were newly uploaded for auto-setting checkout times
-      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const chicagoTime = toZonedTime(new Date(), "America/Chicago");
       const checkoutTimestamp = chicagoTime.toISOString();
       let bolUploaded = false;
       let podUploaded = false;
       let newPodCount = 0;
-      
-      for (const {
-        files,
-        category
-      } of allFiles) {
+
+      for (const { files, category } of allFiles) {
         if (files && files.length > 0) {
-          if (category === 'BOL') bolUploaded = true;
-          if (category === 'POD') {
+          if (category === "BOL") bolUploaded = true;
+          if (category === "POD") {
             podUploaded = true;
             newPodCount = files.length;
           }
-          
+
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
             // Sanitize filename: replace special characters with safe alternatives
             const sanitizedFileName = file.name
-              .replace(/[–—]/g, '-') // Replace en-dash and em-dash with regular hyphen
-              .replace(/[^\w\s.-]/g, '') // Remove any non-word, non-space, non-dot, non-hyphen characters
-              .replace(/\s+/g, '_'); // Replace spaces with underscores
+              .replace(/[–—]/g, "-") // Replace en-dash and em-dash with regular hyphen
+              .replace(/[^\w\s.-]/g, "") // Remove any non-word, non-space, non-dot, non-hyphen characters
+              .replace(/\s+/g, "_"); // Replace spaces with underscores
             const fileName = `${orderId}/${category}/${Date.now()}_${sanitizedFileName}`;
-            const {
-              error: uploadError
-            } = await supabase.storage.from('order-files').upload(fileName, file);
+            const { error: uploadError } = await supabase.storage.from("order-files").upload(fileName, file);
             if (uploadError) throw uploadError;
-            const {
-              error: fileError
-            } = await supabase.from('order_files').insert({
+            const { error: fileError } = await supabase.from("order_files").insert({
               order_id: orderId,
               file_name: file.name,
               file_path: fileName,
               file_size: file.size,
               content_type: file.type,
               file_category: category,
-              uploaded_by: profile?.full_name || profile?.email || 'Unknown User'
+              uploaded_by: profile?.full_name || profile?.email || "Unknown User",
             });
             if (fileError) throw fileError;
           }
@@ -1779,53 +1822,54 @@ const NewOrder = () => {
 
       // CRITICAL: Insert pickup/drop locations - must have at least one
       if (pickupsDrops.length === 0) {
-        throw new Error('Cannot create order without pickup/delivery locations');
+        throw new Error("Cannot create order without pickup/delivery locations");
       }
-      const pickupDropData = pickupsDrops.filter(item => item.address?.trim()).map((item, index) => {
-        // Ensure datetime fields are valid
-        let datetime = null;
-        let end_datetime = null;
-        try {
-          if (item.dateRange?.from && item.startTime) {
-            datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+      const pickupDropData = pickupsDrops
+        .filter((item) => item.address?.trim())
+        .map((item, index) => {
+          // Ensure datetime fields are valid
+          let datetime = null;
+          let end_datetime = null;
+          try {
+            if (item.dateRange?.from && item.startTime) {
+              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+            }
+            if (item.dateRange?.from && item.endTime) {
+              end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+            }
+          } catch (error) {
+            console.error("Error combining date and time:", error);
           }
-          if (item.dateRange?.from && item.endTime) {
-            end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
-          }
-        } catch (error) {
-          console.error('Error combining date and time:', error);
-        }
-        return {
-          order_id: orderId,
-          type: item.type,
-          sequence_number: index + 1,
-          address: item.address,
-          city: item.city || null,
-          state: item.state || null,
-          zip_code: item.zipCode || null,
-          company_name: item.companyName || null,
-          datetime,
-          end_datetime
-        };
-      }).filter(item => item.address && item.address.trim().length > 0); // Final safety check
+          return {
+            order_id: orderId,
+            type: item.type,
+            sequence_number: index + 1,
+            address: item.address,
+            city: item.city || null,
+            state: item.state || null,
+            zip_code: item.zipCode || null,
+            company_name: item.companyName || null,
+            datetime,
+            end_datetime,
+          };
+        })
+        .filter((item) => item.address && item.address.trim().length > 0); // Final safety check
 
       console.log(`📍 Prepared ${pickupDropData.length} pickup/drop locations for insertion:`, pickupDropData);
 
       // CRITICAL: Must have at least one valid pickup/drop after filtering
       if (pickupDropData.length === 0) {
-        throw new Error('No valid pickup/delivery locations found. Please ensure all locations have valid addresses.');
+        throw new Error("No valid pickup/delivery locations found. Please ensure all locations have valid addresses.");
       }
       console.log(`📍 Inserting ${pickupDropData.length} pickup/drop locations for order ${orderId}`);
-      const {
-        error: pickupDropError
-      } = await supabase.from('pickup_drops').insert(pickupDropData);
+      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(pickupDropData);
       if (pickupDropError) {
-        console.error('❌ Pickup/drop insert error:', pickupDropError);
-        console.error('Failed data:', pickupDropData);
+        console.error("❌ Pickup/drop insert error:", pickupDropError);
+        console.error("Failed data:", pickupDropData);
         throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
       console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
-      
+
       // Auto-set checked_out_at for newly uploaded BOL/POD files
       if (bolUploaded || podUploaded) {
         // Fetch all pickup_drops for this order
@@ -1834,102 +1878,102 @@ const NewOrder = () => {
           .select("id, type, sequence_number")
           .eq("order_id", orderId)
           .order("sequence_number");
-        
+
         if (allPickupDrops) {
-          const pickups = allPickupDrops.filter(pd => pd.type === "pickup");
-          const deliveries = allPickupDrops.filter(pd => pd.type === "delivery");
-          
+          const pickups = allPickupDrops.filter((pd) => pd.type === "pickup");
+          const deliveries = allPickupDrops.filter((pd) => pd.type === "delivery");
+
           // If BOL was uploaded, set checkout time for first pickup
           if (bolUploaded && pickups.length > 0) {
             const firstPickup = pickups[0];
-            await supabase
-              .from("pickup_drops")
-              .update({ checked_out_at: checkoutTimestamp })
-              .eq("id", firstPickup.id);
+            await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", firstPickup.id);
           }
-          
+
           // If POD was uploaded, set checkout time for corresponding delivery stops
           if (podUploaded && deliveries.length > 0) {
             // For new orders, we're uploading PODs for the first time
             // Update checkout times for first N deliveries where N = number of PODs uploaded
             for (let i = 0; i < newPodCount && i < deliveries.length; i++) {
               const delivery = deliveries[i];
-              await supabase
-                .from("pickup_drops")
-                .update({ checked_out_at: checkoutTimestamp })
-                .eq("id", delivery.id);
+              await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
             }
           }
         }
       }
-      
+
       toast({
         title: "Load Created",
-        description: `Load ${newInternalLoadNumber} has been successfully created.`
+        description: `Load ${newInternalLoadNumber} has been successfully created.`,
       });
 
       // Invalidate query cache to refetch next internal load number
       queryClient.invalidateQueries({
-        queryKey: ['nextInternalLoadNumber']
+        queryKey: ["nextInternalLoadNumber"],
       });
 
       // Reset form and refetch next internal load number
-      setBrokerLoadNumber('');
-      setBroker('');
+      setBrokerLoadNumber("");
+      setBroker("");
 
       // Redirect to orders page
-      navigate('/orders');
-      setTruck('');
-      setDriver1('');
-      setDriver2('');
-      setTrailer('');
+      navigate("/orders");
+      setTruck("");
+      setDriver1("");
+      setDriver2("");
+      setTrailer("");
       setPickupDateRange(undefined);
       setDeliveryDateRange(undefined);
-      setFreightAmount('');
-      setDriverPrice('');
-      setTonu('');
-      setDhMiles('');
-      setLoadedMiles('');
+      setFreightAmount("");
+      setDriverPrice("");
+      setTonu("");
+      setDhMiles("");
+      setLoadedMiles("");
       setRcFiles([]);
       setBolFiles([]);
       setPodFiles([]);
       setAdditionalFiles([]);
-      const rcInput = document.getElementById('rc-files') as HTMLInputElement;
-      const bolInput = document.getElementById('bol-files') as HTMLInputElement;
-      const podInput = document.getElementById('pod-files') as HTMLInputElement;
-      const additionalInput = document.getElementById('additional-files') as HTMLInputElement;
-      if (rcInput) rcInput.value = '';
-      if (bolInput) bolInput.value = '';
-      if (podInput) podInput.value = '';
-      if (additionalInput) additionalInput.value = '';
-      setPickupsDrops([{
-        id: "pickup-1",
-        type: "pickup",
-        address: "",
-        datetime: "",
-        dateRange: undefined,
-        startTime: "",
-        endTime: ""
-      }, {
-        id: "delivery-1",
-        type: "delivery",
-        address: "",
-        datetime: "",
-        dateRange: undefined,
-        startTime: "",
-        endTime: ""
-      }]);
+      const rcInput = document.getElementById("rc-files") as HTMLInputElement;
+      const bolInput = document.getElementById("bol-files") as HTMLInputElement;
+      const podInput = document.getElementById("pod-files") as HTMLInputElement;
+      const additionalInput = document.getElementById("additional-files") as HTMLInputElement;
+      if (rcInput) rcInput.value = "";
+      if (bolInput) bolInput.value = "";
+      if (podInput) podInput.value = "";
+      if (additionalInput) additionalInput.value = "";
+      setPickupsDrops([
+        {
+          id: "pickup-1",
+          type: "pickup",
+          address: "",
+          datetime: "",
+          dateRange: undefined,
+          startTime: "",
+          endTime: "",
+        },
+        {
+          id: "delivery-1",
+          type: "delivery",
+          address: "",
+          datetime: "",
+          dateRange: undefined,
+          startTime: "",
+          endTime: "",
+        },
+      ]);
     } catch (error: any) {
-      console.error('Error creating order:', error);
+      console.error("Error creating order:", error);
 
       // Show detailed error message
       const errorMessage = error.message || "Failed to create order. Please try again.";
-      const isPickupDropError = errorMessage.toLowerCase().includes('pickup') || errorMessage.toLowerCase().includes('delivery') || errorMessage.toLowerCase().includes('location');
+      const isPickupDropError =
+        errorMessage.toLowerCase().includes("pickup") ||
+        errorMessage.toLowerCase().includes("delivery") ||
+        errorMessage.toLowerCase().includes("location");
       toast({
         title: isPickupDropError ? "Invalid Pickup/Delivery Data" : "Error Creating Order",
         description: errorMessage,
         variant: "destructive",
-        duration: 8000
+        duration: 8000,
       });
       setIsSubmitting(false);
     }
@@ -1943,26 +1987,36 @@ const NewOrder = () => {
   };
   const isLoading = companiesLoading || trucksLoading || driversLoading || loadingNextNumber;
   if (isLoading) {
-    return <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading...</span>
-      </div>;
+      </div>
+    );
   }
-  return <div className="max-w-4xl mx-auto">
+  return (
+    <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl font-semibold">Create New Load</CardTitle>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
-              <div className="text-lg font-medium">{nextInternalLoadNumber || 'Loading...'}</div>
+              <div className="text-lg font-medium">{nextInternalLoadNumber || "Loading..."}</div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* RC Upload Section - Top Priority */}
-            <Card className={cn("bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer", dragStates.rc && "border-blue-400 bg-blue-100/50 scale-[1.02]")} {...rcDragHandlers} onClick={() => rcFileInputRef.current?.click()}>
+            <Card
+              className={cn(
+                "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
+                dragStates.rc && "border-blue-400 bg-blue-100/50 scale-[1.02]",
+              )}
+              {...rcDragHandlers}
+              onClick={() => rcFileInputRef.current?.click()}
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
                   <Upload className="h-5 w-5" />
@@ -1973,99 +2027,192 @@ const NewOrder = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium text-blue-700">
-                      {rcFiles && rcFiles.length > 0 ? `${rcFiles.length} file(s) selected` : "Click or drag files here to upload"}
+                      {rcFiles && rcFiles.length > 0
+                        ? `${rcFiles.length} file(s) selected`
+                        : "Click or drag files here to upload"}
                     </Label>
-                    <Button type="button" variant="outline" size="sm" onClick={e => {
-                    e.stopPropagation();
-                    handleExtractWithAI();
-                  }} disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === 'application/pdf')} className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600" data-ai-extract="true">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExtractWithAI();
+                      }}
+                      disabled={
+                        isExtracting ||
+                        !rcFiles ||
+                        rcFiles.length === 0 ||
+                        !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
+                      }
+                      className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                      data-ai-extract="true"
+                    >
                       <Sparkles className="h-4 w-4" />
                       {isExtracting ? "Extracting..." : "Extract with AI"}
                     </Button>
                   </div>
-                  
-                  {dragStates.rc && <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
+
+                  {dragStates.rc && (
+                    <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
                       <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
                       <p className="text-sm text-blue-600 font-medium">Drop your files here</p>
-                    </div>}
-                  
-                  {!dragStates.rc && rcFiles.length > 0 && <div className="space-y-2">
-                      {rcFiles.map((file, index) => <div key={index} className="flex items-center gap-2 p-2 bg-white rounded border border-blue-200">
+                    </div>
+                  )}
+
+                  {!dragStates.rc && rcFiles.length > 0 && (
+                    <div className="space-y-2">
+                      {rcFiles.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-2 bg-white rounded border border-blue-200"
+                        >
                           <FileText className="h-4 w-4 text-blue-500" />
                           <span className="text-sm text-gray-700 truncate">{file.name}</span>
                           <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                        </div>)}
-                    </div>}
-                  
-                  {!dragStates.rc && rcFiles.length === 0 && <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!dragStates.rc && rcFiles.length === 0 && (
+                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center bg-white hover:bg-blue-50/30 transition-colors">
                       <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
                       <p className="text-sm text-blue-600 font-medium mb-1">Click or drag & drop files here</p>
                       <p className="text-xs text-blue-500">PDF, JPG, JPEG, PNG files supported</p>
-                    </div>}
-                  
-                  <input ref={rcFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setRcFiles(e.target.files ? Array.from(e.target.files) : [])} className="hidden" />
+                    </div>
+                  )}
+
+                  <input
+                    ref={rcFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setRcFiles(e.target.files ? Array.from(e.target.files) : [])}
+                    className="hidden"
+                  />
                 </div>
               </CardContent>
             </Card>
 
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
-              <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
+              <Input
+                id="broker-load-number"
+                placeholder="Broker load number"
+                value={brokerLoadNumber}
+                onChange={(e) => setBrokerLoadNumber(e.target.value)}
+              />
             </div>
-            
+
             {/* Error handling for data loading */}
-            {(companiesError || trucksError) && <Alert variant="destructive" className="mb-4">
+            {(companiesError || trucksError) && (
+              <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="flex items-center justify-between">
                   <div>
-                    {companiesError && trucksError ? <>Failed to load companies and trucks. This may be due to a slow or unstable connection.</> : companiesError ? <>Failed to load companies. This may be due to a slow or unstable connection.</> : <>Failed to load trucks. This may be due to a slow or unstable connection.</>}
+                    {companiesError && trucksError ? (
+                      <>Failed to load companies and trucks. This may be due to a slow or unstable connection.</>
+                    ) : companiesError ? (
+                      <>Failed to load companies. This may be due to a slow or unstable connection.</>
+                    ) : (
+                      <>Failed to load trucks. This may be due to a slow or unstable connection.</>
+                    )}
                     {companiesLoading || trucksLoading ? " Retrying..." : ""}
                   </div>
-                  {!companiesLoading && companiesError && <Button variant="outline" size="sm" onClick={() => refetchCompanies()} className="ml-2">
+                  {!companiesLoading && companiesError && (
+                    <Button variant="outline" size="sm" onClick={() => refetchCompanies()} className="ml-2">
                       Retry Now
-                    </Button>}
+                    </Button>
+                  )}
                 </AlertDescription>
-              </Alert>}
-            
+              </Alert>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
-                <Combobox options={companyOptions} value={bookedByCompany} onValueChange={setBookedByCompany} placeholder={companiesLoading ? "Loading companies..." : companiesError ? "Error loading companies" : "Select company"} searchPlaceholder="Search companies..." />
+                <Combobox
+                  options={companyOptions}
+                  value={bookedByCompany}
+                  onValueChange={setBookedByCompany}
+                  placeholder={
+                    companiesLoading
+                      ? "Loading companies..."
+                      : companiesError
+                        ? "Error loading companies"
+                        : "Select company"
+                  }
+                  searchPlaceholder="Search companies..."
+                />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <BrokerCombobox value={broker} onValueChange={setBroker} placeholder="Select broker" searchPlaceholder="Search brokers..." />
+                <BrokerCombobox
+                  value={broker}
+                  onValueChange={setBroker}
+                  placeholder="Select broker"
+                  searchPlaceholder="Search brokers..."
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
-                <Combobox options={truckOptions} value={truck} onValueChange={setTruck} placeholder={trucksLoading ? "Loading trucks..." : trucksError ? "Error loading trucks" : "Select truck"} searchPlaceholder="Search trucks..." />
+                <Combobox
+                  options={truckOptions}
+                  value={truck}
+                  onValueChange={setTruck}
+                  placeholder={
+                    trucksLoading ? "Loading trucks..." : trucksError ? "Error loading trucks" : "Select truck"
+                  }
+                  searchPlaceholder="Search trucks..."
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer # (Auto-filled)</Label>
-                <Input id="trailer" placeholder="Trailer number" value={trailer} onChange={e => {
-                setTrailer(e.target.value);
-                setTrailerManuallyEdited(true);
-              }} />
+                <Input
+                  id="trailer"
+                  placeholder="Trailer number"
+                  value={trailer}
+                  onChange={(e) => {
+                    setTrailer(e.target.value);
+                    setTrailerManuallyEdited(true);
+                  }}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="driver1">Driver 1 (Auto-filled)</Label>
-                <Combobox options={driverOptions} value={driver1} onValueChange={setDriver1} placeholder="Select primary driver" searchPlaceholder="Search drivers..." />
+                <Combobox
+                  options={driverOptions}
+                  value={driver1}
+                  onValueChange={setDriver1}
+                  placeholder="Select primary driver"
+                  searchPlaceholder="Search drivers..."
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver2">Driver 2 (Optional, Auto-filled)</Label>
-                <Combobox options={[{
-                value: "",
-                label: "None"
-              }, ...driverOptions]} value={driver2} onValueChange={setDriver2} placeholder="Select second driver" searchPlaceholder="Search drivers..." />
+                <Combobox
+                  options={[
+                    {
+                      value: "",
+                      label: "None",
+                    },
+                    ...driverOptions,
+                  ]}
+                  value={driver2}
+                  onValueChange={setDriver2}
+                  placeholder="Select second driver"
+                  searchPlaceholder="Search drivers..."
+                />
               </div>
             </div>
 
@@ -2086,81 +2233,147 @@ const NewOrder = () => {
 
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="pickups-drops">
-                  {provided => <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                      {pickupsDrops.map((item, index) => <Draggable key={item.id} draggableId={item.id} index={index}>
-                          {(provided, snapshot) => <Card ref={provided.innerRef} {...provided.draggableProps} className={cn("p-4", snapshot.isDragging && "shadow-lg")}>
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                      {pickupsDrops.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn("p-4", snapshot.isDragging && "shadow-lg")}
+                            >
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                   <div {...provided.dragHandleProps}>
                                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                                   </div>
-                                  <button type="button" onClick={() => togglePickupDropType(item.id)} className={cn("px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors", item.type === "pickup" ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : "bg-green-100 text-green-700 hover:bg-green-200")} title="Click to toggle between Pickup and Delivery">
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePickupDropType(item.id)}
+                                    className={cn(
+                                      "px-2 py-1 rounded text-xs font-medium cursor-pointer transition-colors",
+                                      item.type === "pickup"
+                                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                        : "bg-green-100 text-green-700 hover:bg-green-200",
+                                    )}
+                                    title="Click to toggle between Pickup and Delivery"
+                                  >
                                     {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
                                   </button>
                                 </div>
-                                <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)} className="text-destructive hover:text-destructive">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removePickupDrop(item.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
-                              
+
                               <div className="grid grid-cols-1 gap-3">
                                 <div className="space-y-1">
                                   <Label htmlFor={`company-name-${item.id}`}>
                                     {item.type === "pickup" ? "Shipper Name" : "Receiver Name"}
                                   </Label>
-                                  <Input id={`company-name-${item.id}`} placeholder={item.type === "pickup" ? "Shipper company name" : "Receiver company name"} value={item.companyName || ""} onChange={e => {
-                            const updated = pickupsDrops.map(p => p.id === item.id ? {
-                              ...p,
-                              companyName: e.target.value
-                            } : p);
-                            setPickupsDrops(updated);
-                          }} />
+                                  <Input
+                                    id={`company-name-${item.id}`}
+                                    placeholder={
+                                      item.type === "pickup" ? "Shipper company name" : "Receiver company name"
+                                    }
+                                    value={item.companyName || ""}
+                                    onChange={(e) => {
+                                      const updated = pickupsDrops.map((p) =>
+                                        p.id === item.id
+                                          ? {
+                                              ...p,
+                                              companyName: e.target.value,
+                                            }
+                                          : p,
+                                      );
+                                      setPickupsDrops(updated);
+                                    }}
+                                  />
                                 </div>
 
                                 <div className="space-y-1">
                                   <Label htmlFor={`address-${item.id}`}>Street Address</Label>
-                                  <Input id={`address-${item.id}`} placeholder="123 Main St" value={item.address} onChange={e => updatePickupDrop(item.id, 'address', e.target.value)} />
+                                  <Input
+                                    id={`address-${item.id}`}
+                                    placeholder="123 Main St"
+                                    value={item.address}
+                                    onChange={(e) => updatePickupDrop(item.id, "address", e.target.value)}
+                                  />
                                 </div>
-                                
+
                                 <div className="grid grid-cols-3 gap-2">
                                   <div className="space-y-1 col-span-1">
                                     <Label htmlFor={`city-${item.id}`}>City</Label>
-                                    <Input id={`city-${item.id}`} placeholder="City" value={item.city || ""} onChange={e => updatePickupDrop(item.id, 'city', e.target.value)} />
+                                    <Input
+                                      id={`city-${item.id}`}
+                                      placeholder="City"
+                                      value={item.city || ""}
+                                      onChange={(e) => updatePickupDrop(item.id, "city", e.target.value)}
+                                    />
                                   </div>
-                                  
+
                                   <div className="space-y-1">
                                     <Label htmlFor={`state-${item.id}`}>State</Label>
-                                    <Select value={item.state || ""} onValueChange={value => updatePickupDrop(item.id, 'state', value)}>
+                                    <Select
+                                      value={item.state || ""}
+                                      onValueChange={(value) => updatePickupDrop(item.id, "state", value)}
+                                    >
                                       <SelectTrigger id={`state-${item.id}`}>
                                         <SelectValue placeholder="ST" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {US_STATES.map(state => <SelectItem key={state.value} value={state.value}>
+                                        {US_STATES.map((state) => (
+                                          <SelectItem key={state.value} value={state.value}>
                                             {state.value}
-                                          </SelectItem>)}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   </div>
-                                  
+
                                   <div className="space-y-1">
                                     <Label htmlFor={`zip-${item.id}`}>Zip Code</Label>
-                                    <Input id={`zip-${item.id}`} placeholder="12345" value={item.zipCode || ""} onChange={e => {
-                              // Only allow numbers and limit to 10 characters (for 12345-6789 format)
-                              const value = e.target.value.replace(/[^\d-]/g, '').slice(0, 10);
-                              updatePickupDrop(item.id, 'zipCode', value);
-                            }} maxLength={10} />
+                                    <Input
+                                      id={`zip-${item.id}`}
+                                      placeholder="12345"
+                                      value={item.zipCode || ""}
+                                      onChange={(e) => {
+                                        // Only allow numbers and limit to 10 characters (for 12345-6789 format)
+                                        const value = e.target.value.replace(/[^\d-]/g, "").slice(0, 10);
+                                        updatePickupDrop(item.id, "zipCode", value);
+                                      }}
+                                      maxLength={10}
+                                    />
                                   </div>
                                 </div>
-                                
+
                                 <div className="space-y-1">
                                   <Label htmlFor={`daterange-${item.id}`}>Date & Time Range</Label>
-                                  <DateTimeRangePicker date={item.dateRange} onDateChange={dateRange => updatePickupDropDateRange(item.id, dateRange)} startTime={item.startTime || ""} endTime={item.endTime || ""} onStartTimeChange={time => updatePickupDropTime(item.id, 'startTime', time)} onEndTimeChange={time => updatePickupDropTime(item.id, 'endTime', time)} placeholder={`Select ${item.type} date and time range`} />
+                                  <DateTimeRangePicker
+                                    date={item.dateRange}
+                                    onDateChange={(dateRange) => updatePickupDropDateRange(item.id, dateRange)}
+                                    startTime={item.startTime || ""}
+                                    endTime={item.endTime || ""}
+                                    onStartTimeChange={(time) => updatePickupDropTime(item.id, "startTime", time)}
+                                    onEndTimeChange={(time) => updatePickupDropTime(item.id, "endTime", time)}
+                                    placeholder={`Select ${item.type} date and time range`}
+                                  />
                                 </div>
                               </div>
-                            </Card>}
-                        </Draggable>)}
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
                       {provided.placeholder}
-                    </div>}
+                    </div>
+                  )}
                 </Droppable>
               </DragDropContext>
             </div>
@@ -2169,39 +2382,62 @@ const NewOrder = () => {
               <div className="space-y-2">
                 <Label htmlFor="dh-miles">
                   DH Miles
-                  {isCalculatingDhMiles && <span className="text-xs text-muted-foreground ml-2">
-                      (Calculating...)
-                    </span>}
+                  {isCalculatingDhMiles && <span className="text-xs text-muted-foreground ml-2">(Calculating...)</span>}
                 </Label>
                 <div className="relative">
-                  <Input id="dh-miles" type="number" placeholder={lastDelivery ? "Auto-calculated from last delivery" : "0"} value={dhMiles} onChange={e => setDhMiles(e.target.value)} disabled={isCalculatingDhMiles} className={cn(isCalculatingDhMiles && "bg-muted cursor-not-allowed")} />
-                  {isCalculatingDhMiles && <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                  <Input
+                    id="dh-miles"
+                    type="number"
+                    placeholder={lastDelivery ? "Auto-calculated from last delivery" : "0"}
+                    value={dhMiles}
+                    onChange={(e) => setDhMiles(e.target.value)}
+                    disabled={isCalculatingDhMiles}
+                    className={cn(isCalculatingDhMiles && "bg-muted cursor-not-allowed")}
+                  />
+                  {isCalculatingDhMiles && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {lastDelivery && dhMiles && !isCalculatingDhMiles ? `From: ${lastDelivery.deliveryAddress}` : '\u00A0'}
+                  {lastDelivery && dhMiles && !isCalculatingDhMiles
+                    ? `From: ${lastDelivery.deliveryAddress}`
+                    : "\u00A0"}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="loaded-miles">
                   Loaded Miles
-                  {isCalculatingMiles && <span className="text-xs text-muted-foreground ml-2">
-                      (Calculating...)
-                    </span>}
+                  {isCalculatingMiles && <span className="text-xs text-muted-foreground ml-2">(Calculating...)</span>}
                 </Label>
                 <div className="relative">
-                  <Input id="loaded-miles" type="number" placeholder="0" value={loadedMiles} onChange={e => setLoadedMiles(e.target.value)} disabled={isCalculatingMiles} className={cn(isCalculatingMiles && "bg-muted cursor-not-allowed")} />
-                  {isCalculatingMiles && <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                  <Input
+                    id="loaded-miles"
+                    type="number"
+                    placeholder="0"
+                    value={loadedMiles}
+                    onChange={(e) => setLoadedMiles(e.target.value)}
+                    disabled={isCalculatingMiles}
+                    className={cn(isCalculatingMiles && "bg-muted cursor-not-allowed")}
+                  />
+                  {isCalculatingMiles && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Auto-calculated from pickup to delivery addresses
-                </p>
+                <p className="text-xs text-muted-foreground">Auto-calculated from pickup to delivery addresses</p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="total-miles">Total Miles</Label>
                 <div className="relative">
-                  <Input id="total-miles" type="number" placeholder="0" value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()} readOnly className="bg-muted" />
+                  <Input
+                    id="total-miles"
+                    type="number"
+                    placeholder="0"
+                    value={((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)).toString()}
+                    readOnly
+                    className="bg-muted"
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground min-h-[1.25rem]"></p>
               </div>
@@ -2210,17 +2446,36 @@ const NewOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="freight-amount">Freight Amount</Label>
-                <Input id="freight-amount" type="number" placeholder="0.00" value={freightAmount} onChange={e => setFreightAmount(e.target.value)} />
+                <Input
+                  id="freight-amount"
+                  type="number"
+                  placeholder="0.00"
+                  value={freightAmount}
+                  onChange={(e) => setFreightAmount(e.target.value)}
+                />
                 <p className="text-xs text-muted-foreground">
-                  RPM: ${((parseFloat(freightAmount) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0).toFixed(2)}
+                  RPM: $
+                  {(
+                    (parseFloat(freightAmount) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) ||
+                    0
+                  ).toFixed(2)}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver-price">Price for Driver</Label>
-                <Input id="driver-price" type="number" placeholder="0.00" value={driverPrice} onChange={e => setDriverPrice(e.target.value)} />
+                <Input
+                  id="driver-price"
+                  type="number"
+                  placeholder="0.00"
+                  value={driverPrice}
+                  onChange={(e) => setDriverPrice(e.target.value)}
+                />
                 <p className="text-xs text-muted-foreground">
-                  RPM: ${((parseFloat(driverPrice) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0).toFixed(2)}
+                  RPM: $
+                  {(
+                    (parseFloat(driverPrice) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0
+                  ).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -2228,19 +2483,31 @@ const NewOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="tonu">TONU</Label>
-                <Input id="tonu" type="number" placeholder="0.00" value={tonu} onChange={e => {
-                setTonu(e.target.value);
-                // If TONU has a value, set freight amount to 0
-                if (e.target.value && parseFloat(e.target.value) > 0) {
-                  setFreightAmount("0");
-                }
-              }} />
+                <Input
+                  id="tonu"
+                  type="number"
+                  placeholder="0.00"
+                  value={tonu}
+                  onChange={(e) => {
+                    setTonu(e.target.value);
+                    // If TONU has a value, set freight amount to 0
+                    if (e.target.value && parseFloat(e.target.value) > 0) {
+                      setFreightAmount("0");
+                    }
+                  }}
+                />
               </div>
             </div>
 
             {/* Additional File Upload Sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]")} {...bolDragHandlers}>
+              <Card
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]",
+                )}
+                {...bolDragHandlers}
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-green-700 flex items-center gap-2">
                     <Upload className="h-4 w-4" />
@@ -2248,26 +2515,47 @@ const NewOrder = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {dragStates.bol ? <div className="border-2 border-dashed border-green-400 rounded-lg p-4 text-center bg-green-50">
+                  {dragStates.bol ? (
+                    <div className="border-2 border-dashed border-green-400 rounded-lg p-4 text-center bg-green-50">
                       <FileText className="mx-auto h-6 w-6 text-green-500 mb-1" />
                       <p className="text-xs text-green-600 font-medium">Drop files here</p>
-                    </div> : <>
+                    </div>
+                  ) : (
+                    <>
                       <p className="text-xs text-green-600 mb-2">
                         {bolFiles.length > 0 ? `${bolFiles.length} file(s) selected` : "Click or drag files here"}
                       </p>
-                      {bolFiles.length > 0 && <div className="space-y-1 mb-2">
-                          {bolFiles.map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                      {bolFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {bolFiles.map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
-                            </div>)}
-                        </div>}
-                    </>}
-                  <input ref={bolFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setBolFiles(e.target.files ? Array.from(e.target.files) : [])} className="hidden" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input
+                    ref={bolFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setBolFiles(e.target.files ? Array.from(e.target.files) : [])}
+                    className="hidden"
+                  />
                   <p className="text-xs text-green-600">Bill of lading documents</p>
                 </CardContent>
               </Card>
 
-              <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]")} {...podDragHandlers}>
+              <Card
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]",
+                )}
+                {...podDragHandlers}
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
                     <Upload className="h-4 w-4" />
@@ -2275,26 +2563,47 @@ const NewOrder = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {dragStates.pod ? <div className="border-2 border-dashed border-purple-400 rounded-lg p-4 text-center bg-purple-50">
+                  {dragStates.pod ? (
+                    <div className="border-2 border-dashed border-purple-400 rounded-lg p-4 text-center bg-purple-50">
                       <FileText className="mx-auto h-6 w-6 text-purple-500 mb-1" />
                       <p className="text-xs text-purple-600 font-medium">Drop files here</p>
-                    </div> : <>
+                    </div>
+                  ) : (
+                    <>
                       <p className="text-xs text-purple-600 mb-2">
                         {podFiles.length > 0 ? `${podFiles.length} file(s) selected` : "Click or drag files here"}
                       </p>
-                      {podFiles.length > 0 && <div className="space-y-1 mb-2">
-                          {podFiles.map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                      {podFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {podFiles.map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
-                            </div>)}
-                        </div>}
-                    </>}
-                  <input ref={podFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setPodFiles(e.target.files ? Array.from(e.target.files) : [])} className="hidden" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input
+                    ref={podFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setPodFiles(e.target.files ? Array.from(e.target.files) : [])}
+                    className="hidden"
+                  />
                   <p className="text-xs text-purple-600">Delivery confirmation documents</p>
                 </CardContent>
               </Card>
 
-              <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]")} {...additionalDragHandlers}>
+              <Card
+                className={cn(
+                  "cursor-pointer transition-all duration-200 hover:shadow-md",
+                  dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]",
+                )}
+                {...additionalDragHandlers}
+              >
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
                     <Upload className="h-4 w-4" />
@@ -2302,32 +2611,54 @@ const NewOrder = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {dragStates.additional ? <div className="border-2 border-dashed border-orange-400 rounded-lg p-4 text-center bg-orange-50">
+                  {dragStates.additional ? (
+                    <div className="border-2 border-dashed border-orange-400 rounded-lg p-4 text-center bg-orange-50">
                       <FileText className="mx-auto h-6 w-6 text-orange-500 mb-1" />
                       <p className="text-xs text-orange-600 font-medium">Drop files here</p>
-                    </div> : <>
+                    </div>
+                  ) : (
+                    <>
                       <p className="text-xs text-orange-600 mb-2">
-                        {additionalFiles.length > 0 ? `${additionalFiles.length} file(s) selected` : "Click or drag files here"}
+                        {additionalFiles.length > 0
+                          ? `${additionalFiles.length} file(s) selected`
+                          : "Click or drag files here"}
                       </p>
-                      {additionalFiles.length > 0 && <div className="space-y-1 mb-2">
-                          {additionalFiles.map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                      {additionalFiles.length > 0 && (
+                        <div className="space-y-1 mb-2">
+                          {additionalFiles.map((file, index) => (
+                            <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                               <FileText className="h-3 w-3" />
                               <span className="truncate">{file.name}</span>
-                            </div>)}
-                        </div>}
-                    </>}
-                  <input ref={additionalFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setAdditionalFiles(e.target.files ? Array.from(e.target.files) : [])} className="hidden" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <input
+                    ref={additionalFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setAdditionalFiles(e.target.files ? Array.from(e.target.files) : [])}
+                    className="hidden"
+                  />
                   <p className="text-xs text-orange-600">Other supporting documents</p>
                 </CardContent>
               </Card>
             </div>
 
             {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
-            
 
             {/* Generate Load Confirmation Button */}
             <div className="flex justify-center mt-6">
-              <Button type="button" variant="outline" onClick={handleGenerateConfirmation} disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2} className="w-full max-w-md">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateConfirmation}
+                disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
                 {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
@@ -2335,7 +2666,14 @@ const NewOrder = () => {
             </div>
 
             {/* Email to Driver File Upload */}
-            <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md bg-blue-50/30 border-blue-200", dragStates.email && "border-blue-400 bg-blue-100/50 scale-[1.02]")} {...emailDragHandlers} onClick={() => emailFileInputRef.current?.click()}>
+            <Card
+              className={cn(
+                "cursor-pointer transition-all duration-200 hover:shadow-md bg-blue-50/30 border-blue-200",
+                dragStates.email && "border-blue-400 bg-blue-100/50 scale-[1.02]",
+              )}
+              {...emailDragHandlers}
+              onClick={() => emailFileInputRef.current?.click()}
+            >
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
                   <Mail className="h-4 w-4" />
@@ -2343,39 +2681,65 @@ const NewOrder = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {dragStates.email ? <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
+                {dragStates.email ? (
+                  <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
                     <FileText className="mx-auto h-6 w-6 text-blue-500 mb-1" />
                     <p className="text-xs text-blue-600 font-medium">Drop files here</p>
-                  </div> : <>
+                  </div>
+                ) : (
+                  <>
                     <p className="text-xs text-blue-600 mb-2">
                       {emailFiles.length > 0 ? `${emailFiles.length} file(s) selected` : "Click or drag files here"}
                     </p>
-                    {emailFiles.length > 0 && <div className="space-y-1 mb-2">
-                        {emailFiles.map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                    {emailFiles.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {emailFiles.map((file, index) => (
+                          <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                             <FileText className="h-3 w-3" />
                             <span className="truncate">{file.name}</span>
-                          </div>)}
-                      </div>}
-                  </>}
-                <input ref={emailFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setEmailFiles(e.target.files ? Array.from(e.target.files) : [])} className="hidden" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+                <input
+                  ref={emailFileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setEmailFiles(e.target.files ? Array.from(e.target.files) : [])}
+                  className="hidden"
+                />
                 <p className="text-xs text-blue-600">Upload file to email to driver</p>
-                
+
                 {/* Send Email Button */}
-                <Button type="button" onClick={e => {
-                e.stopPropagation();
-                handleSendEmailToDriver();
-              }} disabled={emailFiles.length === 0 || isSendingEmail || emailSent || !driver1} className={cn("w-full mt-2", emailSent && "bg-green-600 hover:bg-green-700")}>
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSendEmailToDriver();
+                  }}
+                  disabled={emailFiles.length === 0 || isSendingEmail || emailSent || !driver1}
+                  className={cn("w-full mt-2", emailSent && "bg-green-600 hover:bg-green-700")}
+                >
                   {isSendingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {emailSent ? <>✓ Sent to {drivers?.find(d => d.id === driver1)?.email || 'driver'}</> : <>
+                  {emailSent ? (
+                    <>✓ Sent to {drivers?.find((d) => d.id === driver1)?.email || "driver"}</>
+                  ) : (
+                    <>
                       <Mail className="mr-2 h-4 w-4" />
                       Send Email to Driver
-                    </>}
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
 
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => navigate('/orders')}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => navigate("/orders")}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Load
@@ -2384,36 +2748,41 @@ const NewOrder = () => {
           </form>
         </CardContent>
       </Card>
-      
+
       {/* Duplicate Order Warning Dialog */}
       <AlertDialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Load Warning</AlertDialogTitle>
             <AlertDialogDescription>
-              A load with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in the system:
+              A load with the same Broker Load# <strong>({brokerLoadNumber})</strong> and pickup date already exists in
+              the system:
               <div className="mt-3 space-y-2">
-                {duplicateOrders.map(order => <div key={order.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                {duplicateOrders.map((order) => (
+                  <div key={order.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                     <div className="font-medium">Internal Load #{order.internal_load_number}</div>
                     <div className="text-sm">Status: {order.status}</div>
-                    <div className="text-sm">Pickup: {order.pickup_datetime ? new Date(order.pickup_datetime).toLocaleDateString() : 'N/A'}</div>
-                  </div>)}
+                    <div className="text-sm">
+                      Pickup: {order.pickup_datetime ? new Date(order.pickup_datetime).toLocaleDateString() : "N/A"}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="mt-3">
-                Are you sure you want to create this load anyway?
-              </div>
+              <div className="mt-3">Are you sure you want to create this load anyway?</div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-            setShowDuplicateWarning(false);
-            setDuplicateOrders([]);
-          }}>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowDuplicateWarning(false);
+                setDuplicateOrders([]);
+              }}
+            >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               disabled={isSubmitting}
-              onClick={e => {
+              onClick={(e) => {
                 if (isSubmitting) return; // Prevent duplicate submissions
                 setShowDuplicateWarning(false);
                 handleSubmit(e as any, true);
@@ -2427,7 +2796,12 @@ const NewOrder = () => {
       </AlertDialog>
 
       {/* Missing Data Confirmation Dialog */}
-      <MissingDataConfirmDialog open={showMissingDataDialog} onOpenChange={setShowMissingDataDialog} missingData={missingDataDetails} onConfirm={handleConfirmMissingData} />
+      <MissingDataConfirmDialog
+        open={showMissingDataDialog}
+        onOpenChange={setShowMissingDataDialog}
+        missingData={missingDataDetails}
+        onConfirm={handleConfirmMissingData}
+      />
 
       {/* Duplicate Stops Confirmation Dialog */}
       <DuplicateStopsConfirmDialog
@@ -2445,6 +2819,7 @@ const NewOrder = () => {
           handleSubmit(e as any, false, true);
         }}
       />
-    </div>;
+    </div>
+  );
 };
 export default NewOrder;

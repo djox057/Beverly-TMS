@@ -11,8 +11,31 @@ import { DateTimeRangePicker } from "@/components/ui/datetime-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Loader2, GripVertical, ArrowLeft, Sparkles, Upload, FileText, RefreshCw, Mail, Warehouse, Download, Eye } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  GripVertical,
+  ArrowLeft,
+  Sparkles,
+  Upload,
+  FileText,
+  RefreshCw,
+  Mail,
+  Warehouse,
+  Download,
+  Eye,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -46,17 +69,10 @@ interface PickupDrop {
   companyName?: string;
 }
 const EditOrder = () => {
-  const {
-    id
-  } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
-  const {
-    profile,
-    hasRole
-  } = useAuthContext();
+  const { toast } = useToast();
+  const { profile, hasRole } = useAuthContext();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,8 +81,8 @@ const EditOrder = () => {
 
   // Check on mount if we should return to reports or trips
   useEffect(() => {
-    const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-    const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
+    const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+    const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
     setReturnToReports(shouldReturnToReports);
     setReturnToTrips(shouldReturnToTrips);
   }, []);
@@ -119,7 +135,20 @@ const EditOrder = () => {
     const noTracking = parseFloat(noTrackingFee) || 0;
     const wrongAddr = parseFloat(wrongAddressFee) || 0;
     return base + det + lay + extra + lump - late + ton + other + escort - noTracking - wrongAddr;
-  }, [freightAmount, detention, layover, extraStop, lumper, lateFee, tonu, otherCharges, escortFee, escortFeeBrokerPaid, noTrackingFee, wrongAddressFee]);
+  }, [
+    freightAmount,
+    detention,
+    layover,
+    extraStop,
+    lumper,
+    lateFee,
+    tonu,
+    otherCharges,
+    escortFee,
+    escortFeeBrokerPaid,
+    noTrackingFee,
+    wrongAddressFee,
+  ]);
   const totalDriverPay = useMemo(() => {
     const base = parseFloat(driverPrice) || 0;
     const det = parseFloat(detentionDriver) || 0;
@@ -130,7 +159,16 @@ const EditOrder = () => {
     const noTracking = parseFloat(noTrackingFeeDriver) || 0;
     const wrongAddr = parseFloat(wrongAddressFeeDriver) || 0;
     return base + det + lay - late + ton + other - noTracking - wrongAddr;
-  }, [driverPrice, detentionDriver, layoverDriver, lateFeeDriver, tonuDriver, otherChargesDriver, noTrackingFeeDriver, wrongAddressFeeDriver]);
+  }, [
+    driverPrice,
+    detentionDriver,
+    layoverDriver,
+    lateFeeDriver,
+    tonuDriver,
+    otherChargesDriver,
+    noTrackingFeeDriver,
+    wrongAddressFeeDriver,
+  ]);
   const [commodity, setCommodity] = useState("");
   const [weight, setWeight] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -208,7 +246,7 @@ const EditOrder = () => {
     bol: false,
     pod: false,
     additional: false,
-    email: false
+    email: false,
   });
 
   // File input refs for programmatic access
@@ -219,64 +257,63 @@ const EditOrder = () => {
   const emailFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch data from database
-  const {
-    data: companies
-  } = useCompanies();
-  const {
-    data: trucks
-  } = useTrucks();
-  const {
-    data: drivers
-  } = useDrivers();
-  const {
-    data: trailers
-  } = useTrailers();
-  const [profiles, setProfiles] = useState<Array<{
-    id: string;
-    full_name: string;
-  }>>([]);
+  const { data: companies } = useCompanies();
+  const { data: trucks } = useTrucks();
+  const { data: drivers } = useDrivers();
+  const { data: trailers } = useTrailers();
+  const [profiles, setProfiles] = useState<
+    Array<{
+      id: string;
+      full_name: string;
+    }>
+  >([]);
 
   // Company email configuration (same as NewOrder)
-  const COMPANY_EMAIL_CONFIG: Record<string, {
-    sender: string;
-    cc: string;
-  }> = {
+  const COMPANY_EMAIL_CONFIG: Record<
+    string,
+    {
+      sender: string;
+      cc: string;
+    }
+  > = {
     "BF Prime LLC": {
       sender: "BF Prime Dispatch <truckload@bfprime.net>",
-      cc: "dispatch@bfprime.net"
+      cc: "dispatch@bfprime.net",
     },
     "BF Prime United LLC": {
       sender: "BF Prime United Dispatch <truckload@bfprimeunited.net>",
-      cc: "dispatch@bfprimeunited.net"
+      cc: "dispatch@bfprimeunited.net",
     },
     "Beverly Group": {
       sender: "Beverly Group Dispatch <truckload@beverlygroupllc.net>",
-      cc: "dispatch@beverlygroupllc.net"
+      cc: "dispatch@beverlygroupllc.net",
     },
     "Beverly group": {
       sender: "Beverly Group Dispatch <truckload@beverlygroupllc.net>",
-      cc: "dispatch@beverlygroupllc.net"
+      cc: "dispatch@beverlygroupllc.net",
     },
     "Beverly Freight": {
       sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
-      cc: "dispatch@beverlyfreight.net"
+      cc: "dispatch@beverlyfreight.net",
     },
     "Beverly Freight Inc": {
       sender: "Beverly Freight Dispatch <truckload@beverlyfreight.net>",
-      cc: "dispatch@beverlyfreight.net"
+      cc: "dispatch@beverlyfreight.net",
     },
     "BG Prime Inc": {
       sender: "BG Prime Dispatch <truckload@bgprime.net>",
-      cc: "dispatch@bgprime.net"
-    }
+      cc: "dispatch@bgprime.net",
+    },
   };
 
   // Fetch profiles for booked by dropdown
   useEffect(() => {
     const fetchProfiles = async () => {
-      const {
-        data
-      } = await supabase.from("profiles").select("id, full_name").not("full_name", "is", null).order("full_name");
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .not("full_name", "is", null)
+        .order("full_name");
       if (data) {
         setProfiles(data);
       }
@@ -295,44 +332,48 @@ const EditOrder = () => {
       toast({
         title: "Invalid Load ID",
         description: "The load ID in the URL is invalid or missing",
-        variant: "destructive"
+        variant: "destructive",
       });
-        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-        const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-        const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
-        const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
-        if (shouldReturnToReports) {
-          localStorage.removeItem('returnToReports');
-          navigate("/reports");
-        } else if (shouldReturnToYardLoads) {
-          localStorage.removeItem('returnToYardLoads');
-          navigate("/yard-loads");
-        } else if (shouldReturnToTrips) {
-          localStorage.removeItem('returnToTrips');
-          navigate("/trips");
-        } else if (shouldReturnToOrders) {
-          navigate("/orders");
-        } else {
-          navigate("/orders");
-        }
+      const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+      const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+      const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+      const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
+      if (shouldReturnToReports) {
+        localStorage.removeItem("returnToReports");
+        navigate("/reports");
+      } else if (shouldReturnToYardLoads) {
+        localStorage.removeItem("returnToYardLoads");
+        navigate("/yard-loads");
+      } else if (shouldReturnToTrips) {
+        localStorage.removeItem("returnToTrips");
+        navigate("/trips");
+      } else if (shouldReturnToOrders) {
+        navigate("/orders");
+      } else {
+        navigate("/orders");
+      }
       return;
     }
     try {
-      const {
-        data: orderData,
-        error
-      } = await supabase.from("orders").select(`
+      const { data: orderData, error } = await supabase
+        .from("orders")
+        .select(
+          `
           *,
           pickup_drops!inner(*),
           order_files(*),
           trailer:trailers!trailer_id(trailer_number)
-        `).eq("id", id).order("sequence_number", {
-        foreignTable: "pickup_drops",
-        ascending: true
-      }).single();
+        `,
+        )
+        .eq("id", id)
+        .order("sequence_number", {
+          foreignTable: "pickup_drops",
+          ascending: true,
+        })
+        .single();
       console.log("Order data response:", {
         orderData,
-        error
+        error,
       });
       if (error) {
         console.error("Supabase error:", error);
@@ -347,20 +388,20 @@ const EditOrder = () => {
           toast({
             title: "Load Locked",
             description: "This load is locked and cannot be edited",
-            variant: "destructive"
+            variant: "destructive",
           });
-          const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-          const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-          const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
-          const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
+          const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+          const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+          const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+          const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
           if (shouldReturnToReports) {
-            localStorage.removeItem('returnToReports');
+            localStorage.removeItem("returnToReports");
             navigate("/reports");
           } else if (shouldReturnToYardLoads) {
-            localStorage.removeItem('returnToYardLoads');
+            localStorage.removeItem("returnToYardLoads");
             navigate("/yard-loads");
           } else if (shouldReturnToTrips) {
-            localStorage.removeItem('returnToTrips');
+            localStorage.removeItem("returnToTrips");
             navigate("/trips");
           } else if (shouldReturnToOrders) {
             navigate("/orders");
@@ -386,16 +427,24 @@ const EditOrder = () => {
         setLateFee((orderData as any).late_fee?.toString() || "");
         setDriverPrice(orderData.driver_price?.toString() || "");
         setTonu((orderData as any).tonu?.toString() || "");
-        setDetentionDriver((orderData as any).detention_driver > 0 ? (orderData as any).detention_driver.toString() : "");
+        setDetentionDriver(
+          (orderData as any).detention_driver > 0 ? (orderData as any).detention_driver.toString() : "",
+        );
         setLayoverDriver((orderData as any).layover_driver > 0 ? (orderData as any).layover_driver.toString() : "");
         setLateFeeDriver((orderData as any).late_fee_driver > 0 ? (orderData as any).late_fee_driver.toString() : "");
         setTonuDriver((orderData as any).tonu_driver > 0 ? (orderData as any).tonu_driver.toString() : "");
         setNoTrackingFee((orderData as any).no_tracking_fee?.toString() || "");
-        setNoTrackingFeeDriver((orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "");
+        setNoTrackingFeeDriver(
+          (orderData as any).no_tracking_fee_driver > 0 ? (orderData as any).no_tracking_fee_driver.toString() : "",
+        );
         setWrongAddressFee((orderData as any).wrong_address_fee?.toString() || "");
-        setWrongAddressFeeDriver((orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "");
+        setWrongAddressFeeDriver(
+          (orderData as any).wrong_address_fee_driver > 0 ? (orderData as any).wrong_address_fee_driver.toString() : "",
+        );
         setOtherCharges((orderData as any).other_charges?.toString() || "");
-        setOtherChargesDriver((orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "");
+        setOtherChargesDriver(
+          (orderData as any).other_charges_driver > 0 ? (orderData as any).other_charges_driver.toString() : "",
+        );
         setCommodity((orderData as any).commodity || "");
         setWeight((orderData as any).weight?.toString() || "");
         setReferenceNumber((orderData as any).reference_number || "");
@@ -408,28 +457,55 @@ const EditOrder = () => {
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
 
         // Check if any additional fields have values > 0 to auto-show them
-        const hasAdditionalValues = (orderData as any).detention && parseFloat((orderData as any).detention) > 0 || (orderData as any).detention_driver && parseFloat((orderData as any).detention_driver) > 0 || (orderData as any).layover && parseFloat((orderData as any).layover) > 0 || (orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0 || (orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0 || (orderData as any).lumper && parseFloat((orderData as any).lumper) > 0 || (orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0 || (orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0 || (orderData as any).no_tracking_fee && parseFloat((orderData as any).no_tracking_fee) > 0 || (orderData as any).no_tracking_fee_driver && parseFloat((orderData as any).no_tracking_fee_driver) > 0 || (orderData as any).wrong_address_fee && parseFloat((orderData as any).wrong_address_fee) > 0 || (orderData as any).wrong_address_fee_driver && parseFloat((orderData as any).wrong_address_fee_driver) > 0 || (orderData as any).tonu && parseFloat((orderData as any).tonu) > 0 || (orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0 || (orderData as any).other_charges && parseFloat((orderData as any).other_charges) > 0 || (orderData as any).other_charges_driver && parseFloat((orderData as any).other_charges_driver) > 0 || (orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0;
+        const hasAdditionalValues =
+          ((orderData as any).detention && parseFloat((orderData as any).detention) > 0) ||
+          ((orderData as any).detention_driver && parseFloat((orderData as any).detention_driver) > 0) ||
+          ((orderData as any).layover && parseFloat((orderData as any).layover) > 0) ||
+          ((orderData as any).layover_driver && parseFloat((orderData as any).layover_driver) > 0) ||
+          ((orderData as any).extra_stop && parseFloat((orderData as any).extra_stop) > 0) ||
+          ((orderData as any).lumper && parseFloat((orderData as any).lumper) > 0) ||
+          ((orderData as any).late_fee && parseFloat((orderData as any).late_fee) > 0) ||
+          ((orderData as any).late_fee_driver && parseFloat((orderData as any).late_fee_driver) > 0) ||
+          ((orderData as any).no_tracking_fee && parseFloat((orderData as any).no_tracking_fee) > 0) ||
+          ((orderData as any).no_tracking_fee_driver && parseFloat((orderData as any).no_tracking_fee_driver) > 0) ||
+          ((orderData as any).wrong_address_fee && parseFloat((orderData as any).wrong_address_fee) > 0) ||
+          ((orderData as any).wrong_address_fee_driver &&
+            parseFloat((orderData as any).wrong_address_fee_driver) > 0) ||
+          ((orderData as any).tonu && parseFloat((orderData as any).tonu) > 0) ||
+          ((orderData as any).tonu_driver && parseFloat((orderData as any).tonu_driver) > 0) ||
+          ((orderData as any).other_charges && parseFloat((orderData as any).other_charges) > 0) ||
+          ((orderData as any).other_charges_driver && parseFloat((orderData as any).other_charges_driver) > 0) ||
+          ((orderData as any).escort_fee && parseFloat((orderData as any).escort_fee) > 0);
         setShowAdditionalFields(hasAdditionalValues);
 
         // Load recovery state
         setIsRecovery((orderData as any).is_recovery || false);
         if ((orderData as any).is_recovery) {
           // Get original driver and truck info from database
-          const {
-            data: origDriver
-          } = await supabase.from("drivers").select("name").eq("id", (orderData as any).original_driver1_id).maybeSingle();
-          const {
-            data: origTruck
-          } = await supabase.from("trucks").select("truck_number").eq("id", (orderData as any).original_truck_id).maybeSingle();
-          const {
-            data: origTrailer
-          } = await supabase.from("trailers").select("trailer_number").eq("id", (orderData as any).original_trailer_id).maybeSingle();
-          
+          const { data: origDriver } = await supabase
+            .from("drivers")
+            .select("name")
+            .eq("id", (orderData as any).original_driver1_id)
+            .maybeSingle();
+          const { data: origTruck } = await supabase
+            .from("trucks")
+            .select("truck_number")
+            .eq("id", (orderData as any).original_truck_id)
+            .maybeSingle();
+          const { data: origTrailer } = await supabase
+            .from("trailers")
+            .select("trailer_number")
+            .eq("id", (orderData as any).original_trailer_id)
+            .maybeSingle();
+
           // Get recovery history to check if trailers were swapped
-          const {
-            data: recoveryHistory
-          } = await supabase.from("recovery_history").select("trailers_swapped").eq("order_id", id).is("reverted_at", null).maybeSingle();
-          
+          const { data: recoveryHistory } = await supabase
+            .from("recovery_history")
+            .select("trailers_swapped")
+            .eq("order_id", id)
+            .is("reverted_at", null)
+            .maybeSingle();
+
           setOriginalDriverName(origDriver?.name || "");
           setOriginalTruckNumber(origTruck?.truck_number || "");
           setOriginalTrailerNumber(origTrailer?.trailer_number || "");
@@ -473,7 +549,7 @@ const EditOrder = () => {
               const dateObj = new Date(parsed.year, parsed.month - 1, parsed.day);
               dateRange = {
                 from: dateObj,
-                to: dateObj
+                to: dateObj,
               };
             }
 
@@ -491,7 +567,7 @@ const EditOrder = () => {
               dateRange,
               raw_datetime: pd.datetime,
               pickup_end_datetime: orderData.pickup_end_datetime,
-              delivery_end_datetime: orderData.delivery_end_datetime
+              delivery_end_datetime: orderData.delivery_end_datetime,
             });
             return {
               id: pd.id,
@@ -507,13 +583,24 @@ const EditOrder = () => {
               contactName: pd.contact_name || "",
               contactPhone: pd.contact_phone || "",
               specialInstructions: pd.special_instructions || "",
-              companyName: pd.company_name || ""
+              companyName: pd.company_name || "",
             };
           });
 
           // Deduplicate exact matches when loading
           const uniquePickupsDrops = transformedPickupsDrops.filter((item: any, index: number, self: any[]) => {
-            return index === self.findIndex((t: any) => t.type === item.type && t.address === item.address && t.city === item.city && t.state === item.state && t.zipCode === item.zipCode && t.datetime === item.datetime);
+            return (
+              index ===
+              self.findIndex(
+                (t: any) =>
+                  t.type === item.type &&
+                  t.address === item.address &&
+                  t.city === item.city &&
+                  t.state === item.state &&
+                  t.zipCode === item.zipCode &&
+                  t.datetime === item.datetime,
+              )
+            );
           });
           setPickupsDrops(uniquePickupsDrops);
           console.log("Set pickupsDrops to:", uniquePickupsDrops);
@@ -530,20 +617,20 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: "Failed to load order data",
-        variant: "destructive"
+        variant: "destructive",
       });
-      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-      const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
-      const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
+      const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+      const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+      const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+      const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
       if (shouldReturnToReports) {
-        localStorage.removeItem('returnToReports');
+        localStorage.removeItem("returnToReports");
         navigate("/reports");
       } else if (shouldReturnToYardLoads) {
-        localStorage.removeItem('returnToYardLoads');
+        localStorage.removeItem("returnToYardLoads");
         navigate("/yard-loads");
       } else if (shouldReturnToTrips) {
-        localStorage.removeItem('returnToTrips');
+        localStorage.removeItem("returnToTrips");
         navigate("/trips");
       } else if (shouldReturnToOrders) {
         navigate("/orders");
@@ -560,23 +647,35 @@ const EditOrder = () => {
   useEffect(() => {
     if (!id || id === ":id") return;
     console.log("Setting up real-time subscription for order:", id);
-    const channel = supabase.channel(`order-${id}-changes`).on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'orders',
-      filter: `id=eq.${id}`
-    }, payload => {
-      console.log('Order changed:', payload);
-      loadOrderData();
-    }).on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'pickup_drops',
-      filter: `order_id=eq.${id}`
-    }, payload => {
-      console.log('Pickup/drop changed:', payload);
-      loadOrderData();
-    }).subscribe();
+    const channel = supabase
+      .channel(`order-${id}-changes`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          console.log("Order changed:", payload);
+          loadOrderData();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pickup_drops",
+          filter: `order_id=eq.${id}`,
+        },
+        (payload) => {
+          console.log("Pickup/drop changed:", payload);
+          loadOrderData();
+        },
+      )
+      .subscribe();
     return () => {
       console.log("Cleaning up real-time subscription for order:", id);
       supabase.removeChannel(channel);
@@ -595,20 +694,20 @@ const EditOrder = () => {
         toast({
           title: "Error",
           description: "Invalid load ID format",
-          variant: "destructive"
+          variant: "destructive",
         });
-        const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-        const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-        const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
-        const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
+        const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+        const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+        const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+        const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
         if (shouldReturnToReports) {
-          localStorage.removeItem('returnToReports');
+          localStorage.removeItem("returnToReports");
           navigate("/reports");
         } else if (shouldReturnToYardLoads) {
-          localStorage.removeItem('returnToYardLoads');
+          localStorage.removeItem("returnToYardLoads");
           navigate("/yard-loads");
         } else if (shouldReturnToTrips) {
-          localStorage.removeItem('returnToTrips');
+          localStorage.removeItem("returnToTrips");
           navigate("/trips");
         } else if (shouldReturnToOrders) {
           navigate("/orders");
@@ -623,20 +722,20 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: "No valid load ID provided in URL",
-        variant: "destructive"
+        variant: "destructive",
       });
-      const shouldReturnToReports = localStorage.getItem('returnToReports') === 'true';
-      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-      const shouldReturnToTrips = localStorage.getItem('returnToTrips') === 'true';
-      const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
+      const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
+      const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+      const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+      const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
       if (shouldReturnToReports) {
-        localStorage.removeItem('returnToReports');
+        localStorage.removeItem("returnToReports");
         navigate("/reports");
       } else if (shouldReturnToYardLoads) {
-        localStorage.removeItem('returnToYardLoads');
+        localStorage.removeItem("returnToYardLoads");
         navigate("/yard-loads");
       } else if (shouldReturnToTrips) {
-        localStorage.removeItem('returnToTrips');
+        localStorage.removeItem("returnToTrips");
         navigate("/trips");
       } else if (shouldReturnToOrders) {
         navigate("/orders");
@@ -650,7 +749,7 @@ const EditOrder = () => {
       id: Date.now().toString(),
       type,
       address: "",
-      datetime: ""
+      datetime: "",
     };
     if (type === "pickup") {
       const lastPickupIndex = pickupsDrops.reduce((lastIndex, item, index) => {
@@ -665,41 +764,59 @@ const EditOrder = () => {
     }
   };
   const removePickupDrop = (id: string) => {
-    setPickupsDrops(pickupsDrops.filter(item => item.id !== id));
+    setPickupsDrops(pickupsDrops.filter((item) => item.id !== id));
   };
   const updatePickupDrop = (id: string, field: keyof PickupDrop, value: any) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      [field]: value
-    } : item));
+    setPickupsDrops(
+      pickupsDrops.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
   };
   const updatePickupDropTime = (id: string, timeType: "startTime" | "endTime", time: string) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      [timeType]: time
-    } : item));
+    setPickupsDrops(
+      pickupsDrops.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              [timeType]: time,
+            }
+          : item,
+      ),
+    );
   };
   const updatePickupDropDateRange = (id: string, dateRange: DateRange | undefined) => {
-    setPickupsDrops(pickupsDrops.map(item => item.id === id ? {
-      ...item,
-      dateRange
-    } : item));
+    setPickupsDrops(
+      pickupsDrops.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              dateRange,
+            }
+          : item,
+      ),
+    );
   };
   const handleExtractWithAI = async () => {
     if (!rcFiles || rcFiles.length === 0) {
       toast({
         title: "No RC File Selected",
         description: "Please select a PDF file in the RC section to extract data from.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
-    const pdfFile = Array.from(rcFiles).find(file => file.type === "application/pdf");
+    const pdfFile = Array.from(rcFiles).find((file) => file.type === "application/pdf");
     if (!pdfFile) {
       toast({
         title: "PDF Required",
         description: "Please select a PDF file for AI extraction.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -710,16 +827,14 @@ const EditOrder = () => {
       formData.append("pdf", pdfFile);
       console.log("Calling extract-order-fields edge function...");
       const {
-        data: {
-          session
-        }
+        data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${session?.access_token || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM'}`
+          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
         },
-        body: formData
+        body: formData,
       });
       console.log("Edge function response status:", response.status);
       if (!response.ok) {
@@ -750,38 +865,43 @@ const EditOrder = () => {
       if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
         setPickupDateRange({
           from: new Date(extractedData.pickupStartDate + "T12:00:00"),
-          to: new Date(extractedData.pickupEndDate + "T12:00:00")
+          to: new Date(extractedData.pickupEndDate + "T12:00:00"),
         });
       } else if (extractedData.pickupDate) {
         const pickupDate = new Date(extractedData.pickupDate + "T12:00:00");
         setPickupDateRange({
           from: pickupDate,
-          to: pickupDate
+          to: pickupDate,
         });
       }
       if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
         setDeliveryDateRange({
           from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
-          to: new Date(extractedData.deliveryEndDate + "T12:00:00")
+          to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
         });
       } else if (extractedData.deliveryDate) {
         const deliveryDate = new Date(extractedData.deliveryDate + "T12:00:00");
         setDeliveryDateRange({
           from: deliveryDate,
-          to: deliveryDate
+          to: deliveryDate,
         });
       }
 
       // Handle pickups and deliveries with date ranges
       const newPickupsDrops: PickupDrop[] = [];
       if (extractedData.pickupAddress) {
-        const pickupDateRange = extractedData.pickupStartDate && extractedData.pickupEndDate ? {
-          from: new Date(extractedData.pickupStartDate + "T12:00:00"),
-          to: new Date(extractedData.pickupEndDate + "T12:00:00")
-        } : extractedData.pickupDate ? {
-          from: new Date(extractedData.pickupDate + "T12:00:00"),
-          to: new Date(extractedData.pickupDate + "T12:00:00")
-        } : undefined;
+        const pickupDateRange =
+          extractedData.pickupStartDate && extractedData.pickupEndDate
+            ? {
+                from: new Date(extractedData.pickupStartDate + "T12:00:00"),
+                to: new Date(extractedData.pickupEndDate + "T12:00:00"),
+              }
+            : extractedData.pickupDate
+              ? {
+                  from: new Date(extractedData.pickupDate + "T12:00:00"),
+                  to: new Date(extractedData.pickupDate + "T12:00:00"),
+                }
+              : undefined;
         newPickupsDrops.push({
           id: "pickup-1",
           type: "pickup",
@@ -792,17 +912,22 @@ const EditOrder = () => {
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
-          endTime: extractedData.pickupEndTime || extractedData.pickupTime || ""
+          endTime: extractedData.pickupEndTime || extractedData.pickupTime || "",
         });
       }
       if (extractedData.deliveryAddress) {
-        const deliveryDateRange = extractedData.deliveryStartDate && extractedData.deliveryEndDate ? {
-          from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
-          to: new Date(extractedData.deliveryEndDate + "T12:00:00")
-        } : extractedData.deliveryDate ? {
-          from: new Date(extractedData.deliveryDate + "T12:00:00"),
-          to: new Date(extractedData.deliveryDate + "T12:00:00")
-        } : undefined;
+        const deliveryDateRange =
+          extractedData.deliveryStartDate && extractedData.deliveryEndDate
+            ? {
+                from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
+                to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
+              }
+            : extractedData.deliveryDate
+              ? {
+                  from: new Date(extractedData.deliveryDate + "T12:00:00"),
+                  to: new Date(extractedData.deliveryDate + "T12:00:00"),
+                }
+              : undefined;
         newPickupsDrops.push({
           id: "delivery-1",
           type: "delivery",
@@ -813,7 +938,7 @@ const EditOrder = () => {
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || ""
+          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || "",
         });
       }
       if (newPickupsDrops.length > 0) {
@@ -821,14 +946,14 @@ const EditOrder = () => {
       }
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted ${data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`
+        description: `Extracted ${data.fieldsExtracted} fields from PDF. Please review and adjust as needed.`,
       });
     } catch (error: any) {
       console.error("Extraction error:", error);
       toast({
         title: "Extraction Failed",
         description: error.message || "Failed to extract data from PDF",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsExtracting(false);
@@ -837,13 +962,15 @@ const EditOrder = () => {
 
   // Build email subject line (same as NewOrder)
   const buildEmailSubject = (): string => {
-    const selectedTruck = trucks?.find(t => t.id === truck);
-    const selectedDriver = drivers?.find(d => d.id === driver1);
-    const pickups = pickupsDrops.filter(p => p.type === "pickup");
-    const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+    const selectedTruck = trucks?.find((t) => t.id === truck);
+    const selectedDriver = drivers?.find((d) => d.id === driver1);
+    const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+    const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
     const truckNumber = selectedTruck?.truck_number || "TBD";
     const driverFirstName = selectedDriver?.name?.split(" ")[0] || "Driver";
-    const pickupDate = pickups[0]?.dateRange?.from ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, "0")}/${String(pickups[0].dateRange.from.getDate()).padStart(2, "0")}/${pickups[0].dateRange.from.getFullYear()}` : "TBD";
+    const pickupDate = pickups[0]?.dateRange?.from
+      ? `${String(pickups[0].dateRange.from.getMonth() + 1).padStart(2, "0")}/${String(pickups[0].dateRange.from.getDate()).padStart(2, "0")}/${pickups[0].dateRange.from.getFullYear()}`
+      : "TBD";
     const brokerLoad = brokerLoadNumber || "TBD";
     const firstPickupState = pickups[0]?.state || "TBD";
     const lastDeliveryState = deliveries[deliveries.length - 1]?.state || "TBD";
@@ -856,39 +983,39 @@ const EditOrder = () => {
       toast({
         title: "No File Attached",
         description: "Please upload a file to send to the driver.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
     if (emailSent) return;
     try {
       setIsSendingEmail(true);
-      const selectedDriver = drivers?.find(d => d.id === driver1);
+      const selectedDriver = drivers?.find((d) => d.id === driver1);
       if (!selectedDriver?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
-      const selectedTruck = trucks?.find(t => t.id === truck);
-      
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+
       // Get company name from truck, fallback to fetching from companies table
       let companyName = selectedTruck?.company?.name;
-      
+
       // If company name is not in the truck object, fetch it from companies table
       if (!companyName && selectedTruck?.company_id) {
-        console.log('📧 Company not in truck object, fetching from companies table...');
+        console.log("📧 Company not in truck object, fetching from companies table...");
         const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('name')
-          .eq('id', selectedTruck.company_id)
+          .from("companies")
+          .select("name")
+          .eq("id", selectedTruck.company_id)
           .maybeSingle();
-        
+
         if (companyError) {
-          console.error('❌ Error fetching company:', companyError);
+          console.error("❌ Error fetching company:", companyError);
         } else if (companyData) {
           companyName = companyData.name;
-          console.log('✅ Company fetched:', companyName);
+          console.log("✅ Company fetched:", companyName);
         }
       }
-      
+
       if (!companyName) {
         throw new Error("Truck company not found. Cannot determine sender email.");
       }
@@ -906,27 +1033,28 @@ const EditOrder = () => {
             const base64data = reader.result as string;
             const base64Content = base64data.split(",")[1];
             const {
-              data: {
-                session
-              }
+              data: { session },
             } = await supabase.auth.getSession();
-            const response = await fetch("https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`
+            const response = await fetch(
+              "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/send-load-confirmation-email",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+                },
+                body: JSON.stringify({
+                  to: selectedDriver.email,
+                  from: emailConfig.sender,
+                  cc: emailConfig.cc,
+                  subject: subject,
+                  bodyText: "Please see the load sheet attached below.",
+                  attachmentBase64: base64Content,
+                  attachmentFilename: emailFiles[0].name,
+                  attachmentContentType: emailFiles[0].type,
+                }),
               },
-              body: JSON.stringify({
-                to: selectedDriver.email,
-                from: emailConfig.sender,
-                cc: emailConfig.cc,
-                subject: subject,
-                bodyText: "Please see the rate confirmation attached below.",
-                attachmentBase64: base64Content,
-                attachmentFilename: emailFiles[0].name,
-                attachmentContentType: emailFiles[0].type
-              })
-            });
+            );
             const responseData = await response.json();
             if (!response.ok) {
               throw new Error(responseData.error || "Failed to send email");
@@ -934,7 +1062,7 @@ const EditOrder = () => {
             setEmailSent(true);
             toast({
               title: "Email Sent",
-              description: `File sent to ${selectedDriver.email}`
+              description: `File sent to ${selectedDriver.email}`,
             });
             resolve(true);
           } catch (err) {
@@ -947,7 +1075,7 @@ const EditOrder = () => {
       toast({
         title: "Email Failed",
         description: error.message || "Failed to send email to driver",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSendingEmail(false);
@@ -964,19 +1092,20 @@ const EditOrder = () => {
     if (!bookedByCompany || !truck || !driver1 || pickupsDrops.length < 2) {
       toast({
         title: "Missing Information",
-        description: "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
-        variant: "destructive"
+        description:
+          "Please fill in company, truck, driver, pickup and delivery information before generating confirmation.",
+        variant: "destructive",
       });
       return;
     }
     setIsGeneratingConfirmation(true);
     try {
-      const selectedTruck = trucks?.find(t => t.id === truck);
-      const selectedDriver = drivers?.find(d => d.id === driver1);
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+      const selectedDriver = drivers?.find((d) => d.id === driver1);
 
       // Get all pickups and deliveries
-      const pickups = pickupsDrops.filter(p => p.type === "pickup");
-      const deliveries = pickupsDrops.filter(p => p.type === "delivery");
+      const pickups = pickupsDrops.filter((p) => p.type === "pickup");
+      const deliveries = pickupsDrops.filter((p) => p.type === "delivery");
       if (!selectedTruck || !selectedDriver || pickups.length === 0 || deliveries.length === 0) {
         throw new Error("Missing required data");
       }
@@ -990,11 +1119,19 @@ const EditOrder = () => {
       const formatTime = (time?: string) => time || "";
 
       // Helper to format location data
-      const formatLocationData = (location: any, driverDateRange?: DateRange, driverStartTime?: string, driverEndTime?: string) => ({
+      const formatLocationData = (
+        location: any,
+        driverDateRange?: DateRange,
+        driverStartTime?: string,
+        driverEndTime?: string,
+      ) => ({
         address: location.address,
-        cityStateZip: `${location.city || ''}${location.city && location.state ? ', ' : ''}${location.state || ''}${(location.city || location.state) && location.zipCode ? ' ' : ''}${location.zipCode || ''}`.trim(),
+        cityStateZip:
+          `${location.city || ""}${location.city && location.state ? ", " : ""}${location.state || ""}${(location.city || location.state) && location.zipCode ? " " : ""}${location.zipCode || ""}`.trim(),
         date: formatDate(driverDateRange || location.dateRange),
-        time: formatTime(driverStartTime || location.startTime) + (driverEndTime || location.endTime ? ` - ${formatTime(driverEndTime || location.endTime)}` : "")
+        time:
+          formatTime(driverStartTime || location.startTime) +
+          (driverEndTime || location.endTime ? ` - ${formatTime(driverEndTime || location.endTime)}` : ""),
       });
 
       // Build confirmation data with all pickups and deliveries
@@ -1011,11 +1148,18 @@ const EditOrder = () => {
         // First pickup (always present)
         pickupShipper: pickups[0].companyName || "",
         pickupAddress: pickups[0].address,
-        pickupCityStateZip: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).cityStateZip,
-        pickupDate: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).date,
-        pickupTime: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime).time,
+        pickupCityStateZip: formatLocationData(
+          pickups[0],
+          driverPickupDateRange,
+          driverPickupStartTime,
+          driverPickupEndTime,
+        ).cityStateZip,
+        pickupDate: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime)
+          .date,
+        pickupTime: formatLocationData(pickups[0], driverPickupDateRange, driverPickupStartTime, driverPickupEndTime)
+          .time,
         pickupPuNumber: "",
-        pickupPoNumber: ""
+        pickupPoNumber: "",
       };
 
       // Add second pickup if exists
@@ -1041,7 +1185,12 @@ const EditOrder = () => {
       }
 
       // Add first delivery (always present)
-      const delivery1Data = formatLocationData(deliveries[0], driverDeliveryDateRange, driverDeliveryStartTime, driverDeliveryEndTime);
+      const delivery1Data = formatLocationData(
+        deliveries[0],
+        driverDeliveryDateRange,
+        driverDeliveryStartTime,
+        driverDeliveryEndTime,
+      );
       confirmationData.deliveryReceiver = deliveries[0].companyName || "";
       confirmationData.deliveryAddress = deliveries[0].address;
       confirmationData.deliveryCityStateZip = delivery1Data.cityStateZip;
@@ -1098,17 +1247,15 @@ const EditOrder = () => {
 
       // Generate PDF via edge function (using fetch for binary data)
       const {
-        data: {
-          session
-        }
+        data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/generate-load-confirmation`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`
+          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
         },
-        body: JSON.stringify(confirmationData)
+        body: JSON.stringify(confirmationData),
       });
       if (!response.ok) {
         const errorText = await response.text();
@@ -1127,14 +1274,14 @@ const EditOrder = () => {
       document.body.removeChild(a);
       toast({
         title: "Confirmation Generated",
-        description: "Load confirmation PDF has been generated and downloaded."
+        description: "Load confirmation PDF has been generated and downloaded.",
       });
     } catch (error: any) {
       console.error("Confirmation generation error:", error);
       toast({
         title: "Generation Failed",
         description: error.message || "Failed to generate load confirmation",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsGeneratingConfirmation(false);
@@ -1148,22 +1295,22 @@ const EditOrder = () => {
       bol: setBolFiles,
       pod: setPodFiles,
       additional: setAdditionalFiles,
-      email: setEmailFiles
+      email: setEmailFiles,
     }[fileType];
     const fileInputRef = {
       rc: rcFileInputRef,
       bol: bolFileInputRef,
       pod: podFileInputRef,
       additional: additionalFileInputRef,
-      email: emailFileInputRef
+      email: emailFileInputRef,
     }[fileType];
     return {
       onDragEnter: (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragStates(prev => ({
+        setDragStates((prev) => ({
           ...prev,
-          [fileType]: true
+          [fileType]: true,
         }));
       },
       onDragLeave: (e: React.DragEvent) => {
@@ -1174,9 +1321,9 @@ const EditOrder = () => {
         const x = e.clientX;
         const y = e.clientY;
         if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
-          setDragStates(prev => ({
+          setDragStates((prev) => ({
             ...prev,
-            [fileType]: false
+            [fileType]: false,
           }));
         }
       },
@@ -1187,9 +1334,9 @@ const EditOrder = () => {
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragStates(prev => ({
+        setDragStates((prev) => ({
           ...prev,
-          [fileType]: false
+          [fileType]: false,
         }));
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
@@ -1200,7 +1347,7 @@ const EditOrder = () => {
             (setFiles as React.Dispatch<React.SetStateAction<FileList>>)(files);
           }
         }
-      }
+      },
     };
   };
 
@@ -1223,7 +1370,7 @@ const EditOrder = () => {
       rc: rcFileInputRef,
       bol: bolFileInputRef,
       pod: podFileInputRef,
-      additional: additionalFileInputRef
+      additional: additionalFileInputRef,
     }[fileType];
     console.log("[DEBUG] File input ref:", fileInputRef.current);
     if (fileInputRef.current) {
@@ -1240,44 +1387,49 @@ const EditOrder = () => {
   const emailDragHandlers = createFileDragHandlers("email");
 
   // Prepare options for dropdowns
-  const companyOptions = companies?.map(company => ({
-    value: company.id,
-    label: company.name
-  })) || [];
-  const truckOptions = trucks?.map(truck => ({
-    value: truck.id,
-    label: truck.truck_number
-  })) || [];
-  const trailerOptions = trailers?.map(trailer => ({
-    value: trailer.id,
-    label: trailer.trailer_number
-  })) || [];
-  const driverOptions = drivers?.map(driver => ({
-    value: driver.id,
-    label: driver.name
-  })) || [];
+  const companyOptions =
+    companies?.map((company) => ({
+      value: company.id,
+      label: company.name,
+    })) || [];
+  const truckOptions =
+    trucks?.map((truck) => ({
+      value: truck.id,
+      label: truck.truck_number,
+    })) || [];
+  const trailerOptions =
+    trailers?.map((trailer) => ({
+      value: trailer.id,
+      label: trailer.trailer_number,
+    })) || [];
+  const driverOptions =
+    drivers?.map((driver) => ({
+      value: driver.id,
+      label: driver.name,
+    })) || [];
   const handleRecoverySave = async (data: RecoveryData) => {
     try {
       // Update order with transfer information
-      const {
-        error
-      } = await supabase.from("orders").update({
-        is_recovery: true,
-        original_driver1_id: driver1,
-        original_driver2_id: driver2 || null,
-        original_truck_id: truck,
-        original_trailer_id: trailerId || null,
-        original_miles: data.originalMiles,
-        original_driver_price: data.originalDriverRate,
-        recovery_miles: data.recoveryMiles,
-        recovery_driver_price: data.recoveryDriverRate,
-        recovery_date: data.recoveryDate,
-        // Update current assignment to transfer driver
-        truck_id: data.recoveryTruckId,
-        trailer_id: data.swapTrailers ? trailerId : (data.recoveryTrailerId || null),
-        driver1_id: data.recoveryDriverId,
-        driver2_id: null
-      }).eq("id", id);
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          is_recovery: true,
+          original_driver1_id: driver1,
+          original_driver2_id: driver2 || null,
+          original_truck_id: truck,
+          original_trailer_id: trailerId || null,
+          original_miles: data.originalMiles,
+          original_driver_price: data.originalDriverRate,
+          recovery_miles: data.recoveryMiles,
+          recovery_driver_price: data.recoveryDriverRate,
+          recovery_date: data.recoveryDate,
+          // Update current assignment to transfer driver
+          truck_id: data.recoveryTruckId,
+          trailer_id: data.swapTrailers ? trailerId : data.recoveryTrailerId || null,
+          driver1_id: data.recoveryDriverId,
+          driver2_id: null,
+        })
+        .eq("id", id);
       if (error) throw error;
 
       // Insert recovery history record
@@ -1293,39 +1445,41 @@ const EditOrder = () => {
         recovery_trailer_id: data.recoveryTrailerId || null,
         recovery_date: data.recoveryDate,
         trailers_swapped: data.swapTrailers,
-        original_dispatcher_id: profile?.user_id || null
+        original_dispatcher_id: profile?.user_id || null,
       });
-      
+
       if (historyError) throw historyError;
 
       // Handle trailer swap if requested
       if (data.swapTrailers && trailerId && data.recoveryTrailerId) {
         const originalTrailerId = trailerId;
         const transferTrailerId = data.recoveryTrailerId;
-        
+
         // Update original truck to have transfer truck's trailer
         const { error: originalTruckError } = await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ trailer_id: transferTrailerId })
-          .eq('id', truck);
-        
+          .eq("id", truck);
+
         if (originalTruckError) throw originalTruckError;
-        
+
         // Update transfer truck to have original trailer
         const { error: transferTruckError } = await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ trailer_id: originalTrailerId })
-          .eq('id', data.recoveryTruckId);
-        
+          .eq("id", data.recoveryTruckId);
+
         if (transferTruckError) throw transferTruckError;
 
         // Invalidate trucks cache to refresh data
-        queryClient.invalidateQueries({ queryKey: ['trucks'] });
+        queryClient.invalidateQueries({ queryKey: ["trucks"] });
       }
 
       toast({
         title: "Success",
-        description: data.swapTrailers ? "Load transferred and trailers swapped successfully" : "Load marked as transfer successfully"
+        description: data.swapTrailers
+          ? "Load transferred and trailers swapped successfully"
+          : "Load marked as transfer successfully",
       });
 
       // Reload order data to reflect changes
@@ -1335,7 +1489,7 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to mark load as transfer",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -1364,32 +1518,36 @@ const EditOrder = () => {
           driver2_id: recoveryHistory.original_driver2_id,
           recovery_date: null,
           recovery_miles: null,
-          recovery_driver_price: null
+          recovery_driver_price: null,
         })
         .eq("id", id);
 
       if (orderError) throw orderError;
 
       // If trailers were swapped, swap them back
-      if (recoveryHistory.trailers_swapped && recoveryHistory.original_trailer_id && recoveryHistory.recovery_trailer_id) {
+      if (
+        recoveryHistory.trailers_swapped &&
+        recoveryHistory.original_trailer_id &&
+        recoveryHistory.recovery_trailer_id
+      ) {
         // Revert original truck to have its original trailer
         const { error: originalTruckError } = await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ trailer_id: recoveryHistory.original_trailer_id })
-          .eq('id', recoveryHistory.original_truck_id);
-        
+          .eq("id", recoveryHistory.original_truck_id);
+
         if (originalTruckError) throw originalTruckError;
-        
+
         // Revert recovery truck to have its original trailer
         const { error: recoveryTruckError } = await supabase
-          .from('trucks')
+          .from("trucks")
           .update({ trailer_id: recoveryHistory.recovery_trailer_id })
-          .eq('id', recoveryHistory.recovery_truck_id);
-        
+          .eq("id", recoveryHistory.recovery_truck_id);
+
         if (recoveryTruckError) throw recoveryTruckError;
 
         // Invalidate trucks cache
-        queryClient.invalidateQueries({ queryKey: ['trucks'] });
+        queryClient.invalidateQueries({ queryKey: ["trucks"] });
       }
 
       // Mark recovery as reverted
@@ -1397,7 +1555,7 @@ const EditOrder = () => {
         .from("recovery_history")
         .update({
           reverted_at: new Date().toISOString(),
-          reverted_by: profile?.user_id || null
+          reverted_by: profile?.user_id || null,
         })
         .eq("id", recoveryHistory.id);
 
@@ -1405,9 +1563,9 @@ const EditOrder = () => {
 
       toast({
         title: "Success",
-        description: recoveryHistory.trailers_swapped 
+        description: recoveryHistory.trailers_swapped
           ? "Transfer reverted and trailers swapped back successfully"
-          : "Transfer reverted successfully"
+          : "Transfer reverted successfully",
       });
 
       // Reload order data
@@ -1417,7 +1575,7 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to revert transfer",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -1432,42 +1590,53 @@ const EditOrder = () => {
     setIsSubmitting(true);
     try {
       // Update order - Calculate pickup/delivery datetimes from stops
-      const allPickups = pickupsDrops.filter(item => item.type === "pickup");
-      const allDeliveries = pickupsDrops.filter(item => item.type === "delivery");
+      const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
+      const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
       const firstPickup = allPickups[0];
       const lastPickup = allPickups[allPickups.length - 1];
       const firstDelivery = allDeliveries[0];
       const lastDelivery = allDeliveries[allDeliveries.length - 1];
 
       // Calculate new delivery datetime for comparison
-      const newDeliveryDatetime = firstDelivery?.dateRange?.from && firstDelivery?.startTime ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime) : null;
+      const newDeliveryDatetime =
+        firstDelivery?.dateRange?.from && firstDelivery?.startTime
+          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
+          : null;
 
       // Check if delivery date changed (date only, not time) and append to date change notes
       let updatedDateChangeNotes = dateChangeNotes;
       let dateWasChanged = false;
       if (originalDeliveryDate && newDeliveryDatetime) {
-        const originalDateOnly = new Date(originalDeliveryDate.getFullYear(), originalDeliveryDate.getMonth(), originalDeliveryDate.getDate());
+        const originalDateOnly = new Date(
+          originalDeliveryDate.getFullYear(),
+          originalDeliveryDate.getMonth(),
+          originalDeliveryDate.getDate(),
+        );
         const newDateOnly = new Date(newDeliveryDatetime);
-        const newDateOnlyNormalized = new Date(newDateOnly.getFullYear(), newDateOnly.getMonth(), newDateOnly.getDate());
+        const newDateOnlyNormalized = new Date(
+          newDateOnly.getFullYear(),
+          newDateOnly.getMonth(),
+          newDateOnly.getDate(),
+        );
 
         // Only add note if the dates are different (ignoring time)
         if (originalDateOnly.getTime() !== newDateOnlyNormalized.getTime()) {
           const oldDateStr = originalDeliveryDate.toLocaleDateString("en-US", {
             month: "2-digit",
             day: "2-digit",
-            year: "numeric"
+            year: "numeric",
           });
           const changeNote = `Supposed to deliver on ${oldDateStr}`;
           updatedDateChangeNotes = dateChangeNotes ? `${dateChangeNotes}\n${changeNote}` : changeNote;
           dateWasChanged = true;
         }
       }
-      
+
       // Get company from selected truck or driver (driver1), or preserve existing
-      const selectedTruck = trucks?.find(t => t.id === truck);
-      const selectedDriver1 = drivers?.find(d => d.id === driver1);
+      const selectedTruck = trucks?.find((t) => t.id === truck);
+      const selectedDriver1 = drivers?.find((d) => d.id === driver1);
       const companyId = selectedTruck?.company_id || selectedDriver1?.company_id;
-      
+
       const updateData: any = {
         broker_load_number: brokerLoadNumber || null,
         booked_by_company_id: bookedByCompany || null,
@@ -1476,10 +1645,22 @@ const EditOrder = () => {
         trailer_id: trailerId || null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
-        pickup_datetime: firstPickup?.dateRange?.from && firstPickup?.startTime ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime) : null,
-        pickup_end_datetime: lastPickup?.dateRange?.from && lastPickup?.endTime ? combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime) : null,
-        delivery_datetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime) : null,
-        delivery_end_datetime: lastDelivery?.dateRange?.from && lastDelivery?.endTime ? combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime) : null,
+        pickup_datetime:
+          firstPickup?.dateRange?.from && firstPickup?.startTime
+            ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
+            : null,
+        pickup_end_datetime:
+          lastPickup?.dateRange?.from && lastPickup?.endTime
+            ? combineDateAndTime(lastPickup.dateRange.from, lastPickup.endTime)
+            : null,
+        delivery_datetime:
+          firstDelivery?.dateRange?.from && firstDelivery?.startTime
+            ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
+            : null,
+        delivery_end_datetime:
+          lastDelivery?.dateRange?.from && lastDelivery?.endTime
+            ? combineDateAndTime(lastDelivery.dateRange.from, lastDelivery.endTime)
+            : null,
         freight_amount: freightAmount ? parseFloat(freightAmount) : null,
         detention: detention ? parseFloat(detention) : null,
         layover: layover ? parseFloat(layover) : null,
@@ -1512,136 +1693,140 @@ const EditOrder = () => {
         escort_fee_broker_paid: escortFeeBrokerPaid,
         date_change_notes: updatedDateChangeNotes || null,
         canceled: Boolean(tonu && parseFloat(tonu) > 0),
-        locked: Boolean(tonu && parseFloat(tonu) > 0) || isLocked
+        locked: Boolean(tonu && parseFloat(tonu) > 0) || isLocked,
       };
-      
+
       // Only update company_id if we have a new one, otherwise preserve existing
       if (companyId) {
         updateData.company_id = companyId;
       }
-      
-      const {
-        error: orderError
-      } = await supabase.from("orders").update(updateData).eq("id", id);
+
+      const { error: orderError } = await supabase.from("orders").update(updateData).eq("id", id);
       if (orderError) throw orderError;
 
       // Upload new files if any
-      const allFiles = [{
-        files: rcFiles,
-        category: "RC"
-      }, {
-        files: bolFiles,
-        category: "BOL"
-      }, {
-        files: podFiles,
-        category: "POD"
-      }, {
-        files: additionalFiles,
-        category: "ADDITIONAL"
-      }];
-      
+      const allFiles = [
+        {
+          files: rcFiles,
+          category: "RC",
+        },
+        {
+          files: bolFiles,
+          category: "BOL",
+        },
+        {
+          files: podFiles,
+          category: "POD",
+        },
+        {
+          files: additionalFiles,
+          category: "ADDITIONAL",
+        },
+      ];
+
       // Track which file categories were newly uploaded for auto-setting checkout times
-      const chicagoTime = toZonedTime(new Date(), 'America/Chicago');
+      const chicagoTime = toZonedTime(new Date(), "America/Chicago");
       const checkoutTimestamp = chicagoTime.toISOString();
       let bolUploaded = false;
       let podUploaded = false;
       let newPodCount = 0;
-      
-      for (const {
-        files,
-        category
-      } of allFiles) {
+
+      for (const { files, category } of allFiles) {
         if (files && files.length > 0) {
           if (category === "BOL") bolUploaded = true;
           if (category === "POD") {
             podUploaded = true;
             newPodCount = files.length;
           }
-          
+
           for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const fileName = `${id}/${category}/${Date.now()}_${file.name}`;
-            const {
-              error: uploadError
-            } = await supabase.storage.from("order-files").upload(fileName, file);
+            const { error: uploadError } = await supabase.storage.from("order-files").upload(fileName, file);
             if (uploadError) throw uploadError;
 
             // Save file metadata
-            const {
-              error: fileError
-            } = await supabase.from("order_files").insert({
+            const { error: fileError } = await supabase.from("order_files").insert({
               order_id: id,
               file_name: file.name,
               file_path: fileName,
               file_size: file.size,
               content_type: file.type,
               file_category: category,
-              uploaded_by: profile?.full_name || profile?.email || "Unknown User"
+              uploaded_by: profile?.full_name || profile?.email || "Unknown User",
             });
             if (fileError) throw fileError;
           }
         }
       }
-      
+
       // Delete files marked for deletion
       if (filesToDelete.length > 0) {
-        const filesToDeleteData = existingFiles.filter(f => filesToDelete.includes(f.id));
-        
+        const filesToDeleteData = existingFiles.filter((f) => filesToDelete.includes(f.id));
+
         for (const file of filesToDeleteData) {
           // Delete from storage
           await supabase.storage.from("order-files").remove([file.file_path]);
-          
+
           // Delete from database
           await supabase.from("order_files").delete().eq("id", file.id);
         }
-        
+
         // Update local state
-        setExistingFiles(existingFiles.filter(f => !filesToDelete.includes(f.id)));
+        setExistingFiles(existingFiles.filter((f) => !filesToDelete.includes(f.id)));
         setFilesToDelete([]);
       }
 
       // Smart UPDATE/INSERT/DELETE to avoid unique constraint violations
       if (pickupsDrops.length > 0) {
         // Get existing pickup_drops with all details
-        const {
-          data: existingPickupDrops
-        } = await supabase.from("pickup_drops").select("id, sequence_number").eq("order_id", id).order("sequence_number");
+        const { data: existingPickupDrops } = await supabase
+          .from("pickup_drops")
+          .select("id, sequence_number")
+          .eq("order_id", id)
+          .order("sequence_number");
         const existing = existingPickupDrops || [];
 
         // Prepare pickup_drop data with proper sequence numbers
-        const formPickupDrops = pickupsDrops.filter(item => item.address).map((item, index) => {
-          let datetime = null;
-          let endDatetime = null;
-          if (item.dateRange?.from && item.startTime) {
-            const [hours, minutes] = item.startTime.split(":");
-            datetime = new Date(item.dateRange.from);
-            datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-          }
+        const formPickupDrops = pickupsDrops
+          .filter((item) => item.address)
+          .map((item, index) => {
+            let datetime = null;
+            let endDatetime = null;
+            if (item.dateRange?.from && item.startTime) {
+              const [hours, minutes] = item.startTime.split(":");
+              datetime = new Date(item.dateRange.from);
+              datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            }
 
-          // Also save end time if provided
-          if (item.dateRange?.from && item.endTime) {
-            const [hours, minutes] = item.endTime.split(":");
-            endDatetime = new Date(item.dateRange.from);
-            endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-          }
+            // Also save end time if provided
+            if (item.dateRange?.from && item.endTime) {
+              const [hours, minutes] = item.endTime.split(":");
+              endDatetime = new Date(item.dateRange.from);
+              endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            }
 
-          // Parse address to extract street address only (use the 'address' field from database)
-          return {
-            order_id: id,
-            type: item.type,
-            address: item.address || "",
-            city: item.city || null,
-            state: item.state || null,
-            zip_code: item.zipCode || null,
-            company_name: (item as any).companyName || null,
-            datetime: datetime ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00` : null,
-            end_datetime: endDatetime ? `${endDatetime.getFullYear()}-${String(endDatetime.getMonth() + 1).padStart(2, "0")}-${String(endDatetime.getDate()).padStart(2, "0")} ${String(endDatetime.getHours()).padStart(2, "0")}:${String(endDatetime.getMinutes()).padStart(2, "0")}:00` : null,
-            sequence_number: index + 1,
-            contact_name: item.contactName || null,
-            contact_phone: item.contactPhone || null,
-            special_instructions: item.specialInstructions || null
-          };
-        });
+            // Parse address to extract street address only (use the 'address' field from database)
+            return {
+              order_id: id,
+              type: item.type,
+              address: item.address || "",
+              city: item.city || null,
+              state: item.state || null,
+              zip_code: item.zipCode || null,
+              company_name: (item as any).companyName || null,
+              datetime: datetime
+                ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00`
+                : null,
+              end_datetime: endDatetime
+                ? `${endDatetime.getFullYear()}-${String(endDatetime.getMonth() + 1).padStart(2, "0")}-${String(endDatetime.getDate()).padStart(2, "0")} ${String(endDatetime.getHours()).padStart(2, "0")}:${String(endDatetime.getMinutes()).padStart(2, "0")}:00`
+                : null,
+              sequence_number: index + 1,
+              contact_name: item.contactName || null,
+              contact_phone: item.contactPhone || null,
+              special_instructions: item.specialInstructions || null,
+            };
+          });
 
         // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
         for (let i = 0; i < existing.length; i++) {
@@ -1664,23 +1849,18 @@ const EditOrder = () => {
         // Step 3: Insert new pickup_drops if form has more than existing
         if (formPickupDrops.length > existing.length) {
           const newPickupDrops = formPickupDrops.slice(existing.length);
-          const { error: insertError } = await supabase
-            .from("pickup_drops")
-            .insert(newPickupDrops);
+          const { error: insertError } = await supabase.from("pickup_drops").insert(newPickupDrops);
           if (insertError) throw insertError;
         }
 
         // Step 4: Delete extra pickup_drops if existing has more than form
         if (existing.length > formPickupDrops.length) {
-          const idsToDelete = existing.slice(formPickupDrops.length).map(pd => pd.id);
-          const { error: deleteError } = await supabase
-            .from("pickup_drops")
-            .delete()
-            .in("id", idsToDelete);
+          const idsToDelete = existing.slice(formPickupDrops.length).map((pd) => pd.id);
+          const { error: deleteError } = await supabase.from("pickup_drops").delete().in("id", idsToDelete);
           if (deleteError) throw deleteError;
         }
       }
-      
+
       // Auto-set checked_out_at for newly uploaded BOL/POD files
       if (bolUploaded || podUploaded) {
         // Fetch all pickup_drops for this order
@@ -1689,20 +1869,17 @@ const EditOrder = () => {
           .select("id, type, sequence_number")
           .eq("order_id", id)
           .order("sequence_number");
-        
+
         if (allPickupDrops) {
-          const pickups = allPickupDrops.filter(pd => pd.type === "pickup");
-          const deliveries = allPickupDrops.filter(pd => pd.type === "delivery");
-          
+          const pickups = allPickupDrops.filter((pd) => pd.type === "pickup");
+          const deliveries = allPickupDrops.filter((pd) => pd.type === "delivery");
+
           // If BOL was uploaded, set checkout time for first pickup
           if (bolUploaded && pickups.length > 0) {
             const firstPickup = pickups[0];
-            await supabase
-              .from("pickup_drops")
-              .update({ checked_out_at: checkoutTimestamp })
-              .eq("id", firstPickup.id);
+            await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", firstPickup.id);
           }
-          
+
           // If POD was uploaded, set checkout time for corresponding delivery stops
           if (podUploaded && deliveries.length > 0) {
             // Get existing POD count before these uploads
@@ -1711,29 +1888,26 @@ const EditOrder = () => {
               .select("id")
               .eq("order_id", id)
               .eq("file_category", "POD");
-            
+
             const totalPodCount = existingPods?.length || 0;
             // Update checkout times for newly uploaded PODs
             // If we had 2 PODs and uploaded 1 more, update delivery at index 2 (3rd delivery)
             const startIndex = totalPodCount - newPodCount;
-            
-            for (let i = 0; i < newPodCount && (startIndex + i) < deliveries.length; i++) {
+
+            for (let i = 0; i < newPodCount && startIndex + i < deliveries.length; i++) {
               const delivery = deliveries[startIndex + i];
-              await supabase
-                .from("pickup_drops")
-                .update({ checked_out_at: checkoutTimestamp })
-                .eq("id", delivery.id);
+              await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
             }
           }
         }
       }
-      
+
       // Invalidate orders cache to refresh data across all pages
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+
       toast({
         title: "Success",
-        description: "Load updated successfully"
+        description: "Load updated successfully",
       });
 
       // Update original delivery date if it was changed to prevent duplicate notes
@@ -1743,18 +1917,18 @@ const EditOrder = () => {
       }
 
       // Navigate back to where we came from
-      const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-      const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
+      const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+      const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
       if (returnToReports) {
-        localStorage.removeItem('returnToReports');
+        localStorage.removeItem("returnToReports");
         navigate("/reports");
         window.scrollTo(0, 0);
       } else if (returnToTrips) {
-        localStorage.removeItem('returnToTrips');
+        localStorage.removeItem("returnToTrips");
         navigate("/trips");
         window.scrollTo(0, 0);
       } else if (shouldReturnToYardLoads) {
-        localStorage.removeItem('returnToYardLoads');
+        localStorage.removeItem("returnToYardLoads");
         navigate("/yard-loads");
         window.scrollTo(0, 0);
       } else if (shouldReturnToOrders) {
@@ -1768,7 +1942,7 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: "Failed to update load",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -1780,13 +1954,13 @@ const EditOrder = () => {
 
     try {
       const { error } = await supabase
-        .from('orders')
-        .update({ 
+        .from("orders")
+        .update({
           driver1_id: null,
           driver2_id: null,
-          truck_id: null
+          truck_id: null,
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
 
@@ -1796,111 +1970,167 @@ const EditOrder = () => {
       });
 
       setYardDialogOpen(false);
-      
+
       // Navigate back to yard loads
-      localStorage.setItem('returnToYardLoads', 'true');
-      navigate('/yard-loads');
+      localStorage.setItem("returnToYardLoads", "true");
+      navigate("/yard-loads");
     } catch (error) {
-      console.error('Error updating order:', error);
+      console.error("Error updating order:", error);
       toast({
         title: "Error",
         description: "Failed to update load",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   if (isLoading) {
-    return <div className="max-w-4xl mx-auto">
+    return (
+      <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="max-w-4xl mx-auto">
+  return (
+    <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={() => {
-              const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-              const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
-              if (returnToReports) {
-                localStorage.removeItem('returnToReports');
-                navigate("/reports");
-                window.scrollTo(0, 0);
-              } else if (returnToTrips) {
-                localStorage.removeItem('returnToTrips');
-                navigate("/trips");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToYardLoads) {
-                localStorage.removeItem('returnToYardLoads');
-                navigate("/yard-loads");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToOrders) {
-                navigate("/orders");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToOrders) {
-                navigate("/orders");
-                window.scrollTo(0, 0);
-              } else {
-                navigate("/orders");
-              }
-            }}>
-                 <ArrowLeft className="h-4 w-4 mr-2" />
-                 {returnToReports ? 'Back to Reports' : returnToTrips ? 'Back to Trips' : localStorage.getItem('returnToYardLoads') === 'true' ? 'Back to Yard Loads' : 'Back to Orders'}
-               </Button>
-               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
-             </div>
-             <div className="text-right">
-               <div className="text-sm text-muted-foreground">Internal Load #</div>
-               <div className="text-lg font-medium">{internalLoadNumber}</div>
-             </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+                  const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
+                  if (returnToReports) {
+                    localStorage.removeItem("returnToReports");
+                    navigate("/reports");
+                    window.scrollTo(0, 0);
+                  } else if (returnToTrips) {
+                    localStorage.removeItem("returnToTrips");
+                    navigate("/trips");
+                    window.scrollTo(0, 0);
+                  } else if (shouldReturnToYardLoads) {
+                    localStorage.removeItem("returnToYardLoads");
+                    navigate("/yard-loads");
+                    window.scrollTo(0, 0);
+                  } else if (shouldReturnToOrders) {
+                    navigate("/orders");
+                    window.scrollTo(0, 0);
+                  } else if (shouldReturnToOrders) {
+                    navigate("/orders");
+                    window.scrollTo(0, 0);
+                  } else {
+                    navigate("/orders");
+                  }
+                }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {returnToReports
+                  ? "Back to Reports"
+                  : returnToTrips
+                    ? "Back to Trips"
+                    : localStorage.getItem("returnToYardLoads") === "true"
+                      ? "Back to Yard Loads"
+                      : "Back to Orders"}
+              </Button>
+              <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Internal Load #</div>
+              <div className="text-lg font-medium">{internalLoadNumber}</div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
-              <Input id="broker-load-number" placeholder="Broker load number" value={brokerLoadNumber} onChange={e => setBrokerLoadNumber(e.target.value)} />
+              <Input
+                id="broker-load-number"
+                placeholder="Broker load number"
+                value={brokerLoadNumber}
+                onChange={(e) => setBrokerLoadNumber(e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
-                <Combobox options={companyOptions} value={bookedByCompany} onValueChange={setBookedByCompany} placeholder="Select company" searchPlaceholder="Search companies..." />
+                <Combobox
+                  options={companyOptions}
+                  value={bookedByCompany}
+                  onValueChange={setBookedByCompany}
+                  placeholder="Select company"
+                  searchPlaceholder="Search companies..."
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <BrokerCombobox value={broker} onValueChange={setBroker} placeholder="Select broker" searchPlaceholder="Search brokers..." />
+                <BrokerCombobox
+                  value={broker}
+                  onValueChange={setBroker}
+                  placeholder="Select broker"
+                  searchPlaceholder="Search brokers..."
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="truck">Truck #</Label>
-                <Combobox options={truckOptions} value={truck} onValueChange={setTruck} placeholder="Select truck" searchPlaceholder="Search trucks..." />
+                <Combobox
+                  options={truckOptions}
+                  value={truck}
+                  onValueChange={setTruck}
+                  placeholder="Select truck"
+                  searchPlaceholder="Search trucks..."
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer #</Label>
-                <Combobox options={trailerOptions} value={trailerId} onValueChange={setTrailerId} placeholder="Select trailer" searchPlaceholder="Search trailers..." />
+                <Combobox
+                  options={trailerOptions}
+                  value={trailerId}
+                  onValueChange={setTrailerId}
+                  placeholder="Select trailer"
+                  searchPlaceholder="Search trailers..."
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="driver1">Driver 1</Label>
-                <Combobox options={driverOptions} value={driver1} onValueChange={setDriver1} placeholder="Select primary driver" searchPlaceholder="Search drivers..." />
+                <Combobox
+                  options={driverOptions}
+                  value={driver1}
+                  onValueChange={setDriver1}
+                  placeholder="Select primary driver"
+                  searchPlaceholder="Search drivers..."
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="driver2">Driver 2 (Optional)</Label>
-                <Combobox options={[{
-                value: "none",
-                label: "None"
-              }, ...driverOptions]} value={driver2 || "none"} onValueChange={value => setDriver2(value === "none" ? "" : value)} placeholder="Select second driver" searchPlaceholder="Search drivers..." />
+                <Combobox
+                  options={[
+                    {
+                      value: "none",
+                      label: "None",
+                    },
+                    ...driverOptions,
+                  ]}
+                  value={driver2 || "none"}
+                  onValueChange={(value) => setDriver2(value === "none" ? "" : value)}
+                  placeholder="Select second driver"
+                  searchPlaceholder="Search drivers..."
+                />
               </div>
             </div>
 
@@ -1921,14 +2151,23 @@ const EditOrder = () => {
 
               <DragDropContext onDragEnd={handleDragEnd}>
                 <Droppable droppableId="pickups-drops">
-                  {provided => <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
-                      {[...pickupsDrops].sort((a, b) => {
-                    // Sort pickups before deliveries
-                    if (a.type === "pickup" && b.type === "delivery") return -1;
-                    if (a.type === "delivery" && b.type === "pickup") return 1;
-                    return 0;
-                  }).map((item, index) => <Draggable key={item.id} draggableId={item.id} index={index}>
-                            {(provided, snapshot) => <Card ref={provided.innerRef} {...provided.draggableProps} className={cn("p-4", snapshot.isDragging && "shadow-lg")}>
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                      {[...pickupsDrops]
+                        .sort((a, b) => {
+                          // Sort pickups before deliveries
+                          if (a.type === "pickup" && b.type === "delivery") return -1;
+                          if (a.type === "delivery" && b.type === "pickup") return 1;
+                          return 0;
+                        })
+                        .map((item, index) => (
+                          <Draggable key={item.id} draggableId={item.id} index={index}>
+                            {(provided, snapshot) => (
+                              <Card
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className={cn("p-4", snapshot.isDragging && "shadow-lg")}
+                              >
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center gap-2">
                                     <div {...provided.dragHandleProps}>
@@ -1936,7 +2175,12 @@ const EditOrder = () => {
                                     </div>
                                     <h4 className="font-medium capitalize">{item.type}</h4>
                                   </div>
-                                  <Button type="button" variant="outline" size="sm" onClick={() => removePickupDrop(item.id)}>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removePickupDrop(item.id)}
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
@@ -1945,63 +2189,108 @@ const EditOrder = () => {
                                     <Label htmlFor={`company-name-${item.id}`}>
                                       {item.type === "pickup" ? "Shipper Name" : "Receiver Name"}
                                     </Label>
-                                    <Input id={`company-name-${item.id}`} placeholder={item.type === "pickup" ? "Shipper company name" : "Receiver company name"} value={item.companyName || ""} onChange={e => {
-                            const updated = pickupsDrops.map(p => p.id === item.id ? {
-                              ...p,
-                              companyName: e.target.value
-                            } : p);
-                            setPickupsDrops(updated);
-                          }} />
+                                    <Input
+                                      id={`company-name-${item.id}`}
+                                      placeholder={
+                                        item.type === "pickup" ? "Shipper company name" : "Receiver company name"
+                                      }
+                                      value={item.companyName || ""}
+                                      onChange={(e) => {
+                                        const updated = pickupsDrops.map((p) =>
+                                          p.id === item.id
+                                            ? {
+                                                ...p,
+                                                companyName: e.target.value,
+                                              }
+                                            : p,
+                                        );
+                                        setPickupsDrops(updated);
+                                      }}
+                                    />
                                   </div>
 
                                   <div className="space-y-1">
                                     <Label htmlFor={`address-${item.id}`}>Street Address</Label>
-                                    <Input id={`address-${item.id}`} placeholder="123 Main St" value={item.address} onChange={e => updatePickupDrop(item.id, "address", e.target.value)} />
+                                    <Input
+                                      id={`address-${item.id}`}
+                                      placeholder="123 Main St"
+                                      value={item.address}
+                                      onChange={(e) => updatePickupDrop(item.id, "address", e.target.value)}
+                                    />
                                   </div>
-                                  
+
                                   <div className="grid grid-cols-3 gap-2">
                                     <div className="space-y-1 col-span-1">
                                       <Label htmlFor={`city-${item.id}`}>City</Label>
-                                      <Input id={`city-${item.id}`} placeholder="City" value={item.city || ""} onChange={e => updatePickupDrop(item.id, "city", e.target.value)} />
+                                      <Input
+                                        id={`city-${item.id}`}
+                                        placeholder="City"
+                                        value={item.city || ""}
+                                        onChange={(e) => updatePickupDrop(item.id, "city", e.target.value)}
+                                      />
                                     </div>
-                                    
+
                                     <div className="space-y-1">
                                       <Label htmlFor={`state-${item.id}`}>State</Label>
-                                      <Select value={item.state || ""} onValueChange={value => updatePickupDrop(item.id, "state", value)}>
+                                      <Select
+                                        value={item.state || ""}
+                                        onValueChange={(value) => updatePickupDrop(item.id, "state", value)}
+                                      >
                                         <SelectTrigger id={`state-${item.id}`}>
                                           <SelectValue placeholder="ST" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          {US_STATES.map(state => <SelectItem key={state.value} value={state.value}>
+                                          {US_STATES.map((state) => (
+                                            <SelectItem key={state.value} value={state.value}>
                                               {state.value}
-                                            </SelectItem>)}
+                                            </SelectItem>
+                                          ))}
                                         </SelectContent>
                                       </Select>
                                     </div>
-                                    
+
                                     <div className="space-y-1">
                                       <Label htmlFor={`zip-${item.id}`}>Zip Code</Label>
-                                      <Input id={`zip-${item.id}`} placeholder="12345" value={item.zipCode || ""} onChange={e => {
-                              // Only allow numbers and limit to 10 characters (for 12345-6789 format)
-                              const value = e.target.value.replace(/[^\d-]/g, '').slice(0, 10);
-                              updatePickupDrop(item.id, "zipCode", value);
-                            }} maxLength={10} />
+                                      <Input
+                                        id={`zip-${item.id}`}
+                                        placeholder="12345"
+                                        value={item.zipCode || ""}
+                                        onChange={(e) => {
+                                          // Only allow numbers and limit to 10 characters (for 12345-6789 format)
+                                          const value = e.target.value.replace(/[^\d-]/g, "").slice(0, 10);
+                                          updatePickupDrop(item.id, "zipCode", value);
+                                        }}
+                                        maxLength={10}
+                                      />
                                     </div>
                                   </div>
 
                                   <div className="space-y-1">
                                     <Label htmlFor={`daterange-${item.id}`}>Date & Time Range</Label>
-                                    <DateTimeRangePicker date={item.dateRange} onDateChange={dateRange => updatePickupDropDateRange(item.id, dateRange)} startTime={item.startTime || ""} endTime={item.endTime || ""} onStartTimeChange={time => updatePickupDropTime(item.id, "startTime", time)} onEndTimeChange={time => updatePickupDropTime(item.id, "endTime", time)} placeholder={`Select ${item.type} date and time range`} />
+                                    <DateTimeRangePicker
+                                      date={item.dateRange}
+                                      onDateChange={(dateRange) => updatePickupDropDateRange(item.id, dateRange)}
+                                      startTime={item.startTime || ""}
+                                      endTime={item.endTime || ""}
+                                      onStartTimeChange={(time) => updatePickupDropTime(item.id, "startTime", time)}
+                                      onEndTimeChange={(time) => updatePickupDropTime(item.id, "endTime", time)}
+                                      placeholder={`Select ${item.type} date and time range`}
+                                    />
                                   </div>
 
-                                  {item.type === "delivery" && dateChangeNotes && <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                                  {item.type === "delivery" && dateChangeNotes && (
+                                    <div className="text-xs text-muted-foreground whitespace-pre-wrap">
                                       {dateChangeNotes}
-                                    </div>}
+                                    </div>
+                                  )}
                                 </div>
-                              </Card>}
-                          </Draggable>)}
+                              </Card>
+                            )}
+                          </Draggable>
+                        ))}
                       {provided.placeholder}
-                    </div>}
+                    </div>
+                  )}
                 </Droppable>
               </DragDropContext>
             </div>
@@ -2009,7 +2298,22 @@ const EditOrder = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="freight-amount">Freight Amount (Base)</Label>
-                <Input id="freight-amount" type="number" step="0.01" min="0" placeholder="Freight amount" value={freightAmount} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setFreightAmount)} disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")} className={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting") ? "bg-muted cursor-not-allowed" : ""} />
+                <Input
+                  id="freight-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Freight amount"
+                  value={freightAmount}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setFreightAmount)}
+                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  className={
+                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
+                      ? "bg-muted cursor-not-allowed"
+                      : ""
+                  }
+                />
                 <p className="text-sm text-muted-foreground">
                   Total Company Revenue:{" "}
                   <span className="font-semibold text-primary">${totalCompanyRevenue.toFixed(2)}</span>
@@ -2017,7 +2321,16 @@ const EditOrder = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="driver-price">Driver Rate (Base)</Label>
-                <Input id="driver-price" type="number" step="0.01" min="0" placeholder="Driver Rate" value={driverPrice} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setDriverPrice)} />
+                <Input
+                  id="driver-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Driver Rate"
+                  value={driverPrice}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setDriverPrice)}
+                />
                 <p className="text-sm text-muted-foreground">
                   Total Driver Pay:{" "}
                   <span className="font-semibold text-green-600 dark:text-green-400">${totalDriverPay.toFixed(2)}</span>
@@ -2026,15 +2339,24 @@ const EditOrder = () => {
             </div>
 
             {/* Additional Button */}
-            {!showAdditionalFields && <div className="flex justify-center">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowAdditionalFields(true)} className="gap-2">
+            {!showAdditionalFields && (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdditionalFields(true)}
+                  className="gap-2"
+                >
                   <Plus className="h-4 w-4" />
                   Additional
                 </Button>
-              </div>}
+              </div>
+            )}
 
             {/* Additional Fields Section */}
-            {showAdditionalFields && <div className="space-y-4 border border-muted rounded-lg p-4">
+            {showAdditionalFields && (
+              <div className="space-y-4 border border-muted rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-base font-medium">Additional Charges</Label>
                 </div>
@@ -2045,25 +2367,65 @@ const EditOrder = () => {
                     <Label htmlFor="detention" className="text-sm">
                       Detention - Company
                     </Label>
-                    <Input id="detention" type="number" step="0.01" min="0" placeholder="0.00" value={detention} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setDetention)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="detention"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={detention}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setDetention)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="detention-driver" className="text-sm">
                       Detention - Driver
                     </Label>
-                    <Input id="detention-driver" type="number" step="0.01" min="0" placeholder="0.00" value={detentionDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setDetentionDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="detention-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={detentionDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setDetentionDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="layover" className="text-sm">
                       Layover - Company
                     </Label>
-                    <Input id="layover" type="number" step="0.01" min="0" placeholder="0.00" value={layover} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLayover)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="layover"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={layover}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setLayover)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="layover-driver" className="text-sm">
                       Layover - Driver
                     </Label>
-                    <Input id="layover-driver" type="number" step="0.01" min="0" placeholder="0.00" value={layoverDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLayoverDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="layover-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={layoverDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setLayoverDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                 </div>
 
@@ -2072,13 +2434,33 @@ const EditOrder = () => {
                     <Label htmlFor="extra-stop" className="text-sm">
                       Extra Stop - Company
                     </Label>
-                    <Input id="extra-stop" type="number" step="0.01" min="0" placeholder="0.00" value={extraStop} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setExtraStop)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="extra-stop"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={extraStop}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setExtraStop)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lumper" className="text-sm">
                       Lumper - Company
                     </Label>
-                    <Input id="lumper" type="number" step="0.01" min="0" placeholder="0.00" value={lumper} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLumper)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="lumper"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={lumper}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setLumper)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                 </div>
 
@@ -2087,25 +2469,65 @@ const EditOrder = () => {
                     <Label htmlFor="late-fee" className="text-sm">
                       Late Fee - Company
                     </Label>
-                    <Input id="late-fee" type="number" step="0.01" min="0" placeholder="0.00" value={lateFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLateFee)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="late-fee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={lateFee}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setLateFee)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="late-fee-driver" className="text-sm">
                       Late Fee - Driver
                     </Label>
-                    <Input id="late-fee-driver" type="number" step="0.01" min="0" placeholder="0.00" value={lateFeeDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLateFeeDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="late-fee-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={lateFeeDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setLateFeeDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="no-tracking-fee" className="text-sm">
                       No Tracking Fee - Company
                     </Label>
-                    <Input id="no-tracking-fee" type="number" step="0.01" min="0" placeholder="" value={noTrackingFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setNoTrackingFee)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="no-tracking-fee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder=""
+                      value={noTrackingFee}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setNoTrackingFee)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="no-tracking-fee-driver" className="text-sm">
                       No Tracking Fee - Driver
                     </Label>
-                    <Input id="no-tracking-fee-driver" type="number" step="0.01" min="0" placeholder="0.00" value={noTrackingFeeDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setNoTrackingFeeDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="no-tracking-fee-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={noTrackingFeeDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setNoTrackingFeeDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                 </div>
 
@@ -2114,37 +2536,77 @@ const EditOrder = () => {
                     <Label htmlFor="wrong-address-fee" className="text-sm">
                       Wrong Address Fee-Company
                     </Label>
-                    <Input id="wrong-address-fee" type="number" step="0.01" min="0" placeholder="" value={wrongAddressFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setWrongAddressFee)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="wrong-address-fee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder=""
+                      value={wrongAddressFee}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setWrongAddressFee)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="wrong-address-fee-driver" className="text-sm">
                       Wrong Address Fee - Driver
                     </Label>
-                    <Input id="wrong-address-fee-driver" type="number" step="0.01" min="0" placeholder="0.00" value={wrongAddressFeeDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setWrongAddressFeeDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="wrong-address-fee-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={wrongAddressFeeDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setWrongAddressFeeDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tonu" className="text-sm">
                       TONU - Company
                     </Label>
-                    <Input id="tonu" type="number" step="0.01" min="0" placeholder="0.00" value={tonu} onKeyDown={handleNumericKeyDown} onChange={e => {
-                  const value = e.target.value;
-                  // Allow empty string or non-negative numbers
-                  if (value === "" || parseFloat(value) >= 0) {
-                    setTonu(value);
-                    // If TONU has a value, set freight amount, loaded miles, and driver price to 0
-                    if (value && parseFloat(value) > 0) {
-                      setFreightAmount("0");
-                      setLoadedMiles("0");
-                      setDriverPrice("0");
-                    }
-                  }
-                }} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="tonu"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonu}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow empty string or non-negative numbers
+                        if (value === "" || parseFloat(value) >= 0) {
+                          setTonu(value);
+                          // If TONU has a value, set freight amount, loaded miles, and driver price to 0
+                          if (value && parseFloat(value) > 0) {
+                            setFreightAmount("0");
+                            setLoadedMiles("0");
+                            setDriverPrice("0");
+                          }
+                        }
+                      }}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="tonu-driver" className="text-sm">
                       TONU - Driver
                     </Label>
-                    <Input id="tonu-driver" type="number" step="0.01" min="0" placeholder="0.00" value={tonuDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setTonuDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="tonu-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={tonuDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setTonuDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                 </div>
 
@@ -2154,13 +2616,33 @@ const EditOrder = () => {
                     <Label htmlFor="other-charges" className="text-sm">
                       Other Charges - Company
                     </Label>
-                    <Input id="other-charges" type="number" step="0.01" min="0" placeholder="0.00" value={otherCharges} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherCharges)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="other-charges"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={otherCharges}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setOtherCharges)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="other-charges-driver" className="text-sm">
                       Other Charges - Driver
                     </Label>
-                    <Input id="other-charges-driver" type="number" step="0.01" min="0" placeholder="0.00" value={otherChargesDriver} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setOtherChargesDriver)} className="bg-green-50/50 dark:bg-green-950/20" />
+                    <Input
+                      id="other-charges-driver"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={otherChargesDriver}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setOtherChargesDriver)}
+                      className="bg-green-50/50 dark:bg-green-950/20"
+                    />
                   </div>
                 </div>
 
@@ -2168,49 +2650,114 @@ const EditOrder = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="escort-fee">Escort Fee</Label>
-                    <Input id="escort-fee" type="number" step="0.01" min="0" placeholder="0.00" value={escortFee} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setEscortFee)} className="bg-blue-50/50 dark:bg-blue-950/20" />
+                    <Input
+                      id="escort-fee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={escortFee}
+                      onKeyDown={handleNumericKeyDown}
+                      onChange={handleNumericChange(setEscortFee)}
+                      className="bg-blue-50/50 dark:bg-blue-950/20"
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="escort-broker-paid">Broker Paid Escort Fee</Label>
                     <div className="flex items-center gap-3 h-10">
-                      <Switch id="escort-broker-paid" checked={escortFeeBrokerPaid} onCheckedChange={setEscortFeeBrokerPaid} />
+                      <Switch
+                        id="escort-broker-paid"
+                        checked={escortFeeBrokerPaid}
+                        onCheckedChange={setEscortFeeBrokerPaid}
+                      />
                       <span className="text-sm text-muted-foreground">
                         {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
                       </span>
                     </div>
                   </div>
                 </div>
-              </div>}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="loaded-miles">Loaded Miles</Label>
-                <Input id="loaded-miles" type="number" min="0" placeholder="Loaded miles" value={loadedMiles} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setLoadedMiles)} disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")} className={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting") ? "bg-muted cursor-not-allowed" : ""} />
+                <Input
+                  id="loaded-miles"
+                  type="number"
+                  min="0"
+                  placeholder="Loaded miles"
+                  value={loadedMiles}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setLoadedMiles)}
+                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  className={
+                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
+                      ? "bg-muted cursor-not-allowed"
+                      : ""
+                  }
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dh-miles">DH Miles</Label>
-                <Input id="dh-miles" type="number" min="0" placeholder="Deadhead miles" value={dhMiles} onKeyDown={handleNumericKeyDown} onChange={handleNumericChange(setDhMiles)} disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")} className={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting") ? "bg-muted cursor-not-allowed" : ""} />
+                <Input
+                  id="dh-miles"
+                  type="number"
+                  min="0"
+                  placeholder="Deadhead miles"
+                  value={dhMiles}
+                  onKeyDown={handleNumericKeyDown}
+                  onChange={handleNumericChange(setDhMiles)}
+                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  className={
+                    hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
+                      ? "bg-muted cursor-not-allowed"
+                      : ""
+                  }
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="booked-by">Booked By</Label>
-                {hasRole("manager") || hasRole("admin") ? <Combobox options={profiles.map(p => ({
-                value: p.full_name,
-                label: p.full_name
-              }))} value={bookedBy} onValueChange={setBookedBy} placeholder="Select person" searchPlaceholder="Search names..." /> : <Input id="booked-by" value={bookedBy || "Not assigned"} disabled className="bg-muted cursor-not-allowed" />}
+                {hasRole("manager") || hasRole("admin") ? (
+                  <Combobox
+                    options={profiles.map((p) => ({
+                      value: p.full_name,
+                      label: p.full_name,
+                    }))}
+                    value={bookedBy}
+                    onValueChange={setBookedBy}
+                    placeholder="Select person"
+                    searchPlaceholder="Search names..."
+                  />
+                ) : (
+                  <Input
+                    id="booked-by"
+                    value={bookedBy || "Not assigned"}
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                  />
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" placeholder="Additional notes" value={notes} onChange={e => setNotes(e.target.value)} rows={4} />
+              <Textarea
+                id="notes"
+                placeholder="Additional notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+              />
             </div>
 
             {/* Transfer Details Section */}
-            {isRecovery && <div className="space-y-4 p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+            {isRecovery && (
+              <div className="space-y-4 p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
                 <div className="flex items-center gap-2">
                   <Badge variant="destructive" className="bg-amber-500">
                     TRANSFER LOAD
@@ -2218,9 +2765,11 @@ const EditOrder = () => {
                   <span className="text-sm text-muted-foreground">
                     {recoveryDate && `Transfer Date: ${new Date(recoveryDate).toLocaleDateString()}`}
                   </span>
-                  {trailersSwapped && <Badge variant="secondary" className="bg-blue-500">
-                    TRAILERS SWAPPED
-                  </Badge>}
+                  {trailersSwapped && (
+                    <Badge variant="secondary" className="bg-blue-500">
+                      TRAILERS SWAPPED
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2264,21 +2813,35 @@ const EditOrder = () => {
                     </div>
                   </div>
                 </div>
-                
-                {trailersSwapped && <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <strong>Note:</strong> Trailers were swapped during transfer. The load kept its original trailer, but the trucks exchanged trailers.
-                  </p>
-                </div>}
-              </div>}
+
+                {trailersSwapped && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200">
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      <strong>Note:</strong> Trailers were swapped during transfer. The load kept its original trailer,
+                      but the trucks exchanged trailers.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* File Upload Sections - Disabled when locked */}
-            {isLocked && <div className="p-4 bg-muted rounded-lg text-center">
+            {isLocked && (
+              <div className="p-4 bg-muted rounded-lg text-center">
                 <p className="text-sm text-muted-foreground">File uploads are disabled for locked orders</p>
-              </div>}
-            {!isLocked && <>
+              </div>
+            )}
+            {!isLocked && (
+              <>
                 {/* RC Upload Section - Top Priority */}
-                <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.rc && "border-blue-400 bg-blue-50/50 scale-[1.02]")} {...rcDragHandlers} onClick={handleCardClick("rc")}>
+                <Card
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 hover:shadow-md",
+                    dragStates.rc && "border-blue-400 bg-blue-50/50 scale-[1.02]",
+                  )}
+                  {...rcDragHandlers}
+                  onClick={handleCardClick("rc")}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="text-lg text-blue-700 flex items-center gap-2">
                       <Upload className="h-5 w-5" />
@@ -2288,27 +2851,57 @@ const EditOrder = () => {
                   <CardContent>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm text-blue-700">
-                        {rcFiles && rcFiles.length > 0 ? `${rcFiles.length} file(s) selected` : "Click or drag files here"}
+                        {rcFiles && rcFiles.length > 0
+                          ? `${rcFiles.length} file(s) selected`
+                          : "Click or drag files here"}
                       </p>
-                      <Button type="button" variant="outline" size="sm" onClick={handleExtractWithAI} disabled={isExtracting || !rcFiles || rcFiles.length === 0 || !Array.from(rcFiles || []).some(f => f.type === "application/pdf")} className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600" data-ai-extract="true">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExtractWithAI}
+                        disabled={
+                          isExtracting ||
+                          !rcFiles ||
+                          rcFiles.length === 0 ||
+                          !Array.from(rcFiles || []).some((f) => f.type === "application/pdf")
+                        }
+                        className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
+                        data-ai-extract="true"
+                      >
                         <Sparkles className="h-4 w-4" />
                         {isExtracting ? "Extracting..." : "Extract with AI"}
                       </Button>
                     </div>
 
-                    {dragStates.rc ? <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
+                    {dragStates.rc ? (
+                      <div className="border-2 border-dashed border-blue-400 rounded-lg p-6 text-center bg-blue-50">
                         <FileText className="mx-auto h-8 w-8 text-blue-500 mb-2" />
                         <p className="text-sm text-blue-600 font-medium">Drop files here</p>
-                      </div> : <>
-                        {rcFiles && rcFiles.length > 0 && <div className="space-y-1 mb-2">
-                            {Array.from(rcFiles).map((file, index) => <div key={index} className="flex items-center gap-1 text-sm text-gray-600">
+                      </div>
+                    ) : (
+                      <>
+                        {rcFiles && rcFiles.length > 0 && (
+                          <div className="space-y-1 mb-2">
+                            {Array.from(rcFiles).map((file, index) => (
+                              <div key={index} className="flex items-center gap-1 text-sm text-gray-600">
                                 <FileText className="h-4 w-4" />
                                 <span className="truncate">{file.name}</span>
-                              </div>)}
-                          </div>}
-                      </>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
 
-                    <input ref={rcFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setRcFiles(e.target.files)} className="hidden" />
+                    <input
+                      ref={rcFileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => setRcFiles(e.target.files)}
+                      className="hidden"
+                    />
                     <p className="text-xs text-blue-600">
                       Rate confirmation files. AI extraction works only with PDF files.
                     </p>
@@ -2317,7 +2910,14 @@ const EditOrder = () => {
 
                 {/* Additional File Upload Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]")} {...bolDragHandlers} onClick={handleCardClick("bol")}>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all duration-200 hover:shadow-md",
+                      dragStates.bol && "border-green-400 bg-green-50/50 scale-[1.02]",
+                    )}
+                    {...bolDragHandlers}
+                    onClick={handleCardClick("bol")}
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm text-green-700 flex items-center gap-2">
                         <Upload className="h-4 w-4" />
@@ -2325,26 +2925,50 @@ const EditOrder = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {dragStates.bol ? <div className="border-2 border-dashed border-green-400 rounded-lg p-4 text-center bg-green-50">
+                      {dragStates.bol ? (
+                        <div className="border-2 border-dashed border-green-400 rounded-lg p-4 text-center bg-green-50">
                           <FileText className="mx-auto h-6 w-6 text-green-500 mb-1" />
                           <p className="text-xs text-green-600 font-medium">Drop files here</p>
-                        </div> : <>
+                        </div>
+                      ) : (
+                        <>
                           <p className="text-xs text-green-600 mb-2">
-                            {bolFiles && bolFiles.length > 0 ? `${bolFiles.length} file(s) selected` : "Click or drag files here"}
+                            {bolFiles && bolFiles.length > 0
+                              ? `${bolFiles.length} file(s) selected`
+                              : "Click or drag files here"}
                           </p>
-                          {bolFiles && bolFiles.length > 0 && <div className="space-y-1 mb-2">
-                              {Array.from(bolFiles).map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                          {bolFiles && bolFiles.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {Array.from(bolFiles).map((file, index) => (
+                                <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                                   <FileText className="h-3 w-3" />
                                   <span className="truncate">{file.name}</span>
-                                </div>)}
-                            </div>}
-                        </>}
-                      <input ref={bolFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setBolFiles(e.target.files)} className="hidden" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <input
+                        ref={bolFileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setBolFiles(e.target.files)}
+                        className="hidden"
+                      />
                       <p className="text-xs text-green-600">Bill of lading documents</p>
                     </CardContent>
                   </Card>
 
-                  <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]")} {...podDragHandlers} onClick={handleCardClick("pod")}>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all duration-200 hover:shadow-md",
+                      dragStates.pod && "border-purple-400 bg-purple-50/50 scale-[1.02]",
+                    )}
+                    {...podDragHandlers}
+                    onClick={handleCardClick("pod")}
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm text-purple-700 flex items-center gap-2">
                         <Upload className="h-4 w-4" />
@@ -2352,26 +2976,50 @@ const EditOrder = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {dragStates.pod ? <div className="border-2 border-dashed border-purple-400 rounded-lg p-4 text-center bg-purple-50">
+                      {dragStates.pod ? (
+                        <div className="border-2 border-dashed border-purple-400 rounded-lg p-4 text-center bg-purple-50">
                           <FileText className="mx-auto h-6 w-6 text-purple-500 mb-1" />
                           <p className="text-xs text-purple-600 font-medium">Drop files here</p>
-                        </div> : <>
+                        </div>
+                      ) : (
+                        <>
                           <p className="text-xs text-purple-600 mb-2">
-                            {podFiles && podFiles.length > 0 ? `${podFiles.length} file(s) selected` : "Click or drag files here"}
+                            {podFiles && podFiles.length > 0
+                              ? `${podFiles.length} file(s) selected`
+                              : "Click or drag files here"}
                           </p>
-                          {podFiles && podFiles.length > 0 && <div className="space-y-1 mb-2">
-                              {Array.from(podFiles).map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                          {podFiles && podFiles.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {Array.from(podFiles).map((file, index) => (
+                                <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                                   <FileText className="h-3 w-3" />
                                   <span className="truncate">{file.name}</span>
-                                </div>)}
-                            </div>}
-                        </>}
-                      <input ref={podFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setPodFiles(e.target.files)} className="hidden" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <input
+                        ref={podFileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setPodFiles(e.target.files)}
+                        className="hidden"
+                      />
                       <p className="text-xs text-purple-600">Delivery confirmation documents</p>
                     </CardContent>
                   </Card>
 
-                  <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]")} {...additionalDragHandlers} onClick={handleCardClick("additional")}>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all duration-200 hover:shadow-md",
+                      dragStates.additional && "border-orange-400 bg-orange-50/50 scale-[1.02]",
+                    )}
+                    {...additionalDragHandlers}
+                    onClick={handleCardClick("additional")}
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm text-orange-700 flex items-center gap-2">
                         <Upload className="h-4 w-4" />
@@ -2379,138 +3027,179 @@ const EditOrder = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {dragStates.additional ? <div className="border-2 border-dashed border-orange-400 rounded-lg p-4 text-center bg-orange-50">
+                      {dragStates.additional ? (
+                        <div className="border-2 border-dashed border-orange-400 rounded-lg p-4 text-center bg-orange-50">
                           <FileText className="mx-auto h-6 w-6 text-orange-500 mb-1" />
                           <p className="text-xs text-orange-600 font-medium">Drop files here</p>
-                        </div> : <>
+                        </div>
+                      ) : (
+                        <>
                           <p className="text-xs text-orange-600 mb-2">
-                            {additionalFiles && additionalFiles.length > 0 ? `${additionalFiles.length} file(s) selected` : "Click or drag files here"}
+                            {additionalFiles && additionalFiles.length > 0
+                              ? `${additionalFiles.length} file(s) selected`
+                              : "Click or drag files here"}
                           </p>
-                          {additionalFiles && additionalFiles.length > 0 && <div className="space-y-1 mb-2">
-                              {Array.from(additionalFiles).map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                          {additionalFiles && additionalFiles.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {Array.from(additionalFiles).map((file, index) => (
+                                <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                                   <FileText className="h-3 w-3" />
                                   <span className="truncate">{file.name}</span>
-                                </div>)}
-                            </div>}
-                        </>}
-                      <input ref={additionalFileInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e => setAdditionalFiles(e.target.files)} className="hidden" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <input
+                        ref={additionalFileInputRef}
+                        type="file"
+                        multiple
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setAdditionalFiles(e.target.files)}
+                        className="hidden"
+                      />
                       <p className="text-xs text-orange-600">Other supporting documents</p>
                     </CardContent>
                   </Card>
                 </div>
-              </>}
+              </>
+            )}
 
-            {existingFiles.length > 0 && <div className="space-y-2">
+            {existingFiles.length > 0 && (
+              <div className="space-y-2">
                 <Label>Existing Files</Label>
                 <div className="flex flex-wrap gap-2">
-                  {existingFiles.filter(file => !filesToDelete.includes(file.id)).map(file => <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
-                      <span className="text-sm">
-                        {file.file_name} ({file.file_category || "ADDITIONAL"})
-                      </span>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                  const {
-                    data,
-                    error
-                  } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600);
+                  {existingFiles
+                    .filter((file) => !filesToDelete.includes(file.id))
+                    .map((file) => (
+                      <div key={file.id} className="flex items-center gap-2 p-2 border rounded">
+                        <span className="text-sm">
+                          {file.file_name} ({file.file_category || "ADDITIONAL"})
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={async () => {
+                            const { data, error } = await supabase.storage
+                              .from("order-files")
+                              .createSignedUrl(file.file_path, 3600);
 
-                  if (error) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to load file: " + error.message,
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  const signedUrl = data?.signedUrl || (data as any)?.signedURL;
-                  if (signedUrl) {
-                    try {
-                      const response = await fetch(signedUrl);
-                      if (!response.ok) throw new Error("Failed to fetch file");
-                      const blob = await response.blob();
-                      const blobUrl = URL.createObjectURL(blob);
-                      const newWindow = window.open(blobUrl, "_blank");
-                      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-                      if (!newWindow) {
-                        toast({
-                          title: "Popup Blocked",
-                          description: "Please allow popups for this site",
-                          variant: "destructive"
-                        });
-                      }
-                    } catch (err) {
-                      console.error("Error opening file:", err);
-                      toast({
-                        title: "Error",
-                        description: "Failed to open file",
-                        variant: "destructive"
-                      });
-                    }
-                  } else {
-                    toast({
-                      title: "Error",
-                      description: "No signed URL received from server",
-                      variant: "destructive"
-                    });
-                  }
-                }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
-                  const {
-                    data,
-                    error
-                  } = await supabase.storage.from("order-files").createSignedUrl(file.file_path, 3600);
+                            if (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to load file: " + error.message,
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+                            if (signedUrl) {
+                              try {
+                                const response = await fetch(signedUrl);
+                                if (!response.ok) throw new Error("Failed to fetch file");
+                                const blob = await response.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const newWindow = window.open(blobUrl, "_blank");
+                                setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                                if (!newWindow) {
+                                  toast({
+                                    title: "Popup Blocked",
+                                    description: "Please allow popups for this site",
+                                    variant: "destructive",
+                                  });
+                                }
+                              } catch (err) {
+                                console.error("Error opening file:", err);
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to open file",
+                                  variant: "destructive",
+                                });
+                              }
+                            } else {
+                              toast({
+                                title: "Error",
+                                description: "No signed URL received from server",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={async () => {
+                            const { data, error } = await supabase.storage
+                              .from("order-files")
+                              .createSignedUrl(file.file_path, 3600);
 
-                  if (error) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to load file: " + error.message,
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  const signedUrl = data?.signedUrl || (data as any)?.signedURL;
-                  if (signedUrl) {
-                    try {
-                      const response = await fetch(signedUrl);
-                      if (!response.ok) throw new Error("Failed to fetch file");
-                      const blob = await response.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = file.file_name;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      window.URL.revokeObjectURL(url);
-                    } catch (err) {
-                      console.error("Error downloading file:", err);
-                      toast({
-                        title: "Error",
-                        description: "Failed to download file",
-                        variant: "destructive"
-                      });
-                    }
-                  } else {
-                    toast({
-                      title: "Error",
-                      description: "No signed URL received from server",
-                      variant: "destructive"
-                    });
-                  }
-                }}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => {
-                  setFilesToDelete(prev => [...prev, file.id]);
-                }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>)}
+                            if (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to load file: " + error.message,
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            const signedUrl = data?.signedUrl || (data as any)?.signedURL;
+                            if (signedUrl) {
+                              try {
+                                const response = await fetch(signedUrl);
+                                if (!response.ok) throw new Error("Failed to fetch file");
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement("a");
+                                link.href = url;
+                                link.download = file.file_name;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                              } catch (err) {
+                                console.error("Error downloading file:", err);
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to download file",
+                                  variant: "destructive",
+                                });
+                              }
+                            } else {
+                              toast({
+                                title: "Error",
+                                description: "No signed URL received from server",
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setFilesToDelete((prev) => [...prev, file.id]);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                 </div>
-              </div>}
-              
-              {filesToDelete.length > 0 && <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+              </div>
+            )}
+
+            {filesToDelete.length > 0 && (
+              <div className="p-4 border border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
@@ -2524,14 +3213,20 @@ const EditOrder = () => {
                     Undo All
                   </Button>
                 </div>
-              </div>}
+              </div>
+            )}
 
             {/* Driver-specific Pickup/Delivery Times for Load Confirmation */}
-            
 
             {/* Generate Load Confirmation Button */}
             <div className="flex justify-center mt-6">
-              <Button type="button" variant="outline" onClick={handleGenerateConfirmation} disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2} className="w-full max-w-md">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateConfirmation}
+                disabled={isGeneratingConfirmation || !truck || !driver1 || pickupsDrops.length < 2}
+                className="w-full max-w-md"
+              >
                 {isGeneratingConfirmation && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <FileText className="mr-2 h-4 w-4" />
                 Generate Load Confirmation
@@ -2542,12 +3237,16 @@ const EditOrder = () => {
             <Card className="bg-blue-50/30 border-blue-200 mt-6">
               <CardHeader>
                 <CardTitle className="text-base">Email to Driver</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Upload a file to send to the driver via email
-                </p>
+                <p className="text-sm text-muted-foreground">Upload a file to send to the driver via email</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Card className={cn("cursor-pointer transition-all duration-200 hover:shadow-md", dragStates.email && "border-blue-400 bg-blue-50/50 scale-[1.02]")} {...emailDragHandlers}>
+                <Card
+                  className={cn(
+                    "cursor-pointer transition-all duration-200 hover:shadow-md",
+                    dragStates.email && "border-blue-400 bg-blue-50/50 scale-[1.02]",
+                  )}
+                  {...emailDragHandlers}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
                       <Upload className="h-4 w-4" />
@@ -2555,102 +3254,133 @@ const EditOrder = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {dragStates.email ? <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
+                    {dragStates.email ? (
+                      <div className="border-2 border-dashed border-blue-400 rounded-lg p-4 text-center bg-blue-50">
                         <FileText className="mx-auto h-6 w-6 text-blue-500 mb-1" />
                         <p className="text-xs text-blue-600 font-medium">Drop file here</p>
-                      </div> : <>
+                      </div>
+                    ) : (
+                      <>
                         <p className="text-xs text-blue-600 mb-2">
                           {emailFiles.length > 0 ? `${emailFiles.length} file(s) selected` : "Click or drag file here"}
                         </p>
-                        {emailFiles.length > 0 && <div className="space-y-1 mb-2">
-                            {emailFiles.map((file, index) => <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
+                        {emailFiles.length > 0 && (
+                          <div className="space-y-1 mb-2">
+                            {emailFiles.map((file, index) => (
+                              <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                                 <FileText className="h-3 w-3" />
                                 <span className="truncate">{file.name}</span>
-                              </div>)}
-                          </div>}
-                      </>}
-                    <input ref={emailFileInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      setEmailFiles(Array.from(e.target.files));
-                    }
-                  }} className="hidden" />
-                    <p className="text-xs text-blue-600">
-                      Upload the load confirmation to email to driver
-                    </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <input
+                      ref={emailFileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setEmailFiles(Array.from(e.target.files));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <p className="text-xs text-blue-600">Upload the load confirmation to email to driver</p>
                   </CardContent>
                 </Card>
 
                 <div className="flex justify-center">
-                  <Button type="button" variant="outline" onClick={handleSendEmailToDriver} disabled={isSendingEmail || emailSent || emailFiles.length === 0} className="w-full max-w-md">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSendEmailToDriver}
+                    disabled={isSendingEmail || emailSent || emailFiles.length === 0}
+                    className="w-full max-w-md"
+                  >
                     {isSendingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {emailSent ? <>
+                    {emailSent ? (
+                      <>
                         <Mail className="mr-2 h-4 w-4" />
                         Email Sent ✓
-                      </> : <>
+                      </>
+                    ) : (
+                      <>
                         <Mail className="mr-2 h-4 w-4" />
                         Email to Driver
-                      </>}
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-
             <div className="flex justify-between items-center">
               <div>
                 {(truck || driver1) && !isLocked && (
-                  <Button 
-                    type="button"
-                    variant="outline"
-                    onClick={() => setYardDialogOpen(true)}
-                  >
+                  <Button type="button" variant="outline" onClick={() => setYardDialogOpen(true)}>
                     <Warehouse className="h-4 w-4 mr-2" />
                     Left Trailer at the Yard
                   </Button>
                 )}
               </div>
               <div className="flex gap-4">
-              <Button type="button" variant="outline" onClick={() => {
-              const shouldReturnToYardLoads = localStorage.getItem('returnToYardLoads') === 'true';
-              const shouldReturnToOrders = localStorage.getItem('returnToOrders') === 'true';
-              
-              if (returnToReports) {
-                localStorage.removeItem('returnToReports');
-                navigate("/reports");
-                window.scrollTo(0, 0);
-              } else if (returnToTrips) {
-                localStorage.removeItem('returnToTrips');
-                navigate("/trips");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToYardLoads) {
-                localStorage.removeItem('returnToYardLoads');
-                navigate("/yard-loads");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToOrders) {
-                navigate("/orders");
-                window.scrollTo(0, 0);
-              } else if (shouldReturnToOrders) {
-                navigate("/orders");
-                window.scrollTo(0, 0);
-              } else {
-                navigate("/orders");
-              }
-            }}>
-                Cancel
-              </Button>
-                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) && !isRecovery && !isLocked && <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
+                    const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
+
+                    if (returnToReports) {
+                      localStorage.removeItem("returnToReports");
+                      navigate("/reports");
+                      window.scrollTo(0, 0);
+                    } else if (returnToTrips) {
+                      localStorage.removeItem("returnToTrips");
+                      navigate("/trips");
+                      window.scrollTo(0, 0);
+                    } else if (shouldReturnToYardLoads) {
+                      localStorage.removeItem("returnToYardLoads");
+                      navigate("/yard-loads");
+                      window.scrollTo(0, 0);
+                    } else if (shouldReturnToOrders) {
+                      navigate("/orders");
+                      window.scrollTo(0, 0);
+                    } else if (shouldReturnToOrders) {
+                      navigate("/orders");
+                      window.scrollTo(0, 0);
+                    } else {
+                      navigate("/orders");
+                    }
+                  }}
+                >
+                  Cancel
+                </Button>
+                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
+                  !isRecovery &&
+                  !isLocked && (
+                    <Button type="button" variant="secondary" onClick={() => setRecoveryDialogOpen(true)}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Transfer Load
-                    </Button>}
-                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && isRecovery && !isLocked && <Button type="button" variant="destructive" onClick={handleRevertTransfer}>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Revert Transfer
-                    </Button>}
+                    </Button>
+                  )}
+                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && isRecovery && !isLocked && (
+                  <Button type="button" variant="destructive" onClick={handleRevertTransfer}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Revert Transfer
+                  </Button>
+                )}
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <>
+                  {isSubmitting ? (
+                    <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Updating...
-                    </> : "Update Order"}
+                    </>
+                  ) : (
+                    "Update Order"
+                  )}
                 </Button>
               </div>
             </div>
@@ -2658,16 +3388,16 @@ const EditOrder = () => {
         </CardContent>
       </Card>
 
-      <RecoveryLoadDialog 
-        open={recoveryDialogOpen} 
-        onOpenChange={setRecoveryDialogOpen} 
-        onSave={handleRecoverySave} 
-        currentDriver={originalDriverName || drivers?.find(d => d.id === driver1)?.name || "N/A"} 
-        currentTruck={originalTruckNumber || trucks?.find(t => t.id === truck)?.truck_number || "N/A"} 
+      <RecoveryLoadDialog
+        open={recoveryDialogOpen}
+        onOpenChange={setRecoveryDialogOpen}
+        onSave={handleRecoverySave}
+        currentDriver={originalDriverName || drivers?.find((d) => d.id === driver1)?.name || "N/A"}
+        currentTruck={originalTruckNumber || trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}
         currentTrailer={originalTrailerNumber || trailer || "N/A"}
         currentTrailerId={trailerId}
-        totalMiles={parseInt(loadedMiles) || 0} 
-        totalDriverRate={parseFloat(driverPrice) || 0} 
+        totalMiles={parseInt(loadedMiles) || 0}
+        totalDriverRate={parseFloat(driverPrice) || 0}
       />
 
       {/* Yard Dialog */}
@@ -2676,7 +3406,8 @@ const EditOrder = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Left Trailer at the Yard</AlertDialogTitle>
             <AlertDialogDescription>
-              This will clear the driver and truck assignments from this load. The trailer will be marked as available at the yard. Are you sure you want to continue?
+              This will clear the driver and truck assignments from this load. The trailer will be marked as available
+              at the yard. Are you sure you want to continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2685,6 +3416,7 @@ const EditOrder = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>;
+    </div>
+  );
 };
 export default EditOrder;
