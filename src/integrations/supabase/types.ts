@@ -741,33 +741,6 @@ export type Database = {
           },
         ]
       }
-      exported_weeks: {
-        Row: {
-          created_at: string
-          exported_at: string
-          exported_by: string | null
-          id: string
-          week_end_date: string
-          week_start_date: string
-        }
-        Insert: {
-          created_at?: string
-          exported_at?: string
-          exported_by?: string | null
-          id?: string
-          week_end_date: string
-          week_start_date: string
-        }
-        Update: {
-          created_at?: string
-          exported_at?: string
-          exported_by?: string | null
-          id?: string
-          week_end_date?: string
-          week_start_date?: string
-        }
-        Relationships: []
-      }
       geocoding_cache: {
         Row: {
           address: string

@@ -58,7 +58,6 @@ const Trips = () => {
   const navigate = useNavigate();
 
   const { data: orders, isLoading } = useOrders();
-  const [exportedWeeks, setExportedWeeks] = useState<Set<string>>(new Set());
 
   const [currentPage, setCurrentPage] = useState(1);
   const [truckFilter, setTruckFilter] = useState(() => {
@@ -77,23 +76,6 @@ const Trips = () => {
   useEffect(() => {
     localStorage.setItem("trips_driverFilter", driverFilter);
   }, [driverFilter]);
-
-  // Fetch exported weeks on mount
-  useEffect(() => {
-    const fetchExportedWeeks = async () => {
-      const { data, error } = await supabase
-        .from("exported_weeks")
-        .select("week_start_date, week_end_date");
-      
-      if (!error && data) {
-        const exportedSet = new Set(
-          data.map(w => `${w.week_start_date}_${w.week_end_date}`)
-        );
-        setExportedWeeks(exportedSet);
-      }
-    };
-    fetchExportedWeeks();
-  }, []);
 
   // Filter orders based on truck and driver filters
   const filteredOrders =
@@ -205,21 +187,6 @@ const Trips = () => {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
       }
-
-      // Mark this week as exported in the database
-      const { data: user } = await supabase.auth.getUser();
-      const weekKey = `${format(weekStartDate, "yyyy-MM-dd")}_${format(weekEndDate, "yyyy-MM-dd")}`;
-      
-      await supabase.from("exported_weeks").upsert({
-        week_start_date: format(weekStartDate, "yyyy-MM-dd"),
-        week_end_date: format(weekEndDate, "yyyy-MM-dd"),
-        exported_by: user.user?.id,
-      }, {
-        onConflict: 'week_start_date,week_end_date'
-      });
-
-      // Update local state
-      setExportedWeeks(prev => new Set(prev).add(weekKey));
     } catch (error) {
       console.error("Error exporting to Excel:", error);
       toast.error("Failed to export to Excel");
@@ -634,7 +601,7 @@ const Trips = () => {
           <div className="p-6 relative">
             <Table>
               <TableHeader className="sticky top-0 z-20">
-                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-b-4 border-black">
+                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-b-4 border-transparent">
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
@@ -673,17 +640,13 @@ const Trips = () => {
 
                     const weekStartDate = parseISO(week.weekStart);
                     const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
-                    const weekKey = `${format(weekStartDate, "yyyy-MM-dd")}_${format(weekEndDate, "yyyy-MM-dd")}`;
-                    const isExported = exportedWeeks.has(weekKey);
 
                     return (
                       <>
                         {/* Weekly Summary Row - Now appears FIRST */}
                         <TableRow
                           key={`week-${week.weekStart}`}
-                          className={`font-semibold border-4 border-primary ${
-                            isExported ? "bg-primary text-primary-foreground" : "bg-muted/50"
-                          }`}
+                          className="bg-muted/50 font-semibold border-4 border-primary"
                         >
                           <TableCell colSpan={9} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
@@ -691,16 +654,12 @@ const Trips = () => {
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
                           <TableCell colSpan={3} className="py-3"></TableCell>
                           <TableCell className="py-3">
-                            <div className={`font-semibold ${
-                              isExported ? "" : "text-green-600 dark:text-green-400"
-                            }`}>
+                            <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.driverPay)}
                             </div>
                           </TableCell>
                           <TableCell className="py-3">
-                            <div className={`font-semibold ${
-                              isExported ? "" : "text-green-600 dark:text-green-400"
-                            }`}>
+                            <div className="font-semibold text-green-600 dark:text-green-400">
                               {formatCurrency(weekTotal.freightAmount)}
                             </div>
                           </TableCell>
@@ -744,9 +703,7 @@ const Trips = () => {
                                   ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]"
                                   : hasOrangeCondition
                                     ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
-                                    : orderIndex % 2 === 0
-                                      ? "bg-background hover:bg-background"
-                                      : "bg-muted/30 hover:bg-muted/30";
+                                    : "";
 
                           return (
                             <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
