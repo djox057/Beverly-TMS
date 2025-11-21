@@ -158,6 +158,7 @@ const Orders = () => {
   const [missingDocsFilter, setMissingDocsFilter] = useState("all");
   const [truckFilter, setTruckFilter] = useState("all-trucks");
   const [driverFilter, setDriverFilter] = useState("all-drivers");
+  const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -191,6 +192,7 @@ const Orders = () => {
           setMissingDocsFilter(state.missingDocsFilter || "all");
           setTruckFilter(state.truckFilter || "all-trucks");
           setDriverFilter(state.driverFilter || "all-drivers");
+          setBrokerFilter(state.brokerFilter || "all-brokers");
           setLockedNotInvoicedFilter(state.lockedNotInvoicedFilter || false);
           if (state.dateRange) {
             setDateRange({
@@ -255,7 +257,7 @@ const Orders = () => {
         (order.driverName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
-      const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.companyName === companyFilter;
+      const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
       const matchesTruckCompany =
         !truckCompanyFilter ||
         truckCompanyFilter === "all-truck-companies" ||
@@ -270,6 +272,7 @@ const Orders = () => {
 
       const matchesTruck = !truckFilter || truckFilter === "all-trucks" || order.truckNumber === truckFilter;
       const matchesDriver = !driverFilter || driverFilter === "all-drivers" || order.driverName === driverFilter;
+      const matchesBroker = !brokerFilter || brokerFilter === "all-brokers" || order.brokerName === brokerFilter;
 
       let matchesMissingDocs = true;
       if (missingDocsFilter !== "all") {
@@ -327,6 +330,7 @@ const Orders = () => {
         matchesBookedBy &&
         matchesTruck &&
         matchesDriver &&
+        matchesBroker &&
         matchesMissingDocs &&
         matchesDate &&
         matchesLockedNotInvoiced
@@ -343,6 +347,7 @@ const Orders = () => {
     bookedByFilter,
     truckFilter,
     driverFilter,
+    brokerFilter,
     missingDocsFilter,
     dateRange,
     lockedNotInvoicedFilter,
@@ -389,13 +394,14 @@ const Orders = () => {
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
   // Get unique companies and booked by values for filters
-  const uniqueCompanies = [...new Set(orders?.map((order) => order.companyName) || [])].filter(Boolean);
+  const uniqueCompanies = [...new Set(orders?.map((order) => order.bookedByCompanyName) || [])].filter(Boolean);
   const uniqueTruckCompanies = [...new Set(orders?.map((order) => order.truckCompanyName) || [])].filter(Boolean);
   const uniqueBookedBy = [...new Set(orders?.map((order) => order.bookedBy) || [])].filter(Boolean);
   const uniqueTrucks = [...new Set(orders?.map((order) => order.truckNumber) || [])]
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const uniqueDrivers = [...new Set(orders?.map((order) => order.driverName) || [])].filter(Boolean).sort();
+  const uniqueBrokers = [...new Set(orders?.map((order) => order.brokerName) || [])].filter(Boolean).sort();
   const exportToExcel = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map((order) => ({
@@ -747,6 +753,18 @@ const Orders = () => {
                     options={[
                       { value: "all-drivers", label: "All Drivers" },
                       ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
+                    ]}
+                    className="w-[192px] shrink-0"
+                  />
+
+                  <Combobox
+                    value={brokerFilter}
+                    onValueChange={setBrokerFilter}
+                    placeholder="Filter by Broker"
+                    searchPlaceholder="Search brokers..."
+                    options={[
+                      { value: "all-brokers", label: "All Brokers" },
+                      ...uniqueBrokers.map((broker) => ({ value: broker, label: broker })),
                     ]}
                     className="w-[192px] shrink-0"
                   />
