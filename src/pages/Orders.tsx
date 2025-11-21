@@ -842,7 +842,7 @@ const Orders = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedOrders.map((order) => {
+                    paginatedOrders.map((order, index) => {
                       // Background color rules - Recovery orders get purple background that overrides all other colors
                       const isRecovery = (order as any).isRecovery;
 
@@ -869,7 +869,9 @@ const Orders = () => {
                               ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]"
                               : hasOrangeCondition
                                 ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
-                                : "";
+                                : index % 2 === 0
+                                  ? "bg-background"
+                                  : "bg-muted/30";
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
