@@ -600,24 +600,24 @@ const Trips = () => {
         <CardContent className="p-0">
           <div className="p-6 relative">
             <Table>
-              <TableHeader className="sticky top-0 bg-background z-20">
-                <TableRow>
-                  <TableHead className="w-20 bg-background">Truck#</TableHead>
-                  <TableHead className="w-32 bg-background">Driver</TableHead>
-                  <TableHead className="w-20 bg-background">Load#</TableHead>
-                  <TableHead className="w-32 bg-background">Pickup Date</TableHead>
-                  <TableHead className="w-28 bg-background">Pickup City</TableHead>
-                  <TableHead className="w-20 bg-background">Pickup State</TableHead>
-                  <TableHead className="w-32 bg-background">Delivery Date</TableHead>
-                  <TableHead className="w-28 bg-background">Delivery City</TableHead>
-                  <TableHead className="w-20 bg-background">Delivery State</TableHead>
-                  <TableHead className="w-16 bg-background">Miles</TableHead>
-                  <TableHead className="w-36 bg-background">Broker Name</TableHead>
-                  <TableHead className="w-28 bg-background">Broker Load#</TableHead>
-                  <TableHead className="w-28 bg-background">Booked By</TableHead>
-                  <TableHead className="w-24 bg-background">Driver Pay</TableHead>
-                  <TableHead className="w-28 bg-background">Freight Amount</TableHead>
-                  <TableHead className="w-20 bg-background">Actions</TableHead>
+              <TableHeader className="sticky top-0 z-20">
+                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-b-4 border-transparent">
+                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
+                  <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
+                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
+                  <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Pickup Date</TableHead>
+                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Pickup City</TableHead>
+                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Pickup State</TableHead>
+                  <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Delivery Date</TableHead>
+                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Delivery City</TableHead>
+                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Delivery State</TableHead>
+                  <TableHead className="w-16 bg-yellow-200 dark:bg-yellow-800">Miles</TableHead>
+                  <TableHead className="w-36 bg-yellow-200 dark:bg-yellow-800">Broker Name</TableHead>
+                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Broker Load#</TableHead>
+                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Booked By</TableHead>
+                  <TableHead className="w-24 bg-yellow-200 dark:bg-yellow-800">Driver Pay</TableHead>
+                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Freight Amount</TableHead>
+                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
