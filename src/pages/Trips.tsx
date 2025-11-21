@@ -600,7 +600,7 @@ const Trips = () => {
         <CardContent className="p-0">
           <div className="p-6">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
                   <TableHead className="w-20">Truck#</TableHead>
                   <TableHead className="w-20">Load#</TableHead>
