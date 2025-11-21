@@ -2,10 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, Wrench, TruckIcon, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
+import { useState } from "react";
 
 interface YardAction {
   id: string;
@@ -28,6 +39,8 @@ interface YardAction {
 export default function YardArrivals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string } | null>(null);
 
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
@@ -78,13 +91,15 @@ export default function YardArrivals() {
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
 
-  const handleCancelAction = async (actionId: string, driverId: string) => {
+  const handleCancelAction = async () => {
+    if (!actionToCancel) return;
+
     try {
       // Delete the yard action
-      await supabase.from("driver_yard_actions").delete().eq("id", actionId);
+      await supabase.from("driver_yard_actions").delete().eq("id", actionToCancel.id);
 
       // Remove going_yard status from driver
-      await supabase.from("drivers").update({ going_yard: false }).eq("id", driverId);
+      await supabase.from("drivers").update({ going_yard: false }).eq("id", actionToCancel.driverId);
 
       toast({
         title: "Yard arrival canceled",
@@ -97,6 +112,9 @@ export default function YardArrivals() {
         description: "Failed to cancel yard arrival",
         variant: "destructive",
       });
+    } finally {
+      setCancelDialogOpen(false);
+      setActionToCancel(null);
     }
   };
 
@@ -155,7 +173,14 @@ export default function YardArrivals() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancelAction(action.id, action.driver_id)}
+                        onClick={() => {
+                          setActionToCancel({
+                            id: action.id,
+                            driverId: action.driver_id,
+                            driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                          });
+                          setCancelDialogOpen(true);
+                        }}
                       >
                         <X className="h-4 w-4 text-destructive" />
                       </Button>
@@ -197,7 +222,14 @@ export default function YardArrivals() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCancelAction(action.id, action.driver_id)}
+                        onClick={() => {
+                          setActionToCancel({
+                            id: action.id,
+                            driverId: action.driver_id,
+                            driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                          });
+                          setCancelDialogOpen(true);
+                        }}
                       >
                         <X className="h-4 w-4 text-destructive" />
                       </Button>
@@ -209,6 +241,24 @@ export default function YardArrivals() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Yard Arrival</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel the yard arrival for {actionToCancel?.driverName}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setActionToCancel(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelAction} className="bg-destructive hover:bg-destructive/90">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
