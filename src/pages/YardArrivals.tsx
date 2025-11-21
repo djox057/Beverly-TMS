@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Wrench, TruckIcon } from "lucide-react";
-import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Loader2, Wrench, TruckIcon, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface YardAction {
   id: string;
@@ -22,6 +24,9 @@ interface YardAction {
 }
 
 export default function YardArrivals() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
     queryFn: async () => {
@@ -68,6 +73,39 @@ export default function YardArrivals() {
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
 
+  const handleCancelAction = async (actionId: string, driverId: string) => {
+    try {
+      // Delete the yard action
+      await supabase.from("driver_yard_actions").delete().eq("id", actionId);
+
+      // Remove going_yard status from driver
+      await supabase.from("drivers").update({ going_yard: false }).eq("id", driverId);
+
+      toast({
+        title: "Yard arrival canceled",
+      });
+      queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    } catch (error) {
+      console.error("Error canceling yard action:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel yard arrival",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    // Parse without timezone conversion
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -97,17 +135,24 @@ export default function YardArrivals() {
                 {maintenanceActions.map((action) => (
                   <div key={action.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold">
                           {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Truck: {action.truck?.truck_number || "N/A"}
                         </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Arrived: {formatDateTime(action.created_at)}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(action.created_at), "MMM d, yyyy HH:mm")}
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancelAction(action.id, action.driver_id)}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                     <div className="bg-muted p-3 rounded">
                       <p className="text-sm font-medium mb-1">Comment:</p>
@@ -136,17 +181,24 @@ export default function YardArrivals() {
                 {returnTruckActions.map((action) => (
                   <div key={action.id} className="border rounded-lg p-4 space-y-2">
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold">
                           {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Truck: {action.truck?.truck_number || "N/A"}
                         </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Arrived: {formatDateTime(action.created_at)}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(action.created_at), "MMM d, yyyy HH:mm")}
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancelAction(action.id, action.driver_id)}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
                     <div className="bg-muted p-3 rounded">
                       <p className="text-sm font-medium mb-1">Comment:</p>

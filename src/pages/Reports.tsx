@@ -2730,20 +2730,58 @@ const Reports = () => {
                                                       <div className="flex items-center justify-between gap-2">
                                                         <p className="font-semibold text-sm">{truck.driver}</p>
                                                         {truck.driverId && (
-                                                          <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              setYardActionDialog({
-                                                                driverId: truck.driverId!,
-                                                                driverName: truck.driver,
-                                                              });
-                                                            }}
-                                                          >
-                                                            <Warehouse className="h-3 w-3" />
-                                                          </Button>
+                                                          truck.goingYard ? (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                try {
+                                                                  await supabase
+                                                                    .from("drivers")
+                                                                    .update({ going_yard: false })
+                                                                    .eq("id", truck.driverId);
+
+                                                                  await supabase
+                                                                    .from("driver_yard_actions")
+                                                                    .delete()
+                                                                    .eq("driver_id", truck.driverId)
+                                                                    .order("created_at", { ascending: false })
+                                                                    .limit(1);
+
+                                                                  toast({
+                                                                    title: "Yard action canceled",
+                                                                  });
+                                                                  queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                                } catch (error) {
+                                                                  console.error("Error:", error);
+                                                                  toast({
+                                                                    title: "Error",
+                                                                    description: "Failed to cancel",
+                                                                    variant: "destructive",
+                                                                  });
+                                                                }
+                                                              }}
+                                                            >
+                                                              <X className="h-3 w-3 text-destructive" />
+                                                            </Button>
+                                                          ) : (
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setYardActionDialog({
+                                                                  driverId: truck.driverId!,
+                                                                  driverName: truck.driver,
+                                                                });
+                                                              }}
+                                                            >
+                                                              <Warehouse className="h-3 w-3" />
+                                                            </Button>
+                                                          )
                                                         )}
                                                       </div>
                                                       <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
