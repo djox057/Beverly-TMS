@@ -71,6 +71,8 @@ export default function YardArrivals() {
 
       return actionsWithTrucks as YardAction[];
     },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
