@@ -870,8 +870,8 @@ const Orders = () => {
                               : hasOrangeCondition
                                 ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
                                 : index % 2 === 0
-                                  ? "bg-background"
-                                  : "bg-muted/30";
+                                  ? "bg-background hover:bg-background"
+                                  : "bg-muted/30 hover:bg-muted/30";
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
