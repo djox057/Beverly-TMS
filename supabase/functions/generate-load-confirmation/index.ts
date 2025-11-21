@@ -199,7 +199,18 @@ serve(async (req) => {
       setTextField('Commodity', data.commodity);
       setTextField('Weight', data.weight);
       setTextField('Miles', data.miles);
-      setTextField('Rate', data.rate ? '$' + sanitizeText(data.rate) : '');
+      
+      // Format rate with 2 decimal places
+      let formattedRate = '';
+      if (data.rate) {
+        const rateNum = parseFloat(data.rate.replace(/[^0-9.-]/g, ''));
+        if (!isNaN(rateNum)) {
+          formattedRate = '$' + rateNum.toFixed(2);
+        } else {
+          formattedRate = '$' + sanitizeText(data.rate);
+        }
+      }
+      setTextField('Rate', formattedRate);
 
       // Fill based on template type
       if (templateType === '2p1d') {
