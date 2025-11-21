@@ -842,7 +842,7 @@ const Orders = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedOrders.map((order) => {
+                    paginatedOrders.map((order, index) => {
                       // Background color rules - Recovery orders get purple background that overrides all other colors
                       const isRecovery = (order as any).isRecovery;
 
@@ -859,6 +859,10 @@ const Orders = () => {
                         order.canceled ||
                         ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
+                      const isEvenRow = index % 2 === 1;
+                      const alternatingBg = isEvenRow ? "bg-muted/30" : "";
+                      const alternatingHover = isEvenRow ? "" : "hover:bg-muted/50";
+                      
                       const rowClassName = isRecovery
                         ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]"
                         : hasRedFees
@@ -869,7 +873,7 @@ const Orders = () => {
                               ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]"
                               : hasOrangeCondition
                                 ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
-                                : "";
+                                : `${alternatingBg} ${alternatingHover}`;
 
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
