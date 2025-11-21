@@ -1137,6 +1137,7 @@ const NewOrder = () => {
               console.error("❌ Error response:", responseData);
               throw new Error(responseData.error || "Failed to send email");
             }
+            
             setEmailSent(true);
             toast({
               title: "Email Sent",
