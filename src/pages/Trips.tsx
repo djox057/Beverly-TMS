@@ -601,7 +601,7 @@ const Trips = () => {
           <div className="p-6 relative">
             <Table>
               <TableHeader className="sticky top-0 z-20">
-                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-b-4 border-transparent">
+                <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-2 border-black">
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
