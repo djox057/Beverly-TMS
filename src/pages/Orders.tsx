@@ -885,7 +885,7 @@ const Orders = () => {
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
                           <TableCell className="w-20">
                             <div className="flex items-center gap-1">
-                              {emailLogMap?.has(order.id) && (
+                              {hasRole("admin") && emailLogMap?.has(order.id) && (
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger>
