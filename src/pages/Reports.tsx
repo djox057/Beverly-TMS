@@ -1497,6 +1497,7 @@ const Reports = () => {
 
       // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
       // Show red if no pickup on this day, regardless of transit state
+      // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
@@ -1508,6 +1509,7 @@ const Reports = () => {
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
+        !shouldShowPickupInTransit &&
         !isOneDayFuture;
 
       // Check if this day is today (Chicago time)
