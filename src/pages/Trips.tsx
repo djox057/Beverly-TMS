@@ -693,17 +693,21 @@ const Trips = () => {
                             order.canceled ||
                             ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
-                          const rowClassName = isRecovery
-                            ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]"
-                            : hasRedFees
-                              ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]"
-                              : hasGreenFees
-                                ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]"
-                                : hasYellowFees
-                                  ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]"
-                                  : hasOrangeCondition
-                                    ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
-                                    : "";
+                              const isEvenRow = orderIndex % 2 === 1;
+                              const alternatingBg = isEvenRow ? "bg-muted/30" : "";
+                              const alternatingHover = isEvenRow ? "" : "hover:bg-muted/50";
+                              
+                              const rowClassName = isRecovery
+                                ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]"
+                                : hasRedFees
+                                  ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]"
+                                  : hasGreenFees
+                                    ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]"
+                                    : hasYellowFees
+                                      ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]"
+                                      : hasOrangeCondition
+                                        ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]"
+                                        : `${alternatingBg} ${alternatingHover}`;
 
                           return (
                             <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
