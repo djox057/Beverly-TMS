@@ -554,7 +554,7 @@ const Trips = () => {
         <h1 className="text-3xl font-bold">Trips</h1>
       </div>
 
-      <Card className="sticky top-0 z-10 bg-background">
+      <Card className="bg-background">
         <CardHeader>
           <CardTitle>Filters</CardTitle>
         </CardHeader>
