@@ -648,8 +648,20 @@ const Trips = () => {
                           key={`week-${week.weekStart}`}
                           className="bg-muted/50 font-semibold border-4 border-primary"
                         >
-                          <TableCell colSpan={7} className="py-3">
+                          <TableCell colSpan={9} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
+                          <TableCell colSpan={3} className="py-3"></TableCell>
+                          <TableCell className="py-3">
+                            <div className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(weekTotal.driverPay)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <div className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(weekTotal.freightAmount)}
+                            </div>
                           </TableCell>
                           <TableCell className="py-3">
                             <Button
@@ -661,19 +673,6 @@ const Trips = () => {
                               <FileDown className="h-4 w-4" />
                             </Button>
                           </TableCell>
-                          <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
-                          <TableCell className="py-3">
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency(weekTotal.driverPay)}
-                            </div>
-                          </TableCell>
-                          <TableCell colSpan={3}></TableCell>
-                          <TableCell className="py-3">
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency(weekTotal.freightAmount)}
-                            </div>
-                          </TableCell>
-                          <TableCell></TableCell>
                         </TableRow>
 
                         {/* Orders for this week */}
