@@ -646,7 +646,7 @@ const Trips = () => {
                         {/* Weekly Summary Row - Now appears FIRST */}
                         <TableRow
                           key={`week-${week.weekStart}`}
-                          className="bg-muted/50 font-semibold border-4 border-primary border-b-0"
+                          className="bg-muted/50 font-semibold border-4 border-primary"
                         >
                           <TableCell colSpan={9} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
@@ -673,11 +673,6 @@ const Trips = () => {
                               <FileDown className="h-4 w-4" />
                             </Button>
                           </TableCell>
-                        </TableRow>
-                        
-                        {/* Spacing row */}
-                        <TableRow className="h-4 border-l-4 border-r-4 border-primary">
-                          <TableCell colSpan={16} className="p-0 bg-background"></TableCell>
                         </TableRow>
 
                         {/* Orders for this week */}
