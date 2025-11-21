@@ -435,8 +435,8 @@ export const useReports = () => {
           .select(
             `
             *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, company:companies!company_id(id, name)),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, company:companies!company_id(id, name)),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, going_yard, company:companies!company_id(id, name)),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, going_yard, company:companies!company_id(id, name)),
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `,
@@ -854,6 +854,7 @@ export const useReports = () => {
               hasMultipleOrders: (driverOrders.length || 0) > 1,
               lost_day_notes: truckLostDayNotes,
               milesAway: truck.miles_away || 0,
+              goingYard: truck.driver1?.going_yard || false,
             };
           }) || [];
 
@@ -864,7 +865,7 @@ export const useReports = () => {
         const { data: allDrivers, error: driversError } = await supabase
           .from("drivers")
           .select(
-            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, is_active",
+            "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, dispatcher_id, is_active, going_yard",
           )
           .eq("is_active", true)
           .order("name", { ascending: true });
@@ -1127,6 +1128,7 @@ export const useReports = () => {
             hasMultipleOrders: (driverOrders.length || 0) > 1,
             lost_day_notes: [],
             milesAway: 0,
+            goingYard: driver.going_yard || false,
           };
         });
 
