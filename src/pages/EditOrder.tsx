@@ -1062,6 +1062,12 @@ const EditOrder = () => {
             
             // Log the email to driver_email_log table
             if (id && selectedDriver.id) {
+              console.log("📝 Logging email to driver_email_log:", {
+                order_id: id,
+                driver_id: selectedDriver.id,
+                sent_by: session?.user?.id,
+              });
+              
               const { error: logError } = await supabase
                 .from('driver_email_log')
                 .insert({
@@ -1073,7 +1079,14 @@ const EditOrder = () => {
               
               if (logError) {
                 console.error("❌ Error logging email:", logError);
+              } else {
+                console.log("✅ Email logged successfully");
               }
+            } else {
+              console.warn("⚠️ Cannot log email - missing order ID or driver ID:", {
+                orderId: id,
+                driverId: selectedDriver.id,
+              });
             }
             
             setEmailSent(true);

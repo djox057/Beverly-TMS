@@ -97,6 +97,7 @@ const NewOrder = () => {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailFiles, setEmailFiles] = useState<File[]>([]);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
@@ -1138,6 +1139,35 @@ const NewOrder = () => {
               throw new Error(responseData.error || "Failed to send email");
             }
             
+            // Log the email to driver_email_log table
+            if (createdOrderId && driverForEmail.id) {
+              console.log("📝 Logging email to driver_email_log:", {
+                order_id: createdOrderId,
+                driver_id: driverForEmail.id,
+                sent_by: session?.user?.id,
+              });
+              
+              const { error: logError } = await supabase
+                .from('driver_email_log')
+                .insert({
+                  order_id: createdOrderId,
+                  driver_id: driverForEmail.id,
+                  email_type: 'load_confirmation',
+                  sent_by: session?.user?.id,
+                });
+              
+              if (logError) {
+                console.error("❌ Error logging email:", logError);
+              } else {
+                console.log("✅ Email logged successfully");
+              }
+            } else {
+              console.warn("⚠️ Cannot log email - missing order ID or driver ID:", {
+                createdOrderId,
+                driverId: driverForEmail.id,
+              });
+            }
+            
             setEmailSent(true);
             toast({
               title: "Email Sent",
@@ -1761,6 +1791,9 @@ const NewOrder = () => {
       }
       const orderId = result.id;
       const newInternalLoadNumber = result.internal_load_number;
+      
+      // Store the created order ID for email logging
+      setCreatedOrderId(orderId);
 
       // Upload files if any
       const allFiles = [
