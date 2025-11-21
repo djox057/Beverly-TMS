@@ -222,29 +222,6 @@ const Orders = () => {
 
   const { data: companies } = useCompanies();
 
-  // Real-time subscription for instant updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('orders-cache-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders_view_cache'
-        },
-        () => {
-          console.log('[Orders] Real-time update detected, refetching...');
-          refetch();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [refetch]);
-
   // Refetch data when returning to this page or when window gains focus
   useEffect(() => {
     refetch();

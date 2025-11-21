@@ -11,14 +11,14 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
-      console.log("[useOrders] Fetching first 500 orders from cache...");
+      console.log("[useOrders] Fetching first 500 orders from materialized view...");
       
       const initialBatchSize = 500;
       const batchSize = 1000;
       
       // Fetch first 500 orders immediately
       let initialQuery = supabase
-        .from("orders_view_cache")
+        .from("orders_materialized_view")
         .select("*")
         .order("created_at", { ascending: false })
         .range(0, initialBatchSize - 1);
@@ -46,7 +46,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
             while (hasMore) {
               let bgQuery = supabase
-                .from("orders_view_cache")
+                .from("orders_materialized_view")
                 .select("*")
                 .order("created_at", { ascending: false })
                 .range(offset, offset + batchSize - 1);
@@ -89,7 +89,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
     refetchOnMount: false,
     refetchOnReconnect: false,
     retry: 2,
-    staleTime: Infinity, // Cache is always up-to-date via triggers
+    staleTime: 5 * 60 * 1000, // Data refreshes every 5 minutes via materialized view
   });
 
   return query;
