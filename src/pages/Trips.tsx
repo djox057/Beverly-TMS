@@ -600,23 +600,23 @@ const Trips = () => {
         <CardContent className="p-0">
           <div className="p-6">
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-background border-y-2 border-primary">
-                <TableRow className="border-b-2">
-                  <TableHead className="w-20 border-r">Truck#</TableHead>
-                  <TableHead className="w-20 border-r">Load#</TableHead>
-                  <TableHead className="w-32 border-r">Pickup Date</TableHead>
-                  <TableHead className="w-28 border-r">Pickup City</TableHead>
-                  <TableHead className="w-20 border-r">Pickup State</TableHead>
-                  <TableHead className="w-32 border-r">Delivery Date</TableHead>
-                  <TableHead className="w-28 border-r">Delivery City</TableHead>
-                  <TableHead className="w-20 border-r">Delivery State</TableHead>
-                  <TableHead className="w-16 border-r">Miles</TableHead>
-                  <TableHead className="w-24 border-r">Driver Pay</TableHead>
-                  <TableHead className="w-32 border-r">Driver</TableHead>
-                  <TableHead className="w-36 border-r">Broker Name</TableHead>
-                  <TableHead className="w-28 border-r">Broker Load#</TableHead>
-                  <TableHead className="w-20 border-r">Invoiced</TableHead>
-                  <TableHead className="w-28 border-r">Freight Amount</TableHead>
+              <TableHeader className="sticky top-0 z-10 bg-background border-y-4 border-primary">
+                <TableRow className="border-b-4">
+                  <TableHead className="w-20 border-r-2">Truck#</TableHead>
+                  <TableHead className="w-20 border-r-2">Load#</TableHead>
+                  <TableHead className="w-32 border-r-2">Pickup Date</TableHead>
+                  <TableHead className="w-28 border-r-2">Pickup City</TableHead>
+                  <TableHead className="w-20 border-r-2">Pickup State</TableHead>
+                  <TableHead className="w-32 border-r-2">Delivery Date</TableHead>
+                  <TableHead className="w-28 border-r-2">Delivery City</TableHead>
+                  <TableHead className="w-20 border-r-2">Delivery State</TableHead>
+                  <TableHead className="w-16 border-r-2">Miles</TableHead>
+                  <TableHead className="w-24 border-r-2">Driver Pay</TableHead>
+                  <TableHead className="w-32 border-r-2">Driver</TableHead>
+                  <TableHead className="w-36 border-r-2">Broker Name</TableHead>
+                  <TableHead className="w-28 border-r-2">Broker Load#</TableHead>
+                  <TableHead className="w-20 border-r-2">Invoiced</TableHead>
+                  <TableHead className="w-28 border-r-2">Freight Amount</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
