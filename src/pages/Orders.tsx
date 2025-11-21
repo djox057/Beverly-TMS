@@ -75,6 +75,9 @@ const Orders = () => {
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
   const { data: emailLogMap } = useDriverEmailLog();
+  
+  console.log('📬 Orders page - emailLogMap:', emailLogMap);
+  console.log('📬 Orders page - emailLogMap size:', emailLogMap?.size);
 
   // Debug navigation function with filter persistence
   const navigateToEditOrder = (orderId: string) => {

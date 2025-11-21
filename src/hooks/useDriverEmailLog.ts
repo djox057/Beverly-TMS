@@ -27,9 +27,12 @@ export const useDriverEmailLog = () => {
       });
 
       console.log('📬 Email map created with', emailMap.size, 'entries');
+      console.log('📬 Email map keys:', Array.from(emailMap.keys()));
 
       return emailMap;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 };
