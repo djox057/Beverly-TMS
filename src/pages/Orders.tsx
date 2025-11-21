@@ -29,9 +29,11 @@ import {
   Calculator,
   Undo2,
   Info,
+  Mail,
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useDriverEmailLog } from "@/hooks/useDriverEmailLog";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +74,7 @@ const Orders = () => {
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
+  const { data: emailLogMap } = useDriverEmailLog();
 
   // Debug navigation function with filter persistence
   const navigateToEditOrder = (orderId: string) => {
@@ -877,7 +880,23 @@ const Orders = () => {
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
-                          <TableCell className="w-20">{order.internalLoadNumber}</TableCell>
+                          <TableCell className="w-20">
+                            <div className="flex items-center gap-1">
+                              {emailLogMap?.has(order.id) && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Email sent to driver</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {order.internalLoadNumber}
+                            </div>
+                          </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
                               {order.pickupDate ? new Date(order.pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}

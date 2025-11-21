@@ -368,6 +368,39 @@ export type Database = {
           },
         ]
       }
+      driver_email_log: {
+        Row: {
+          created_at: string
+          driver_id: string
+          email_type: string
+          id: string
+          order_id: string
+          sent_at: string
+          sent_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          driver_id: string
+          email_type?: string
+          id?: string
+          order_id: string
+          sent_at?: string
+          sent_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          driver_id?: string
+          email_type?: string
+          id?: string
+          order_id?: string
+          sent_at?: string
+          sent_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       driver_files: {
         Row: {
           content_type: string | null
