@@ -1059,6 +1059,23 @@ const EditOrder = () => {
             if (!response.ok) {
               throw new Error(responseData.error || "Failed to send email");
             }
+            
+            // Log the email to driver_email_log table
+            if (id && selectedDriver.id) {
+              const { error: logError } = await supabase
+                .from('driver_email_log')
+                .insert({
+                  order_id: id,
+                  driver_id: selectedDriver.id,
+                  email_type: 'load_confirmation',
+                  sent_by: session?.user?.id,
+                });
+              
+              if (logError) {
+                console.error("❌ Error logging email:", logError);
+              }
+            }
+            
             setEmailSent(true);
             toast({
               title: "Email Sent",
