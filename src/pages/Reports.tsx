@@ -1270,7 +1270,7 @@ const Reports = () => {
     const firstPickupDate = ordersWithDates
       .filter((order) => order.pickupDate)
       .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
-    const today = new Date();
+    const today = getChicagoToday(); // Use Chicago timezone
     const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
