@@ -319,38 +319,37 @@ const Trips = () => {
           .reverse()
           .find((pd: any) => pd.type === "delivery");
 
-        // Column B: Trip No.
-        worksheet.getCell(`B${currentRow}`).value = order.internalLoadNumber || "";
+        // A: Internal load number
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         
-        // Column C: Pick UP Date
-        worksheet.getCell(`C${currentRow}`).value = firstPickup?.datetime
+        // B: Pickup date
+        worksheet.getCell(`B${currentRow}`).value = firstPickup?.datetime
           ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
           : "";
         
-        // Column D: Pick Up Location (City, State)
-        const pickupLocation = [firstPickup?.city, firstPickup?.state].filter(Boolean).join(", ");
-        worksheet.getCell(`D${currentRow}`).value = pickupLocation;
+        // C: Pickup city
+        worksheet.getCell(`C${currentRow}`).value = firstPickup?.city || "";
         
-        // Column E: Delivery Date
+        // D: Pickup state
+        worksheet.getCell(`D${currentRow}`).value = firstPickup?.state || "";
+        
+        // E: Delivery date
         worksheet.getCell(`E${currentRow}`).value = lastDelivery?.datetime
           ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
           : "";
         
-        // Column F: Delivery Location (City, State)
-        const deliveryLocation = [lastDelivery?.city, lastDelivery?.state].filter(Boolean).join(", ");
-        worksheet.getCell(`F${currentRow}`).value = deliveryLocation;
+        // F: Delivery city
+        worksheet.getCell(`F${currentRow}`).value = lastDelivery?.city || "";
         
-        // Column G: Mileage
-        worksheet.getCell(`G${currentRow}`).value = order.mileage || 0;
+        // G: Delivery state
+        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.state || "";
         
-        // Column H: Freight Amount
-        const cellH = worksheet.getCell(`H${currentRow}`);
-        cellH.value = order.freightAmount || 0;
-        cellH.numFmt = "$#,##0.00";
+        // H: Mileage
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         
-        // Column I: Freight Amount (88%)
+        // I: Driver pay
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = (order.freightAmount || 0) * 0.88;
+        cellI.value = order.totalDriverPay || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
