@@ -1447,12 +1447,16 @@ const Reports = () => {
         // Check if any delivery-only order has MORE deliveries after this day
         const currentDayStr = formatDateLocal(day, "yyyy-MM-dd");
         shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
-          // Check all future days to see if there are more deliveries
-          const futureDeliveries = days.slice(index + 1).some((futureDay) => {
-            const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
-            return order.deliveryStopsByDate?.has(futureDayStr);
+          // Check ALL delivery stops to see if there are more deliveries after this day
+          return order.deliveryStops?.some((stop: any) => {
+            if (!stop.datetime) return false;
+            const stopDateStr = formatDateTime(stop.datetime, "yyyy-MM-dd");
+            const stopDate = new Date(stop.datetime);
+            stopDate.setHours(0, 0, 0, 0);
+            const currentDate = new Date(day);
+            currentDate.setHours(0, 0, 0, 0);
+            return stopDate > currentDate;
           });
-          return futureDeliveries;
         });
       }
 
@@ -1460,16 +1464,27 @@ const Reports = () => {
       // This applies to days with no pickups AND no deliveries, but between past and future deliveries
       let isInTransitBetweenDeliveries = false;
       if (pickupOnlyOrders.length === 0 && deliveryOnlyOrders.length === 0 && sameDayOrders.length === 0) {
-        // Check if there was a delivery on a previous day
-        const hadPreviousDelivery = index > 0 && days.slice(0, index).some((prevDay) => {
-          const prevDayStr = formatDateLocal(prevDay, "yyyy-MM-dd");
-          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+        const currentDate = new Date(day);
+        currentDate.setHours(0, 0, 0, 0);
+        
+        // Check if there was a delivery BEFORE this day in ANY order
+        const hadPreviousDelivery = ordersWithDates.some((order) => {
+          return order.deliveryStops?.some((stop: any) => {
+            if (!stop.datetime) return false;
+            const stopDate = new Date(stop.datetime);
+            stopDate.setHours(0, 0, 0, 0);
+            return stopDate < currentDate;
+          });
         });
 
-        // Check if there is a delivery on a future day
-        const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
-          const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
-          return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
+        // Check if there is a delivery AFTER this day in ANY order
+        const hasFutureDelivery = ordersWithDates.some((order) => {
+          return order.deliveryStops?.some((stop: any) => {
+            if (!stop.datetime) return false;
+            const stopDate = new Date(stop.datetime);
+            stopDate.setHours(0, 0, 0, 0);
+            return stopDate > currentDate;
+          });
         });
 
         isInTransitBetweenDeliveries = hadPreviousDelivery && hasFutureDelivery;
@@ -1478,16 +1493,29 @@ const Reports = () => {
       // Check if pickup cell should show ">>>" for in-transit days
       // This applies from first delivery through second-to-last delivery (not on last delivery day)
       let shouldShowPickupInTransit = false;
-      // Check if there was a delivery on this day or a previous day
-      const hadDeliveryOnOrBefore = days.slice(0, index + 1).some((prevDay) => {
-        const prevDayStr = formatDateLocal(prevDay, "yyyy-MM-dd");
-        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
+      const currentDate = new Date(day);
+      currentDate.setHours(0, 0, 0, 0);
+      
+      // Check if there was a delivery on or before this day in ANY order
+      const hadDeliveryOnOrBefore = ordersWithDates.some((order) => {
+        return order.deliveryStops?.some((stop: any) => {
+          if (!stop.datetime) return false;
+          const stopDate = new Date(stop.datetime);
+          stopDate.setHours(0, 0, 0, 0);
+          return stopDate <= currentDate;
+        });
       });
-      // Check if there is a delivery on a future day
-      const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
-        const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
-        return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
+      
+      // Check if there is a delivery AFTER this day in ANY order
+      const hasFutureDelivery = ordersWithDates.some((order) => {
+        return order.deliveryStops?.some((stop: any) => {
+          if (!stop.datetime) return false;
+          const stopDate = new Date(stop.datetime);
+          stopDate.setHours(0, 0, 0, 0);
+          return stopDate > currentDate;
+        });
       });
+      
       shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
 
       // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
@@ -1496,7 +1524,14 @@ const Reports = () => {
       // IMPORTANT: Only show red for dates that are today or in the past (not future dates)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
-      const isPastOrToday = day <= today; // Don't show "Lost day" for future dates
+      
+      // Normalize both dates to midnight for comparison
+      const normalizedDay = new Date(day);
+      normalizedDay.setHours(0, 0, 0, 0);
+      const normalizedToday = new Date(today);
+      normalizedToday.setHours(0, 0, 0, 0);
+      
+      const isPastOrToday = normalizedDay <= normalizedToday; // Don't show "Lost day" for future dates
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
