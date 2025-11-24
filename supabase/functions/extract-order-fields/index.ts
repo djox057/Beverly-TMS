@@ -1237,10 +1237,52 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
       // Remove trailing commas before closing braces/brackets
       cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
       
-      // Remove single-line comments
-      cleanContent = cleanContent.replace(/\/\/.*$/gm, '');
+      // CRITICAL: Escape control characters and newlines within string values
+      // Replace literal newlines and tabs within JSON strings with escaped versions
+      cleanContent = cleanContent.replace(/("(?:[^"\\]|\\.)*")/g, (match: string) => {
+        return match
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t');
+      });
       
-      // Remove multi-line comments
+      // Remove single-line comments ONLY if they appear outside of string values
+      // This regex matches // only when not inside quotes
+      cleanContent = cleanContent.split('\n').map((line: string) => {
+        // Find the first occurrence of // that's not inside quotes
+        let inString = false;
+        let escapeNext = false;
+        let commentStart = -1;
+        
+        for (let i = 0; i < line.length - 1; i++) {
+          const char = line[i];
+          const nextChar = line[i + 1];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          
+          if (!inString && char === '/' && nextChar === '/') {
+            commentStart = i;
+            break;
+          }
+        }
+        
+        return commentStart >= 0 ? line.substring(0, commentStart) : line;
+      }).join('\n');
+      
+      // Remove multi-line comments (these should never appear in valid JSON)
       cleanContent = cleanContent.replace(/\/\*[\s\S]*?\*\//g, '');
       
       // Remove any leading/trailing whitespace again after cleaning
@@ -1267,8 +1309,48 @@ Return this JSON structure with ALL fields (BROKER INFO MUST BE FIRST):
           // Remove trailing commas
           aggressiveClean = aggressiveClean.replace(/,(\s*[}\]])/g, '$1');
           
-          // Remove comments
-          aggressiveClean = aggressiveClean.replace(/\/\/.*$/gm, '');
+          // Escape control characters within strings
+          aggressiveClean = aggressiveClean.replace(/("(?:[^"\\]|\\.)*")/g, (match: string) => {
+            return match
+              .replace(/\n/g, '\\n')
+              .replace(/\r/g, '\\r')
+              .replace(/\t/g, '\\t');
+          });
+          
+          // Remove comments ONLY outside of strings
+          aggressiveClean = aggressiveClean.split('\n').map((line: string) => {
+            let inString = false;
+            let escapeNext = false;
+            let commentStart = -1;
+            
+            for (let i = 0; i < line.length - 1; i++) {
+              const char = line[i];
+              const nextChar = line[i + 1];
+              
+              if (escapeNext) {
+                escapeNext = false;
+                continue;
+              }
+              
+              if (char === '\\') {
+                escapeNext = true;
+                continue;
+              }
+              
+              if (char === '"') {
+                inString = !inString;
+                continue;
+              }
+              
+              if (!inString && char === '/' && nextChar === '/') {
+                commentStart = i;
+                break;
+              }
+            }
+            
+            return commentStart >= 0 ? line.substring(0, commentStart) : line;
+          }).join('\n');
+          
           aggressiveClean = aggressiveClean.replace(/\/\*[\s\S]*?\*\//g, '');
           
           // Try to fix common issues with quotes
