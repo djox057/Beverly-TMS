@@ -2172,9 +2172,48 @@ const Reports = () => {
             return false;
           }
 
-          // Check if truck is in transit today
+          // Check if truck is in transit today (showing ">>>")
+          // This needs to handle multi-stop loads correctly
           const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
+            
+            // For multi-stop loads, check if today falls between pickup and last delivery
+            if (order.pickupStopsByDate && order.deliveryStopsByDate) {
+              // Get all delivery dates to find the last one
+              const deliveryDates = Array.from(order.deliveryStopsByDate.keys()).map((dateStr: string) => {
+                const parts = dateStr.split('-');
+                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+              });
+              
+              if (deliveryDates.length === 0) return false;
+              const lastDeliveryDate = new Date(Math.max(...deliveryDates.map(d => d.getTime())));
+              
+              // Get pickup date
+              const pickupDates = Array.from(order.pickupStopsByDate.keys()).map((dateStr: string) => {
+                const parts = dateStr.split('-');
+                return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+              });
+              
+              if (pickupDates.length === 0) return false;
+              const firstPickupDate = new Date(Math.min(...pickupDates.map(d => d.getTime())));
+              
+              const todayTime = today.getTime();
+              const pickupTime = firstPickupDate.getTime();
+              const lastDeliveryTime = lastDeliveryDate.getTime();
+              
+              // Check if today is in the active range (after pickup, before or on last delivery)
+              if (todayTime <= pickupTime || todayTime > lastDeliveryTime) {
+                return false;
+              }
+              
+              // Check if today has any pickup or delivery stops
+              const hasStopsToday = order.pickupStopsByDate.has(todayStr) || order.deliveryStopsByDate.has(todayStr);
+              
+              // In transit if within range but no stops today (shows ">>>")
+              return !hasStopsToday;
+            }
+            
+            // Fallback for single-stop loads
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
@@ -2185,7 +2224,7 @@ const Reports = () => {
             return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
           });
           if (isInTransitToday) {
-            return false; // Exclude in-transit trucks
+            return false; // Exclude in-transit trucks (showing ">>>")
           }
 
           // Check if truck has any pickup or same-day order today
@@ -2209,6 +2248,28 @@ const Reports = () => {
           });
           if (hasPickupToday) {
             return false; // Must have NO pickup today
+          }
+
+          // Check if truck has any delivery today
+          const hasDeliveryToday = truck.allOrders?.some((order: any) => {
+            if (order.notes === "GAME|OVER") return false;
+            
+            // Check using deliveryStopsByDate which tracks ALL deliveries by date
+            if (order.deliveryStopsByDate) {
+              const deliveryCount = order.deliveryStopsByDate.get(todayStr);
+              if (deliveryCount && deliveryCount > 0) {
+                return true;
+              }
+            }
+            
+            // Fallback: check the single deliveryStop if deliveryStopsByDate is not available
+            if (!order.deliveryStop?.datetime) return false;
+            const deliveryDate = new Date(order.deliveryStop.datetime);
+            deliveryDate.setHours(0, 0, 0, 0);
+            return isSameDay(deliveryDate, today);
+          });
+          if (hasDeliveryToday) {
+            return false; // Must have NO delivery today
           }
 
           // Check for game over before today
