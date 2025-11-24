@@ -183,7 +183,7 @@ const Trips = () => {
       // Use template based on company name
       if (companyName === "BF Prime United LLC") {
         await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
-      } else if (companyName === "BF Prime Drivers LLC" || companyName === "BF Prime Trucks LLC") {
+      } else if (companyName === "BF Prime Drivers LLC" || companyName === "BF Prime Trucks LLC" || companyName === "BF Prime LLC") {
         await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else {
         // Use the old export method for other companies
