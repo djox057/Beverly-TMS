@@ -2141,8 +2141,10 @@ const Reports = () => {
       return reports;
     }
 
-    // Filter to show only trucks with red "Empty" cells for today (Chicago time)
-    const today = getChicagoToday();
+    // Filter to show only trucks with red "Empty" cells for today
+    // Must match the exact display logic for isMissingPickup
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
     return reports
@@ -2170,76 +2172,32 @@ const Reports = () => {
             return false;
           }
 
-          // Check if truck has any pickup stops today (from pickup_drops)
-          const hasPickupStopsToday = truck.allOrders?.some((order: any) => {
+          // Check if truck is in transit today
+          const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
-            return order.pickupStops?.some((stop: any) => {
-              if (!stop.datetime) return false;
-              const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
-              return stopDate === todayStr;
-            });
-          });
-          if (hasPickupStopsToday) {
-            return false; // Exclude if has pickup stops today
-          }
-
-          // Check if truck has any delivery stops today (from pickup_drops)
-          const hasDeliveryStopsToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === "GAME|OVER") return false;
-            return order.deliveryStops?.some((stop: any) => {
-              if (!stop.datetime) return false;
-              const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
-              return stopDate === todayStr;
-            });
-          });
-          if (hasDeliveryStopsToday) {
-            return false; // Exclude if has delivery stops today
-          }
-
-          // Check if truck is showing ">>>" today (in transit between stops of multi-drop order)
-          const isShowingInTransitToday = truck.allOrders?.some((order: any) => {
-            if (order.notes === "GAME|OVER") return false;
-            if (!order.pickupStop?.datetime) return false;
-            
-            // Build delivery stops map
-            const deliveryStopsByDate = new Map<string, number>();
-            order.deliveryStops?.forEach((stop: any) => {
-              if (stop.datetime) {
-                const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
-                deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
-              }
-            });
-            
-            if (deliveryStopsByDate.size === 0) return false;
-            
-            // Get pickup date
+            if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
-            
-            // Get last delivery date
-            const deliveryDates = Array.from(deliveryStopsByDate.keys()).map((dateStr: string) => {
-              const parts = dateStr.split('-');
-              return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-            });
-            const lastDeliveryDate = new Date(Math.max(...deliveryDates.map(d => d.getTime())));
-            
-            // Check if today is in transit (after pickup, before/on last delivery, and no stops today)
-            const hasPickupToday = order.pickupStops?.some((stop: any) => {
-              if (!stop.datetime) return false;
-              return formatDateTime(stop.datetime, "yyyy-MM-dd") === todayStr;
-            });
-            const hasDeliveryToday = order.deliveryStops?.some((stop: any) => {
-              if (!stop.datetime) return false;
-              return formatDateTime(stop.datetime, "yyyy-MM-dd") === todayStr;
-            });
-            
-            return today.getTime() > pickupDate.getTime() && 
-                   today.getTime() <= lastDeliveryDate.getTime() &&
-                   !hasPickupToday &&
-                   !hasDeliveryToday;
+            const deliveryDate = new Date(order.deliveryStop.datetime);
+            deliveryDate.setHours(0, 0, 0, 0);
+
+            // In transit if between pickup and delivery (exclusive)
+            return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
           });
-          if (isShowingInTransitToday) {
-            return false; // Exclude if showing ">>>" today
+          if (isInTransitToday) {
+            return false; // Exclude in-transit trucks
+          }
+
+          // Check if truck has any pickup or same-day order today
+          const hasPickupToday = truck.allOrders?.some((order: any) => {
+            if (order.notes === "GAME|OVER") return false;
+            if (!order.pickupStop?.datetime) return false;
+            const pickupDate = new Date(order.pickupStop.datetime);
+            pickupDate.setHours(0, 0, 0, 0);
+            return isSameDay(pickupDate, today);
+          });
+          if (hasPickupToday) {
+            return false; // Must have NO pickup today
           }
 
           // Check for game over before today
