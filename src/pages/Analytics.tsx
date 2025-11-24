@@ -529,7 +529,7 @@ const Analytics = () => {
         };
       }
       acc[dispatcher].totalFreight += order.totalFreightAmount;
-      acc[dispatcher].totalDriverRate += order.driverPrice;
+      acc[dispatcher].totalDriverRate += order.totalDriverPay;
       acc[dispatcher].totalMiles += order.mileage;
       acc[dispatcher].orderCount += 1;
       return acc;
