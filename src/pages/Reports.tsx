@@ -2141,10 +2141,8 @@ const Reports = () => {
       return reports;
     }
 
-    // Filter to show only trucks with red "Empty" cells for today
-    // Must match the exact display logic for isMissingPickup
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Filter to show only trucks with red "Empty" cells for today (Chicago time)
+    const today = getChicagoToday();
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
     return reports
