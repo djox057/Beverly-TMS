@@ -2189,8 +2189,19 @@ const Reports = () => {
           }
 
           // Check if truck has any pickup or same-day order today
+          // Need to check pickupStopsByDate for multi-stop loads
           const hasPickupToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
+            
+            // Check using pickupStopsByDate which tracks ALL pickups by date
+            if (order.pickupStopsByDate) {
+              const pickupCount = order.pickupStopsByDate.get(todayStr);
+              if (pickupCount && pickupCount > 0) {
+                return true;
+              }
+            }
+            
+            // Fallback: check the single pickupStop if pickupStopsByDate is not available
             if (!order.pickupStop?.datetime) return false;
             const pickupDate = new Date(order.pickupStop.datetime);
             pickupDate.setHours(0, 0, 0, 0);
