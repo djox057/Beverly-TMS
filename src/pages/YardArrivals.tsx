@@ -61,7 +61,7 @@ export default function YardArrivals() {
             last_name
           )
         `)
-        .order("created_at", { ascending: false });
+        .order("arrival_datetime", { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
@@ -82,7 +82,14 @@ export default function YardArrivals() {
         })
       );
 
-      return actionsWithTrucks as YardAction[];
+      // Sort by arrival_datetime or created_at, ascending
+      const sorted = actionsWithTrucks.sort((a, b) => {
+        const dateA = new Date(a.arrival_datetime || a.created_at).getTime();
+        const dateB = new Date(b.arrival_datetime || b.created_at).getTime();
+        return dateA - dateB;
+      });
+
+      return sorted as YardAction[];
     },
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
@@ -90,6 +97,27 @@ export default function YardArrivals() {
 
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
+
+  // Group actions by date
+  const groupByDate = (actions: YardAction[]) => {
+    const groups = new Map<string, YardAction[]>();
+    
+    actions.forEach((action) => {
+      const date = new Date(action.arrival_datetime || action.created_at);
+      const dateKey = formatDate(date, "yyyy-MM-dd");
+      
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(action);
+    });
+    
+    // Sort by date ascending
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const groupedMaintenance = groupByDate(maintenanceActions);
+  const groupedReturnTruck = groupByDate(returnTruckActions);
 
   const handleCancelAction = async () => {
     if (!actionToCancel) return;
@@ -155,35 +183,44 @@ export default function YardArrivals() {
             {maintenanceActions.length === 0 ? (
               <p className="text-muted-foreground text-sm">No maintenance arrivals</p>
             ) : (
-              <div className="space-y-4">
-                {maintenanceActions.map((action) => (
-                  <div key={action.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-1">
-                        <p className="font-semibold">
-                          #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
-                        </p>
-                        <div className="pt-1">
-                          <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+              <div className="space-y-6">
+                {groupedMaintenance.map(([dateKey, actions]) => (
+                  <div key={dateKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
+                      {formatDate(new Date(dateKey), "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    <div className="space-y-3">
+                      {actions.map((action) => (
+                        <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              </p>
+                              <div className="pt-1">
+                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setActionToCancel({
+                                  id: action.id,
+                                  driverId: action.driver_id,
+                                  driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                });
+                                setCancelDialogOpen(true);
+                              }}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActionToCancel({
-                            id: action.id,
-                            driverId: action.driver_id,
-                            driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
-                          });
-                          setCancelDialogOpen(true);
-                        }}
-                      >
-                        <X className="h-4 w-4 text-destructive" />
-                      </Button>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -204,35 +241,44 @@ export default function YardArrivals() {
             {returnTruckActions.length === 0 ? (
               <p className="text-muted-foreground text-sm">No truck returns</p>
             ) : (
-              <div className="space-y-4">
-                {returnTruckActions.map((action) => (
-                  <div key={action.id} className="border rounded-lg p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 space-y-1">
-                        <p className="font-semibold">
-                          #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
-                        </p>
-                        <div className="pt-1">
-                          <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+              <div className="space-y-6">
+                {groupedReturnTruck.map(([dateKey, actions]) => (
+                  <div key={dateKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
+                      {formatDate(new Date(dateKey), "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    <div className="space-y-3">
+                      {actions.map((action) => (
+                        <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              </p>
+                              <div className="pt-1">
+                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setActionToCancel({
+                                  id: action.id,
+                                  driverId: action.driver_id,
+                                  driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                });
+                                setCancelDialogOpen(true);
+                              }}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActionToCancel({
-                            id: action.id,
-                            driverId: action.driver_id,
-                            driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
-                          });
-                          setCancelDialogOpen(true);
-                        }}
-                      >
-                        <X className="h-4 w-4 text-destructive" />
-                      </Button>
+                      ))}
                     </div>
                   </div>
                 ))}
