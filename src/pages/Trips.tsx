@@ -300,7 +300,7 @@ const Trips = () => {
 
       // Clear all shared formulas in the trips section first (rows 14-20)
       for (let row = 14; row <= 20; row++) {
-        ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].forEach(col => {
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'].forEach(col => {
           const cell = worksheet.getCell(`${col}${row}`);
           if (cell.model.sharedFormula) {
             delete cell.model.sharedFormula;
@@ -319,22 +319,22 @@ const Trips = () => {
           .reverse()
           .find((pd: any) => pd.type === "delivery");
 
-        worksheet.getCell(`B${currentRow}`).value = order.internalLoadNumber || "";
-        worksheet.getCell(`C${currentRow}`).value = firstPickup?.datetime
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`B${currentRow}`).value = firstPickup?.datetime
           ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
           : "";
-        worksheet.getCell(`D${currentRow}`).value = lastDelivery?.datetime
+        worksheet.getCell(`C${currentRow}`).value = firstPickup?.city || "";
+        worksheet.getCell(`D${currentRow}`).value = firstPickup?.state || "";
+        worksheet.getCell(`E${currentRow}`).value = lastDelivery?.datetime
           ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
           : "";
-        worksheet.getCell(`E${currentRow}`).value = firstPickup?.city || "";
-        worksheet.getCell(`F${currentRow}`).value = firstPickup?.state || "";
-        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.city || "";
-        worksheet.getCell(`H${currentRow}`).value = lastDelivery?.state || "";
-        worksheet.getCell(`I${currentRow}`).value = order.mileage || 0;
+        worksheet.getCell(`F${currentRow}`).value = lastDelivery?.city || "";
+        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.state || "";
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         
-        const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = order.totalDriverPay || 0;
-        cellJ.numFmt = "$#,##0.00";
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = order.totalDriverPay || 0;
+        cellI.numFmt = "$#,##0.00";
 
         currentRow++;
       });
@@ -343,7 +343,7 @@ const Trips = () => {
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
-        { row: 34, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 34, description: "ELD", amount: 285.0 },
         { row: 35, description: "Pre-Pass", amount: 20.0 },
         { row: 36, description: "Truck Payment" },
         { row: 37, description: "Truck Insurance", amount: 195.0 },
