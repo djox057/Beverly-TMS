@@ -2183,8 +2183,8 @@ const Reports = () => {
             const deliveryDate = toZonedTime(deliveryUtc, "America/Chicago");
             deliveryDate.setHours(0, 0, 0, 0);
 
-            // In transit if between pickup and delivery (exclusive)
-            return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
+            // In transit if between pickup and delivery (inclusive of delivery day)
+            return today.getTime() > pickupDate.getTime() && today.getTime() <= deliveryDate.getTime();
           });
           if (isInTransitToday) {
             return false; // Exclude in-transit trucks
