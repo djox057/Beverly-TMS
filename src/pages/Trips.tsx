@@ -319,7 +319,7 @@ const Trips = () => {
           .reverse()
           .find((pd: any) => pd.type === "delivery");
 
-        worksheet.getCell(`B${currentRow}`).value = order.loadNumber || "";
+        worksheet.getCell(`B${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`C${currentRow}`).value = firstPickup?.datetime
           ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
           : "";
@@ -330,10 +330,10 @@ const Trips = () => {
         worksheet.getCell(`F${currentRow}`).value = firstPickup?.state || "";
         worksheet.getCell(`G${currentRow}`).value = lastDelivery?.city || "";
         worksheet.getCell(`H${currentRow}`).value = lastDelivery?.state || "";
-        worksheet.getCell(`I${currentRow}`).value = order.loadedMiles || 0;
+        worksheet.getCell(`I${currentRow}`).value = order.mileage || 0;
         
         const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = order.driverPrice || 0;
+        cellJ.value = order.totalDriverPay || 0;
         cellJ.numFmt = "$#,##0.00";
 
         currentRow++;
