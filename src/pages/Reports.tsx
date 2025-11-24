@@ -2153,9 +2153,10 @@ const Reports = () => {
           const firstPickupDate = truck.allOrders
             ?.filter((order: any) => order.pickupStop?.datetime && order.notes !== "GAME|OVER")
             .map((order: any) => {
-              const date = new Date(order.pickupStop.datetime);
-              date.setHours(0, 0, 0, 0);
-              return date;
+              const utcDate = new Date(order.pickupStop.datetime);
+              const chicagoDate = toZonedTime(utcDate, "America/Chicago");
+              chicagoDate.setHours(0, 0, 0, 0);
+              return chicagoDate;
             })
             .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
 
@@ -2175,9 +2176,11 @@ const Reports = () => {
           const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            const pickupDate = new Date(order.pickupStop.datetime);
+            const pickupUtc = new Date(order.pickupStop.datetime);
+            const pickupDate = toZonedTime(pickupUtc, "America/Chicago");
             pickupDate.setHours(0, 0, 0, 0);
-            const deliveryDate = new Date(order.deliveryStop.datetime);
+            const deliveryUtc = new Date(order.deliveryStop.datetime);
+            const deliveryDate = toZonedTime(deliveryUtc, "America/Chicago");
             deliveryDate.setHours(0, 0, 0, 0);
 
             // In transit if between pickup and delivery (exclusive)
@@ -2202,7 +2205,8 @@ const Reports = () => {
             
             // Fallback: check the single pickupStop if pickupStopsByDate is not available
             if (!order.pickupStop?.datetime) return false;
-            const pickupDate = new Date(order.pickupStop.datetime);
+            const pickupUtc = new Date(order.pickupStop.datetime);
+            const pickupDate = toZonedTime(pickupUtc, "America/Chicago");
             pickupDate.setHours(0, 0, 0, 0);
             return isSameDay(pickupDate, today);
           });
