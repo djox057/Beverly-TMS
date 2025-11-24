@@ -15,7 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Loader2, FileDown, Edit } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, getDay, addDays } from "date-fns";
@@ -846,12 +846,9 @@ const Trips = () => {
                     const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
                     return (
-                      <>
+                      <Fragment key={`week-${week.weekStart}`}>
                         {/* Weekly Summary Row - Now appears FIRST */}
-                        <TableRow
-                          key={`week-${week.weekStart}`}
-                          className="bg-muted/50 font-semibold border-4 border-primary"
-                        >
+                        <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
                           <TableCell colSpan={9} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
                           </TableCell>
@@ -978,7 +975,7 @@ const Trips = () => {
                             </TableRow>
                           );
                         })}
-                      </>
+                      </Fragment>
                     );
                   })
                 )}
