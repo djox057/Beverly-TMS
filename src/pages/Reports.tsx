@@ -1500,19 +1500,16 @@ const Reports = () => {
       // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
-      // Allow showing red cells for past dates and up to 1 day in future
-      // This ensures consistency when viewing historical weeks
-      const isWithinRelevantTimeframe = day < addDays(today, 2); // All past dates, today, and tomorrow
       const isOneDayFuture = isSameDay(day, oneDayInFuture);
+      // Show red for past days and current day, but not for tomorrow
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
-        isWithinRelevantTimeframe &&
+        !isOneDayFuture &&
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
-        !shouldShowPickupInTransit &&
-        !isOneDayFuture;
+        !shouldShowPickupInTransit;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
