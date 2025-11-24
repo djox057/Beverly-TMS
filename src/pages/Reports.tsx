@@ -1271,17 +1271,9 @@ const Reports = () => {
       .filter((order) => order.pickupDate)
       .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
     
-    // Use the start of the displayed range as reference instead of always using today
-    // This way, when users scroll the carousel, the logic adapts to the displayed dates
+    // Red box logic is based on actual current date, not the carousel viewing window
     const chicagoToday = getChicagoToday();
-    const displayStartDate = new Date(startDate);
-    displayStartDate.setHours(0, 0, 0, 0);
-    
-    // Use the later of today or the display start date as the reference
-    // This ensures "Empty" cells show correctly both when viewing current dates
-    // and when scrolling back to view past dates
-    const referenceDate = chicagoToday > displayStartDate ? chicagoToday : displayStartDate;
-    const oneDayInFuture = addDays(referenceDate, 1);
+    const oneDayInFuture = addDays(chicagoToday, 1);
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate
