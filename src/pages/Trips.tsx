@@ -298,6 +298,16 @@ const Trips = () => {
       j7Cell.value = driver?.name || "";
       j7Cell.font = { size: 16 };
 
+      // Clear all shared formulas in the trips section first (rows 14-20)
+      for (let row = 14; row <= 20; row++) {
+        ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'].forEach(col => {
+          const cell = worksheet.getCell(`${col}${row}`);
+          if (cell.model.sharedFormula) {
+            delete cell.model.sharedFormula;
+          }
+        });
+      }
+
       // Trips Rows 14-20
       let currentRow = 14;
       week.orders.forEach((order: any) => {
@@ -309,34 +319,20 @@ const Trips = () => {
           .reverse()
           .find((pd: any) => pd.type === "delivery");
 
-        // Clear any existing formulas and set values
-        const cellB = worksheet.getCell(`B${currentRow}`);
-        cellB.value = order.loadNumber || "";
-        
-        const cellC = worksheet.getCell(`C${currentRow}`);
-        cellC.value = firstPickup?.datetime ? format(new Date(firstPickup.datetime), "MM/dd/yyyy") : "";
-        
-        const cellD = worksheet.getCell(`D${currentRow}`);
-        cellD.value = lastDelivery?.datetime ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy") : "";
-        
-        const cellE = worksheet.getCell(`E${currentRow}`);
-        cellE.value = firstPickup?.city || "";
-        
-        const cellF = worksheet.getCell(`F${currentRow}`);
-        cellF.value = firstPickup?.state || "";
-        
-        const cellG = worksheet.getCell(`G${currentRow}`);
-        cellG.value = lastDelivery?.city || "";
-        
-        const cellH = worksheet.getCell(`H${currentRow}`);
-        cellH.value = lastDelivery?.state || "";
-        
-        const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.loadedMiles || 0;
+        worksheet.getCell(`B${currentRow}`).value = order.loadNumber || "";
+        worksheet.getCell(`C${currentRow}`).value = firstPickup?.datetime
+          ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
+          : "";
+        worksheet.getCell(`D${currentRow}`).value = lastDelivery?.datetime
+          ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
+          : "";
+        worksheet.getCell(`E${currentRow}`).value = firstPickup?.city || "";
+        worksheet.getCell(`F${currentRow}`).value = firstPickup?.state || "";
+        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.city || "";
+        worksheet.getCell(`H${currentRow}`).value = lastDelivery?.state || "";
+        worksheet.getCell(`I${currentRow}`).value = order.loadedMiles || 0;
         
         const cellJ = worksheet.getCell(`J${currentRow}`);
-        // Clear shared formula reference
-        delete cellJ.model.sharedFormula;
         cellJ.value = order.driverPrice || 0;
         cellJ.numFmt = "$#,##0.00";
 
