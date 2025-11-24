@@ -48,30 +48,6 @@ export const parseSimpleDateTime = (datetimeString: string) => {
 };
 
 /**
- * Formats a Date object to a string in the specified format WITHOUT timezone conversion.
- * This uses the Date's local year/month/day values directly.
- * 
- * @param date - The Date object to format
- * @param formatStr - Format string (e.g., "yyyy-MM-dd", "MM/dd/yyyy")
- * @returns Formatted date string
- */
-export const formatDateLocal = (date: Date, formatStr: string): string => {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  
-  // Handle different format strings
-  if (formatStr === "yyyy-MM-dd") {
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  } else if (formatStr === "MM/dd/yyyy") {
-    return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
-  }
-  
-  // Add more format strings as needed
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-};
-
-/**
  * Combines a Date and time string into a simple datetime string.
  * NO timezone conversion - returns "YYYY-MM-DD HH:MM:SS"
  * 
