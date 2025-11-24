@@ -1266,6 +1266,7 @@ const Reports = () => {
     const firstPickupDate = ordersWithDates
       .filter((order) => order.pickupDate)
       .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
+    const today = getChicagoToday(); // Use Chicago timezone for "Lost day" logic only
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate
@@ -1492,11 +1493,14 @@ const Reports = () => {
       // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
       // Show red if no pickup on this day, regardless of transit state
       // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
+      // IMPORTANT: Only show red for dates that are today or in the past (not future dates)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
+      const isPastOrToday = day <= today; // Don't show "Lost day" for future dates
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
+        isPastOrToday &&
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
