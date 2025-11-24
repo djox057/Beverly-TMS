@@ -322,8 +322,8 @@ const Trips = () => {
         { row: 40, description: "Trailer + Insurance", amount: 285.0 },
         { row: 41, description: "ELD", amount: 50.0 },
         { row: 42, description: "Pre-Pass", amount: 20.0 },
-        { row: 43, description: "Truck Insurance", amount: 195.0 },
-        { row: 44, description: "Truck Payment" },
+        { row: 43, description: "Truck Payment" },
+        { row: 44, description: "Truck Insurance", amount: 195.0 },
       ];
 
       deductions.forEach(({ row, description, amount }) => {
@@ -338,22 +338,22 @@ const Trips = () => {
         }
       });
 
-      // Set E44: Calculate weeks passed from agreement_start_date
+      // Set E43: Calculate weeks passed from agreement_start_date
       if (driver?.agreement_start_date && driver?.weeks_count) {
         const startDate = new Date(driver.agreement_start_date);
         const currentDate = new Date();
         const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
 
-        const e44Cell = worksheet.getCell("E44");
-        e44Cell.value = `${weeksPassed}/${driver.weeks_count}`;
-        e44Cell.font = { bold: true, size: 16 };
+        const e43Cell = worksheet.getCell("E43");
+        e43Cell.value = `${weeksPassed}/${driver.weeks_count}`;
+        e43Cell.font = { bold: true, size: 16 };
       }
 
-      // Set J44 (truck payment deduction) to weekly_payment
+      // Set J43 (truck payment deduction) to weekly_payment
       if (driver?.weekly_payment) {
-        const j44Cell = worksheet.getCell("J44");
-        j44Cell.value = driver.weekly_payment;
-        j44Cell.numFmt = "$#,##0.00";
+        const j43Cell = worksheet.getCell("J43");
+        j43Cell.value = driver.weekly_payment;
+        j43Cell.numFmt = "$#,##0.00";
       }
 
       // Generate filename
