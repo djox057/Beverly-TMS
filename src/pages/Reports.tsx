@@ -53,7 +53,7 @@ import { toZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { parseSimpleDateTime, formatDateLocal } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useDebounce } from "@/hooks/useDebounce";
 interface EditingState {
@@ -1017,7 +1017,10 @@ const Reports = () => {
       return calendarDates[dispatcherId];
     }
     // Default to 2 days before current day to show 6 days
-    return addDays(new Date(), -2);
+    // Normalize to midnight to prevent time component issues
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return addDays(today, -2);
   };
   const handleCalendarDateChange = (dispatcherId: string, newDate: Date) => {
     setCalendarDates((prev) => ({
@@ -1066,7 +1069,12 @@ const Reports = () => {
       {
         length: 6,
       },
-      (_, i) => addDays(startDate, i),
+      (_, i) => {
+        const day = addDays(startDate, i);
+        // Normalize each day to midnight
+        day.setHours(0, 0, 0, 0);
+        return day;
+      },
     );
     const parseDate = (dateStr: string) => {
       if (dateStr === "—" || !dateStr) return null;
@@ -1138,7 +1146,7 @@ const Reports = () => {
 
     // Helper function to get lost day note for a specific date
     const getLostDayNote = (date: Date): string => {
-      const dateStr = format(date, "yyyy-MM-dd");
+      const dateStr = formatDateLocal(date, "yyyy-MM-dd");
       const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
 
       // If no existing note, check if this is 1 day in future
@@ -1173,7 +1181,7 @@ const Reports = () => {
       isGameOver: boolean;
       type: GameOverType | null;
     } => {
-      const dateStr = format(date, "yyyy-MM-dd");
+      const dateStr = formatDateLocal(date, "yyyy-MM-dd");
       const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
       const note = lostDayNote?.note?.toLowerCase();
       if (note === "game over - yard")
@@ -1362,7 +1370,7 @@ const Reports = () => {
       }
 
       // Find all orders for this day and categorize them
-      const dayStr = format(day, "yyyy-MM-dd");
+      const dayStr = formatDateLocal(day, "yyyy-MM-dd");
 
       // Check if order has any stops on this day
       const allDayOrders = ordersWithDates.filter((order) => {
@@ -1450,11 +1458,11 @@ const Reports = () => {
       let shouldShowContinuingDelivery = false;
       if (deliveryOnlyOrders.length > 0) {
         // Check if any delivery-only order has MORE deliveries after this day
-        const currentDayStr = format(day, "yyyy-MM-dd");
+        const currentDayStr = formatDateLocal(day, "yyyy-MM-dd");
         shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
           // Check all future days to see if there are more deliveries
           const futureDeliveries = days.slice(index + 1).some((futureDay) => {
-            const futureDayStr = format(futureDay, "yyyy-MM-dd");
+            const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
             return order.deliveryStopsByDate?.has(futureDayStr);
           });
           return futureDeliveries;
@@ -1467,13 +1475,13 @@ const Reports = () => {
       if (pickupOnlyOrders.length === 0 && deliveryOnlyOrders.length === 0 && sameDayOrders.length === 0) {
         // Check if there was a delivery on a previous day
         const hadPreviousDelivery = index > 0 && days.slice(0, index).some((prevDay) => {
-          const prevDayStr = format(prevDay, "yyyy-MM-dd");
+          const prevDayStr = formatDateLocal(prevDay, "yyyy-MM-dd");
           return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
         });
 
         // Check if there is a delivery on a future day
         const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
-          const futureDayStr = format(futureDay, "yyyy-MM-dd");
+          const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
           return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
         });
 
@@ -1485,12 +1493,12 @@ const Reports = () => {
       let shouldShowPickupInTransit = false;
       // Check if there was a delivery on this day or a previous day
       const hadDeliveryOnOrBefore = days.slice(0, index + 1).some((prevDay) => {
-        const prevDayStr = format(prevDay, "yyyy-MM-dd");
+        const prevDayStr = formatDateLocal(prevDay, "yyyy-MM-dd");
         return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(prevDayStr));
       });
       // Check if there is a delivery on a future day
       const hasFutureDelivery = index < days.length - 1 && days.slice(index + 1).some((futureDay) => {
-        const futureDayStr = format(futureDay, "yyyy-MM-dd");
+        const futureDayStr = formatDateLocal(futureDay, "yyyy-MM-dd");
         return ordersWithDates.some((order) => order.deliveryStopsByDate?.has(futureDayStr));
       });
       shouldShowPickupInTransit = hadDeliveryOnOrBefore && hasFutureDelivery;
@@ -1576,7 +1584,7 @@ const Reports = () => {
                 <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
                   {deliveryOnlyOrders.flatMap((order) => {
                     // Get all delivery stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
+                    const dayStr = formatDateLocal(day, "yyyy-MM-dd");
                     const deliveryStopsForDay =
                       order.deliveryStops?.filter(
                         (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
@@ -1632,7 +1640,7 @@ const Reports = () => {
                   })}
                   {sameDayOrders.flatMap((order) => {
                     // Get all delivery stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
+                    const dayStr = formatDateLocal(day, "yyyy-MM-dd");
                     const deliveryStopsForDay =
                       order.deliveryStops?.filter(
                         (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
@@ -1689,7 +1697,7 @@ const Reports = () => {
                 </div>
               ) : (
                 (() => {
-                  const dayStr = format(day, "yyyy-MM-dd");
+                  const dayStr = formatDateLocal(day, "yyyy-MM-dd");
                   const homeTimeNote = truck.lost_day_notes?.find(
                     (note: any) => note.date === dayStr && note.note_type === "home_time",
                   );
@@ -1747,7 +1755,7 @@ const Reports = () => {
                     const cellColor = getPickupCellColor(order, previousComplete);
 
                     // Get all pickup stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
+                    const dayStr = formatDateLocal(day, "yyyy-MM-dd");
                     const pickupStopsForDay =
                       order.pickupStops?.filter(
                         (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
@@ -1805,7 +1813,7 @@ const Reports = () => {
                     const cellColor = getPickupCellColor(order, previousComplete);
 
                     // Get all pickup stops for this day
-                    const dayStr = format(day, "yyyy-MM-dd");
+                    const dayStr = formatDateLocal(day, "yyyy-MM-dd");
                     const pickupStopsForDay =
                       order.pickupStops?.filter(
                         (stop: any) => formatDateTime(stop.datetime, "yyyy-MM-dd") === dayStr,
@@ -1854,7 +1862,7 @@ const Reports = () => {
                 </div>
               ) : (
                 (() => {
-                  const dateStr = format(day, "yyyy-MM-dd");
+                  const dateStr = formatDateLocal(day, "yyyy-MM-dd");
                   const homeTimeNote = truck.lost_day_notes?.find(
                     (note: any) => note.date === dateStr && note.note_type === "home_time",
                   );
@@ -2115,7 +2123,7 @@ const Reports = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = addDays(today, 1);
-    const todayStr = format(today, "yyyy-MM-dd");
+    const todayStr = formatDateLocal(today, "yyyy-MM-dd");
     return reports
       .map((group) => {
         const emptyTrucks = group.trucks.filter((truck) => {
@@ -3282,7 +3290,7 @@ const Reports = () => {
 
           try {
             console.log("🚀 Starting set driver status...", { startDate, type, note, recoveryDriverId });
-            const dateStr = format(startDate, "yyyy-MM-dd");
+            const dateStr = formatDateLocal(startDate, "yyyy-MM-dd");
             const noteText = type === "yard" ? "game over - yard" : "game over - at road";
 
             // Find the truck to get driver and active orders info
