@@ -2180,6 +2180,15 @@ const Reports = () => {
             return false; // Exclude if game over occurred before today
           }
 
+          // Check if truck already has a lost_day_note for today
+          // (would show as "Lost day", "Home Time", etc., not "Empty")
+          const hasLostDayNoteToday = truck.lost_day_notes?.some((note: any) => {
+            return note.date === todayStr;
+          });
+          if (hasLostDayNoteToday) {
+            return false; // Exclude if there's already a lost day note for today
+          }
+
           // At this point, truck would show red "Empty" cell for today
           return true;
         });
