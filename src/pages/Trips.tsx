@@ -300,7 +300,7 @@ const Trips = () => {
 
       // Clear all shared formulas in the trips section first (rows 14-20)
       for (let row = 14; row <= 20; row++) {
-        ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'].forEach(col => {
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'].forEach(col => {
           const cell = worksheet.getCell(`${col}${row}`);
           if (cell.model.sharedFormula) {
             delete cell.model.sharedFormula;
@@ -319,39 +319,38 @@ const Trips = () => {
           .reverse()
           .find((pd: any) => pd.type === "delivery");
 
-        // B: Trip No. (Internal load number)
-        worksheet.getCell(`B${currentRow}`).value = order.internalLoadNumber || "";
+        // A: Internal load number
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         
-        // C: Pick UP Date
-        worksheet.getCell(`C${currentRow}`).value = firstPickup?.datetime
+        // B: Pickup date
+        worksheet.getCell(`B${currentRow}`).value = firstPickup?.datetime
           ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
           : "";
         
-        // D: Pick Up Location (City, State) - merged with E
-        const pickupLocation = [firstPickup?.city, firstPickup?.state].filter(Boolean).join(", ");
-        worksheet.getCell(`D${currentRow}`).value = pickupLocation;
+        // C: Pickup city
+        worksheet.getCell(`C${currentRow}`).value = firstPickup?.city || "";
         
-        // F: Delivery Date
-        worksheet.getCell(`F${currentRow}`).value = lastDelivery?.datetime
+        // D: Pickup state
+        worksheet.getCell(`D${currentRow}`).value = firstPickup?.state || "";
+        
+        // E: Delivery date
+        worksheet.getCell(`E${currentRow}`).value = lastDelivery?.datetime
           ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
           : "";
         
-        // G: Delivery Location (City, State) - merged with H
-        const deliveryLocation = [lastDelivery?.city, lastDelivery?.state].filter(Boolean).join(", ");
-        worksheet.getCell(`G${currentRow}`).value = deliveryLocation;
+        // F: Delivery city
+        worksheet.getCell(`F${currentRow}`).value = lastDelivery?.city || "";
         
-        // I: Mileage
-        worksheet.getCell(`I${currentRow}`).value = order.mileage || 0;
+        // G: Delivery state
+        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.state || "";
         
-        // J: Freight Amount
-        const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = order.freightAmount || 0;
-        cellJ.numFmt = "$#,##0.00";
+        // H: Mileage
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         
-        // K: Freight Amount (88%)
-        const cellK = worksheet.getCell(`K${currentRow}`);
-        cellK.value = (order.freightAmount || 0) * 0.88;
-        cellK.numFmt = "$#,##0.00";
+        // I: Driver pay
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = order.totalDriverPay || 0;
+        cellI.numFmt = "$#,##0.00";
 
         currentRow++;
       });
