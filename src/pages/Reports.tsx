@@ -1149,20 +1149,8 @@ const Reports = () => {
       const dateStr = formatDateLocal(date, "yyyy-MM-dd");
       const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
 
-      // If no existing note, check if this is 1 day in future
+      // If no existing note, return default "Lost day"
       if (!lostDayNote) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const checkDate = new Date(date);
-        checkDate.setHours(0, 0, 0, 0);
-        const oneDayFuture = addDays(today, 1);
-        if (isSameDay(checkDate, oneDayFuture)) {
-          return "No pre-book 🥺?";
-        }
-        // Show "Empty" for current day, "Lost day" for other days
-        if (isSameDay(checkDate, today)) {
-          return "Empty";
-        }
         return "Lost day";
       }
 
@@ -1278,8 +1266,6 @@ const Reports = () => {
     const firstPickupDate = ordersWithDates
       .filter((order) => order.pickupDate)
       .sort((a, b) => a.pickupDate.getTime() - b.pickupDate.getTime())[0]?.pickupDate;
-    const today = getChicagoToday(); // Use Chicago timezone
-    const oneDayInFuture = addDays(today, 1);
     return days.map((day, index) => {
       // Check if this day matches the 2-week block date
       const twoWeekBlockDate = truck.twoWeekBlockDate
@@ -1508,17 +1494,13 @@ const Reports = () => {
       // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
-      const isWithinTimeframe = day <= oneDayInFuture;
-      const isOneDayFuture = isSameDay(day, oneDayInFuture);
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
-        isWithinTimeframe &&
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
-        !shouldShowPickupInTransit &&
-        !isOneDayFuture;
+        !shouldShowPickupInTransit;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
