@@ -1500,16 +1500,17 @@ const Reports = () => {
       // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
       const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
+      const isWithinTimeframe = day <= oneDayInFuture;
       const isOneDayFuture = isSameDay(day, oneDayInFuture);
-      // Show red for past days and current day, but not for tomorrow
       const isMissingPickup =
         isEmptyPickup &&
         isAfterFirstPickup &&
-        !isOneDayFuture &&
+        isWithinTimeframe &&
         !isInTransit &&
         !hasGameOverBefore &&
         !shouldShowContinuingDelivery &&
-        !shouldShowPickupInTransit;
+        !shouldShowPickupInTransit &&
+        !isOneDayFuture;
 
       // Check if this day is today (Chicago time)
       const isToday = isSameDay(day, getChicagoToday());
