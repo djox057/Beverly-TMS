@@ -2143,7 +2143,8 @@ const Reports = () => {
 
     // Filter to show only trucks with red "Empty" cells for today
     // Must match the exact display logic for isMissingPickup
-    const today = getChicagoToday();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
     return reports
@@ -2153,10 +2154,8 @@ const Reports = () => {
           const firstPickupDate = truck.allOrders
             ?.filter((order: any) => order.pickupStop?.datetime && order.notes !== "GAME|OVER")
             .map((order: any) => {
-              const utcDate = new Date(order.pickupStop.datetime);
-              const chicagoDate = toZonedTime(utcDate, "America/Chicago");
-              chicagoDate.setHours(0, 0, 0, 0);
-              return chicagoDate;
+              const parsed = parseSimpleDateTime(order.pickupStop.datetime);
+              return new Date(parsed.year, parsed.month - 1, parsed.day);
             })
             .sort((a: Date, b: Date) => a.getTime() - b.getTime())[0];
 
@@ -2176,15 +2175,16 @@ const Reports = () => {
           const isInTransitToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
             if (!order.pickupStop?.datetime || !order.deliveryStop?.datetime) return false;
-            const pickupUtc = new Date(order.pickupStop.datetime);
-            const pickupDate = toZonedTime(pickupUtc, "America/Chicago");
-            pickupDate.setHours(0, 0, 0, 0);
-            const deliveryUtc = new Date(order.deliveryStop.datetime);
-            const deliveryDate = toZonedTime(deliveryUtc, "America/Chicago");
-            deliveryDate.setHours(0, 0, 0, 0);
+            
+            // Parse dates the same way as formatDateTime (without timezone conversion)
+            const pickupParsed = parseSimpleDateTime(order.pickupStop.datetime);
+            const pickupDate = new Date(pickupParsed.year, pickupParsed.month - 1, pickupParsed.day);
+            
+            const deliveryParsed = parseSimpleDateTime(order.deliveryStop.datetime);
+            const deliveryDate = new Date(deliveryParsed.year, deliveryParsed.month - 1, deliveryParsed.day);
 
-            // In transit if between pickup and delivery (inclusive of delivery day)
-            return today.getTime() > pickupDate.getTime() && today.getTime() <= deliveryDate.getTime();
+            // In transit if between pickup and delivery (exclusive of both endpoints)
+            return today.getTime() > pickupDate.getTime() && today.getTime() < deliveryDate.getTime();
           });
           if (isInTransitToday) {
             return false; // Exclude in-transit trucks
@@ -2205,9 +2205,8 @@ const Reports = () => {
             
             // Fallback: check the single pickupStop if pickupStopsByDate is not available
             if (!order.pickupStop?.datetime) return false;
-            const pickupUtc = new Date(order.pickupStop.datetime);
-            const pickupDate = toZonedTime(pickupUtc, "America/Chicago");
-            pickupDate.setHours(0, 0, 0, 0);
+            const parsed = parseSimpleDateTime(order.pickupStop.datetime);
+            const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
             return isSameDay(pickupDate, today);
           });
           if (hasPickupToday) {
