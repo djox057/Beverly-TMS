@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 interface UseOrdersOptions {
   bookedBy?: string | null;
@@ -249,8 +250,52 @@ export const useOrders = (options?: UseOrdersOptions) => {
     refetchOnMount: false,
     refetchOnReconnect: false,
     retry: 2,
-    staleTime: 5 * 60 * 1000, // Data considered fresh for 5 minutes
+    staleTime: Infinity, // Keep data fresh with real-time updates
   });
+
+  // Set up real-time subscriptions for automatic updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pickup_drops'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'order_files'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [options?.bookedBy, queryClient]);
 
   return query;
 };
