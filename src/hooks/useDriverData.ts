@@ -47,23 +47,60 @@ export const useDriverData = () => {
         }
       }
 
-      // Get current/recent orders from materialized view
+      // Get current/recent orders from orders table with joins
       const { data: ordersRaw, error: ordersError } = await supabase
-        .from('orders_materialized_view')
-        .select('*')
+        .from('orders')
+        .select(`
+          *,
+          pickup_drops (
+            id,
+            type,
+            address,
+            city,
+            state,
+            zip_code,
+            datetime,
+            end_datetime,
+            sequence_number
+          ),
+          order_files (
+            id,
+            file_category
+          ),
+          broker:brokers (
+            name
+          ),
+          company:companies!orders_company_id_fkey (
+            name
+          ),
+          truck:trucks (
+            truck_number
+          ),
+          driver1:drivers!orders_driver1_id_fkey (
+            name
+          ),
+          driver2:drivers!orders_driver2_id_fkey (
+            name
+          )
+        `)
         .or(`driver1_id.eq.${driverData.id},driver2_id.eq.${driverData.id}`)
         .order('pickup_datetime', { ascending: false })
         .limit(10);
 
       if (ordersError) throw ordersError;
 
-      // Transform materialized view data to match expected structure
+      // Transform orders data to match expected structure with flattened joins
       const ordersData = ordersRaw?.map((row: any) => {
         const pickup_drops = row.pickup_drops || [];
         
         return {
           ...row,
-          broker: row.broker_name ? { name: row.broker_name } : null,
+          broker_name: row.broker?.name || null,
+          company_name: row.company?.name || null,
+          truck_number: row.truck?.truck_number || null,
+          driver1_name: row.driver1?.name || null,
+          driver2_name: row.driver2?.name || null,
+          broker: row.broker,
           pickup_drops,
         };
       }) || [];

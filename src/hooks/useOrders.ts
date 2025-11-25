@@ -11,15 +11,95 @@ export const useOrders = (options?: UseOrdersOptions) => {
   const query = useQuery({
     queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
-      console.log("[useOrders] Fetching first 500 orders from materialized view...");
+      console.log("[useOrders] Fetching first 500 orders from orders table...");
       
       const initialBatchSize = 500;
       const batchSize = 1000;
       
-      // Fetch first 500 orders immediately
+      // Fetch first 500 orders immediately with joins
       let initialQuery = supabase
-        .from("orders_materialized_view")
-        .select("*")
+        .from("orders")
+        .select(`
+          *,
+          pickup_drops (
+            id,
+            type,
+            address,
+            city,
+            state,
+            zip_code,
+            datetime,
+            end_datetime,
+            sequence_number,
+            arrived_at,
+            checked_out_at,
+            going_to_at,
+            company_name,
+            contact_name,
+            contact_phone,
+            special_instructions
+          ),
+          order_files (
+            id,
+            file_category,
+            file_name,
+            file_path,
+            file_size,
+            content_type,
+            uploaded_by,
+            created_at
+          ),
+          broker:brokers (
+            id,
+            name,
+            mc_number,
+            address
+          ),
+          company:companies!orders_company_id_fkey (
+            id,
+            name
+          ),
+          booked_by_company:companies!orders_booked_by_company_id_fkey (
+            id,
+            name
+          ),
+          truck:trucks (
+            id,
+            truck_number,
+            company:companies (
+              id,
+              name
+            )
+          ),
+          trailer:trailers (
+            id,
+            trailer_number
+          ),
+          driver1:drivers!orders_driver1_id_fkey (
+            id,
+            name
+          ),
+          driver2:drivers!orders_driver2_id_fkey (
+            id,
+            name
+          ),
+          original_driver1:drivers!orders_original_driver1_id_fkey (
+            id,
+            name
+          ),
+          original_driver2:drivers!orders_original_driver2_id_fkey (
+            id,
+            name
+          ),
+          original_truck:trucks!orders_original_truck_id_fkey (
+            id,
+            truck_number
+          ),
+          original_trailer:trailers!orders_original_trailer_id_fkey (
+            id,
+            trailer_number
+          )
+        `)
         .order("created_at", { ascending: false })
         .range(0, initialBatchSize - 1);
 
@@ -46,8 +126,88 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
             while (hasMore) {
               let bgQuery = supabase
-                .from("orders_materialized_view")
-                .select("*")
+                .from("orders")
+                .select(`
+                  *,
+                  pickup_drops (
+                    id,
+                    type,
+                    address,
+                    city,
+                    state,
+                    zip_code,
+                    datetime,
+                    end_datetime,
+                    sequence_number,
+                    arrived_at,
+                    checked_out_at,
+                    going_to_at,
+                    company_name,
+                    contact_name,
+                    contact_phone,
+                    special_instructions
+                  ),
+                  order_files (
+                    id,
+                    file_category,
+                    file_name,
+                    file_path,
+                    file_size,
+                    content_type,
+                    uploaded_by,
+                    created_at
+                  ),
+                  broker:brokers (
+                    id,
+                    name,
+                    mc_number,
+                    address
+                  ),
+                  company:companies!orders_company_id_fkey (
+                    id,
+                    name
+                  ),
+                  booked_by_company:companies!orders_booked_by_company_id_fkey (
+                    id,
+                    name
+                  ),
+                  truck:trucks (
+                    id,
+                    truck_number,
+                    company:companies (
+                      id,
+                      name
+                    )
+                  ),
+                  trailer:trailers (
+                    id,
+                    trailer_number
+                  ),
+                  driver1:drivers!orders_driver1_id_fkey (
+                    id,
+                    name
+                  ),
+                  driver2:drivers!orders_driver2_id_fkey (
+                    id,
+                    name
+                  ),
+                  original_driver1:drivers!orders_original_driver1_id_fkey (
+                    id,
+                    name
+                  ),
+                  original_driver2:drivers!orders_original_driver2_id_fkey (
+                    id,
+                    name
+                  ),
+                  original_truck:trucks!orders_original_truck_id_fkey (
+                    id,
+                    truck_number
+                  ),
+                  original_trailer:trailers!orders_original_trailer_id_fkey (
+                    id,
+                    trailer_number
+                  )
+                `)
                 .order("created_at", { ascending: false })
                 .range(offset, offset + batchSize - 1);
 
@@ -89,7 +249,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
     refetchOnMount: false,
     refetchOnReconnect: false,
     retry: 2,
-    staleTime: 5 * 60 * 1000, // Data refreshes every 5 minutes via materialized view
+    staleTime: 5 * 60 * 1000, // Data considered fresh for 5 minutes
   });
 
   return query;
@@ -98,7 +258,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
 // Helper function to transform orders data
 function transformOrders(allOrders: any[]) {
   return (allOrders || []).map((order: any) => {
-        // Parse JSONB fields back to arrays
+        // Parse JSONB fields back to arrays (already arrays from join)
         const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
         const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
 
@@ -138,7 +298,7 @@ function transformOrders(allOrders: any[]) {
         const podFiles = orderFiles.filter((f: any) => f.file_category === 'POD');
         const bolFiles = orderFiles.filter((f: any) => f.file_category === 'BOL');
 
-        // Transform to camelCase with computed fields
+        // Transform to camelCase with computed fields, flattening joined data
         return {
           // Basic fields
           id: order.id,
@@ -153,33 +313,33 @@ function transformOrders(allOrders: any[]) {
           invoiced: order.invoiced,
           isRecovery: order.is_recovery,
           
-          // Truck and equipment
-          truckNumber: order.truck_number,
+          // Truck and equipment - flatten joined data
+          truckNumber: order.truck?.truck_number || null,
           truckId: order.truck_id,
-          truckCompanyName: order.truck_company_name,
-          truckCompanyId: order.truck_company_id,
-          trailerNumber: order.trailer_number,
+          truckCompanyName: order.truck?.company?.name || null,
+          truckCompanyId: order.truck?.company?.id || null,
+          trailerNumber: order.trailer?.trailer_number || null,
           trailerId: order.trailer_id,
           
-          // Driver info
-          driverName: order.driver1_name,
-          driver1Name: order.driver1_name,
-          driver2Name: order.driver2_name,
+          // Driver info - flatten joined data
+          driverName: order.driver1?.name || null,
+          driver1Name: order.driver1?.name || null,
+          driver2Name: order.driver2?.name || null,
           driver1Id: order.driver1_id,
           driver2Id: order.driver2_id,
           
-          // Broker info
-          brokerName: order.broker_name,
-          brokerAddress: order.broker_address,
-          brokerMcNumber: order.broker_mc_number,
+          // Broker info - flatten joined data
+          brokerName: order.broker?.name || null,
+          brokerAddress: order.broker?.address || null,
+          brokerMcNumber: order.broker?.mc_number || null,
           brokerId: order.broker_id,
           
-          // Company info
-          companyName: order.company_name,
+          // Company info - flatten joined data
+          companyName: order.company?.name || null,
           companyId: order.company_id,
           bookedBy: order.booked_by,
           bookedByCompanyId: order.booked_by_company_id,
-          bookedByCompanyName: order.booked_by_company_name,
+          bookedByCompanyName: order.booked_by_company?.name || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
           pickupDate: firstPickup?.datetime ? firstPickup.datetime : '',
@@ -255,10 +415,10 @@ function transformOrders(allOrders: any[]) {
           originalOtherCharges: order.original_other_charges,
           originalOtherChargesDriver: order.original_other_charges_driver,
           originalNotes: order.original_notes,
-          originalTruckNumber: order.original_truck_number,
-          originalTrailerNumber: order.original_trailer_number,
-          originalDriver1Name: order.original_driver1_name,
-          originalDriver2Name: order.original_driver2_name,
+          originalTruckNumber: order.original_truck?.truck_number || null,
+          originalTrailerNumber: order.original_trailer?.trailer_number || null,
+          originalDriver1Name: order.original_driver1?.name || null,
+          originalDriver2Name: order.original_driver2?.name || null,
           originalTruckId: order.original_truck_id,
           originalTrailerId: order.original_trailer_id,
           originalDriver1Id: order.original_driver1_id,
@@ -277,47 +437,47 @@ function transformOrders(allOrders: any[]) {
           deliveryEndDatetime: order.delivery_end_datetime,
           dateChangeNotes: order.date_change_notes,
           
-          // Nested objects for compatibility
-          trucks: order.truck_number ? {
-            truck_number: order.truck_number,
-            company: order.truck_company_id ? {
-              id: order.truck_company_id,
-              name: order.truck_company_name
+          // Nested objects for compatibility - rebuild from joined data
+          trucks: order.truck ? {
+            truck_number: order.truck.truck_number,
+            company: order.truck.company ? {
+              id: order.truck.company.id,
+              name: order.truck.company.name
             } : null
           } : null,
-          trailers: order.trailer_number ? {
-            trailer_number: order.trailer_number
+          trailers: order.trailer ? {
+            trailer_number: order.trailer.trailer_number
           } : null,
-          drivers: order.driver1_name ? {
-            name: order.driver1_name
+          drivers: order.driver1 ? {
+            name: order.driver1.name
           } : null,
-          driver2: order.driver2_name ? {
-            name: order.driver2_name
+          driver2: order.driver2 ? {
+            name: order.driver2.name
           } : null,
-          original_driver1: order.original_driver1_name ? {
-            name: order.original_driver1_name
+          original_driver1: order.original_driver1 ? {
+            name: order.original_driver1.name
           } : null,
-          original_driver2: order.original_driver2_name ? {
-            name: order.original_driver2_name
+          original_driver2: order.original_driver2 ? {
+            name: order.original_driver2.name
           } : null,
-          original_truck: order.original_truck_number ? {
-            truck_number: order.original_truck_number
+          original_truck: order.original_truck ? {
+            truck_number: order.original_truck.truck_number
           } : null,
-          original_trailer: order.original_trailer_number ? {
-            trailer_number: order.original_trailer_number
+          original_trailer: order.original_trailer ? {
+            trailer_number: order.original_trailer.trailer_number
           } : null,
-          brokers: order.broker_name ? {
-            name: order.broker_name,
-            address: order.broker_address,
-            mc_number: order.broker_mc_number
+          brokers: order.broker ? {
+            name: order.broker.name,
+            address: order.broker.address,
+            mc_number: order.broker.mc_number
           } : null,
-          company: order.company_name ? {
-            id: order.company_id,
-            name: order.company_name
+          company: order.company ? {
+            id: order.company.id,
+            name: order.company.name
           } : null,
-          booked_by_company: order.booked_by_company_name ? {
-            id: order.booked_by_company_id,
-            name: order.booked_by_company_name
+          booked_by_company: order.booked_by_company ? {
+            id: order.booked_by_company.id,
+            name: order.booked_by_company.name
           } : null,
           
           // Arrays
