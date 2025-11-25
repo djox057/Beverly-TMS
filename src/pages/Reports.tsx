@@ -458,6 +458,12 @@ const Reports = () => {
   const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
   const [yardActionDatetime, setYardActionDatetime] = useState<Date | undefined>(new Date());
+  
+  const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState<{
+    driverId: string;
+    driverName: string;
+  } | null>(null);
+  const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
 
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
@@ -2791,60 +2797,78 @@ const Reports = () => {
                                                     <>
                                                       <div className="flex items-center justify-between gap-2">
                                                         <p className="font-semibold text-sm">{truck.driver}</p>
-                                                        {truck.driverId && (
-                                                          truck.goingYard ? (
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={async (e) => {
-                                                                e.stopPropagation();
-                                                                try {
-                                                                  await supabase
-                                                                    .from("drivers")
-                                                                    .update({ going_yard: false })
-                                                                    .eq("id", truck.driverId);
+                                                        <div className="flex items-center gap-1">
+                                                          {truck.driverId && (
+                                                            <>
+                                                              {truck.goingYard ? (
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    try {
+                                                                      await supabase
+                                                                        .from("drivers")
+                                                                        .update({ going_yard: false })
+                                                                        .eq("id", truck.driverId);
 
-                                                                  await supabase
-                                                                    .from("driver_yard_actions")
-                                                                    .delete()
-                                                                    .eq("driver_id", truck.driverId)
-                                                                    .order("created_at", { ascending: false })
-                                                                    .limit(1);
+                                                                      await supabase
+                                                                        .from("driver_yard_actions")
+                                                                        .delete()
+                                                                        .eq("driver_id", truck.driverId)
+                                                                        .order("created_at", { ascending: false })
+                                                                        .limit(1);
 
-                                                                  toast({
-                                                                    title: "Yard action canceled",
+                                                                      toast({
+                                                                        title: "Yard action canceled",
+                                                                      });
+                                                                      queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                                    } catch (error) {
+                                                                      console.error("Error:", error);
+                                                                      toast({
+                                                                        title: "Error",
+                                                                        description: "Failed to cancel",
+                                                                        variant: "destructive",
+                                                                      });
+                                                                    }
+                                                                  }}
+                                                                >
+                                                                  <X className="h-3 w-3 text-destructive" />
+                                                                </Button>
+                                                              ) : (
+                                                                <Button
+                                                                  variant="ghost"
+                                                                  size="sm"
+                                                                  className="h-6 w-6 p-0"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setYardActionDialog({
+                                                                      driverId: truck.driverId!,
+                                                                      driverName: truck.driver,
+                                                                    });
+                                                                  }}
+                                                                >
+                                                                  <Warehouse className="h-3 w-3" />
+                                                                </Button>
+                                                              )}
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setTwoWeekNoticeDialog({
+                                                                    driverId: truck.driverId!,
+                                                                    driverName: truck.driver,
                                                                   });
-                                                                  queryClient.invalidateQueries({ queryKey: ["reports"] });
-                                                                } catch (error) {
-                                                                  console.error("Error:", error);
-                                                                  toast({
-                                                                    title: "Error",
-                                                                    description: "Failed to cancel",
-                                                                    variant: "destructive",
-                                                                  });
-                                                                }
-                                                              }}
-                                                            >
-                                                              <X className="h-3 w-3 text-destructive" />
-                                                            </Button>
-                                                          ) : (
-                                                            <Button
-                                                              variant="ghost"
-                                                              size="sm"
-                                                              className="h-6 w-6 p-0"
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setYardActionDialog({
-                                                                  driverId: truck.driverId!,
-                                                                  driverName: truck.driver,
-                                                                });
-                                                              }}
-                                                            >
-                                                              <Warehouse className="h-3 w-3" />
-                                                            </Button>
-                                                          )
-                                                        )}
+                                                                }}
+                                                              >
+                                                                <CalendarIcon className="h-3 w-3" />
+                                                              </Button>
+                                                            </>
+                                                          )}
+                                                        </div>
                                                       </div>
                                                       <p className="text-xs">🚚 Truck: {truck.truckNumber}</p>
                                                       {truck.trailerNumber && (
@@ -3775,6 +3799,68 @@ const Reports = () => {
                   setYardActionType("");
                   setYardActionComment("");
                   setYardActionDatetime(new Date());
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Two Week Notice Dialog */}
+      <Dialog open={!!twoWeekNoticeDialog} onOpenChange={(open) => !open && setTwoWeekNoticeDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set 2 Week Notice - {twoWeekNoticeDialog?.driverName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Start Date of 2 Week Notice</Label>
+              <DatePicker
+                date={twoWeekNoticeDate}
+                onDateChange={setTwoWeekNoticeDate}
+                placeholder="Select start date"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTwoWeekNoticeDialog(null);
+                  setTwoWeekNoticeDate(new Date());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!twoWeekNoticeDate}
+                onClick={async () => {
+                  if (!twoWeekNoticeDialog || !twoWeekNoticeDate) return;
+                  
+                  const { error } = await supabase
+                    .from("drivers")
+                    .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
+                    .eq("id", twoWeekNoticeDialog.driverId);
+
+                  if (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to set 2 week notice",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  toast({
+                    title: "Success",
+                    description: `2 week notice set for ${twoWeekNoticeDialog.driverName}`,
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["reports"] });
+                  queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
+
+                  setTwoWeekNoticeDialog(null);
+                  setTwoWeekNoticeDate(new Date());
                 }}
               >
                 Save

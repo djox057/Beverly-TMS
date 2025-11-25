@@ -1,7 +1,7 @@
 import { useDriverData } from "@/hooks/useDriverData";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, User, Building, Truck, Phone, Mail, MapPin } from "lucide-react";
+import { Loader2, User, Building, Truck, Phone, Mail, MapPin, Warehouse, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,15 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { DatePicker } from "@/components/ui/date-picker";
+import { format } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function DriverInfo() {
   const { data, isLoading } = useDriverData();
   const { signOut } = useAuthContext();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showYardActionDialog, setShowYardActionDialog] = useState(false);
+  const [showTwoWeekNoticeDialog, setShowTwoWeekNoticeDialog] = useState(false);
+  const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
@@ -89,7 +96,27 @@ export default function DriverInfo() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <div className="text-xs text-muted-foreground mb-1">Name</div>
+              <div className="text-xs text-muted-foreground mb-1 flex items-center justify-between">
+                <span>Name</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setShowYardActionDialog(true)}
+                  >
+                    <Warehouse className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setShowTwoWeekNoticeDialog(true)}
+                  >
+                    <CalendarIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
               <div className="text-sm font-medium text-foreground">{data?.driver?.name}</div>
             </div>
             <div>
@@ -236,6 +263,81 @@ export default function DriverInfo() {
                 'Change Password'
               )}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Yard Action Dialog */}
+      <Dialog open={showYardActionDialog} onOpenChange={setShowYardActionDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Request Yard Arrival</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            This feature allows you to notify dispatch that you will be arriving at the yard. Contact your dispatcher for more details.
+          </div>
+          <Button onClick={() => setShowYardActionDialog(false)}>Close</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Two Week Notice Dialog */}
+      <Dialog open={showTwoWeekNoticeDialog} onOpenChange={setShowTwoWeekNoticeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set 2 Week Notice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Start Date of 2 Week Notice</Label>
+              <DatePicker
+                date={twoWeekNoticeDate}
+                onDateChange={setTwoWeekNoticeDate}
+                placeholder="Select start date"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTwoWeekNoticeDialog(false);
+                  setTwoWeekNoticeDate(new Date());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!twoWeekNoticeDate}
+                onClick={async () => {
+                  if (!twoWeekNoticeDate || !data?.driver?.id) return;
+                  
+                  const { error } = await supabase
+                    .from("drivers")
+                    .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
+                    .eq("id", data.driver.id);
+
+                  if (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to set 2 week notice",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  toast({
+                    title: "Success",
+                    description: "2 week notice has been set",
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["driver-data"] });
+                  queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
+
+                  setShowTwoWeekNoticeDialog(false);
+                  setTwoWeekNoticeDate(new Date());
+                }}
+              >
+                Save
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
