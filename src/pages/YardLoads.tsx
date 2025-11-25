@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRange } from "react-day-picker";
+import { formatCurrency } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -404,14 +405,14 @@ export default function YardLoads() {
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
-                            ${order.totalDriverPay?.toLocaleString() || '0'}
+                            {formatCurrency(order.totalDriverPay)}
                           </div>
                         </TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
-                            ${order.totalFreightAmount?.toLocaleString() || '0'}
+                            {formatCurrency(order.totalFreightAmount)}
                           </div>
                         </TableCell>
                         <TableCell>{order.companyName}</TableCell>
