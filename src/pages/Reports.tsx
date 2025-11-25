@@ -2141,7 +2141,7 @@ const Reports = () => {
       return reports;
     }
 
-    // Filter to show only trucks with red "Empty" cells for today
+    // Filter to show only trucks with red cells for today (any text: "Empty", "Lost day", etc.)
     // Must match the exact display logic for isMissingPickup
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -2224,16 +2224,8 @@ const Reports = () => {
             return false; // Exclude if game over occurred before today
           }
 
-          // Check if truck already has a lost_day_note for today
-          // (would show as "Lost day", "Home Time", etc., not "Empty")
-          const hasLostDayNoteToday = truck.lost_day_notes?.some((note: any) => {
-            return note.date === todayStr;
-          });
-          if (hasLostDayNoteToday) {
-            return false; // Exclude if there's already a lost day note for today
-          }
-
-          // At this point, truck would show red "Empty" cell for today
+          // At this point, truck would show a red cell for today
+          // (could be "Empty", "Lost day", "Home Time", etc.)
           return true;
         });
         return {
