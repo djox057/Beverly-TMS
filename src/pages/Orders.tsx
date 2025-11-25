@@ -986,7 +986,7 @@ const Orders = () => {
                               {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
                             </div>
                           </TableCell>
-                          <TableCell className="w-16">{order.mileage?.toLocaleString() || "0"}</TableCell>
+                          <TableCell className="w-16">{order.mileage != null ? order.mileage.toLocaleString() : "0"}</TableCell>
                           <TableCell className="w-36">
                             <div className="line-clamp-2">{order.brokerName}</div>
                           </TableCell>
