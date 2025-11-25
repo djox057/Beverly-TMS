@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
@@ -32,7 +32,7 @@ import { useState } from "react";
 interface YardAction {
   id: string;
   driver_id: string;
-  action_type: "maintenance" | "return_truck";
+  action_type: "maintenance" | "return_truck" | "two_week_notice";
   comment: string;
   created_at: string;
   arrival_datetime: string | null;
@@ -114,6 +114,7 @@ export default function YardArrivals() {
 
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
+  const twoWeekNoticeActions = yardActions?.filter((a) => a.action_type === "two_week_notice") || [];
 
   // Group actions by date
   const groupByDate = (actions: YardAction[]) => {
@@ -136,6 +137,7 @@ export default function YardArrivals() {
 
   const groupedMaintenance = groupByDate(maintenanceActions);
   const groupedReturnTruck = groupByDate(returnTruckActions);
+  const groupedTwoWeekNotice = groupByDate(twoWeekNoticeActions);
 
   const handleCancelAction = async () => {
     if (!actionToCancel) return;
@@ -217,7 +219,7 @@ export default function YardArrivals() {
     <div className="container mx-auto p-6 space-y-6">
       <h1 className="text-3xl font-bold">Yard Arrivals</h1>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-3">
         {/* Maintenance Section */}
         <Card>
           <CardHeader>
@@ -312,6 +314,84 @@ export default function YardArrivals() {
               <div className="space-y-6">
                 {groupedReturnTruck.map(([dateKey, actions]) => {
                   // Parse date without timezone conversion
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return (
+                  <div key={dateKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
+                      {formatDate(date, "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    <div className="space-y-3">
+                      {actions.map((action) => (
+                        <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              </p>
+                              <div className="pt-1">
+                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToEdit(action);
+                                  setEditForm({
+                                    arrival_datetime: action.arrival_datetime || action.created_at,
+                                    comment: action.comment,
+                                  });
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToCancel({
+                                    id: action.id,
+                                    driverId: action.driver_id,
+                                    driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                  });
+                                  setCancelDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Two Week Notice Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              2 Week Notice ({twoWeekNoticeActions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {twoWeekNoticeActions.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No 2-week notice arrivals</p>
+            ) : (
+              <div className="space-y-6">
+                {groupedTwoWeekNotice.map(([dateKey, actions]) => {
                   const [year, month, day] = dateKey.split('-').map(Number);
                   const date = new Date(year, month - 1, day);
                   return (
