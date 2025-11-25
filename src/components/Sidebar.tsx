@@ -120,18 +120,18 @@ export const Sidebar = () => {
       return filteredNav.filter(item => item.href !== '/analytics');
     }
     
-    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Alerts)
+    // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Alerts)
     if (hasRole('safety')) {
-      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports'];
+      const safetyPages = ['/new-order', '/orders', '/trucks', '/trailers', '/drivers', '/reports', '/yard-arrivals'];
       return [
         ...filteredNav.filter(item => safetyPages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
     }
     
-    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Alerts)
+    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Yard Arrivals, Alerts)
     if (hasRole('maintenance')) {
-      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/reports'];
+      const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/reports', '/yard-arrivals'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
