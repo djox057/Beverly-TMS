@@ -114,6 +114,12 @@ const Orders = () => {
             to: dateRange.to?.toISOString(),
           }
         : undefined,
+      pickupDateRange: pickupDateRange
+        ? {
+            from: pickupDateRange.from?.toISOString(),
+            to: pickupDateRange.to?.toISOString(),
+          }
+        : undefined,
       currentPage,
     };
     localStorage.setItem("ordersFilterState", JSON.stringify(filterState));
@@ -167,6 +173,7 @@ const Orders = () => {
   const [brokerFilter, setBrokerFilter] = useState("all-brokers");
   const [lockedNotInvoicedFilter, setLockedNotInvoicedFilter] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
@@ -204,6 +211,12 @@ const Orders = () => {
             setDateRange({
               from: state.dateRange.from ? new Date(state.dateRange.from) : undefined,
               to: state.dateRange.to ? new Date(state.dateRange.to) : undefined,
+            });
+          }
+          if (state.pickupDateRange) {
+            setPickupDateRange({
+              from: state.pickupDateRange.from ? new Date(state.pickupDateRange.from) : undefined,
+              to: state.pickupDateRange.to ? new Date(state.pickupDateRange.to) : undefined,
             });
           }
           setCurrentPage(state.currentPage || 1);
@@ -325,6 +338,36 @@ const Orders = () => {
         }
       }
 
+      // Date filtering based on pickup date
+      let matchesPickupDate = true;
+      if (pickupDateRange?.from && order.pickupDate) {
+        const orderPickupDate = new Date(order.pickupDate.split(" - ")[0]);
+        const orderDateOnly = new Date(
+          orderPickupDate.getFullYear(),
+          orderPickupDate.getMonth(),
+          orderPickupDate.getDate(),
+        );
+
+        if (pickupDateRange.to) {
+          // Date range filtering
+          const fromDateOnly = new Date(
+            pickupDateRange.from.getFullYear(),
+            pickupDateRange.from.getMonth(),
+            pickupDateRange.from.getDate(),
+          );
+          const toDateOnly = new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate());
+          matchesPickupDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+        } else {
+          // Single date filtering
+          const selectedDateOnly = new Date(
+            pickupDateRange.from.getFullYear(),
+            pickupDateRange.from.getMonth(),
+            pickupDateRange.from.getDate(),
+          );
+          matchesPickupDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+        }
+      }
+
       // Filter for locked but not invoiced loads with freight amount > 0
       const matchesLockedNotInvoiced =
         !lockedNotInvoicedFilter || (order.locked && !order.invoiced && (order.totalFreightAmount || 0) > 0);
@@ -339,6 +382,7 @@ const Orders = () => {
         matchesBroker &&
         matchesMissingDocs &&
         matchesDate &&
+        matchesPickupDate &&
         matchesLockedNotInvoiced
       );
     }) || [];
@@ -356,6 +400,7 @@ const Orders = () => {
     brokerFilter,
     missingDocsFilter,
     dateRange,
+    pickupDateRange,
     lockedNotInvoicedFilter,
   ]);
 
@@ -685,100 +730,72 @@ const Orders = () => {
               </div>
 
               <ScrollArea className="w-full">
-                <div className="flex gap-4 items-center pb-4">
-                  <div className="relative w-[288px] shrink-0">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      placeholder="Search loads..."
-                      className="pl-10 w-full"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="grid grid-cols-6 gap-4 pb-4">
+                  {/* Column 1: Search - spans 2 rows */}
+                  <div className="row-span-2 flex items-center">
+                    <div className="relative w-full">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        placeholder="Search loads..."
+                        className="pl-10 w-full"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
                   </div>
 
+                  {/* Column 2 Row 1: Pickup Date */}
                   <DateRangePicker
-                    date={dateRange}
-                    onDateChange={setDateRange}
-                    placeholder="Filter by delivery date"
-                    className="w-[288px] shrink-0"
+                    date={pickupDateRange}
+                    onDateChange={setPickupDateRange}
+                    placeholder="Filter by pickup date"
+                    className="w-full"
                   />
 
+                  {/* Column 3 Row 1: Trucks */}
                   <Combobox
                     value={truckFilter}
                     onValueChange={setTruckFilter}
-                    placeholder="Filter by Truck"
+                    placeholder="All Trucks"
                     searchPlaceholder="Search trucks..."
                     options={[
                       { value: "all-trucks", label: "All Trucks" },
                       ...uniqueTrucks.map((truck) => ({ value: truck, label: truck })),
                     ]}
-                    className="w-[192px] shrink-0"
+                    className="w-full"
                   />
 
+                  {/* Column 4 Row 1: Companies */}
                   <Combobox
                     value={companyFilter}
                     onValueChange={setCompanyFilter}
-                    placeholder="Filter by Company"
+                    placeholder="All Companies"
                     searchPlaceholder="Search companies..."
                     options={[
                       { value: "all-companies", label: "All Companies" },
                       ...uniqueCompanies.map((company) => ({ value: company, label: company })),
                     ]}
-                    className="w-[192px] shrink-0"
+                    className="w-full"
                   />
 
-                  <Combobox
-                    value={truckCompanyFilter}
-                    onValueChange={setTruckCompanyFilter}
-                    placeholder="Filter by Truck Company"
-                    searchPlaceholder="Search truck companies..."
-                    options={[
-                      { value: "all-truck-companies", label: "All Truck Companies" },
-                      ...uniqueTruckCompanies.map((company) => ({ value: company, label: company })),
-                    ]}
-                    className="w-[192px] shrink-0"
-                  />
-
+                  {/* Column 5 Row 1: Users */}
                   <Combobox
                     value={bookedByFilter}
                     onValueChange={setBookedByFilter}
-                    placeholder="Filter by Booked By"
+                    placeholder="All Users"
                     searchPlaceholder="Search users..."
                     options={[
                       { value: "all-users", label: "All Users" },
                       ...uniqueBookedBy.map((user) => ({ value: user, label: user })),
                     ]}
-                    className="w-[192px] shrink-0"
+                    className="w-full"
                   />
 
-                  <Combobox
-                    value={driverFilter}
-                    onValueChange={setDriverFilter}
-                    placeholder="Filter by Driver"
-                    searchPlaceholder="Search drivers..."
-                    options={[
-                      { value: "all-drivers", label: "All Drivers" },
-                      ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
-                    ]}
-                    className="w-[192px] shrink-0"
-                  />
-
-                  <Combobox
-                    value={brokerFilter}
-                    onValueChange={setBrokerFilter}
-                    placeholder="Filter by Broker"
-                    searchPlaceholder="Search brokers..."
-                    options={[
-                      { value: "all-brokers", label: "All Brokers" },
-                      ...uniqueBrokers.map((broker) => ({ value: broker, label: broker })),
-                    ]}
-                    className="w-[192px] shrink-0"
-                  />
-
+                  {/* Column 6 Row 1: Missing Docs Filter */}
                   <Combobox
                     value={missingDocsFilter}
                     onValueChange={setMissingDocsFilter}
-                    placeholder="Filter by Missing Docs"
+                    placeholder="All Orders"
                     searchPlaceholder="Search status..."
                     options={[
                       { value: "all", label: "All Orders" },
@@ -788,13 +805,61 @@ const Orders = () => {
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
                     ]}
-                    className="w-[192px] shrink-0"
+                    className="w-full"
                   />
 
+                  {/* Column 2 Row 2: Delivery Date */}
+                  <DateRangePicker
+                    date={dateRange}
+                    onDateChange={setDateRange}
+                    placeholder="Filter by delivery date"
+                    className="w-full"
+                  />
+
+                  {/* Column 3 Row 2: Drivers */}
+                  <Combobox
+                    value={driverFilter}
+                    onValueChange={setDriverFilter}
+                    placeholder="All Drivers"
+                    searchPlaceholder="Search drivers..."
+                    options={[
+                      { value: "all-drivers", label: "All Drivers" },
+                      ...uniqueDrivers.map((driver) => ({ value: driver, label: driver })),
+                    ]}
+                    className="w-full"
+                  />
+
+                  {/* Column 4 Row 2: Truck Companies */}
+                  <Combobox
+                    value={truckCompanyFilter}
+                    onValueChange={setTruckCompanyFilter}
+                    placeholder="All Truck Companies"
+                    searchPlaceholder="Search truck companies..."
+                    options={[
+                      { value: "all-truck-companies", label: "All Truck Companies" },
+                      ...uniqueTruckCompanies.map((company) => ({ value: company, label: company })),
+                    ]}
+                    className="w-full"
+                  />
+
+                  {/* Column 5 Row 2: Brokers */}
+                  <Combobox
+                    value={brokerFilter}
+                    onValueChange={setBrokerFilter}
+                    placeholder="All Brokers"
+                    searchPlaceholder="Search brokers..."
+                    options={[
+                      { value: "all-brokers", label: "All Brokers" },
+                      ...uniqueBrokers.map((broker) => ({ value: broker, label: broker })),
+                    ]}
+                    className="w-full"
+                  />
+
+                  {/* Column 6 Row 2: Show Locked */}
                   <Button
                     variant={lockedNotInvoicedFilter ? "default" : "outline"}
                     onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                    className="w-[160px] shrink-0"
+                    className="w-full"
                   >
                     {lockedNotInvoicedFilter ? (
                       <>
