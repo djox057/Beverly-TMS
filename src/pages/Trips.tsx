@@ -822,11 +822,9 @@ const Trips = () => {
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Pickup Date</TableHead>
-                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Pickup City</TableHead>
-                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Pickup State</TableHead>
+                  <TableHead className="w-40 bg-yellow-200 dark:bg-yellow-800">Pickup City</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Delivery Date</TableHead>
-                  <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Delivery City</TableHead>
-                  <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Delivery State</TableHead>
+                  <TableHead className="w-40 bg-yellow-200 dark:bg-yellow-800">Delivery City</TableHead>
                   <TableHead className="w-16 bg-yellow-200 dark:bg-yellow-800">Miles</TableHead>
                   <TableHead className="w-36 bg-yellow-200 dark:bg-yellow-800">Broker Name</TableHead>
                   <TableHead className="w-28 bg-yellow-200 dark:bg-yellow-800">Broker Load#</TableHead>
@@ -839,7 +837,7 @@ const Trips = () => {
               <TableBody>
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No trips found
                     </TableCell>
                   </TableRow>
@@ -861,7 +859,7 @@ const Trips = () => {
                       <Fragment key={`week-${week.weekStart}`}>
                         {/* Weekly Summary Row - Now appears FIRST */}
                         <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
-                          <TableCell colSpan={9} className="py-3">
+                          <TableCell colSpan={7} className="py-3">
                             Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
                           </TableCell>
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
@@ -936,19 +934,17 @@ const Trips = () => {
                                 <div className="line-clamp-2">{formatDateDisplay(order.pickupDate)}</div>
                               </TableCell>
                               <TableCell>
-                                <div className="line-clamp-2">{order.pickupCity}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.pickupState}</div>
+                                <div className="line-clamp-2">
+                                  {order.pickupCity}{order.pickupCity && order.pickupState ? ', ' : ''}{order.pickupState}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{formatDateDisplay(order.deliveryDate)}</div>
                               </TableCell>
                               <TableCell>
-                                <div className="line-clamp-2">{order.deliveryCity}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="line-clamp-2">{order.deliveryState}</div>
+                                <div className="line-clamp-2">
+                                  {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{order.mileage?.toLocaleString() || "0"}</div>
