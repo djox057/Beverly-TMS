@@ -69,6 +69,8 @@ export default function YardArrivals() {
     arrival_datetime: "",
     comment: "",
   });
+  const [removeTwoWeekDialogOpen, setRemoveTwoWeekDialogOpen] = useState(false);
+  const [driverToRemoveTwoWeek, setDriverToRemoveTwoWeek] = useState<{ id: string; name: string } | null>(null);
 
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
@@ -258,6 +260,32 @@ export default function YardArrivals() {
     } finally {
       setEditDialogOpen(false);
       setActionToEdit(null);
+    }
+  };
+
+  const handleRemoveTwoWeek = async () => {
+    if (!driverToRemoveTwoWeek) return;
+
+    try {
+      await supabase
+        .from("drivers")
+        .update({ two_week_block_date: null })
+        .eq("id", driverToRemoveTwoWeek.id);
+
+      toast({
+        title: "2 week notice removed",
+      });
+      queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
+    } catch (error) {
+      console.error("Error removing 2 week notice:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove 2 week notice",
+        variant: "destructive",
+      });
+    } finally {
+      setRemoveTwoWeekDialogOpen(false);
+      setDriverToRemoveTwoWeek(null);
     }
   };
 
@@ -477,6 +505,19 @@ export default function YardArrivals() {
                                 Last day: {formatDate(date, "MMMM d, yyyy")}
                               </p>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDriverToRemoveTwoWeek({
+                                  id: driver.id,
+                                  name: driver.name || `${driver.first_name} ${driver.last_name}`,
+                                });
+                                setRemoveTwoWeekDialogOpen(true);
+                              }}
+                            >
+                              <X className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -547,6 +588,24 @@ export default function YardArrivals() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Remove Two Week Notice Confirmation Dialog */}
+      <AlertDialog open={removeTwoWeekDialogOpen} onOpenChange={setRemoveTwoWeekDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove 2 Week Notice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the 2 week notice for {driverToRemoveTwoWeek?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDriverToRemoveTwoWeek(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveTwoWeek} className="bg-destructive hover:bg-destructive/90">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
