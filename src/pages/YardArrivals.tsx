@@ -12,7 +12,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Wrench, TruckIcon, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Wrench, TruckIcon, X, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
@@ -41,6 +52,12 @@ export default function YardArrivals() {
   const queryClient = useQueryClient();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string } | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [actionToEdit, setActionToEdit] = useState<YardAction | null>(null);
+  const [editForm, setEditForm] = useState({
+    arrival_datetime: "",
+    comment: "",
+  });
 
   const { data: yardActions, isLoading } = useQuery({
     queryKey: ["yard-arrivals"],
@@ -146,6 +163,35 @@ export default function YardArrivals() {
     }
   };
 
+  const handleEditAction = async () => {
+    if (!actionToEdit) return;
+
+    try {
+      await supabase
+        .from("driver_yard_actions")
+        .update({
+          arrival_datetime: editForm.arrival_datetime,
+          comment: editForm.comment,
+        })
+        .eq("id", actionToEdit.id);
+
+      toast({
+        title: "Yard arrival updated",
+      });
+      queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    } catch (error) {
+      console.error("Error updating yard action:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update yard arrival",
+        variant: "destructive",
+      });
+    } finally {
+      setEditDialogOpen(false);
+      setActionToEdit(null);
+    }
+  };
+
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
     // Format as MM/DD/YYYY HH:mm without timezone conversion
@@ -191,35 +237,51 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 space-y-1">
-                              <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
-                              </p>
-                              <div className="pt-1">
-                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                          <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-1">
+                                <p className="font-semibold">
+                                  #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                                </p>
+                                <div className="pt-1">
+                                  <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setActionToEdit(action);
+                                    setEditForm({
+                                      arrival_datetime: action.arrival_datetime || action.created_at,
+                                      comment: action.comment,
+                                    });
+                                    setEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setActionToCancel({
+                                      id: action.id,
+                                      driverId: action.driver_id,
+                                      driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                    });
+                                    setCancelDialogOpen(true);
+                                  }}
+                                >
+                                  <X className="h-4 w-4 text-destructive" />
+                                </Button>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setActionToCancel({
-                                  id: action.id,
-                                  driverId: action.driver_id,
-                                  driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
-                                });
-                                setCancelDialogOpen(true);
-                              }}
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </Button>
                           </div>
-                        </div>
                       ))}
                     </div>
                   </div>
@@ -262,20 +324,36 @@ export default function YardArrivals() {
                                 <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setActionToCancel({
-                                  id: action.id,
-                                  driverId: action.driver_id,
-                                  driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
-                                });
-                                setCancelDialogOpen(true);
-                              }}
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToEdit(action);
+                                  setEditForm({
+                                    arrival_datetime: action.arrival_datetime || action.created_at,
+                                    comment: action.comment,
+                                  });
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToCancel({
+                                    id: action.id,
+                                    driverId: action.driver_id,
+                                    driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                  });
+                                  setCancelDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -305,6 +383,46 @@ export default function YardArrivals() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Yard Arrival</DialogTitle>
+            <DialogDescription>
+              Update the arrival time and reason for {actionToEdit?.driver?.name || `${actionToEdit?.driver?.first_name} ${actionToEdit?.driver?.last_name}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="arrival-datetime">Arrival Date & Time</Label>
+              <Input
+                id="arrival-datetime"
+                type="datetime-local"
+                value={editForm.arrival_datetime?.slice(0, 16) || ""}
+                onChange={(e) => setEditForm({ ...editForm, arrival_datetime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comment">Reason</Label>
+              <Textarea
+                id="comment"
+                value={editForm.comment}
+                onChange={(e) => setEditForm({ ...editForm, comment: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditAction}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
