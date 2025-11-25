@@ -850,8 +850,10 @@ const Drivers = () => {
 
     setIsSubmitting(true);
     try {
-      // Set the block date from selected date
-      const blockDate = format(twoWeekNoticeDate, "yyyy-MM-dd");
+      // Calculate last day (14 days after start date)
+      const lastDay = new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const blockDate = format(lastDay, "yyyy-MM-dd");
+      
       const { error: blockError } = await supabase
         .from("drivers")
         .update({
@@ -2602,6 +2604,11 @@ const Drivers = () => {
                 onDateChange={setTwoWeekNoticeDate}
                 placeholder="Select start date"
               />
+              {twoWeekNoticeDate && (
+                <p className="text-xs text-muted-foreground">
+                  Last day will be: {format(new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button
