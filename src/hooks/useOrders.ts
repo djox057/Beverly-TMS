@@ -63,7 +63,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
             id,
             name
           ),
-          truck:trucks (
+          truck:trucks!orders_truck_id_fkey (
             id,
             truck_number,
             company:companies (
@@ -71,7 +71,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
               name
             )
           ),
-          trailer:trailers (
+          trailer:trailers!orders_trailer_id_fkey (
             id,
             trailer_number
           ),
@@ -171,7 +171,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
                     id,
                     name
                   ),
-                  truck:trucks (
+                  truck:trucks!orders_truck_id_fkey (
                     id,
                     truck_number,
                     company:companies (
@@ -179,7 +179,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
                       name
                     )
                   ),
-                  trailer:trailers (
+                  trailer:trailers!orders_trailer_id_fkey (
                     id,
                     trailer_number
                   ),
