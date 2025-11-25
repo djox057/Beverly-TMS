@@ -451,7 +451,7 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch orders from materialized view - fetch all orders using pagination
+        // Fetch orders from regular tables with joins - fetch all orders using pagination
         let allOrders: any[] = [];
         let offset = 0;
         const batchSize = 1000;
@@ -459,8 +459,46 @@ export const useReports = () => {
 
         while (hasMore) {
           const { data: ordersRaw, error: ordersError } = await supabase
-            .from("orders_materialized_view")
-            .select("*")
+            .from("orders")
+            .select(`
+              id,
+              load_number,
+              internal_load_number,
+              broker_load_number,
+              status,
+              notes,
+              date_change_notes,
+              updated_at,
+              pickup_datetime,
+              pickup_end_datetime,
+              delivery_datetime,
+              delivery_end_datetime,
+              canceled,
+              driver1_id,
+              driver2_id,
+              truck_id,
+              is_recovery,
+              pickup_drops (
+                id,
+                type,
+                address,
+                city,
+                state,
+                zip_code,
+                datetime,
+                end_datetime,
+                sequence_number,
+                arrived_at,
+                checked_out_at,
+                going_to_at
+              ),
+              order_files (
+                id,
+                file_category,
+                file_name,
+                file_path
+              )
+            `)
             .order("updated_at", { ascending: false })
             .range(offset, offset + batchSize - 1);
 
@@ -475,36 +513,10 @@ export const useReports = () => {
           }
         }
 
-        console.log(`[useReports] Fetched ${allOrders.length} orders from materialized view`);
+        console.log(`[useReports] Fetched ${allOrders.length} orders from orders table`);
 
-        // Transform materialized view data to match expected structure
-        const orders = allOrders?.map((row: any) => {
-          // Materialized view already returns these as parsed JSON arrays
-          const pickup_drops = row.pickup_drops || [];
-          const order_files = row.order_files || [];
-
-          return {
-            id: row.id,
-            load_number: row.load_number,
-            internal_load_number: row.internal_load_number,
-            broker_load_number: row.broker_load_number,
-            status: row.status,
-            notes: row.notes,
-            date_change_notes: row.date_change_notes,
-            updated_at: row.updated_at,
-            pickup_datetime: row.pickup_datetime,
-            pickup_end_datetime: row.pickup_end_datetime,
-            delivery_datetime: row.delivery_datetime,
-            delivery_end_datetime: row.delivery_end_datetime,
-            canceled: row.canceled,
-            driver1_id: row.driver1_id,
-            driver2_id: row.driver2_id,
-            truck_id: row.truck_id,
-            is_recovery: row.is_recovery,
-            pickup_drops,
-            order_files,
-          };
-        }) || [];
+        // Orders already have the correct structure from the join
+        const orders = allOrders || [];
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
