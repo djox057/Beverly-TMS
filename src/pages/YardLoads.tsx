@@ -349,8 +349,7 @@ export default function YardLoads() {
                   <TableHead className="w-20">Trailer #</TableHead>
                   <TableHead className="w-20">Load #</TableHead>
                   <TableHead className="w-32">Delivery Date</TableHead>
-                  <TableHead className="w-28">Delivery City</TableHead>
-                  <TableHead className="w-20">Delivery State</TableHead>
+                  <TableHead className="w-40">Delivery City</TableHead>
                   <TableHead className="w-16">Miles</TableHead>
                   <TableHead className="w-24">Driver Pay</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
@@ -364,13 +363,13 @@ export default function YardLoads() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8">
+                    <TableCell colSpan={12} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8">
+                    <TableCell colSpan={12} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -399,8 +398,9 @@ export default function YardLoads() {
                         <TableCell className="font-medium">{order.trailerNumber}</TableCell>
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate ? format(new Date(order.deliveryDate), 'MM/dd/yyyy') : ''}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">
+                          {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
+                        </div></TableCell>
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
