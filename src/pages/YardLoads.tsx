@@ -398,7 +398,7 @@ export default function YardLoads() {
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.trailerNumber}</TableCell>
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate ? format(new Date(order.deliveryDate), 'MM/dd/yyyy') : ''}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4">{order.deliveryState}</div></TableCell>
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
