@@ -294,6 +294,11 @@ export default function DriverInfo() {
                 onDateChange={setTwoWeekNoticeDate}
                 placeholder="Select start date"
               />
+              {twoWeekNoticeDate && (
+                <p className="text-xs text-muted-foreground">
+                  Last day will be: {format(new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -310,9 +315,12 @@ export default function DriverInfo() {
                 onClick={async () => {
                   if (!twoWeekNoticeDate || !data?.driver?.id) return;
                   
+                  // Calculate last day (14 days after start date)
+                  const lastDay = new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+                  
                   const { error } = await supabase
                     .from("drivers")
-                    .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
+                    .update({ two_week_block_date: format(lastDay, "yyyy-MM-dd") })
                     .eq("id", data.driver.id);
 
                   if (error) {
