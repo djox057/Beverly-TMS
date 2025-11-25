@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History, CalendarIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pagination,
@@ -48,6 +48,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
 import { useCompanies } from "@/hooks/useCompanies";
+import { DatePicker } from "@/components/ui/date-picker";
+import { format } from "date-fns";
 interface DriverFormData {
   first_name: string;
   last_name: string;
@@ -109,6 +111,8 @@ const Drivers = () => {
   const [addDialogTab, setAddDialogTab] = useState<string>("info");
   const [pendingFiles, setPendingFiles] = useState<Array<{ file: File; id: string }>>([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState(false);
+  const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
   const itemsPerPage = 8;
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
@@ -824,6 +828,7 @@ const Drivers = () => {
         setEditingDriver(null);
         resetForm();
         refetch();
+        queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
       } catch (error: any) {
         toast({
           title: "Error",
@@ -836,20 +841,17 @@ const Drivers = () => {
       return;
     }
 
-    // Show confirmation before creating 2-week block
-    if (
-      !confirm(
-        "Are you sure you want to set a 2-week notice for this driver? This will set their last day to 14 days from today.",
-      )
-    ) {
-      return;
-    }
+    // Show dialog to select start date
+    setTwoWeekNoticeDialog(true);
+  };
+
+  const handleSetTwoWeekNotice = async () => {
+    if (!editingDriver || !twoWeekNoticeDate) return;
 
     setIsSubmitting(true);
     try {
-      // Set the block date (14 days from today)
-      const today = new Date();
-      const blockDate = new Date(today.setDate(today.getDate() + 14)).toISOString().split("T")[0];
+      // Set the block date from selected date
+      const blockDate = format(twoWeekNoticeDate, "yyyy-MM-dd");
       const { error: blockError } = await supabase
         .from("drivers")
         .update({
@@ -859,16 +861,19 @@ const Drivers = () => {
       if (blockError) throw blockError;
       toast({
         title: "Success",
-        description: "2-week block created successfully",
+        description: "2-week notice set successfully",
       });
+      setTwoWeekNoticeDialog(false);
+      setTwoWeekNoticeDate(new Date());
       setIsEditDialogOpen(false);
       setEditingDriver(null);
       resetForm();
       refetch();
+      queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create 2-week block",
+        description: error.message || "Failed to set 2-week notice",
         variant: "destructive",
       });
     } finally {
@@ -2582,6 +2587,43 @@ const Drivers = () => {
         open={isHistoryDialogOpen}
         onOpenChange={setIsHistoryDialogOpen}
       />
+
+      {/* Two Week Notice Dialog */}
+      <Dialog open={twoWeekNoticeDialog} onOpenChange={setTwoWeekNoticeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Set 2 Week Notice - {editingDriver?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Start Date of 2 Week Notice</Label>
+              <DatePicker
+                date={twoWeekNoticeDate}
+                onDateChange={setTwoWeekNoticeDate}
+                placeholder="Select start date"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTwoWeekNoticeDialog(false);
+                  setTwoWeekNoticeDate(new Date());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!twoWeekNoticeDate || isSubmitting}
+                onClick={handleSetTwoWeekNotice}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
