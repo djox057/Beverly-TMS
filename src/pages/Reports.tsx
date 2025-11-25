@@ -2595,14 +2595,25 @@ const Reports = () => {
                                     return aDate - bDate;
                                   })[0];
 
-                                // Extract pickup and delivery stops from pickup_drops
+                                // Extract ALL pickup and delivery stops from pickup_drops for multi-drop support
                                 if (currentOrder && currentOrder.pickup_drops) {
-                                  currentOrder.pickupStop = currentOrder.pickup_drops.find(
-                                    (pd: any) => pd.type === "pickup",
-                                  );
-                                  currentOrder.deliveryStop = currentOrder.pickup_drops.find(
-                                    (pd: any) => pd.type === "delivery",
-                                  );
+                                  currentOrder.pickupStops = currentOrder.pickup_drops
+                                    .filter((pd: any) => pd.type === "pickup")
+                                    .sort((a: any, b: any) => {
+                                      const aSeq = a.sequence_number ?? 0;
+                                      const bSeq = b.sequence_number ?? 0;
+                                      return aSeq - bSeq;
+                                    });
+                                  currentOrder.deliveryStops = currentOrder.pickup_drops
+                                    .filter((pd: any) => pd.type === "delivery")
+                                    .sort((a: any, b: any) => {
+                                      const aSeq = a.sequence_number ?? 0;
+                                      const bSeq = b.sequence_number ?? 0;
+                                      return aSeq - bSeq;
+                                    });
+                                  // Keep first stop as pickupStop/deliveryStop for backward compatibility
+                                  currentOrder.pickupStop = currentOrder.pickupStops[0];
+                                  currentOrder.deliveryStop = currentOrder.deliveryStops[0];
                                 }
                                 const hasBOL =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
