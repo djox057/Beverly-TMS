@@ -451,72 +451,61 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch orders from regular tables with joins - fetch all orders using pagination
-        let allOrders: any[] = [];
-        let offset = 0;
-        const batchSize = 1000;
-        let hasMore = true;
+        // Fetch only recent, non-canceled orders (last 90 days) for better performance
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        while (hasMore) {
-          const { data: ordersRaw, error: ordersError } = await supabase
-            .from("orders")
-            .select(`
+        const { data: ordersRaw, error: ordersError } = await supabase
+          .from("orders")
+          .select(`
+            id,
+            load_number,
+            internal_load_number,
+            broker_load_number,
+            status,
+            notes,
+            date_change_notes,
+            updated_at,
+            pickup_datetime,
+            pickup_end_datetime,
+            delivery_datetime,
+            delivery_end_datetime,
+            canceled,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            is_recovery,
+            pickup_drops (
               id,
-              load_number,
-              internal_load_number,
-              broker_load_number,
-              status,
-              notes,
-              date_change_notes,
-              updated_at,
-              pickup_datetime,
-              pickup_end_datetime,
-              delivery_datetime,
-              delivery_end_datetime,
-              canceled,
-              driver1_id,
-              driver2_id,
-              truck_id,
-              is_recovery,
-              pickup_drops (
-                id,
-                type,
-                address,
-                city,
-                state,
-                zip_code,
-                datetime,
-                end_datetime,
-                sequence_number,
-                arrived_at,
-                checked_out_at,
-                going_to_at
-              ),
-              order_files (
-                id,
-                file_category,
-                file_name,
-                file_path
-              )
-            `)
-            .order("updated_at", { ascending: false })
-            .range(offset, offset + batchSize - 1);
+              type,
+              address,
+              city,
+              state,
+              zip_code,
+              datetime,
+              end_datetime,
+              sequence_number,
+              arrived_at,
+              checked_out_at,
+              going_to_at
+            ),
+            order_files (
+              id,
+              file_category,
+              file_name,
+              file_path
+            )
+          `)
+          .eq("canceled", false)
+          .gte("updated_at", ninetyDaysAgo.toISOString())
+          .order("updated_at", { ascending: false })
+          .limit(2000);
 
-          if (ordersError) throw ordersError;
+        if (ordersError) throw ordersError;
 
-          if (ordersRaw && ordersRaw.length > 0) {
-            allOrders = [...allOrders, ...ordersRaw];
-            offset += batchSize;
-            hasMore = ordersRaw.length === batchSize;
-          } else {
-            hasMore = false;
-          }
-        }
+        console.log(`[useReports] Fetched ${ordersRaw?.length || 0} active orders from last 90 days`);
 
-        console.log(`[useReports] Fetched ${allOrders.length} orders from orders table`);
-
-        // Orders already have the correct structure from the join
-        const orders = allOrders || [];
+        const orders = ordersRaw || [];
 
         // Fetch dispatcher information separately
         const { data: dispatchers, error: dispatchersError } = await supabase
