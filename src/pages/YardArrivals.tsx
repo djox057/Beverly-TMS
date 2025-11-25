@@ -231,10 +231,14 @@ export default function YardArrivals() {
               <p className="text-muted-foreground text-sm">No maintenance arrivals</p>
             ) : (
               <div className="space-y-6">
-                {groupedMaintenance.map(([dateKey, actions]) => (
+                {groupedMaintenance.map(([dateKey, actions]) => {
+                  // Parse date without timezone conversion
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return (
                   <div key={dateKey} className="space-y-2">
                     <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
-                      {formatDate(new Date(dateKey), "EEEE, MMMM d, yyyy")}
+                      {formatDate(date, "EEEE, MMMM d, yyyy")}
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
@@ -280,13 +284,14 @@ export default function YardArrivals() {
                                 >
                                   <X className="h-4 w-4 text-destructive" />
                                 </Button>
-                              </div>
-                            </div>
-                          </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                               </div>
+                             </div>
+                           </div>
+                       ))}
+                     </div>
+                   </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -305,10 +310,14 @@ export default function YardArrivals() {
               <p className="text-muted-foreground text-sm">No truck returns</p>
             ) : (
               <div className="space-y-6">
-                {groupedReturnTruck.map(([dateKey, actions]) => (
+                {groupedReturnTruck.map(([dateKey, actions]) => {
+                  // Parse date without timezone conversion
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return (
                   <div key={dateKey} className="space-y-2">
                     <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
-                      {formatDate(new Date(dateKey), "EEEE, MMMM d, yyyy")}
+                      {formatDate(date, "EEEE, MMMM d, yyyy")}
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
@@ -354,13 +363,14 @@ export default function YardArrivals() {
                               >
                                 <X className="h-4 w-4 text-destructive" />
                               </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
