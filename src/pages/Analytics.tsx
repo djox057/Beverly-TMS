@@ -1300,7 +1300,7 @@ const Analytics = () => {
                       </TableRow>
                     ) : (
                       qualifyingLoads.map((order) => {
-                        const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                        const ratePerMile = order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
                         const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                         const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                         return (
@@ -1317,7 +1317,7 @@ const Analytics = () => {
                                 maximumFractionDigits: 2,
                               })}
                             </TableCell>
-                            <TableCell className="text-right">{order.mileage.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{order.mileage != null ? order.mileage.toLocaleString() : "0"}</TableCell>
                             <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
                             <TableCell>{order.bookedBy}</TableCell>
                           </TableRow>
