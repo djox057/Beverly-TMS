@@ -120,8 +120,9 @@ export default function YardArrivals() {
     const groups = new Map<string, YardAction[]>();
     
     actions.forEach((action) => {
-      const date = new Date(action.arrival_datetime || action.created_at);
-      const dateKey = formatDate(date, "yyyy-MM-dd");
+      // Extract date string directly without timezone conversion
+      const dateString = action.arrival_datetime || action.created_at;
+      const dateKey = dateString.split('T')[0]; // Get YYYY-MM-DD part
       
       if (!groups.has(dateKey)) {
         groups.set(dateKey, []);
