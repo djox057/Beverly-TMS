@@ -818,20 +818,18 @@ const Orders = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-20">Truck #</TableHead>
+                    <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-20">Load #</TableHead>
                     <TableHead className="w-32">Pickup Date</TableHead>
-                    <TableHead className="w-28">Pickup City</TableHead>
-                    <TableHead className="w-20">Pickup State</TableHead>
+                    <TableHead className="w-40">Pickup City</TableHead>
                     <TableHead className="w-32">Delivery Date</TableHead>
-                    <TableHead className="w-28">Delivery City</TableHead>
-                    <TableHead className="w-20">Delivery State</TableHead>
+                    <TableHead className="w-40">Delivery City</TableHead>
                     <TableHead className="w-16">Miles</TableHead>
-                    <TableHead className="w-24">Driver Pay</TableHead>
-                    <TableHead className="w-32">Driver</TableHead>
                     <TableHead className="w-36">Broker Name</TableHead>
                     <TableHead className="w-28">Broker Load #</TableHead>
                     <TableHead className="w-20">Invoiced</TableHead>
                     <TableHead className="w-20">Notes</TableHead>
+                    <TableHead className="w-24">Driver Pay</TableHead>
                     <TableHead className="w-28">Freight Amount</TableHead>
                     <TableHead className="w-28">Company</TableHead>
                     <TableHead className="w-24">Booked By</TableHead>
@@ -843,7 +841,7 @@ const Orders = () => {
                 <TableBody>
                   {paginatedOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={20} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                         No orders found
                       </TableCell>
                     </TableRow>
@@ -883,6 +881,9 @@ const Orders = () => {
                       return (
                         <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                           <TableCell className="w-20 font-medium">{order.truckNumber}</TableCell>
+                          <TableCell className="w-32">
+                            <div className="line-clamp-2">{order.driverName}</div>
+                          </TableCell>
                           <TableCell className="w-20">
                             <div className="flex items-center gap-1">
                               {hasRole("admin") && emailLogMap?.has(order.id) && (
@@ -905,32 +906,22 @@ const Orders = () => {
                               {order.pickupDate ? new Date(order.pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
                             </div>
                           </TableCell>
-                          <TableCell className="w-28 p-0">
-                            <div className="h-full p-4 line-clamp-2">{order.pickupCity}</div>
-                          </TableCell>
-                          <TableCell className="w-20 p-0">
-                            <div className="h-full p-4">{order.pickupState}</div>
+                          <TableCell className="w-40 p-0">
+                            <div className="h-full p-4 line-clamp-2">
+                              {order.pickupCity}{order.pickupCity && order.pickupState ? ', ' : ''}{order.pickupState}
+                            </div>
                           </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
                               {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
                             </div>
                           </TableCell>
-                          <TableCell className="w-28 p-0">
-                            <div className="h-full p-4 line-clamp-2">{order.deliveryCity}</div>
-                          </TableCell>
-                          <TableCell className="w-20 p-0">
-                            <div className="h-full p-4">{order.deliveryState}</div>
-                          </TableCell>
-                          <TableCell className="w-16">{order.mileage?.toLocaleString() || "0"}</TableCell>
-                          <TableCell className="w-24">
-                            <div className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency((order as any).totalDriverPay)}
+                          <TableCell className="w-40 p-0">
+                            <div className="h-full p-4 line-clamp-2">
+                              {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
                             </div>
                           </TableCell>
-                          <TableCell className="w-32">
-                            <div className="line-clamp-2">{order.driverName}</div>
-                          </TableCell>
+                          <TableCell className="w-16">{order.mileage?.toLocaleString() || "0"}</TableCell>
                           <TableCell className="w-36">
                             <div className="line-clamp-2">{order.brokerName}</div>
                           </TableCell>
@@ -950,6 +941,11 @@ const Orders = () => {
                                 {order.notes.length > 12 ? order.notes.substring(0, 12) + "..." : order.notes}
                               </Button>
                             )}
+                          </TableCell>
+                          <TableCell className="w-24">
+                            <div className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency((order as any).totalDriverPay)}
+                            </div>
                           </TableCell>
                           <TableCell className="w-28">
                             <div className="font-semibold text-green-600 dark:text-green-400">
