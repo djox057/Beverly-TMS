@@ -1532,10 +1532,17 @@ const EditOrder = () => {
         .select("*")
         .eq("order_id", id)
         .is("reverted_at", null)
-        .single();
+        .maybeSingle();
 
       if (historyError) throw historyError;
-      if (!recoveryHistory) throw new Error("No recovery history found");
+      if (!recoveryHistory) {
+        toast({
+          title: "No Transfer to Revert",
+          description: "No active transfer history found for this load",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Revert order back to original state
       const { error: orderError } = await supabase
