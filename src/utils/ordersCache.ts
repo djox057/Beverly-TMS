@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OrdersCacheDB extends DBSchema {
   'locked-orders': {
@@ -62,105 +63,216 @@ async function getDB(): Promise<IDBPDatabase<OrdersCacheDB>> {
 
 export async function saveLockedOrders(orders: any[]): Promise<void> {
   try {
+    // Save to Supabase Storage for company-wide access
+    const csvContent = JSON.stringify(orders);
+    const blob = new Blob([csvContent], { type: 'application/json' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('archived-orders')
+      .upload('locked-orders.json', blob, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Also cache locally for faster access
     const db = await getDB();
     await db.put(ORDERS_STORE, {
       data: orders,
       timestamp: Date.now(),
       version: CACHE_VERSION,
     }, ORDERS_CACHE_KEY);
-    console.log('✅ Cached', orders.length, 'locked orders to IndexedDB');
+    
+    console.log('✅ Uploaded', orders.length, 'locked orders to company storage');
   } catch (error) {
-    console.error('Failed to save locked orders to cache:', error);
+    console.error('Failed to save locked orders:', error);
+    throw error;
   }
 }
 
 export async function savePickupDrops(pickupDrops: any[]): Promise<void> {
   try {
+    // Save to Supabase Storage for company-wide access
+    const csvContent = JSON.stringify(pickupDrops);
+    const blob = new Blob([csvContent], { type: 'application/json' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('archived-orders')
+      .upload('pickup-drops.json', blob, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Also cache locally
     const db = await getDB();
     await db.put(PICKUP_DROPS_STORE, {
       data: pickupDrops,
       timestamp: Date.now(),
       version: CACHE_VERSION,
     }, PICKUP_DROPS_CACHE_KEY);
-    console.log('✅ Cached', pickupDrops.length, 'pickup/drops to IndexedDB');
+    
+    console.log('✅ Uploaded', pickupDrops.length, 'pickup/drops to company storage');
   } catch (error) {
-    console.error('Failed to save pickup/drops to cache:', error);
+    console.error('Failed to save pickup/drops:', error);
+    throw error;
   }
 }
 
 export async function saveOrderFiles(orderFiles: any[]): Promise<void> {
   try {
+    // Save to Supabase Storage for company-wide access
+    const csvContent = JSON.stringify(orderFiles);
+    const blob = new Blob([csvContent], { type: 'application/json' });
+    
+    const { error: uploadError } = await supabase.storage
+      .from('archived-orders')
+      .upload('order-files.json', blob, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Also cache locally
     const db = await getDB();
     await db.put(ORDER_FILES_STORE, {
       data: orderFiles,
       timestamp: Date.now(),
       version: CACHE_VERSION,
     }, ORDER_FILES_CACHE_KEY);
-    console.log('✅ Cached', orderFiles.length, 'order files to IndexedDB');
+    
+    console.log('✅ Uploaded', orderFiles.length, 'order files to company storage');
   } catch (error) {
-    console.error('Failed to save order files to cache:', error);
+    console.error('Failed to save order files:', error);
+    throw error;
   }
 }
 
 export async function getLockedOrders(): Promise<any[] | null> {
   try {
+    // Try local cache first for speed
     const db = await getDB();
     const cached = await db.get(ORDERS_STORE, ORDERS_CACHE_KEY);
     
-    if (!cached) {
-      console.log('📦 No cached locked orders found');
-      return null;
+    if (cached && isCacheValid(cached.timestamp)) {
+      const age = Date.now() - cached.timestamp;
+      const ageHours = Math.floor(age / (1000 * 60 * 60));
+      console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (age:', ageHours, 'hours)');
+      return cached.data;
     }
-    
-    const age = Date.now() - cached.timestamp;
-    const ageHours = Math.floor(age / (1000 * 60 * 60));
-    
-    console.log('✅ Loaded', cached.data.length, 'locked orders from cache (age:', ageHours, 'hours)');
-    return cached.data;
+
+    // Fetch from company storage if cache is stale or missing
+    console.log('📡 Fetching locked orders from company storage...');
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('locked-orders.json');
+
+    if (error) {
+      console.log('📦 No company archived orders found');
+      return cached?.data || null;
+    }
+
+    const text = await data.text();
+    const orders = JSON.parse(text);
+
+    // Update local cache
+    await db.put(ORDERS_STORE, {
+      data: orders,
+      timestamp: Date.now(),
+      version: CACHE_VERSION,
+    }, ORDERS_CACHE_KEY);
+
+    console.log('✅ Loaded', orders.length, 'locked orders from company storage');
+    return orders;
   } catch (error) {
-    console.error('Failed to get locked orders from cache:', error);
+    console.error('Failed to get locked orders:', error);
     return null;
   }
 }
 
 export async function getPickupDrops(): Promise<any[] | null> {
   try {
+    // Try local cache first
     const db = await getDB();
     const cached = await db.get(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
     
-    if (!cached) {
-      console.log('📦 No cached pickup/drops found');
-      return null;
+    if (cached && isCacheValid(cached.timestamp)) {
+      const age = Date.now() - cached.timestamp;
+      const ageHours = Math.floor(age / (1000 * 60 * 60));
+      console.log('✅ Loaded', cached.data.length, 'pickup/drops from local cache (age:', ageHours, 'hours)');
+      return cached.data;
     }
-    
-    const age = Date.now() - cached.timestamp;
-    const ageHours = Math.floor(age / (1000 * 60 * 60));
-    
-    console.log('✅ Loaded', cached.data.length, 'pickup/drops from cache (age:', ageHours, 'hours)');
-    return cached.data;
+
+    // Fetch from company storage
+    console.log('📡 Fetching pickup/drops from company storage...');
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('pickup-drops.json');
+
+    if (error) {
+      console.log('📦 No company archived pickup/drops found');
+      return cached?.data || null;
+    }
+
+    const text = await data.text();
+    const pickupDrops = JSON.parse(text);
+
+    // Update local cache
+    await db.put(PICKUP_DROPS_STORE, {
+      data: pickupDrops,
+      timestamp: Date.now(),
+      version: CACHE_VERSION,
+    }, PICKUP_DROPS_CACHE_KEY);
+
+    console.log('✅ Loaded', pickupDrops.length, 'pickup/drops from company storage');
+    return pickupDrops;
   } catch (error) {
-    console.error('Failed to get pickup/drops from cache:', error);
+    console.error('Failed to get pickup/drops:', error);
     return null;
   }
 }
 
 export async function getOrderFiles(): Promise<any[] | null> {
   try {
+    // Try local cache first
     const db = await getDB();
     const cached = await db.get(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
     
-    if (!cached) {
-      console.log('📦 No cached order files found');
-      return null;
+    if (cached && isCacheValid(cached.timestamp)) {
+      const age = Date.now() - cached.timestamp;
+      const ageHours = Math.floor(age / (1000 * 60 * 60));
+      console.log('✅ Loaded', cached.data.length, 'order files from local cache (age:', ageHours, 'hours)');
+      return cached.data;
     }
-    
-    const age = Date.now() - cached.timestamp;
-    const ageHours = Math.floor(age / (1000 * 60 * 60));
-    
-    console.log('✅ Loaded', cached.data.length, 'order files from cache (age:', ageHours, 'hours)');
-    return cached.data;
+
+    // Fetch from company storage
+    console.log('📡 Fetching order files from company storage...');
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('order-files.json');
+
+    if (error) {
+      console.log('📦 No company archived order files found');
+      return cached?.data || null;
+    }
+
+    const text = await data.text();
+    const orderFiles = JSON.parse(text);
+
+    // Update local cache
+    await db.put(ORDER_FILES_STORE, {
+      data: orderFiles,
+      timestamp: Date.now(),
+      version: CACHE_VERSION,
+    }, ORDER_FILES_CACHE_KEY);
+
+    console.log('✅ Loaded', orderFiles.length, 'order files from company storage');
+    return orderFiles;
   } catch (error) {
-    console.error('Failed to get order files from cache:', error);
+    console.error('Failed to get order files:', error);
     return null;
   }
 }
