@@ -17,17 +17,14 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    // Create client with user's token to validate it
+    // Extract token
     const token = authHeader.replace('Bearer ', '')
-    const supabaseUser = createClient(
+    
+    // Create a client with anon key to validate the user token
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        global: {
-          headers: {
-            Authorization: authHeader
-          }
-        },
         auth: {
           autoRefreshToken: false,
           persistSession: false
@@ -35,8 +32,8 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Verify the user token is valid
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
+    // Verify the user token is valid by passing it directly
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
     
     if (userError) {
       console.error('Token verification error:', userError)
