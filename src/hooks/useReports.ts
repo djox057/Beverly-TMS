@@ -455,7 +455,7 @@ export const useReports = () => {
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops)...');
+        console.log('[useReports] 🚀 Loading UNLOCKED orders first...');
         const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await supabase
           .from("orders")
           .select(`
@@ -506,8 +506,7 @@ export const useReports = () => {
 
         if (unlockedOrdersError) throw unlockedOrdersError;
 
-        const totalPickupDropsFromDB = unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;
-        console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE`);
+        console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders`);
 
         // STEP 2: Load locked orders from storage bucket (avoids database egress)
         let lockedOrders: any[] = [];
@@ -520,7 +519,7 @@ export const useReports = () => {
           const cachedOrderFiles = await getOrderFiles();
 
           if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
-            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
+            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from storage`);
 
             // Match pickup_drops and order_files to orders
             const ordersWithRelations = cachedOrders.map((order: any) => ({
@@ -528,9 +527,6 @@ export const useReports = () => {
               pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
               order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
             }));
-
-            const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
-            console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
 
             // Filter locked orders for reports criteria (90 days)
             const ninetyDaysAgoForFilter = new Date();
@@ -549,7 +545,7 @@ export const useReports = () => {
               );
             });
 
-            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from STORAGE`);
+            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from storage`);
           } else {
             console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
           }
