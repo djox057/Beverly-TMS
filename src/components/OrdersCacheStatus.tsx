@@ -8,10 +8,24 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export const OrdersCacheStatus = () => {
   const [cacheStats, setCacheStats] = useState<{
-    hasCachedData: boolean;
-    cacheAge: number | null;
-    isValid: boolean;
-    itemCount: number;
+    orders: {
+      hasCachedData: boolean;
+      cacheAge: number | null;
+      isValid: boolean;
+      itemCount: number;
+    };
+    pickupDrops: {
+      hasCachedData: boolean;
+      cacheAge: number | null;
+      isValid: boolean;
+      itemCount: number;
+    };
+    orderFiles: {
+      hasCachedData: boolean;
+      cacheAge: number | null;
+      isValid: boolean;
+      itemCount: number;
+    };
   } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
@@ -48,12 +62,12 @@ export const OrdersCacheStatus = () => {
     }
   };
 
-  if (!cacheStats?.hasCachedData) {
+  if (!cacheStats?.orders.hasCachedData) {
     return null;
   }
 
-  const ageHours = cacheStats.cacheAge ? Math.floor(cacheStats.cacheAge / (1000 * 60 * 60)) : 0;
-  const ageMinutes = cacheStats.cacheAge ? Math.floor((cacheStats.cacheAge % (1000 * 60 * 60)) / (1000 * 60)) : 0;
+  const ageHours = cacheStats.orders.cacheAge ? Math.floor(cacheStats.orders.cacheAge / (1000 * 60 * 60)) : 0;
+  const ageMinutes = cacheStats.orders.cacheAge ? Math.floor((cacheStats.orders.cacheAge % (1000 * 60 * 60)) / (1000 * 60)) : 0;
   
   const ageDisplay = ageHours > 0 
     ? `${ageHours}h ${ageMinutes}m ago` 
@@ -65,10 +79,10 @@ export const OrdersCacheStatus = () => {
         <Database className="h-4 w-4 text-muted-foreground" />
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
-            {cacheStats.itemCount} archived orders cached
+            {cacheStats.orders.itemCount} archived orders cached
           </span>
-          <Badge variant={cacheStats.isValid ? "secondary" : "destructive"} className="text-xs">
-            {cacheStats.isValid ? ageDisplay : "Expired"}
+          <Badge variant={cacheStats.orders.isValid ? "secondary" : "destructive"} className="text-xs">
+            {cacheStats.orders.isValid ? ageDisplay : "Expired"}
           </Badge>
         </div>
       </div>

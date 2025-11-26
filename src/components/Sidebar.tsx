@@ -82,11 +82,12 @@ export const Sidebar = () => {
       return true;
     });
     
-    // Admin role: all navigation + Alerts + User Management
+    // Admin role: all navigation + Alerts + User Management + Data Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Data Management", href: "/data-management", icon: Settings },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
