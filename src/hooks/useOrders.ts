@@ -8,11 +8,13 @@ interface UseOrdersOptions {
 
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
+  
+  console.log('[useOrders] Hook initialized with options:', options);
 
   const query = useQuery({
     queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
-      console.log("[useOrders] Fetching first 500 orders from orders table...");
+      console.log("[useOrders] Starting queryFn - fetching orders...");
       
       const initialBatchSize = 500;
       const batchSize = 1000;
@@ -111,21 +113,27 @@ export const useOrders = (options?: UseOrdersOptions) => {
       const { data: initialBatch, error: initialError } = await initialQuery;
 
       if (initialError) {
-        console.error("[useOrders] Error:", initialError);
+        console.error("[useOrders] Error fetching initial batch:", initialError);
         throw initialError;
       }
 
-      console.log(`[useOrders] Loaded initial ${initialBatch?.length || 0} orders, loading rest in background...`);
+      console.log(`[useOrders] ✅ Loaded initial ${initialBatch?.length || 0} orders`);
 
-      // Continue loading remaining orders in background
+      // Continue loading remaining orders in background - IMMEDIATELY, not in setTimeout
       if (initialBatch && initialBatch.length === initialBatchSize) {
-        setTimeout(async () => {
+        console.log('[useOrders] Starting background loading...');
+        
+        // Load in background but don't block initial render
+        (async () => {
           try {
             const backgroundOrders = [...initialBatch];
             let offset = initialBatchSize;
             let hasMore = true;
+            let batchCount = 1;
 
             while (hasMore) {
+              console.log(`[useOrders] Loading batch ${batchCount} starting at offset ${offset}...`);
+              
               let bgQuery = supabase
                 .from("orders")
                 .select(`
@@ -218,27 +226,39 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
               const { data: batch, error: batchError } = await bgQuery;
 
-              if (batchError || !batch || batch.length === 0) {
+              if (batchError) {
+                console.error(`[useOrders] ❌ Error loading batch ${batchCount}:`, batchError);
+                hasMore = false;
+                break;
+              }
+              
+              if (!batch || batch.length === 0) {
+                console.log(`[useOrders] No more orders to load at offset ${offset}`);
                 hasMore = false;
                 break;
               }
 
+              console.log(`[useOrders] ✅ Loaded batch ${batchCount}: ${batch.length} orders`);
               backgroundOrders.push(...batch);
               offset += batchSize;
+              batchCount++;
 
               if (batch.length < batchSize) {
+                console.log(`[useOrders] Last batch was smaller (${batch.length} < ${batchSize}), stopping`);
                 hasMore = false;
               }
+              
+              // Update cache progressively
+              queryClient.setQueryData(['orders', options?.bookedBy], transformOrders(backgroundOrders));
             }
 
-            console.log(`[useOrders] Background loading complete: ${backgroundOrders.length} total orders`);
-            
-            // Update the cache with all orders - transform the data
-            queryClient.setQueryData(['orders', options?.bookedBy], transformOrders(backgroundOrders));
+            console.log(`[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} orders`);
           } catch (error) {
-            console.error("[useOrders] Background loading error:", error);
+            console.error("[useOrders] ❌ Background loading error:", error);
           }
-        }, 0);
+        })();
+      } else {
+        console.log('[useOrders] No background loading needed (less than 500 orders)');
       }
 
       const allOrders = initialBatch || [];
@@ -255,7 +275,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
-    console.log('[useOrders] Setting up realtime subscriptions with bookedBy:', options?.bookedBy);
+    console.log('🔴 [useOrders] REALTIME EFFECT RUNNING - bookedBy:', options?.bookedBy);
     
     // Use consistent channel name
     const channel = supabase
@@ -268,18 +288,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         async (payload) => {
-          console.log('[useOrders] New order inserted:', payload.new.id);
+          console.log('🆕 [useOrders] INSERT event - order:', payload.new.id);
           try {
             const newOrder = await fetchSingleOrder(payload.new.id);
             if (newOrder) {
               queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                console.log('[useOrders] Updating cache with new order, old data:', !!old);
+                console.log('[useOrders] ✅ Cache updated with new order');
                 if (!old) return [newOrder];
                 return [newOrder, ...old];
               });
             }
           } catch (error) {
-            console.error('[useOrders] Error handling INSERT:', error);
+            console.error('[useOrders] ❌ Error handling INSERT:', error);
           }
         }
       )
@@ -291,18 +311,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         async (payload) => {
-          console.log('[useOrders] Order updated:', payload.new.id);
+          console.log('✏️ [useOrders] UPDATE event - order:', payload.new.id);
           try {
             const updatedOrder = await fetchSingleOrder(payload.new.id);
             if (updatedOrder) {
               queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                console.log('[useOrders] Updating cache with updated order, old data:', !!old);
+                console.log('[useOrders] ✅ Cache updated with modified order');
                 if (!old) return [updatedOrder];
                 return old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
               });
             }
           } catch (error) {
-            console.error('[useOrders] Error handling UPDATE:', error);
+            console.error('[useOrders] ❌ Error handling UPDATE:', error);
           }
         }
       )
@@ -314,15 +334,15 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         (payload) => {
-          console.log('[useOrders] Order deleted:', payload.old.id);
+          console.log('🗑️ [useOrders] DELETE event - order:', payload.old.id);
           try {
             queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-              console.log('[useOrders] Removing order from cache, old data:', !!old);
+              console.log('[useOrders] ✅ Order removed from cache');
               if (!old) return [];
               return old.filter((o: any) => o.id !== payload.old.id);
             });
           } catch (error) {
-            console.error('[useOrders] Error handling DELETE:', error);
+            console.error('[useOrders] ❌ Error handling DELETE:', error);
           }
         }
       )
@@ -336,18 +356,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
         async (payload) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
-            console.log('[useOrders] Pickup/drop changed for order:', orderId);
+            console.log('📍 [useOrders] pickup_drops change for order:', orderId);
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
                 queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                  console.log('[useOrders] Updating cache after pickup_drops change, old data:', !!old);
+                  console.log('[useOrders] ✅ Cache updated after pickup_drops change');
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => o.id === orderId ? updatedOrder : o);
                 });
               }
             } catch (error) {
-              console.error('[useOrders] Error handling pickup_drops change:', error);
+              console.error('[useOrders] ❌ Error handling pickup_drops change:', error);
             }
           }
         }
@@ -362,36 +382,38 @@ export const useOrders = (options?: UseOrdersOptions) => {
         async (payload) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
-            console.log('[useOrders] File changed for order:', orderId);
+            console.log('📎 [useOrders] order_files change for order:', orderId);
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
                 queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                  console.log('[useOrders] Updating cache after order_files change, old data:', !!old);
+                  console.log('[useOrders] ✅ Cache updated after order_files change');
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => o.id === orderId ? updatedOrder : o);
                 });
               }
             } catch (error) {
-              console.error('[useOrders] Error handling order_files change:', error);
+              console.error('[useOrders] ❌ Error handling order_files change:', error);
             }
           }
         }
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[useOrders] ✅ Successfully subscribed to realtime updates');
+          console.log('🟢 [useOrders] ✅ Successfully subscribed to realtime updates');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[useOrders] ❌ Channel error:', err);
+          console.error('🔴 [useOrders] ❌ Channel error:', err);
         } else if (status === 'TIMED_OUT') {
-          console.error('[useOrders] ❌ Subscription timed out');
+          console.error('🔴 [useOrders] ❌ Subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.log('🟡 [useOrders] Channel closed');
         } else {
-          console.log('[useOrders] Subscription status changed to:', status);
+          console.log('🟡 [useOrders] Subscription status:', status);
         }
       });
 
     return () => {
-      console.log('[useOrders] Cleaning up realtime subscriptions');
+      console.log('🔴 [useOrders] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   }, [options?.bookedBy, queryClient]);
