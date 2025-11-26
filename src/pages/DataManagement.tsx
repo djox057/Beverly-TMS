@@ -149,9 +149,8 @@ export default function DataManagement() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          Export locked orders from Supabase dashboard as CSV files, then import them here. 
-          The system will cache archived data locally for the entire company and only fetch recent/active orders from the database.
-          This applies company-wide to all users.
+          <strong>Company-Wide Cache:</strong> When you import CSV files here, they are uploaded to company storage and become available to all users automatically.
+          Export locked orders from Supabase using: <code className="bg-muted px-1 rounded">SELECT * FROM orders WHERE locked = true ORDER BY created_at;</code>
         </AlertDescription>
       </Alert>
 
