@@ -255,8 +255,12 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
+    console.log('[useOrders] Setting up realtime subscriptions');
+    
+    // Create a unique channel to avoid conflicts
+    const channelName = `orders-realtime-${Date.now()}`;
     const channel = supabase
-      .channel('orders-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -266,12 +270,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
         },
         async (payload) => {
           console.log('[useOrders] New order inserted:', payload.new.id);
-          const newOrder = await fetchSingleOrder(payload.new.id);
-          if (newOrder) {
-            queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-              if (!old) return [newOrder];
-              return [newOrder, ...old];
-            });
+          try {
+            const newOrder = await fetchSingleOrder(payload.new.id);
+            if (newOrder) {
+              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                console.log('[useOrders] Updating cache with new order, old data:', !!old);
+                if (!old) return [newOrder];
+                return [newOrder, ...old];
+              });
+            }
+          } catch (error) {
+            console.error('[useOrders] Error handling INSERT:', error);
           }
         }
       )
@@ -284,12 +293,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
         },
         async (payload) => {
           console.log('[useOrders] Order updated:', payload.new.id);
-          const updatedOrder = await fetchSingleOrder(payload.new.id);
-          if (updatedOrder) {
-            queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-              if (!old) return [updatedOrder];
-              return old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
-            });
+          try {
+            const updatedOrder = await fetchSingleOrder(payload.new.id);
+            if (updatedOrder) {
+              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                console.log('[useOrders] Updating cache with updated order, old data:', !!old);
+                if (!old) return [updatedOrder];
+                return old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
+              });
+            }
+          } catch (error) {
+            console.error('[useOrders] Error handling UPDATE:', error);
           }
         }
       )
@@ -302,10 +316,15 @@ export const useOrders = (options?: UseOrdersOptions) => {
         },
         (payload) => {
           console.log('[useOrders] Order deleted:', payload.old.id);
-          queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-            if (!old) return [];
-            return old.filter((o: any) => o.id !== payload.old.id);
-          });
+          try {
+            queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+              console.log('[useOrders] Removing order from cache, old data:', !!old);
+              if (!old) return [];
+              return old.filter((o: any) => o.id !== payload.old.id);
+            });
+          } catch (error) {
+            console.error('[useOrders] Error handling DELETE:', error);
+          }
         }
       )
       .on(
@@ -319,12 +338,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
             console.log('[useOrders] Pickup/drop changed for order:', orderId);
-            const updatedOrder = await fetchSingleOrder(orderId);
-            if (updatedOrder) {
-              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                if (!old) return [updatedOrder];
-                return old.map((o: any) => o.id === orderId ? updatedOrder : o);
-              });
+            try {
+              const updatedOrder = await fetchSingleOrder(orderId);
+              if (updatedOrder) {
+                queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                  console.log('[useOrders] Updating cache after pickup_drops change, old data:', !!old);
+                  if (!old) return [updatedOrder];
+                  return old.map((o: any) => o.id === orderId ? updatedOrder : o);
+                });
+              }
+            } catch (error) {
+              console.error('[useOrders] Error handling pickup_drops change:', error);
             }
           }
         }
@@ -340,19 +364,27 @@ export const useOrders = (options?: UseOrdersOptions) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
             console.log('[useOrders] File changed for order:', orderId);
-            const updatedOrder = await fetchSingleOrder(orderId);
-            if (updatedOrder) {
-              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                if (!old) return [updatedOrder];
-                return old.map((o: any) => o.id === orderId ? updatedOrder : o);
-              });
+            try {
+              const updatedOrder = await fetchSingleOrder(orderId);
+              if (updatedOrder) {
+                queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                  console.log('[useOrders] Updating cache after order_files change, old data:', !!old);
+                  if (!old) return [updatedOrder];
+                  return old.map((o: any) => o.id === orderId ? updatedOrder : o);
+                });
+              }
+            } catch (error) {
+              console.error('[useOrders] Error handling order_files change:', error);
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[useOrders] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[useOrders] Cleaning up realtime subscriptions');
       supabase.removeChannel(channel);
     };
   }, [options?.bookedBy, queryClient]);
