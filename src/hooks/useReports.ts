@@ -508,24 +508,17 @@ export const useReports = () => {
 
         console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders`);
 
-        // Start with unlocked orders
-        let allOrders = unlockedOrdersRaw || [];
+        // STEP 2: Load locked orders from cache synchronously
+        let lockedOrders: any[] = [];
+        try {
+          console.log('[useReports] 📦 Loading LOCKED orders from cache...');
+          const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
+          
+          const cachedOrders = await getLockedOrders();
+          const cachedPickupDrops = await getPickupDrops();
+          const cachedOrderFiles = await getOrderFiles();
 
-        // STEP 2: Load locked orders from cache in background
-        (async () => {
-          try {
-            console.log('[useReports] 📦 Loading LOCKED orders from cache...');
-            const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
-            
-            const cachedOrders = await getLockedOrders();
-            const cachedPickupDrops = await getPickupDrops();
-            const cachedOrderFiles = await getOrderFiles();
-
-            if (!cachedOrders || cachedOrders.length === 0) {
-              console.log('[useReports] ⚠️ No cached locked orders found');
-              return;
-            }
-
+          if (cachedOrders && cachedOrders.length > 0) {
             console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from cache`);
 
             // Match pickup_drops and order_files to orders
@@ -536,81 +529,67 @@ export const useReports = () => {
             }));
 
             // Filter locked orders for reports criteria
-            const relevantLockedOrders = ordersWithRelations.filter((order: any) => {
+            const ninetyDaysAgoForFilter = new Date();
+            ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
+
+            lockedOrders = ordersWithRelations.filter((order: any) => {
               if (order.canceled) return false;
               
               const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
-              const ninetyDaysAgo = new Date();
-              ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
               return (
                 !order.delivery_datetime ||
-                (deliveryDate && deliveryDate >= ninetyDaysAgo) ||
+                (deliveryDate && deliveryDate >= ninetyDaysAgoForFilter) ||
                 order.status === 'in_transit' ||
                 order.status === 'pending'
               );
             });
 
-            console.log(`[useReports] 🔀 Merging ${relevantLockedOrders.length} relevant locked orders...`);
-
-            // Merge locked orders with unlocked orders
-            const combined = [...unlockedOrdersRaw || [], ...relevantLockedOrders];
-            
-            // Update the query cache with combined data
-            queryClient.setQueryData(["reports"], (oldData: any) => {
-              if (!oldData) return oldData;
-              
-              // We need to re-process the full data with the new combined orders
-              // This will trigger a re-render with the complete dataset
-              console.log(`[useReports] ♻️ Updating cache with ${combined.length} total orders`);
-              
-              // Re-fetch the rest of the data needed for processing
-              return processReportsData(trucks, combined, oldData);
-            });
-
-          } catch (error) {
-            console.error('[useReports] ❌ Error loading cached locked orders:', error);
+            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders`);
+          } else {
+            console.log('[useReports] ⚠️ No cached locked orders found');
           }
-        })();
+        } catch (error) {
+          console.error('[useReports] ❌ Error loading cached locked orders:', error);
+        }
 
-        // Helper function to process full reports data
-        const processReportsData = async (trucks: any, orders: any, existingData?: any) => {
-          // Fetch dispatcher information separately
-          const { data: dispatchers, error: dispatchersError } = await supabase
-            .from("profiles")
-            .select("user_id, full_name, email, office, ext")
-            .order("user_id", { ascending: true });
+        // Combine unlocked and locked orders
+        const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrders];
+        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${lockedOrders.length} locked)`);
 
-          if (dispatchersError) throw dispatchersError;
+        // STEP 3: Fetch supporting data and build reports
+        // Fetch dispatcher information separately
+        const { data: dispatchers, error: dispatchersError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, email, office, ext")
+          .order("user_id", { ascending: true });
 
-          // Fetch truck notes separately
-          const { data: truckNotes, error: notesError } = await supabase
-            .from("truck_notes")
-            .select("*")
-            .order("updated_at", { ascending: false });
+        if (dispatchersError) throw dispatchersError;
 
-          if (notesError) throw notesError;
+        // Fetch truck notes separately
+        const { data: truckNotes, error: notesError } = await supabase
+          .from("truck_notes")
+          .select("*")
+          .order("updated_at", { ascending: false });
 
-          // Fetch lost day notes separately
-          const { data: lostDayNotes, error: lostDayError } = await supabase
-            .from("lost_day_notes")
-            .select("*")
-            .order("id", { ascending: true });
+        if (notesError) throw notesError;
 
-          if (lostDayError) throw lostDayError;
+        // Fetch lost day notes separately
+        const { data: lostDayNotes, error: lostDayError } = await supabase
+          .from("lost_day_notes")
+          .select("*")
+          .order("id", { ascending: true });
 
-          return buildReportData(trucks, orders, dispatchers, truckNotes, lostDayNotes);
-        };
+        if (lostDayError) throw lostDayError;
 
-        const buildReportData = async (trucks: any, orders: any, dispatchers: any, truckNotes: any, lostDayNotes: any) => {
-          // Process trucks and match orders to drivers (not trucks)
+        // Process trucks and match orders to drivers (not trucks)
         const reportData =
           trucks?.map((truck) => {
             const now = new Date().getTime();
 
             // Get orders for this truck - include both truck assignment and driver assignment
             const driverOrders =
-              orders?.filter(
+              allOrders?.filter(
                 (order) => 
                   order.driver1_id === truck.driver1_id || 
                   order.driver2_id === truck.driver1_id,
@@ -955,7 +934,7 @@ export const useReports = () => {
 
           // Get orders for this driver
           const driverOrders =
-            orders?.filter((order) => order.driver1_id === driver.id || order.driver2_id === driver.id) || [];
+            allOrders?.filter((order) => order.driver1_id === driver.id || order.driver2_id === driver.id) || [];
 
           // Categorize orders
           const activeOrders =
@@ -1258,10 +1237,6 @@ export const useReports = () => {
         }
 
         return groupedData;
-        };
-
-        // Actually call processReportsData with the initial unlocked orders
-        return await processReportsData(trucks, allOrders);
       });
     },
     retry: 3,
