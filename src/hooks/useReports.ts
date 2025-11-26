@@ -508,18 +508,18 @@ export const useReports = () => {
 
         console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders`);
 
-        // STEP 2: Load locked orders from cache synchronously
+        // STEP 2: Load locked orders from storage bucket (avoids database egress)
         let lockedOrders: any[] = [];
         try {
-          console.log('[useReports] 📦 Loading LOCKED orders from cache...');
+          console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
           const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
           
           const cachedOrders = await getLockedOrders();
           const cachedPickupDrops = await getPickupDrops();
           const cachedOrderFiles = await getOrderFiles();
 
-          if (cachedOrders && cachedOrders.length > 0) {
-            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from cache`);
+          if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
+            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from storage`);
 
             // Match pickup_drops and order_files to orders
             const ordersWithRelations = cachedOrders.map((order: any) => ({
@@ -528,7 +528,7 @@ export const useReports = () => {
               order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
             }));
 
-            // Filter locked orders for reports criteria
+            // Filter locked orders for reports criteria (90 days)
             const ninetyDaysAgoForFilter = new Date();
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
@@ -545,17 +545,19 @@ export const useReports = () => {
               );
             });
 
-            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders`);
+            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from storage`);
           } else {
-            console.log('[useReports] ⚠️ No cached locked orders found');
+            console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
           }
         } catch (error) {
-          console.error('[useReports] ❌ Error loading cached locked orders:', error);
+          console.error('[useReports] ⚠️ Could not load locked orders from storage:', error);
+          // Continue without locked orders - this is not a fatal error
+          lockedOrders = [];
         }
 
-        // Combine unlocked and locked orders
+        // Combine unlocked (from database) and locked (from storage bucket) orders
         const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${lockedOrders.length} locked)`);
+        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} from database + ${lockedOrders.length} from storage)`);
 
         // STEP 3: Fetch supporting data and build reports
         // Fetch dispatcher information separately
