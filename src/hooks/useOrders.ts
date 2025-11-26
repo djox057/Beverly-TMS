@@ -283,7 +283,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
           
           const allLockedOrders = [];
           let offset = 0;
-          const batchSize = 1000;
+          const batchSize = 5000; // Increased batch size to fetch more orders per request
           let hasMore = true;
           let batchCount = 0;
 
@@ -385,23 +385,30 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
             if (batchError) {
               console.error('[useOrders] ❌ Error fetching locked orders batch:', batchError);
+              console.error('[useOrders] ❌ Error details:', JSON.stringify(batchError));
               hasMore = false;
               break;
             }
 
             if (!batch || batch.length === 0) {
-              console.log(`[useOrders] 🔒 No more locked orders at offset ${offset}`);
+              console.log(`[useOrders] 🔒 No more locked orders at offset ${offset}. Total fetched: ${allLockedOrders.length}`);
               hasMore = false;
               break;
             }
 
-            console.log(`[useOrders] ✅ Loaded locked batch ${batchCount + 1}: ${batch.length} orders`);
+            console.log(`[useOrders] ✅ Loaded locked batch ${batchCount + 1}: ${batch.length} orders. Running total: ${allLockedOrders.length + batch.length}`);
             allLockedOrders.push(...batch);
-            offset += batchSize;
+            offset += batch.length; // Use actual batch length instead of batchSize
             batchCount++;
 
             if (batch.length < batchSize) {
-              console.log(`[useOrders] 🔒 Last batch was smaller (${batch.length} < ${batchSize}), stopping`);
+              console.log(`[useOrders] 🔒 Last batch was smaller (${batch.length} < ${batchSize}), stopping. Final count: ${allLockedOrders.length}`);
+              hasMore = false;
+            }
+            
+            // Safety limit to prevent infinite loops
+            if (batchCount >= 50) {
+              console.warn('[useOrders] ⚠️ Hit safety limit of 50 batches, stopping');
               hasMore = false;
             }
           }
