@@ -56,7 +56,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
 import { formatCurrency } from "@/lib/utils";
-import { OrdersCacheStatus } from "@/components/OrdersCacheStatus";
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Delivered":
@@ -870,7 +869,6 @@ const Orders = () => {
               </ScrollArea>
             </div>
           </CardHeader>
-          <OrdersCacheStatus />
           <CardContent className="p-0">
             <div className="p-6">
               <Table>

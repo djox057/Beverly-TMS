@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 
 interface UseOrdersOptions {
   bookedBy?: string | null;
@@ -22,7 +21,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
       const initialBatchSize = 500;
       const batchSize = 1000;
       
-      // Fetch first 500 UNLOCKED orders immediately with joins
+      // Fetch first 500 orders immediately with joins
       let initialQuery = supabase
         .from("orders")
         .select(`
@@ -106,7 +105,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
             trailer_number
           )
         `)
-        .eq("locked", false)
         .order("created_at", { ascending: false })
         .range(0, initialBatchSize - 1);
 
@@ -121,9 +119,9 @@ export const useOrders = (options?: UseOrdersOptions) => {
         throw initialError;
       }
 
-      console.log(`[useOrders] ✅ Loaded initial ${initialBatch?.length || 0} UNLOCKED orders`);
+      console.log(`[useOrders] ✅ Loaded initial ${initialBatch?.length || 0} orders`);
 
-      // Continue loading remaining UNLOCKED orders in background
+      // Continue loading remaining orders in background - IMMEDIATELY, not in setTimeout
       if (initialBatch && initialBatch.length === initialBatchSize) {
         console.log('[useOrders] Starting background loading...');
         
@@ -221,7 +219,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
                     trailer_number
                   )
                 `)
-                .eq("locked", false)
                 .order("created_at", { ascending: false })
                 .range(offset, offset + batchSize - 1);
 
@@ -257,144 +254,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
               queryClient.setQueryData(['orders', options?.bookedBy], transformOrders(backgroundOrders));
             }
 
-            console.log(`[useOrders] 🎉 Background unlocked orders complete! Total: ${backgroundOrders.length} orders`);
-            
-            // Now load LOCKED orders from cache or DB
-            await loadLockedOrders();
+            console.log(`[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} orders`);
           } catch (error) {
             console.error("[useOrders] ❌ Background loading error:", error);
           }
         })();
       } else {
         console.log('[useOrders] No background loading needed (less than 500 orders)');
-        // Still load locked orders even if there are few unlocked ones
-        await loadLockedOrders();
-      }
-
-      // Helper function to load locked orders
-      async function loadLockedOrders() {
-        console.log('🔒 [useOrders] Loading LOCKED orders...');
-        
-        // Try to get from cache first
-        let lockedOrders = await getLockedOrders();
-        
-        if (!lockedOrders) {
-          console.log('📥 [useOrders] Cache miss - fetching locked orders from DB...');
-          
-          let lockedQuery = supabase
-            .from("orders")
-            .select(`
-              *,
-              pickup_drops (
-                id,
-                type,
-                address,
-                city,
-                state,
-                zip_code,
-                datetime,
-                end_datetime,
-                sequence_number,
-                arrived_at,
-                checked_out_at,
-                going_to_at,
-                company_name,
-                contact_name,
-                contact_phone,
-                special_instructions
-              ),
-              order_files (
-                id,
-                file_category,
-                file_name,
-                file_path,
-                file_size,
-                content_type,
-                uploaded_by,
-                created_at
-              ),
-              broker:brokers (
-                id,
-                name,
-                mc_number,
-                address
-              ),
-              company:companies!orders_company_id_fkey (
-                id,
-                name
-              ),
-              booked_by_company:companies!orders_booked_by_company_id_fkey (
-                id,
-                name
-              ),
-              truck:trucks!orders_truck_id_fkey (
-                id,
-                truck_number,
-                company:companies (
-                  id,
-                  name
-                )
-              ),
-              trailer:trailers!orders_trailer_id_fkey (
-                id,
-                trailer_number
-              ),
-              driver1:drivers!orders_driver1_id_fkey (
-                id,
-                name
-              ),
-              driver2:drivers!orders_driver2_id_fkey (
-                id,
-                name
-              ),
-              original_driver1:drivers!orders_original_driver1_id_fkey (
-                id,
-                name
-              ),
-              original_driver2:drivers!orders_original_driver2_id_fkey (
-                id,
-                name
-              ),
-              original_truck:trucks!orders_original_truck_id_fkey (
-                id,
-                truck_number
-              ),
-              original_trailer:trailers!orders_original_trailer_id_fkey (
-                id,
-                trailer_number
-              )
-            `)
-            .eq("locked", true)
-            .order("created_at", { ascending: false });
-
-          if (options?.bookedBy) {
-            lockedQuery = lockedQuery.eq("booked_by", options.bookedBy);
-          }
-
-          const { data: lockedData, error: lockedError } = await lockedQuery;
-
-          if (lockedError) {
-            console.error('[useOrders] ❌ Error fetching locked orders:', lockedError);
-            return;
-          }
-
-          lockedOrders = transformOrders(lockedData || []);
-          console.log(`[useOrders] ✅ Fetched ${lockedOrders.length} locked orders from DB`);
-          
-          // Save to cache for next time
-          await saveLockedOrders(lockedOrders);
-        } else {
-          console.log(`[useOrders] ✅ Loaded ${lockedOrders.length} locked orders from IndexedDB cache`);
-        }
-
-        // Merge locked orders into cache
-        if (lockedOrders && lockedOrders.length > 0) {
-          queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-            if (!old) return lockedOrders;
-            return [...old, ...lockedOrders];
-          });
-          console.log(`[useOrders] ✅ Merged ${lockedOrders.length} locked orders into cache`);
-        }
       }
 
       const allOrders = initialBatch || [];
