@@ -451,11 +451,12 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch active and recent orders based on delivery date, not update date
+        // STEP 1: Fetch UNLOCKED orders first for immediate display
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        const { data: ordersRaw, error: ordersError } = await supabase
+        console.log('[useReports] 🚀 Loading UNLOCKED orders first...');
+        const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await supabase
           .from("orders")
           .select(`
             id,
@@ -475,6 +476,7 @@ export const useReports = () => {
             driver2_id,
             truck_id,
             is_recovery,
+            locked,
             pickup_drops (
               id,
               type,
@@ -497,7 +499,110 @@ export const useReports = () => {
             )
           `)
           .eq("canceled", false)
+          .eq("locked", false)
           .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
+          .order("delivery_datetime", { ascending: false, nullsFirst: true })
+          .limit(1000);
+
+        if (unlockedOrdersError) throw unlockedOrdersError;
+
+        console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders`);
+
+        // Start with unlocked orders
+        let allOrders = unlockedOrdersRaw || [];
+
+        // STEP 2: Load locked orders from cache in background
+        (async () => {
+          try {
+            console.log('[useReports] 📦 Loading LOCKED orders from cache...');
+            const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
+            
+            const cachedOrders = await getLockedOrders();
+            const cachedPickupDrops = await getPickupDrops();
+            const cachedOrderFiles = await getOrderFiles();
+
+            if (!cachedOrders || cachedOrders.length === 0) {
+              console.log('[useReports] ⚠️ No cached locked orders found');
+              return;
+            }
+
+            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from cache`);
+
+            // Match pickup_drops and order_files to orders
+            const ordersWithRelations = cachedOrders.map((order: any) => ({
+              ...order,
+              pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
+              order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+            }));
+
+            // Filter locked orders for reports criteria
+            const relevantLockedOrders = ordersWithRelations.filter((order: any) => {
+              if (order.canceled) return false;
+              
+              const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
+              const ninetyDaysAgo = new Date();
+              ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+              return (
+                !order.delivery_datetime ||
+                (deliveryDate && deliveryDate >= ninetyDaysAgo) ||
+                order.status === 'in_transit' ||
+                order.status === 'pending'
+              );
+            });
+
+            console.log(`[useReports] 🔀 Merging ${relevantLockedOrders.length} relevant locked orders...`);
+
+            // Merge locked orders with unlocked orders
+            const combined = [...unlockedOrdersRaw || [], ...relevantLockedOrders];
+            
+            // Update the query cache with combined data
+            queryClient.setQueryData(["reports"], (oldData: any) => {
+              if (!oldData) return oldData;
+              
+              // We need to re-process the full data with the new combined orders
+              // This will trigger a re-render with the complete dataset
+              console.log(`[useReports] ♻️ Updating cache with ${combined.length} total orders`);
+              
+              // Re-fetch the rest of the data needed for processing
+              return processReportsData(trucks, combined, oldData);
+            });
+
+          } catch (error) {
+            console.error('[useReports] ❌ Error loading cached locked orders:', error);
+          }
+        })();
+
+        // Helper function to process full reports data
+        const processReportsData = async (trucks: any, orders: any, existingData?: any) => {
+          // Fetch dispatcher information separately
+          const { data: dispatchers, error: dispatchersError } = await supabase
+            .from("profiles")
+            .select("user_id, full_name, email, office, ext")
+            .order("user_id", { ascending: true });
+
+          if (dispatchersError) throw dispatchersError;
+
+          // Fetch truck notes separately
+          const { data: truckNotes, error: notesError } = await supabase
+            .from("truck_notes")
+            .select("*")
+            .order("updated_at", { ascending: false });
+
+          if (notesError) throw notesError;
+
+          // Fetch lost day notes separately
+          const { data: lostDayNotes, error: lostDayError } = await supabase
+            .from("lost_day_notes")
+            .select("*")
+            .order("id", { ascending: true });
+
+          if (lostDayError) throw lostDayError;
+
+          return buildReportData(trucks, orders, dispatchers, truckNotes, lostDayNotes);
+        };
+
+        const buildReportData = (trucks: any, orders: any, dispatchers: any, truckNotes: any, lostDayNotes: any) => {
           .order("delivery_datetime", { ascending: false, nullsFirst: true })
           .limit(1000);
 
