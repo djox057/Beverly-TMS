@@ -285,8 +285,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
 
-        // Merge locked orders with query cache
-        queryClient.setQueryData(['orders'], (oldData: any) => {
+        // Merge locked orders with query cache using the SAME key structure
+        queryClient.setQueryData(['orders', options?.bookedBy], (oldData: any) => {
           if (!oldData) return lockedOrders;
           
           const combined = [...oldData, ...lockedOrders];
