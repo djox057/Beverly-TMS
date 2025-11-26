@@ -75,9 +75,8 @@ const Orders = () => {
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
   const { data: emailLogMap } = useDriverEmailLog();
-  
-  console.log('📬 Orders page - emailLogMap:', emailLogMap);
-  console.log('📬 Orders page - emailLogMap size:', emailLogMap?.size);
+
+  console.log('🟦 [Orders Page] Component rendering');
 
   // Debug navigation function with filter persistence
   const navigateToEditOrder = (orderId: string) => {
@@ -240,6 +239,22 @@ const Orders = () => {
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
   const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
+  
+  console.log('🟦 [Orders Page] useOrders returned:', {
+    ordersCount: orders?.length,
+    isLoading,
+    error,
+    orderFilterOptions
+  });
+
+  // Log when orders data changes
+  useEffect(() => {
+    console.log('🔵 [Orders Page] Orders data changed! New count:', orders?.length);
+    if (orders && orders.length > 0) {
+      console.log('🔵 [Orders Page] First order:', orders[0]);
+      console.log('🔵 [Orders Page] Last order:', orders[orders.length - 1]);
+    }
+  }, [orders]);
 
   const { data: companies } = useCompanies();
 
