@@ -602,41 +602,8 @@ export const useReports = () => {
           return buildReportData(trucks, orders, dispatchers, truckNotes, lostDayNotes);
         };
 
-        const buildReportData = (trucks: any, orders: any, dispatchers: any, truckNotes: any, lostDayNotes: any) => {
-          .order("delivery_datetime", { ascending: false, nullsFirst: true })
-          .limit(1000);
-
-        if (ordersError) throw ordersError;
-
-        console.log(`[useReports] Fetched ${ordersRaw?.length || 0} active orders from last 90 days`);
-
-        const orders = ordersRaw || [];
-
-        // Fetch dispatcher information separately
-        const { data: dispatchers, error: dispatchersError } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, email, office, ext")
-          .order("user_id", { ascending: true });
-
-        if (dispatchersError) throw dispatchersError;
-
-        // Fetch truck notes separately
-        const { data: truckNotes, error: notesError } = await supabase
-          .from("truck_notes")
-          .select("*")
-          .order("updated_at", { ascending: false });
-
-        if (notesError) throw notesError;
-
-        // Fetch lost day notes separately
-        const { data: lostDayNotes, error: lostDayError } = await supabase
-          .from("lost_day_notes")
-          .select("*")
-          .order("id", { ascending: true });
-
-        if (lostDayError) throw lostDayError;
-
-        // Process trucks and match orders to drivers (not trucks)
+        const buildReportData = async (trucks: any, orders: any, dispatchers: any, truckNotes: any, lostDayNotes: any) => {
+          // Process trucks and match orders to drivers (not trucks)
         const reportData =
           trucks?.map((truck) => {
             const now = new Date().getTime();
@@ -1291,6 +1258,10 @@ export const useReports = () => {
         }
 
         return groupedData;
+        };
+
+        // Actually call processReportsData with the initial unlocked orders
+        return await processReportsData(trucks, allOrders);
       });
     },
     retry: 3,
