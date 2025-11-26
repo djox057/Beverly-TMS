@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, Database, CheckCircle, XCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import Papa from "papaparse";
 import { 
   saveLockedOrders, 
   savePickupDrops, 
@@ -42,42 +43,73 @@ export default function DataManagement() {
   ) => {
     setIsImporting(true);
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
+      // Parse CSV file
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            const data = results.data;
 
-      if (!Array.isArray(data)) {
-        throw new Error('File must contain an array of records');
-      }
+            if (!Array.isArray(data) || data.length === 0) {
+              throw new Error('CSV file is empty or invalid');
+            }
 
-      let saveFunction;
-      let label;
-      
-      switch(type) {
-        case 'orders':
-          saveFunction = saveLockedOrders;
-          label = 'orders';
-          break;
-        case 'pickup_drops':
-          saveFunction = savePickupDrops;
-          label = 'pickup/drops';
-          break;
-        case 'order_files':
-          saveFunction = saveOrderFiles;
-          label = 'order files';
-          break;
-      }
+            let saveFunction;
+            let label;
+            
+            switch(type) {
+              case 'orders':
+                saveFunction = saveLockedOrders;
+                label = 'orders';
+                break;
+              case 'pickup_drops':
+                saveFunction = savePickupDrops;
+                label = 'pickup/drops';
+                break;
+              case 'order_files':
+                saveFunction = saveOrderFiles;
+                label = 'order files';
+                break;
+            }
 
-      await saveFunction(data);
-      
-      setImportStatus(prev => ({ ...prev, [type]: true }));
-      
-      toast({
-        title: "Import Successful",
-        description: `Imported ${data.length} ${label} records`,
+            await saveFunction(data);
+            
+            setImportStatus(prev => ({ ...prev, [type]: true }));
+            
+            toast({
+              title: "Import Successful",
+              description: `Imported ${data.length} ${label} records from CSV`,
+            });
+
+            // Invalidate orders query to trigger reload with new cached data
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+          } catch (error) {
+            console.error(`Failed to save ${type}:`, error);
+            setImportStatus(prev => ({ ...prev, [type]: false }));
+            
+            toast({
+              variant: "destructive",
+              title: "Import Failed",
+              description: error instanceof Error ? error.message : `Failed to import ${type}`,
+            });
+          } finally {
+            setIsImporting(false);
+          }
+        },
+        error: (error) => {
+          console.error(`Failed to parse CSV for ${type}:`, error);
+          setImportStatus(prev => ({ ...prev, [type]: false }));
+          
+          toast({
+            variant: "destructive",
+            title: "CSV Parse Error",
+            description: error.message || `Failed to parse ${type} CSV file`,
+          });
+          setIsImporting(false);
+        }
       });
-
-      // Invalidate orders query to trigger reload with new cached data
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error) {
       console.error(`Failed to import ${type}:`, error);
       setImportStatus(prev => ({ ...prev, [type]: false }));
@@ -87,7 +119,6 @@ export default function DataManagement() {
         title: "Import Failed",
         description: error instanceof Error ? error.message : `Failed to import ${type}`,
       });
-    } finally {
       setIsImporting(false);
     }
   };
@@ -118,8 +149,9 @@ export default function DataManagement() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          Export locked orders from Supabase dashboard, then import the JSON files here. 
-          The system will cache archived data locally and only fetch recent/active orders from the database.
+          Export locked orders from Supabase dashboard as CSV files, then import them here. 
+          The system will cache archived data locally for the entire company and only fetch recent/active orders from the database.
+          This applies company-wide to all users.
         </AlertDescription>
       </Alert>
 
@@ -170,16 +202,16 @@ export default function DataManagement() {
               )}
             </CardTitle>
             <CardDescription>
-              Import locked orders from orders.json
+              Import locked orders from orders.csv
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="orders-file">Select JSON file</Label>
+              <Label htmlFor="orders-file">Select CSV file</Label>
               <Input
                 id="orders-file"
                 type="file"
-                accept=".json"
+                accept=".csv"
                 disabled={isImporting}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -203,16 +235,16 @@ export default function DataManagement() {
               )}
             </CardTitle>
             <CardDescription>
-              Import pickup_drops from pickup_drops.json
+              Import pickup_drops from pickup_drops.csv
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="pickup-drops-file">Select JSON file</Label>
+              <Label htmlFor="pickup-drops-file">Select CSV file</Label>
               <Input
                 id="pickup-drops-file"
                 type="file"
-                accept=".json"
+                accept=".csv"
                 disabled={isImporting}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -236,16 +268,16 @@ export default function DataManagement() {
               )}
             </CardTitle>
             <CardDescription>
-              Import order_files from order_files.json
+              Import order_files from order_files.csv
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="order-files-file">Select JSON file</Label>
+              <Label htmlFor="order-files-file">Select CSV file</Label>
               <Input
                 id="order-files-file"
                 type="file"
-                accept=".json"
+                accept=".csv"
                 disabled={isImporting}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -262,32 +294,60 @@ export default function DataManagement() {
         <CardHeader>
           <CardTitle>How to Export Data from Supabase</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
+          <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-900 dark:text-blue-100">
+              <strong>Important:</strong> Export as CSV format. In Supabase SQL Editor, after running each query, 
+              click the download button and select "CSV" as the export format.
+            </AlertDescription>
+          </Alert>
+
           <div>
-            <h4 className="font-semibold mb-2">1. Export Orders</h4>
-            <code className="block bg-muted p-3 rounded text-sm">
+            <h4 className="font-semibold mb-2">1. Export Orders (orders.csv)</h4>
+            <code className="block bg-muted p-3 rounded text-sm overflow-x-auto">
               SELECT * FROM orders WHERE locked = true ORDER BY created_at;
             </code>
+            <p className="text-sm text-muted-foreground mt-2">
+              Export as <strong>orders.csv</strong>
+            </p>
           </div>
+
           <div>
-            <h4 className="font-semibold mb-2">2. Export Pickup/Drops</h4>
-            <code className="block bg-muted p-3 rounded text-sm">
+            <h4 className="font-semibold mb-2">2. Export Pickup/Drops (pickup_drops.csv)</h4>
+            <code className="block bg-muted p-3 rounded text-sm overflow-x-auto">
               SELECT pd.* FROM pickup_drops pd<br/>
               JOIN orders o ON pd.order_id = o.id<br/>
               WHERE o.locked = true ORDER BY pd.created_at;
             </code>
+            <p className="text-sm text-muted-foreground mt-2">
+              Export as <strong>pickup_drops.csv</strong>
+            </p>
           </div>
+
           <div>
-            <h4 className="font-semibold mb-2">3. Export Order Files</h4>
-            <code className="block bg-muted p-3 rounded text-sm">
+            <h4 className="font-semibold mb-2">3. Export Order Files (order_files.csv)</h4>
+            <code className="block bg-muted p-3 rounded text-sm overflow-x-auto">
               SELECT of.* FROM order_files of<br/>
               JOIN orders o ON of.order_id = o.id<br/>
               WHERE o.locked = true ORDER BY of.created_at;
             </code>
+            <p className="text-sm text-muted-foreground mt-2">
+              Export as <strong>order_files.csv</strong>
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
-            Run these queries in the Supabase SQL Editor and export results as JSON files.
-          </p>
+
+          <div className="border-t pt-4 mt-4">
+            <h4 className="font-semibold mb-2">Steps:</h4>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+              <li>Go to Supabase SQL Editor</li>
+              <li>Run each query above one at a time</li>
+              <li>Click the download/export button in the results</li>
+              <li>Select "CSV" as the format</li>
+              <li>Save the files with the exact names shown above</li>
+              <li>Upload all three CSV files using the import cards above</li>
+            </ol>
+          </div>
         </CardContent>
       </Card>
     </div>
