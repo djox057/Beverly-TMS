@@ -101,6 +101,9 @@ export async function clearCache(): Promise<void> {
   }
 }
 
+// Force clear cache on module load to fix any stale data
+clearCache().catch(console.error);
+
 export async function getCacheStats(): Promise<{
   hasCachedData: boolean;
   cacheAge: number | null;
