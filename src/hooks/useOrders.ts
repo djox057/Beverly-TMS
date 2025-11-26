@@ -9,12 +9,14 @@ interface UseOrdersOptions {
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
   
-  console.log('[useOrders] Hook initialized with options:', options);
+  console.log('🔴 [useOrders] ============ HOOK CALLED ============');
+  console.log('🔴 [useOrders] Options:', JSON.stringify(options));
 
   const query = useQuery({
     queryKey: ['orders', options?.bookedBy],
     queryFn: async () => {
-      console.log("[useOrders] Starting queryFn - fetching orders...");
+      console.log("🟢 [useOrders] ============ QUERYFN EXECUTING ============");
+      console.log("🟢 [useOrders] Fetching orders with bookedBy:", options?.bookedBy);
       
       const initialBatchSize = 500;
       const batchSize = 1000;
@@ -273,6 +275,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
 
+  // Monitor when query data changes
+  useEffect(() => {
+    console.log('🟣 [useOrders] QUERY DATA CHANGED!', {
+      dataLength: query.data?.length,
+      isLoading: query.isLoading,
+      isError: query.isError,
+      isFetching: query.isFetching,
+      isStale: query.isStale
+    });
+  }, [query.data, query.isLoading, query.isError, query.isFetching]);
+
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
     console.log('🔴 [useOrders] REALTIME EFFECT RUNNING - bookedBy:', options?.bookedBy);
@@ -288,18 +301,25 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         async (payload) => {
-          console.log('🆕 [useOrders] INSERT event - order:', payload.new.id);
+          console.log('🆕 [useOrders] ========= INSERT EVENT =========');
+          console.log('🆕 [useOrders] Order ID:', payload.new.id);
           try {
             const newOrder = await fetchSingleOrder(payload.new.id);
+            console.log('🆕 [useOrders] Fetched new order:', newOrder ? 'SUCCESS' : 'FAILED');
+            
             if (newOrder) {
-              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                console.log('[useOrders] ✅ Cache updated with new order');
+              const queryKey = ['orders', options?.bookedBy];
+              queryClient.setQueryData(queryKey, (old: any) => {
+                console.log('🆕 [useOrders] OLD cache length:', old?.length);
                 if (!old) return [newOrder];
-                return [newOrder, ...old];
+                const newData = [newOrder, ...old];
+                console.log('🆕 [useOrders] NEW cache length:', newData.length);
+                return newData;
               });
+              console.log('🆕 [useOrders] ✅ INSERT complete');
             }
           } catch (error) {
-            console.error('[useOrders] ❌ Error handling INSERT:', error);
+            console.error('🆕 [useOrders] ❌ Error handling INSERT:', error);
           }
         }
       )
@@ -311,18 +331,41 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         async (payload) => {
-          console.log('✏️ [useOrders] UPDATE event - order:', payload.new.id);
+          console.log('✏️ [useOrders] ========= UPDATE EVENT =========');
+          console.log('✏️ [useOrders] Order ID:', payload.new.id);
+          console.log('✏️ [useOrders] Payload:', payload);
           try {
+            console.log('✏️ [useOrders] Fetching updated order from DB...');
             const updatedOrder = await fetchSingleOrder(payload.new.id);
+            console.log('✏️ [useOrders] Fetched order:', updatedOrder ? 'SUCCESS' : 'FAILED');
+            
             if (updatedOrder) {
-              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
-                console.log('[useOrders] ✅ Cache updated with modified order');
-                if (!old) return [updatedOrder];
-                return old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
+              console.log('✏️ [useOrders] Calling setQueryData...');
+              const queryKey = ['orders', options?.bookedBy];
+              console.log('✏️ [useOrders] Query key:', queryKey);
+              
+              queryClient.setQueryData(queryKey, (old: any) => {
+                console.log('✏️ [useOrders] OLD cache data:', {
+                  exists: !!old,
+                  length: old?.length,
+                  hasMatchingOrder: old?.some((o: any) => o.id === updatedOrder.id)
+                });
+                
+                if (!old) {
+                  console.log('✏️ [useOrders] No old data, returning single order array');
+                  return [updatedOrder];
+                }
+                
+                const newData = old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
+                console.log('✏️ [useOrders] NEW cache data length:', newData.length);
+                console.log('✏️ [useOrders] Order was updated in cache:', newData.some((o: any) => o.id === updatedOrder.id));
+                return newData;
               });
+              
+              console.log('✏️ [useOrders] ✅ setQueryData completed');
             }
           } catch (error) {
-            console.error('[useOrders] ❌ Error handling UPDATE:', error);
+            console.error('✏️ [useOrders] ❌ Error handling UPDATE:', error);
           }
         }
       )
@@ -423,6 +466,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
 // Helper function to fetch a single order with all joins
 async function fetchSingleOrder(orderId: string) {
+  console.log('📥 [fetchSingleOrder] Fetching order:', orderId);
   try {
     const { data, error } = await supabase
       .from("orders")
@@ -510,13 +554,22 @@ async function fetchSingleOrder(orderId: string) {
       .eq('id', orderId)
       .single();
 
-    if (error) throw error;
-    if (!data) return null;
+    if (error) {
+      console.error('📥 [fetchSingleOrder] ❌ Error:', error);
+      throw error;
+    }
+    if (!data) {
+      console.warn('📥 [fetchSingleOrder] ⚠️ No data returned');
+      return null;
+    }
 
+    console.log('📥 [fetchSingleOrder] ✅ Data fetched, transforming...');
     // Transform and return the single order
-    return transformOrders([data])[0];
+    const transformed = transformOrders([data])[0];
+    console.log('📥 [fetchSingleOrder] ✅ Transformation complete');
+    return transformed;
   } catch (error) {
-    console.error('[fetchSingleOrder] Error fetching order:', orderId, error);
+    console.error('📥 [fetchSingleOrder] ❌ Exception:', orderId, error);
     return null;
   }
 }
