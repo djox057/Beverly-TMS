@@ -1121,11 +1121,9 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-32">
                             <div className="flex gap-1 w-32">
-                              {!order.locked && (
-                                <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
+                              <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
                               {(hasRole("manager") ||
                                 hasRole("admin") ||
                                 hasRole("accounting") ||
