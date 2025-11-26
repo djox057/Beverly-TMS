@@ -290,9 +290,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
   useEffect(() => {
     console.log('🔴 [useOrders] REALTIME EFFECT RUNNING - bookedBy:', options?.bookedBy);
     
-    // Use consistent channel name
+    // Force fresh connection with timestamp
+    const channelName = `orders-realtime-${Date.now()}`;
+    console.log('🔴 [useOrders] Creating channel:', channelName);
     const channel = supabase
-      .channel('orders-realtime-updates')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -331,41 +333,71 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: 'orders'
         },
         async (payload) => {
-          console.log('✏️ [useOrders] ========= UPDATE EVENT =========');
+          console.log('🚨🚨🚨 =======================================');
+          console.log('🚨🚨🚨 ORDERS TABLE UPDATE EVENT RECEIVED!!!');
+          console.log('🚨🚨🚨 =======================================');
+          console.log('✏️ [useOrders] Event type:', payload.eventType);
+          console.log('✏️ [useOrders] Table:', payload.table);
+          console.log('✏️ [useOrders] Schema:', payload.schema);
           console.log('✏️ [useOrders] Order ID:', payload.new.id);
-          console.log('✏️ [useOrders] Payload:', payload);
+          console.log('✏️ [useOrders] FULL PAYLOAD:', JSON.stringify(payload, null, 2));
+          
           try {
-            console.log('✏️ [useOrders] Fetching updated order from DB...');
+            console.log('✏️ [useOrders] Step 1: Fetching updated order from DB...');
             const updatedOrder = await fetchSingleOrder(payload.new.id);
-            console.log('✏️ [useOrders] Fetched order:', updatedOrder ? 'SUCCESS' : 'FAILED');
+            console.log('✏️ [useOrders] Step 2: Fetch result:', updatedOrder ? '✅ SUCCESS' : '❌ FAILED');
             
-            if (updatedOrder) {
-              console.log('✏️ [useOrders] Calling setQueryData...');
-              const queryKey = ['orders', options?.bookedBy];
-              console.log('✏️ [useOrders] Query key:', queryKey);
-              
-              queryClient.setQueryData(queryKey, (old: any) => {
-                console.log('✏️ [useOrders] OLD cache data:', {
-                  exists: !!old,
-                  length: old?.length,
-                  hasMatchingOrder: old?.some((o: any) => o.id === updatedOrder.id)
-                });
-                
-                if (!old) {
-                  console.log('✏️ [useOrders] No old data, returning single order array');
-                  return [updatedOrder];
-                }
-                
-                const newData = old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
-                console.log('✏️ [useOrders] NEW cache data length:', newData.length);
-                console.log('✏️ [useOrders] Order was updated in cache:', newData.some((o: any) => o.id === updatedOrder.id));
-                return newData;
+            if (!updatedOrder) {
+              console.error('✏️ [useOrders] ❌ fetchSingleOrder returned null, aborting update');
+              return;
+            }
+            
+            console.log('✏️ [useOrders] Step 3: Updated order details:', {
+              id: updatedOrder.id,
+              loadNumber: updatedOrder.loadNumber,
+              driverPrice: updatedOrder.driverPrice,
+              freightAmount: updatedOrder.freightAmount,
+              status: updatedOrder.status
+            });
+            
+            const queryKey = ['orders', options?.bookedBy];
+            console.log('✏️ [useOrders] Step 4: Query key for cache update:', queryKey);
+            
+            console.log('✏️ [useOrders] Step 5: Calling setQueryData...');
+            queryClient.setQueryData(queryKey, (old: any) => {
+              console.log('✏️ [useOrders] Step 6: Inside setQueryData callback');
+              console.log('✏️ [useOrders] OLD cache:', {
+                exists: !!old,
+                isArray: Array.isArray(old),
+                length: old?.length,
+                firstOrderId: old?.[0]?.id
               });
               
-              console.log('✏️ [useOrders] ✅ setQueryData completed');
-            }
+              if (!old || !Array.isArray(old)) {
+                console.log('✏️ [useOrders] ❌ No old data or not array, returning [updatedOrder]');
+                return [updatedOrder];
+              }
+              
+              const orderIndex = old.findIndex((o: any) => o.id === updatedOrder.id);
+              console.log('✏️ [useOrders] Order index in cache:', orderIndex);
+              
+              if (orderIndex === -1) {
+                console.log('✏️ [useOrders] ⚠️ Order not found in cache, adding it');
+                return [updatedOrder, ...old];
+              }
+              
+              console.log('✏️ [useOrders] OLD order data:', old[orderIndex]);
+              const newData = [...old];
+              newData[orderIndex] = updatedOrder;
+              console.log('✏️ [useOrders] NEW order data:', newData[orderIndex]);
+              console.log('✏️ [useOrders] ✅ Returning updated array, length:', newData.length);
+              return newData;
+            });
+            
+            console.log('🎉🎉🎉 UPDATE COMPLETE! Cache should be updated now 🎉🎉🎉');
           } catch (error) {
             console.error('✏️ [useOrders] ❌ Error handling UPDATE:', error);
+            console.error('✏️ [useOrders] Error stack:', error);
           }
         }
       )
@@ -442,12 +474,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
         }
       )
       .subscribe((status, err) => {
+        console.log('📡 [useOrders] ========= SUBSCRIPTION STATUS =========');
+        console.log('📡 [useOrders] Status:', status);
+        console.log('📡 [useOrders] Error:', err);
+        console.log('📡 [useOrders] Channel name:', channelName);
+        
         if (status === 'SUBSCRIBED') {
-          console.log('🟢 [useOrders] ✅ Successfully subscribed to realtime updates');
+          console.log('🟢🟢🟢 [useOrders] ✅✅✅ SUCCESSFULLY SUBSCRIBED TO REALTIME! 🟢🟢🟢');
+          console.log('🟢 [useOrders] Listening for INSERT, UPDATE, DELETE on orders table');
+          console.log('🟢 [useOrders] Listening for changes on pickup_drops table');
+          console.log('🟢 [useOrders] Listening for changes on order_files table');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('🔴 [useOrders] ❌ Channel error:', err);
+          console.error('🔴🔴🔴 [useOrders] ❌❌❌ CHANNEL ERROR! 🔴🔴🔴');
+          console.error('🔴 [useOrders] Error details:', err);
         } else if (status === 'TIMED_OUT') {
-          console.error('🔴 [useOrders] ❌ Subscription timed out');
+          console.error('🔴🔴🔴 [useOrders] ❌❌❌ SUBSCRIPTION TIMED OUT! 🔴🔴🔴');
         } else if (status === 'CLOSED') {
           console.log('🟡 [useOrders] Channel closed');
         } else {
