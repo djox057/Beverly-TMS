@@ -279,107 +279,135 @@ export const useOrders = (options?: UseOrdersOptions) => {
         let lockedOrders = await getLockedOrders();
         
         if (!lockedOrders) {
-          console.log('📥 [useOrders] Cache miss - fetching locked orders from DB...');
+          console.log('📥 [useOrders] Cache miss - fetching ALL locked orders from DB in batches...');
           
-          let lockedQuery = supabase
-            .from("orders")
-            .select(`
-              *,
-              pickup_drops (
-                id,
-                type,
-                address,
-                city,
-                state,
-                zip_code,
-                datetime,
-                end_datetime,
-                sequence_number,
-                arrived_at,
-                checked_out_at,
-                going_to_at,
-                company_name,
-                contact_name,
-                contact_phone,
-                special_instructions
-              ),
-              order_files (
-                id,
-                file_category,
-                file_name,
-                file_path,
-                file_size,
-                content_type,
-                uploaded_by,
-                created_at
-              ),
-              broker:brokers (
-                id,
-                name,
-                mc_number,
-                address
-              ),
-              company:companies!orders_company_id_fkey (
-                id,
-                name
-              ),
-              booked_by_company:companies!orders_booked_by_company_id_fkey (
-                id,
-                name
-              ),
-              truck:trucks!orders_truck_id_fkey (
-                id,
-                truck_number,
-                company:companies (
+          const allLockedOrders = [];
+          let offset = 0;
+          const batchSize = 1000;
+          let hasMore = true;
+          let batchCount = 0;
+
+          while (hasMore) {
+            console.log(`[useOrders] 🔒 Loading locked batch ${batchCount + 1} starting at offset ${offset}...`);
+            
+            let lockedQuery = supabase
+              .from("orders")
+              .select(`
+                *,
+                pickup_drops (
+                  id,
+                  type,
+                  address,
+                  city,
+                  state,
+                  zip_code,
+                  datetime,
+                  end_datetime,
+                  sequence_number,
+                  arrived_at,
+                  checked_out_at,
+                  going_to_at,
+                  company_name,
+                  contact_name,
+                  contact_phone,
+                  special_instructions
+                ),
+                order_files (
+                  id,
+                  file_category,
+                  file_name,
+                  file_path,
+                  file_size,
+                  content_type,
+                  uploaded_by,
+                  created_at
+                ),
+                broker:brokers (
+                  id,
+                  name,
+                  mc_number,
+                  address
+                ),
+                company:companies!orders_company_id_fkey (
                   id,
                   name
+                ),
+                booked_by_company:companies!orders_booked_by_company_id_fkey (
+                  id,
+                  name
+                ),
+                truck:trucks!orders_truck_id_fkey (
+                  id,
+                  truck_number,
+                  company:companies (
+                    id,
+                    name
+                  )
+                ),
+                trailer:trailers!orders_trailer_id_fkey (
+                  id,
+                  trailer_number
+                ),
+                driver1:drivers!orders_driver1_id_fkey (
+                  id,
+                  name
+                ),
+                driver2:drivers!orders_driver2_id_fkey (
+                  id,
+                  name
+                ),
+                original_driver1:drivers!orders_original_driver1_id_fkey (
+                  id,
+                  name
+                ),
+                original_driver2:drivers!orders_original_driver2_id_fkey (
+                  id,
+                  name
+                ),
+                original_truck:trucks!orders_original_truck_id_fkey (
+                  id,
+                  truck_number
+                ),
+                original_trailer:trailers!orders_original_trailer_id_fkey (
+                  id,
+                  trailer_number
                 )
-              ),
-              trailer:trailers!orders_trailer_id_fkey (
-                id,
-                trailer_number
-              ),
-              driver1:drivers!orders_driver1_id_fkey (
-                id,
-                name
-              ),
-              driver2:drivers!orders_driver2_id_fkey (
-                id,
-                name
-              ),
-              original_driver1:drivers!orders_original_driver1_id_fkey (
-                id,
-                name
-              ),
-              original_driver2:drivers!orders_original_driver2_id_fkey (
-                id,
-                name
-              ),
-              original_truck:trucks!orders_original_truck_id_fkey (
-                id,
-                truck_number
-              ),
-              original_trailer:trailers!orders_original_trailer_id_fkey (
-                id,
-                trailer_number
-              )
-            `)
-            .eq("locked", true)
-            .order("created_at", { ascending: false });
+              `)
+              .eq("locked", true)
+              .order("created_at", { ascending: false })
+              .range(offset, offset + batchSize - 1);
 
-          if (options?.bookedBy) {
-            lockedQuery = lockedQuery.eq("booked_by", options.bookedBy);
+            if (options?.bookedBy) {
+              lockedQuery = lockedQuery.eq("booked_by", options.bookedBy);
+            }
+
+            const { data: batch, error: batchError } = await lockedQuery;
+
+            if (batchError) {
+              console.error('[useOrders] ❌ Error fetching locked orders batch:', batchError);
+              hasMore = false;
+              break;
+            }
+
+            if (!batch || batch.length === 0) {
+              console.log(`[useOrders] 🔒 No more locked orders at offset ${offset}`);
+              hasMore = false;
+              break;
+            }
+
+            console.log(`[useOrders] ✅ Loaded locked batch ${batchCount + 1}: ${batch.length} orders`);
+            allLockedOrders.push(...batch);
+            offset += batchSize;
+            batchCount++;
+
+            if (batch.length < batchSize) {
+              console.log(`[useOrders] 🔒 Last batch was smaller (${batch.length} < ${batchSize}), stopping`);
+              hasMore = false;
+            }
           }
 
-          const { data: lockedData, error: lockedError } = await lockedQuery;
-
-          if (lockedError) {
-            console.error('[useOrders] ❌ Error fetching locked orders:', lockedError);
-            return;
-          }
-
-          lockedOrders = transformOrders(lockedData || []);
-          console.log(`[useOrders] ✅ Fetched ${lockedOrders.length} locked orders from DB`);
+          lockedOrders = transformOrders(allLockedOrders);
+          console.log(`[useOrders] ✅ Fetched ALL ${lockedOrders.length} locked orders from DB in ${batchCount} batches`);
           
           // Save to cache for next time
           await saveLockedOrders(lockedOrders);
