@@ -32,6 +32,7 @@ import Analytics from "./pages/Analytics";
 import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
+import DataManagement from "./pages/DataManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -197,6 +198,11 @@ const AppContent = () => {
         <Route path="/trips" element={
           <ProtectedRoute excludedRoles={['dispatch', 'afterhours', 'driver', 'safety', 'supervisor']}>
             <Layout><Trips /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/data-management" element={
+          <ProtectedRoute requiredRole="admin">
+            <Layout><DataManagement /></Layout>
           </ProtectedRoute>
         } />
         {/* Driver Portal Routes */}
