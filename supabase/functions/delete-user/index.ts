@@ -38,8 +38,13 @@ Deno.serve(async (req) => {
     // Verify the user token is valid
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser()
     
-    if (userError || !user) {
-      throw new Error('Invalid token')
+    if (userError) {
+      console.error('Token verification error:', userError)
+      throw new Error(`Invalid token: ${userError.message}`)
+    }
+    
+    if (!user) {
+      throw new Error('No user found in token')
     }
 
     // Create admin client for privileged operations
