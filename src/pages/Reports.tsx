@@ -362,17 +362,36 @@ const Reports = () => {
   // Helper to format datetime without timezone conversion
   const formatDateTime = (datetimeStr: string, formatStr: string) => {
     if (!datetimeStr || datetimeStr === "—") return "—";
-    const parsed = parseSimpleDateTime(datetimeStr);
-    // Create date from parsed components (no timezone conversion)
-    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-    return format(date, formatStr);
+    
+    try {
+      const parsed = parseSimpleDateTime(datetimeStr);
+      // Create date from parsed components (no timezone conversion)
+      const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+      
+      // Validate that the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('[formatDateTime] Invalid date created from:', datetimeStr);
+        return "—";
+      }
+      
+      return format(date, formatStr);
+    } catch (error) {
+      console.warn('[formatDateTime] Error formatting date:', datetimeStr, error);
+      return "—";
+    }
   };
 
   // Helper to format time only
   const formatTime = (datetimeStr: string) => {
     if (!datetimeStr || datetimeStr === "—") return "—";
-    const parsed = parseSimpleDateTime(datetimeStr);
-    return parsed.timeString;
+    
+    try {
+      const parsed = parseSimpleDateTime(datetimeStr);
+      return parsed.timeString;
+    } catch (error) {
+      console.warn('[formatTime] Error parsing time:', datetimeStr, error);
+      return "—";
+    }
   };
 
   // Helper to format time range (or single time if start equals end)
