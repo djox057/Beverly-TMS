@@ -451,7 +451,7 @@ export const useReports = () => {
           company: truck.driver1?.company || truck.company || null,
         }));
 
-        // Fetch only recent, non-canceled orders (last 90 days) for better performance
+        // Fetch active and recent orders based on delivery date, not update date
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -497,9 +497,9 @@ export const useReports = () => {
             )
           `)
           .eq("canceled", false)
-          .gte("updated_at", ninetyDaysAgo.toISOString())
-          .order("updated_at", { ascending: false })
-          .limit(2000);
+          .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
+          .order("delivery_datetime", { ascending: false, nullsFirst: true })
+          .limit(1000);
 
         if (ordersError) throw ordersError;
 
