@@ -253,19 +253,59 @@ export const useOrders = (options?: UseOrdersOptions) => {
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
 
-  // Set up real-time subscriptions for automatic updates
+  // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
     const channel = supabase
       .channel('orders-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'orders'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        async (payload) => {
+          console.log('[useOrders] New order inserted:', payload.new.id);
+          const newOrder = await fetchSingleOrder(payload.new.id);
+          if (newOrder) {
+            queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+              if (!old) return [newOrder];
+              return [newOrder, ...old];
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders'
+        },
+        async (payload) => {
+          console.log('[useOrders] Order updated:', payload.new.id);
+          const updatedOrder = await fetchSingleOrder(payload.new.id);
+          if (updatedOrder) {
+            queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+              if (!old) return [updatedOrder];
+              return old.map((o: any) => o.id === updatedOrder.id ? updatedOrder : o);
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'orders'
+        },
+        (payload) => {
+          console.log('[useOrders] Order deleted:', payload.old.id);
+          queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+            if (!old) return [];
+            return old.filter((o: any) => o.id !== payload.old.id);
+          });
         }
       )
       .on(
@@ -275,8 +315,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
           schema: 'public',
           table: 'pickup_drops'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        async (payload) => {
+          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+          if (orderId) {
+            console.log('[useOrders] Pickup/drop changed for order:', orderId);
+            const updatedOrder = await fetchSingleOrder(orderId);
+            if (updatedOrder) {
+              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                if (!old) return [updatedOrder];
+                return old.map((o: any) => o.id === orderId ? updatedOrder : o);
+              });
+            }
+          }
         }
       )
       .on(
@@ -286,8 +336,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
           schema: 'public',
           table: 'order_files'
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['orders', options?.bookedBy] });
+        async (payload) => {
+          const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
+          if (orderId) {
+            console.log('[useOrders] File changed for order:', orderId);
+            const updatedOrder = await fetchSingleOrder(orderId);
+            if (updatedOrder) {
+              queryClient.setQueryData(['orders', options?.bookedBy], (old: any) => {
+                if (!old) return [updatedOrder];
+                return old.map((o: any) => o.id === orderId ? updatedOrder : o);
+              });
+            }
+          }
         }
       )
       .subscribe();
@@ -299,6 +359,106 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
   return query;
 };
+
+// Helper function to fetch a single order with all joins
+async function fetchSingleOrder(orderId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        pickup_drops (
+          id,
+          type,
+          address,
+          city,
+          state,
+          zip_code,
+          datetime,
+          end_datetime,
+          sequence_number,
+          arrived_at,
+          checked_out_at,
+          going_to_at,
+          company_name,
+          contact_name,
+          contact_phone,
+          special_instructions
+        ),
+        order_files (
+          id,
+          file_category,
+          file_name,
+          file_path,
+          file_size,
+          content_type,
+          uploaded_by,
+          created_at
+        ),
+        broker:brokers (
+          id,
+          name,
+          mc_number,
+          address
+        ),
+        company:companies!orders_company_id_fkey (
+          id,
+          name
+        ),
+        booked_by_company:companies!orders_booked_by_company_id_fkey (
+          id,
+          name
+        ),
+        truck:trucks!orders_truck_id_fkey (
+          id,
+          truck_number,
+          company:companies (
+            id,
+            name
+          )
+        ),
+        trailer:trailers!orders_trailer_id_fkey (
+          id,
+          trailer_number
+        ),
+        driver1:drivers!orders_driver1_id_fkey (
+          id,
+          name
+        ),
+        driver2:drivers!orders_driver2_id_fkey (
+          id,
+          name
+        ),
+        original_driver1:drivers!orders_original_driver1_id_fkey (
+          id,
+          name
+        ),
+        original_driver2:drivers!orders_original_driver2_id_fkey (
+          id,
+          name
+        ),
+        original_truck:trucks!orders_original_truck_id_fkey (
+          id,
+          truck_number
+        ),
+        original_trailer:trailers!orders_original_trailer_id_fkey (
+          id,
+          trailer_number
+        )
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    // Transform and return the single order
+    return transformOrders([data])[0];
+  } catch (error) {
+    console.error('[fetchSingleOrder] Error fetching order:', orderId, error);
+    return null;
+  }
+}
 
 // Helper function to transform orders data
 function transformOrders(allOrders: any[]) {
