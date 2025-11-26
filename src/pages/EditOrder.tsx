@@ -382,34 +382,7 @@ const EditOrder = () => {
       if (orderData) {
         console.log("Setting form data with order:", orderData);
 
-        // Check if order is locked and redirect if it is
-        if (orderData.locked) {
-          console.log("Load is locked, redirecting to loads page");
-          toast({
-            title: "Load Locked",
-            description: "This load is locked and cannot be edited",
-            variant: "destructive",
-          });
-          const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
-          const shouldReturnToYardLoads = localStorage.getItem("returnToYardLoads") === "true";
-          const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
-          const shouldReturnToOrders = localStorage.getItem("returnToOrders") === "true";
-          if (shouldReturnToReports) {
-            localStorage.removeItem("returnToReports");
-            navigate("/reports");
-          } else if (shouldReturnToYardLoads) {
-            localStorage.removeItem("returnToYardLoads");
-            navigate("/yard-loads");
-          } else if (shouldReturnToTrips) {
-            localStorage.removeItem("returnToTrips");
-            navigate("/trips");
-          } else if (shouldReturnToOrders) {
-            navigate("/orders");
-          } else {
-            navigate("/orders");
-          }
-          return;
-        }
+        // Set locked status
         setIsLocked(orderData.locked || false);
         setBookedByCompany(orderData.booked_by_company_id || "");
         setBroker(orderData.broker_id || "");
@@ -2075,6 +2048,11 @@ const EditOrder = () => {
                       : "Back to Orders"}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
+              {isLocked && (
+                <Badge variant="secondary" className="bg-yellow-500 text-yellow-950">
+                  🔒 Locked - View Only
+                </Badge>
+              )}
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
@@ -2091,6 +2069,7 @@ const EditOrder = () => {
                 placeholder="Broker load number"
                 value={brokerLoadNumber}
                 onChange={(e) => setBrokerLoadNumber(e.target.value)}
+                disabled={isLocked}
               />
             </div>
 
@@ -2103,6 +2082,7 @@ const EditOrder = () => {
                   onValueChange={setBookedByCompany}
                   placeholder="Select company"
                   searchPlaceholder="Search companies..."
+                  disabled={isLocked}
                 />
               </div>
 
@@ -2113,6 +2093,7 @@ const EditOrder = () => {
                   onValueChange={setBroker}
                   placeholder="Select broker"
                   searchPlaceholder="Search brokers..."
+                  disabled={isLocked}
                 />
               </div>
             </div>
@@ -2126,6 +2107,7 @@ const EditOrder = () => {
                   onValueChange={setTruck}
                   placeholder="Select truck"
                   searchPlaceholder="Search trucks..."
+                  disabled={isLocked}
                 />
               </div>
 
@@ -2137,6 +2119,7 @@ const EditOrder = () => {
                   onValueChange={setTrailerId}
                   placeholder="Select trailer"
                   searchPlaceholder="Search trailers..."
+                  disabled={isLocked}
                 />
               </div>
             </div>
@@ -2150,6 +2133,7 @@ const EditOrder = () => {
                   onValueChange={setDriver1}
                   placeholder="Select primary driver"
                   searchPlaceholder="Search drivers..."
+                  disabled={isLocked}
                 />
               </div>
 
@@ -2167,6 +2151,7 @@ const EditOrder = () => {
                   onValueChange={(value) => setDriver2(value === "none" ? "" : value)}
                   placeholder="Select second driver"
                   searchPlaceholder="Search drivers..."
+                  disabled={isLocked}
                 />
               </div>
             </div>
@@ -2174,16 +2159,18 @@ const EditOrder = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">Pickups & Deliveries</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Pickup
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Delivery
-                  </Button>
-                </div>
+                {!isLocked && (
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("pickup")}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Pickup
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addPickupDrop("delivery")}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Delivery
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <DragDropContext onDragEnd={handleDragEnd}>
@@ -2207,19 +2194,23 @@ const EditOrder = () => {
                               >
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center gap-2">
-                                    <div {...provided.dragHandleProps}>
-                                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                                    </div>
+                                    {!isLocked && (
+                                      <div {...provided.dragHandleProps}>
+                                        <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                                      </div>
+                                    )}
                                     <h4 className="font-medium capitalize">{item.type}</h4>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removePickupDrop(item.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {!isLocked && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => removePickupDrop(item.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
                                   <div className="space-y-1">
@@ -2243,6 +2234,7 @@ const EditOrder = () => {
                                         );
                                         setPickupsDrops(updated);
                                       }}
+                                      disabled={isLocked}
                                     />
                                   </div>
 
@@ -2253,6 +2245,7 @@ const EditOrder = () => {
                                       placeholder="123 Main St"
                                       value={item.address}
                                       onChange={(e) => updatePickupDrop(item.id, "address", e.target.value)}
+                                      disabled={isLocked}
                                     />
                                   </div>
 
@@ -2264,6 +2257,7 @@ const EditOrder = () => {
                                         placeholder="City"
                                         value={item.city || ""}
                                         onChange={(e) => updatePickupDrop(item.id, "city", e.target.value)}
+                                        disabled={isLocked}
                                       />
                                     </div>
 
@@ -2272,6 +2266,7 @@ const EditOrder = () => {
                                       <Select
                                         value={item.state || ""}
                                         onValueChange={(value) => updatePickupDrop(item.id, "state", value)}
+                                        disabled={isLocked}
                                       >
                                         <SelectTrigger id={`state-${item.id}`}>
                                           <SelectValue placeholder="ST" />
@@ -2298,6 +2293,7 @@ const EditOrder = () => {
                                           updatePickupDrop(item.id, "zipCode", value);
                                         }}
                                         maxLength={10}
+                                        disabled={isLocked}
                                       />
                                     </div>
                                   </div>
@@ -2312,6 +2308,7 @@ const EditOrder = () => {
                                       onStartTimeChange={(time) => updatePickupDropTime(item.id, "startTime", time)}
                                       onEndTimeChange={(time) => updatePickupDropTime(item.id, "endTime", time)}
                                       placeholder={`Select ${item.type} date and time range`}
+                                      disabled={isLocked}
                                     />
                                   </div>
 
@@ -2344,7 +2341,7 @@ const EditOrder = () => {
                   value={freightAmount}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setFreightAmount)}
-                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
                   className={
                     hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
                       ? "bg-muted cursor-not-allowed"
@@ -2367,6 +2364,7 @@ const EditOrder = () => {
                   value={driverPrice}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setDriverPrice)}
+                  disabled={isLocked}
                 />
                 <p className="text-sm text-muted-foreground">
                   Total Driver Pay:{" "}
@@ -2376,7 +2374,7 @@ const EditOrder = () => {
             </div>
 
             {/* Additional Button */}
-            {!showAdditionalFields && (
+            {!showAdditionalFields && !isLocked && (
               <div className="flex justify-center">
                 <Button
                   type="button"
@@ -2414,6 +2412,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setDetention)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2430,6 +2429,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setDetentionDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2446,6 +2446,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setLayover)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2462,6 +2463,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setLayoverDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                 </div>
@@ -2481,6 +2483,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setExtraStop)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2497,6 +2500,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setLumper)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                 </div>
@@ -2516,6 +2520,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setLateFee)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2532,6 +2537,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setLateFeeDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2548,6 +2554,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setNoTrackingFee)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2564,6 +2571,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setNoTrackingFeeDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                 </div>
@@ -2583,6 +2591,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setWrongAddressFee)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2599,6 +2608,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setWrongAddressFeeDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2627,6 +2637,7 @@ const EditOrder = () => {
                         }
                       }}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2643,6 +2654,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setTonuDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                 </div>
@@ -2663,6 +2675,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setOtherCharges)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                   <div className="space-y-2">
@@ -2679,6 +2692,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setOtherChargesDriver)}
                       className="bg-green-50/50 dark:bg-green-950/20"
+                      disabled={isLocked}
                     />
                   </div>
                 </div>
@@ -2697,6 +2711,7 @@ const EditOrder = () => {
                       onKeyDown={handleNumericKeyDown}
                       onChange={handleNumericChange(setEscortFee)}
                       className="bg-blue-50/50 dark:bg-blue-950/20"
+                      disabled={isLocked}
                     />
                   </div>
 
@@ -2707,6 +2722,7 @@ const EditOrder = () => {
                         id="escort-broker-paid"
                         checked={escortFeeBrokerPaid}
                         onCheckedChange={setEscortFeeBrokerPaid}
+                        disabled={isLocked}
                       />
                       <span className="text-sm text-muted-foreground">
                         {escortFeeBrokerPaid ? "✓ Included in total revenue" : "Not included in total revenue"}
@@ -2728,7 +2744,7 @@ const EditOrder = () => {
                   value={loadedMiles}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setLoadedMiles)}
-                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
                   className={
                     hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
                       ? "bg-muted cursor-not-allowed"
@@ -2746,7 +2762,7 @@ const EditOrder = () => {
                   value={dhMiles}
                   onKeyDown={handleNumericKeyDown}
                   onChange={handleNumericChange(setDhMiles)}
-                  disabled={hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")}
+                  disabled={isLocked || (hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting"))}
                   className={
                     hasRole("dispatch") && !hasRole("manager") && !hasRole("admin") && !hasRole("accounting")
                       ? "bg-muted cursor-not-allowed"
@@ -2769,6 +2785,7 @@ const EditOrder = () => {
                     onValueChange={setBookedBy}
                     placeholder="Select person"
                     searchPlaceholder="Search names..."
+                    disabled={isLocked}
                   />
                 ) : (
                   <Input
@@ -2789,6 +2806,7 @@ const EditOrder = () => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
+                disabled={isLocked}
               />
             </div>
 
@@ -3409,7 +3427,7 @@ const EditOrder = () => {
                     Revert Transfer
                   </Button>
                 )}
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || isLocked}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
