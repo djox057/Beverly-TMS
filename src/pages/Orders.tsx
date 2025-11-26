@@ -239,32 +239,9 @@ const Orders = () => {
     }
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
-  const { data: orders, isLoading, error, refetch } = useOrders(orderFilterOptions);
+  const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
 
   const { data: companies } = useCompanies();
-
-  // Refetch data when returning to this page or when window gains focus
-  useEffect(() => {
-    refetch();
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        refetch();
-      }
-    };
-
-    const handleFocus = () => {
-      refetch();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [refetch]);
 
   // Filter orders based on search term and filters
   const filteredOrders =
