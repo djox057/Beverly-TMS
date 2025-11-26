@@ -255,12 +255,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
-    console.log('[useOrders] Setting up realtime subscriptions');
+    console.log('[useOrders] Setting up realtime subscriptions with bookedBy:', options?.bookedBy);
     
-    // Create a unique channel to avoid conflicts
-    const channelName = `orders-realtime-${Date.now()}`;
+    // Use consistent channel name
     const channel = supabase
-      .channel(channelName)
+      .channel('orders-realtime-updates')
       .on(
         'postgres_changes',
         {
@@ -379,8 +378,16 @@ export const useOrders = (options?: UseOrdersOptions) => {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[useOrders] Subscription status:', status);
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[useOrders] ✅ Successfully subscribed to realtime updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[useOrders] ❌ Channel error:', err);
+        } else if (status === 'TIMED_OUT') {
+          console.error('[useOrders] ❌ Subscription timed out');
+        } else {
+          console.log('[useOrders] Subscription status changed to:', status);
+        }
       });
 
     return () => {
