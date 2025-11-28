@@ -659,47 +659,33 @@ function transformOrders(allOrders: any[]) {
         const firstPickup = pickupDrops.find((pd: any) => pd.type === 'pickup');
         const lastDelivery = pickupDrops.filter((pd: any) => pd.type === 'delivery').pop();
 
-        // Calculate total driver pay
+        // CRITICAL: Handle both snake_case (DB) and camelCase (cached) field names
+        // Cached locked orders are already transformed with camelCase, DB orders use snake_case
         const totalDriverPay = 
-          (order.driver_price || 0) +
-          (order.detention_driver || 0) +
-          (order.layover_driver || 0) +
-          (order.tonu_driver || 0) +
-          (order.extra_stop_driver || 0) +
-          (order.lumper_driver || 0) +
-          (order.late_fee_driver || 0) +
-          (order.no_tracking_fee_driver || 0) +
-          (order.wrong_address_fee_driver || 0) +
-          (order.other_charges_driver || 0);
+          (order.driver_price || order.driverPrice || 0) +
+          (order.detention_driver || order.detentionDriver || 0) +
+          (order.layover_driver || order.layoverDriver || 0) +
+          (order.tonu_driver || order.tonuDriver || 0) +
+          (order.extra_stop_driver || order.extraStopDriver || 0) +
+          (order.lumper_driver || order.lumperDriver || 0) +
+          (order.late_fee_driver || order.lateFeeDriver || 0) +
+          (order.no_tracking_fee_driver || order.noTrackingFeeDriver || 0) +
+          (order.wrong_address_fee_driver || order.wrongAddressFeeDriver || 0) +
+          (order.other_charges_driver || order.otherChargesDriver || 0);
 
-        // Calculate total freight amount
+        // Calculate total freight amount - handle both formats
         const totalFreightAmount = 
-          (order.freight_amount || 0) +
+          (order.freight_amount || order.freightAmount || 0) +
           (order.detention || 0) +
           (order.layover || 0) +
           (order.tonu || 0) +
-          (order.extra_stop || 0) +
+          (order.extra_stop || order.extraStop || 0) +
           (order.lumper || 0) +
-          (order.late_fee || 0) +
-          (order.no_tracking_fee || 0) +
-          (order.wrong_address_fee || 0) +
-          (order.escort_fee || 0) +
-          (order.other_charges || 0);
-
-        // Debug first 3 orders to see field names
-        if (index < 3) {
-          console.log(`🔍 [transformOrders] Order ${index} fields:`, {
-            id: order.id,
-            loadNumber: order.load_number || order.loadNumber,
-            freight_amount: order.freight_amount,
-            driver_price: order.driver_price,
-            locked: order.locked,
-            hasFreight: order.freight_amount !== undefined,
-            hasDriverPrice: order.driver_price !== undefined,
-            calculatedFreight: totalFreightAmount,
-            calculatedDriverPay: totalDriverPay
-          });
-        }
+          (order.late_fee || order.lateFee || 0) +
+          (order.no_tracking_fee || order.noTrackingFee || 0) +
+          (order.wrong_address_fee || order.wrongAddressFee || 0) +
+          (order.escort_fee || order.escortFee || 0) +
+          (order.other_charges || order.otherCharges || 0);
 
         // Filter files by category
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
