@@ -695,10 +695,18 @@ function transformOrders(allOrders: any[]) {
           toNum(order.escort_fee || order.escortFee) +
           toNum(order.other_charges || order.otherCharges);
 
-        // Filter files by category
+        // Filter files by category OR check CSV columns for file indicators
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
         const podFiles = orderFiles.filter((f: any) => f.file_category === 'POD');
         const bolFiles = orderFiles.filter((f: any) => f.file_category === 'BOL');
+        
+        // For archived orders from CSV, check if they have RC/POD indicators
+        const hasRcFromCsv = order.has_rc || order.hasRc || (order.rc_count && Number(order.rc_count) > 0);
+        const hasPodFromCsv = order.has_pod || order.hasPod || (order.pod_count && Number(order.pod_count) > 0);
+        
+        // Merge arrays: use actual files if available, otherwise create placeholder based on CSV indicators
+        const finalRcFiles = rcFiles.length > 0 ? rcFiles : (hasRcFromCsv ? [{ file_category: 'RC' }] : []);
+        const finalPodFiles = podFiles.length > 0 ? podFiles : (hasPodFromCsv ? [{ file_category: 'POD' }] : []);
 
         // Transform to camelCase with computed fields, flattening joined data
         return {
@@ -715,47 +723,47 @@ function transformOrders(allOrders: any[]) {
           invoiced: order.invoiced,
           isRecovery: order.is_recovery,
           
-          // Truck and equipment - flatten joined data
-          truckNumber: order.truck?.truck_number || null,
+          // Truck and equipment - flatten joined data OR CSV columns
+          truckNumber: order.truck?.truck_number || order.truck_number || order.truckNumber || null,
           truckId: order.truck_id,
-          truckCompanyName: order.truck?.company?.name || null,
-          truckCompanyId: order.truck?.company?.id || null,
-          trailerNumber: order.trailer?.trailer_number || null,
+          truckCompanyName: order.truck?.company?.name || order.truck_company_name || order.truckCompanyName || null,
+          truckCompanyId: order.truck?.company?.id || order.truck_company_id || null,
+          trailerNumber: order.trailer?.trailer_number || order.trailer_number || order.trailerNumber || null,
           trailerId: order.trailer_id,
           
-          // Driver info - flatten joined data
-          driverName: order.driver1?.name || null,
-          driver1Name: order.driver1?.name || null,
-          driver2Name: order.driver2?.name || null,
+          // Driver info - flatten joined data OR CSV columns
+          driverName: order.driver1?.name || order.driver1_name || order.driver_name || order.driverName || null,
+          driver1Name: order.driver1?.name || order.driver1_name || order.driver_name || order.driverName || null,
+          driver2Name: order.driver2?.name || order.driver2_name || order.driver2Name || null,
           driver1Id: order.driver1_id,
           driver2Id: order.driver2_id,
           
-          // Broker info - flatten joined data
-          brokerName: order.broker?.name || null,
-          brokerAddress: order.broker?.address || null,
-          brokerMcNumber: order.broker?.mc_number || null,
+          // Broker info - flatten joined data OR CSV columns
+          brokerName: order.broker?.name || order.broker_name || order.brokerName || null,
+          brokerAddress: order.broker?.address || order.broker_address || order.brokerAddress || null,
+          brokerMcNumber: order.broker?.mc_number || order.broker_mc_number || order.brokerMcNumber || null,
           brokerId: order.broker_id,
           
-          // Company info - flatten joined data
-          companyName: order.company?.name || null,
+          // Company info - flatten joined data OR CSV columns
+          companyName: order.company?.name || order.company_name || order.companyName || null,
           companyId: order.company_id,
-          bookedBy: order.booked_by,
+          bookedBy: order.booked_by || order.bookedBy,
           bookedByCompanyId: order.booked_by_company_id,
-          bookedByCompanyName: order.booked_by_company?.name || null,
+          bookedByCompanyName: order.booked_by_company?.name || order.booked_by_company_name || order.bookedByCompanyName || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
-          // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
+          // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields OR CSV columns
           // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
           pickupDate: firstPickup?.datetime 
             ? firstPickup.datetime 
             : ((order.pickup_datetime || order.pickupDatetime || '').replace(' ', 'T')),
-          pickupCity: firstPickup?.city || '',
-          pickupState: firstPickup?.state || '',
+          pickupCity: firstPickup?.city || order.pickup_city || order.pickupCity || '',
+          pickupState: firstPickup?.state || order.pickup_state || order.pickupState || '',
           deliveryDate: lastDelivery?.datetime 
             ? lastDelivery.datetime 
             : ((order.delivery_datetime || order.deliveryDatetime || '').replace(' ', 'T')),
-          deliveryCity: lastDelivery?.city || '',
-          deliveryState: lastDelivery?.state || '',
+          deliveryCity: lastDelivery?.city || order.delivery_city || order.deliveryCity || '',
+          deliveryState: lastDelivery?.state || order.delivery_state || order.deliveryState || '',
           
           // Financial fields - broker amounts
           freightAmount: order.freight_amount,
@@ -832,8 +840,8 @@ function transformOrders(allOrders: any[]) {
           originalDriver1Id: order.original_driver1_id,
           originalDriver2Id: order.original_driver2_id,
           
-          // Other fields
-          notes: order.notes,
+          // Other fields - handle "null" strings from CSV
+          notes: (order.notes === 'null' || order.notes === 'NULL') ? '' : (order.notes || ''),
           commodity: order.commodity,
           weight: order.weight,
           poNumber: order.po_number,
@@ -888,11 +896,11 @@ function transformOrders(allOrders: any[]) {
             name: order.booked_by_company.name
           } : null,
           
-          // Arrays
+          // Arrays - use final merged files
           pickup_drops: pickupDrops,
           order_files: orderFiles,
-          rcFiles,
-          podFiles,
+          rcFiles: finalRcFiles,
+          podFiles: finalPodFiles,
           bolFiles,
         };
       });
