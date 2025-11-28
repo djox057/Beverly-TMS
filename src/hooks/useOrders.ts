@@ -661,13 +661,15 @@ function transformOrders(allOrders: any[]) {
   
   const transformed = (allOrders || []).map((order: any, index: number) => {
         // Check if order is already transformed (has camelCase fields from cache)
-        if (order.loadNumber !== undefined || order.totalFreightAmount !== undefined) {
-          // Order is already transformed, return as-is
+        // Cached orders have loadNumber and other camelCase fields
+        if (order.loadNumber !== undefined && order.load_number === undefined) {
+          // Order is already transformed (has camelCase, no snake_case), return as-is
           alreadyTransformed++;
           if (index < 3) {
-            console.log(`✅ [transformOrders] Order ${index} already transformed:`, {
+            console.log(`✅ [transformOrders] Order ${index} already transformed (cached):`, {
               loadNumber: order.loadNumber,
-              totalFreightAmount: order.totalFreightAmount
+              id: order.id,
+              locked: order.locked
             });
           }
           return order;
