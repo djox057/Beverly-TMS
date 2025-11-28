@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
+import { getLockedOrders, getPickupDrops, getOrderFiles } from "@/utils/ordersCache";
 
 interface UseOrdersOptions {
   bookedBy?: string | null;
@@ -126,35 +126,100 @@ export const useOrders = (options?: UseOrdersOptions) => {
       // Load LOCKED orders from cache FIRST (before returning)
       console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
       const lockedOrders = await getLockedOrders();
+      const cachedPickupDrops = await getPickupDrops();
+      const cachedOrderFiles = await getOrderFiles();
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        const allKeys = Object.keys(lockedOrders[0]);
-        console.log('🔍 [useOrders] ALL 89 Archived order keys:', allKeys.join(', '));
         
-        // Check for truck-related keys
-        const truckKeys = allKeys.filter(k => k.toLowerCase().includes('truck'));
-        console.log('🚛 [useOrders] Truck-related keys:', truckKeys);
+        // Merge pickup_drops and order_files into locked orders
+        if (cachedPickupDrops) {
+          console.log('📍 [useOrders] Merging', cachedPickupDrops.length, 'pickup/drops with locked orders');
+          lockedOrders.forEach(order => {
+            order.pickup_drops = cachedPickupDrops.filter(pd => pd.order_id === order.id);
+          });
+        }
         
-        // Check for driver-related keys
-        const driverKeys = allKeys.filter(k => k.toLowerCase().includes('driver'));
-        console.log('👤 [useOrders] Driver-related keys:', driverKeys);
+        if (cachedOrderFiles) {
+          console.log('📄 [useOrders] Merging', cachedOrderFiles.length, 'order files with locked orders');
+          lockedOrders.forEach(order => {
+            order.order_files = cachedOrderFiles.filter(of => of.order_id === order.id);
+          });
+        }
         
-        // Check for broker-related keys
-        const brokerKeys = allKeys.filter(k => k.toLowerCase().includes('broker'));
-        console.log('🏢 [useOrders] Broker-related keys:', brokerKeys);
+        // Fetch lookup data for IDs (trucks, drivers, brokers, companies)
+        console.log('🔍 [useOrders] Fetching lookup data for archived orders...');
+        const allTruckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
+        const allDriverIds = [...new Set([
+          ...lockedOrders.map(o => o.driver1_id).filter(Boolean),
+          ...lockedOrders.map(o => o.driver2_id).filter(Boolean)
+        ])];
+        const allBrokerIds = [...new Set(lockedOrders.map(o => o.broker_id).filter(Boolean))];
+        const allCompanyIds = [...new Set([
+          ...lockedOrders.map(o => o.company_id).filter(Boolean),
+          ...lockedOrders.map(o => o.booked_by_company_id).filter(Boolean)
+        ])];
         
-        // Check for company-related keys
-        const companyKeys = allKeys.filter(k => k.toLowerCase().includes('company'));
-        console.log('🏭 [useOrders] Company-related keys:', companyKeys);
+        // Fetch all lookup data in parallel
+        const [trucksData, driversData, brokersData, companiesData] = await Promise.all([
+          allTruckIds.length > 0 ? supabase.from('trucks').select('id, truck_number, company:companies(id, name)').in('id', allTruckIds) : Promise.resolve({ data: [] }),
+          allDriverIds.length > 0 ? supabase.from('drivers').select('id, name').in('id', allDriverIds) : Promise.resolve({ data: [] }),
+          allBrokerIds.length > 0 ? supabase.from('brokers').select('id, name, address, mc_number').in('id', allBrokerIds) : Promise.resolve({ data: [] }),
+          allCompanyIds.length > 0 ? supabase.from('companies').select('id, name').in('id', allCompanyIds) : Promise.resolve({ data: [] })
+        ]);
         
-        // Check for city-related keys
-        const cityKeys = allKeys.filter(k => k.toLowerCase().includes('city') || k.toLowerCase().includes('pickup') || k.toLowerCase().includes('delivery'));
-        console.log('📍 [useOrders] Location-related keys:', cityKeys);
+        console.log('✅ [useOrders] Fetched lookups:', {
+          trucks: trucksData.data?.length || 0,
+          drivers: driversData.data?.length || 0,
+          brokers: brokersData.data?.length || 0,
+          companies: companiesData.data?.length || 0
+        });
         
-        // Check for file-related keys
-        const fileKeys = allKeys.filter(k => k.toLowerCase().includes('rc') || k.toLowerCase().includes('pod') || k.toLowerCase().includes('file'));
-        console.log('📄 [useOrders] File-related keys:', fileKeys);
+        // Create lookup maps
+        const truckMap = new Map((trucksData.data || []).map(t => [t.id, t]));
+        const driverMap = new Map((driversData.data || []).map(d => [d.id, d]));
+        const brokerMap = new Map((brokersData.data || []).map(b => [b.id, b]));
+        const companyMap = new Map((companiesData.data || []).map(c => [c.id, c]));
+        
+        // Attach lookup data to locked orders
+        lockedOrders.forEach(order => {
+          if (order.truck_id) {
+            const truck = truckMap.get(order.truck_id);
+            if (truck) {
+              order.truck = truck;
+            }
+          }
+          if (order.driver1_id) {
+            const driver1 = driverMap.get(order.driver1_id);
+            if (driver1) {
+              order.driver1 = driver1;
+            }
+          }
+          if (order.driver2_id && order.driver2_id !== 'null') {
+            const driver2 = driverMap.get(order.driver2_id);
+            if (driver2) {
+              order.driver2 = driver2;
+            }
+          }
+          if (order.broker_id) {
+            const broker = brokerMap.get(order.broker_id);
+            if (broker) {
+              order.broker = broker;
+            }
+          }
+          if (order.company_id) {
+            const company = companyMap.get(order.company_id);
+            if (company) {
+              order.company = company;
+            }
+          }
+          if (order.booked_by_company_id) {
+            const bookedByCompany = companyMap.get(order.booked_by_company_id);
+            if (bookedByCompany) {
+              order.booked_by_company = bookedByCompany;
+            }
+          }
+        });
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
