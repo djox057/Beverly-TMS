@@ -648,6 +648,8 @@ async function fetchSingleOrder(orderId: string) {
 function transformOrders(allOrders: any[]) {
   console.log(`🔄 [transformOrders] Processing ${allOrders.length} orders`);
   
+  let lockedOrderCount = 0; // Track how many locked orders we've logged
+  
   const transformed = (allOrders || []).map((order: any, index: number) => {
         // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
         // This ensures cached orders (which only have freight_amount) get proper totals
@@ -659,9 +661,9 @@ function transformOrders(allOrders: any[]) {
         const firstPickup = pickupDrops.find((pd: any) => pd.type === 'pickup');
         const lastDelivery = pickupDrops.filter((pd: any) => pd.type === 'delivery').pop();
 
-        // DIAGNOSTIC: Log first 3 orders to see actual field names
-        if (index < 3) {
-          console.log(`🔍 [transformOrders] Order ${index} (locked: ${order.locked}) fields:`, {
+        // DIAGNOSTIC: Log first 3 LOCKED orders to see their field names
+        if (order.locked && index < 3532 && lockedOrderCount < 3) {
+          console.log(`🔒 [transformOrders] LOCKED Order #${lockedOrderCount} fields:`, {
             id: order.id,
             loadNumber: order.load_number || order.loadNumber,
             // Check all possible freight field names
@@ -674,8 +676,9 @@ function transformOrders(allOrders: any[]) {
             driverPay: order.driverPay,
             // Other fields
             locked: order.locked,
-            allKeys: Object.keys(order).filter(k => k.includes('freight') || k.includes('driver'))
+            allKeys: Object.keys(order).filter(k => k.includes('freight') || k.includes('driver') || k.includes('pay'))
           });
+          lockedOrderCount++;
         }
 
         // CRITICAL: Handle multiple field name variations
