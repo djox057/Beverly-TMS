@@ -157,11 +157,20 @@ export async function getLockedOrders(): Promise<any[] | null> {
     const db = await getDB();
     const cached = await db.get(ORDERS_STORE, ORDERS_CACHE_KEY);
     
-    if (cached && isCacheValid(cached.timestamp)) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (age:', ageHours, 'hours)');
-      return cached.data;
+    // Validate cached data structure
+    if (cached) {
+      if (cached.version !== CACHE_VERSION) {
+        console.warn('⚠️ Cache version mismatch, clearing stale cache');
+        await db.delete(ORDERS_STORE, ORDERS_CACHE_KEY);
+      } else if (!Array.isArray(cached.data)) {
+        console.error('❌ Corrupted cache detected (not an array), clearing');
+        await db.delete(ORDERS_STORE, ORDERS_CACHE_KEY);
+      } else if (isCacheValid(cached.timestamp)) {
+        const age = Date.now() - cached.timestamp;
+        const ageHours = Math.floor(age / (1000 * 60 * 60));
+        console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (age:', ageHours, 'hours)');
+        return cached.data;
+      }
     }
 
     // Fetch from company storage if cache is stale or missing
@@ -177,6 +186,12 @@ export async function getLockedOrders(): Promise<any[] | null> {
 
     const text = await data.text();
     const orders = JSON.parse(text);
+    
+    // Validate fetched data
+    if (!Array.isArray(orders)) {
+      console.error('❌ Invalid data from storage (not an array)');
+      return null;
+    }
 
     // Update local cache
     await db.put(ORDERS_STORE, {
@@ -189,6 +204,14 @@ export async function getLockedOrders(): Promise<any[] | null> {
     return orders;
   } catch (error) {
     console.error('Failed to get locked orders:', error);
+    // Clear corrupted cache on any error
+    try {
+      const db = await getDB();
+      await db.delete(ORDERS_STORE, ORDERS_CACHE_KEY);
+      console.log('🗑️ Cleared corrupted locked orders cache');
+    } catch (clearError) {
+      console.error('Failed to clear cache:', clearError);
+    }
     return null;
   }
 }
@@ -199,11 +222,20 @@ export async function getPickupDrops(): Promise<any[] | null> {
     const db = await getDB();
     const cached = await db.get(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
     
-    if (cached && isCacheValid(cached.timestamp)) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      console.log('✅ Loaded', cached.data.length, 'pickup/drops from local cache (age:', ageHours, 'hours)');
-      return cached.data;
+    // Validate cached data
+    if (cached) {
+      if (cached.version !== CACHE_VERSION) {
+        console.warn('⚠️ Pickup/drops cache version mismatch, clearing');
+        await db.delete(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
+      } else if (!Array.isArray(cached.data)) {
+        console.error('❌ Corrupted pickup/drops cache, clearing');
+        await db.delete(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
+      } else if (isCacheValid(cached.timestamp)) {
+        const age = Date.now() - cached.timestamp;
+        const ageHours = Math.floor(age / (1000 * 60 * 60));
+        console.log('✅ Loaded', cached.data.length, 'pickup/drops from local cache (age:', ageHours, 'hours)');
+        return cached.data;
+      }
     }
 
     // Fetch from company storage
@@ -219,6 +251,11 @@ export async function getPickupDrops(): Promise<any[] | null> {
 
     const text = await data.text();
     const pickupDrops = JSON.parse(text);
+    
+    if (!Array.isArray(pickupDrops)) {
+      console.error('❌ Invalid pickup/drops data from storage');
+      return null;
+    }
 
     // Update local cache
     await db.put(PICKUP_DROPS_STORE, {
@@ -231,6 +268,13 @@ export async function getPickupDrops(): Promise<any[] | null> {
     return pickupDrops;
   } catch (error) {
     console.error('Failed to get pickup/drops:', error);
+    try {
+      const db = await getDB();
+      await db.delete(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
+      console.log('🗑️ Cleared corrupted pickup/drops cache');
+    } catch (clearError) {
+      console.error('Failed to clear cache:', clearError);
+    }
     return null;
   }
 }
@@ -241,11 +285,20 @@ export async function getOrderFiles(): Promise<any[] | null> {
     const db = await getDB();
     const cached = await db.get(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
     
-    if (cached && isCacheValid(cached.timestamp)) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      console.log('✅ Loaded', cached.data.length, 'order files from local cache (age:', ageHours, 'hours)');
-      return cached.data;
+    // Validate cached data
+    if (cached) {
+      if (cached.version !== CACHE_VERSION) {
+        console.warn('⚠️ Order files cache version mismatch, clearing');
+        await db.delete(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
+      } else if (!Array.isArray(cached.data)) {
+        console.error('❌ Corrupted order files cache, clearing');
+        await db.delete(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
+      } else if (isCacheValid(cached.timestamp)) {
+        const age = Date.now() - cached.timestamp;
+        const ageHours = Math.floor(age / (1000 * 60 * 60));
+        console.log('✅ Loaded', cached.data.length, 'order files from local cache (age:', ageHours, 'hours)');
+        return cached.data;
+      }
     }
 
     // Fetch from company storage
@@ -261,6 +314,11 @@ export async function getOrderFiles(): Promise<any[] | null> {
 
     const text = await data.text();
     const orderFiles = JSON.parse(text);
+    
+    if (!Array.isArray(orderFiles)) {
+      console.error('❌ Invalid order files data from storage');
+      return null;
+    }
 
     // Update local cache
     await db.put(ORDER_FILES_STORE, {
@@ -273,6 +331,13 @@ export async function getOrderFiles(): Promise<any[] | null> {
     return orderFiles;
   } catch (error) {
     console.error('Failed to get order files:', error);
+    try {
+      const db = await getDB();
+      await db.delete(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
+      console.log('🗑️ Cleared corrupted order files cache');
+    } catch (clearError) {
+      console.error('Failed to clear cache:', clearError);
+    }
     return null;
   }
 }
