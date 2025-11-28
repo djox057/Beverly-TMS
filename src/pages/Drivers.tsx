@@ -850,9 +850,7 @@ const Drivers = () => {
 
     setIsSubmitting(true);
     try {
-      // Calculate last day (14 days after start date)
-      const lastDay = new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-      const blockDate = format(lastDay, "yyyy-MM-dd");
+      const blockDate = format(twoWeekNoticeDate, "yyyy-MM-dd");
       
       const { error: blockError } = await supabase
         .from("drivers")
@@ -2598,15 +2596,15 @@ const Drivers = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Start Date of 2 Week Notice</Label>
+              <Label>Last Date of 2 Week Notice</Label>
               <DatePicker
                 date={twoWeekNoticeDate}
                 onDateChange={setTwoWeekNoticeDate}
-                placeholder="Select start date"
+                placeholder="Select last date"
               />
               {twoWeekNoticeDate && (
                 <p className="text-xs text-muted-foreground">
-                  Last day will be: {format(new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                  Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
                 </p>
               )}
             </div>
