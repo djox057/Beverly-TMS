@@ -797,13 +797,18 @@ function transformOrders(allOrders: any[]) {
         const podFiles = orderFiles.filter((f: any) => f.file_category === 'POD');
         const bolFiles = orderFiles.filter((f: any) => f.file_category === 'BOL');
         
-        // For archived orders from CSV, check if they have RC/POD indicators
-        const hasRcFromCsv = order.has_rc || order.hasRc || (order.rc_count && Number(order.rc_count) > 0);
-        const hasPodFromCsv = order.has_pod || order.hasPod || (order.pod_count && Number(order.pod_count) > 0);
+        // For archived orders from CSV, check multiple possible CSV column names for file indicators
+        // CSV export might use: has_rc, hasRc, rc_count, rc_files, etc.
+        const hasRcFromCsv = order.has_rc || order.hasRc || order.rc_files || 
+                             (order.rc_count && Number(order.rc_count) > 0) ||
+                             (order.rcCount && Number(order.rcCount) > 0);
+        const hasPodFromCsv = order.has_pod || order.hasPod || order.pod_files || 
+                              (order.pod_count && Number(order.pod_count) > 0) ||
+                              (order.podCount && Number(order.podCount) > 0);
         
         // Merge arrays: use actual files if available, otherwise create placeholder based on CSV indicators
-        const finalRcFiles = rcFiles.length > 0 ? rcFiles : (hasRcFromCsv ? [{ file_category: 'RC' }] : []);
-        const finalPodFiles = podFiles.length > 0 ? podFiles : (hasPodFromCsv ? [{ file_category: 'POD' }] : []);
+        const finalRcFiles = rcFiles.length > 0 ? rcFiles : (hasRcFromCsv ? [{ file_category: 'RC', id: 'csv-indicator' }] : []);
+        const finalPodFiles = podFiles.length > 0 ? podFiles : (hasPodFromCsv ? [{ file_category: 'POD', id: 'csv-indicator' }] : []);
 
         // Transform to camelCase with computed fields, flattening joined data
         return {
@@ -849,16 +854,17 @@ function transformOrders(allOrders: any[]) {
           bookedByCompanyName: order.booked_by_company?.name || order.booked_by_company_name || order.bookedByCompanyName || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
-          // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields OR CSV columns
+          // CRITICAL: For archived orders, pickup_drops may not have datetime field
+          // Fallback chain: pickup_drops datetime → order pickup_datetime → CSV pickup_date column
           // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
           pickupDate: firstPickup?.datetime 
             ? firstPickup.datetime 
-            : ((order.pickup_datetime || order.pickupDatetime || '').replace(' ', 'T')),
+            : (order.pickup_datetime || order.pickupDatetime || order.pickup_date || order.pickupDate || '').toString().replace(' ', 'T'),
           pickupCity: firstPickup?.city || order.pickup_city || order.pickupCity || '',
           pickupState: firstPickup?.state || order.pickup_state || order.pickupState || '',
           deliveryDate: lastDelivery?.datetime 
             ? lastDelivery.datetime 
-            : ((order.delivery_datetime || order.deliveryDatetime || '').replace(' ', 'T')),
+            : (order.delivery_datetime || order.deliveryDatetime || order.delivery_date || order.deliveryDate || '').toString().replace(' ', 'T'),
           deliveryCity: lastDelivery?.city || order.delivery_city || order.deliveryCity || '',
           deliveryState: lastDelivery?.state || order.delivery_state || order.deliveryState || '',
           
