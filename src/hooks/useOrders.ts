@@ -747,6 +747,16 @@ function transformOrders(allOrders: any[]) {
     const num = Number(val);
     return isNaN(num) ? 0 : num;
   };
+
+  // Helper to normalize CSV date strings: converts space separator to T, handles string "null" values
+  const normalizeDate = (val: any): string => {
+    // Handle null, undefined, empty string, or string "null"/"NULL"
+    if (!val || val === 'null' || val === 'NULL' || val === 'undefined') {
+      return '';
+    }
+    // Convert to string and replace space with T for ISO format
+    return String(val).replace(' ', 'T');
+  };
   
   const transformed = (allOrders || []).map((order: any, index: number) => {
         // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
@@ -856,15 +866,15 @@ function transformOrders(allOrders: any[]) {
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
           // CRITICAL: For archived orders, pickup_drops may not have datetime field
           // Fallback chain: pickup_drops datetime → order pickup_datetime → CSV pickup_date column
-          // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
+          // Use normalizeDate helper to handle CSV string "null" values and space-to-T conversion
           pickupDate: firstPickup?.datetime 
             ? firstPickup.datetime 
-            : (order.pickup_datetime || order.pickupDatetime || order.pickup_date || order.pickupDate || '').toString().replace(' ', 'T'),
+            : normalizeDate(order.pickup_datetime || order.pickupDatetime || order.pickup_date || order.pickupDate),
           pickupCity: firstPickup?.city || order.pickup_city || order.pickupCity || '',
           pickupState: firstPickup?.state || order.pickup_state || order.pickupState || '',
           deliveryDate: lastDelivery?.datetime 
             ? lastDelivery.datetime 
-            : (order.delivery_datetime || order.deliveryDatetime || order.delivery_date || order.deliveryDate || '').toString().replace(' ', 'T'),
+            : normalizeDate(order.delivery_datetime || order.deliveryDatetime || order.delivery_date || order.deliveryDate),
           deliveryCity: lastDelivery?.city || order.delivery_city || order.deliveryCity || '',
           deliveryState: lastDelivery?.state || order.delivery_state || order.deliveryState || '',
           
