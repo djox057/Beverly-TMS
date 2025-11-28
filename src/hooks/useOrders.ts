@@ -129,11 +129,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        console.log('📊 [useOrders] First locked order sample:', {
-          id: lockedOrders[0]?.id,
-          loadNumber: lockedOrders[0]?.load_number,
-          freight: lockedOrders[0]?.freight_amount,
-          locked: lockedOrders[0]?.locked
+        console.log('📊 [useOrders] First locked order FULL:', lockedOrders[0]);
+        console.log('📅 [useOrders] Date fields check:', {
+          pickup_datetime: lockedOrders[0]?.pickup_datetime,
+          pickupDatetime: lockedOrders[0]?.pickupDatetime,
+          delivery_datetime: lockedOrders[0]?.delivery_datetime,
+          deliveryDatetime: lockedOrders[0]?.deliveryDatetime,
+          allDateKeys: Object.keys(lockedOrders[0] || {}).filter(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('time'))
         });
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
