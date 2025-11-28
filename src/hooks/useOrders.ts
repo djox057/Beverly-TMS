@@ -686,6 +686,21 @@ function transformOrders(allOrders: any[]) {
           (order.escort_fee || 0) +
           (order.other_charges || 0);
 
+        // Debug first 3 orders to see field names
+        if (index < 3) {
+          console.log(`🔍 [transformOrders] Order ${index} fields:`, {
+            id: order.id,
+            loadNumber: order.load_number || order.loadNumber,
+            freight_amount: order.freight_amount,
+            driver_price: order.driver_price,
+            locked: order.locked,
+            hasFreight: order.freight_amount !== undefined,
+            hasDriverPrice: order.driver_price !== undefined,
+            calculatedFreight: totalFreightAmount,
+            calculatedDriverPay: totalDriverPay
+          });
+        }
+
         // Filter files by category
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
         const podFiles = orderFiles.filter((f: any) => f.file_category === 'POD');
