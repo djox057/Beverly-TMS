@@ -547,34 +547,51 @@ export const useReports = () => {
         }
 
         // Combine unlocked (from database) and locked (from storage bucket) orders
-        const allOrdersBase = [...(unlockedOrdersRaw || []), ...lockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrdersBase.length} total orders (${unlockedOrdersRaw?.length || 0} from database + ${lockedOrders.length} from storage)`);
+        // Note: unlocked orders already have pickup_drops and order_files from the query
+        console.log(`[useReports] 📊 Processing ${unlockedOrdersRaw?.length || 0} unlocked + ${lockedOrders.length} locked orders`);
 
-        // STEP 2.5: Fetch pickup_drops and order_files for ALL orders from database (ensures consistency)
-        const allOrderIds = allOrdersBase.map(o => o.id);
+        // STEP 2.5: Fetch pickup_drops and order_files ONLY for locked orders (to avoid URL length issues)
+        let lockedPickupDrops: any[] = [];
+        let lockedOrderFiles: any[] = [];
         
-        const { data: allPickupDrops, error: pickupDropsError } = await supabase
-          .from("pickup_drops")
-          .select("*")
-          .in("order_id", allOrderIds);
+        if (lockedOrders.length > 0) {
+          const lockedOrderIds = lockedOrders.map(o => o.id);
+          
+          // Fetch in batches of 100 to avoid URL length limits
+          const batchSize = 100;
+          for (let i = 0; i < lockedOrderIds.length; i += batchSize) {
+            const batchIds = lockedOrderIds.slice(i, i + batchSize);
+            
+            const { data: batchPickupDrops, error: pickupDropsError } = await supabase
+              .from("pickup_drops")
+              .select("*")
+              .in("order_id", batchIds);
 
-        if (pickupDropsError) throw pickupDropsError;
+            if (pickupDropsError) throw pickupDropsError;
+            lockedPickupDrops.push(...(batchPickupDrops || []));
 
-        const { data: allOrderFiles, error: orderFilesError } = await supabase
-          .from("order_files")
-          .select("*")
-          .in("order_id", allOrderIds);
+            const { data: batchOrderFiles, error: orderFilesError } = await supabase
+              .from("order_files")
+              .select("*")
+              .in("order_id", batchIds);
 
-        if (orderFilesError) throw orderFilesError;
+            if (orderFilesError) throw orderFilesError;
+            lockedOrderFiles.push(...(batchOrderFiles || []));
+          }
+          
+          console.log(`[useReports] ✅ Fetched pickup_drops and order_files for ${lockedOrders.length} locked orders`);
+        }
 
-        // Attach pickup_drops and order_files to all orders
-        const allOrders = allOrdersBase.map((order: any) => ({
+        // Attach pickup_drops and order_files to locked orders
+        const lockedOrdersWithRelations = lockedOrders.map((order: any) => ({
           ...order,
-          pickup_drops: allPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
-          order_files: allOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+          pickup_drops: lockedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
+          order_files: lockedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
         }));
 
-        console.log(`[useReports] ✅ Attached pickup_drops and order_files from database to all orders`);
+        // Combine all orders (unlocked already have relations, locked now have them too)
+        const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrdersWithRelations];
+        console.log(`[useReports] ✅ Combined ${allOrders.length} total orders with all relations`);
 
         // STEP 3: Fetch supporting data and build reports
         // Fetch dispatcher information separately
