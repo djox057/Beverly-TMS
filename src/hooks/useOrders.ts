@@ -648,18 +648,38 @@ async function fetchSingleOrder(orderId: string) {
 function transformOrders(allOrders: any[]) {
   console.log(`🔄 [transformOrders] Processing ${allOrders.length} orders`);
   
+  // Log first 3 orders to see their structure
+  console.log('🔍 [transformOrders] First 3 orders structure:', allOrders.slice(0, 3).map(o => ({
+    hasLoadNumber: o.loadNumber !== undefined,
+    hasLoadNumberSnake: o.load_number !== undefined,
+    hasTotalFreight: o.totalFreightAmount !== undefined,
+    keys: Object.keys(o).slice(0, 10)
+  })));
+  
   let alreadyTransformed = 0;
   let needsTransform = 0;
   
-  const transformed = (allOrders || []).map((order: any) => {
+  const transformed = (allOrders || []).map((order: any, index: number) => {
         // Check if order is already transformed (has camelCase fields from cache)
         if (order.loadNumber !== undefined || order.totalFreightAmount !== undefined) {
           // Order is already transformed, return as-is
           alreadyTransformed++;
+          if (index < 3) {
+            console.log(`✅ [transformOrders] Order ${index} already transformed:`, {
+              loadNumber: order.loadNumber,
+              totalFreightAmount: order.totalFreightAmount
+            });
+          }
           return order;
         }
 
         needsTransform++;
+        if (index < 3) {
+          console.log(`🔄 [transformOrders] Order ${index} needs transform:`, {
+            load_number: order.load_number,
+            id: order.id
+          });
+        }
         // Parse JSONB fields back to arrays (already arrays from join)
         const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
         const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
