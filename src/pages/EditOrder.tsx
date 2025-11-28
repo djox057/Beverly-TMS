@@ -442,9 +442,22 @@ const EditOrder = () => {
         // Load partial load data
         setIsPartial((orderData as any).is_partial || false);
         if ((orderData as any).is_partial) {
-          setPartialBrokers((orderData as any).partial_brokers || []);
-          setPartialBrokerLoadNumbers((orderData as any).partial_broker_loads || []);
-          setPartialBookedByCompanies((orderData as any).partial_booked_by_companies || []);
+          // Parse JSON strings to arrays
+          const parseBrokersArray = (data: any) => {
+            if (!data) return [];
+            if (typeof data === 'string') {
+              try {
+                return JSON.parse(data);
+              } catch {
+                return [];
+              }
+            }
+            return Array.isArray(data) ? data : [];
+          };
+
+          setPartialBrokers(parseBrokersArray((orderData as any).partial_brokers));
+          setPartialBrokerLoadNumbers(parseBrokersArray((orderData as any).partial_broker_loads));
+          setPartialBookedByCompanies(parseBrokersArray((orderData as any).partial_booked_by_companies));
         }
 
         // Check if any additional fields have values > 0 to auto-show them
@@ -2094,126 +2107,104 @@ const EditOrder = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="broker-load-number">Broker Load #</Label>
-              {isPartial && partialBrokerLoadNumbers.length > 0 ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Input
-                        id="broker-load-number"
-                        value={partialBrokerLoadNumbers.filter(Boolean)[0] || ""}
-                        disabled
-                        className="cursor-help"
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="space-y-1">
-                        {partialBrokerLoadNumbers.filter(Boolean).map((loadNum, idx) => (
-                          <div key={idx}>
-                            Partial {idx + 1}: {loadNum}
+            {!isPartial ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="broker-load-number">Broker Load #</Label>
+                  <Input
+                    id="broker-load-number"
+                    placeholder="Broker load number"
+                    value={brokerLoadNumber}
+                    onChange={(e) => setBrokerLoadNumber(e.target.value)}
+                    disabled={isLocked}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Booked by Company</Label>
+                    <Combobox
+                      options={companyOptions}
+                      value={bookedByCompany}
+                      onValueChange={setBookedByCompany}
+                      placeholder="Select company"
+                      searchPlaceholder="Search companies..."
+                      disabled={isLocked}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="broker">Broker</Label>
+                    <BrokerCombobox
+                      value={broker}
+                      onValueChange={setBroker}
+                      placeholder="Select broker"
+                      searchPlaceholder="Search brokers..."
+                      disabled={isLocked}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-base font-medium">Partial Load Details</Label>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    {partialBrokerLoadNumbers.filter(Boolean).length} Partials
+                  </Badge>
+                </div>
+                
+                <div className={cn(
+                  "grid gap-4",
+                  partialBrokerLoadNumbers.length === 2 ? "grid-cols-1 md:grid-cols-2" : 
+                  partialBrokerLoadNumbers.length === 3 ? "grid-cols-1 md:grid-cols-3" :
+                  "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+                )}>
+                  {partialBrokerLoadNumbers.map((loadNum, index) => {
+                    const company = companies?.find((c) => c.id === partialBookedByCompanies[index]);
+                    const brokerData = brokers?.find((b) => b.id === partialBrokers[index]);
+                    
+                    return (
+                      <Card key={index} className="border-2 border-blue-200">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm text-blue-700">
+                            Partial {index + 1}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Broker Load #</Label>
+                            <Input
+                              value={loadNum || ""}
+                              disabled
+                              className="bg-muted"
+                            />
                           </div>
-                        ))}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <Input
-                  id="broker-load-number"
-                  placeholder="Broker load number"
-                  value={brokerLoadNumber}
-                  onChange={(e) => setBrokerLoadNumber(e.target.value)}
-                  disabled={isLocked}
-                />
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="company">Booked by Company</Label>
-                {isPartial && partialBookedByCompanies.length > 0 ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative">
-                          <Combobox
-                            options={companyOptions}
-                            value={partialBookedByCompanies.filter(Boolean)[0] || ""}
-                            onValueChange={() => {}}
-                            placeholder="Select company"
-                            searchPlaceholder="Search companies..."
-                            disabled
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="space-y-1">
-                          {partialBookedByCompanies.filter(Boolean).map((companyId, idx) => {
-                            const company = companies?.find((c) => c.id === companyId);
-                            return (
-                              <div key={idx}>
-                                Partial {idx + 1}: {company?.name || companyId}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Combobox
-                    options={companyOptions}
-                    value={bookedByCompany}
-                    onValueChange={setBookedByCompany}
-                    placeholder="Select company"
-                    searchPlaceholder="Search companies..."
-                    disabled={isLocked}
-                  />
-                )}
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs">Company</Label>
+                            <Input
+                              value={company?.name || ""}
+                              disabled
+                              className="bg-muted"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs">Broker</Label>
+                            <Input
+                              value={brokerData?.name || ""}
+                              disabled
+                              className="bg-muted"
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="broker">Broker</Label>
-                {isPartial && partialBrokers.length > 0 ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative">
-                          <BrokerCombobox
-                            value={partialBrokers.filter(Boolean)[0] || ""}
-                            onValueChange={() => {}}
-                            placeholder="Select broker"
-                            searchPlaceholder="Search brokers..."
-                            disabled
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="space-y-1">
-                          {partialBrokers.filter(Boolean).map((brokerId, idx) => {
-                            const broker = brokers?.find((b) => b.id === brokerId);
-                            return (
-                              <div key={idx}>
-                                Partial {idx + 1}: {broker?.name || brokerId}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <BrokerCombobox
-                    value={broker}
-                    onValueChange={setBroker}
-                    placeholder="Select broker"
-                    searchPlaceholder="Search brokers..."
-                    disabled={isLocked}
-                  />
-                )}
-              </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
