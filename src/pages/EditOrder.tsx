@@ -35,7 +35,9 @@ import {
   Warehouse,
   Download,
   Eye,
+  Layers,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { US_STATES } from "@/lib/constants";
@@ -43,6 +45,7 @@ import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useTrailers } from "@/hooks/useTrailers";
+import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
 import { useToast } from "@/components/ui/use-toast";
@@ -189,6 +192,12 @@ const EditOrder = () => {
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [yardDialogOpen, setYardDialogOpen] = useState(false);
 
+  // Partial load state
+  const [isPartial, setIsPartial] = useState(false);
+  const [partialBrokers, setPartialBrokers] = useState<string[]>([]);
+  const [partialBrokerLoadNumbers, setPartialBrokerLoadNumbers] = useState<string[]>([]);
+  const [partialBookedByCompanies, setPartialBookedByCompanies] = useState<string[]>([]);
+
   // Email dispatch toggle states
   const [confirmationGenerated, setConfirmationGenerated] = useState(false);
   const [generatedConfirmationBlob, setGeneratedConfirmationBlob] = useState<Blob | null>(null);
@@ -261,6 +270,7 @@ const EditOrder = () => {
   const { data: trucks } = useTrucks();
   const { data: drivers } = useDrivers();
   const { data: trailers } = useTrailers();
+  const { data: brokers } = useBrokers();
   const [profiles, setProfiles] = useState<
     Array<{
       id: string;
@@ -428,6 +438,14 @@ const EditOrder = () => {
         setEscortFee((orderData as any).escort_fee?.toString() || "");
         setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
         setInternalLoadNumber(orderData.internal_load_number?.toString() || "");
+
+        // Load partial load data
+        setIsPartial((orderData as any).is_partial || false);
+        if ((orderData as any).is_partial) {
+          setPartialBrokers((orderData as any).partial_brokers || []);
+          setPartialBrokerLoadNumbers((orderData as any).partial_broker_loads || []);
+          setPartialBookedByCompanies((orderData as any).partial_booked_by_companies || []);
+        }
 
         // Check if any additional fields have values > 0 to auto-show them
         const hasAdditionalValues =
@@ -2056,7 +2074,21 @@ const EditOrder = () => {
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
-              <div className="text-lg font-medium">{internalLoadNumber}</div>
+              <div className="text-lg font-medium flex items-center gap-2 justify-end">
+                {internalLoadNumber}
+                {isPartial && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Layers className="h-4 w-4 text-primary" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Partial Load</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -2064,37 +2096,122 @@ const EditOrder = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="broker-load-number">Broker Load #</Label>
-              <Input
-                id="broker-load-number"
-                placeholder="Broker load number"
-                value={brokerLoadNumber}
-                onChange={(e) => setBrokerLoadNumber(e.target.value)}
-                disabled={isLocked}
-              />
+              {isPartial && partialBrokerLoadNumbers.length > 0 ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Input
+                        id="broker-load-number"
+                        value={partialBrokerLoadNumbers.filter(Boolean)[0] || ""}
+                        disabled
+                        className="cursor-help"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="space-y-1">
+                        {partialBrokerLoadNumbers.filter(Boolean).map((loadNum, idx) => (
+                          <div key={idx}>
+                            Partial {idx + 1}: {loadNum}
+                          </div>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <Input
+                  id="broker-load-number"
+                  placeholder="Broker load number"
+                  value={brokerLoadNumber}
+                  onChange={(e) => setBrokerLoadNumber(e.target.value)}
+                  disabled={isLocked}
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Booked by Company</Label>
-                <Combobox
-                  options={companyOptions}
-                  value={bookedByCompany}
-                  onValueChange={setBookedByCompany}
-                  placeholder="Select company"
-                  searchPlaceholder="Search companies..."
-                  disabled={isLocked}
-                />
+                {isPartial && partialBookedByCompanies.length > 0 ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative">
+                          <Combobox
+                            options={companyOptions}
+                            value={partialBookedByCompanies.filter(Boolean)[0] || ""}
+                            onValueChange={() => {}}
+                            placeholder="Select company"
+                            searchPlaceholder="Search companies..."
+                            disabled
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="space-y-1">
+                          {partialBookedByCompanies.filter(Boolean).map((companyId, idx) => {
+                            const company = companies?.find((c) => c.id === companyId);
+                            return (
+                              <div key={idx}>
+                                Partial {idx + 1}: {company?.name || companyId}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Combobox
+                    options={companyOptions}
+                    value={bookedByCompany}
+                    onValueChange={setBookedByCompany}
+                    placeholder="Select company"
+                    searchPlaceholder="Search companies..."
+                    disabled={isLocked}
+                  />
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="broker">Broker</Label>
-                <BrokerCombobox
-                  value={broker}
-                  onValueChange={setBroker}
-                  placeholder="Select broker"
-                  searchPlaceholder="Search brokers..."
-                  disabled={isLocked}
-                />
+                {isPartial && partialBrokers.length > 0 ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative">
+                          <BrokerCombobox
+                            value={partialBrokers.filter(Boolean)[0] || ""}
+                            onValueChange={() => {}}
+                            placeholder="Select broker"
+                            searchPlaceholder="Search brokers..."
+                            disabled
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="space-y-1">
+                          {partialBrokers.filter(Boolean).map((brokerId, idx) => {
+                            const broker = brokers?.find((b) => b.id === brokerId);
+                            return (
+                              <div key={idx}>
+                                Partial {idx + 1}: {broker?.name || brokerId}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <BrokerCombobox
+                    value={broker}
+                    onValueChange={setBroker}
+                    placeholder="Select broker"
+                    searchPlaceholder="Search brokers..."
+                    disabled={isLocked}
+                  />
+                )}
               </div>
             </div>
 
