@@ -659,10 +659,31 @@ function transformOrders(allOrders: any[]) {
         const firstPickup = pickupDrops.find((pd: any) => pd.type === 'pickup');
         const lastDelivery = pickupDrops.filter((pd: any) => pd.type === 'delivery').pop();
 
-        // CRITICAL: Handle both snake_case (DB) and camelCase (cached) field names
-        // Cached locked orders are already transformed with camelCase, DB orders use snake_case
+        // DIAGNOSTIC: Log first 3 orders to see actual field names
+        if (index < 3) {
+          console.log(`🔍 [transformOrders] Order ${index} (locked: ${order.locked}) fields:`, {
+            id: order.id,
+            loadNumber: order.load_number || order.loadNumber,
+            // Check all possible freight field names
+            freight_amount: order.freight_amount,
+            freightAmount: order.freightAmount,
+            freight: order.freight,
+            // Check all possible driver pay field names
+            driver_price: order.driver_price,
+            driverPrice: order.driverPrice,
+            driverPay: order.driverPay,
+            // Other fields
+            locked: order.locked,
+            allKeys: Object.keys(order).filter(k => k.includes('freight') || k.includes('driver'))
+          });
+        }
+
+        // CRITICAL: Handle multiple field name variations
+        // - DB orders use snake_case (freight_amount, driver_price)
+        // - Some cached orders use camelCase (freightAmount, driverPrice)
+        // - CSV cached orders might use shortened names (freight, driverPay)
         const totalDriverPay = 
-          (order.driver_price || order.driverPrice || 0) +
+          (order.driver_price || order.driverPrice || order.driverPay || 0) +
           (order.detention_driver || order.detentionDriver || 0) +
           (order.layover_driver || order.layoverDriver || 0) +
           (order.tonu_driver || order.tonuDriver || 0) +
@@ -673,9 +694,9 @@ function transformOrders(allOrders: any[]) {
           (order.wrong_address_fee_driver || order.wrongAddressFeeDriver || 0) +
           (order.other_charges_driver || order.otherChargesDriver || 0);
 
-        // Calculate total freight amount - handle both formats
+        // Calculate total freight amount - check freight_amount, freightAmount, AND freight
         const totalFreightAmount = 
-          (order.freight_amount || order.freightAmount || 0) +
+          (order.freight_amount || order.freightAmount || order.freight || 0) +
           (order.detention || 0) +
           (order.layover || 0) +
           (order.tonu || 0) +
