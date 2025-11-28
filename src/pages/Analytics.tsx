@@ -576,9 +576,11 @@ const Analytics = () => {
       const dispatcherProfile = dispatcherProfiles[stat.name];
       const primaryRole = getPrimaryRole();
 
-      // Only show users with 'dispatch' role OR managers/supervisors who have booked orders (gross > 0)
+      // CRITICAL: Include dispatchers without profiles (deleted/terminated users with historical orders)
+      // This ensures locked orders from archived dispatchers are counted in totals
       if (!dispatcherProfile) {
-        return false;
+        // If dispatcher has booked orders, include them (historical data)
+        return stat.totalFreight > 0;
       }
 
       const hasDispatchRole = dispatcherProfile.roles.includes("dispatch");
