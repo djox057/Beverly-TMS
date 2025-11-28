@@ -661,26 +661,6 @@ function transformOrders(allOrders: any[]) {
         const firstPickup = pickupDrops.find((pd: any) => pd.type === 'pickup');
         const lastDelivery = pickupDrops.filter((pd: any) => pd.type === 'delivery').pop();
 
-        // DIAGNOSTIC: Log first 3 LOCKED orders to see their field names
-        if (order.locked && index < 3532 && lockedOrderCount < 3) {
-          console.log(`🔒 [transformOrders] LOCKED Order #${lockedOrderCount} fields:`, {
-            id: order.id,
-            loadNumber: order.load_number || order.loadNumber,
-            // Check all possible freight field names
-            freight_amount: order.freight_amount,
-            freightAmount: order.freightAmount,
-            freight: order.freight,
-            // Check all possible driver pay field names
-            driver_price: order.driver_price,
-            driverPrice: order.driverPrice,
-            driverPay: order.driverPay,
-            // Other fields
-            locked: order.locked,
-            allKeys: Object.keys(order).filter(k => k.includes('freight') || k.includes('driver') || k.includes('pay'))
-          });
-          lockedOrderCount++;
-        }
-
         // CRITICAL: Handle multiple field name variations
         // - DB orders use snake_case (freight_amount, driver_price)
         // - Some cached orders use camelCase (freightAmount, driverPrice)
@@ -710,6 +690,20 @@ function transformOrders(allOrders: any[]) {
           (order.wrong_address_fee || order.wrongAddressFee || 0) +
           (order.escort_fee || order.escortFee || 0) +
           (order.other_charges || order.otherCharges || 0);
+
+        // DIAGNOSTIC: Log calculated values for locked orders
+        if (order.locked && lockedOrderCount < 3) {
+          console.log(`💰 [transformOrders] LOCKED Order #${lockedOrderCount} CALCULATED VALUES:`, {
+            id: order.id,
+            loadNumber: order.load_number || order.loadNumber,
+            baseFreight: (order.freight_amount || order.freightAmount || order.freight || 0),
+            calculatedTotalFreight: totalFreightAmount,
+            calculatedTotalDriverPay: totalDriverPay,
+            isNumber: typeof totalFreightAmount === 'number',
+            isNaN: Number.isNaN(totalFreightAmount)
+          });
+          lockedOrderCount++;
+        }
 
         // Filter files by category
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
