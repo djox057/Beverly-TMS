@@ -508,31 +508,22 @@ export const useReports = () => {
 
         console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders`);
 
-        // STEP 2: Load locked orders from storage bucket (avoids database egress)
+        // STEP 2: Load locked orders from storage bucket (avoids database egress for order records only)
         let lockedOrders: any[] = [];
         try {
           console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
-          const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
+          const { getLockedOrders } = await import("@/utils/ordersCache");
           
           const cachedOrders = await getLockedOrders();
-          const cachedPickupDrops = await getPickupDrops();
-          const cachedOrderFiles = await getOrderFiles();
 
           if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
             console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from storage`);
 
-            // Match pickup_drops and order_files to orders
-            const ordersWithRelations = cachedOrders.map((order: any) => ({
-              ...order,
-              pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
-              order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
-            }));
-
-            // Filter locked orders for reports criteria (90 days)
+            // Filter locked orders for reports criteria (90 days) - without relations yet
             const ninetyDaysAgoForFilter = new Date();
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
-            lockedOrders = ordersWithRelations.filter((order: any) => {
+            lockedOrders = cachedOrders.filter((order: any) => {
               if (order.canceled) return false;
               
               const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
@@ -556,8 +547,34 @@ export const useReports = () => {
         }
 
         // Combine unlocked (from database) and locked (from storage bucket) orders
-        const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} from database + ${lockedOrders.length} from storage)`);
+        const allOrdersBase = [...(unlockedOrdersRaw || []), ...lockedOrders];
+        console.log(`[useReports] 📊 Processing ${allOrdersBase.length} total orders (${unlockedOrdersRaw?.length || 0} from database + ${lockedOrders.length} from storage)`);
+
+        // STEP 2.5: Fetch pickup_drops and order_files for ALL orders from database (ensures consistency)
+        const allOrderIds = allOrdersBase.map(o => o.id);
+        
+        const { data: allPickupDrops, error: pickupDropsError } = await supabase
+          .from("pickup_drops")
+          .select("*")
+          .in("order_id", allOrderIds);
+
+        if (pickupDropsError) throw pickupDropsError;
+
+        const { data: allOrderFiles, error: orderFilesError } = await supabase
+          .from("order_files")
+          .select("*")
+          .in("order_id", allOrderIds);
+
+        if (orderFilesError) throw orderFilesError;
+
+        // Attach pickup_drops and order_files to all orders
+        const allOrders = allOrdersBase.map((order: any) => ({
+          ...order,
+          pickup_drops: allPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
+          order_files: allOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+        }));
+
+        console.log(`[useReports] ✅ Attached pickup_drops and order_files from database to all orders`);
 
         // STEP 3: Fetch supporting data and build reports
         // Fetch dispatcher information separately
