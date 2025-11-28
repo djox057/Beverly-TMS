@@ -652,10 +652,18 @@ export const useReports = () => {
               driverOrders
                 .filter((order) => !order.canceled)
                 .map((order) => {
-                  const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
+                  // Deduplicate pickup_drops by id to prevent display duplicates
+                  const uniquePickupDrops = order.pickup_drops?.reduce((acc: any[], stop: any) => {
+                    if (!acc.find(s => s.id === stop.id)) {
+                      acc.push(stop);
+                    }
+                    return acc;
+                  }, []) || [];
+
+                  const pickupStops = uniquePickupDrops.filter((stop) => stop.type === "pickup").sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
-                  const deliveryStops = (order.pickup_drops?.filter((stop) => stop.type === "delivery") || []).sort(
+                  const deliveryStops = uniquePickupDrops.filter((stop) => stop.type === "delivery").sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
 
