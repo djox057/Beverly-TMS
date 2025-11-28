@@ -61,6 +61,7 @@ const NewOrder = () => {
   // Partial loads state
   const [isPartial, setIsPartial] = useState(false);
   const [partialCount, setPartialCount] = useState(2);
+  const [partialDragStates, setPartialDragStates] = useState<boolean[]>([false, false, false, false]);
   
   // Convert to arrays for partial loads
   const [bookedByCompany, setBookedByCompany] = useState("");
@@ -2062,7 +2063,7 @@ const NewOrder = () => {
                   partialCount === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
                 )}>
                   {Array.from({ length: partialCount }).map((_, index) => {
-                    const [dragActive, setDragActive] = useState(false);
+                    const dragActive = partialDragStates[index];
                     
                     const handleDrag = (e: React.DragEvent) => {
                       e.preventDefault();
@@ -2073,20 +2074,26 @@ const NewOrder = () => {
                       e.preventDefault();
                       e.stopPropagation();
                       if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-                        setDragActive(true);
+                        const newStates = [...partialDragStates];
+                        newStates[index] = true;
+                        setPartialDragStates(newStates);
                       }
                     };
                     
                     const handleDragOut = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setDragActive(false);
+                      const newStates = [...partialDragStates];
+                      newStates[index] = false;
+                      setPartialDragStates(newStates);
                     };
                     
                     const handleFileDrop = (e: React.DragEvent) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setDragActive(false);
+                      const newStates = [...partialDragStates];
+                      newStates[index] = false;
+                      setPartialDragStates(newStates);
                       
                       const files = Array.from(e.dataTransfer.files);
                       if (files.length > 0) {
