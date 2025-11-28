@@ -129,15 +129,32 @@ export const useOrders = (options?: UseOrdersOptions) => {
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        console.log('🔍 [useOrders] Archived order keys:', Object.keys(lockedOrders[0]));
-        console.log('🔍 [useOrders] Sample archived order:', {
-          truck: lockedOrders[0].truck_number || lockedOrders[0].truckNumber || 'MISSING',
-          driver: lockedOrders[0].driver_name || lockedOrders[0].driver1_name || lockedOrders[0].driverName || 'MISSING',
-          broker: lockedOrders[0].broker_name || lockedOrders[0].brokerName || 'MISSING',
-          company: lockedOrders[0].company_name || lockedOrders[0].companyName || 'MISSING',
-          pickup_city: lockedOrders[0].pickup_city || lockedOrders[0].pickupCity || 'MISSING',
-          delivery_city: lockedOrders[0].delivery_city || lockedOrders[0].deliveryCity || 'MISSING',
-        });
+        const allKeys = Object.keys(lockedOrders[0]);
+        console.log('🔍 [useOrders] ALL 89 Archived order keys:', allKeys.join(', '));
+        
+        // Check for truck-related keys
+        const truckKeys = allKeys.filter(k => k.toLowerCase().includes('truck'));
+        console.log('🚛 [useOrders] Truck-related keys:', truckKeys);
+        
+        // Check for driver-related keys
+        const driverKeys = allKeys.filter(k => k.toLowerCase().includes('driver'));
+        console.log('👤 [useOrders] Driver-related keys:', driverKeys);
+        
+        // Check for broker-related keys
+        const brokerKeys = allKeys.filter(k => k.toLowerCase().includes('broker'));
+        console.log('🏢 [useOrders] Broker-related keys:', brokerKeys);
+        
+        // Check for company-related keys
+        const companyKeys = allKeys.filter(k => k.toLowerCase().includes('company'));
+        console.log('🏭 [useOrders] Company-related keys:', companyKeys);
+        
+        // Check for city-related keys
+        const cityKeys = allKeys.filter(k => k.toLowerCase().includes('city') || k.toLowerCase().includes('pickup') || k.toLowerCase().includes('delivery'));
+        console.log('📍 [useOrders] Location-related keys:', cityKeys);
+        
+        // Check for file-related keys
+        const fileKeys = allKeys.filter(k => k.toLowerCase().includes('rc') || k.toLowerCase().includes('pod') || k.toLowerCase().includes('file'));
+        console.log('📄 [useOrders] File-related keys:', fileKeys);
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
