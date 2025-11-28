@@ -1914,6 +1914,7 @@ const NewOrder = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* RC Upload Section - Top Priority */}
+            {!isPartial && (
             <Card
               className={cn(
                 "bg-blue-50/50 border-blue-200 transition-all duration-200 cursor-pointer",
@@ -1994,13 +1995,14 @@ const NewOrder = () => {
                     multiple
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => setRcFiles(e.target.files ? Array.from(e.target.files) : [])}
-                    className="hidden"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                  className="hidden"
+                />
+              </div>
+            </CardContent>
+          </Card>
+          )}
 
-            <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="broker-load-number">Broker Load #</Label>
                 {!isPartial ? (
@@ -2055,43 +2057,92 @@ const NewOrder = () => {
             {/* Partial loads - Multiple RC uploads and broker/company sections */}
             {isPartial && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {Array.from({ length: partialCount }).map((_, index) => (
-                    <Card key={index} className="border-2">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
-                          <Upload className="h-4 w-4" />
-                          Partial {index + 1}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        {/* RC Upload for this partial */}
-                        <div 
-                          className={cn(
-                            "border-2 border-dashed rounded-lg p-3 text-center cursor-pointer hover:bg-blue-50/30 transition-colors",
-                            rcFilesArray[index]?.length > 0 ? "border-blue-400 bg-blue-50/50" : "border-blue-300"
-                          )}
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.multiple = true;
-                            input.accept = '.pdf,.jpg,.jpeg,.png';
-                            input.onchange = (e: any) => {
-                              const files = Array.from(e.target.files || []);
-                              const newArray = [...rcFilesArray];
-                              newArray[index] = files as File[];
-                              setRcFilesArray(newArray);
-                            };
-                            input.click();
-                          }}
-                        >
-                          <FileText className="mx-auto h-6 w-6 text-blue-400 mb-1" />
-                          <p className="text-xs text-blue-600">
-                            {rcFilesArray[index]?.length > 0 
-                              ? `${rcFilesArray[index].length} file(s)` 
-                              : 'Upload RC'}
-                          </p>
-                        </div>
+                <div className={cn(
+                  "grid gap-4",
+                  partialCount === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+                )}>
+                  {Array.from({ length: partialCount }).map((_, index) => {
+                    const [dragActive, setDragActive] = useState(false);
+                    
+                    const handleDrag = (e: React.DragEvent) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    };
+                    
+                    const handleDragIn = (e: React.DragEvent) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+                        setDragActive(true);
+                      }
+                    };
+                    
+                    const handleDragOut = (e: React.DragEvent) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragActive(false);
+                    };
+                    
+                    const handleFileDrop = (e: React.DragEvent) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragActive(false);
+                      
+                      const files = Array.from(e.dataTransfer.files);
+                      if (files.length > 0) {
+                        const newArray = [...rcFilesArray];
+                        newArray[index] = files as File[];
+                        setRcFilesArray(newArray);
+                      }
+                    };
+                    
+                    return (
+                      <Card key={index} className="border-2">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
+                            <Upload className="h-4 w-4" />
+                            Partial {index + 1}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {/* RC Upload for this partial with drag & drop */}
+                          <div 
+                            className={cn(
+                              "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-blue-50/30 transition-colors",
+                              dragActive && "border-blue-500 bg-blue-50",
+                              !dragActive && rcFilesArray[index]?.length > 0 && "border-blue-400 bg-blue-50/50",
+                              !dragActive && (!rcFilesArray[index] || rcFilesArray[index].length === 0) && "border-blue-300"
+                            )}
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.multiple = true;
+                              input.accept = '.pdf,.jpg,.jpeg,.png';
+                              input.onchange = (e: any) => {
+                                const files = Array.from(e.target.files || []);
+                                const newArray = [...rcFilesArray];
+                                newArray[index] = files as File[];
+                                setRcFilesArray(newArray);
+                              };
+                              input.click();
+                            }}
+                            onDragEnter={handleDragIn}
+                            onDragLeave={handleDragOut}
+                            onDragOver={handleDrag}
+                            onDrop={handleFileDrop}
+                          >
+                            <FileText className="mx-auto h-8 w-8 text-blue-400 mb-2" />
+                            <p className="text-sm text-blue-600 font-medium">
+                              {dragActive 
+                                ? 'Drop files here'
+                                : rcFilesArray[index]?.length > 0 
+                                  ? `${rcFilesArray[index].length} file(s)` 
+                                  : 'Click or drag & drop'}
+                            </p>
+                            {!dragActive && (!rcFilesArray[index] || rcFilesArray[index].length === 0) && (
+                              <p className="text-xs text-blue-500 mt-1">PDF, JPG, PNG supported</p>
+                            )}
+                          </div>
                         
                         {/* Company selector */}
                         <div className="space-y-1">
@@ -2125,7 +2176,8 @@ const NewOrder = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 {/* Extract button for partial loads */}
