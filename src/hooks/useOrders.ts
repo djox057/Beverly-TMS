@@ -129,8 +129,15 @@ export const useOrders = (options?: UseOrdersOptions) => {
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
+        console.log('📊 [useOrders] First locked order sample:', {
+          id: lockedOrders[0]?.id,
+          loadNumber: lockedOrders[0]?.load_number,
+          freight: lockedOrders[0]?.freight_amount,
+          locked: lockedOrders[0]?.locked
+        });
       } else {
-        console.log('⚠️ [useOrders] No cached locked orders found.');
+        console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
+        console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
       }
 
       // Merge initial unlocked orders with locked orders
