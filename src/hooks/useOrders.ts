@@ -750,10 +750,15 @@ function transformOrders(allOrders: any[]) {
           bookedByCompanyName: order.booked_by_company?.name || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
-          pickupDate: firstPickup?.datetime ? firstPickup.datetime : '',
+          // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
+          pickupDate: firstPickup?.datetime 
+            ? firstPickup.datetime 
+            : (order.pickup_datetime || order.pickupDatetime || ''),
           pickupCity: firstPickup?.city || '',
           pickupState: firstPickup?.state || '',
-          deliveryDate: lastDelivery?.datetime ? lastDelivery.datetime : '',
+          deliveryDate: lastDelivery?.datetime 
+            ? lastDelivery.datetime 
+            : (order.delivery_datetime || order.deliveryDatetime || ''),
           deliveryCity: lastDelivery?.city || '',
           deliveryState: lastDelivery?.state || '',
           
