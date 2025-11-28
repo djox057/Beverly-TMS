@@ -295,9 +295,18 @@ export const useOrders = (options?: UseOrdersOptions) => {
         });
       }
 
+      // Get the final merged data after locked orders are loaded (if any)
+      const finalData = queryClient.getQueryData(['orders', options?.bookedBy]);
+      
+      // If we have merged data from cache (unlocked + locked), return it
+      if (finalData && Array.isArray(finalData) && finalData.length > (initialBatch?.length || 0)) {
+        console.log(`[useOrders] ✅ Returning merged data with locked orders: ${finalData.length} total orders`);
+        return finalData;
+      }
+
       const allOrders = initialBatch || [];
 
-      // Transform and return initial batch
+      // Transform and return initial batch as fallback
       return transformOrders(allOrders);
     },
     refetchOnWindowFocus: false,
