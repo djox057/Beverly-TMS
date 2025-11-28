@@ -1418,7 +1418,7 @@ const NewOrder = () => {
     }
 
     // Validation checks
-    if (!bookedByCompany) {
+    if (!isPartial && !bookedByCompany) {
       toast({
         title: "Booked by Company Required",
         description: "Please select a booked by company.",
@@ -1427,7 +1427,22 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    if (!brokerLoadNumber?.trim()) {
+    
+    // For partial loads, validate that at least one company is selected
+    if (isPartial) {
+      const hasAnyCompany = bookedByCompanies.slice(0, partialCount).some(c => c);
+      if (!hasAnyCompany) {
+        toast({
+          title: "Company Required",
+          description: "Please select at least one company for the partial loads.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
+    if (!isPartial && !brokerLoadNumber?.trim()) {
       toast({
         title: "Broker Load# Required",
         description: "Please enter a broker load number.",
@@ -1436,7 +1451,22 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
-    if (!broker) {
+    
+    // For partial loads, validate that at least one broker load number is entered
+    if (isPartial) {
+      const hasAnyLoadNumber = brokerLoadNumbers.slice(0, partialCount).some(n => n?.trim());
+      if (!hasAnyLoadNumber) {
+        toast({
+          title: "Broker Load# Required",
+          description: "Please enter at least one broker load number for the partial loads.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
+    if (!isPartial && !broker) {
       toast({
         title: "Broker Required",
         description: "Please select a broker.",
@@ -1445,6 +1475,21 @@ const NewOrder = () => {
       setIsSubmitting(false);
       return;
     }
+    
+    // For partial loads, validate that at least one broker is selected
+    if (isPartial) {
+      const hasAnyBroker = brokers.slice(0, partialCount).some(b => b);
+      if (!hasAnyBroker) {
+        toast({
+          title: "Broker Required",
+          description: "Please select at least one broker for the partial loads.",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
     if (!truck) {
       toast({
         title: "Truck# Required",
