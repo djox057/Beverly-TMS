@@ -648,6 +648,15 @@ async function fetchSingleOrder(orderId: string) {
 function transformOrders(allOrders: any[]) {
   console.log(`🔄 [transformOrders] Processing ${allOrders.length} orders`);
   
+  // Helper to safely convert values to numbers, handling "null" strings and undefined
+  const toNum = (val: any): number => {
+    if (val === null || val === undefined || val === '' || val === 'null' || val === 'NULL') {
+      return 0;
+    }
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+  };
+  
   const transformed = (allOrders || []).map((order: any, index: number) => {
         // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
         // This ensures cached orders (which only have freight_amount) get proper totals
@@ -663,33 +672,34 @@ function transformOrders(allOrders: any[]) {
         // - DB orders use snake_case (freight_amount, driver_price)
         // - Some cached orders use camelCase (freightAmount, driverPrice)
         // - CSV cached orders might use shortened names (freight, driverPay)
-        // IMPORTANT: Convert to Number to prevent string concatenation!
+        // - CSV cached orders may have "null" as STRINGS, not actual null values
+        // Use toNum() helper to safely convert all values
         const totalDriverPay = 
-          Number(order.driver_price || order.driverPrice || order.driverPay || 0) +
-          Number(order.detention_driver || order.detentionDriver || 0) +
-          Number(order.layover_driver || order.layoverDriver || 0) +
-          Number(order.tonu_driver || order.tonuDriver || 0) +
-          Number(order.extra_stop_driver || order.extraStopDriver || 0) +
-          Number(order.lumper_driver || order.lumperDriver || 0) +
-          Number(order.late_fee_driver || order.lateFeeDriver || 0) +
-          Number(order.no_tracking_fee_driver || order.noTrackingFeeDriver || 0) +
-          Number(order.wrong_address_fee_driver || order.wrongAddressFeeDriver || 0) +
-          Number(order.other_charges_driver || order.otherChargesDriver || 0);
+          toNum(order.driver_price || order.driverPrice || order.driverPay) +
+          toNum(order.detention_driver || order.detentionDriver) +
+          toNum(order.layover_driver || order.layoverDriver) +
+          toNum(order.tonu_driver || order.tonuDriver) +
+          toNum(order.extra_stop_driver || order.extraStopDriver) +
+          toNum(order.lumper_driver || order.lumperDriver) +
+          toNum(order.late_fee_driver || order.lateFeeDriver) +
+          toNum(order.no_tracking_fee_driver || order.noTrackingFeeDriver) +
+          toNum(order.wrong_address_fee_driver || order.wrongAddressFeeDriver) +
+          toNum(order.other_charges_driver || order.otherChargesDriver);
 
         // Calculate total freight amount - check freight_amount, freightAmount, AND freight
-        // IMPORTANT: Convert to Number to prevent string concatenation!
+        // Use toNum() to handle "null" strings from CSV cached data
         const totalFreightAmount = 
-          Number(order.freight_amount || order.freightAmount || order.freight || 0) +
-          Number(order.detention || 0) +
-          Number(order.layover || 0) +
-          Number(order.tonu || 0) +
-          Number(order.extra_stop || order.extraStop || 0) +
-          Number(order.lumper || 0) +
-          Number(order.late_fee || order.lateFee || 0) +
-          Number(order.no_tracking_fee || order.noTrackingFee || 0) +
-          Number(order.wrong_address_fee || order.wrongAddressFee || 0) +
-          Number(order.escort_fee || order.escortFee || 0) +
-          Number(order.other_charges || order.otherCharges || 0);
+          toNum(order.freight_amount || order.freightAmount || order.freight) +
+          toNum(order.detention) +
+          toNum(order.layover) +
+          toNum(order.tonu) +
+          toNum(order.extra_stop || order.extraStop) +
+          toNum(order.lumper) +
+          toNum(order.late_fee || order.lateFee) +
+          toNum(order.no_tracking_fee || order.noTrackingFee) +
+          toNum(order.wrong_address_fee || order.wrongAddressFee) +
+          toNum(order.escort_fee || order.escortFee) +
+          toNum(order.other_charges || order.otherCharges);
 
         // Filter files by category
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
