@@ -528,9 +528,9 @@ const Analytics = () => {
           orderCount: 0,
         };
       }
-      acc[dispatcher].totalFreight += order.totalFreightAmount;
-      acc[dispatcher].totalDriverRate += order.totalDriverPay;
-      acc[dispatcher].totalMiles += order.mileage;
+      acc[dispatcher].totalFreight += Number(order.totalFreightAmount) || 0;
+      acc[dispatcher].totalDriverRate += Number(order.totalDriverPay) || 0;
+      acc[dispatcher].totalMiles += Number(order.mileage) || 0;
       acc[dispatcher].orderCount += 1;
       return acc;
     },
@@ -650,8 +650,8 @@ const Analytics = () => {
             orderCount: 0,
           };
         }
-        acc[driverName].totalDriverRate += order.totalDriverPay;
-        acc[driverName].totalMiles += order.mileage;
+        acc[driverName].totalDriverRate += Number(order.totalDriverPay) || 0;
+        acc[driverName].totalMiles += Number(order.mileage) || 0;
         acc[driverName].orderCount += 1;
       }
       return acc;
