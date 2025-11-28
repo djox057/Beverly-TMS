@@ -134,91 +134,71 @@ export const useOrders = (options?: UseOrdersOptions) => {
         
         // Merge pickup_drops and order_files into locked orders
         if (cachedPickupDrops) {
-          console.log('📍 [useOrders] Merging', cachedPickupDrops.length, 'pickup/drops with locked orders');
+          console.log('📍 [useOrders] Merging', cachedPickupDrops.length, 'pickup/drops');
           lockedOrders.forEach(order => {
             order.pickup_drops = cachedPickupDrops.filter(pd => pd.order_id === order.id);
           });
         }
         
         if (cachedOrderFiles) {
-          console.log('📄 [useOrders] Merging', cachedOrderFiles.length, 'order files with locked orders');
+          console.log('📄 [useOrders] Merging', cachedOrderFiles.length, 'order files');
           lockedOrders.forEach(order => {
             order.order_files = cachedOrderFiles.filter(of => of.order_id === order.id);
           });
         }
         
-        // Fetch lookup data for IDs (trucks, drivers, brokers, companies)
-        console.log('🔍 [useOrders] Fetching lookup data for archived orders...');
-        const allTruckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
-        const allDriverIds = [...new Set([
+        // Fetch lookup data (trucks, drivers, brokers, companies) in one batch
+        const uniqueTruckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
+        const uniqueDriverIds = [...new Set([
           ...lockedOrders.map(o => o.driver1_id).filter(Boolean),
-          ...lockedOrders.map(o => o.driver2_id).filter(Boolean)
+          ...lockedOrders.map(o => o.driver2_id).filter(id => id && id !== 'null')
         ])];
-        const allBrokerIds = [...new Set(lockedOrders.map(o => o.broker_id).filter(Boolean))];
-        const allCompanyIds = [...new Set([
+        const uniqueBrokerIds = [...new Set(lockedOrders.map(o => o.broker_id).filter(Boolean))];
+        const uniqueCompanyIds = [...new Set([
           ...lockedOrders.map(o => o.company_id).filter(Boolean),
           ...lockedOrders.map(o => o.booked_by_company_id).filter(Boolean)
         ])];
         
-        // Fetch all lookup data in parallel
-        const [trucksData, driversData, brokersData, companiesData] = await Promise.all([
-          allTruckIds.length > 0 ? supabase.from('trucks').select('id, truck_number, company:companies(id, name)').in('id', allTruckIds) : Promise.resolve({ data: [] }),
-          allDriverIds.length > 0 ? supabase.from('drivers').select('id, name').in('id', allDriverIds) : Promise.resolve({ data: [] }),
-          allBrokerIds.length > 0 ? supabase.from('brokers').select('id, name, address, mc_number').in('id', allBrokerIds) : Promise.resolve({ data: [] }),
-          allCompanyIds.length > 0 ? supabase.from('companies').select('id, name').in('id', allCompanyIds) : Promise.resolve({ data: [] })
-        ]);
-        
-        console.log('✅ [useOrders] Fetched lookups:', {
-          trucks: trucksData.data?.length || 0,
-          drivers: driversData.data?.length || 0,
-          brokers: brokersData.data?.length || 0,
-          companies: companiesData.data?.length || 0
+        console.log('🔍 [useOrders] Fetching lookups:', {
+          trucks: uniqueTruckIds.length,
+          drivers: uniqueDriverIds.length,
+          brokers: uniqueBrokerIds.length,
+          companies: uniqueCompanyIds.length
         });
         
-        // Create lookup maps
-        const truckMap = new Map((trucksData.data || []).map(t => [t.id, t]));
-        const driverMap = new Map((driversData.data || []).map(d => [d.id, d]));
-        const brokerMap = new Map((brokersData.data || []).map(b => [b.id, b]));
-        const companyMap = new Map((companiesData.data || []).map(c => [c.id, c]));
+        // Fetch all in parallel
+        const [trucksRes, driversRes, brokersRes, companiesRes, trailersRes] = await Promise.all([
+          uniqueTruckIds.length ? supabase.from('trucks').select('id, truck_number, company:companies(id, name)').in('id', uniqueTruckIds) : { data: [] },
+          uniqueDriverIds.length ? supabase.from('drivers').select('id, name').in('id', uniqueDriverIds) : { data: [] },
+          uniqueBrokerIds.length ? supabase.from('brokers').select('id, name, address, mc_number').in('id', uniqueBrokerIds) : { data: [] },
+          uniqueCompanyIds.length ? supabase.from('companies').select('id, name').in('id', uniqueCompanyIds) : { data: [] },
+          supabase.from('trailers').select('id, trailer_number')
+        ]);
         
-        // Attach lookup data to locked orders
-        lockedOrders.forEach(order => {
-          if (order.truck_id) {
-            const truck = truckMap.get(order.truck_id);
-            if (truck) {
-              order.truck = truck;
-            }
-          }
-          if (order.driver1_id) {
-            const driver1 = driverMap.get(order.driver1_id);
-            if (driver1) {
-              order.driver1 = driver1;
-            }
-          }
-          if (order.driver2_id && order.driver2_id !== 'null') {
-            const driver2 = driverMap.get(order.driver2_id);
-            if (driver2) {
-              order.driver2 = driver2;
-            }
-          }
-          if (order.broker_id) {
-            const broker = brokerMap.get(order.broker_id);
-            if (broker) {
-              order.broker = broker;
-            }
-          }
-          if (order.company_id) {
-            const company = companyMap.get(order.company_id);
-            if (company) {
-              order.company = company;
-            }
-          }
-          if (order.booked_by_company_id) {
-            const bookedByCompany = companyMap.get(order.booked_by_company_id);
-            if (bookedByCompany) {
-              order.booked_by_company = bookedByCompany;
-            }
-          }
+        // Create lookup maps
+        const truckMap = new Map((trucksRes.data || []).map((t: any) => [t.id, t]));
+        const driverMap = new Map((driversRes.data || []).map((d: any) => [d.id, d]));
+        const brokerMap = new Map((brokersRes.data || []).map((b: any) => [b.id, b]));
+        const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c]));
+        const trailerMap = new Map((trailersRes.data || []).map((t: any) => [t.id, t]));
+        
+        console.log('✅ [useOrders] Fetched lookups:', {
+          trucks: truckMap.size,
+          drivers: driverMap.size,
+          brokers: brokerMap.size,
+          companies: companyMap.size,
+          trailers: trailerMap.size
+        });
+        
+        // Attach joined data to locked orders (like fresh DB queries would have)
+        lockedOrders.forEach((order: any) => {
+          if (order.truck_id) order.truck = truckMap.get(order.truck_id) || null;
+          if (order.trailer_id) order.trailer = trailerMap.get(order.trailer_id) || null;
+          if (order.driver1_id) order.driver1 = driverMap.get(order.driver1_id) || null;
+          if (order.driver2_id && order.driver2_id !== 'null') order.driver2 = driverMap.get(order.driver2_id) || null;
+          if (order.broker_id) order.broker = brokerMap.get(order.broker_id) || null;
+          if (order.company_id) order.company = companyMap.get(order.company_id) || null;
+          if (order.booked_by_company_id) order.booked_by_company = companyMap.get(order.booked_by_company_id) || null;
         });
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
