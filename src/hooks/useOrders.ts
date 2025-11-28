@@ -129,14 +129,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        console.log('📊 [useOrders] First locked order FULL:', lockedOrders[0]);
-        console.log('📅 [useOrders] Date fields check:', {
-          pickup_datetime: lockedOrders[0]?.pickup_datetime,
-          pickupDatetime: lockedOrders[0]?.pickupDatetime,
-          delivery_datetime: lockedOrders[0]?.delivery_datetime,
-          deliveryDatetime: lockedOrders[0]?.deliveryDatetime,
-          allDateKeys: Object.keys(lockedOrders[0] || {}).filter(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('time'))
-        });
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
@@ -753,14 +745,15 @@ function transformOrders(allOrders: any[]) {
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
           // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
+          // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
           pickupDate: firstPickup?.datetime 
             ? firstPickup.datetime 
-            : (order.pickup_datetime || order.pickupDatetime || ''),
+            : ((order.pickup_datetime || order.pickupDatetime || '').replace(' ', 'T')),
           pickupCity: firstPickup?.city || '',
           pickupState: firstPickup?.state || '',
           deliveryDate: lastDelivery?.datetime 
             ? lastDelivery.datetime 
-            : (order.delivery_datetime || order.deliveryDatetime || ''),
+            : ((order.delivery_datetime || order.deliveryDatetime || '').replace(' ', 'T')),
           deliveryCity: lastDelivery?.city || '',
           deliveryState: lastDelivery?.state || '',
           
