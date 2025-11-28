@@ -40,6 +40,17 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 let dbInstance: IDBPDatabase<OrdersCacheDB> | null = null;
 
+// Normalize CSV date format (space separator) to ISO format (T separator)
+function normalizeDateFields(orders: any[]): any[] {
+  return orders.map(order => ({
+    ...order,
+    pickup_datetime: order.pickup_datetime?.replace(' ', 'T'),
+    delivery_datetime: order.delivery_datetime?.replace(' ', 'T'),
+    pickup_end_datetime: order.pickup_end_datetime?.replace(' ', 'T'),
+    delivery_end_datetime: order.delivery_end_datetime?.replace(' ', 'T'),
+  }));
+}
+
 async function getDB(): Promise<IDBPDatabase<OrdersCacheDB>> {
   if (dbInstance) return dbInstance;
   
@@ -169,7 +180,7 @@ export async function getLockedOrders(): Promise<any[] | null> {
         const age = Date.now() - cached.timestamp;
         const ageHours = Math.floor(age / (1000 * 60 * 60));
         console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (age:', ageHours, 'hours)');
-        return cached.data;
+        return normalizeDateFields(cached.data);
       }
     }
 
@@ -193,15 +204,18 @@ export async function getLockedOrders(): Promise<any[] | null> {
       return null;
     }
 
-    // Update local cache
+    // Normalize date formats from CSV (space separator to T separator)
+    const normalizedOrders = normalizeDateFields(orders);
+
+    // Update local cache with normalized data
     await db.put(ORDERS_STORE, {
-      data: orders,
+      data: normalizedOrders,
       timestamp: Date.now(),
       version: CACHE_VERSION,
     }, ORDERS_CACHE_KEY);
 
-    console.log('✅ Loaded', orders.length, 'locked orders from company storage');
-    return orders;
+    console.log('✅ Loaded', normalizedOrders.length, 'locked orders from company storage');
+    return normalizedOrders;
   } catch (error) {
     console.error('Failed to get locked orders:', error);
     // Clear corrupted cache on any error
