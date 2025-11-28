@@ -288,15 +288,15 @@ export default function DriverInfo() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Start Date of 2 Week Notice</Label>
+              <Label>Last Date of 2 Week Notice</Label>
               <DatePicker
                 date={twoWeekNoticeDate}
                 onDateChange={setTwoWeekNoticeDate}
-                placeholder="Select start date"
+                placeholder="Select last date"
               />
               {twoWeekNoticeDate && (
                 <p className="text-xs text-muted-foreground">
-                  Last day will be: {format(new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
+                  Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
                 </p>
               )}
             </div>
@@ -315,12 +315,9 @@ export default function DriverInfo() {
                 onClick={async () => {
                   if (!twoWeekNoticeDate || !data?.driver?.id) return;
                   
-                  // Calculate last day (14 days after start date)
-                  const lastDay = new Date(twoWeekNoticeDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-                  
                   const { error } = await supabase
                     .from("drivers")
-                    .update({ two_week_block_date: format(lastDay, "yyyy-MM-dd") })
+                    .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
                     .eq("id", data.driver.id);
 
                   if (error) {
