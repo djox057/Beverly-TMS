@@ -129,6 +129,15 @@ export const useOrders = (options?: UseOrdersOptions) => {
       
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
+        console.log('🔍 [useOrders] Archived order keys:', Object.keys(lockedOrders[0]));
+        console.log('🔍 [useOrders] Sample archived order:', {
+          truck: lockedOrders[0].truck_number || lockedOrders[0].truckNumber || 'MISSING',
+          driver: lockedOrders[0].driver_name || lockedOrders[0].driver1_name || lockedOrders[0].driverName || 'MISSING',
+          broker: lockedOrders[0].broker_name || lockedOrders[0].brokerName || 'MISSING',
+          company: lockedOrders[0].company_name || lockedOrders[0].companyName || 'MISSING',
+          pickup_city: lockedOrders[0].pickup_city || lockedOrders[0].pickupCity || 'MISSING',
+          delivery_city: lockedOrders[0].delivery_city || lockedOrders[0].deliveryCity || 'MISSING',
+        });
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
