@@ -123,6 +123,24 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
       console.log(`[useOrders] ✅ Loaded initial ${initialBatch?.length || 0} UNLOCKED orders`);
 
+      // Load LOCKED orders from cache FIRST (before returning)
+      console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
+      const lockedOrders = await getLockedOrders();
+      
+      if (lockedOrders && lockedOrders.length > 0) {
+        console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
+      } else {
+        console.log('⚠️ [useOrders] No cached locked orders found.');
+      }
+
+      // Merge initial unlocked orders with locked orders
+      const initialMergedOrders = transformOrders([
+        ...(initialBatch || []),
+        ...(lockedOrders || [])
+      ]);
+      
+      console.log(`[useOrders] ✅ Initial merged data: ${initialMergedOrders.length} orders (${initialBatch?.length || 0} unlocked + ${lockedOrders?.length || 0} locked)`);
+
       // Continue loading remaining UNLOCKED orders in background
       if (initialBatch && initialBatch.length === initialBatchSize) {
         console.log('[useOrders] Starting background loading...');
@@ -253,61 +271,24 @@ export const useOrders = (options?: UseOrdersOptions) => {
                 hasMore = false;
               }
               
-              // Update cache progressively
-              queryClient.setQueryData(['orders', options?.bookedBy], transformOrders(backgroundOrders));
+              // Merge with locked orders and update cache progressively
+              const mergedData = transformOrders([
+                ...backgroundOrders,
+                ...(lockedOrders || [])
+              ]);
+              queryClient.setQueryData(['orders', options?.bookedBy], mergedData);
+              console.log(`[useOrders] 📊 Updated cache: ${mergedData.length} total orders`);
             }
 
-            console.log(`[useOrders] 🎉 Background unlocked orders complete! Total: ${backgroundOrders.length} orders`);
-            
-            // Now load LOCKED orders from cache or DB
-            await loadLockedOrders();
+            console.log(`[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${lockedOrders?.length || 0} locked`);
           } catch (error) {
             console.error("[useOrders] ❌ Background loading error:", error);
           }
         })();
-      } else {
-        console.log('[useOrders] No background loading needed (less than 500 orders)');
-        // Still load locked orders even if there are few unlocked ones
-        await loadLockedOrders();
       }
 
-      // Helper function to load locked orders
-      async function loadLockedOrders() {
-        console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
-        
-        // Load only from local IndexedDB cache
-        const lockedOrders = await getLockedOrders();
-        
-        if (!lockedOrders || lockedOrders.length === 0) {
-          console.log('⚠️ [useOrders] No cached locked orders found. Please import data via Data Management page.');
-          return;
-        }
-
-        console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-
-        // Merge locked orders with query cache using the SAME key structure
-        queryClient.setQueryData(['orders', options?.bookedBy], (oldData: any) => {
-          if (!oldData) return lockedOrders;
-          
-          const combined = [...oldData, ...lockedOrders];
-          console.log('✅ [useOrders] Combined orders:', combined.length, '(unlocked:', oldData.length, '+ locked:', lockedOrders.length, ')');
-          return combined;
-        });
-      }
-
-      // Get the final merged data after locked orders are loaded (if any)
-      const finalData = queryClient.getQueryData(['orders', options?.bookedBy]);
-      
-      // If we have merged data from cache (unlocked + locked), return it
-      if (finalData && Array.isArray(finalData) && finalData.length > (initialBatch?.length || 0)) {
-        console.log(`[useOrders] ✅ Returning merged data with locked orders: ${finalData.length} total orders`);
-        return finalData;
-      }
-
-      const allOrders = initialBatch || [];
-
-      // Transform and return initial batch as fallback
-      return transformOrders(allOrders);
+      // Return initial merged data (unlocked + locked)
+      return initialMergedOrders;
     },
     refetchOnWindowFocus: false,
     refetchOnMount: false,
