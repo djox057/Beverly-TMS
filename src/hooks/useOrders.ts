@@ -167,17 +167,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
           });
         }
         
+        // Helper to check if an ID is valid (not string "null", "NULL", "undefined", or empty)
+        const isValidId = (id: any) => id && id !== 'null' && id !== 'NULL' && id !== 'undefined' && id !== '';
+        
         // Fetch lookup data (trucks, drivers, brokers, companies) in one batch
-        const uniqueTruckIds = [...new Set(lockedOrders.map(o => o?.truck_id).filter(Boolean))];
+        const uniqueTruckIds = [...new Set(lockedOrders.map(o => o?.truck_id).filter(isValidId))];
         const uniqueDriverIds = [...new Set([
-          ...lockedOrders.map(o => o?.driver1_id).filter(Boolean),
-          ...lockedOrders.map(o => o?.driver2_id).filter(id => id && id !== 'null')
+          ...lockedOrders.map(o => o?.driver1_id).filter(isValidId),
+          ...lockedOrders.map(o => o?.driver2_id).filter(isValidId)
         ])];
-        const uniqueBrokerIds = [...new Set(lockedOrders.map(o => o?.broker_id).filter(Boolean))];
+        const uniqueBrokerIds = [...new Set(lockedOrders.map(o => o?.broker_id).filter(isValidId))];
         const uniqueCompanyIds = [...new Set([
-          ...lockedOrders.map(o => o?.company_id).filter(Boolean),
-          ...lockedOrders.map(o => o?.booked_by_company_id).filter(Boolean)
+          ...lockedOrders.map(o => o?.company_id).filter(isValidId),
+          ...lockedOrders.map(o => o?.booked_by_company_id).filter(isValidId)
         ])];
+        const uniqueTrailerIds = [...new Set(lockedOrders.map(o => o?.trailer_id).filter(isValidId))];
         
         console.log('🔍 [useOrders] Fetching lookups:', {
           trucks: uniqueTruckIds.length,
@@ -193,7 +197,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
             uniqueDriverIds.length ? supabase.from('drivers').select('id, name').in('id', uniqueDriverIds) : { data: [] },
             uniqueBrokerIds.length ? supabase.from('brokers').select('id, name, address, mc_number').in('id', uniqueBrokerIds) : { data: [] },
             uniqueCompanyIds.length ? supabase.from('companies').select('id, name').in('id', uniqueCompanyIds) : { data: [] },
-            supabase.from('trailers').select('id, trailer_number')
+            uniqueTrailerIds.length ? supabase.from('trailers').select('id, trailer_number').in('id', uniqueTrailerIds) : { data: [] }
           ]);
           
           // Create lookup maps
@@ -214,13 +218,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
           // Attach joined data to locked orders (like fresh DB queries would have)
           lockedOrders.forEach((order: any) => {
             if (!order) return;
-            if (order.truck_id) order.truck = truckMap.get(order.truck_id) || null;
-            if (order.trailer_id) order.trailer = trailerMap.get(order.trailer_id) || null;
-            if (order.driver1_id) order.driver1 = driverMap.get(order.driver1_id) || null;
-            if (order.driver2_id && order.driver2_id !== 'null') order.driver2 = driverMap.get(order.driver2_id) || null;
-            if (order.broker_id) order.broker = brokerMap.get(order.broker_id) || null;
-            if (order.company_id) order.company = companyMap.get(order.company_id) || null;
-            if (order.booked_by_company_id) order.booked_by_company = companyMap.get(order.booked_by_company_id) || null;
+            if (isValidId(order.truck_id)) order.truck = truckMap.get(order.truck_id) || null;
+            if (isValidId(order.trailer_id)) order.trailer = trailerMap.get(order.trailer_id) || null;
+            if (isValidId(order.driver1_id)) order.driver1 = driverMap.get(order.driver1_id) || null;
+            if (isValidId(order.driver2_id)) order.driver2 = driverMap.get(order.driver2_id) || null;
+            if (isValidId(order.broker_id)) order.broker = brokerMap.get(order.broker_id) || null;
+            if (isValidId(order.company_id)) order.company = companyMap.get(order.company_id) || null;
+            if (isValidId(order.booked_by_company_id)) order.booked_by_company = companyMap.get(order.booked_by_company_id) || null;
           });
         } catch (lookupError) {
           console.error('🚨 [useOrders] Lookup data fetch failed:', lookupError);
