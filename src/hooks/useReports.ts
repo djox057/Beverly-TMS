@@ -652,39 +652,10 @@ export const useReports = () => {
               driverOrders
                 .filter((order) => !order.canceled)
                 .map((order) => {
-                  // Deduplicate pickup_drops by address content (address + city + state)
-                  // Keep the stop with positive sequence_number when duplicates exist
-                  const uniquePickupDrops = order.pickup_drops?.reduce((acc: any[], stop: any) => {
-                    const addressKey = `${stop.address || ''}|${stop.city || ''}|${stop.state || ''}`.toLowerCase();
-                    const existingStop = acc.find(s => 
-                      `${s.address || ''}|${s.city || ''}|${s.state || ''}`.toLowerCase() === addressKey
-                    );
-                    
-                    if (!existingStop) {
-                      // No duplicate found, add this stop
-                      acc.push(stop);
-                    } else {
-                      // Duplicate found - keep the one with positive sequence_number
-                      const currentSeq = stop.sequence_number || 0;
-                      const existingSeq = existingStop.sequence_number || 0;
-                      
-                      if (currentSeq > 0 && existingSeq < 0) {
-                        // Replace negative sequence with positive
-                        const index = acc.indexOf(existingStop);
-                        acc[index] = stop;
-                      } else if (currentSeq > existingSeq && currentSeq > 0) {
-                        // Keep the one with higher positive sequence
-                        const index = acc.indexOf(existingStop);
-                        acc[index] = stop;
-                      }
-                    }
-                    return acc;
-                  }, []) || [];
-
-                  const pickupStops = uniquePickupDrops.filter((stop) => stop.type === "pickup").sort(
+                  const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
-                  const deliveryStops = uniquePickupDrops.filter((stop) => stop.type === "delivery").sort(
+                  const deliveryStops = (order.pickup_drops?.filter((stop) => stop.type === "delivery") || []).sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
 
