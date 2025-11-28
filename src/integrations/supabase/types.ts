@@ -966,6 +966,7 @@ export type Database = {
           id: string
           internal_load_number: number | null
           invoiced: boolean | null
+          is_partial: boolean | null
           is_recovery: boolean | null
           late_fee: number | null
           late_fee_driver: number | null
@@ -1012,6 +1013,9 @@ export type Database = {
           original_wrong_address_fee_driver: number | null
           other_charges: number | null
           other_charges_driver: number | null
+          partial_booked_by_companies: Json | null
+          partial_broker_loads: Json | null
+          partial_brokers: Json | null
           pickup_datetime: string | null
           pickup_end_datetime: string | null
           po_number: string | null
@@ -1057,6 +1061,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
           late_fee_driver?: number | null
@@ -1103,6 +1108,9 @@ export type Database = {
           original_wrong_address_fee_driver?: number | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          partial_booked_by_companies?: Json | null
+          partial_broker_loads?: Json | null
+          partial_brokers?: Json | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null
@@ -1148,6 +1156,7 @@ export type Database = {
           id?: string
           internal_load_number?: number | null
           invoiced?: boolean | null
+          is_partial?: boolean | null
           is_recovery?: boolean | null
           late_fee?: number | null
           late_fee_driver?: number | null
@@ -1194,6 +1203,9 @@ export type Database = {
           original_wrong_address_fee_driver?: number | null
           other_charges?: number | null
           other_charges_driver?: number | null
+          partial_booked_by_companies?: Json | null
+          partial_broker_loads?: Json | null
+          partial_brokers?: Json | null
           pickup_datetime?: string | null
           pickup_end_datetime?: string | null
           po_number?: string | null

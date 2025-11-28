@@ -57,13 +57,24 @@ interface PickupDrop {
 }
 const NewOrder = () => {
   const navigate = useNavigate();
+  
+  // Partial loads state
+  const [isPartial, setIsPartial] = useState(false);
+  const [partialCount, setPartialCount] = useState(2);
+  
+  // Convert to arrays for partial loads
   const [bookedByCompany, setBookedByCompany] = useState("");
+  const [bookedByCompanies, setBookedByCompanies] = useState<string[]>(["", "", "", ""]);
   const [broker, setBroker] = useState("");
+  const [brokers, setBrokers] = useState<string[]>(["", "", "", ""]);
+  const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
+  const [brokerLoadNumbers, setBrokerLoadNumbers] = useState<string[]>(["", "", "", ""]);
+  const [rcFilesArray, setRcFilesArray] = useState<File[][]>([[], [], [], []]);
+  
   const [truck, setTruck] = useState("");
   const [driver1, setDriver1] = useState("");
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
-  const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
   const [freightAmount, setFreightAmount] = useState("");
@@ -238,23 +249,42 @@ const NewOrder = () => {
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
   const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
 
-  // Auto-extract AI when RC file is uploaded
+  // Auto-extract AI when RC file is uploaded (handles both single and partial)
   useEffect(() => {
-    // Reset flag when files are cleared
-    if (rcFiles.length === 0) {
-      setHasAutoExtracted(false);
-      return;
-    }
+    if (isPartial) {
+      // For partial loads, reset flag when any RC files are cleared
+      const hasAnyFiles = rcFilesArray.some(arr => arr.length > 0);
+      if (!hasAnyFiles) {
+        setHasAutoExtracted(false);
+        return;
+      }
+      
+      // Auto-trigger extraction for all partial RC files
+      if (!hasAutoExtracted && !isExtracting) {
+        const hasAnyPdf = rcFilesArray.some(arr => 
+          arr.some(file => file.type === "application/pdf")
+        );
+        if (hasAnyPdf) {
+          setHasAutoExtracted(true);
+          handleExtractWithAI();
+        }
+      }
+    } else {
+      // Original single load logic
+      if (rcFiles.length === 0) {
+        setHasAutoExtracted(false);
+        return;
+      }
 
-    // Auto-trigger extraction once when PDF is uploaded
-    if (!hasAutoExtracted && !isExtracting) {
-      const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
-      if (pdfFile) {
-        setHasAutoExtracted(true);
-        handleExtractWithAI();
+      if (!hasAutoExtracted && !isExtracting) {
+        const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
+        if (pdfFile) {
+          setHasAutoExtracted(true);
+          handleExtractWithAI();
+        }
       }
     }
-  }, [rcFiles]);
+  }, [rcFiles, rcFilesArray, isPartial]);
 
   // Pre-select BF Prime company as default
   useEffect(() => {
@@ -666,344 +696,169 @@ const NewOrder = () => {
       console.log("Extraction already in progress, skipping...");
       return;
     }
-    if (rcFiles.length === 0) {
+    
+    // Check for files based on mode
+    const filesToExtract = isPartial 
+      ? rcFilesArray.flat()
+      : rcFiles;
+      
+    if (filesToExtract.length === 0) {
       toast({
         title: "No RC File Selected",
-        description: "Please select a PDF file in the RC section to extract data from.",
+        description: "Please select at least one PDF file to extract data from.",
         variant: "destructive",
       });
       return;
     }
-    const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
-    if (!pdfFile) {
+    
+    const pdfFiles = filesToExtract.filter((file) => file.type === "application/pdf");
+    if (pdfFiles.length === 0) {
       toast({
         title: "PDF Required",
-        description: "Please select a PDF file for AI extraction.",
+        description: "Please select PDF file(s) for AI extraction.",
         variant: "destructive",
       });
       return;
     }
+    
     setIsExtracting(true);
     try {
-      console.log("Starting PDF extraction with OpenAI...");
-      const formData = new FormData();
-      formData.append("pdf", pdfFile);
-      console.log("Calling extract-order-fields edge function...");
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
-        },
-        body: formData,
-      });
-      console.log("Edge function response status:", response.status);
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Edge function error:", errorText);
-        throw new Error(`Edge function failed with status ${response.status}`);
-      }
-      const data = await response.json();
-      if (!data?.success) {
-        console.error("Extraction failed:", data?.error);
-        throw new Error(data?.error || "Failed to extract data");
-      }
-      const extractedData = data.data;
-      console.log("Successfully extracted data:", extractedData);
+      console.log(`Starting PDF extraction for ${pdfFiles.length} file(s)...`);
+      
+      // Accumulate picks/drops from all files
+      const allPickupsDrops: PickupDrop[] = [];
+      
+      // Extract from each PDF file
+      for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
+        const pdfFile = pdfFiles[fileIndex];
+        console.log(`Processing file ${fileIndex + 1}/${pdfFiles.length}: ${pdfFile.name}`);
+        
+        const formData = new FormData();
+        formData.append("pdf", pdfFile);
+        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const response = await fetch(`https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/extract-order-fields`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Edge function error:", errorText);
+          throw new Error(`Edge function failed with status ${response.status} for file ${pdfFile.name}`);
+        }
+        
+        const data = await response.json();
+        if (!data?.success) {
+          console.error("Extraction failed:", data?.error);
+          throw new Error(data?.error || `Failed to extract data from ${pdfFile.name}`);
+        }
+        
+        const extractedData = data.data;
+        console.log(`Successfully extracted data from file ${fileIndex + 1}:`, extractedData);
 
-      // Auto-fill broker if matched
-      if (extractedData.matchedBrokerId) {
-        console.log("✅ Auto-filling broker with matched ID:", extractedData.matchedBrokerId);
-        setBroker(extractedData.matchedBrokerId);
-        toast({
-          title: "Broker Matched",
-          description: `Automatically matched broker: ${extractedData.brokerName || "from database"}`,
-        });
-      } else if (extractedData.brokerName) {
-        console.log("⚠️ Broker extracted but not matched:", extractedData.brokerName);
-        toast({
-          title: "Broker Not Matched",
-          description: `Extracted broker "${extractedData.brokerName}" but couldn't find a match in database. Please select manually.`,
-          variant: "destructive",
-        });
-      }
+        // For first file only, populate single-use fields
+        if (fileIndex === 0) {
+          // Auto-fill broker if matched
+          if (extractedData.matchedBrokerId) {
+            console.log("✅ Auto-filling broker with matched ID:", extractedData.matchedBrokerId);
+            if (isPartial) {
+              const newBrokers = [...brokers];
+              newBrokers[0] = extractedData.matchedBrokerId;
+              setBrokers(newBrokers);
+            } else {
+              setBroker(extractedData.matchedBrokerId);
+            }
+          }
 
-      // Populate form fields with extracted data
-      if (extractedData.brokerLoadNumber) {
-        setBrokerLoadNumber(extractedData.brokerLoadNumber);
-      }
-      if (extractedData.freightAmount) {
-        setFreightAmount(extractedData.freightAmount.toString());
-        setDriverPrice(extractedData.freightAmount.toString()); // Auto-populate driver price with same amount
-      }
-      if (extractedData.mileage) {
-        setLoadedMiles(extractedData.mileage.toString());
-      }
+          // Populate form fields with extracted data
+          if (extractedData.brokerLoadNumber) {
+            if (isPartial) {
+              const newNumbers = [...brokerLoadNumbers];
+              newNumbers[0] = extractedData.brokerLoadNumber;
+              setBrokerLoadNumbers(newNumbers);
+            } else {
+              setBrokerLoadNumber(extractedData.brokerLoadNumber);
+            }
+          }
+          if (extractedData.freightAmount) {
+            setFreightAmount(extractedData.freightAmount.toString());
+            setDriverPrice(extractedData.freightAmount.toString());
+          }
+          if (extractedData.mileage) {
+            setLoadedMiles(extractedData.mileage.toString());
+          }
+          if (extractedData.commodity) setCommodity(extractedData.commodity);
+          if (extractedData.weight) setWeight(extractedData.weight.toString());
+        }
 
-      // Handle date ranges from AI extraction - fix timezone offset
-      if (extractedData.pickupStartDate && extractedData.pickupEndDate) {
-        setPickupDateRange({
-          from: new Date(extractedData.pickupStartDate + "T12:00:00"),
-          to: new Date(extractedData.pickupEndDate + "T12:00:00"),
-        });
-      } else if (extractedData.pickupDate) {
-        const pickupDate = new Date(extractedData.pickupDate + "T12:00:00");
-        setPickupDateRange({
-          from: pickupDate,
-          to: pickupDate,
-        });
-      }
-      if (extractedData.deliveryStartDate && extractedData.deliveryEndDate) {
-        setDeliveryDateRange({
-          from: new Date(extractedData.deliveryStartDate + "T12:00:00"),
-          to: new Date(extractedData.deliveryEndDate + "T12:00:00"),
-        });
-      } else if (extractedData.deliveryDate) {
-        const deliveryDate = new Date(extractedData.deliveryDate + "T12:00:00");
-        setDeliveryDateRange({
-          from: deliveryDate,
-          to: deliveryDate,
-        });
-      }
+        // Helper function to safely create date range
+        const createSafeDateRange = (dateStr: string | undefined): DateRange | undefined => {
+          if (!dateStr) return undefined;
+          try {
+            const date = new Date(dateStr + "T12:00:00");
+            if (isNaN(date.getTime())) return undefined;
+            return { from: date, to: date };
+          } catch {
+            return undefined;
+          }
+        };
 
-      // Auto-fill driver pickup/delivery times from extracted data
-      if (extractedData.pickups && extractedData.pickups.length > 0 && extractedData.pickups[0]) {
-        const firstPickup = extractedData.pickups[0];
-        if (firstPickup.date) {
-          setDriverPickupDateRange({
-            from: new Date(firstPickup.date + "T12:00:00"),
-            to: new Date(firstPickup.date + "T12:00:00"),
+        // Accumulate pickups from this file
+        if (extractedData.pickups && extractedData.pickups.length > 0) {
+          extractedData.pickups.forEach((pickup: any, index: number) => {
+            const pickupDateRange = createSafeDateRange(pickup.date);
+            allPickupsDrops.push({
+              id: `pickup-${allPickupsDrops.filter(p => p.type === 'pickup').length + 1}`,
+              type: "pickup",
+              address: pickup.address || "",
+              city: pickup.city ? toTitleCase(pickup.city) : "",
+              state: pickup.state || "",
+              zipCode: pickup.zip || "",
+              datetime: pickup.date || "",
+              dateRange: pickupDateRange,
+              startTime: pickup.startTime || "",
+              endTime: pickup.endTime || "",
+              companyName: pickup.shipper || "",
+            });
           });
         }
-        setDriverPickupStartTime(firstPickup.startTime || "");
-        setDriverPickupEndTime(firstPickup.endTime || "");
-      } else if (extractedData.pickupDate || (extractedData.pickupStartDate && extractedData.pickupEndDate)) {
-        const pickupDate = extractedData.pickupStartDate
-          ? new Date(extractedData.pickupStartDate + "T12:00:00")
-          : new Date(extractedData.pickupDate + "T12:00:00");
-        const pickupEndDate = extractedData.pickupEndDate
-          ? new Date(extractedData.pickupEndDate + "T12:00:00")
-          : pickupDate;
-        setDriverPickupDateRange({
-          from: pickupDate,
-          to: pickupEndDate,
-        });
 
-        // Handle both single time and time range
-        if (extractedData.pickupStartTime || extractedData.pickupEndTime) {
-          setDriverPickupStartTime(extractedData.pickupStartTime || "");
-          setDriverPickupEndTime(extractedData.pickupEndTime || "");
-        } else if (extractedData.pickupTime) {
-          // If only single time provided, use it for both start and end
-          setDriverPickupStartTime(extractedData.pickupTime);
-          setDriverPickupEndTime(extractedData.pickupTime);
-        }
-      }
-      if (
-        extractedData.deliveries &&
-        extractedData.deliveries.length > 0 &&
-        extractedData.deliveries[0] &&
-        extractedData.deliveries[0].date
-      ) {
-        const firstDelivery = extractedData.deliveries[0];
-        setDriverDeliveryDateRange({
-          from: new Date(firstDelivery.date + "T12:00:00"),
-          to: new Date(firstDelivery.date + "T12:00:00"),
-        });
-        setDriverDeliveryStartTime(firstDelivery.startTime || "");
-        setDriverDeliveryEndTime(firstDelivery.endTime || "");
-      } else if (extractedData.deliveryDate || (extractedData.deliveryStartDate && extractedData.deliveryEndDate)) {
-        const deliveryDate = extractedData.deliveryStartDate
-          ? new Date(extractedData.deliveryStartDate + "T12:00:00")
-          : new Date(extractedData.deliveryDate + "T12:00:00");
-        const deliveryEndDate = extractedData.deliveryEndDate
-          ? new Date(extractedData.deliveryEndDate + "T12:00:00")
-          : deliveryDate;
-        setDriverDeliveryDateRange({
-          from: deliveryDate,
-          to: deliveryEndDate,
-        });
-
-        // Handle both single time and time range
-        if (extractedData.deliveryStartTime || extractedData.deliveryEndTime) {
-          setDriverDeliveryStartTime(extractedData.deliveryStartTime || "");
-          setDriverDeliveryEndTime(extractedData.deliveryEndTime || "");
-        } else if (extractedData.deliveryTime) {
-          // If only single time provided, use it for both start and end
-          setDriverDeliveryStartTime(extractedData.deliveryTime);
-          setDriverDeliveryEndTime(extractedData.deliveryTime);
-        }
-      }
-
-      // Handle pickups and deliveries with date ranges
-      const newPickupsDrops: PickupDrop[] = [];
-
-      // Helper function to safely create date range
-      const createSafeDateRange = (dateStr: string | undefined): DateRange | undefined => {
-        if (!dateStr) return undefined;
-        try {
-          const date = new Date(dateStr + "T12:00:00");
-          if (isNaN(date.getTime())) return undefined;
-          return {
-            from: date,
-            to: date,
-          };
-        } catch {
-          return undefined;
-        }
-      };
-
-      // Sort pickups and deliveries by datetime before processing
-      if (extractedData.pickups && extractedData.pickups.length > 1) {
-        extractedData.pickups.sort((a: any, b: any) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || "";
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || "";
-          return dateA.localeCompare(dateB);
-        });
-      }
-      if (extractedData.deliveries && extractedData.deliveries.length > 1) {
-        extractedData.deliveries.sort((a: any, b: any) => {
-          const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || "";
-          const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || "";
-          return dateA.localeCompare(dateB);
-        });
-      }
-
-      // Check if we have multi-drop data
-      if (extractedData.pickups && extractedData.pickups.length > 0) {
-        // Multi-drop pickups
-        extractedData.pickups.forEach((pickup: any, index: number) => {
-          const pickupDateRange = createSafeDateRange(pickup.date);
-          newPickupsDrops.push({
-            id: `pickup-${index + 1}`,
-            type: "pickup",
-            address: pickup.address || "",
-            city: pickup.city ? toTitleCase(pickup.city) : "",
-            state: pickup.state || "",
-            zipCode: pickup.zip || "",
-            datetime: pickup.date || "",
-            dateRange: pickupDateRange,
-            startTime: pickup.startTime || "",
-            endTime: pickup.endTime || "",
-            companyName: pickup.shipper || "",
+        // Accumulate deliveries from this file
+        if (extractedData.deliveries && extractedData.deliveries.length > 0) {
+          extractedData.deliveries.forEach((delivery: any, index: number) => {
+            const deliveryDateRange = createSafeDateRange(delivery.date);
+            allPickupsDrops.push({
+              id: `delivery-${allPickupsDrops.filter(p => p.type === 'delivery').length + 1}`,
+              type: "delivery",
+              address: delivery.address || "",
+              city: delivery.city ? toTitleCase(delivery.city) : "",
+              state: delivery.state || "",
+              zipCode: delivery.zip || "",
+              datetime: delivery.date || "",
+              dateRange: deliveryDateRange,
+              startTime: delivery.startTime || "",
+              endTime: delivery.endTime || "",
+              companyName: delivery.receiver || delivery.shipper || "",
+            });
           });
-        });
-      } else if (extractedData.pickupAddress) {
-        // Single pickup (legacy format)
-        const pickupDateRange =
-          extractedData.pickupStartDate && extractedData.pickupEndDate
-            ? (() => {
-                try {
-                  const from = new Date(extractedData.pickupStartDate + "T12:00:00");
-                  const to = new Date(extractedData.pickupEndDate + "T12:00:00");
-                  if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
-                  return {
-                    from,
-                    to,
-                  };
-                } catch {
-                  return undefined;
-                }
-              })()
-            : createSafeDateRange(extractedData.pickupDate);
-        newPickupsDrops.push({
-          id: "pickup-1",
-          type: "pickup",
-          address: extractedData.pickupAddress || "",
-          city: extractedData.pickupCity ? toTitleCase(extractedData.pickupCity) : "",
-          state: extractedData.pickupState || "",
-          zipCode: extractedData.pickupZip || "",
-          datetime: extractedData.pickupDate || "",
-          dateRange: pickupDateRange,
-          startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
-          endTime: extractedData.pickupEndTime || extractedData.pickupTime || "",
-          companyName: extractedData.pickupShipper || "",
-        });
+        }
       }
-      if (extractedData.deliveries && extractedData.deliveries.length > 0) {
-        // Multi-drop deliveries
-        extractedData.deliveries.forEach((delivery: any, index: number) => {
-          const deliveryDateRange = createSafeDateRange(delivery.date);
-          newPickupsDrops.push({
-            id: `delivery-${index + 1}`,
-            type: "delivery",
-            address: delivery.address || "",
-            city: delivery.city ? toTitleCase(delivery.city) : "",
-            state: delivery.state || "",
-            zipCode: delivery.zip || "",
-            datetime: delivery.date || "",
-            dateRange: deliveryDateRange,
-            startTime: delivery.startTime || "",
-            endTime: delivery.endTime || "",
-            companyName: delivery.receiver || delivery.shipper || "",
-          });
-        });
-      } else if (extractedData.deliveryAddress) {
-        // Single delivery (legacy format)
-        const deliveryDateRange =
-          extractedData.deliveryStartDate && extractedData.deliveryEndDate
-            ? (() => {
-                try {
-                  const from = new Date(extractedData.deliveryStartDate + "T12:00:00");
-                  const to = new Date(extractedData.deliveryEndDate + "T12:00:00");
-                  if (isNaN(from.getTime()) || isNaN(to.getTime())) return undefined;
-                  return {
-                    from,
-                    to,
-                  };
-                } catch {
-                  return undefined;
-                }
-              })()
-            : createSafeDateRange(extractedData.deliveryDate);
-        newPickupsDrops.push({
-          id: "delivery-1",
-          type: "delivery",
-          address: extractedData.deliveryAddress || "",
-          city: extractedData.deliveryCity ? toTitleCase(extractedData.deliveryCity) : "",
-          state: extractedData.deliveryState || "",
-          zipCode: extractedData.deliveryZip || "",
-          datetime: extractedData.deliveryDate || "",
-          dateRange: deliveryDateRange,
-          startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || "",
-          companyName: extractedData.deliveryShipper || "",
-        });
-      }
-      if (newPickupsDrops.length > 0) {
-        setPickupsDrops(newPickupsDrops);
+      
+      // Set accumulated picks/drops
+      if (allPickupsDrops.length > 0) {
+        console.log(`Setting ${allPickupsDrops.length} total pickup/drop locations`);
+        setPickupsDrops(allPickupsDrops);
       }
 
-      // Save additional extracted data
-      if (extractedData.commodity) setCommodity(extractedData.commodity);
-      if (extractedData.weight) setWeight(extractedData.weight.toString());
-
-      // Handle shipper/receiver names from both formats
-      if (extractedData.pickups && extractedData.pickups.length > 0) {
-        // Multi-drop format
-        if (extractedData.pickups[0].shipper) setPickupShipper(extractedData.pickups[0].shipper);
-        if (extractedData.pickups[0].puNumber) setPickupPuNumber(extractedData.pickups[0].puNumber);
-        if (extractedData.pickups[0].poNumber) setPickupPoNumber(extractedData.pickups[0].poNumber);
-      } else {
-        // Legacy single-drop format
-        if (extractedData.pickupPuNumber) setPickupPuNumber(extractedData.pickupPuNumber);
-        if (extractedData.pickupPoNumber) setPickupPoNumber(extractedData.pickupPoNumber);
-        if (extractedData.pickupShipper) setPickupShipper(extractedData.pickupShipper);
-      }
-      if (extractedData.deliveries && extractedData.deliveries.length > 0) {
-        // Multi-drop format
-        if (extractedData.deliveries[0].shipper) setDeliveryShipper(extractedData.deliveries[0].shipper);
-        if (extractedData.deliveries[0].poNumber) setDeliveryPoNumber(extractedData.deliveries[0].poNumber);
-      } else {
-        // Legacy single-drop format
-        if (extractedData.deliveryPoNumber) setDeliveryPoNumber(extractedData.deliveryPoNumber);
-        if (extractedData.deliveryShipper) setDeliveryShipper(extractedData.deliveryShipper);
-      }
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted ${data.fieldsExtracted} fields from PDF${newPickupsDrops.length > 2 ? " (Multi-drop load detected)" : ""}. Please review and adjust as needed.`,
+        description: `Extracted data from ${pdfFiles.length} file(s). Found ${allPickupsDrops.length} pickup/drop locations. Please review and adjust as needed.`,
       });
     } catch (error: any) {
       console.error("Extraction error:", error);
@@ -1012,10 +867,8 @@ const NewOrder = () => {
         description: error.message || "Failed to extract data from PDF",
         variant: "destructive",
       });
-      // Ensure isExtracting is reset even on error
       setIsExtracting(false);
     } finally {
-      // Double safety: ensure state is always reset
       setIsExtracting(false);
     }
   };
@@ -1704,17 +1557,30 @@ const NewOrder = () => {
 
       // Create order data object for the atomic function
       const orderData = {
-        load_number: brokerLoadNumber || `AUTO-${Date.now()}`,
+        load_number: isPartial 
+          ? brokerLoadNumbers.slice(0, partialCount).filter(Boolean).join(", ") || `AUTO-${Date.now()}`
+          : brokerLoadNumber || `AUTO-${Date.now()}`,
         company_id: driverCompanyId,
         // Driver's company for internal load numbering
-        booked_by_company_id: finalBookedByCompany,
+        booked_by_company_id: isPartial ? null : (bookedByCompany || bfPrimeCompany?.id || null),
         // Company that booked the order (defaults to BF Prime LLC)
-        broker_id: broker || null,
+        broker_id: isPartial ? null : (broker || null),
         truck_id: truck || null,
         trailer_id: truck && trucks ? trucks.find((t) => t.id === truck)?.trailer_id || null : null,
         driver1_id: driver1 || null,
         driver2_id: driver2 || null,
-        broker_load_number: brokerLoadNumber || null,
+        broker_load_number: isPartial ? null : (brokerLoadNumber || null),
+        // Partial load fields
+        is_partial: isPartial,
+        partial_broker_loads: isPartial 
+          ? JSON.stringify(brokerLoadNumbers.slice(0, partialCount).filter(Boolean))
+          : null,
+        partial_brokers: isPartial 
+          ? JSON.stringify(brokers.slice(0, partialCount).filter(Boolean))
+          : null,
+        partial_booked_by_companies: isPartial 
+          ? JSON.stringify(bookedByCompanies.slice(0, partialCount).filter(Boolean))
+          : null,
         pickup_datetime: (() => {
           const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
           const firstPickup = allPickups[0];
@@ -1803,7 +1669,7 @@ const NewOrder = () => {
       // Upload files if any
       const allFiles = [
         {
-          files: rcFiles,
+          files: isPartial ? rcFilesArray.flat() : rcFiles,
           category: "RC",
         },
         {
@@ -2134,15 +2000,158 @@ const NewOrder = () => {
               </CardContent>
             </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="broker-load-number">Broker Load #</Label>
-              <Input
-                id="broker-load-number"
-                placeholder="Broker load number"
-                value={brokerLoadNumber}
-                onChange={(e) => setBrokerLoadNumber(e.target.value)}
-              />
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="broker-load-number">Broker Load #</Label>
+                {!isPartial ? (
+                  <Input
+                    id="broker-load-number"
+                    placeholder="Broker load number"
+                    value={brokerLoadNumber}
+                    onChange={(e) => setBrokerLoadNumber(e.target.value)}
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {Array.from({ length: partialCount }).map((_, index) => (
+                      <Input
+                        key={index}
+                        placeholder={`Load #${index + 1}`}
+                        value={brokerLoadNumbers[index]}
+                        onChange={(e) => {
+                          const newNumbers = [...brokerLoadNumbers];
+                          newNumbers[index] = e.target.value;
+                          setBrokerLoadNumbers(newNumbers);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex flex-col items-end gap-2 pt-8">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="partial-toggle" className="text-sm font-medium cursor-pointer">
+                    Partial Load
+                  </Label>
+                  <Switch
+                    id="partial-toggle"
+                    checked={isPartial}
+                    onCheckedChange={(checked) => {
+                      setIsPartial(checked);
+                      if (checked && partialCount === 2) {
+                        // Show dialog to select count
+                        const count = window.prompt("How many partial loads? (2-4)", "2");
+                        const num = parseInt(count || "2");
+                        if (num >= 2 && num <= 4) {
+                          setPartialCount(num);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Partial loads - Multiple RC uploads and broker/company sections */}
+            {isPartial && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: partialCount }).map((_, index) => (
+                    <Card key={index} className="border-2">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm text-blue-700 flex items-center gap-2">
+                          <Upload className="h-4 w-4" />
+                          Partial {index + 1}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* RC Upload for this partial */}
+                        <div 
+                          className={cn(
+                            "border-2 border-dashed rounded-lg p-3 text-center cursor-pointer hover:bg-blue-50/30 transition-colors",
+                            rcFilesArray[index]?.length > 0 ? "border-blue-400 bg-blue-50/50" : "border-blue-300"
+                          )}
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.multiple = true;
+                            input.accept = '.pdf,.jpg,.jpeg,.png';
+                            input.onchange = (e: any) => {
+                              const files = Array.from(e.target.files || []);
+                              const newArray = [...rcFilesArray];
+                              newArray[index] = files as File[];
+                              setRcFilesArray(newArray);
+                            };
+                            input.click();
+                          }}
+                        >
+                          <FileText className="mx-auto h-6 w-6 text-blue-400 mb-1" />
+                          <p className="text-xs text-blue-600">
+                            {rcFilesArray[index]?.length > 0 
+                              ? `${rcFilesArray[index].length} file(s)` 
+                              : 'Upload RC'}
+                          </p>
+                        </div>
+                        
+                        {/* Company selector */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Company</Label>
+                          <Combobox
+                            options={companyOptions}
+                            value={bookedByCompanies[index]}
+                            onValueChange={(val) => {
+                              const newCompanies = [...bookedByCompanies];
+                              newCompanies[index] = val;
+                              setBookedByCompanies(newCompanies);
+                            }}
+                            placeholder="Select"
+                            searchPlaceholder="Search..."
+                          />
+                        </div>
+                        
+                        {/* Broker selector */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Broker</Label>
+                          <BrokerCombobox
+                            value={brokers[index]}
+                            onValueChange={(val) => {
+                              const newBrokers = [...brokers];
+                              newBrokers[index] = val;
+                              setBrokers(newBrokers);
+                            }}
+                            placeholder="Select"
+                            searchPlaceholder="Search..."
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {/* Extract button for partial loads */}
+                {rcFilesArray.some(arr => arr.length > 0) && (
+                  <Button
+                    type="button"
+                    onClick={handleExtractWithAI}
+                    disabled={isExtracting}
+                    variant="outline"
+                    className="w-full border-blue-500 text-blue-700 hover:bg-blue-50"
+                  >
+                    {isExtracting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Extracting from {rcFilesArray.flat().length} files...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Extract Data from All RC Files
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Error handling for data loading */}
             {(companiesError || trucksError) && (
@@ -2168,34 +2177,36 @@ const NewOrder = () => {
               </Alert>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="company">Booked by Company</Label>
-                <Combobox
-                  options={companyOptions}
-                  value={bookedByCompany}
-                  onValueChange={setBookedByCompany}
-                  placeholder={
-                    companiesLoading
-                      ? "Loading companies..."
-                      : companiesError
-                        ? "Error loading companies"
-                        : "Select company"
-                  }
-                  searchPlaceholder="Search companies..."
-                />
-              </div>
+            {!isPartial && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="company">Booked by Company</Label>
+                  <Combobox
+                    options={companyOptions}
+                    value={bookedByCompany}
+                    onValueChange={setBookedByCompany}
+                    placeholder={
+                      companiesLoading
+                        ? "Loading companies..."
+                        : companiesError
+                          ? "Error loading companies"
+                          : "Select company"
+                    }
+                    searchPlaceholder="Search companies..."
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="broker">Broker</Label>
-                <BrokerCombobox
-                  value={broker}
-                  onValueChange={setBroker}
-                  placeholder="Select broker"
-                  searchPlaceholder="Search brokers..."
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="broker">Broker</Label>
+                  <BrokerCombobox
+                    value={broker}
+                    onValueChange={setBroker}
+                    placeholder="Select broker"
+                    searchPlaceholder="Search brokers..."
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
