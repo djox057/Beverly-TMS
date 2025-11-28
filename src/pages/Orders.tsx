@@ -30,6 +30,7 @@ import {
   Undo2,
   Info,
   Mail,
+  Layers,
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -957,6 +958,18 @@ const Orders = () => {
                                   </Tooltip>
                                 </TooltipProvider>
                               )}
+                              {(order as any).isPartial && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Layers className="h-3.5 w-3.5 text-primary" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Partial Load</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                               {order.internalLoadNumber}
                             </div>
                           </TableCell>
@@ -982,9 +995,49 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-16">{order.mileage != null ? order.mileage.toLocaleString() : "0"}</TableCell>
                           <TableCell className="w-36">
-                            <div className="line-clamp-2">{order.brokerName}</div>
+                            {(order as any).isPartial && (order as any).partialBrokers?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="line-clamp-2 cursor-help">
+                                      {(order as any).partialBrokers.find((b: string) => b) || ''}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBrokers.map((broker: string, idx: number) => 
+                                        broker ? <div key={idx}>Partial {idx + 1}: {broker}</div> : null
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <div className="line-clamp-2">{order.brokerName}</div>
+                            )}
                           </TableCell>
-                          <TableCell className="w-28">{order.brokerLoadNumber}</TableCell>
+                          <TableCell className="w-28">
+                            {(order as any).isPartial && (order as any).partialBrokerLoads?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="cursor-help">
+                                      {(order as any).partialBrokerLoads.find((n: string) => n) || ''}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBrokerLoads.map((loadNum: string, idx: number) => 
+                                        loadNum ? <div key={idx}>Partial {idx + 1}: {loadNum}</div> : null
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <>{order.brokerLoadNumber}</>
+                            )}
+                          </TableCell>
                           <TableCell className="w-20">{order.invoiced}</TableCell>
                           <TableCell className="w-20">
                             {order.notes && (
@@ -1012,7 +1065,26 @@ const Orders = () => {
                             </div>
                           </TableCell>
                           <TableCell className="w-28">
-                            <div className="line-clamp-2">{order.bookedByCompanyName}</div>
+                            {(order as any).isPartial && (order as any).partialBookedByCompanies?.length > 0 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="line-clamp-2 cursor-help">
+                                      {(order as any).partialBookedByCompanies.find((c: string) => c) || ''}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      {(order as any).partialBookedByCompanies.map((company: string, idx: number) => 
+                                        company ? <div key={idx}>Partial {idx + 1}: {company}</div> : null
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <div className="line-clamp-2">{order.bookedByCompanyName}</div>
+                            )}
                           </TableCell>
                           <TableCell className="w-24">
                             <div className="line-clamp-2">{order.bookedBy}</div>
