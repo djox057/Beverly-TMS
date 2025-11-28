@@ -729,6 +729,14 @@ const NewOrder = () => {
       // Accumulate picks/drops from all files
       const allPickupsDrops: PickupDrop[] = [];
       
+      // For partial loads, accumulate data from each partial
+      const partialBrokerLoadNumbers = isPartial ? [...brokerLoadNumbers] : [];
+      let totalFreightAmount = 0;
+      let totalDriverPrice = 0;
+      let firstMileage = 0;
+      let firstCommodity = "";
+      let firstWeight = 0;
+      
       // Extract from each PDF file
       for (let fileIndex = 0; fileIndex < pdfFiles.length; fileIndex++) {
         const pdfFile = pdfFiles[fileIndex];
@@ -766,29 +774,34 @@ const NewOrder = () => {
         // Determine which partial this file belongs to (for partial mode)
         const partialIndex = isPartial ? pdfFilePartialIndexMap[fileIndex] : 0;
 
-        // For the first file, populate single-use fields
-        if (fileIndex === 0) {
-          if (isPartial) {
-            // For partial loads, set broker load number for the corresponding partial index
-            if (extractedData.brokerLoadNumber) {
-              const newNumbers = [...brokerLoadNumbers];
-              newNumbers[partialIndex] = extractedData.brokerLoadNumber;
-              setBrokerLoadNumbers(newNumbers);
-            }
-          } else {
-            if (extractedData.brokerLoadNumber) setBrokerLoadNumber(extractedData.brokerLoadNumber);
+        // Handle broker load number
+        if (isPartial) {
+          if (extractedData.brokerLoadNumber) {
+            partialBrokerLoadNumbers[partialIndex] = extractedData.brokerLoadNumber;
           }
-          
-          if (extractedData.freightAmount) setFreightAmount(extractedData.freightAmount.toString());
-          if (extractedData.driverPrice) setDriverPrice(extractedData.driverPrice.toString());
-          if (extractedData.mileage) setLoadedMiles(extractedData.mileage.toString());
-          if (extractedData.commodity) setCommodity(extractedData.commodity);
-          if (extractedData.weight) setWeight(extractedData.weight.toString());
-        } else if (isPartial && extractedData.brokerLoadNumber) {
-          // For subsequent files in partial mode, set the broker load number for the corresponding partial index
-          const newNumbers = [...brokerLoadNumbers];
-          newNumbers[partialIndex] = extractedData.brokerLoadNumber;
-          setBrokerLoadNumbers(newNumbers);
+        } else if (fileIndex === 0 && extractedData.brokerLoadNumber) {
+          setBrokerLoadNumber(extractedData.brokerLoadNumber);
+        }
+        
+        // Accumulate freight amount and driver price
+        if (extractedData.freightAmount) {
+          const amount = parseFloat(extractedData.freightAmount.toString());
+          if (!isNaN(amount)) {
+            totalFreightAmount += amount;
+          }
+        }
+        if (extractedData.driverPrice) {
+          const price = parseFloat(extractedData.driverPrice.toString());
+          if (!isNaN(price)) {
+            totalDriverPrice += price;
+          }
+        }
+        
+        // For first file, capture other single-use fields
+        if (fileIndex === 0) {
+          if (extractedData.mileage) firstMileage = extractedData.mileage;
+          if (extractedData.commodity) firstCommodity = extractedData.commodity;
+          if (extractedData.weight) firstWeight = extractedData.weight;
         }
 
         // Helper function to safely create date range
@@ -849,10 +862,29 @@ const NewOrder = () => {
         console.log(`Setting ${allPickupsDrops.length} total pickup/drop locations`);
         setPickupsDrops(allPickupsDrops);
       }
+      
+      // Update all accumulated state
+      if (isPartial) {
+        setBrokerLoadNumbers(partialBrokerLoadNumbers);
+      }
+      
+      if (totalFreightAmount > 0) {
+        setFreightAmount(totalFreightAmount.toString());
+        // Set driver price to match freight amount if not extracted separately, or use total
+        setDriverPrice(totalDriverPrice > 0 ? totalDriverPrice.toString() : totalFreightAmount.toString());
+      } else if (totalDriverPrice > 0) {
+        setDriverPrice(totalDriverPrice.toString());
+      }
+      
+      if (firstMileage) setLoadedMiles(firstMileage.toString());
+      if (firstCommodity) setCommodity(firstCommodity);
+      if (firstWeight) setWeight(firstWeight.toString());
 
       toast({
         title: "Data Extracted Successfully",
-        description: `Extracted data from ${pdfFiles.length} file(s). Found ${allPickupsDrops.length} pickup/drop locations. Please review and adjust as needed.`,
+        description: isPartial 
+          ? `Extracted data from ${pdfFiles.length} file(s). Total freight: $${totalFreightAmount.toFixed(2)}. Found ${allPickupsDrops.length} pickup/drop locations.`
+          : `Extracted data from ${pdfFiles.length} file(s). Found ${allPickupsDrops.length} pickup/drop locations. Please review and adjust as needed.`,
       });
     } catch (error: any) {
       console.error("Extraction error:", error);
