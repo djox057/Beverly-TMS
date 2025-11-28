@@ -250,42 +250,27 @@ const NewOrder = () => {
   const firstPickupDatetime = pickupsDrops.find((item) => item.type === "pickup")?.datetime || null;
   const { data: lastDelivery } = useTruckLastDelivery(truck || null, firstPickupDatetime);
 
-  // Auto-extract AI when RC file is uploaded (handles both single and partial)
+  // Auto-extract AI when RC file is uploaded (only for single load mode)
   useEffect(() => {
+    // Skip auto-extraction for partial loads
     if (isPartial) {
-      // For partial loads, reset flag when any RC files are cleared
-      const hasAnyFiles = rcFilesArray.some(arr => arr.length > 0);
-      if (!hasAnyFiles) {
-        setHasAutoExtracted(false);
-        return;
-      }
-      
-      // Auto-trigger extraction for all partial RC files
-      if (!hasAutoExtracted && !isExtracting) {
-        const hasAnyPdf = rcFilesArray.some(arr => 
-          arr.some(file => file.type === "application/pdf")
-        );
-        if (hasAnyPdf) {
-          setHasAutoExtracted(true);
-          handleExtractWithAI();
-        }
-      }
-    } else {
-      // Original single load logic
-      if (rcFiles.length === 0) {
-        setHasAutoExtracted(false);
-        return;
-      }
+      return;
+    }
+    
+    // Original single load logic
+    if (rcFiles.length === 0) {
+      setHasAutoExtracted(false);
+      return;
+    }
 
-      if (!hasAutoExtracted && !isExtracting) {
-        const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
-        if (pdfFile) {
-          setHasAutoExtracted(true);
-          handleExtractWithAI();
-        }
+    if (!hasAutoExtracted && !isExtracting) {
+      const pdfFile = rcFiles.find((file) => file.type === "application/pdf");
+      if (pdfFile) {
+        setHasAutoExtracted(true);
+        handleExtractWithAI();
       }
     }
-  }, [rcFiles, rcFilesArray, isPartial]);
+  }, [rcFiles, isPartial]);
 
   // Pre-select BF Prime company as default
   useEffect(() => {
@@ -699,9 +684,20 @@ const NewOrder = () => {
     }
     
     // Check for files based on mode
-    const filesToExtract = isPartial 
-      ? rcFilesArray.flat()
-      : rcFiles;
+    let filesToExtract: File[] = [];
+    let filePartialIndexMap: number[] = []; // Track which partial each file belongs to
+    
+    if (isPartial) {
+      // For partial mode, flatten but keep track of which partial each file belongs to
+      rcFilesArray.forEach((filesArray, partialIndex) => {
+        filesArray.forEach(file => {
+          filesToExtract.push(file);
+          filePartialIndexMap.push(partialIndex);
+        });
+      });
+    } else {
+      filesToExtract = rcFiles;
+    }
       
     if (filesToExtract.length === 0) {
       toast({
@@ -713,6 +709,10 @@ const NewOrder = () => {
     }
     
     const pdfFiles = filesToExtract.filter((file) => file.type === "application/pdf");
+    const pdfFilePartialIndexMap = isPartial 
+      ? filePartialIndexMap.filter((_, index) => filesToExtract[index].type === "application/pdf")
+      : [];
+      
     if (pdfFiles.length === 0) {
       toast({
         title: "PDF Required",
@@ -763,39 +763,32 @@ const NewOrder = () => {
         const extractedData = data.data;
         console.log(`Successfully extracted data from file ${fileIndex + 1}:`, extractedData);
 
-        // For first file only, populate single-use fields
-        if (fileIndex === 0) {
-          // Auto-fill broker if matched
-          if (extractedData.matchedBrokerId) {
-            console.log("✅ Auto-filling broker with matched ID:", extractedData.matchedBrokerId);
-            if (isPartial) {
-              const newBrokers = [...brokers];
-              newBrokers[0] = extractedData.matchedBrokerId;
-              setBrokers(newBrokers);
-            } else {
-              setBroker(extractedData.matchedBrokerId);
-            }
-          }
+        // Determine which partial this file belongs to (for partial mode)
+        const partialIndex = isPartial ? pdfFilePartialIndexMap[fileIndex] : 0;
 
-          // Populate form fields with extracted data
-          if (extractedData.brokerLoadNumber) {
-            if (isPartial) {
+        // For the first file, populate single-use fields
+        if (fileIndex === 0) {
+          if (isPartial) {
+            // For partial loads, set broker load number for the corresponding partial index
+            if (extractedData.brokerLoadNumber) {
               const newNumbers = [...brokerLoadNumbers];
-              newNumbers[0] = extractedData.brokerLoadNumber;
+              newNumbers[partialIndex] = extractedData.brokerLoadNumber;
               setBrokerLoadNumbers(newNumbers);
-            } else {
-              setBrokerLoadNumber(extractedData.brokerLoadNumber);
             }
+          } else {
+            if (extractedData.brokerLoadNumber) setBrokerLoadNumber(extractedData.brokerLoadNumber);
           }
-          if (extractedData.freightAmount) {
-            setFreightAmount(extractedData.freightAmount.toString());
-            setDriverPrice(extractedData.freightAmount.toString());
-          }
-          if (extractedData.mileage) {
-            setLoadedMiles(extractedData.mileage.toString());
-          }
+          
+          if (extractedData.freightAmount) setFreightAmount(extractedData.freightAmount.toString());
+          if (extractedData.driverPrice) setDriverPrice(extractedData.driverPrice.toString());
+          if (extractedData.mileage) setLoadedMiles(extractedData.mileage.toString());
           if (extractedData.commodity) setCommodity(extractedData.commodity);
           if (extractedData.weight) setWeight(extractedData.weight.toString());
+        } else if (isPartial && extractedData.brokerLoadNumber) {
+          // For subsequent files in partial mode, set the broker load number for the corresponding partial index
+          const newNumbers = [...brokerLoadNumbers];
+          newNumbers[partialIndex] = extractedData.brokerLoadNumber;
+          setBrokerLoadNumbers(newNumbers);
         }
 
         // Helper function to safely create date range
@@ -2014,7 +2007,7 @@ const NewOrder = () => {
                     onChange={(e) => setBrokerLoadNumber(e.target.value)}
                   />
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {Array.from({ length: partialCount }).map((_, index) => (
                       <Input
                         key={index}
@@ -2041,10 +2034,10 @@ const NewOrder = () => {
                     checked={isPartial}
                     onCheckedChange={(checked) => {
                       setIsPartial(checked);
-                      if (checked && partialCount === 2) {
-                        // Show dialog to select count
-                        const count = window.prompt("How many partial loads? (2-4)", "2");
-                        const num = parseInt(count || "2");
+                      if (checked) {
+                        // Always show dialog to select count when enabling partial
+                        const count = window.prompt("How many partial loads? (2-4)", partialCount.toString());
+                        const num = parseInt(count || partialCount.toString());
                         if (num >= 2 && num <= 4) {
                           setPartialCount(num);
                         }
@@ -2060,7 +2053,9 @@ const NewOrder = () => {
               <div className="space-y-4">
                 <div className={cn(
                   "grid gap-4",
-                  partialCount === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+                  partialCount === 2 ? "grid-cols-1 md:grid-cols-2" : 
+                  partialCount === 3 ? "grid-cols-1 md:grid-cols-3" :
+                  "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
                 )}>
                   {Array.from({ length: partialCount }).map((_, index) => {
                     const dragActive = partialDragStates[index];
