@@ -647,6 +647,12 @@ async function fetchSingleOrder(orderId: string) {
 // Helper function to transform orders data
 function transformOrders(allOrders: any[]) {
   return (allOrders || []).map((order: any) => {
+        // Check if order is already transformed (has camelCase fields from cache)
+        if (order.loadNumber !== undefined) {
+          // Order is already transformed, return as-is
+          return order;
+        }
+
         // Parse JSONB fields back to arrays (already arrays from join)
         const pickupDrops = Array.isArray(order.pickup_drops) ? order.pickup_drops : [];
         const orderFiles = Array.isArray(order.order_files) ? order.order_files : [];
