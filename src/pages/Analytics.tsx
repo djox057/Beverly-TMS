@@ -284,24 +284,8 @@ const Analytics = () => {
         let matchesDate = true;
         if (dateRange?.from) {
           const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
-          // Debug logging for first 3 locked orders
-          if (order.locked && Math.random() < 0.01) {
-            console.log('🔍 [Analytics] Locked order date check:', {
-              loadNumber: order.loadNumber,
-              pickupDate: order.pickupDate,
-              deliveryDate: order.deliveryDate,
-              dateToFilter,
-              filterType,
-              locked: order.locked
-            });
-          }
           // Only exclude orders with invalid dates when actively filtering by date
           if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
-            console.warn('🚨 [Analytics] Excluding order due to invalid date:', {
-              loadNumber: order.loadNumber,
-              dateToFilter,
-              locked: order.locked
-            });
             matchesDate = false;
           } else {
             try {
@@ -387,22 +371,6 @@ const Analytics = () => {
         // Default: no access for other roles
         return false;
       }) || [];
-    
-    // Debug logging for filtering results
-    if (dateRange?.from) {
-      const lockedCount = filtered.filter(o => o.locked).length;
-      const unlockedCount = filtered.filter(o => !o.locked).length;
-      const totalBeforeFilter = orders?.length || 0;
-      const lockedBeforeFilter = orders?.filter(o => o.locked).length || 0;
-      console.log('📊 [Analytics] Filter results:', {
-        dateRange: `${dateRange.from.toLocaleDateString()} - ${dateRange.to?.toLocaleDateString() || 'same day'}`,
-        filterType,
-        beforeFilter: { total: totalBeforeFilter, locked: lockedBeforeFilter, unlocked: totalBeforeFilter - lockedBeforeFilter },
-        afterFilter: { total: filtered.length, locked: lockedCount, unlocked: unlockedCount },
-        excluded: { total: totalBeforeFilter - filtered.length, locked: lockedBeforeFilter - lockedCount }
-      });
-    }
-    
     return filtered;
   }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
   if (isLoading) {
