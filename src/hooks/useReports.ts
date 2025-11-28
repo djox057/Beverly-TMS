@@ -522,24 +522,12 @@ export const useReports = () => {
           if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
             console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
 
-            // Validate and match pickup_drops and order_files to orders
-            const ordersWithRelations = cachedOrders.map((order: any) => {
-              // Safety check: ensure order has an id
-              if (!order || !order.id) {
-                console.warn('[useReports] ⚠️ Skipping invalid order without ID');
-                return null;
-              }
-              
-              return {
-                ...order,
-                pickup_drops: Array.isArray(cachedPickupDrops) 
-                  ? cachedPickupDrops.filter((pd: any) => pd?.order_id === order.id) 
-                  : [],
-                order_files: Array.isArray(cachedOrderFiles)
-                  ? cachedOrderFiles.filter((of: any) => of?.order_id === order.id)
-                  : [],
-              };
-            }).filter(Boolean); // Remove null entries
+            // Match pickup_drops and order_files to orders
+            const ordersWithRelations = cachedOrders.map((order: any) => ({
+              ...order,
+              pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
+              order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+            }));
 
             const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
             console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
@@ -549,7 +537,7 @@ export const useReports = () => {
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
             lockedOrders = ordersWithRelations.filter((order: any) => {
-              if (!order || order.canceled) return false;
+              if (order.canceled) return false;
               
               const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
 

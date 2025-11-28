@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { getLockedOrders, getPickupDrops, getOrderFiles } from "@/utils/ordersCache";
+import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 
 interface UseOrdersOptions {
   bookedBy?: string | null;
@@ -125,111 +125,10 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
       // Load LOCKED orders from cache FIRST (before returning)
       console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
-      let lockedOrders: any[] | null = null;
-      let cachedPickupDrops: any[] | null = null;
-      let cachedOrderFiles: any[] | null = null;
+      const lockedOrders = await getLockedOrders();
       
-      try {
-        lockedOrders = await getLockedOrders();
-        cachedPickupDrops = await getPickupDrops();
-        cachedOrderFiles = await getOrderFiles();
-      } catch (cacheError) {
-        console.error('🚨 [useOrders] Cache loading error:', cacheError);
-        // Clear all corrupted cache
-        try {
-          const { clearCache } = await import("@/utils/ordersCache");
-          await clearCache();
-          console.log('🗑️ [useOrders] Cleared all corrupted cache after error');
-        } catch (clearError) {
-          console.error('Failed to clear cache:', clearError);
-        }
-      }
-      
-      if (lockedOrders && Array.isArray(lockedOrders) && lockedOrders.length > 0) {
+      if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        
-        // Merge pickup_drops and order_files into locked orders
-        if (cachedPickupDrops && Array.isArray(cachedPickupDrops)) {
-          console.log('📍 [useOrders] Merging', cachedPickupDrops.length, 'pickup/drops');
-          lockedOrders.forEach(order => {
-            if (order && order.id) {
-              order.pickup_drops = cachedPickupDrops.filter(pd => pd?.order_id === order.id);
-            }
-          });
-        }
-        
-        if (cachedOrderFiles && Array.isArray(cachedOrderFiles)) {
-          console.log('📄 [useOrders] Merging', cachedOrderFiles.length, 'order files');
-          lockedOrders.forEach(order => {
-            if (order && order.id) {
-              order.order_files = cachedOrderFiles.filter(of => of?.order_id === order.id);
-            }
-          });
-        }
-        
-        // Helper to check if an ID is valid (not string "null", "NULL", "undefined", or empty)
-        const isValidId = (id: any) => id && id !== 'null' && id !== 'NULL' && id !== 'undefined' && id !== '';
-        
-        // Fetch lookup data (trucks, drivers, brokers, companies) in one batch
-        const uniqueTruckIds = [...new Set(lockedOrders.map(o => o?.truck_id).filter(isValidId))];
-        const uniqueDriverIds = [...new Set([
-          ...lockedOrders.map(o => o?.driver1_id).filter(isValidId),
-          ...lockedOrders.map(o => o?.driver2_id).filter(isValidId)
-        ])];
-        const uniqueBrokerIds = [...new Set(lockedOrders.map(o => o?.broker_id).filter(isValidId))];
-        const uniqueCompanyIds = [...new Set([
-          ...lockedOrders.map(o => o?.company_id).filter(isValidId),
-          ...lockedOrders.map(o => o?.booked_by_company_id).filter(isValidId)
-        ])];
-        const uniqueTrailerIds = [...new Set(lockedOrders.map(o => o?.trailer_id).filter(isValidId))];
-        
-        console.log('🔍 [useOrders] Fetching lookups:', {
-          trucks: uniqueTruckIds.length,
-          drivers: uniqueDriverIds.length,
-          brokers: uniqueBrokerIds.length,
-          companies: uniqueCompanyIds.length
-        });
-        
-        try {
-          // Fetch all in parallel
-          const [trucksRes, driversRes, brokersRes, companiesRes, trailersRes] = await Promise.all([
-            uniqueTruckIds.length ? supabase.from('trucks').select('id, truck_number, company:companies(id, name)').in('id', uniqueTruckIds) : { data: [] },
-            uniqueDriverIds.length ? supabase.from('drivers').select('id, name').in('id', uniqueDriverIds) : { data: [] },
-            uniqueBrokerIds.length ? supabase.from('brokers').select('id, name, address, mc_number').in('id', uniqueBrokerIds) : { data: [] },
-            uniqueCompanyIds.length ? supabase.from('companies').select('id, name').in('id', uniqueCompanyIds) : { data: [] },
-            uniqueTrailerIds.length ? supabase.from('trailers').select('id, trailer_number').in('id', uniqueTrailerIds) : { data: [] }
-          ]);
-          
-          // Create lookup maps
-          const truckMap = new Map((trucksRes.data || []).map((t: any) => [t.id, t]));
-          const driverMap = new Map((driversRes.data || []).map((d: any) => [d.id, d]));
-          const brokerMap = new Map((brokersRes.data || []).map((b: any) => [b.id, b]));
-          const companyMap = new Map((companiesRes.data || []).map((c: any) => [c.id, c]));
-          const trailerMap = new Map((trailersRes.data || []).map((t: any) => [t.id, t]));
-          
-          console.log('✅ [useOrders] Fetched lookups:', {
-            trucks: truckMap.size,
-            drivers: driverMap.size,
-            brokers: brokerMap.size,
-            companies: companyMap.size,
-            trailers: trailerMap.size
-          });
-          
-          // Attach joined data to locked orders (like fresh DB queries would have)
-          lockedOrders.forEach((order: any) => {
-            if (!order) return;
-            if (isValidId(order.truck_id)) order.truck = truckMap.get(order.truck_id) || null;
-            if (isValidId(order.trailer_id)) order.trailer = trailerMap.get(order.trailer_id) || null;
-            if (isValidId(order.driver1_id)) order.driver1 = driverMap.get(order.driver1_id) || null;
-            if (isValidId(order.driver2_id)) order.driver2 = driverMap.get(order.driver2_id) || null;
-            if (isValidId(order.broker_id)) order.broker = brokerMap.get(order.broker_id) || null;
-            if (isValidId(order.company_id)) order.company = companyMap.get(order.company_id) || null;
-            if (isValidId(order.booked_by_company_id)) order.booked_by_company = companyMap.get(order.booked_by_company_id) || null;
-          });
-        } catch (lookupError) {
-          console.error('🚨 [useOrders] Lookup data fetch failed:', lookupError);
-          // Continue without lookup data - orders will show IDs instead of names
-        }
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
@@ -751,16 +650,6 @@ function transformOrders(allOrders: any[]) {
     const num = Number(val);
     return isNaN(num) ? 0 : num;
   };
-
-  // Helper to normalize CSV date strings: converts space separator to T, handles string "null" values
-  const normalizeDate = (val: any): string => {
-    // Handle null, undefined, empty string, or string "null"/"NULL"
-    if (!val || val === 'null' || val === 'NULL' || val === 'undefined') {
-      return '';
-    }
-    // Convert to string and replace space with T for ISO format
-    return String(val).replace(' ', 'T');
-  };
   
   const transformed = (allOrders || []).map((order: any, index: number) => {
         // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
@@ -806,23 +695,10 @@ function transformOrders(allOrders: any[]) {
           toNum(order.escort_fee || order.escortFee) +
           toNum(order.other_charges || order.otherCharges);
 
-        // Filter files by category OR check CSV columns for file indicators
+        // Filter files by category
         const rcFiles = orderFiles.filter((f: any) => f.file_category === 'RC');
         const podFiles = orderFiles.filter((f: any) => f.file_category === 'POD');
         const bolFiles = orderFiles.filter((f: any) => f.file_category === 'BOL');
-        
-        // For archived orders from CSV, check multiple possible CSV column names for file indicators
-        // CSV export might use: has_rc, hasRc, rc_count, rc_files, etc.
-        const hasRcFromCsv = order.has_rc || order.hasRc || order.rc_files || 
-                             (order.rc_count && Number(order.rc_count) > 0) ||
-                             (order.rcCount && Number(order.rcCount) > 0);
-        const hasPodFromCsv = order.has_pod || order.hasPod || order.pod_files || 
-                              (order.pod_count && Number(order.pod_count) > 0) ||
-                              (order.podCount && Number(order.podCount) > 0);
-        
-        // Merge arrays: use actual files if available, otherwise create placeholder based on CSV indicators
-        const finalRcFiles = rcFiles.length > 0 ? rcFiles : (hasRcFromCsv ? [{ file_category: 'RC', id: 'csv-indicator' }] : []);
-        const finalPodFiles = podFiles.length > 0 ? podFiles : (hasPodFromCsv ? [{ file_category: 'POD', id: 'csv-indicator' }] : []);
 
         // Transform to camelCase with computed fields, flattening joined data
         return {
@@ -839,48 +715,47 @@ function transformOrders(allOrders: any[]) {
           invoiced: order.invoiced,
           isRecovery: order.is_recovery,
           
-          // Truck and equipment - flatten joined data OR CSV columns
-          truckNumber: order.truck?.truck_number || order.truck_number || order.truckNumber || null,
+          // Truck and equipment - flatten joined data
+          truckNumber: order.truck?.truck_number || null,
           truckId: order.truck_id,
-          truckCompanyName: order.truck?.company?.name || order.truck_company_name || order.truckCompanyName || null,
-          truckCompanyId: order.truck?.company?.id || order.truck_company_id || null,
-          trailerNumber: order.trailer?.trailer_number || order.trailer_number || order.trailerNumber || null,
+          truckCompanyName: order.truck?.company?.name || null,
+          truckCompanyId: order.truck?.company?.id || null,
+          trailerNumber: order.trailer?.trailer_number || null,
           trailerId: order.trailer_id,
           
-          // Driver info - flatten joined data OR CSV columns
-          driverName: order.driver1?.name || order.driver1_name || order.driver_name || order.driverName || null,
-          driver1Name: order.driver1?.name || order.driver1_name || order.driver_name || order.driverName || null,
-          driver2Name: order.driver2?.name || order.driver2_name || order.driver2Name || null,
+          // Driver info - flatten joined data
+          driverName: order.driver1?.name || null,
+          driver1Name: order.driver1?.name || null,
+          driver2Name: order.driver2?.name || null,
           driver1Id: order.driver1_id,
           driver2Id: order.driver2_id,
           
-          // Broker info - flatten joined data OR CSV columns
-          brokerName: order.broker?.name || order.broker_name || order.brokerName || null,
-          brokerAddress: order.broker?.address || order.broker_address || order.brokerAddress || null,
-          brokerMcNumber: order.broker?.mc_number || order.broker_mc_number || order.brokerMcNumber || null,
+          // Broker info - flatten joined data
+          brokerName: order.broker?.name || null,
+          brokerAddress: order.broker?.address || null,
+          brokerMcNumber: order.broker?.mc_number || null,
           brokerId: order.broker_id,
           
-          // Company info - flatten joined data OR CSV columns
-          companyName: order.company?.name || order.company_name || order.companyName || null,
+          // Company info - flatten joined data
+          companyName: order.company?.name || null,
           companyId: order.company_id,
-          bookedBy: order.booked_by || order.bookedBy,
+          bookedBy: order.booked_by,
           bookedByCompanyId: order.booked_by_company_id,
-          bookedByCompanyName: order.booked_by_company?.name || order.booked_by_company_name || order.bookedByCompanyName || null,
+          bookedByCompanyName: order.booked_by_company?.name || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
-          // CRITICAL: For archived orders, pickup_drops may not have datetime field
-          // Fallback chain: pickup_drops datetime → order pickup_datetime → CSV pickup_date column
-          // Use normalizeDate helper to handle CSV string "null" values and space-to-T conversion
+          // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
+          // Normalize date format: CSV dates use space separator, convert to ISO format with 'T'
           pickupDate: firstPickup?.datetime 
             ? firstPickup.datetime 
-            : normalizeDate(order.pickup_datetime || order.pickupDatetime || order.pickup_date || order.pickupDate),
-          pickupCity: firstPickup?.city || order.pickup_city || order.pickupCity || '',
-          pickupState: firstPickup?.state || order.pickup_state || order.pickupState || '',
+            : ((order.pickup_datetime || order.pickupDatetime || '').replace(' ', 'T')),
+          pickupCity: firstPickup?.city || '',
+          pickupState: firstPickup?.state || '',
           deliveryDate: lastDelivery?.datetime 
             ? lastDelivery.datetime 
-            : normalizeDate(order.delivery_datetime || order.deliveryDatetime || order.delivery_date || order.deliveryDate),
-          deliveryCity: lastDelivery?.city || order.delivery_city || order.deliveryCity || '',
-          deliveryState: lastDelivery?.state || order.delivery_state || order.deliveryState || '',
+            : ((order.delivery_datetime || order.deliveryDatetime || '').replace(' ', 'T')),
+          deliveryCity: lastDelivery?.city || '',
+          deliveryState: lastDelivery?.state || '',
           
           // Financial fields - broker amounts
           freightAmount: order.freight_amount,
@@ -957,8 +832,8 @@ function transformOrders(allOrders: any[]) {
           originalDriver1Id: order.original_driver1_id,
           originalDriver2Id: order.original_driver2_id,
           
-          // Other fields - handle "null" strings from CSV
-          notes: (order.notes === 'null' || order.notes === 'NULL') ? '' : (order.notes || ''),
+          // Other fields
+          notes: order.notes,
           commodity: order.commodity,
           weight: order.weight,
           poNumber: order.po_number,
@@ -1013,11 +888,11 @@ function transformOrders(allOrders: any[]) {
             name: order.booked_by_company.name
           } : null,
           
-          // Arrays - use final merged files
+          // Arrays
           pickup_drops: pickupDrops,
           order_files: orderFiles,
-          rcFiles: finalRcFiles,
-          podFiles: finalPodFiles,
+          rcFiles,
+          podFiles,
           bolFiles,
         };
       });
