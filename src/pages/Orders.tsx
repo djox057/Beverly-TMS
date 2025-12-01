@@ -634,6 +634,7 @@ const Orders = () => {
           notes: validated.notes,
           freight_amount: 0,
           loaded_miles: 0,
+          mileage: validated.dhMiles, // For canceled loads: loaded_miles (0) + dh_miles
           canceled: true,
         })
         .eq("id", selectedOrderId);
