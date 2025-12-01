@@ -11,17 +11,17 @@ async function enrichLockedOrdersWithLookups(
 ): Promise<any[]> {
   console.log("🔍 [enrichLockedOrders] Starting enrichment for", lockedOrders.length, "orders");
 
-  // Extract all unique IDs
+  // Extract all unique IDs and filter out nulls, undefined, and "null" strings
+  const filterValidIds = (ids: any[]) => ids.filter(id => id && id !== "null" && id !== "NULL");
+  
   const orderIds = lockedOrders.map((o) => o.id);
-  const truckIds = [...new Set(lockedOrders.map((o) => o.truck_id).filter(Boolean))];
-  const trailerIds = [...new Set(lockedOrders.map((o) => o.trailer_id).filter(Boolean))];
-  const driver1Ids = [...new Set(lockedOrders.map((o) => o.driver1_id).filter(Boolean))];
-  const driver2Ids = [...new Set(lockedOrders.map((o) => o.driver2_id).filter(Boolean))];
-  const brokerIds = [...new Set(lockedOrders.map((o) => o.broker_id).filter(Boolean))];
+  const truckIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.truck_id)))];
+  const trailerIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.trailer_id)))];
+  const driver1Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.driver1_id)))];
+  const driver2Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.driver2_id)))];
+  const brokerIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.broker_id)))];
   const companyIds = [
-    ...new Set(
-      [...lockedOrders.map((o) => o.company_id), ...lockedOrders.map((o) => o.booked_by_company_id)].filter(Boolean),
-    ),
+    ...new Set(filterValidIds([...lockedOrders.map((o) => o.company_id), ...lockedOrders.map((o) => o.booked_by_company_id)])),
   ];
 
   console.log("🔍 [enrichLockedOrders] Found:", {
@@ -34,16 +34,15 @@ async function enrichLockedOrdersWithLookups(
   });
 
   // Fetch all lookup data from database in parallel, including pickup_drops for archived orders
+  const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids])];
+  
   const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData] = await Promise.all([
     truckIds.length > 0
       ? supabase.from("trucks").select("id, truck_number, company_id, company:companies(id, name)").in("id", truckIds)
       : { data: [] },
     trailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", trailerIds) : { data: [] },
-    [...driver1Ids, ...driver2Ids].length > 0
-      ? supabase
-          .from("drivers")
-          .select("id, name")
-          .in("id", [...driver1Ids, ...driver2Ids])
+    allDriverIds.length > 0
+      ? supabase.from("drivers").select("id, name").in("id", allDriverIds)
       : { data: [] },
     brokerIds.length > 0
       ? supabase.from("brokers").select("id, name, mc_number, address").in("id", brokerIds)
