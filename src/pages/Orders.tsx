@@ -1038,7 +1038,7 @@ const Orders = () => {
                               <>{order.brokerLoadNumber}</>
                             )}
                           </TableCell>
-                          <TableCell className="w-20">{order.invoiced}</TableCell>
+                          <TableCell className="w-20">{order.invoiced ? 'Yes' : 'No'}</TableCell>
                           <TableCell className="w-20">
                             {order.notes && (
                               <Button
