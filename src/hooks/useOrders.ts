@@ -61,6 +61,15 @@ async function enrichLockedOrdersWithLookups(
   const brokersMap = new Map((brokersData.data || []).map((b) => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
+  console.log("🗺️ [enrichLockedOrders] Sample lookups:", {
+    sampleTruckId: truckIds[0],
+    sampleTruck: trucksMap.get(truckIds[0]),
+    sampleDriverId: driver1Ids[0],
+    sampleDriver: driversMap.get(driver1Ids[0]),
+    sampleBrokerId: brokerIds[0],
+    sampleBroker: brokersMap.get(brokerIds[0]),
+  });
+
   // Group pickup_drops from database and order_files from cache by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
   (pickupDropsData.data || []).forEach((pd) => {
@@ -103,7 +112,15 @@ async function enrichLockedOrdersWithLookups(
     order_files: orderFilesByOrder.get(order.id) || [],
   }));
 
-  console.log("✅ [enrichLockedOrders] Enrichment complete, sample order:", enriched[0]);
+  console.log("✅ [enrichLockedOrders] Enrichment complete, sample enriched order:", {
+    id: enriched[0]?.id,
+    truck_id: enriched[0]?.truck_id,
+    truck: enriched[0]?.truck,
+    driver1_id: enriched[0]?.driver1_id,
+    driver1: enriched[0]?.driver1,
+    broker_id: enriched[0]?.broker_id,
+    broker: enriched[0]?.broker,
+  });
   return enriched;
 }
 
