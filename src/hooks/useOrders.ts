@@ -33,24 +33,52 @@ async function enrichLockedOrdersWithLookups(
     companies: companyIds.length,
   });
 
-  // Fetch all lookup data from database in parallel, including pickup_drops for archived orders
+  // Helper to batch fetch data in chunks to avoid URL length limits
+  const batchFetch = async (
+    table: string,
+    select: string,
+    ids: string[],
+    batchSize = 50
+  ): Promise<{ data: any[] }> => {
+    if (ids.length === 0) return { data: [] };
+    
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += batchSize) {
+      batches.push(ids.slice(i, i + batchSize));
+    }
+    
+    const results = await Promise.all(
+      batches.map(async batch => {
+        const { data } = await supabase.from(table as any).select(select).in("id", batch);
+        return { data: data || [] };
+      })
+    );
+    
+    return { data: results.flatMap(r => r.data || []) };
+  };
+
+  // Fetch all lookup data from database in parallel with batching
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids])];
   
   const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData] = await Promise.all([
-    truckIds.length > 0
-      ? supabase.from("trucks").select("id, truck_number, company_id, company:companies(id, name)").in("id", truckIds)
-      : { data: [] },
-    trailerIds.length > 0 ? supabase.from("trailers").select("id, trailer_number").in("id", trailerIds) : { data: [] },
-    allDriverIds.length > 0
-      ? supabase.from("drivers").select("id, name").in("id", allDriverIds)
-      : { data: [] },
-    brokerIds.length > 0
-      ? supabase.from("brokers").select("id, name, mc_number, address").in("id", brokerIds)
-      : { data: [] },
-    companyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", companyIds) : { data: [] },
-    orderIds.length > 0
-      ? supabase.from("pickup_drops").select("*").in("order_id", orderIds)
-      : { data: [] },
+    batchFetch("trucks", "id, truck_number, company_id, company:companies(id, name)", truckIds),
+    batchFetch("trailers", "id, trailer_number", trailerIds),
+    batchFetch("drivers", "id, name", allDriverIds),
+    batchFetch("brokers", "id, name, mc_number, address", brokerIds),
+    batchFetch("companies", "id, name", companyIds),
+    (async () => {
+      if (orderIds.length === 0) return { data: [] };
+      const batches: string[][] = [];
+      for (let i = 0; i < orderIds.length; i += 50) {
+        batches.push(orderIds.slice(i, i + 50));
+      }
+      const results = await Promise.all(
+        batches.map(batch => 
+          supabase.from("pickup_drops").select("*").in("order_id", batch)
+        )
+      );
+      return { data: results.flatMap(r => r.data || []) };
+    })(),
   ]);
 
   // Create lookup maps
