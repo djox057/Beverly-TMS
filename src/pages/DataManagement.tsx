@@ -14,6 +14,7 @@ import {
   getCacheStats 
 } from "@/utils/ordersCache";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImportStatus {
   orders: boolean | null;
@@ -76,11 +77,19 @@ export default function DataManagement() {
 
             await saveFunction(data);
             
+            // Update metadata to notify all users
+            await supabase
+              .from('archived_orders_metadata')
+              .upsert({
+                last_updated_at: new Date().toISOString(),
+                updated_by: (await supabase.auth.getUser()).data.user?.id,
+              });
+            
             setImportStatus(prev => ({ ...prev, [type]: true }));
             
             toast({
               title: "Import Successful",
-              description: `Imported ${data.length} ${label} records from CSV`,
+              description: `Imported ${data.length} ${label} records from CSV. All users will see the updated data automatically.`,
             });
 
             // Invalidate orders query to trigger reload with new cached data
