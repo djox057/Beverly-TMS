@@ -1,14 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { getLockedOrders, getPickupDrops, getOrderFiles, saveLockedOrders } from "@/utils/ordersCache";
+import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 
-// Helper function to enrich locked orders with lookup data and merge with cached pickup_drops/order_files
-async function enrichLockedOrdersWithLookups(
-  lockedOrders: any[], 
-  cachedPickupDrops: any[], 
-  cachedOrderFiles: any[]
-): Promise<any[]> {
+// Helper function to enrich locked orders with lookup data
+async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]> {
   console.log('🔍 [enrichLockedOrders] Starting enrichment for', lockedOrders.length, 'orders');
   
   // Extract all unique IDs
@@ -32,8 +28,8 @@ async function enrichLockedOrdersWithLookups(
     companies: companyIds.length
   });
   
-  // Fetch all lookup data from database in parallel
-  const [trucksData, trailersData, driversData, brokersData, companiesData] = await Promise.all([
+  // Fetch all lookup data in parallel, including pickup_drops and order_files from database
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
     truckIds.length > 0 
       ? supabase.from('trucks').select('id, truck_number, company_id, company:companies(id, name)').in('id', truckIds)
       : { data: [] },
@@ -48,6 +44,40 @@ async function enrichLockedOrdersWithLookups(
       : { data: [] },
     companyIds.length > 0
       ? supabase.from('companies').select('id, name').in('id', companyIds)
+      : { data: [] },
+    orderIds.length > 0
+      ? supabase.from('pickup_drops').select(`
+          id,
+          order_id,
+          type,
+          address,
+          city,
+          state,
+          zip_code,
+          datetime,
+          end_datetime,
+          sequence_number,
+          arrived_at,
+          checked_out_at,
+          going_to_at,
+          company_name,
+          contact_name,
+          contact_phone,
+          special_instructions
+        `).in('order_id', orderIds)
+      : { data: [] },
+    orderIds.length > 0
+      ? supabase.from('order_files').select(`
+          id,
+          order_id,
+          file_category,
+          file_name,
+          file_path,
+          file_size,
+          content_type,
+          uploaded_by,
+          created_at
+        `).in('order_id', orderIds)
       : { data: [] }
   ]);
   
@@ -58,9 +88,9 @@ async function enrichLockedOrdersWithLookups(
   const brokersMap = new Map((brokersData.data || []).map(b => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map(c => [c.id, c]));
   
-  // Group cached pickup_drops and order_files by order_id
+  // Group pickup_drops and order_files by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
-  cachedPickupDrops.forEach(pd => {
+  (pickupDropsData.data || []).forEach(pd => {
     if (!pickupDropsByOrder.has(pd.order_id)) {
       pickupDropsByOrder.set(pd.order_id, []);
     }
@@ -68,7 +98,7 @@ async function enrichLockedOrdersWithLookups(
   });
   
   const orderFilesByOrder = new Map<string, any[]>();
-  cachedOrderFiles.forEach(of => {
+  (orderFilesData.data || []).forEach(of => {
     if (!orderFilesByOrder.has(of.order_id)) {
       orderFilesByOrder.set(of.order_id, []);
     }
@@ -81,8 +111,8 @@ async function enrichLockedOrdersWithLookups(
     drivers: driversData.data?.length || 0,
     brokers: brokersData.data?.length || 0,
     companies: companiesData.data?.length || 0,
-    pickupDrops: cachedPickupDrops.length,
-    orderFiles: cachedOrderFiles.length
+    pickupDrops: pickupDropsData.data?.length || 0,
+    orderFiles: orderFilesData.data?.length || 0
   });
   console.log('✅ [enrichLockedOrders] Attaching to orders...');
   
@@ -100,7 +130,7 @@ async function enrichLockedOrdersWithLookups(
     order_files: orderFilesByOrder.get(order.id) || [],
   }));
   
-  console.log('✅ [enrichLockedOrders] Enrichment complete, sample order:', enriched[0]);
+  console.log('✅ [enrichLockedOrders] Enrichment complete');
   return enriched;
 }
 
@@ -226,20 +256,14 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
       // Load LOCKED orders from cache FIRST (before returning)
       console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
-      const [lockedOrders, cachedPickupDrops, cachedOrderFiles] = await Promise.all([
-        getLockedOrders(),
-        getPickupDrops(),
-        getOrderFiles()
-      ]);
+      const lockedOrders = await getLockedOrders();
       
-      // Enrich locked orders with lookup data and merge with cached pickup_drops/order_files
+      // Enrich locked orders with lookup data from database
       let enrichedLockedOrders: any[] = [];
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
-        console.log('✅ [useOrders] Loaded', cachedPickupDrops?.length || 0, 'cached pickup_drops');
-        console.log('✅ [useOrders] Loaded', cachedOrderFiles?.length || 0, 'cached order_files');
-        console.log('🔍 [useOrders] Enriching locked orders with lookup data...');
-        enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders, cachedPickupDrops || [], cachedOrderFiles || []);
+        console.log('🔍 [useOrders] Enriching locked orders with lookup data from database...');
+        enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
         console.log('✅ [useOrders] Enrichment complete');
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
