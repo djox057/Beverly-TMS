@@ -820,28 +820,29 @@ function transformOrders(allOrders: any[]) {
           status: order.status,
           locked: order.locked,
           canceled: order.canceled,
-          invoiced: order.invoiced,
+          // Handle invoiced boolean - convert string "true"/"false" to actual boolean
+          invoiced: order.invoiced === true || order.invoiced === 'true' || order.invoiced === 1,
           isRecovery: order.is_recovery,
           
-          // Truck and equipment - flatten joined data
-          truckNumber: order.truck?.truck_number || null,
+          // Truck and equipment - flatten joined data OR use direct fields from CSV
+          truckNumber: order.truck?.truck_number || order.truck_number || null,
           truckId: order.truck_id,
-          truckCompanyName: order.truck?.company?.name || null,
-          truckCompanyId: order.truck?.company?.id || null,
-          trailerNumber: order.trailer?.trailer_number || null,
+          truckCompanyName: order.truck?.company?.name || order.truck_company_name || null,
+          truckCompanyId: order.truck?.company?.id || order.truck_company_id || null,
+          trailerNumber: order.trailer?.trailer_number || order.trailer_number || null,
           trailerId: order.trailer_id,
           
-          // Driver info - flatten joined data
-          driverName: order.driver1?.name || null,
-          driver1Name: order.driver1?.name || null,
-          driver2Name: order.driver2?.name || null,
+          // Driver info - flatten joined data OR use direct fields from CSV
+          driverName: order.driver1?.name || order.driver_name || order.driver1_name || null,
+          driver1Name: order.driver1?.name || order.driver1_name || null,
+          driver2Name: order.driver2?.name || order.driver2_name || null,
           driver1Id: order.driver1_id,
           driver2Id: order.driver2_id,
           
-          // Broker info - flatten joined data
-          brokerName: order.broker?.name || null,
-          brokerAddress: order.broker?.address || null,
-          brokerMcNumber: order.broker?.mc_number || null,
+          // Broker info - flatten joined data OR use direct fields from CSV
+          brokerName: order.broker?.name || order.broker_name || null,
+          brokerAddress: order.broker?.address || order.broker_address || null,
+          brokerMcNumber: order.broker?.mc_number || order.broker_mc_number || null,
           brokerId: order.broker_id,
           
           // Company info - flatten joined data
