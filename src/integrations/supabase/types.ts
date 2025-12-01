@@ -962,7 +962,7 @@ export type Database = {
       }
       orders: {
         Row: {
-          booked_by: string | null
+          booked_by: string
           booked_by_company_id: string | null
           broker_id: string | null
           broker_load_number: string | null
@@ -1057,7 +1057,7 @@ export type Database = {
           wrong_address_fee_driver: number | null
         }
         Insert: {
-          booked_by?: string | null
+          booked_by: string
           booked_by_company_id?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
@@ -1152,7 +1152,7 @@ export type Database = {
           wrong_address_fee_driver?: number | null
         }
         Update: {
-          booked_by?: string | null
+          booked_by?: string
           booked_by_company_id?: string | null
           broker_id?: string | null
           broker_load_number?: string | null
