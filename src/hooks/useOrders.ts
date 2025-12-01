@@ -764,6 +764,25 @@ function transformOrders(allOrders: any[]) {
   };
   
   const transformed = (allOrders || []).map((order: any, index: number) => {
+        // Log first order to debug structure
+        if (index === 0) {
+          console.log('🔍 [transformOrders] Sample raw order:', {
+            id: order.id,
+            truck_id: order.truck_id,
+            truck: order.truck,
+            truck_number: order.truck_number,
+            driver1_id: order.driver1_id,
+            driver1: order.driver1,
+            driver_name: order.driver_name,
+            broker_id: order.broker_id,
+            broker: order.broker,
+            broker_name: order.broker_name,
+            canceled: order.canceled,
+            tonu: order.tonu,
+            date_change_notes: order.date_change_notes
+          });
+        }
+        
         // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
         // This ensures cached orders (which only have freight_amount) get proper totals
         // Parse JSONB fields back to arrays (already arrays from join)
@@ -824,10 +843,10 @@ function transformOrders(allOrders: any[]) {
           brokerLoadNumber: order.broker_load_number != null ? String(order.broker_load_number) : null,
           status: order.status,
           locked: order.locked,
-          canceled: order.canceled,
+          canceled: order.canceled === true || order.canceled === 'true' || order.canceled === 1,
           // Handle invoiced boolean - convert string "true"/"false" to actual boolean
           invoiced: order.invoiced === true || order.invoiced === 'true' || order.invoiced === 1,
-          isRecovery: order.is_recovery,
+          isRecovery: order.is_recovery === true || order.is_recovery === 'true' || order.is_recovery === 1,
           
           // Truck and equipment - flatten joined data OR use direct fields from CSV
           truckNumber: order.truck?.truck_number || order.truck_number || null,
@@ -850,12 +869,12 @@ function transformOrders(allOrders: any[]) {
           brokerMcNumber: order.broker?.mc_number || order.broker_mc_number || null,
           brokerId: order.broker_id,
           
-          // Company info - flatten joined data
-          companyName: order.company?.name || null,
+          // Company info - flatten joined data OR use direct fields from CSV
+          companyName: order.company?.name || order.company_name || null,
           companyId: order.company_id,
           bookedBy: order.booked_by,
+          bookedByCompanyName: order.booked_by_company?.name || order.booked_by_company_name || null,
           bookedByCompanyId: order.booked_by_company_id,
-          bookedByCompanyName: order.booked_by_company?.name || null,
           
           // Pickup/Delivery extracted info - use ISO date strings for consistent parsing
           // CRITICAL: Cached orders don't have pickup_drops array, so fallback to order fields
@@ -957,7 +976,10 @@ function transformOrders(allOrders: any[]) {
           pickupEndDatetime: order.pickup_end_datetime,
           deliveryDatetime: order.delivery_datetime,
           deliveryEndDatetime: order.delivery_end_datetime,
-          dateChangeNotes: order.date_change_notes,
+          // Ensure null/undefined/"null" string values are properly converted to null
+          dateChangeNotes: (order.date_change_notes === 'null' || order.date_change_notes === 'NULL' || !order.date_change_notes) 
+            ? null 
+            : order.date_change_notes,
           
           // Nested objects for compatibility - rebuild from joined data
           trucks: order.truck ? {
@@ -1011,6 +1033,19 @@ function transformOrders(allOrders: any[]) {
         };
       });
   
-  console.log(`🔄 [transformOrders] Completed transformation of ${allOrders.length} orders`);
+  // Log first transformed order to debug
+  if (transformed.length > 0) {
+    console.log('🎯 [transformOrders] Sample transformed order:', {
+      id: transformed[0].id,
+      truckNumber: transformed[0].truckNumber,
+      driverName: transformed[0].driverName,
+      brokerName: transformed[0].brokerName,
+      canceled: transformed[0].canceled,
+      dateChangeNotes: transformed[0].dateChangeNotes,
+      tonu: transformed[0].tonu
+    });
+  }
+  
+  console.log(`🔄 [transformOrders] Completed transformation of ${transformed.length} orders`);
   return transformed;
 }
