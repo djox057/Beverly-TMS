@@ -12,6 +12,7 @@ async function enrichLockedOrdersWithLookups(
   console.log('🔍 [enrichLockedOrders] Starting enrichment for', lockedOrders.length, 'orders');
   
   // Extract all unique IDs
+  const orderIds = lockedOrders.map(o => o.id);
   const truckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
   const trailerIds = [...new Set(lockedOrders.map(o => o.trailer_id).filter(Boolean))];
   const driver1Ids = [...new Set(lockedOrders.map(o => o.driver1_id).filter(Boolean))];
@@ -23,6 +24,7 @@ async function enrichLockedOrdersWithLookups(
   ].filter(Boolean))];
   
   console.log('🔍 [enrichLockedOrders] Found:', { 
+    orders: orderIds.length,
     trucks: truckIds.length, 
     trailers: trailerIds.length,
     drivers: driver1Ids.length + driver2Ids.length,
@@ -30,7 +32,7 @@ async function enrichLockedOrdersWithLookups(
     companies: companyIds.length
   });
   
-  // Fetch lookup data from database (NOT pickup_drops/order_files - those come from cache)
+  // Fetch all lookup data from database in parallel
   const [trucksData, trailersData, driversData, brokersData, companiesData] = await Promise.all([
     truckIds.length > 0 
       ? supabase.from('trucks').select('id, truck_number, company_id, company:companies(id, name)').in('id', truckIds)
@@ -73,15 +75,18 @@ async function enrichLockedOrdersWithLookups(
     orderFilesByOrder.get(of.order_id)!.push(of);
   });
   
-  console.log('✅ [enrichLockedOrders] Merged cached data:', {
+  console.log('✅ [enrichLockedOrders] Lookup data fetched:', {
+    trucks: trucksData.data?.length || 0,
+    trailers: trailersData.data?.length || 0,
+    drivers: driversData.data?.length || 0,
+    brokers: brokersData.data?.length || 0,
+    companies: companiesData.data?.length || 0,
     pickupDrops: cachedPickupDrops.length,
-    orderFiles: cachedOrderFiles.length,
-    ordersWithPickups: pickupDropsByOrder.size,
-    ordersWithFiles: orderFilesByOrder.size
+    orderFiles: cachedOrderFiles.length
   });
   console.log('✅ [enrichLockedOrders] Attaching to orders...');
   
-  // Attach all data to each order
+  // Attach lookup data to each order
   const enriched = lockedOrders.map(order => ({
     ...order,
     truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
@@ -95,7 +100,7 @@ async function enrichLockedOrdersWithLookups(
     order_files: orderFilesByOrder.get(order.id) || [],
   }));
   
-  console.log('✅ [enrichLockedOrders] Enrichment complete');
+  console.log('✅ [enrichLockedOrders] Enrichment complete, sample order:', enriched[0]);
   return enriched;
 }
 
