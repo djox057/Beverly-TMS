@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { getLockedOrders, getPickupDrops, getOrderFiles, saveLockedOrders } from "@/utils/ordersCache";
 
-// Helper function to enrich locked orders with lookup data and merge with cached pickup_drops/order_files
+// Helper function to enrich locked orders with lookup data and fetch pickup_drops from database
 async function enrichLockedOrdersWithLookups(
   lockedOrders: any[],
   cachedPickupDrops: any[],
@@ -33,8 +33,8 @@ async function enrichLockedOrdersWithLookups(
     companies: companyIds.length,
   });
 
-  // Fetch all lookup data from database in parallel
-  const [trucksData, trailersData, driversData, brokersData, companiesData] = await Promise.all([
+  // Fetch all lookup data from database in parallel, including pickup_drops for archived orders
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData] = await Promise.all([
     truckIds.length > 0
       ? supabase.from("trucks").select("id, truck_number, company_id, company:companies(id, name)").in("id", truckIds)
       : { data: [] },
@@ -49,6 +49,9 @@ async function enrichLockedOrdersWithLookups(
       ? supabase.from("brokers").select("id, name, mc_number, address").in("id", brokerIds)
       : { data: [] },
     companyIds.length > 0 ? supabase.from("companies").select("id, name").in("id", companyIds) : { data: [] },
+    orderIds.length > 0
+      ? supabase.from("pickup_drops").select("*").in("order_id", orderIds)
+      : { data: [] },
   ]);
 
   // Create lookup maps
@@ -58,9 +61,9 @@ async function enrichLockedOrdersWithLookups(
   const brokersMap = new Map((brokersData.data || []).map((b) => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
-  // Group cached pickup_drops and order_files by order_id
+  // Group pickup_drops from database and order_files from cache by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
-  cachedPickupDrops.forEach((pd) => {
+  (pickupDropsData.data || []).forEach((pd) => {
     if (!pickupDropsByOrder.has(pd.order_id)) {
       pickupDropsByOrder.set(pd.order_id, []);
     }
@@ -81,7 +84,7 @@ async function enrichLockedOrdersWithLookups(
     drivers: driversData.data?.length || 0,
     brokers: brokersData.data?.length || 0,
     companies: companiesData.data?.length || 0,
-    pickupDrops: cachedPickupDrops.length,
+    pickupDrops: pickupDropsData.data?.length || 0,
     orderFiles: cachedOrderFiles.length,
   });
   console.log("✅ [enrichLockedOrders] Attaching to orders...");
