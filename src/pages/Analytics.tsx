@@ -371,7 +371,23 @@ const Analytics = () => {
         // Default: no access for other roles
         return false;
       }) || [];
-    return filtered;
+    
+    // Deduplicate: remove locked orders if unlocked version exists (Analytics page only)
+    const orderIdMap = new Map();
+    filtered.forEach(order => {
+      const existingOrder = orderIdMap.get(order.id);
+      // Keep the unlocked version if both locked and unlocked exist
+      if (!existingOrder || (!order.locked && existingOrder.locked)) {
+        orderIdMap.set(order.id, order);
+      }
+    });
+    
+    const deduplicated = Array.from(orderIdMap.values());
+    if (deduplicated.length < filtered.length) {
+      console.log(`🔄 [Analytics] Removed ${filtered.length - deduplicated.length} duplicate locked orders`);
+    }
+    
+    return deduplicated;
   }, [orders, dateRange, filterType, dispatcherProfiles, getPrimaryRole, profile, selectedOffices]);
   if (isLoading) {
     return (

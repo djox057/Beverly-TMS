@@ -301,21 +301,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
         );
       }
 
-      // Deduplicate: remove locked orders if unlocked version exists
-      const unlockedOrderIds = new Set((initialBatch || []).map(o => o.id));
-      const deduplicatedLockedOrders = enrichedLockedOrders.filter(
-        order => !unlockedOrderIds.has(order.id)
-      );
-      
-      if (enrichedLockedOrders.length > deduplicatedLockedOrders.length) {
-        console.log(`🔄 [useOrders] Removed ${enrichedLockedOrders.length - deduplicatedLockedOrders.length} duplicate locked orders (unlocked version exists)`);
-      }
-
-      // Merge initial unlocked orders with deduplicated locked orders
-      const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
+      // Merge initial unlocked orders with enriched locked orders
+      const initialMergedOrders = transformOrders([...(initialBatch || []), ...enrichedLockedOrders]);
 
       console.log(
-        `[useOrders] ✅ Initial merged data: ${initialMergedOrders.length} orders (${initialBatch?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)`,
+        `[useOrders] ✅ Initial merged data: ${initialMergedOrders.length} orders (${initialBatch?.length || 0} unlocked + ${lockedOrders?.length || 0} locked)`,
       );
 
       // Continue loading remaining UNLOCKED orders in background
@@ -450,26 +440,14 @@ export const useOrders = (options?: UseOrdersOptions) => {
                 hasMore = false;
               }
 
-              // Deduplicate again with the new batch
-              const currentUnlockedIds = new Set(backgroundOrders.map(o => o.id));
-              const currentDeduplicatedLocked = enrichedLockedOrders.filter(
-                order => !currentUnlockedIds.has(order.id)
-              );
-              
-              // Merge with deduplicated locked orders and update cache progressively
-              const mergedData = transformOrders([...backgroundOrders, ...currentDeduplicatedLocked]);
+              // Merge with enriched locked orders and update cache progressively
+              const mergedData = transformOrders([...backgroundOrders, ...enrichedLockedOrders]);
               queryClient.setQueryData(["orders", options?.bookedBy], mergedData);
               console.log(`[useOrders] 📊 Updated cache: ${mergedData.length} total orders`);
             }
 
-            // Final deduplication count
-            const finalUnlockedIds = new Set(backgroundOrders.map(o => o.id));
-            const finalDeduplicatedCount = enrichedLockedOrders.filter(
-              order => !finalUnlockedIds.has(order.id)
-            ).length;
-            
             console.log(
-              `[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${finalDeduplicatedCount} locked`,
+              `[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${enrichedLockedOrders?.length || 0} locked`,
             );
           } catch (error) {
             console.error("[useOrders] ❌ Background loading error:", error);
