@@ -303,67 +303,83 @@ const Orders = () => {
         }
       }
 
-      // Date filtering based on delivery date
+      // Date filtering based on delivery date - extract UTC date directly from ISO string
       let matchesDate = true;
       if (dateRange?.from && order.deliveryDate) {
-        const orderDeliveryDate = new Date(order.deliveryDate.split(" - ")[0]);
-        const orderDateOnly = new Date(
-          orderDeliveryDate.getFullYear(),
-          orderDeliveryDate.getMonth(),
-          orderDeliveryDate.getDate(),
-        );
+        let dateStr = order.deliveryDate.split(" - ")[0];
+        // Normalize space-separated dates (from CSV) to ISO format
+        if (dateStr.includes(' ') && !dateStr.includes('T')) {
+          dateStr = dateStr.replace(' ', 'T');
+        }
+        // Extract date part directly from ISO string (UTC-based)
+        const datePart = dateStr.split('T')[0];
+        
+        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = datePart.split('-').map(Number);
+          const orderDateOnly = new Date(year, month - 1, day);
 
-        if (dateRange.to) {
-          // Date range filtering
-          const fromDateOnly = new Date(
-            dateRange.from.getFullYear(),
-            dateRange.from.getMonth(),
-            dateRange.from.getDate(),
-          );
-          const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-          matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+          if (dateRange.to) {
+            // Date range filtering
+            const fromDateOnly = new Date(
+              dateRange.from.getFullYear(),
+              dateRange.from.getMonth(),
+              dateRange.from.getDate(),
+            );
+            const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+            matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+          } else {
+            // Single date filtering
+            const selectedDateOnly = new Date(
+              dateRange.from.getFullYear(),
+              dateRange.from.getMonth(),
+              dateRange.from.getDate(),
+            );
+            matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+          }
         } else {
-          // Single date filtering
-          const selectedDateOnly = new Date(
-            dateRange.from.getFullYear(),
-            dateRange.from.getMonth(),
-            dateRange.from.getDate(),
-          );
-          matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+          matchesDate = false;
         }
       }
 
-      // Date filtering based on pickup date
+      // Date filtering based on pickup date - extract UTC date directly from ISO string
       let matchesPickupDate = true;
       if (pickupDateRange?.from && order.pickupDate) {
-        const orderPickupDate = new Date(order.pickupDate.split(" - ")[0]);
-        const orderDateOnly = new Date(
-          orderPickupDate.getFullYear(),
-          orderPickupDate.getMonth(),
-          orderPickupDate.getDate(),
-        );
+        let dateStr = order.pickupDate.split(" - ")[0];
+        // Normalize space-separated dates (from CSV) to ISO format
+        if (dateStr.includes(' ') && !dateStr.includes('T')) {
+          dateStr = dateStr.replace(' ', 'T');
+        }
+        // Extract date part directly from ISO string (UTC-based)
+        const datePart = dateStr.split('T')[0];
+        
+        if (datePart && datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = datePart.split('-').map(Number);
+          const orderDateOnly = new Date(year, month - 1, day);
 
-        if (pickupDateRange.to) {
-          // Date range filtering
-          const fromDateOnly = new Date(
-            pickupDateRange.from.getFullYear(),
-            pickupDateRange.from.getMonth(),
-            pickupDateRange.from.getDate(),
-          );
-          const toDateOnly = new Date(
-            pickupDateRange.to.getFullYear(),
-            pickupDateRange.to.getMonth(),
-            pickupDateRange.to.getDate(),
-          );
-          matchesPickupDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+          if (pickupDateRange.to) {
+            // Date range filtering
+            const fromDateOnly = new Date(
+              pickupDateRange.from.getFullYear(),
+              pickupDateRange.from.getMonth(),
+              pickupDateRange.from.getDate(),
+            );
+            const toDateOnly = new Date(
+              pickupDateRange.to.getFullYear(),
+              pickupDateRange.to.getMonth(),
+              pickupDateRange.to.getDate(),
+            );
+            matchesPickupDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+          } else {
+            // Single date filtering
+            const selectedDateOnly = new Date(
+              pickupDateRange.from.getFullYear(),
+              pickupDateRange.from.getMonth(),
+              pickupDateRange.from.getDate(),
+            );
+            matchesPickupDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+          }
         } else {
-          // Single date filtering
-          const selectedDateOnly = new Date(
-            pickupDateRange.from.getFullYear(),
-            pickupDateRange.from.getMonth(),
-            pickupDateRange.from.getDate(),
-          );
-          matchesPickupDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+          matchesPickupDate = false;
         }
       }
 
