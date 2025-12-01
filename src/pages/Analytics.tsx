@@ -278,12 +278,12 @@ const Analytics = () => {
           return false;
         }
 
-        // Date filtering - use pickup date for week filters, delivery date for month filters
+        // Date filtering - use pickup date for week filters, delivery date for month/custom filters
         // CRITICAL: Only filter by date when dateRange is actually set
         // Orders with invalid dates should only be excluded when date filtering is active
         let matchesDate = true;
         if (dateRange?.from) {
-          const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
+          const dateToFilter = filterType === "week" ? order.pickupDate : order.deliveryDate;
           // Only exclude orders with invalid dates when actively filtering by date
           if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
             matchesDate = false;
