@@ -8,6 +8,7 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
   console.log('🔍 [enrichLockedOrders] Starting enrichment for', lockedOrders.length, 'orders');
   
   // Extract all unique IDs
+  const orderIds = lockedOrders.map(o => o.id);
   const truckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
   const trailerIds = [...new Set(lockedOrders.map(o => o.trailer_id).filter(Boolean))];
   const driver1Ids = [...new Set(lockedOrders.map(o => o.driver1_id).filter(Boolean))];
@@ -19,6 +20,7 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
   ].filter(Boolean))];
   
   console.log('🔍 [enrichLockedOrders] Found:', { 
+    orders: orderIds.length,
     trucks: truckIds.length, 
     trailers: trailerIds.length,
     drivers: driver1Ids.length + driver2Ids.length,
@@ -26,8 +28,8 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
     companies: companyIds.length
   });
   
-  // Fetch all lookup data in parallel
-  const [trucksData, trailersData, driversData, brokersData, companiesData] = await Promise.all([
+  // Fetch all lookup data in parallel, including pickup_drops and order_files
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
     truckIds.length > 0 
       ? supabase.from('trucks').select('id, truck_number, company_id, company:companies(id, name)').in('id', truckIds)
       : { data: [] },
@@ -42,6 +44,40 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
       : { data: [] },
     companyIds.length > 0
       ? supabase.from('companies').select('id, name').in('id', companyIds)
+      : { data: [] },
+    orderIds.length > 0
+      ? supabase.from('pickup_drops').select(`
+          id,
+          order_id,
+          type,
+          address,
+          city,
+          state,
+          zip_code,
+          datetime,
+          end_datetime,
+          sequence_number,
+          arrived_at,
+          checked_out_at,
+          going_to_at,
+          company_name,
+          contact_name,
+          contact_phone,
+          special_instructions
+        `).in('order_id', orderIds)
+      : { data: [] },
+    orderIds.length > 0
+      ? supabase.from('order_files').select(`
+          id,
+          order_id,
+          file_category,
+          file_name,
+          file_path,
+          file_size,
+          content_type,
+          uploaded_by,
+          created_at
+        `).in('order_id', orderIds)
       : { data: [] }
   ]);
   
@@ -52,7 +88,28 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
   const brokersMap = new Map((brokersData.data || []).map(b => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map(c => [c.id, c]));
   
-  console.log('✅ [enrichLockedOrders] Lookup data fetched, attaching to orders...');
+  // Group pickup_drops and order_files by order_id
+  const pickupDropsByOrder = new Map<string, any[]>();
+  (pickupDropsData.data || []).forEach(pd => {
+    if (!pickupDropsByOrder.has(pd.order_id)) {
+      pickupDropsByOrder.set(pd.order_id, []);
+    }
+    pickupDropsByOrder.get(pd.order_id)!.push(pd);
+  });
+  
+  const orderFilesByOrder = new Map<string, any[]>();
+  (orderFilesData.data || []).forEach(of => {
+    if (!orderFilesByOrder.has(of.order_id)) {
+      orderFilesByOrder.set(of.order_id, []);
+    }
+    orderFilesByOrder.get(of.order_id)!.push(of);
+  });
+  
+  console.log('✅ [enrichLockedOrders] Lookup data fetched:', {
+    pickupDrops: pickupDropsData.data?.length || 0,
+    orderFiles: orderFilesData.data?.length || 0
+  });
+  console.log('✅ [enrichLockedOrders] Attaching to orders...');
   
   // Attach lookup data to each order
   const enriched = lockedOrders.map(order => ({
@@ -64,6 +121,8 @@ async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]
     broker: order.broker_id ? brokersMap.get(order.broker_id) || null : null,
     company: order.company_id ? companiesMap.get(order.company_id) || null : null,
     booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
+    pickup_drops: pickupDropsByOrder.get(order.id) || [],
+    order_files: orderFilesByOrder.get(order.id) || [],
   }));
   
   console.log('✅ [enrichLockedOrders] Enrichment complete');
