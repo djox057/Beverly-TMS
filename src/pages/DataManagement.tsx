@@ -47,7 +47,9 @@ export default function DataManagement() {
       // Parse CSV file
       Papa.parse(file, {
         header: true,
-        dynamicTyping: true,
+        // IMPORTANT: Keep dynamicTyping false to preserve leading zeros in string fields like broker_load_number
+        // The useOrders transformation handles type conversions for numeric/boolean fields
+        dynamicTyping: false,
         skipEmptyLines: true,
         complete: async (results) => {
           try {
