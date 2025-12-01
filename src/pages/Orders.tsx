@@ -78,7 +78,7 @@ const Orders = () => {
   const queryClient = useQueryClient();
   const { data: emailLogMap } = useDriverEmailLog();
 
-  console.log('🟦 [Orders Page] Component rendering');
+  console.log("🟦 [Orders Page] Component rendering");
 
   // Debug navigation function with filter persistence
   const navigateToEditOrder = (orderId: string) => {
@@ -241,20 +241,20 @@ const Orders = () => {
   }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
 
   const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
-  
-  console.log('🟦 [Orders Page] useOrders returned:', {
+
+  console.log("🟦 [Orders Page] useOrders returned:", {
     ordersCount: orders?.length,
     isLoading,
     error,
-    orderFilterOptions
+    orderFilterOptions,
   });
 
   // Log when orders data changes
   useEffect(() => {
-    console.log('🔵 [Orders Page] Orders data changed! New count:', orders?.length);
+    console.log("🔵 [Orders Page] Orders data changed! New count:", orders?.length);
     if (orders && orders.length > 0) {
-      console.log('🔵 [Orders Page] First order:', orders[0]);
-      console.log('🔵 [Orders Page] Last order:', orders[orders.length - 1]);
+      console.log("🔵 [Orders Page] First order:", orders[0]);
+      console.log("🔵 [Orders Page] Last order:", orders[orders.length - 1]);
     }
   }, [orders]);
 
@@ -270,7 +270,8 @@ const Orders = () => {
         (order.driverName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerLoadNumber?.toString() || "").toLowerCase().includes(searchLower);
-      const matchesCompany = !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
+      const matchesCompany =
+        !companyFilter || companyFilter === "all-companies" || order.bookedByCompanyName === companyFilter;
       const matchesTruckCompany =
         !truckCompanyFilter ||
         truckCompanyFilter === "all-truck-companies" ||
@@ -349,7 +350,11 @@ const Orders = () => {
             pickupDateRange.from.getMonth(),
             pickupDateRange.from.getDate(),
           );
-          const toDateOnly = new Date(pickupDateRange.to.getFullYear(), pickupDateRange.to.getMonth(), pickupDateRange.to.getDate());
+          const toDateOnly = new Date(
+            pickupDateRange.to.getFullYear(),
+            pickupDateRange.to.getMonth(),
+            pickupDateRange.to.getDate(),
+          );
           matchesPickupDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
         } else {
           // Single date filtering
@@ -925,7 +930,7 @@ const Orders = () => {
 
                       const isEvenRow = index % 2 === 1;
                       const alternatingBg = isEvenRow ? "bg-muted/30" : "";
-                      
+
                       const rowClassName = isRecovery
                         ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)]"
                         : hasRedFees
@@ -975,38 +980,60 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
-                              {order.pickupDate ? new Date(order.pickupDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
+                              {order.pickupDate
+                                ? new Date(order.pickupDate).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                  })
+                                : ""}
                             </div>
                           </TableCell>
                           <TableCell className="w-40 p-0">
                             <div className="h-full p-4 line-clamp-2">
-                              {order.pickupCity}{order.pickupCity && order.pickupState ? ', ' : ''}{order.pickupState}
+                              {order.pickupCity}
+                              {order.pickupCity && order.pickupState ? ", " : ""}
+                              {order.pickupState}
                             </div>
                           </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
-                              {order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) : ''}
+                              {order.deliveryDate
+                                ? new Date(order.deliveryDate).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                  })
+                                : ""}
                             </div>
                           </TableCell>
                           <TableCell className="w-40 p-0">
                             <div className="h-full p-4 line-clamp-2">
-                              {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
+                              {order.deliveryCity}
+                              {order.deliveryCity && order.deliveryState ? ", " : ""}
+                              {order.deliveryState}
                             </div>
                           </TableCell>
-                          <TableCell className="w-16">{order.mileage != null ? order.mileage.toLocaleString() : "0"}</TableCell>
+                          <TableCell className="w-16">
+                            {order.mileage != null ? order.mileage.toLocaleString() : "0"}
+                          </TableCell>
                           <TableCell className="w-36">
                             {(order as any).isPartial && (order as any).partialBrokers?.length > 0 ? (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="line-clamp-2 cursor-help">
-                                      {(order as any).partialBrokers.find((b: string) => b) || ''}
+                                      {(order as any).partialBrokers.find((b: string) => b) || ""}
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
                                     <div className="space-y-1">
-                                      {(order as any).partialBrokers.map((broker: string, idx: number) => 
-                                        broker ? <div key={idx}>Partial {idx + 1}: {broker}</div> : null
+                                      {(order as any).partialBrokers.map((broker: string, idx: number) =>
+                                        broker ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {broker}
+                                          </div>
+                                        ) : null,
                                       )}
                                     </div>
                                   </TooltipContent>
@@ -1022,13 +1049,17 @@ const Orders = () => {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="cursor-help">
-                                      {(order as any).partialBrokerLoads.find((n: string) => n) || ''}
+                                      {(order as any).partialBrokerLoads.find((n: string) => n) || ""}
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
                                     <div className="space-y-1">
-                                      {(order as any).partialBrokerLoads.map((loadNum: string, idx: number) => 
-                                        loadNum ? <div key={idx}>Partial {idx + 1}: {loadNum}</div> : null
+                                      {(order as any).partialBrokerLoads.map((loadNum: string, idx: number) =>
+                                        loadNum ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {loadNum}
+                                          </div>
+                                        ) : null,
                                       )}
                                     </div>
                                   </TooltipContent>
@@ -1038,7 +1069,7 @@ const Orders = () => {
                               <>{order.brokerLoadNumber}</>
                             )}
                           </TableCell>
-                          <TableCell className="w-20">{order.invoiced ? 'Yes' : 'No'}</TableCell>
+                          <TableCell className="w-20">{order.invoiced ? "Yes" : "No"}</TableCell>
                           <TableCell className="w-20">
                             {order.notes && (
                               <Button
@@ -1070,13 +1101,17 @@ const Orders = () => {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="line-clamp-2 cursor-help">
-                                      {(order as any).partialBookedByCompanies.find((c: string) => c) || ''}
+                                      {(order as any).partialBookedByCompanies.find((c: string) => c) || ""}
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
                                     <div className="space-y-1">
-                                      {(order as any).partialBookedByCompanies.map((company: string, idx: number) => 
-                                        company ? <div key={idx}>Partial {idx + 1}: {company}</div> : null
+                                      {(order as any).partialBookedByCompanies.map((company: string, idx: number) =>
+                                        company ? (
+                                          <div key={idx}>
+                                            Partial {idx + 1}: {company}
+                                          </div>
+                                        ) : null,
                                       )}
                                     </div>
                                   </TooltipContent>
@@ -1475,7 +1510,7 @@ const Orders = () => {
                 <div className="w-12 h-8 rounded bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] border border-border" />
                 <div>
                   <p className="font-semibold">Orange - Canceled or Date Changed</p>
-                  <p className="text-sm text-muted-foreground">Load has been canceled or has date change notes</p>
+                  <p className="text-sm text-muted-foreground">Load has been canceled or rescheduled</p>
                 </div>
               </div>
             </div>
