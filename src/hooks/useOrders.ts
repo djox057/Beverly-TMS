@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
-import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
+import { useEffect, useRef } from "react";
+import { getLockedOrders, saveLockedOrders, clearCache } from "@/utils/ordersCache";
 
 // Helper function to enrich locked orders with lookup data
 async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]> {
@@ -140,6 +140,7 @@ interface UseOrdersOptions {
 
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
+  const lastMetadataCheck = useRef<string | null>(null);
   
   console.log('🔴 [useOrders] ============ HOOK CALLED ============');
   console.log('🔴 [useOrders] Options:', JSON.stringify(options));
@@ -446,6 +447,41 @@ export const useOrders = (options?: UseOrdersOptions) => {
   }, [query.data, query.isLoading, query.isError, query.isFetching]);
 
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
+  // Check for archived orders updates every 10 seconds
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const { data: metadata } = await supabase
+          .from('archived_orders_metadata')
+          .select('last_updated_at')
+          .order('last_updated_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (metadata && metadata.last_updated_at !== lastMetadataCheck.current) {
+          // First update detected or metadata changed
+          if (lastMetadataCheck.current !== null) {
+            console.log('🔄 Archived orders updated by another user, refreshing cache...');
+            await clearCache();
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
+          }
+          lastMetadataCheck.current = metadata.last_updated_at;
+        }
+      } catch (error) {
+        console.error('Failed to check archived orders metadata:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkForUpdates();
+
+    // Then check every 10 seconds
+    const interval = setInterval(checkForUpdates, 10000);
+    
+    return () => clearInterval(interval);
+  }, [queryClient]);
+
+  // Set up realtime subscriptions
   useEffect(() => {
     console.log('🔴 [useOrders] REALTIME EFFECT RUNNING - bookedBy:', options?.bookedBy);
     
