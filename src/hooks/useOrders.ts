@@ -456,7 +456,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
           .select('last_updated_at')
           .order('last_updated_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (metadata && metadata.last_updated_at !== lastMetadataCheck.current) {
           // First update detected or metadata changed
