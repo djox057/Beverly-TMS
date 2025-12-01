@@ -3,6 +3,73 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 
+// Helper function to enrich locked orders with lookup data
+async function enrichLockedOrdersWithLookups(lockedOrders: any[]): Promise<any[]> {
+  console.log('🔍 [enrichLockedOrders] Starting enrichment for', lockedOrders.length, 'orders');
+  
+  // Extract all unique IDs
+  const truckIds = [...new Set(lockedOrders.map(o => o.truck_id).filter(Boolean))];
+  const trailerIds = [...new Set(lockedOrders.map(o => o.trailer_id).filter(Boolean))];
+  const driver1Ids = [...new Set(lockedOrders.map(o => o.driver1_id).filter(Boolean))];
+  const driver2Ids = [...new Set(lockedOrders.map(o => o.driver2_id).filter(Boolean))];
+  const brokerIds = [...new Set(lockedOrders.map(o => o.broker_id).filter(Boolean))];
+  const companyIds = [...new Set([
+    ...lockedOrders.map(o => o.company_id),
+    ...lockedOrders.map(o => o.booked_by_company_id)
+  ].filter(Boolean))];
+  
+  console.log('🔍 [enrichLockedOrders] Found:', { 
+    trucks: truckIds.length, 
+    trailers: trailerIds.length,
+    drivers: driver1Ids.length + driver2Ids.length,
+    brokers: brokerIds.length,
+    companies: companyIds.length
+  });
+  
+  // Fetch all lookup data in parallel
+  const [trucksData, trailersData, driversData, brokersData, companiesData] = await Promise.all([
+    truckIds.length > 0 
+      ? supabase.from('trucks').select('id, truck_number, company_id, company:companies(id, name)').in('id', truckIds)
+      : { data: [] },
+    trailerIds.length > 0
+      ? supabase.from('trailers').select('id, trailer_number').in('id', trailerIds)
+      : { data: [] },
+    [...driver1Ids, ...driver2Ids].length > 0
+      ? supabase.from('drivers').select('id, name').in('id', [...driver1Ids, ...driver2Ids])
+      : { data: [] },
+    brokerIds.length > 0
+      ? supabase.from('brokers').select('id, name, mc_number, address').in('id', brokerIds)
+      : { data: [] },
+    companyIds.length > 0
+      ? supabase.from('companies').select('id, name').in('id', companyIds)
+      : { data: [] }
+  ]);
+  
+  // Create lookup maps
+  const trucksMap = new Map((trucksData.data || []).map(t => [t.id, t]));
+  const trailersMap = new Map((trailersData.data || []).map(t => [t.id, t]));
+  const driversMap = new Map((driversData.data || []).map(d => [d.id, d]));
+  const brokersMap = new Map((brokersData.data || []).map(b => [b.id, b]));
+  const companiesMap = new Map((companiesData.data || []).map(c => [c.id, c]));
+  
+  console.log('✅ [enrichLockedOrders] Lookup data fetched, attaching to orders...');
+  
+  // Attach lookup data to each order
+  const enriched = lockedOrders.map(order => ({
+    ...order,
+    truck: order.truck_id ? trucksMap.get(order.truck_id) || null : null,
+    trailer: order.trailer_id ? trailersMap.get(order.trailer_id) || null : null,
+    driver1: order.driver1_id ? driversMap.get(order.driver1_id) || null : null,
+    driver2: order.driver2_id ? driversMap.get(order.driver2_id) || null : null,
+    broker: order.broker_id ? brokersMap.get(order.broker_id) || null : null,
+    company: order.company_id ? companiesMap.get(order.company_id) || null : null,
+    booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
+  }));
+  
+  console.log('✅ [enrichLockedOrders] Enrichment complete');
+  return enriched;
+}
+
 interface UseOrdersOptions {
   bookedBy?: string | null;
 }
@@ -127,17 +194,22 @@ export const useOrders = (options?: UseOrdersOptions) => {
       console.log('🔒 [useOrders] Loading LOCKED orders from cache...');
       const lockedOrders = await getLockedOrders();
       
+      // Enrich locked orders with lookup data
+      let enrichedLockedOrders: any[] = [];
       if (lockedOrders && lockedOrders.length > 0) {
         console.log('✅ [useOrders] Loaded', lockedOrders.length, 'locked orders from cache');
+        console.log('🔍 [useOrders] Enriching locked orders with lookup data...');
+        enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
+        console.log('✅ [useOrders] Enrichment complete');
       } else {
         console.warn('⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.');
         console.warn('⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.');
       }
 
-      // Merge initial unlocked orders with locked orders
+      // Merge initial unlocked orders with enriched locked orders
       const initialMergedOrders = transformOrders([
         ...(initialBatch || []),
-        ...(lockedOrders || [])
+        ...enrichedLockedOrders
       ]);
       
       console.log(`[useOrders] ✅ Initial merged data: ${initialMergedOrders.length} orders (${initialBatch?.length || 0} unlocked + ${lockedOrders?.length || 0} locked)`);
@@ -272,16 +344,16 @@ export const useOrders = (options?: UseOrdersOptions) => {
                 hasMore = false;
               }
               
-              // Merge with locked orders and update cache progressively
+              // Merge with enriched locked orders and update cache progressively
               const mergedData = transformOrders([
                 ...backgroundOrders,
-                ...(lockedOrders || [])
+                ...enrichedLockedOrders
               ]);
               queryClient.setQueryData(['orders', options?.bookedBy], mergedData);
               console.log(`[useOrders] 📊 Updated cache: ${mergedData.length} total orders`);
             }
 
-            console.log(`[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${lockedOrders?.length || 0} locked`);
+            console.log(`[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${enrichedLockedOrders?.length || 0} locked`);
           } catch (error) {
             console.error("[useOrders] ❌ Background loading error:", error);
           }
