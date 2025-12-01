@@ -2005,7 +2005,7 @@ const Reports = () => {
               // Check load number filter
               if (debouncedLoadNumberFilter) {
                 const hasMatchingLoad = truck.allOrders?.some((order: any) =>
-                  order.broker_load_number?.toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase()),
+                  String(order.broker_load_number || '').toLowerCase().includes(debouncedLoadNumberFilter.toLowerCase()),
                 );
                 if (!hasMatchingLoad) return false;
               }

@@ -708,7 +708,8 @@ function transformOrders(allOrders: any[]) {
           updatedAt: order.updated_at,
           loadNumber: order.load_number,
           internalLoadNumber: order.internal_load_number,
-          brokerLoadNumber: order.broker_load_number,
+          // Convert to string to handle CSV numeric values in string operations
+          brokerLoadNumber: order.broker_load_number != null ? String(order.broker_load_number) : null,
           status: order.status,
           locked: order.locked,
           canceled: order.canceled,
