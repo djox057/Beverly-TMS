@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      archived_orders_metadata: {
+        Row: {
+          created_at: string
+          id: string
+          last_updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       assignment_history: {
         Row: {
           change_type: string
