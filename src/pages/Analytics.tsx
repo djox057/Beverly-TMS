@@ -289,36 +289,52 @@ const Analytics = () => {
             matchesDate = false;
           } else {
             try {
-              // Extract just the date part from ISO datetime string (YYYY-MM-DD)
-              const isoDate = dateToFilter.split('T')[0];
-              const [year, month, day] = isoDate.split('-').map(Number);
-              const orderDateOnly = new Date(year, month - 1, day); // month is 0-indexed
+              // Robust date parsing that handles multiple formats (ISO with T, space-separated, etc.)
+              // This ensures both unlocked orders (from Supabase) and locked orders (from CSV) are parsed correctly
+              let dateStr = dateToFilter;
               
-              // Validate the parsed date
-              if (isNaN(orderDateOnly.getTime())) {
+              // Normalize space-separated dates to ISO format if needed
+              if (dateStr.includes(' ') && !dateStr.includes('T')) {
+                dateStr = dateStr.replace(' ', 'T');
+              }
+              
+              // Extract just the date part from datetime string (YYYY-MM-DD)
+              // Handle both "YYYY-MM-DDTHH:mm:ss" and "YYYY-MM-DD" formats
+              const datePart = dateStr.split('T')[0];
+              
+              // Validate date format
+              if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 matchesDate = false;
               } else {
-                if (dateRange.to) {
-                  // Date range filtering
-                  const fromDateOnly = new Date(
-                    dateRange.from.getFullYear(),
-                    dateRange.from.getMonth(),
-                    dateRange.from.getDate(),
-                  );
-                  const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-                  matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+                const [year, month, day] = datePart.split('-').map(Number);
+                const orderDateOnly = new Date(year, month - 1, day); // month is 0-indexed
+                
+                // Validate the parsed date
+                if (isNaN(orderDateOnly.getTime())) {
+                  matchesDate = false;
                 } else {
-                  // Single date filtering
-                  const selectedDateOnly = new Date(
-                    dateRange.from.getFullYear(),
-                    dateRange.from.getMonth(),
-                    dateRange.from.getDate(),
-                  );
-                  matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+                  if (dateRange.to) {
+                    // Date range filtering
+                    const fromDateOnly = new Date(
+                      dateRange.from.getFullYear(),
+                      dateRange.from.getMonth(),
+                      dateRange.from.getDate(),
+                    );
+                    const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+                    matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
+                  } else {
+                    // Single date filtering
+                    const selectedDateOnly = new Date(
+                      dateRange.from.getFullYear(),
+                      dateRange.from.getMonth(),
+                      dateRange.from.getDate(),
+                    );
+                    matchesDate = orderDateOnly.getTime() === selectedDateOnly.getTime();
+                  }
                 }
               }
             } catch (error) {
-              console.error("Date parsing error for order:", order.id, error);
+              console.error("Date parsing error for order:", order.id, dateToFilter, error);
               matchesDate = false;
             }
           }
