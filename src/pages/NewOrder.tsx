@@ -1737,7 +1737,60 @@ const NewOrder = () => {
       // Store the created order ID for email logging
       setCreatedOrderId(orderId);
 
-      // Upload files if any
+      // CRITICAL: Insert pickup/drop locations IMMEDIATELY after order creation
+      // This must happen before file uploads to prevent orphaned orders if uploads fail/timeout
+      if (pickupsDrops.length === 0) {
+        throw new Error("Cannot create order without pickup/delivery locations");
+      }
+      const pickupDropData = pickupsDrops
+        .filter((item) => item.address?.trim())
+        .map((item, index) => {
+          // Ensure datetime fields are valid
+          let datetime = null;
+          let end_datetime = null;
+          try {
+            if (item.dateRange?.from && item.startTime) {
+              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+            }
+            if (item.dateRange?.from && item.endTime) {
+              end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+            }
+          } catch (error) {
+            console.error("Error combining date and time:", error);
+          }
+          return {
+            order_id: orderId,
+            type: item.type,
+            sequence_number: index + 1,
+            address: item.address,
+            city: item.city || null,
+            state: item.state || null,
+            zip_code: item.zipCode || null,
+            company_name: item.companyName || null,
+            datetime,
+            end_datetime,
+          };
+        })
+        .filter((item) => item.address && item.address.trim().length > 0); // Final safety check
+
+      console.log(`📍 Prepared ${pickupDropData.length} pickup/drop locations for insertion:`, pickupDropData);
+
+      // CRITICAL: Must have at least one valid pickup/drop after filtering
+      if (pickupDropData.length === 0) {
+        throw new Error("No valid pickup/delivery locations found. Please ensure all locations have valid addresses.");
+      }
+      console.log(`📍 Inserting ${pickupDropData.length} pickup/drop locations for order ${orderId}`);
+      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(pickupDropData);
+      if (pickupDropError) {
+        console.error("❌ Pickup/drop insert error:", pickupDropError);
+        console.error("Failed data:", pickupDropData);
+        // Try to delete the orphaned order since pickup_drops failed
+        await supabase.from("orders").delete().eq("id", orderId);
+        throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
+      }
+      console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
+
+      // Upload files if any (this happens AFTER pickup_drops are saved)
       const allFiles = [
         {
           files: isPartial ? rcFilesArray.flat() : rcFiles,
@@ -1795,56 +1848,6 @@ const NewOrder = () => {
           }
         }
       }
-
-      // CRITICAL: Insert pickup/drop locations - must have at least one
-      if (pickupsDrops.length === 0) {
-        throw new Error("Cannot create order without pickup/delivery locations");
-      }
-      const pickupDropData = pickupsDrops
-        .filter((item) => item.address?.trim())
-        .map((item, index) => {
-          // Ensure datetime fields are valid
-          let datetime = null;
-          let end_datetime = null;
-          try {
-            if (item.dateRange?.from && item.startTime) {
-              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
-            }
-            if (item.dateRange?.from && item.endTime) {
-              end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
-            }
-          } catch (error) {
-            console.error("Error combining date and time:", error);
-          }
-          return {
-            order_id: orderId,
-            type: item.type,
-            sequence_number: index + 1,
-            address: item.address,
-            city: item.city || null,
-            state: item.state || null,
-            zip_code: item.zipCode || null,
-            company_name: item.companyName || null,
-            datetime,
-            end_datetime,
-          };
-        })
-        .filter((item) => item.address && item.address.trim().length > 0); // Final safety check
-
-      console.log(`📍 Prepared ${pickupDropData.length} pickup/drop locations for insertion:`, pickupDropData);
-
-      // CRITICAL: Must have at least one valid pickup/drop after filtering
-      if (pickupDropData.length === 0) {
-        throw new Error("No valid pickup/delivery locations found. Please ensure all locations have valid addresses.");
-      }
-      console.log(`📍 Inserting ${pickupDropData.length} pickup/drop locations for order ${orderId}`);
-      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(pickupDropData);
-      if (pickupDropError) {
-        console.error("❌ Pickup/drop insert error:", pickupDropError);
-        console.error("Failed data:", pickupDropData);
-        throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
-      }
-      console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
 
       // Auto-set checked_out_at for newly uploaded BOL/POD files
       if (bolUploaded || podUploaded) {
