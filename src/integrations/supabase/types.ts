@@ -1699,6 +1699,39 @@ export type Database = {
         }
         Relationships: []
       }
+      trips_paid_status: {
+        Row: {
+          created_at: string
+          driver_name: string
+          id: string
+          is_paid: boolean
+          marked_by: string | null
+          truck_number: string
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          driver_name: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          truck_number: string
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          driver_name?: string
+          id?: string
+          is_paid?: boolean
+          marked_by?: string | null
+          truck_number?: string
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       truck_files: {
         Row: {
           content_type: string | null

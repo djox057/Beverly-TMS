@@ -25,6 +25,7 @@ import ExcelJS from "exceljs";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to format datetime strings without timezone conversion
 const formatDateDisplay = (dateStr: string | null | undefined) => {
@@ -69,35 +70,73 @@ const Trips = () => {
   });
   const itemsPerPage = 50;
 
-  // Paid status storage (keyed by truck_driver_weekStart)
-  const [paidWeeks, setPaidWeeks] = useState<Record<string, boolean>>(() => {
-    const stored = localStorage.getItem("trips_paidWeeks");
-    return stored ? JSON.parse(stored) : {};
+  const queryClient = useQueryClient();
+
+  // Fetch paid status from database
+  const { data: paidWeeksData } = useQuery({
+    queryKey: ["trips-paid-status"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trips_paid_status")
+        .select("*");
+      
+      if (error) throw error;
+      
+      // Convert to a map for quick lookup
+      const paidMap: Record<string, boolean> = {};
+      data?.forEach((row: any) => {
+        const key = `${row.truck_number}_${row.driver_name}_${row.week_start}`;
+        paidMap[key] = row.is_paid;
+      });
+      return paidMap;
+    },
   });
 
-  // Save paid weeks to localStorage
-  useEffect(() => {
-    localStorage.setItem("trips_paidWeeks", JSON.stringify(paidWeeks));
-  }, [paidWeeks]);
-
-  // Generate paid key for a week (truck_driver_weekStart)
-  const getPaidKey = (truckNumber: string, driverName: string, weekStart: string) => {
-    return `${truckNumber || "unknown"}_${driverName || "unknown"}_${weekStart}`;
-  };
+  // Mutation to toggle paid status
+  const togglePaidMutation = useMutation({
+    mutationFn: async ({ truckNumber, driverName, weekStart, isPaid }: { 
+      truckNumber: string; 
+      driverName: string; 
+      weekStart: string; 
+      isPaid: boolean;
+    }) => {
+      const { error } = await supabase
+        .from("trips_paid_status")
+        .upsert({
+          truck_number: truckNumber || "unknown",
+          driver_name: driverName || "unknown",
+          week_start: weekStart,
+          is_paid: isPaid,
+        }, {
+          onConflict: "truck_number,driver_name,week_start",
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trips-paid-status"] });
+    },
+    onError: (error) => {
+      console.error("Error toggling paid status:", error);
+      toast.error("Failed to update paid status");
+    },
+  });
 
   // Toggle paid status for a week
   const togglePaidStatus = (truckNumber: string, driverName: string, weekStart: string) => {
-    const key = getPaidKey(truckNumber, driverName, weekStart);
-    setPaidWeeks((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    const currentStatus = isWeekPaid(truckNumber, driverName, weekStart);
+    togglePaidMutation.mutate({
+      truckNumber,
+      driverName,
+      weekStart,
+      isPaid: !currentStatus,
+    });
   };
 
   // Check if a week is paid
   const isWeekPaid = (truckNumber: string, driverName: string, weekStart: string) => {
-    const key = getPaidKey(truckNumber, driverName, weekStart);
-    return paidWeeks[key] || false;
+    const key = `${truckNumber || "unknown"}_${driverName || "unknown"}_${weekStart}`;
+    return paidWeeksData?.[key] || false;
   };
 
   // Save filters to localStorage when they change
