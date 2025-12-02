@@ -547,15 +547,10 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Driver Pay
+        // I: Driver Pay (J column has formula for 88%)
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.driverPay || 0;
+        cellI.value = order.totalDriverPay || 0;
         cellI.numFmt = "$#,##0.00";
-
-        // J: Freight Amount (88%)
-        const cellJ = worksheet.getCell(`J${currentRow}`);
-        cellJ.value = Math.round((order.totalFreightAmount || 0) * 0.88 * 100) / 100;
-        cellJ.numFmt = "$#,##0.00";
 
         currentRow++;
       });
