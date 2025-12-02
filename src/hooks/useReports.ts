@@ -559,9 +559,79 @@ export const useReports = () => {
           lockedOrders = [];
         }
 
-        // Combine unlocked (from database) and locked (from storage bucket) orders
+        // STEP 2.5: Fetch RECENTLY LOCKED orders from database to bridge the gap
+        // These are orders that were locked but haven't been added to the storage cache yet
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        console.log('[useReports] 🔄 Fetching RECENTLY LOCKED orders from DATABASE...');
+        const { data: recentlyLockedOrders, error: recentlyLockedError } = await supabase
+          .from("orders")
+          .select(`
+            id,
+            load_number,
+            internal_load_number,
+            broker_load_number,
+            status,
+            notes,
+            date_change_notes,
+            updated_at,
+            pickup_datetime,
+            pickup_end_datetime,
+            delivery_datetime,
+            delivery_end_datetime,
+            canceled,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            is_recovery,
+            locked,
+            pickup_drops (
+              id,
+              type,
+              address,
+              city,
+              state,
+              zip_code,
+              datetime,
+              end_datetime,
+              sequence_number,
+              arrived_at,
+              checked_out_at,
+              going_to_at
+            ),
+            order_files (
+              id,
+              file_category,
+              file_name,
+              file_path
+            )
+          `)
+          .eq("locked", true)
+          .gte("updated_at", sevenDaysAgo.toISOString())
+          .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
+          .order("delivery_datetime", { ascending: false, nullsFirst: true });
+
+        if (recentlyLockedError) {
+          console.error('[useReports] ⚠️ Could not fetch recently locked orders:', recentlyLockedError);
+        } else {
+          console.log(`[useReports] ✅ Fetched ${recentlyLockedOrders?.length || 0} RECENTLY LOCKED orders from DATABASE`);
+        }
+
+        // Merge recently locked orders with storage locked orders (avoid duplicates)
+        const storageOrderIds = new Set(lockedOrders.map((o: any) => o.id));
+        const newRecentlyLocked = (recentlyLockedOrders || []).filter(
+          (order: any) => !storageOrderIds.has(order.id)
+        );
+        
+        if (newRecentlyLocked.length > 0) {
+          console.log(`[useReports] 🔀 Adding ${newRecentlyLocked.length} recently locked orders not in storage cache`);
+          lockedOrders = [...lockedOrders, ...newRecentlyLocked];
+        }
+
+        // Combine unlocked (from database) and locked (from storage bucket + recently locked) orders
         const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} from database + ${lockedOrders.length} from storage)`);
+        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${lockedOrders.length} locked)`);
 
         // STEP 3: Fetch supporting data and build reports
         // Fetch dispatcher information separately
