@@ -547,9 +547,9 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Freight Amount
+        // I: Driver Pay
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalFreightAmount || 0;
+        cellI.value = order.driverPay || 0;
         cellI.numFmt = "$#,##0.00";
 
         // J: Freight Amount (88%)
