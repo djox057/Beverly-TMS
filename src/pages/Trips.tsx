@@ -845,9 +845,9 @@ const Trips = () => {
                   groupedByWeek.map((week, weekIndex) => {
                     const weekTotal = week.orders.reduce(
                       (acc, order) => ({
-                        miles: acc.miles + (order.mileage || 0),
-                        driverPay: acc.driverPay + (order.totalDriverPay || 0),
-                        freightAmount: acc.freightAmount + (order.totalFreightAmount || 0),
+                        miles: acc.miles + (Number(order.mileage) || 0),
+                        driverPay: acc.driverPay + (Number(order.totalDriverPay) || 0),
+                        freightAmount: acc.freightAmount + (Number(order.totalFreightAmount) || 0),
                       }),
                       { miles: 0, driverPay: 0, freightAmount: 0 },
                     );
