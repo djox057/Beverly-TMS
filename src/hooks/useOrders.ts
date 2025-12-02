@@ -281,6 +281,101 @@ export const useOrders = (options?: UseOrdersOptions) => {
         getOrderFiles(),
       ]);
 
+      // Also fetch recently locked orders from DB (last 7 days) to cover the gap
+      // between when orders are locked and when the cache CSV is updated
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: recentlyLockedOrders } = await supabase
+        .from("orders")
+        .select(
+          `
+          *,
+          pickup_drops (
+            id,
+            type,
+            address,
+            city,
+            state,
+            zip_code,
+            datetime,
+            end_datetime,
+            sequence_number,
+            arrived_at,
+            checked_out_at,
+            going_to_at,
+            company_name,
+            contact_name,
+            contact_phone,
+            special_instructions
+          ),
+          order_files (
+            id,
+            file_category,
+            file_name,
+            file_path,
+            file_size,
+            content_type,
+            uploaded_by,
+            created_at
+          ),
+          broker:brokers (
+            id,
+            name,
+            mc_number,
+            address
+          ),
+          company:companies!orders_company_id_fkey (
+            id,
+            name
+          ),
+          booked_by_company:companies!orders_booked_by_company_id_fkey (
+            id,
+            name
+          ),
+          truck:trucks!orders_truck_id_fkey (
+            id,
+            truck_number,
+            company:companies (
+              id,
+              name
+            )
+          ),
+          trailer:trailers!orders_trailer_id_fkey (
+            id,
+            trailer_number
+          ),
+          driver1:drivers!orders_driver1_id_fkey (
+            id,
+            name
+          ),
+          driver2:drivers!orders_driver2_id_fkey (
+            id,
+            name
+          ),
+          original_driver1:drivers!orders_original_driver1_id_fkey (
+            id,
+            name
+          ),
+          original_driver2:drivers!orders_original_driver2_id_fkey (
+            id,
+            name
+          ),
+          original_truck:trucks!orders_original_truck_id_fkey (
+            id,
+            truck_number
+          ),
+          original_trailer:trailers!orders_original_trailer_id_fkey (
+            id,
+            trailer_number
+          )
+        `,
+        )
+        .eq("locked", true)
+        .gte("updated_at", sevenDaysAgo.toISOString());
+      
+      console.log(`🔒 [useOrders] Loaded ${recentlyLockedOrders?.length || 0} recently locked orders from DB`);
+
       // Enrich locked orders with lookup data and merge with cached pickup_drops/order_files
       let enrichedLockedOrders: any[] = [];
       if (lockedOrders && lockedOrders.length > 0) {
@@ -299,6 +394,14 @@ export const useOrders = (options?: UseOrdersOptions) => {
         console.warn(
           "⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.",
         );
+      }
+      
+      // Merge recently locked orders with cached locked orders, avoiding duplicates
+      const cachedLockedIds = new Set(enrichedLockedOrders.map(o => o.id));
+      const newRecentlyLocked = (recentlyLockedOrders || []).filter(o => !cachedLockedIds.has(o.id));
+      if (newRecentlyLocked.length > 0) {
+        console.log(`🔒 [useOrders] Adding ${newRecentlyLocked.length} recently locked orders not in cache`);
+        enrichedLockedOrders = [...enrichedLockedOrders, ...newRecentlyLocked];
       }
 
       // Deduplicate: remove locked orders if unlocked version exists
