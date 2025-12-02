@@ -317,36 +317,26 @@ const Trips = () => {
       week.orders.forEach((order: any) => {
         if (currentRow > 20) return;
 
-        const firstPickup = order.pickupDrops?.find((pd: any) => pd.type === "pickup");
-        const lastDelivery = order.pickupDrops
-          ?.slice()
-          .reverse()
-          .find((pd: any) => pd.type === "delivery");
-
         // A: Internal load number
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
 
         // B: Pickup date
-        worksheet.getCell(`B${currentRow}`).value = firstPickup?.datetime
-          ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
-          : "";
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
 
         // C: Pickup city
-        worksheet.getCell(`C${currentRow}`).value = firstPickup?.city || "";
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
 
         // D: Pickup state
-        worksheet.getCell(`D${currentRow}`).value = firstPickup?.state || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
 
         // E: Delivery date
-        worksheet.getCell(`E${currentRow}`).value = lastDelivery?.datetime
-          ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
-          : "";
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
 
         // F: Delivery city
-        worksheet.getCell(`F${currentRow}`).value = lastDelivery?.city || "";
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
 
         // G: Delivery state
-        worksheet.getCell(`G${currentRow}`).value = lastDelivery?.state || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
 
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
