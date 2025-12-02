@@ -266,6 +266,7 @@ const Orders = () => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         (order.internalLoadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
+        (order.loadNumber?.toString() || "").toLowerCase().includes(searchLower) ||
         (order.truckNumber?.toString() || "").toLowerCase().includes(searchLower) ||
         (order.driverName?.toLowerCase() || "").includes(searchLower) ||
         (order.brokerName?.toLowerCase() || "").includes(searchLower) ||
