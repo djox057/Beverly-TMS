@@ -518,15 +518,6 @@ const Trips = () => {
         });
       }
 
-      // Preserve J column formulas (rows 13-21) before writing
-      const jColumnFormulas: { [key: number]: any } = {};
-      for (let row = 13; row <= 21; row++) {
-        const cell = worksheet.getCell(`J${row}`);
-        if (cell.formula) {
-          jColumnFormulas[row] = { formula: cell.formula, numFmt: cell.numFmt };
-        }
-      }
-
       // Trips Rows 14-20
       let currentRow = 14;
       week.orders.forEach((order: any) => {
@@ -556,7 +547,7 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Driver Pay (J column has formula - don't touch J)
+        // I: Driver Pay
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = order.totalDriverPay || 0;
         cellI.numFmt = "$#,##0.00";
@@ -564,15 +555,11 @@ const Trips = () => {
         currentRow++;
       });
 
-      // Restore J column formulas
-      for (let row = 13; row <= 21; row++) {
-        if (jColumnFormulas[row]) {
-          const cell = worksheet.getCell(`J${row}`);
-          cell.value = { formula: jColumnFormulas[row].formula };
-          if (jColumnFormulas[row].numFmt) {
-            cell.numFmt = jColumnFormulas[row].numFmt;
-          }
-        }
+      // Set J column formulas for rows 14-20 (=SUM(I{row}*0.88))
+      for (let row = 14; row <= 20; row++) {
+        const cellJ = worksheet.getCell(`J${row}`);
+        cellJ.value = { formula: `SUM(I${row}*0.88)` };
+        cellJ.numFmt = "$#,##0.00";
       }
 
       // Deductions
