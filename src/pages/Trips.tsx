@@ -518,6 +518,15 @@ const Trips = () => {
         });
       }
 
+      // Preserve J column formulas (rows 13-21) before writing
+      const jColumnFormulas: { [key: number]: any } = {};
+      for (let row = 13; row <= 21; row++) {
+        const cell = worksheet.getCell(`J${row}`);
+        if (cell.formula) {
+          jColumnFormulas[row] = { formula: cell.formula, numFmt: cell.numFmt };
+        }
+      }
+
       // Trips Rows 14-20
       let currentRow = 14;
       week.orders.forEach((order: any) => {
@@ -547,13 +556,24 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Driver Pay (J column has formula for 88%)
+        // I: Driver Pay (J column has formula - don't touch J)
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = order.totalDriverPay || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
       });
+
+      // Restore J column formulas
+      for (let row = 13; row <= 21; row++) {
+        if (jColumnFormulas[row]) {
+          const cell = worksheet.getCell(`J${row}`);
+          cell.value = { formula: jColumnFormulas[row].formula };
+          if (jColumnFormulas[row].numFmt) {
+            cell.numFmt = jColumnFormulas[row].numFmt;
+          }
+        }
+      }
 
       // Deductions
       const deductions = [
