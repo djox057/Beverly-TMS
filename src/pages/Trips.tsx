@@ -13,6 +13,7 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Loader2, FileDown, Edit } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
@@ -67,6 +68,37 @@ const Trips = () => {
     return localStorage.getItem("trips_driverFilter") || "";
   });
   const itemsPerPage = 50;
+
+  // Paid status storage (keyed by truck_driver_weekStart)
+  const [paidWeeks, setPaidWeeks] = useState<Record<string, boolean>>(() => {
+    const stored = localStorage.getItem("trips_paidWeeks");
+    return stored ? JSON.parse(stored) : {};
+  });
+
+  // Save paid weeks to localStorage
+  useEffect(() => {
+    localStorage.setItem("trips_paidWeeks", JSON.stringify(paidWeeks));
+  }, [paidWeeks]);
+
+  // Generate paid key for a week (truck_driver_weekStart)
+  const getPaidKey = (truckNumber: string, driverName: string, weekStart: string) => {
+    return `${truckNumber || "unknown"}_${driverName || "unknown"}_${weekStart}`;
+  };
+
+  // Toggle paid status for a week
+  const togglePaidStatus = (truckNumber: string, driverName: string, weekStart: string) => {
+    const key = getPaidKey(truckNumber, driverName, weekStart);
+    setPaidWeeks((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  // Check if a week is paid
+  const isWeekPaid = (truckNumber: string, driverName: string, weekStart: string) => {
+    const key = getPaidKey(truckNumber, driverName, weekStart);
+    return paidWeeks[key] || false;
+  };
 
   // Save filters to localStorage when they change
   useEffect(() => {
@@ -1252,16 +1284,36 @@ const Trips = () => {
                       { miles: 0, driverPay: 0, freightAmount: 0 },
                     );
 
-                    const weekStartDate = parseISO(week.weekStart);
-                    const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
+                      const weekStartDate = parseISO(week.weekStart);
+                      const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
-                    return (
-                      <Fragment key={`week-${week.weekStart}`}>
-                        {/* Weekly Summary Row - Now appears FIRST */}
-                        <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
-                          <TableCell colSpan={7} className="py-3">
-                            Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}
-                          </TableCell>
+                      // Get truck/driver info from first order for paid status
+                      const weekTruckNumber = week.orders[0]?.truckNumber || "";
+                      const weekDriverName = week.orders[0]?.driverName || "";
+                      const weekIsPaid = isWeekPaid(weekTruckNumber, weekDriverName, week.weekStart);
+
+                      return (
+                        <Fragment key={`week-${week.weekStart}`}>
+                          {/* Weekly Summary Row - Now appears FIRST */}
+                          <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
+                            <TableCell colSpan={7} className="py-3">
+                              <div className="flex items-center gap-4">
+                                <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
+                                <div className="flex items-center gap-2">
+                                  <Checkbox
+                                    id={`paid-${week.weekStart}`}
+                                    checked={weekIsPaid}
+                                    onCheckedChange={() => togglePaidStatus(weekTruckNumber, weekDriverName, week.weekStart)}
+                                  />
+                                  <label
+                                    htmlFor={`paid-${week.weekStart}`}
+                                    className={`text-sm cursor-pointer ${weekIsPaid ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}
+                                  >
+                                    {weekIsPaid ? "Paid" : "Paid"}
+                                  </label>
+                                </div>
+                              </div>
+                            </TableCell>
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
                           <TableCell colSpan={3} className="py-3"></TableCell>
                           <TableCell className="py-3">
