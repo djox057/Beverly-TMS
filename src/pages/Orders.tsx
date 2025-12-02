@@ -56,7 +56,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { z } from "zod";
 import { useDragPan } from "@/hooks/useDragPan";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { OrdersCacheStatus } from "@/components/OrdersCacheStatus";
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -997,13 +997,7 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
-                              {order.pickupDate
-                                ? new Date(order.pickupDate).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "2-digit",
-                                    day: "2-digit",
-                                  })
-                                : ""}
+                              {formatDateNoTimezone(order.pickupDate)}
                             </div>
                           </TableCell>
                           <TableCell className="w-40 p-0">
@@ -1015,13 +1009,7 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-32 p-0">
                             <div className="h-full p-4">
-                              {order.deliveryDate
-                                ? new Date(order.deliveryDate).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "2-digit",
-                                    day: "2-digit",
-                                  })
-                                : ""}
+                              {formatDateNoTimezone(order.deliveryDate)}
                             </div>
                           </TableCell>
                           <TableCell className="w-40 p-0">
