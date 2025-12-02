@@ -1127,7 +1127,7 @@ const NewOrder = () => {
       const confirmationData: any = {
         ...baseData,
         // First pickup (always present)
-        pickupShipper: pickupShipper || "",
+        pickupShipper: pickups[0].companyName || "",
         pickupAddress: pickups[0].address,
         pickupCityStateZip: formatLocationData(pickups[0]).cityStateZip,
         pickupDate: formatLocationData(pickups[0]).date,
@@ -1160,7 +1160,7 @@ const NewOrder = () => {
 
       // Add first delivery (always present)
       const delivery1Data = formatLocationData(deliveries[0]);
-      confirmationData.deliveryReceiver = deliveryShipper || "";
+      confirmationData.deliveryReceiver = deliveries[0].companyName || "";
       confirmationData.deliveryAddress = deliveries[0].address;
       confirmationData.deliveryCityStateZip = delivery1Data.cityStateZip;
       confirmationData.deliveryDate = delivery1Data.date;
