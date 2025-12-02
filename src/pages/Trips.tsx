@@ -189,6 +189,8 @@ const Trips = () => {
         companyName === "BF Prime LLC"
       ) {
         await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+      } else if (companyName === "Beverly Freight Inc") {
+        await exportBeverlyFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
@@ -399,6 +401,215 @@ const Trips = () => {
       toast.success("Statement exported successfully");
     } catch (error) {
       console.error("Error exporting BF Prime Drivers template:", error);
+      toast.error("Failed to export statement");
+    }
+  };
+
+  const exportBeverlyFreightTemplate = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
+    try {
+      // Load the Beverly Freight Inc template
+      const response = await fetch("/templates/Beverly_Freight_Inc_template.xlsx");
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+
+      if (!worksheet) {
+        throw new Error("Template worksheet not found");
+      }
+
+      // Fetch and update invoice number from database
+      const { data: configData, error: configError } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "beverly_freight_inc")
+        .single();
+
+      if (configError) {
+        console.error("Error fetching invoice config:", configError);
+        throw new Error("Failed to fetch invoice configuration");
+      }
+
+      const today = new Date();
+      const lastMonday = new Date(configData.last_monday);
+      const currentMonday = new Date(today);
+      currentMonday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+
+      let invoiceNumber = configData.current_number;
+
+      if (currentMonday > lastMonday) {
+        invoiceNumber += 1;
+        await supabase
+          .from("invoice_number_config")
+          .update({
+            current_number: invoiceNumber,
+            last_monday: currentMonday.toISOString(),
+          })
+          .eq("statement_type", "beverly_freight_inc");
+      }
+
+      // F3: Invoice number (Statement #)
+      const f3Cell = worksheet.getCell("F3");
+      f3Cell.value = invoiceNumber;
+      f3Cell.font = { bold: true, size: 16 };
+
+      // F4: Thursday date
+      const thursday = new Date(weekStartDate);
+      thursday.setDate(weekStartDate.getDate() + 4);
+      const f4Cell = worksheet.getCell("F4");
+      f4Cell.value = format(thursday, "MM/dd/yyyy");
+      f4Cell.font = { size: 16 };
+
+      // B12: Week date range (Trips: row)
+      const b12Cell = worksheet.getCell("B12");
+      b12Cell.value = `${format(weekStartDate, "MM/dd/yyyy")} - ${format(weekEndDate, "MM/dd/yyyy")}`;
+      b12Cell.font = { bold: true, size: 16 };
+
+      // K3: Agreement start date
+      if (driver?.agreement_start_date) {
+        const k3Cell = worksheet.getCell("K3");
+        k3Cell.value = format(new Date(driver.agreement_start_date), "MM/dd/yyyy");
+        k3Cell.font = { size: 16 };
+      }
+
+      // F7: Company name
+      const f7Cell = worksheet.getCell("F7");
+      f7Cell.value = driver?.companies?.name || driver?.company_name || "";
+      f7Cell.font = { size: 16 };
+
+      // F5 AND K4: Truck number
+      const truckNumber = firstOrder.truckNumber || "";
+      const f5Cell = worksheet.getCell("F5");
+      f5Cell.value = truckNumber;
+      f5Cell.font = { size: 16 };
+      const k4Cell = worksheet.getCell("K4");
+      k4Cell.value = truckNumber;
+      k4Cell.font = { size: 16 };
+
+      // K5: Weekly payment/weeks count
+      if (driver?.agreement_start_date && driver?.weeks_count) {
+        const startDate = new Date(driver.agreement_start_date);
+        const currentDate = new Date();
+        const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        const k5Cell = worksheet.getCell("K5");
+        k5Cell.value = `${weeksPassed}/${driver.weeks_count}`;
+        k5Cell.font = { bold: true, size: 16 };
+      }
+
+      // J7: Driver name
+      const j7Cell = worksheet.getCell("J7");
+      j7Cell.value = driver?.name || "";
+      j7Cell.font = { size: 16 };
+
+      // Clear all shared formulas in the trips section first (rows 14-20)
+      for (let row = 14; row <= 20; row++) {
+        ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
+          const cell = worksheet.getCell(`${col}${row}`);
+          if (cell.model.sharedFormula) {
+            delete cell.model.sharedFormula;
+          }
+        });
+      }
+
+      // Trips Rows 14-20
+      let currentRow = 14;
+      week.orders.forEach((order: any) => {
+        if (currentRow > 20) return;
+
+        // A: Trip No. (Internal load number)
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+
+        // B: Pickup date
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
+
+        // C: Pickup city
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+
+        // D: Pickup state
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
+
+        // E: Delivery date
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
+
+        // F: Delivery city
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+
+        // G: Delivery state
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
+
+        // H: Mileage
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
+
+        // I: Freight Amount
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = order.totalFreightAmount || 0;
+        cellI.numFmt = "$#,##0.00";
+
+        // J: Freight Amount (88%)
+        const cellJ = worksheet.getCell(`J${currentRow}`);
+        cellJ.value = Math.round((order.totalFreightAmount || 0) * 0.88 * 100) / 100;
+        cellJ.numFmt = "$#,##0.00";
+
+        currentRow++;
+      });
+
+      // Deductions
+      const deductions = [
+        { row: 32, description: "Cargo Insurance", amount: 250.0 },
+        { row: 33, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 34, description: "ELD", amount: 50.0 },
+        { row: 35, description: "Pre-Pass", amount: 20.0 },
+        { row: 36, description: "Truck payment" },
+        { row: 37, description: "Truck insurance", amount: 195.0 },
+      ];
+
+      deductions.forEach(({ row, description, amount }) => {
+        const descCell = worksheet.getCell(`B${row}`);
+        descCell.value = description;
+        descCell.font = { bold: true, size: 16 };
+
+        if (amount !== undefined) {
+          const amtCell = worksheet.getCell(`J${row}`);
+          amtCell.value = amount;
+          amtCell.numFmt = "$#,##0.00";
+        }
+      });
+
+      // Set J36 (truck payment deduction) to weekly_payment
+      if (driver?.weekly_payment) {
+        const j36Cell = worksheet.getCell("J36");
+        j36Cell.value = driver.weekly_payment;
+        j36Cell.numFmt = "$#,##0.00";
+      }
+
+      // Generate filename
+      const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
+      const weekStart = format(weekStartDate, "MM-dd-yyyy");
+      const weekEnd = format(weekEndDate, "MM-dd-yyyy");
+      const filename = `${driverName}_Beverly_Freight_Statement_${weekStart}_to_${weekEnd}.xlsx`;
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Statement exported successfully");
+    } catch (error) {
+      console.error("Error exporting Beverly Freight template:", error);
       toast.error("Failed to export statement");
     }
   };
