@@ -191,6 +191,8 @@ const Trips = () => {
         await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else if (companyName === "Beverly Freight Inc") {
         await exportBeverlyFreightTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
+      } else if (companyName === "BG Prime Inc") {
+        await exportBGPrimeIncTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else {
         // Use the old export method for other companies
         exportGenericExcel(week, weekStartDate, weekEndDate);
@@ -612,6 +614,197 @@ const Trips = () => {
       toast.success("Statement exported successfully");
     } catch (error) {
       console.error("Error exporting Beverly Freight template:", error);
+      toast.error("Failed to export statement");
+    }
+  };
+
+  const exportBGPrimeIncTemplate = async (
+    week: any,
+    weekStartDate: Date,
+    weekEndDate: Date,
+    firstOrder: any,
+    driver: any,
+  ) => {
+    try {
+      // Load the BG Prime Inc template
+      const response = await fetch("/templates/BG_Prime_Inc_Statements.xlsx");
+      const arrayBuffer = await response.arrayBuffer();
+
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      const worksheet = workbook.getWorksheet(1);
+
+      if (!worksheet) {
+        throw new Error("Template worksheet not found");
+      }
+
+      // Fetch and update invoice number from database
+      const { data: configData, error: configError } = await supabase
+        .from("invoice_number_config")
+        .select("*")
+        .eq("statement_type", "bg_prime_inc")
+        .single();
+
+      let invoiceNumber = 1332; // Default starting number
+
+      if (!configError && configData) {
+        // Calculate the Monday of the week for weekStartDate
+        const currentMonday = startOfWeek(weekStartDate, { weekStartsOn: 1 });
+        const lastMonday = new Date(configData.last_monday);
+
+        invoiceNumber = configData.current_number;
+
+        // If it's a new week (different Monday), increment the invoice number
+        if (currentMonday.getTime() !== lastMonday.getTime()) {
+          invoiceNumber = configData.current_number + 1;
+
+          // Update the database with new invoice number and Monday date
+          await supabase
+            .from("invoice_number_config")
+            .update({
+              current_number: invoiceNumber,
+              last_monday: format(currentMonday, "yyyy-MM-dd"),
+            })
+            .eq("statement_type", "bg_prime_inc");
+        }
+      }
+
+      // Find Thursday in the date range
+      let thursdayDate = weekStartDate;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = addDays(weekStartDate, i);
+        if (getDay(checkDate) === 4) {
+          thursdayDate = checkDate;
+          break;
+        }
+      }
+
+      // C7: Statement number
+      const c7Cell = worksheet.getCell("C7");
+      c7Cell.value = invoiceNumber;
+
+      // C8: Issue date (Thursday)
+      const c8Cell = worksheet.getCell("C8");
+      c8Cell.value = format(thursdayDate, "M/d/yyyy");
+
+      // C9: Pay period (date range)
+      const c9Cell = worksheet.getCell("C9");
+      c9Cell.value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
+
+      // F8: Driver name
+      const f8Cell = worksheet.getCell("F8");
+      f8Cell.value = driver?.name || firstOrder.driverName || "";
+
+      // J8: Agreement start date
+      if (driver?.agreement_start_date) {
+        const j8Cell = worksheet.getCell("J8");
+        j8Cell.value = format(new Date(driver.agreement_start_date), "M/d/yyyy");
+      }
+
+      // J9: Truck number
+      const j9Cell = worksheet.getCell("J9");
+      j9Cell.value = firstOrder.truckNumber || "";
+
+      // J10: Agreement terms (weekly payment/weeks count)
+      if (driver?.weekly_payment && driver?.weeks_count) {
+        const j10Cell = worksheet.getCell("J10");
+        j10Cell.value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
+      }
+
+      // Clear the trip rows (rows 13-19) by directly setting values to null
+      for (let row = 13; row <= 19; row++) {
+        worksheet.getCell(`A${row}`).value = null;
+        worksheet.getCell(`B${row}`).value = null;
+        worksheet.getCell(`C${row}`).value = null;
+        worksheet.getCell(`D${row}`).value = null;
+        worksheet.getCell(`E${row}`).value = null;
+        worksheet.getCell(`F${row}`).value = null;
+        worksheet.getCell(`G${row}`).value = null;
+        worksheet.getCell(`H${row}`).value = null;
+        worksheet.getCell(`I${row}`).value = null;
+      }
+
+      // Fill in trip details starting at row 13 (same as BF Prime United LLC)
+      let currentRow = 13;
+
+      week.orders.forEach((order: any) => {
+        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
+        worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
+        worksheet.getCell(`D${currentRow}`).value = order.pickupState || "";
+        worksheet.getCell(`E${currentRow}`).value = formatDateDisplay(order.deliveryDate);
+        worksheet.getCell(`F${currentRow}`).value = order.deliveryCity || "";
+        worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
+        worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
+
+        const driverPay = order.totalDriverPay || 0;
+        const cellI = worksheet.getCell(`I${currentRow}`);
+        cellI.value = driverPay;
+        cellI.numFmt = "$#,##0.00";
+
+        currentRow++;
+      });
+
+      // Add fixed deductions starting at row 24 (same structure as BF Prime United LLC)
+      const endDateFormatted = format(weekEndDate, "M/d/yyyy");
+      const deductions = [
+        { row: 24, description: "Cargo Insurance", amount: 285.0 },
+        { row: 25, description: "Trailer + Insurance", amount: 285.0 },
+        { row: 26, description: "ELD", amount: 50.0 },
+        { row: 27, description: "Pre-Pass", amount: 20.0 },
+        { row: 28, description: "Truck Payment" },
+        { row: 29, description: "Truck Insurance", amount: 195.0 },
+      ];
+
+      deductions.forEach(({ row, description, amount }) => {
+        const cellB = worksheet.getCell(`B${row}`);
+        cellB.value = description;
+        cellB.font = { size: 16 };
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amount !== undefined) {
+          const cellJ = worksheet.getCell(`J${row}`);
+          cellJ.value = amount;
+          cellJ.numFmt = "$#,##0.00";
+        }
+      });
+
+      // Set weeks passed / total weeks for Truck Payment row
+      if (driver?.agreement_start_date && driver?.weeks_count) {
+        const startDate = new Date(driver.agreement_start_date);
+        const currentDate = new Date();
+        const weeksPassed = Math.floor((currentDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+        const e28Cell = worksheet.getCell("E28");
+        e28Cell.value = `${weeksPassed}/${driver.weeks_count}`;
+        e28Cell.font = { bold: true, size: 16 };
+      }
+
+      // Set J28 (truck payment deduction) to weekly_payment
+      if (driver?.weekly_payment) {
+        const j28Cell = worksheet.getCell("J28");
+        j28Cell.value = driver.weekly_payment;
+        j28Cell.numFmt = "$#,##0.00";
+      }
+
+      // Generate filename
+      const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
+      const driverName = driver?.name || firstOrder?.driverName || "";
+      const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
+      const filename = `BG_Prime_Inc_${weekRange}${driverInfo}.xlsx`;
+
+      // Save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Exported ${week.orders.length} trips to Excel`);
+    } catch (error) {
+      console.error("Error exporting BG Prime Inc template:", error);
       toast.error("Failed to export statement");
     }
   };
