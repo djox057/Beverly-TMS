@@ -1734,7 +1734,7 @@ const EditOrder = () => {
         escort_fee_broker_paid: escortFeeBrokerPaid,
         date_change_notes: updatedDateChangeNotes || null,
         canceled: Boolean(tonu && parseFloat(tonu) > 0),
-        locked: Boolean(tonu && parseFloat(tonu) > 0) || isLocked,
+        locked: isLocked,
       };
 
       // Only update company_id if we have a new one, otherwise preserve existing
