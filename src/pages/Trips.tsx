@@ -183,7 +183,11 @@ const Trips = () => {
       // Use template based on company name
       if (companyName === "BF Prime United LLC") {
         await exportBFPrimeTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
-      } else if (companyName === "BF Prime Drivers LLC" || companyName === "BF Prime Trucks LLC" || companyName === "BF Prime LLC") {
+      } else if (
+        companyName === "BF Prime Drivers LLC" ||
+        companyName === "BF Prime Trucks LLC" ||
+        companyName === "BF Prime LLC"
+      ) {
         await exportBFPrimeDriversTemplate(week, weekStartDate, weekEndDate, firstOrder, driver);
       } else {
         // Use the old export method for other companies
@@ -300,7 +304,7 @@ const Trips = () => {
 
       // Clear all shared formulas in the trips section first (rows 14-20)
       for (let row = 14; row <= 20; row++) {
-        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'].forEach(col => {
+        ["A", "B", "C", "D", "E", "F", "G", "H", "I"].forEach((col) => {
           const cell = worksheet.getCell(`${col}${row}`);
           if (cell.model.sharedFormula) {
             delete cell.model.sharedFormula;
@@ -321,32 +325,32 @@ const Trips = () => {
 
         // A: Internal load number
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
-        
+
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = firstPickup?.datetime
           ? format(new Date(firstPickup.datetime), "MM/dd/yyyy")
           : "";
-        
+
         // C: Pickup city
         worksheet.getCell(`C${currentRow}`).value = firstPickup?.city || "";
-        
+
         // D: Pickup state
         worksheet.getCell(`D${currentRow}`).value = firstPickup?.state || "";
-        
+
         // E: Delivery date
         worksheet.getCell(`E${currentRow}`).value = lastDelivery?.datetime
           ? format(new Date(lastDelivery.datetime), "MM/dd/yyyy")
           : "";
-        
+
         // F: Delivery city
         worksheet.getCell(`F${currentRow}`).value = lastDelivery?.city || "";
-        
+
         // G: Delivery state
         worksheet.getCell(`G${currentRow}`).value = lastDelivery?.state || "";
-        
+
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
-        
+
         // I: Driver pay
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = order.totalDriverPay || 0;
@@ -359,7 +363,7 @@ const Trips = () => {
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
-        { row: 34, description: "ELD", amount: 285.0 },
+        { row: 34, description: "ELD", amount: 50.0 },
         { row: 35, description: "Pre-Pass", amount: 20.0 },
         { row: 36, description: "Truck Payment" },
         { row: 37, description: "Truck Insurance", amount: 195.0 },
@@ -904,20 +908,20 @@ const Trips = () => {
                             order.canceled ||
                             ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
-                              const isEvenRow = orderIndex % 2 === 1;
-                              const alternatingBg = isEvenRow ? "bg-muted/30" : "";
-                              
-                              const rowClassName = isRecovery
-                                ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)]"
-                                : hasRedFees
-                                  ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)]"
-                                  : hasGreenFees
-                                    ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)]"
-                                    : hasYellowFees
-                                      ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)]"
-                                      : hasOrangeCondition
-                                        ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)]"
-                                        : alternatingBg;
+                          const isEvenRow = orderIndex % 2 === 1;
+                          const alternatingBg = isEvenRow ? "bg-muted/30" : "";
+
+                          const rowClassName = isRecovery
+                            ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)]"
+                            : hasRedFees
+                              ? "bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)]"
+                              : hasGreenFees
+                                ? "bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)]"
+                                : hasYellowFees
+                                  ? "bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)]"
+                                  : hasOrangeCondition
+                                    ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)]"
+                                    : alternatingBg;
 
                           return (
                             <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
@@ -935,7 +939,9 @@ const Trips = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">
-                                  {order.pickupCity}{order.pickupCity && order.pickupState ? ', ' : ''}{order.pickupState}
+                                  {order.pickupCity}
+                                  {order.pickupCity && order.pickupState ? ", " : ""}
+                                  {order.pickupState}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -943,7 +949,9 @@ const Trips = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">
-                                  {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
+                                  {order.deliveryCity}
+                                  {order.deliveryCity && order.deliveryState ? ", " : ""}
+                                  {order.deliveryState}
                                 </div>
                               </TableCell>
                               <TableCell>
