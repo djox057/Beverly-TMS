@@ -94,16 +94,16 @@ const Analytics = () => {
     notice: string;
   } | null>(null);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
-  
+
   // Fetch dispatcher notes for the current date range
-  const startDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
-  const endDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : startDate;
+  const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+  const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : startDate;
   const { notes: dispatcherNotes } = useDispatcherNotes(startDate, endDate);
-  
+
   // Create a map of dispatcher notes by dispatcher_id and date for quick lookup
   const notesByDispatcher = useMemo(() => {
-    const map: Record<string, { note: string; color: 'red' | 'yellow' | 'green'; id: string }> = {};
-    dispatcherNotes.forEach(note => {
+    const map: Record<string, { note: string; color: "red" | "yellow" | "green"; id: string }> = {};
+    dispatcherNotes.forEach((note) => {
       // For each dispatcher, use the most recent note in the date range
       const key = `${note.dispatcher_id}-${note.date}`;
       map[key] = { note: note.note, color: note.color, id: note.id };
@@ -111,11 +111,13 @@ const Analytics = () => {
     return map;
   }, [dispatcherNotes]);
   const [grossTierFilter, setGrossTierFilter] = useState<string>("all");
-  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<Record<string, { totalTrucks: number; daysCount: number }>>({});
+  const [dispatcherTruckCounts, setDispatcherTruckCounts] = useState<
+    Record<string, { totalTrucks: number; daysCount: number }>
+  >({});
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
-  
+
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
     hasRole("dispatch") &&
@@ -139,13 +141,10 @@ const Analytics = () => {
   useEffect(() => {
     const fetchProfiles = async () => {
       const { data: profiles } = await supabase.from("profiles").select("email, full_name, office, user_id");
-      
+
       // Also fetch all unique booked_by values from orders to include deleted users
-      const { data: ordersData } = await supabase
-        .from("orders")
-        .select("booked_by")
-        .not("booked_by", "is", null);
-      
+      const { data: ordersData } = await supabase.from("orders").select("booked_by").not("booked_by", "is", null);
+
       if (profiles) {
         // Fetch user roles for all users
         const { data: userRoles } = await supabase.from("user_roles").select("user_id, role");
@@ -191,11 +190,11 @@ const Analytics = () => {
             }
           >,
         );
-        
+
         // Add deleted users (those who appear in orders but not in profiles)
         if (ordersData) {
-          const uniqueBookedBy = [...new Set(ordersData.map(o => o.booked_by).filter(Boolean))];
-          uniqueBookedBy.forEach(bookedBy => {
+          const uniqueBookedBy = [...new Set(ordersData.map((o) => o.booked_by).filter(Boolean))];
+          uniqueBookedBy.forEach((bookedBy) => {
             if (!profileMap[bookedBy as string]) {
               // This is a deleted user - add them with minimal info
               profileMap[bookedBy as string] = {
@@ -207,7 +206,7 @@ const Analytics = () => {
             }
           });
         }
-        
+
         setDispatcherProfiles(profileMap);
       }
     };
@@ -223,22 +222,22 @@ const Analytics = () => {
 
         if (!dateRange?.from) {
           // If no date range, fetch today's count
-          fromDate = format(new Date(), 'yyyy-MM-dd');
+          fromDate = format(new Date(), "yyyy-MM-dd");
           toDate = fromDate;
         } else {
-          fromDate = format(dateRange.from, 'yyyy-MM-dd');
-          toDate = dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : fromDate;
+          fromDate = format(dateRange.from, "yyyy-MM-dd");
+          toDate = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : fromDate;
         }
 
         // Use direct query with type assertion to bypass type checking
         const { data, error } = await supabase
-          .from('dispatcher_daily_driver_counts' as any)
-          .select('*')
-          .gte('date', fromDate)
-          .lte('date', toDate);
+          .from("dispatcher_daily_driver_counts" as any)
+          .select("*")
+          .gte("date", fromDate)
+          .lte("date", toDate);
 
         if (error) {
-          console.error('Error fetching driver counts:', error);
+          console.error("Error fetching driver counts:", error);
           return;
         }
 
@@ -256,7 +255,7 @@ const Analytics = () => {
 
         setDispatcherTruckCounts(countsMap);
       } catch (error) {
-        console.error('Error in fetchDriverCounts:', error);
+        console.error("Error in fetchDriverCounts:", error);
       }
     };
 
@@ -292,23 +291,23 @@ const Analytics = () => {
               // Robust date parsing that handles multiple formats (ISO with T, space-separated, etc.)
               // This ensures both unlocked orders (from Supabase) and locked orders (from CSV) are parsed correctly
               let dateStr = dateToFilter;
-              
+
               // Normalize space-separated dates to ISO format if needed
-              if (dateStr.includes(' ') && !dateStr.includes('T')) {
-                dateStr = dateStr.replace(' ', 'T');
+              if (dateStr.includes(" ") && !dateStr.includes("T")) {
+                dateStr = dateStr.replace(" ", "T");
               }
-              
+
               // Extract just the date part from datetime string (YYYY-MM-DD)
               // Handle both "YYYY-MM-DDTHH:mm:ss" and "YYYY-MM-DD" formats
-              const datePart = dateStr.split('T')[0];
-              
+              const datePart = dateStr.split("T")[0];
+
               // Validate date format
               if (!datePart || !datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
                 matchesDate = false;
               } else {
-                const [year, month, day] = datePart.split('-').map(Number);
+                const [year, month, day] = datePart.split("-").map(Number);
                 const orderDateOnly = new Date(year, month - 1, day); // month is 0-indexed
-                
+
                 // Validate the parsed date
                 if (isNaN(orderDateOnly.getTime())) {
                   matchesDate = false;
@@ -320,7 +319,11 @@ const Analytics = () => {
                       dateRange.from.getMonth(),
                       dateRange.from.getDate(),
                     );
-                    const toDateOnly = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
+                    const toDateOnly = new Date(
+                      dateRange.to.getFullYear(),
+                      dateRange.to.getMonth(),
+                      dateRange.to.getDate(),
+                    );
                     matchesDate = orderDateOnly >= fromDateOnly && orderDateOnly <= toDateOnly;
                   } else {
                     // Single date filtering
@@ -342,7 +345,10 @@ const Analytics = () => {
         // When dateRange is not set, all orders pass the date filter (matchesDate = true)
 
         // Filter by selected offices (only for admin/manager/chicago_management)
-        if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")) {
+        if (
+          selectedOffices.length > 0 &&
+          (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")
+        ) {
           if (!order.bookedBy || order.bookedBy === "N/A" || order.bookedBy === "Unknown") {
             return false;
           }
@@ -353,7 +359,12 @@ const Analytics = () => {
         }
 
         // Filter based on PRIMARY role only
-        if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting" || primaryRole === "chicago_management") {
+        if (
+          primaryRole === "admin" ||
+          primaryRole === "manager" ||
+          primaryRole === "accounting" ||
+          primaryRole === "chicago_management"
+        ) {
           return matchesDate;
         }
 
@@ -561,33 +572,36 @@ const Analytics = () => {
     >,
   );
   const dispatcherStats = Object.entries(dispatcherAnalytics)
-    .map(([name, stats]: [string, { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number }]) => {
-      const cut = stats.totalFreight - stats.totalDriverRate;
-      const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
-      const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
-      const dispatcherProfile = dispatcherProfiles[name];
-      
-      // Get dispatcher user_id from the profile - name can be either full_name or user_id
-      const dispatcherUserId = dispatcherProfile?.user_id;
-      const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
-      const avgTrucks = truckCountData 
-        ? truckCountData.totalTrucks / truckCountData.daysCount 
-        : 0;
+    .map(
+      ([name, stats]: [
+        string,
+        { totalFreight: number; totalDriverRate: number; totalMiles: number; orderCount: number },
+      ]) => {
+        const cut = stats.totalFreight - stats.totalDriverRate;
+        const cutPercent = stats.totalFreight > 0 ? (cut / stats.totalFreight) * 100 : 0;
+        const ratePerMile = stats.totalMiles > 0 ? stats.totalFreight / stats.totalMiles : 0;
+        const dispatcherProfile = dispatcherProfiles[name];
 
-      return {
-        name,
-        userId: dispatcherUserId || '',
-        totalFreight: stats.totalFreight,
-        totalDriverRate: stats.totalDriverRate,
-        totalMiles: stats.totalMiles,
-        orderCount: stats.orderCount,
-        cut,
-        cutPercent,
-        ratePerMile,
-        office: dispatcherProfile?.office || "Unknown",
-        avgTrucks,
-      };
-    })
+        // Get dispatcher user_id from the profile - name can be either full_name or user_id
+        const dispatcherUserId = dispatcherProfile?.user_id;
+        const truckCountData = dispatcherUserId ? dispatcherTruckCounts[dispatcherUserId] : null;
+        const avgTrucks = truckCountData ? truckCountData.totalTrucks / truckCountData.daysCount : 0;
+
+        return {
+          name,
+          userId: dispatcherUserId || "",
+          totalFreight: stats.totalFreight,
+          totalDriverRate: stats.totalDriverRate,
+          totalMiles: stats.totalMiles,
+          orderCount: stats.orderCount,
+          cut,
+          cutPercent,
+          ratePerMile,
+          office: dispatcherProfile?.office || "Unknown",
+          avgTrucks,
+        };
+      },
+    )
     .filter((stat) => {
       const dispatcherProfile = dispatcherProfiles[stat.name];
       const primaryRole = getPrimaryRole();
@@ -607,14 +621,22 @@ const Analytics = () => {
       }
 
       // Filter by selected offices (only for admin/manager/chicago_management)
-      if (selectedOffices.length > 0 && (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")) {
+      if (
+        selectedOffices.length > 0 &&
+        (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "chicago_management")
+      ) {
         if (!selectedOffices.includes(stat.office)) {
           return false;
         }
       }
 
       // Admins, managers, accounting, and chicago_management see all dispatchers
-      if (primaryRole === "admin" || primaryRole === "manager" || primaryRole === "accounting" || primaryRole === "chicago_management") {
+      if (
+        primaryRole === "admin" ||
+        primaryRole === "manager" ||
+        primaryRole === "accounting" ||
+        primaryRole === "chicago_management"
+      ) {
         return true;
       }
       // Supervisors only see dispatchers from their office
@@ -784,18 +806,18 @@ const Analytics = () => {
     }
   };
 
-  // Filter loads booked today with rate >= 1.7
+  // Filter loads booked today with rate >= 2.00
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
 
-  // Filter loads booked today with rate <= 1.7, respecting role permissions
+  // Filter loads booked today with rate <= 2.00, respecting role permissions
   const qualifyingLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile <= 1.7;
+    const meetsRateThreshold = ratePerMile <= 2.0;
     return isToday && meetsRateThreshold;
   });
   return (
@@ -977,9 +999,7 @@ const Analytics = () => {
                       >
                         Comm. % {sortBy === "cutPercent" && (sortDirection === "desc" ? "↓" : "↑")}
                       </TableHead>
-                      <TableHead className="text-right">
-                        Avg Trucks
-                      </TableHead>
+                      <TableHead className="text-right">Avg Trucks</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -992,16 +1012,18 @@ const Analytics = () => {
                     ) : (
                       dispatcherStats.map((stat, index) => {
                         // Get the most recent note for this dispatcher in the date range
-                        const dispatcherNotesForUser = dispatcherNotes.filter(n => n.dispatcher_id === stat.userId);
-                        const mostRecentNote = dispatcherNotesForUser.length > 0 
-                          ? dispatcherNotesForUser.reduce((latest, current) => 
-                              new Date(current.date) > new Date(latest.date) ? current : latest
-                            )
-                          : null;
-                        
-                        const canViewAndEditNotes = hasRole('manager') || hasRole('admin') || hasRole('chicago_management');
-                        const todayDate = format(new Date(), 'yyyy-MM-dd');
-                        
+                        const dispatcherNotesForUser = dispatcherNotes.filter((n) => n.dispatcher_id === stat.userId);
+                        const mostRecentNote =
+                          dispatcherNotesForUser.length > 0
+                            ? dispatcherNotesForUser.reduce((latest, current) =>
+                                new Date(current.date) > new Date(latest.date) ? current : latest,
+                              )
+                            : null;
+
+                        const canViewAndEditNotes =
+                          hasRole("manager") || hasRole("admin") || hasRole("chicago_management");
+                        const todayDate = format(new Date(), "yyyy-MM-dd");
+
                         return (
                           <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
                             <TableCell className="font-medium">
@@ -1011,40 +1033,44 @@ const Analytics = () => {
                                   <DispatcherNoteDialog
                                     dispatcherId={stat.userId}
                                     initialDate={todayDate}
-                                    existingNote={mostRecentNote ? {
-                                      id: mostRecentNote.id,
-                                      note: mostRecentNote.note,
-                                      color: mostRecentNote.color,
-                                    } : undefined}
+                                    existingNote={
+                                      mostRecentNote
+                                        ? {
+                                            id: mostRecentNote.id,
+                                            note: mostRecentNote.note,
+                                            color: mostRecentNote.color,
+                                          }
+                                        : undefined
+                                    }
                                     canEdit={canViewAndEditNotes}
                                   />
                                 )}
                               </div>
                             </TableCell>
-                          <TableCell className="text-right">
-                            $
-                            {stat.totalFreight.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              $
+                              {stat.totalFreight.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
 
-                          <TableCell className="text-right">
-                            $
-                            {stat.cut.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                          <TableCell className="text-right">
-                            {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : '-'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
+                            <TableCell className="text-right">
+                              $
+                              {stat.cut.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                            <TableCell className="text-right">
+                              {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -1293,7 +1319,7 @@ const Analytics = () => {
           <TabsContent value="loads" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Loads Booked Today (Rate ≤ $1.70/mile)</CardTitle>
+                <CardTitle>Loads Booked Today (Rate ≤ $2.00/mile)</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -1317,7 +1343,8 @@ const Analytics = () => {
                       </TableRow>
                     ) : (
                       qualifyingLoads.map((order) => {
-                        const ratePerMile = order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                        const ratePerMile =
+                          order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
                         const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                         const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                         return (
@@ -1334,7 +1361,9 @@ const Analytics = () => {
                                 maximumFractionDigits: 2,
                               })}
                             </TableCell>
-                            <TableCell className="text-right">{order.mileage != null ? order.mileage.toLocaleString() : "0"}</TableCell>
+                            <TableCell className="text-right">
+                              {order.mileage != null ? order.mileage.toLocaleString() : "0"}
+                            </TableCell>
                             <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
                             <TableCell>{order.bookedBy}</TableCell>
                           </TableRow>
