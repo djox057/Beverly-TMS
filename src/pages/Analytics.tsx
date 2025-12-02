@@ -278,12 +278,12 @@ const Analytics = () => {
           return false;
         }
 
-        // Date filtering - use pickup date for week filters, delivery date for month/custom filters
+        // Date filtering - use delivery date for month filters, pickup date for week/custom filters
         // CRITICAL: Only filter by date when dateRange is actually set
         // Orders with invalid dates should only be excluded when date filtering is active
         let matchesDate = true;
         if (dateRange?.from) {
-          const dateToFilter = filterType === "week" ? order.pickupDate : order.deliveryDate;
+          const dateToFilter = filterType === "month" ? order.deliveryDate : order.pickupDate;
           // Only exclude orders with invalid dates when actively filtering by date
           if (!dateToFilter || dateToFilter === "N/A" || dateToFilter === "Invalid Date" || dateToFilter === "") {
             matchesDate = false;
@@ -847,14 +847,14 @@ const Analytics = () => {
                     </Select>
 
                     <DateRangePicker
-                      date={dateRange}
+                      date={filterType === "custom" ? dateRange : undefined}
                       onDateChange={(range) => {
                         setDateRange(range);
                         setSelectedWeek("all");
                         setSelectedMonth("all");
                         setFilterType("custom");
                       }}
-                      placeholder="Custom date range"
+                      placeholder="Custom date range (by pickup)"
                       className="w-72"
                     />
                     {dateRange && (
