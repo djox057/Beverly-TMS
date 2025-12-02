@@ -627,7 +627,7 @@ const Trips = () => {
   ) => {
     try {
       // Load the BG Prime Inc template
-      const response = await fetch("/templates/BG_Prime_Inc_Statement.xlsx");
+      const response = await fetch("/templates/BG_Prime_Inc_statement.xlsx");
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
