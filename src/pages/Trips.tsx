@@ -759,7 +759,7 @@ const Trips = () => {
       deductions.forEach(({ row, description, amount }) => {
         const cellB = worksheet.getCell(`B${row}`);
         cellB.value = description;
-        cellB.font = { size: 11 };
+        cellB.font = { size: 16 };
         worksheet.getCell(`I${row}`).value = endDateFormatted;
         if (amount !== undefined) {
           const cellJ = worksheet.getCell(`J${row}`);
