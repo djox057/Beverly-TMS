@@ -306,31 +306,41 @@ export const useFleetManagement = () => {
         .maybeSingle();
 
       const originalDriversData = (status?.inactive_trucks as any[]) || [];
+      let reassignedCount = 0;
 
       if (originalDriversData.length > 0) {
         // Extract driver IDs from the stored data
         const driverIds = originalDriversData.map((d: any) => d.id);
         
-        // Reassign all original drivers back to this dispatcher
-        const { error: reassignError } = await supabase
+        // First, verify which drivers still exist and are active
+        const { data: existingDrivers, error: checkError } = await supabase
           .from('drivers')
-          .update({ dispatcher_id: dispatcherId })
-          .in('id', driverIds);
+          .select('id')
+          .in('id', driverIds)
+          .eq('is_active', true);
 
-        if (reassignError) throw reassignError;
+        if (checkError) throw checkError;
 
-        toast({
-          title: "Success",
-          description: `Dispatcher set to Active. ${driverIds.length} drivers returned.`,
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Dispatcher set to Active.",
-        });
+        const validDriverIds = existingDrivers?.map(d => d.id) || [];
+        
+        if (validDriverIds.length > 0) {
+          // Only reassign drivers that still exist and are active
+          const { error: reassignError } = await supabase
+            .from('drivers')
+            .update({ dispatcher_id: dispatcherId })
+            .in('id', validDriverIds);
+
+          if (reassignError) throw reassignError;
+          reassignedCount = validDriverIds.length;
+        }
+
+        const skippedCount = driverIds.length - validDriverIds.length;
+        if (skippedCount > 0) {
+          console.log(`Skipped ${skippedCount} drivers that no longer exist or are inactive`);
+        }
       }
 
-      // Update dispatcher status to active
+      // Update dispatcher status to active AFTER successful reassignment
       const now = new Date();
       const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
       
@@ -346,6 +356,13 @@ export const useFleetManagement = () => {
         });
 
       if (statusError) throw statusError;
+
+      toast({
+        title: "Success",
+        description: reassignedCount > 0 
+          ? `Dispatcher set to Active. ${reassignedCount} drivers returned.`
+          : "Dispatcher set to Active.",
+      });
 
       fetchFleetData();
     } catch (error: any) {
