@@ -477,6 +477,7 @@ export const useReports = () => {
             truck_id,
             is_recovery,
             locked,
+            mileage,
             pickup_drops (
               id,
               type,
@@ -586,6 +587,7 @@ export const useReports = () => {
             truck_id,
             is_recovery,
             locked,
+            mileage,
             pickup_drops (
               id,
               type,
@@ -982,6 +984,7 @@ export const useReports = () => {
               hasMultipleOrders: (driverOrders.length || 0) > 1,
               lost_day_notes: truckLostDayNotes,
               milesAway: truck.miles_away || 0,
+              totalMiles: currentOrder?.mileage || 0,
               goingYard: truck.driver1?.going_yard || false,
             };
           }) || [];
@@ -1256,6 +1259,7 @@ export const useReports = () => {
             hasMultipleOrders: (driverOrders.length || 0) > 1,
             lost_day_notes: [],
             milesAway: 0,
+            totalMiles: currentOrder?.mileage || 0,
             goingYard: driver.going_yard || false,
           };
         });
