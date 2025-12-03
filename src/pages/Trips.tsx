@@ -1405,9 +1405,18 @@ const Trips = () => {
       const extraRowsNeeded = Math.max(0, orderCount - 7);
       const deductionStartRow = 24 + extraRowsNeeded;
 
+      // Clear shared formulas in trip rows BEFORE splicing
+      for (let row = 13; row <= 30; row++) {
+        ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].forEach((col) => {
+          const cell = worksheet.getCell(`${col}${row}`);
+          if (cell.model && cell.model.sharedFormula) delete cell.model.sharedFormula;
+          cell.value = null;
+        });
+      }
+
       if (extraRowsNeeded > 0) worksheet.spliceRows(20, 0, ...Array(extraRowsNeeded).fill([]));
 
-      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "bg_prime_inc").single();
+      const { data: configData } = await supabase.from("invoice_number_config").select("*").eq("statement_type", "bg_prime_inc").maybeSingle();
       worksheet.getCell("C7").value = `F-${configData?.current_number || 1332}`;
       worksheet.getCell("C8").value = format(new Date(), "M/d/yyyy");
       worksheet.getCell("C9").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
@@ -1435,9 +1444,15 @@ const Trips = () => {
       const endDateFormatted = format(endDate, "M/d/yyyy");
       const deductions = [{ offset: 0, desc: "Cargo Insurance", amt: 285 }, { offset: 1, desc: "Trailer + Insurance", amt: 285 }, { offset: 2, desc: "ELD", amt: 50 }, { offset: 3, desc: "Pre-Pass", amt: 20 }, { offset: 4, desc: "Truck Payment" }, { offset: 5, desc: "Truck Insurance", amt: 195 }];
       deductions.forEach(({ offset, desc, amt }) => {
-        worksheet.getCell(`B${deductionStartRow + offset}`).value = desc;
-        worksheet.getCell(`I${deductionStartRow + offset}`).value = endDateFormatted;
-        if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
+        const row = deductionStartRow + offset;
+        // Clear any shared formulas on deduction cells too
+        ["B", "I", "J", "E"].forEach((col) => {
+          const cell = worksheet.getCell(`${col}${row}`);
+          if (cell.model && cell.model.sharedFormula) delete cell.model.sharedFormula;
+        });
+        worksheet.getCell(`B${row}`).value = desc;
+        worksheet.getCell(`I${row}`).value = endDateFormatted;
+        if (amt !== undefined) { const c = worksheet.getCell(`J${row}`); c.value = amt; c.numFmt = "$#,##0.00"; }
       });
       if (driver?.agreement_start_date && driver?.weeks_count) {
         const weeksPassed = Math.floor((new Date().getTime() - new Date(driver.agreement_start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
