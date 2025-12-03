@@ -6,14 +6,5 @@ verify_jwt = false
 [functions.record-dispatcher-driver-counts]
 verify_jwt = false
 
-# [functions.geocode-address]
-# verify_jwt = false
-
-# [functions.calculate-route]
-# verify_jwt = false
-
-# [functions.samsara-locations]
-# verify_jwt = false
-
-# [functions.check-delivery-etas]
-# verify_jwt = true
+[functions.cleanup-yard-arrivals]
+verify_jwt = false

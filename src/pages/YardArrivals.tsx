@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
@@ -37,6 +37,7 @@ interface YardAction {
   created_at: string;
   arrival_datetime: string | null;
   created_by: string | null;
+  is_checked: boolean;
   driver: {
     name: string;
     first_name: string;
@@ -53,6 +54,7 @@ interface TwoWeekNoticeDriver {
   first_name: string;
   last_name: string;
   two_week_block_date: string;
+  is_checked_for_termination: boolean;
   truck: {
     truck_number: string;
   } | null;
@@ -85,6 +87,7 @@ export default function YardArrivals() {
           created_at,
           arrival_datetime,
           created_by,
+          is_checked,
           drivers!driver_yard_actions_driver_id_fkey (
             name,
             first_name,
@@ -135,7 +138,8 @@ export default function YardArrivals() {
           name,
           first_name,
           last_name,
-          two_week_block_date
+          two_week_block_date,
+          is_checked_for_termination
         `)
         .not("two_week_block_date", "is", null)
         .order("two_week_block_date", { ascending: true });
@@ -289,6 +293,42 @@ export default function YardArrivals() {
     }
   };
 
+  const handleCheckYardAction = async (actionId: string, currentChecked: boolean) => {
+    try {
+      await supabase
+        .from("driver_yard_actions")
+        .update({ is_checked: !currentChecked })
+        .eq("id", actionId);
+
+      queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    } catch (error) {
+      console.error("Error toggling check:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update check status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCheckTwoWeekNotice = async (driverId: string, currentChecked: boolean) => {
+    try {
+      await supabase
+        .from("drivers")
+        .update({ is_checked_for_termination: !currentChecked })
+        .eq("id", driverId);
+
+      queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
+    } catch (error) {
+      console.error("Error toggling check:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update check status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
     // Format as MM/DD/YYYY HH:mm without timezone conversion
@@ -338,7 +378,7 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                          <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                          <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                             <div className="flex items-start justify-between">
                               <div className="flex-1 space-y-1">
                                 <p className="font-semibold">
@@ -365,6 +405,14 @@ export default function YardArrivals() {
                                   }}
                                 >
                                   <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCheckYardAction(action.id, action.is_checked)}
+                                  title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                                >
+                                  <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -417,7 +465,7 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className="border rounded-lg p-4 space-y-2">
+                        <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-1">
                               <p className="font-semibold">
@@ -444,6 +492,14 @@ export default function YardArrivals() {
                                 }}
                               >
                                 <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCheckYardAction(action.id, action.is_checked)}
+                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                              >
+                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -495,7 +551,7 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {drivers.map((driver) => (
-                        <div key={driver.id} className="border rounded-lg p-4 space-y-2">
+                        <div key={driver.id} className={`border rounded-lg p-4 space-y-2 ${driver.is_checked_for_termination ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-1">
                               <p className="font-semibold">
@@ -505,19 +561,29 @@ export default function YardArrivals() {
                                 Last day: {formatDate(date, "MMMM d, yyyy")}
                               </p>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setDriverToRemoveTwoWeek({
-                                  id: driver.id,
-                                  name: driver.name || `${driver.first_name} ${driver.last_name}`,
-                                });
-                                setRemoveTwoWeekDialogOpen(true);
-                              }}
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCheckTwoWeekNotice(driver.id, driver.is_checked_for_termination)}
+                                title={driver.is_checked_for_termination ? "Uncheck - will not auto-terminate" : "Check - will auto-terminate and disconnect after date passes"}
+                              >
+                                <Check className={`h-4 w-4 ${driver.is_checked_for_termination ? 'text-green-600' : 'text-muted-foreground'}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setDriverToRemoveTwoWeek({
+                                    id: driver.id,
+                                    name: driver.name || `${driver.first_name} ${driver.last_name}`,
+                                  });
+                                  setRemoveTwoWeekDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
