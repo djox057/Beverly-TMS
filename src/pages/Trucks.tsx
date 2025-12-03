@@ -43,6 +43,7 @@ const Trucks = () => {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyTruckId, setHistoryTruckId] = useState<string | null>(null);
   const [historyTruckName, setHistoryTruckName] = useState<string>("");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
@@ -85,8 +86,23 @@ const Trucks = () => {
     allDispatchers
   } = useFleetManagement();
 
-  // Filter trucks based on search term
-  const filteredTrucks = trucks?.filter(truck => truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  // Filter trucks based on search term and company filter
+  const filteredTrucks = trucks?.filter(truck => {
+    // Search filter
+    const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.dispatcher?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.dispatcher?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.driver1?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.driver2?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      truck.trailer?.trailer_number?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Company filter - filter by driver's company
+    const driverCompanyId = truck.driver1?.company_id;
+    const matchesCompany = companyFilter === "all" || driverCompanyId === companyFilter;
+    
+    return matchesSearch && matchesCompany;
+  }) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
@@ -447,9 +463,28 @@ const Trucks = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Truck Fleet</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search trucks..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+            <div className="flex items-center gap-3">
+              <Combobox
+                options={[
+                  { value: "all", label: "All Companies" },
+                  ...(companies?.map(company => ({
+                    value: company.id,
+                    label: company.name
+                  })) || [])
+                ]}
+                value={companyFilter}
+                onValueChange={(value) => {
+                  setCompanyFilter(value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Filter by company"
+                searchPlaceholder="Search companies..."
+                emptyText="No company found."
+              />
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input placeholder="Search trucks..." className="pl-10" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+              </div>
             </div>
           </div>
         </CardHeader>

@@ -104,6 +104,7 @@ const Drivers = () => {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [truckFilter, setTruckFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [recoveryFilter, setRecoveryFilter] = useState<"all" | "recovery" | "regular">("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyDriverId, setHistoryDriverId] = useState<string | null>(null);
   const [historyDriverName, setHistoryDriverName] = useState<string>("");
@@ -227,7 +228,10 @@ const Drivers = () => {
         (recoveryFilter === "recovery" && driver.is_recovery) ||
         (recoveryFilter === "regular" && !driver.is_recovery);
 
-      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery;
+      // Company filter
+      const matchesCompany = companyFilter === "all" || driver.company_id === companyFilter;
+
+      return matchesSearch && matchesStatus && matchesTruck && matchesRecovery && matchesCompany;
     }) || [];
 
   // Pagination
@@ -1666,6 +1670,24 @@ const Drivers = () => {
                   <SelectItem value="regular">Regular Only</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Combobox
+                options={[
+                  { value: "all", label: "All Companies" },
+                  ...(companies?.map(company => ({
+                    value: company.id,
+                    label: company.name
+                  })) || [])
+                ]}
+                value={companyFilter}
+                onValueChange={(value) => {
+                  setCompanyFilter(value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Filter by company"
+                searchPlaceholder="Search companies..."
+                emptyText="No company found."
+              />
 
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
