@@ -613,6 +613,7 @@ export type Database = {
           created_by: string | null
           driver_id: string
           id: string
+          is_checked: boolean | null
           updated_at: string
         }
         Insert: {
@@ -623,6 +624,7 @@ export type Database = {
           created_by?: string | null
           driver_id: string
           id?: string
+          is_checked?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -633,6 +635,7 @@ export type Database = {
           created_by?: string | null
           driver_id?: string
           id?: string
+          is_checked?: boolean | null
           updated_at?: string
         }
         Relationships: [
@@ -676,6 +679,7 @@ export type Database = {
           hos_status: string | null
           id: string
           is_active: boolean
+          is_checked_for_termination: boolean | null
           is_recovery: boolean | null
           last_name: string | null
           license_number: string | null
@@ -720,6 +724,7 @@ export type Database = {
           hos_status?: string | null
           id?: string
           is_active?: boolean
+          is_checked_for_termination?: boolean | null
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
@@ -764,6 +769,7 @@ export type Database = {
           hos_status?: string | null
           id?: string
           is_active?: boolean
+          is_checked_for_termination?: boolean | null
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
