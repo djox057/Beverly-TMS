@@ -72,6 +72,7 @@ interface Order {
   otherCharges?: number;
   lateFee?: number;
   companyName: string;
+  bookedByCompanyName?: string;
   driverName: string;
   mileage: number;
   rcFiles?: OrderFile[];
@@ -84,23 +85,25 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
 
   console.log(`Starting invoice generation for ${orders.length} orders:`, orders.map(o => o.internalLoadNumber));
 
-  // Group orders by company first, then by broker within each company
+  // Group orders by booked by company first, then by broker within each company
   const companiesMap = orders.reduce((acc, order) => {
-    if (!acc[order.companyName]) {
-      acc[order.companyName] = {};
+    // Use bookedByCompanyName for invoicing, fallback to companyName (truck company)
+    const invoiceCompany = order.bookedByCompanyName || order.companyName;
+    if (!acc[invoiceCompany]) {
+      acc[invoiceCompany] = {};
     }
-    if (!acc[order.companyName][order.brokerName]) {
-      acc[order.companyName][order.brokerName] = {
+    if (!acc[invoiceCompany][order.brokerName]) {
+      acc[invoiceCompany][order.brokerName] = {
         brokerName: order.brokerName,
-        companyName: order.companyName,
+        companyName: invoiceCompany,
         orders: []
       };
     }
-    acc[order.companyName][order.brokerName].orders.push(order);
+    acc[invoiceCompany][order.brokerName].orders.push(order);
     return acc;
   }, {} as Record<string, Record<string, { brokerName: string; companyName: string; orders: Order[] }>>);
 
-  console.log(`Grouped orders into ${Object.keys(companiesMap).length} companies with invoices`);
+  console.log(`Grouped orders into ${Object.keys(companiesMap).length} companies (by booked by company) with invoices`);
 
   // Collect all invoice data organized by company
   const invoicesByCompany: Record<string, Array<{ filename: string; pdfBytes: number[] }>> = {};
