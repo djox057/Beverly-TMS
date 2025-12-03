@@ -197,6 +197,19 @@ export const AssignmentHistoryDialog = ({
               {renderHistoryList(driverHistory, 'driver')}
             </TabsContent>
           </Tabs>
+        ) : entityType === 'driver' ? (
+          <Tabs defaultValue="truck" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="truck">Truck Changes</TabsTrigger>
+              <TabsTrigger value="trailer">Trailer Changes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="truck" className="mt-4">
+              {renderHistoryList(truckHistory, 'truck')}
+            </TabsContent>
+            <TabsContent value="trailer" className="mt-4">
+              {renderHistoryList(trailerHistory, 'trailer')}
+            </TabsContent>
+          </Tabs>
         ) : !history || history.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No assignment history found
