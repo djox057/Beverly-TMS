@@ -61,11 +61,14 @@ export const AssignmentHistoryDialog = ({
     return changeType.replace(/_/g, ' ');
   };
 
-  const formatChangeDescription = (entry: any, showType: 'trailer' | 'driver' | 'all') => {
+  const formatChangeDescription = (entry: any, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
     const parts = [];
     
     if (showType === 'trailer' || showType === 'all') {
       parts.push(`Trailer: ${entry.trailer_number || 'None'}`);
+    }
+    if (showType === 'truck') {
+      parts.push(`Truck: ${entry.truck_number || 'None'}`);
     }
     if (showType === 'driver' || showType === 'all') {
       parts.push(`Driver 1: ${entry.driver1_name || 'None'}`);
@@ -88,6 +91,10 @@ export const AssignmentHistoryDialog = ({
     return changeType === 'driver_assignment' || changeType === 'driver_update';
   };
 
+  const isTruckChange = (changeType: string) => {
+    return changeType === 'trailer_assignment' || changeType === 'truck_assignment' || changeType === 'truck_update';
+  };
+
   const trailerHistory = history?.filter(entry => 
     isTrailerChange(entry.change_type) || entry.change_type === 'assignment_change'
   ) || [];
@@ -96,7 +103,11 @@ export const AssignmentHistoryDialog = ({
     isDriverChange(entry.change_type) || entry.change_type === 'assignment_change'
   ) || [];
 
-  const renderHistoryList = (items: typeof history, showType: 'trailer' | 'driver' | 'all') => {
+  const truckHistory = history?.filter(entry => 
+    isTruckChange(entry.change_type) || entry.change_type === 'assignment_change'
+  ) || [];
+
+  const renderHistoryList = (items: typeof history, showType: 'trailer' | 'driver' | 'truck' | 'all') => {
     if (!items || items.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
@@ -157,6 +168,19 @@ export const AssignmentHistoryDialog = ({
             </TabsList>
             <TabsContent value="trailer" className="mt-4">
               {renderHistoryList(trailerHistory, 'trailer')}
+            </TabsContent>
+            <TabsContent value="driver" className="mt-4">
+              {renderHistoryList(driverHistory, 'driver')}
+            </TabsContent>
+          </Tabs>
+        ) : entityType === 'trailer' ? (
+          <Tabs defaultValue="truck" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="truck">Truck Changes</TabsTrigger>
+              <TabsTrigger value="driver">Driver Changes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="truck" className="mt-4">
+              {renderHistoryList(truckHistory, 'truck')}
             </TabsContent>
             <TabsContent value="driver" className="mt-4">
               {renderHistoryList(driverHistory, 'driver')}
