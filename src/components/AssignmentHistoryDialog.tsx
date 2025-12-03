@@ -22,7 +22,18 @@ export const AssignmentHistoryDialog = ({
 }: AssignmentHistoryDialogProps) => {
   const { data: history, isLoading } = useAssignmentHistory(entityType, entityId);
 
-  const getChangeTypeLabel = (changeType: string) => {
+  const getChangeTypeLabel = (changeType: string, tabType?: 'trailer' | 'driver' | 'truck' | 'all') => {
+    // When in a specific tab, show simple labels for combined changes
+    if (tabType === 'trailer' && changeType === 'assignment_change') {
+      return 'Trailer Change';
+    }
+    if (tabType === 'driver' && changeType === 'assignment_change') {
+      return 'Driver Change';
+    }
+    if (tabType === 'truck' && changeType === 'assignment_change') {
+      return 'Truck Change';
+    }
+
     if (entityType === 'driver') {
       const labels: Record<string, string> = {
         'driver_assignment': 'Truck Change',
@@ -127,7 +138,7 @@ export const AssignmentHistoryDialog = ({
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="font-semibold text-sm mb-1 text-primary">
-                    {getChangeTypeLabel(entry.change_type)}
+                    {getChangeTypeLabel(entry.change_type, showType)}
                   </div>
                   <div className="font-medium text-sm mb-2">
                     {formatChangeDescription(entry, showType)}
