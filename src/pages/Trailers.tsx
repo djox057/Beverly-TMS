@@ -29,6 +29,7 @@ interface TrailerFormData {
 }
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -73,13 +74,27 @@ const Trailers = () => {
     data: drivers
   } = useDrivers();
 
-  // Reset to first page when search changes
+  // Reset to first page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, assignmentFilter]);
 
-  // Filter trailers based on search term
-  const filteredTrailers = trailers?.filter(trailer => trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  // Filter trailers based on search term and assignment status
+  const filteredTrailers = trailers?.filter(trailer => {
+    // Search filter
+    const matchesSearch = trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      trailer.trailer_type?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      trailer.vin?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (trailer.trucks && trailer.trucks.length > 0 && trailer.trucks[0].truck_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    // Assignment filter
+    const isAssigned = trailer.trucks && trailer.trucks.length > 0;
+    const matchesAssignment = assignmentFilter === "all" || 
+      (assignmentFilter === "assigned" && isAssigned) || 
+      (assignmentFilter === "unassigned" && !isAssigned);
+    
+    return matchesSearch && matchesAssignment;
+  }) || [];
 
   // Pagination
   const totalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
@@ -383,9 +398,21 @@ const Trailers = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Trailer Inventory</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input placeholder="Search trailers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <div className="flex items-center gap-3">
+              <Select value={assignmentFilter} onValueChange={(value: "all" | "assigned" | "unassigned") => setAssignmentFilter(value)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Assignment status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Trailers</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input placeholder="Search trailers..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              </div>
             </div>
           </div>
         </CardHeader>
