@@ -35,7 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import * as XLSX from 'xlsx';
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRange } from "react-day-picker";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -189,9 +189,9 @@ export default function YardLoads() {
       'Driver': order.driverName || '',
       'Broker': order.brokerName || '',
       'Pickup': `${order.pickupCity}, ${order.pickupState}`,
-      'Pickup Date': order.pickupDate ? format(new Date(order.pickupDate), 'MM/dd/yyyy') : '',
+      'Pickup Date': formatDateNoTimezone(order.pickupDate),
       'Delivery': `${order.deliveryCity}, ${order.deliveryState}`,
-      'Delivery Date': order.deliveryDate ? format(new Date(order.deliveryDate), 'MM/dd/yyyy') : '',
+      'Delivery Date': formatDateNoTimezone(order.deliveryDate),
       'Miles': order.mileage || 0,
       'Driver Pay': order.driverPrice || 0,
       'Broker Rate': order.freightAmount || 0,
@@ -398,7 +398,7 @@ export default function YardLoads() {
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.trailerNumber}</TableCell>
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{order.deliveryDate ? format(new Date(order.deliveryDate), 'MM/dd/yyyy') : ''}</div></TableCell>
+                        <TableCell className="p-0"><div className="h-full p-4">{formatDateNoTimezone(order.deliveryDate)}</div></TableCell>
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">
                           {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
                         </div></TableCell>
