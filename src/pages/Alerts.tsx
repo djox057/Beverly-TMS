@@ -110,8 +110,12 @@ export default function Alerts() {
   const [trailersSearch, setTrailersSearch] = useState("");
   const [driversSearch, setDriversSearch] = useState("");
   
-  // Column filter for drivers
+  // Column filters
+  type TruckColumnFilter = "all" | "dot" | "plate" | "insurance";
+  type TrailerColumnFilter = "all" | "dot" | "plate" | "insurance";
   type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
+  const [truckColumnFilter, setTruckColumnFilter] = useState<TruckColumnFilter>("all");
+  const [trailerColumnFilter, setTrailerColumnFilter] = useState<TrailerColumnFilter>("all");
   const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
 
   // Helper to check if a date is expiring (within 60 days)
@@ -123,15 +127,35 @@ export default function Alerts() {
     return expirationDate <= sixtyDaysFromNow;
   };
 
-  // Filter data based on search
-  const filteredTrucks = trucks.filter((truck) => 
-    truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
-    truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase())
-  );
+  // Filter data based on search and column filter
+  const filteredTrucks = trucks.filter((truck) => {
+    const matchesSearch = truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
+      truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    if (truckColumnFilter === "all") return true;
+    
+    switch (truckColumnFilter) {
+      case "dot": return isExpiring(truck.dot_inspection_date);
+      case "plate": return isExpiring(truck.plate_expiration_date);
+      case "insurance": return isExpiring(truck.insurance_expiration_date);
+      default: return true;
+    }
+  });
 
-  const filteredTrailers = trailers.filter((trailer) =>
-    trailer.trailer_number?.toLowerCase().includes(trailersSearch.toLowerCase())
-  );
+  const filteredTrailers = trailers.filter((trailer) => {
+    const matchesSearch = trailer.trailer_number?.toLowerCase().includes(trailersSearch.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    if (trailerColumnFilter === "all") return true;
+    
+    switch (trailerColumnFilter) {
+      case "dot": return isExpiring(trailer.dot_inspection_date);
+      case "plate": return isExpiring(trailer.plate_expiration_date);
+      case "insurance": return isExpiring(trailer.insurance_expiration_date);
+      default: return true;
+    }
+  });
 
   const filteredDrivers = drivers.filter((driver) => {
     // First apply search filter
@@ -487,9 +511,24 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead>Truck #</TableHead>
                       <TableHead>Company</TableHead>
-                      <TableHead>DOT Inspection</TableHead>
-                      <TableHead>Plate Expiration</TableHead>
-                      <TableHead>Insurance Expiration</TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "dot" ? "all" : "dot")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        DOT Inspection {truckColumnFilter === "dot" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "plate" ? "all" : "plate")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Plate Expiration {truckColumnFilter === "plate" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTruckColumnFilter(truckColumnFilter === "insurance" ? "all" : "insurance")}
+                        className={`cursor-pointer hover:bg-muted/50 ${truckColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Insurance Expiration {truckColumnFilter === "insurance" && "✓"}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -584,9 +623,24 @@ export default function Alerts() {
                     <TableRow>
                       <TableHead>Trailer #</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>DOT Inspection</TableHead>
-                      <TableHead>Plate Expiration</TableHead>
-                      <TableHead>Insurance Expiration</TableHead>
+                      <TableHead 
+                        onClick={() => setTrailerColumnFilter(trailerColumnFilter === "dot" ? "all" : "dot")}
+                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "dot" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        DOT Inspection {trailerColumnFilter === "dot" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTrailerColumnFilter(trailerColumnFilter === "plate" ? "all" : "plate")}
+                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "plate" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Plate Expiration {trailerColumnFilter === "plate" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setTrailerColumnFilter(trailerColumnFilter === "insurance" ? "all" : "insurance")}
+                        className={`cursor-pointer hover:bg-muted/50 ${trailerColumnFilter === "insurance" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Insurance Expiration {trailerColumnFilter === "insurance" && "✓"}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
