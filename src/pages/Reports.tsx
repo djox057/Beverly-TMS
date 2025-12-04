@@ -2668,19 +2668,19 @@ const Reports = () => {
                                             {truck.truckNumber}
                                             {hasExpiredHOS && <Clock className="h-3 w-3 text-destructive" />}
                                             {truck.twoWeekBlockDate && (
-                                              <TooltipProvider>
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <Ban className="h-3 w-3 text-destructive" />
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    <p className="text-xs font-medium">2-Week Notice</p>
-                                                    <p className="text-xs">
-                                                      Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
-                                                    </p>
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              </TooltipProvider>
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                                    <Ban className="h-3 w-3 text-destructive cursor-pointer" />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-2">
+                                                  <p className="text-xs font-medium">2-Week Notice</p>
+                                                  <p className="text-xs">
+                                                    Last day: {format(new Date(truck.twoWeekBlockDate), 'MMM dd, yyyy')}
+                                                  </p>
+                                                </PopoverContent>
+                                              </Popover>
                                             )}
                                           </div>
                                           {truck.companyName && (
@@ -2752,19 +2752,19 @@ const Reports = () => {
                                         >
                                           <span>{truck.driver}</span>
                                           {truck.randomDrugTestDate && (
-                                            <TooltipProvider>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
                                                   <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
-                                                </TooltipTrigger>
-                                                <TooltipContent>
-                                                  <p className="text-xs font-medium">Random Drug Test</p>
-                                                  <p className="text-xs">
-                                                    Date: {format(new Date(truck.randomDrugTestDate), 'MMM dd, yyyy')}
-                                                  </p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-auto p-2">
+                                                <p className="text-xs font-medium">Random Drug Test</p>
+                                                <p className="text-xs">
+                                                  Date: {format(new Date(truck.randomDrugTestDate), 'MMM dd, yyyy')}
+                                                </p>
+                                              </PopoverContent>
+                                            </Popover>
                                           )}
                                           {(truck.driverPhone ||
                                             truck.driverEmail ||
