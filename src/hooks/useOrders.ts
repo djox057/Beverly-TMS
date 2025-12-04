@@ -179,8 +179,8 @@ export const useOrders = (options?: UseOrdersOptions) => {
       console.log("🟢 [useOrders] ============ QUERYFN EXECUTING ============");
       console.log("🟢 [useOrders] Fetching orders with bookedBy:", options?.bookedBy);
 
-      const initialBatchSize = 500;
-      const batchSize = 1000;
+      const initialBatchSize = 200;
+      const batchSize = 500;
 
       // Fetch first 500 UNLOCKED orders immediately with joins
       let initialQuery = supabase
