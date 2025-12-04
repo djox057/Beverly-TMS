@@ -78,6 +78,7 @@ interface DriverFormData {
   cdl_number: string;
   cdl_expiration_date: string;
   medical_card_expiration_date: string;
+  random_drug_test_date: string;
   hire_date: string;
   termination_date: string;
   mvr_date: string;
@@ -143,6 +144,7 @@ const Drivers = () => {
     cdl_number: "",
     cdl_expiration_date: "",
     medical_card_expiration_date: "",
+    random_drug_test_date: "",
     hire_date: new Date().toISOString().split("T")[0],
     termination_date: "",
     mvr_date: "",
@@ -274,6 +276,7 @@ const Drivers = () => {
       cdl_number: "",
       cdl_expiration_date: "",
       medical_card_expiration_date: "",
+      random_drug_test_date: "",
       hire_date: new Date().toISOString().split("T")[0],
       termination_date: "",
       mvr_date: "",
@@ -368,6 +371,7 @@ const Drivers = () => {
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
+          random_drug_test_date: formData.random_drug_test_date || null,
           hire_date: formData.hire_date || null,
           termination_date: formData.termination_date || null,
           mvr_date: formData.mvr_date || null,
@@ -545,6 +549,7 @@ const Drivers = () => {
           cdl_number: formData.cdl_number || null,
           cdl_expiration_date: formData.cdl_expiration_date || null,
           medical_card_expiration_date: formData.medical_card_expiration_date || null,
+          random_drug_test_date: formData.random_drug_test_date || null,
           hire_date: formData.hire_date || null,
           termination_date: formData.termination_date || null,
           mvr_date: formData.mvr_date || null,
@@ -946,6 +951,7 @@ const Drivers = () => {
       cdl_number: driver.cdl_number || "",
       cdl_expiration_date: driver.cdl_expiration_date || "",
       medical_card_expiration_date: driver.medical_card_expiration_date || "",
+      random_drug_test_date: driver.random_drug_test_date || "",
       hire_date: driver.hire_date || "",
       termination_date: driver.termination_date || "",
       mvr_date: driver.mvr_date || "",
@@ -1516,6 +1522,20 @@ const Drivers = () => {
                           setFormData({
                             ...formData,
                             medical_card_expiration_date: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="random_drug_test_date">Random Drug Test Date</Label>
+                      <Input
+                        id="random_drug_test_date"
+                        type="date"
+                        value={formData.random_drug_test_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            random_drug_test_date: e.target.value,
                           })
                         }
                       />
@@ -2426,6 +2446,20 @@ const Drivers = () => {
                         setFormData({
                           ...formData,
                           medical_card_expiration_date: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit_random_drug_test_date">Random Drug Test</Label>
+                    <Input
+                      id="edit_random_drug_test_date"
+                      type="date"
+                      value={formData.random_drug_test_date}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          random_drug_test_date: e.target.value,
                         })
                       }
                     />
