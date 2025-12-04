@@ -2058,6 +2058,62 @@ export type Database = {
         }
         Relationships: []
       }
+      yard_loads: {
+        Row: {
+          broker_name: string | null
+          created_at: string
+          delivery_city: string | null
+          delivery_date: string | null
+          delivery_state: string | null
+          driver_name: string | null
+          id: string
+          internal_load_number: number | null
+          notes: string | null
+          order_id: string | null
+          trailer_number: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          broker_name?: string | null
+          created_at?: string
+          delivery_city?: string | null
+          delivery_date?: string | null
+          delivery_state?: string | null
+          driver_name?: string | null
+          id?: string
+          internal_load_number?: number | null
+          notes?: string | null
+          order_id?: string | null
+          trailer_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          broker_name?: string | null
+          created_at?: string
+          delivery_city?: string | null
+          delivery_date?: string | null
+          delivery_state?: string | null
+          driver_name?: string | null
+          id?: string
+          internal_load_number?: number | null
+          notes?: string | null
+          order_id?: string | null
+          trailer_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "yard_loads_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
