@@ -15,6 +15,7 @@ import { AlertTriangle, Truck, Package, User, Search } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,30 @@ const getExpirationStatus = (date: string | null) => {
     return { variant: "destructive" as const, label: `${daysUntilExpiration} days` };
   } else {
     return { variant: "default" as const, label: `${daysUntilExpiration} days` };
+  }
+};
+
+// Chicago-time based calculation for random drug test date
+const getDrugTestStatus = (date: string | null) => {
+  if (!date) return { variant: "secondary" as const, label: "No Date" };
+  
+  const chicagoNow = toZonedTime(new Date(), "America/Chicago");
+  const testDate = new Date(date);
+  
+  // Reset times to start of day for accurate day calculation
+  const nowStartOfDay = new Date(chicagoNow.getFullYear(), chicagoNow.getMonth(), chicagoNow.getDate());
+  const testStartOfDay = new Date(testDate.getFullYear(), testDate.getMonth(), testDate.getDate());
+  
+  const daysUntil = Math.ceil((testStartOfDay.getTime() - nowStartOfDay.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysUntil < 0) {
+    return { variant: "destructive" as const, label: `${Math.abs(daysUntil)} days overdue` };
+  } else if (daysUntil === 0) {
+    return { variant: "destructive" as const, label: "Due today" };
+  } else if (daysUntil <= 30) {
+    return { variant: "destructive" as const, label: `${daysUntil} days left` };
+  } else {
+    return { variant: "default" as const, label: `${daysUntil} days left` };
   }
 };
 
@@ -689,8 +714,8 @@ export default function Alerts() {
                            <div className="flex items-center gap-2">
                              {formatDate(driver.random_drug_test_date)}
                              {driver.random_drug_test_date && (
-                               <Badge variant={getExpirationStatus(driver.random_drug_test_date).variant}>
-                                 {getExpirationStatus(driver.random_drug_test_date).label}
+                               <Badge variant={getDrugTestStatus(driver.random_drug_test_date).variant}>
+                                 {getDrugTestStatus(driver.random_drug_test_date).label}
                                </Badge>
                              )}
                            </div>
