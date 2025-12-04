@@ -224,6 +224,7 @@ export default function Alerts() {
         mvr_date: formData.get('mvr_date') as string || null,
         clearing_house: formData.get('clearing_house') as string || null,
         medical_card_expiration_date: formData.get('medical_card_expiration_date') as string || null,
+        random_drug_test_date: formData.get('random_drug_test_date') as string || null,
       };
 
       const { error } = await supabase
@@ -571,6 +572,7 @@ export default function Alerts() {
                       <TableHead>MVR Date</TableHead>
                       <TableHead>Clearing House</TableHead>
                       <TableHead>Medical Card Exp</TableHead>
+                      <TableHead>Random Drug Test</TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
@@ -620,6 +622,16 @@ export default function Alerts() {
                              {driver.medical_card_expiration_date && (
                                <Badge variant={getExpirationStatus(driver.medical_card_expiration_date).variant}>
                                  {getExpirationStatus(driver.medical_card_expiration_date).label}
+                               </Badge>
+                             )}
+                           </div>
+                         </TableCell>
+                         <TableCell>
+                           <div className="flex items-center gap-2">
+                             {formatDate(driver.random_drug_test_date)}
+                             {driver.random_drug_test_date && (
+                               <Badge variant={getExpirationStatus(driver.random_drug_test_date).variant}>
+                                 {getExpirationStatus(driver.random_drug_test_date).label}
                                </Badge>
                              )}
                            </div>
@@ -786,6 +798,10 @@ export default function Alerts() {
                 <div>
                   <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
                   <Input id="medical_card_expiration_date" name="medical_card_expiration_date" type="date" defaultValue={editingDriver.medical_card_expiration_date || ""} />
+                </div>
+                <div>
+                  <Label htmlFor="random_drug_test_date">Random Drug Test</Label>
+                  <Input id="random_drug_test_date" name="random_drug_test_date" type="date" defaultValue={editingDriver.random_drug_test_date || ""} />
                 </div>
               </div>
               <DriverFilesManager driverId={editingDriver.id} />
