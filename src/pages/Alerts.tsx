@@ -11,7 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import { AlertTriangle, Truck, Package, User } from "lucide-react";
+import { AlertTriangle, Truck, Package, User, Search } from "lucide-react";
 import { useExpiringTrucks, useExpiringTrailers, useExpiringDrivers } from "@/hooks/useExpiringAlerts";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -79,6 +79,27 @@ export default function Alerts() {
   const [driversPage, setDriversPage] = useState(1);
   const itemsPerPage = 50;
 
+  // Search states
+  const [activeTab, setActiveTab] = useState("trucks");
+  const [trucksSearch, setTrucksSearch] = useState("");
+  const [trailersSearch, setTrailersSearch] = useState("");
+  const [driversSearch, setDriversSearch] = useState("");
+
+  // Filter data based on search
+  const filteredTrucks = trucks.filter((truck) => 
+    truck.truck_number?.toLowerCase().includes(trucksSearch.toLowerCase()) ||
+    truck.company?.name?.toLowerCase().includes(trucksSearch.toLowerCase())
+  );
+
+  const filteredTrailers = trailers.filter((trailer) =>
+    trailer.trailer_number?.toLowerCase().includes(trailersSearch.toLowerCase())
+  );
+
+  const filteredDrivers = drivers.filter((driver) =>
+    driver.name?.toLowerCase().includes(driversSearch.toLowerCase()) ||
+    driver.company_name?.toLowerCase().includes(driversSearch.toLowerCase())
+  );
+
   // Edit dialog states
   const [isEditTruckDialogOpen, setIsEditTruckDialogOpen] = useState(false);
   const [isEditTrailerDialogOpen, setIsEditTrailerDialogOpen] = useState(false);
@@ -89,22 +110,49 @@ export default function Alerts() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pagination logic for trucks
-  const trucksTotalPages = Math.ceil(trucks.length / itemsPerPage);
+  const trucksTotalPages = Math.ceil(filteredTrucks.length / itemsPerPage);
   const trucksStartIndex = (trucksPage - 1) * itemsPerPage;
   const trucksEndIndex = trucksStartIndex + itemsPerPage;
-  const paginatedTrucks = trucks.slice(trucksStartIndex, trucksEndIndex);
+  const paginatedTrucks = filteredTrucks.slice(trucksStartIndex, trucksEndIndex);
 
   // Pagination logic for trailers
-  const trailersTotalPages = Math.ceil(trailers.length / itemsPerPage);
+  const trailersTotalPages = Math.ceil(filteredTrailers.length / itemsPerPage);
   const trailersStartIndex = (trailersPage - 1) * itemsPerPage;
   const trailersEndIndex = trailersStartIndex + itemsPerPage;
-  const paginatedTrailers = trailers.slice(trailersStartIndex, trailersEndIndex);
+  const paginatedTrailers = filteredTrailers.slice(trailersStartIndex, trailersEndIndex);
 
   // Pagination logic for drivers
-  const driversTotalPages = Math.ceil(drivers.length / itemsPerPage);
+  const driversTotalPages = Math.ceil(filteredDrivers.length / itemsPerPage);
   const driversStartIndex = (driversPage - 1) * itemsPerPage;
   const driversEndIndex = driversStartIndex + itemsPerPage;
-  const paginatedDrivers = drivers.slice(driversStartIndex, driversEndIndex);
+  const paginatedDrivers = filteredDrivers.slice(driversStartIndex, driversEndIndex);
+
+  // Get current search value and setter based on active tab
+  const getCurrentSearch = () => {
+    switch (activeTab) {
+      case "trucks": return trucksSearch;
+      case "trailers": return trailersSearch;
+      case "drivers": return driversSearch;
+      default: return "";
+    }
+  };
+
+  const setCurrentSearch = (value: string) => {
+    switch (activeTab) {
+      case "trucks": 
+        setTrucksSearch(value);
+        setTrucksPage(1);
+        break;
+      case "trailers": 
+        setTrailersSearch(value);
+        setTrailersPage(1);
+        break;
+      case "drivers": 
+        setDriversSearch(value);
+        setDriversPage(1);
+        break;
+    }
+  };
 
   // Edit dialog handlers
   const openEditTruckDialog = (truckId: string) => {
@@ -335,22 +383,33 @@ export default function Alerts() {
       
       <Card>
         <CardHeader>
-          <CardTitle>Items Expiring Within 60 Days</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Items Expiring Within 60 Days</CardTitle>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search ${activeTab}...`}
+                value={getCurrentSearch()}
+                onChange={(e) => setCurrentSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="trucks" className="w-full">
+          <Tabs defaultValue="trucks" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="trucks" className="flex items-center gap-2">
                 <Truck className="h-4 w-4" />
-                Trucks ({trucks.length} total)
+                Trucks ({filteredTrucks.length}{trucksSearch ? ` of ${trucks.length}` : ''})
               </TabsTrigger>
               <TabsTrigger value="trailers" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                Trailers ({trailers.length} total)
+                Trailers ({filteredTrailers.length}{trailersSearch ? ` of ${trailers.length}` : ''})
               </TabsTrigger>
               <TabsTrigger value="drivers" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Drivers ({drivers.length} total)
+                Drivers ({filteredDrivers.length}{driversSearch ? ` of ${drivers.length}` : ''})
               </TabsTrigger>
             </TabsList>
 
