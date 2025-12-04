@@ -109,6 +109,19 @@ export default function Alerts() {
   const [trucksSearch, setTrucksSearch] = useState("");
   const [trailersSearch, setTrailersSearch] = useState("");
   const [driversSearch, setDriversSearch] = useState("");
+  
+  // Column filter for drivers
+  type DriverColumnFilter = "all" | "cdl" | "mvr" | "clearing_house" | "medical" | "drug_test";
+  const [driverColumnFilter, setDriverColumnFilter] = useState<DriverColumnFilter>("all");
+
+  // Helper to check if a date is expiring (within 60 days)
+  const isExpiring = (date: string | null) => {
+    if (!date) return false;
+    const expirationDate = new Date(date);
+    const now = new Date();
+    const sixtyDaysFromNow = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+    return expirationDate <= sixtyDaysFromNow;
+  };
 
   // Filter data based on search
   const filteredTrucks = trucks.filter((truck) => 
@@ -120,10 +133,25 @@ export default function Alerts() {
     trailer.trailer_number?.toLowerCase().includes(trailersSearch.toLowerCase())
   );
 
-  const filteredDrivers = drivers.filter((driver) =>
-    driver.name?.toLowerCase().includes(driversSearch.toLowerCase()) ||
-    driver.company_name?.toLowerCase().includes(driversSearch.toLowerCase())
-  );
+  const filteredDrivers = drivers.filter((driver) => {
+    // First apply search filter
+    const matchesSearch = driver.name?.toLowerCase().includes(driversSearch.toLowerCase()) ||
+      driver.company_name?.toLowerCase().includes(driversSearch.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Then apply column filter
+    if (driverColumnFilter === "all") return true;
+    
+    switch (driverColumnFilter) {
+      case "cdl": return isExpiring(driver.cdl_expiration_date);
+      case "mvr": return isExpiring(driver.mvr_date);
+      case "clearing_house": return isExpiring(driver.clearing_house);
+      case "medical": return isExpiring(driver.medical_card_expiration_date);
+      case "drug_test": return isExpiring(driver.random_drug_test_date);
+      default: return true;
+    }
+  });
 
   // Edit dialog states
   const [isEditTruckDialogOpen, setIsEditTruckDialogOpen] = useState(false);
@@ -652,11 +680,36 @@ export default function Alerts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Driver Name</TableHead>
-                      <TableHead>CDL Expiration</TableHead>
-                      <TableHead>MVR Date</TableHead>
-                      <TableHead>Clearing House</TableHead>
-                      <TableHead>Medical Card Exp</TableHead>
-                      <TableHead>Random Drug Test</TableHead>
+                      <TableHead 
+                        onClick={() => setDriverColumnFilter(driverColumnFilter === "cdl" ? "all" : "cdl")}
+                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "cdl" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        CDL Expiration {driverColumnFilter === "cdl" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setDriverColumnFilter(driverColumnFilter === "mvr" ? "all" : "mvr")}
+                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "mvr" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        MVR Date {driverColumnFilter === "mvr" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setDriverColumnFilter(driverColumnFilter === "clearing_house" ? "all" : "clearing_house")}
+                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "clearing_house" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Clearing House {driverColumnFilter === "clearing_house" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setDriverColumnFilter(driverColumnFilter === "medical" ? "all" : "medical")}
+                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "medical" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Medical Card Exp {driverColumnFilter === "medical" && "✓"}
+                      </TableHead>
+                      <TableHead 
+                        onClick={() => setDriverColumnFilter(driverColumnFilter === "drug_test" ? "all" : "drug_test")}
+                        className={`cursor-pointer hover:bg-muted/50 ${driverColumnFilter === "drug_test" ? "bg-primary/10 text-primary" : ""}`}
+                      >
+                        Random Drug Test {driverColumnFilter === "drug_test" && "✓"}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                    <TableBody>
