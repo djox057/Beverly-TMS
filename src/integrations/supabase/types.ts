@@ -688,6 +688,7 @@ export type Database = {
           mvr_date: string | null
           name: string | null
           phone: string | null
+          random_drug_test_date: string | null
           termination_date: string | null
           two_week_block_date: string | null
           updated_at: string
@@ -733,6 +734,7 @@ export type Database = {
           mvr_date?: string | null
           name?: string | null
           phone?: string | null
+          random_drug_test_date?: string | null
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string
@@ -778,6 +780,7 @@ export type Database = {
           mvr_date?: string | null
           name?: string | null
           phone?: string | null
+          random_drug_test_date?: string | null
           termination_date?: string | null
           two_week_block_date?: string | null
           updated_at?: string

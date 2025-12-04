@@ -85,12 +85,14 @@ export const useExpiringDrivers = () => {
         const mvrDate = driver.mvr_date ? new Date(driver.mvr_date) : null;
         const clearingHouseDate = driver.clearing_house ? new Date(driver.clearing_house) : null;
         const medicalCardDate = driver.medical_card_expiration_date ? new Date(driver.medical_card_expiration_date) : null;
+        const randomDrugTestDate = driver.random_drug_test_date ? new Date(driver.random_drug_test_date) : null;
         
         return (
           (cdlDate && cdlDate <= twoMonthsFromNow) ||
           (mvrDate && mvrDate <= twoMonthsFromNow) ||
           (clearingHouseDate && clearingHouseDate <= twoMonthsFromNow) ||
-          (medicalCardDate && medicalCardDate <= twoMonthsFromNow)
+          (medicalCardDate && medicalCardDate <= twoMonthsFromNow) ||
+          (randomDrugTestDate && randomDrugTestDate <= twoMonthsFromNow)
         );
       }) || [];
     },
