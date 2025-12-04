@@ -798,12 +798,23 @@ export const useReports = () => {
                 }) || [];
 
             // Select primary order for display (backward compatibility, exclude GAME-OVER)
+            // Prioritize: 1) in_transit orders, 2) pending orders by earliest pickup
+            const sortedActiveOrders = allOrdersWithStops
+              .filter((order) => order.isActive && activeOrders.some((active) => active.id === order.id))
+              .sort((a, b) => {
+                // in_transit comes first
+                if (a.status === 'in_transit' && b.status !== 'in_transit') return -1;
+                if (b.status === 'in_transit' && a.status !== 'in_transit') return 1;
+                // Then sort by pickup datetime (earliest first)
+                const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+                const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+                return aPickup - bPickup;
+              });
+
             const currentOrder =
               allOrdersWithStops.length > 0
-                ? activeOrders.length > 0
-                  ? allOrdersWithStops.find(
-                      (order) => order.isActive && activeOrders.some((active) => active.id === order.id),
-                    )
+                ? sortedActiveOrders.length > 0
+                  ? sortedActiveOrders[0]
                   : recentCompletedOrders.length > 0
                     ? allOrdersWithStops.find((order) => order.isRecentCompleted)
                     : allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null
