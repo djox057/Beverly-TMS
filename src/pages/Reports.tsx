@@ -30,6 +30,7 @@ import {
   Ban,
   Upload,
   CalendarIcon,
+  Pill,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -2750,6 +2751,21 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
+                                          {truck.randomDrugTestDate && (
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Pill className="h-3.5 w-3.5 text-amber-500 animate-pulse cursor-pointer" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="text-xs font-medium">Random Drug Test</p>
+                                                  <p className="text-xs">
+                                                    Date: {format(new Date(truck.randomDrugTestDate), 'MMM dd, yyyy')}
+                                                  </p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          )}
                                           {(truck.driverPhone ||
                                             truck.driverEmail ||
                                             truck.trailerNumber ||
