@@ -43,7 +43,7 @@ import {
 const navigation = [
   { name: "New Load", href: "/new-order", icon: Plus },
   { name: "Loads", href: "/orders", icon: FileText },
-  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management'] },
+  { name: "Loads at the Yard", href: "/yard-loads", icon: Warehouse, roles: ['manager', 'admin', 'chicago_management', 'yard'] },
   { name: "Trips", href: "/trips", icon: Route, roles: ['accounting', 'manager', 'admin', 'chicago_management'] },
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
@@ -137,6 +137,12 @@ export const Sidebar = () => {
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle }
       ];
+    }
+    
+    // Yard role: only Loads at Yard, Trucks, Trailers, Drivers, Yard Arrivals
+    if (hasRole('yard')) {
+      const yardPages = ['/yard-loads', '/trucks', '/trailers', '/drivers', '/yard-arrivals'];
+      return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
     // Dispatch role: all navigation

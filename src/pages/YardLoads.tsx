@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOrders } from "@/hooks/useOrders";
+import { useYardLoadsTable, YardLoad } from "@/hooks/useYardLoadsTable";
 import { useCompanies } from "@/hooks/useCompanies";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,18 +60,71 @@ export default function YardLoads() {
   const navigate = useNavigate();
   const { hasRole } = useAuthContext();
   
+  const isYardRole = hasRole('yard');
+  
   // Check if user has required roles
   useEffect(() => {
-    if (!hasRole('manager') && !hasRole('admin')) {
+    if (!hasRole('manager') && !hasRole('admin') && !hasRole('yard')) {
       navigate('/');
     }
   }, [hasRole, navigate]);
   
   const canCancelOrders = hasRole('dispatch') || hasRole('afterhours');
+  const canEditOrders = !isYardRole; // Yard role cannot edit
+  const canCreateOrders = !isYardRole; // Yard role cannot create
   
-  // Fetch data using the same hook as Orders page
-  const { data: orders = [], isLoading } = useOrders();
+  // Fetch data - yard role uses dedicated table, others use orders
+  const { data: ordersData = [], isLoading: ordersLoading } = useOrders();
+  const { data: yardLoadsData = [], isLoading: yardLoadsLoading } = useYardLoadsTable();
   const { data: companies = [] } = useCompanies();
+  
+  // Transform yard_loads data to match orders format for display
+  const transformYardLoads = (yardLoads: YardLoad[]) => {
+    return yardLoads.map(load => ({
+      id: load.id,
+      orderId: load.order_id,
+      internalLoadNumber: load.internal_load_number,
+      trailerNumber: load.trailer_number,
+      deliveryDate: load.delivery_date,
+      deliveryCity: load.delivery_city,
+      deliveryState: load.delivery_state,
+      truckNumber: load.truck_number,
+      driverName: load.driver_name,
+      brokerName: load.broker_name,
+      notes: load.notes,
+      // Default values for fields not in yard_loads
+      pickupCity: '',
+      pickupState: '',
+      pickupDate: '',
+      mileage: 0,
+      driverPrice: 0,
+      totalDriverPay: 0,
+      freightAmount: 0,
+      totalFreightAmount: 0,
+      brokerLoadNumber: '',
+      companyName: '',
+      bookedBy: '',
+      status: 'pending',
+      locked: false,
+      canceled: false,
+      isRecovery: false,
+      lateFeeDriver: 0,
+      noTrackingFeeDriver: 0,
+      wrongAddressFeeDriver: 0,
+      detentionDriver: 0,
+      layoverDriver: 0,
+      escortFee: 0,
+      lumper: 0,
+      dateChangeNotes: '',
+      truckId: null,
+      driver1Id: null,
+      truckCompanyName: '',
+    }));
+  };
+  
+  // Use appropriate data source based on role
+  const orders = isYardRole ? transformYardLoads(yardLoadsData) : ordersData;
+  const isLoading = isYardRole ? yardLoadsLoading : ordersLoading;
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -94,10 +148,11 @@ export default function YardLoads() {
   const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort();
   const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort();
 
-  // Filter orders - only show loads with no driver AND no truck
+  // Filter orders - only show loads with no driver AND no truck (skip for yard role since they use dedicated table)
   const filteredOrders = orders.filter(order => {
-    // First, filter for yard loads (no driver1_id AND no truck_id)
-    if (order.driver1Id || order.truckId) {
+    // For yard role, data is already filtered from yard_loads table
+    // For other roles, filter for yard loads (no driver1_id AND no truck_id)
+    if (!isYardRole && (order.driver1Id || order.truckId)) {
       return false;
     }
 
@@ -269,14 +324,18 @@ export default function YardLoads() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Loads at the Yard</h1>
         <div className="flex gap-2">
-          <Button onClick={exportToExcel} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Button onClick={() => navigate('/new-order')}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Load
-          </Button>
+          {!isYardRole && (
+            <Button onClick={exportToExcel} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+          )}
+          {canCreateOrders && (
+            <Button onClick={() => navigate('/new-order')}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Load
+            </Button>
+          )}
         </div>
       </div>
 
@@ -418,7 +477,7 @@ export default function YardLoads() {
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
-                          {!order.locked && (
+                          {canEditOrders && !order.locked && (
                             <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                               <Edit className="h-4 w-4" />
                             </Button>

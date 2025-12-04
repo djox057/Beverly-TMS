@@ -12,7 +12,7 @@ export interface UserProfile {
   office: string | null;
 }
 
-export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management';
+export type UserRole = 'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -255,6 +255,7 @@ export const useAuth = () => {
     if (roles.includes('maintenance')) return 'maintenance';
     if (roles.includes('dispatch')) return 'dispatch';
     if (roles.includes('afterhours')) return 'afterhours';
+    if (roles.includes('yard')) return 'yard';
     if (roles.includes('driver')) return 'driver';
     return roles[0];
   };
