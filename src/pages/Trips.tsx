@@ -19,7 +19,7 @@ import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDragPan } from "@/hooks/useDragPan";
-import { format, startOfWeek, endOfWeek, parseISO, isWithinInterval, getDay, addDays } from "date-fns";
+import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { toast } from "sonner";
@@ -28,14 +28,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to format datetime strings without timezone conversion
+// Extracts date parts directly from the string (Chicago time)
 const formatDateDisplay = (dateStr: string | null | undefined) => {
   if (!dateStr) return "";
   try {
-    // Parse the date and format as MM/DD/YYYY
-    const date = new Date(dateStr);
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const year = date.getFullYear();
+    // Normalize the string - replace space with T for consistent parsing
+    const normalizedStr = String(dateStr).replace(" ", "T");
+    
+    // Extract date parts directly from the ISO string (YYYY-MM-DD)
+    const datePart = normalizedStr.split("T")[0];
+    if (!datePart) return "";
+    
+    const [year, month, day] = datePart.split("-");
+    if (!year || !month || !day) return "";
+    
     return `${month}/${day}/${year}`;
   } catch (e) {
     return dateStr;
@@ -173,30 +179,30 @@ const Trips = () => {
   const groupedByWeek = useMemo(() => {
     const groups: { [key: string]: any[] } = {};
 
+    // Helper to parse date string without timezone conversion
+    const parseDateNoTimezone = (dateStr: string): Date | null => {
+      try {
+        // Normalize the string - replace space with T for consistent parsing
+        const normalizedStr = String(dateStr).replace(" ", "T");
+        const datePart = normalizedStr.split("T")[0];
+        if (!datePart) return null;
+        
+        const [year, month, day] = datePart.split("-").map(Number);
+        if (!year || !month || !day) return null;
+        
+        // Create date at noon to avoid any DST edge cases
+        return new Date(year, month - 1, day, 12, 0, 0);
+      } catch (e) {
+        return null;
+      }
+    };
+
     paginatedOrders.forEach((order) => {
       if (order.deliveryDate) {
         try {
-          // Parse date string - handle various formats
-          const dateStr = String(order.deliveryDate);
-          let deliveryDate: Date;
-
-          // If it's a string with time (ISO format)
-          if (dateStr.includes("T")) {
-            deliveryDate = parseISO(dateStr);
-          }
-          // If it's a simple date string like "10/20/2025" or "2025-10-20"
-          else {
-            // Try to parse as-is first
-            deliveryDate = new Date(dateStr);
-
-            // If that fails, try adding time
-            if (isNaN(deliveryDate.getTime())) {
-              deliveryDate = new Date(dateStr + "T00:00:00");
-            }
-          }
-
-          // Validate the date
-          if (isNaN(deliveryDate.getTime())) {
+          const deliveryDate = parseDateNoTimezone(String(order.deliveryDate));
+          
+          if (!deliveryDate || isNaN(deliveryDate.getTime())) {
             console.error("Invalid date:", order.deliveryDate);
             return;
           }
@@ -220,8 +226,15 @@ const Trips = () => {
       .map((weekKey) => ({
         weekStart: weekKey,
         orders: groups[weekKey].sort((a, b) => {
-          const dateA = new Date(a.deliveryDate || a.pickupDate).getTime();
-          const dateB = new Date(b.deliveryDate || b.pickupDate).getTime();
+          // Extract dates without timezone for sorting
+          const getDateValue = (dateStr: string | null | undefined): number => {
+            if (!dateStr) return 0;
+            const normalizedStr = String(dateStr).replace(" ", "T");
+            const datePart = normalizedStr.split("T")[0];
+            return datePart ? new Date(datePart + "T12:00:00").getTime() : 0;
+          };
+          const dateA = getDateValue(a.deliveryDate) || getDateValue(a.pickupDate);
+          const dateB = getDateValue(b.deliveryDate) || getDateValue(b.pickupDate);
           return dateB - dateA; // Newest first
         }),
       }));
@@ -1184,7 +1197,7 @@ const Trips = () => {
           .sort((a, b) => b.localeCompare(a)); // Sort descending (newest first)
 
         if (paidKeys.length > 0) {
-          lastPaidWeekStart = parseISO(paidKeys[0]);
+          lastPaidWeekStart = new Date(paidKeys[0] + "T12:00:00");
         }
       }
 
@@ -1716,7 +1729,7 @@ const Trips = () => {
                       { miles: 0, driverPay: 0, freightAmount: 0 },
                     );
 
-                      const weekStartDate = parseISO(week.weekStart);
+                      const weekStartDate = new Date(week.weekStart + "T12:00:00");
                       const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 2 });
 
                       // Get truck/driver info from first order for paid status
