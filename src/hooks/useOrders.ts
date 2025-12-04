@@ -294,95 +294,118 @@ export const useOrders = (options?: UseOrdersOptions) => {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
-      const { data: recentlyLockedOrders } = await supabase
-        .from("orders")
-        .select(
-          `
-          *,
-          pickup_drops (
-            id,
-            type,
-            address,
-            city,
-            state,
-            zip_code,
-            datetime,
-            end_datetime,
-            sequence_number,
-            arrived_at,
-            checked_out_at,
-            going_to_at,
-            company_name,
-            contact_name,
-            contact_phone,
-            special_instructions
-          ),
-          order_files (
-            id,
-            file_category,
-            file_name,
-            file_path,
-            file_size,
-            content_type,
-            uploaded_by,
-            created_at
-          ),
-          broker:brokers (
-            id,
-            name,
-            mc_number,
-            address
-          ),
-          company:companies!orders_company_id_fkey (
-            id,
-            name
-          ),
-          booked_by_company:companies!orders_booked_by_company_id_fkey (
-            id,
-            name
-          ),
-          truck:trucks!orders_truck_id_fkey (
-            id,
-            truck_number,
-            company:companies (
+      // Fetch ALL recently locked orders with pagination (Supabase default limit is 1000)
+      const recentlyLockedOrders: any[] = [];
+      const recentlyLockedBatchSize = 1000;
+      let recentlyLockedOffset = 0;
+      let hasMoreRecentlyLocked = true;
+      
+      while (hasMoreRecentlyLocked) {
+        const { data: recentlyLockedBatch, error: recentlyLockedError } = await supabase
+          .from("orders")
+          .select(
+            `
+            *,
+            pickup_drops (
+              id,
+              type,
+              address,
+              city,
+              state,
+              zip_code,
+              datetime,
+              end_datetime,
+              sequence_number,
+              arrived_at,
+              checked_out_at,
+              going_to_at,
+              company_name,
+              contact_name,
+              contact_phone,
+              special_instructions
+            ),
+            order_files (
+              id,
+              file_category,
+              file_name,
+              file_path,
+              file_size,
+              content_type,
+              uploaded_by,
+              created_at
+            ),
+            broker:brokers (
+              id,
+              name,
+              mc_number,
+              address
+            ),
+            company:companies!orders_company_id_fkey (
               id,
               name
+            ),
+            booked_by_company:companies!orders_booked_by_company_id_fkey (
+              id,
+              name
+            ),
+            truck:trucks!orders_truck_id_fkey (
+              id,
+              truck_number,
+              company:companies (
+                id,
+                name
+              )
+            ),
+            trailer:trailers!orders_trailer_id_fkey (
+              id,
+              trailer_number
+            ),
+            driver1:drivers!orders_driver1_id_fkey (
+              id,
+              name
+            ),
+            driver2:drivers!orders_driver2_id_fkey (
+              id,
+              name
+            ),
+            original_driver1:drivers!orders_original_driver1_id_fkey (
+              id,
+              name
+            ),
+            original_driver2:drivers!orders_original_driver2_id_fkey (
+              id,
+              name
+            ),
+            original_truck:trucks!orders_original_truck_id_fkey (
+              id,
+              truck_number
+            ),
+            original_trailer:trailers!orders_original_trailer_id_fkey (
+              id,
+              trailer_number
             )
-          ),
-          trailer:trailers!orders_trailer_id_fkey (
-            id,
-            trailer_number
-          ),
-          driver1:drivers!orders_driver1_id_fkey (
-            id,
-            name
-          ),
-          driver2:drivers!orders_driver2_id_fkey (
-            id,
-            name
-          ),
-          original_driver1:drivers!orders_original_driver1_id_fkey (
-            id,
-            name
-          ),
-          original_driver2:drivers!orders_original_driver2_id_fkey (
-            id,
-            name
-          ),
-          original_truck:trucks!orders_original_truck_id_fkey (
-            id,
-            truck_number
-          ),
-          original_trailer:trailers!orders_original_trailer_id_fkey (
-            id,
-            trailer_number
+          `,
           )
-        `,
-        )
-        .eq("locked", true)
-        .gte("updated_at", sevenDaysAgo.toISOString());
+          .eq("locked", true)
+          .gte("updated_at", sevenDaysAgo.toISOString())
+          .order("updated_at", { ascending: false })
+          .range(recentlyLockedOffset, recentlyLockedOffset + recentlyLockedBatchSize - 1);
+        
+        if (recentlyLockedError) {
+          console.error("[useOrders] Error fetching recently locked orders:", recentlyLockedError);
+          break;
+        }
+        
+        if (recentlyLockedBatch && recentlyLockedBatch.length > 0) {
+          recentlyLockedOrders.push(...recentlyLockedBatch);
+          recentlyLockedOffset += recentlyLockedBatchSize;
+          hasMoreRecentlyLocked = recentlyLockedBatch.length === recentlyLockedBatchSize;
+        } else {
+          hasMoreRecentlyLocked = false;
+        }
+      }
       
-      console.log(`🔒 [useOrders] Loaded ${recentlyLockedOrders?.length || 0} recently locked orders from DB`);
+      console.log(`🔒 [useOrders] Loaded ${recentlyLockedOrders.length} recently locked orders from DB (paginated)`);
 
       // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
       let enrichedLockedOrders: any[] = [];
