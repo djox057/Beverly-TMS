@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useOrders } from "@/hooks/useOrders";
-import { useYardLoadsTable, YardLoad } from "@/hooks/useYardLoadsTable";
+import { useYardLoadsFromOrders } from "@/hooks/useYardLoadsFromOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,58 +72,12 @@ export default function YardLoads() {
   const canEditOrders = !isYardRole; // Yard role cannot edit
   const canCreateOrders = !isYardRole; // Yard role cannot create
   
-  // Fetch data - yard role uses dedicated table, others use orders
-  const { data: ordersData = [], isLoading: ordersLoading } = useOrders();
-  const { data: yardLoadsData = [], isLoading: yardLoadsLoading } = useYardLoadsTable();
+  // Fetch yard loads directly from orders table (where driver1_id IS NULL and truck_id IS NULL)
+  const { data: yardLoadsData = [], isLoading } = useYardLoadsFromOrders();
   const { data: companies = [] } = useCompanies();
-  
-  // Transform yard_loads data to match orders format for display
-  const transformYardLoads = (yardLoads: YardLoad[]) => {
-    return yardLoads.map(load => ({
-      id: load.id,
-      orderId: load.order_id,
-      internalLoadNumber: load.internal_load_number,
-      trailerNumber: load.trailer_number,
-      deliveryDate: load.delivery_date,
-      deliveryCity: load.delivery_city,
-      deliveryState: load.delivery_state,
-      truckNumber: load.truck_number,
-      driverName: load.driver_name,
-      brokerName: load.broker_name,
-      notes: load.notes,
-      // Default values for fields not in yard_loads
-      pickupCity: '',
-      pickupState: '',
-      pickupDate: '',
-      mileage: 0,
-      driverPrice: 0,
-      totalDriverPay: 0,
-      freightAmount: 0,
-      totalFreightAmount: 0,
-      brokerLoadNumber: '',
-      companyName: '',
-      bookedBy: '',
-      status: 'pending',
-      locked: false,
-      canceled: false,
-      isRecovery: false,
-      lateFeeDriver: 0,
-      noTrackingFeeDriver: 0,
-      wrongAddressFeeDriver: 0,
-      detentionDriver: 0,
-      layoverDriver: 0,
-      escortFee: 0,
-      lumper: 0,
-      dateChangeNotes: '',
-      truckId: null,
-      driver1Id: null,
-      truckCompanyName: '',
-    }));
-  };
-  
-  // Use appropriate data source based on role
-  const orders = isYardRole ? transformYardLoads(yardLoadsData) : ordersData;
-  const isLoading = isYardRole ? yardLoadsLoading : ordersLoading;
+
+  // Use yard loads data directly (already filtered by driver1_id IS NULL and truck_id IS NULL)
+  const orders = yardLoadsData;
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,27 +97,21 @@ export default function YardLoads() {
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
 
   // Get unique values for filters
-  const trucks = Array.from(new Set(orders.map(o => o.truckNumber).filter(Boolean))).sort();
-  const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort();
-  const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort();
+  const trucks = Array.from(new Set(orders.map(o => o.truckNumber).filter(Boolean))).sort() as string[];
+  const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort() as string[];
+  const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort() as string[];
 
-  // Debug: Log orders with null driver and truck
-  const yardCandidates = orders.filter(o => !o.driver1Id && !o.truckId);
-  console.log("🏗️ [YardLoads] Total orders:", orders.length, "Yard candidates (null driver & truck):", yardCandidates.length, yardCandidates.map(o => ({ id: o.id, loadNumber: o.internalLoadNumber, driver1Id: o.driver1Id, truckId: o.truckId })));
+  // Debug: Log yard loads
+  console.log("🏗️ [YardLoads] Total yard loads:", orders.length);
 
-  // Filter orders - only show loads with no driver AND no truck (skip for yard role since they use dedicated table)
+  // Filter orders (all are already yard loads from the query)
   const filteredOrders = orders.filter(order => {
-    // For yard role, data is already filtered from yard_loads table
-    // For other roles, filter for yard loads (no driver1_id AND no truck_id)
-    if (!isYardRole && (order.driver1Id || order.truckId)) {
-      return false;
-    }
 
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const searchableFields = [
-        order.internalLoadNumber,
+        String(order.internalLoadNumber || ''),
         order.brokerLoadNumber,
         order.truckNumber,
         order.driverName,
@@ -179,7 +126,7 @@ export default function YardLoads() {
     }
 
     // Company filter
-    if (selectedCompany && order.truckCompanyName !== selectedCompany) {
+    if (selectedCompany && order.companyName !== selectedCompany) {
       return false;
     }
 
@@ -468,14 +415,14 @@ export default function YardLoads() {
                         <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
-                            {formatCurrency(order.totalDriverPay)}
+                            {formatCurrency(order.driverPrice || 0)}
                           </div>
                         </TableCell>
                         <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
-                            {formatCurrency(order.totalFreightAmount)}
+                            {formatCurrency(order.freightAmount || 0)}
                           </div>
                         </TableCell>
                         <TableCell>{order.companyName}</TableCell>
