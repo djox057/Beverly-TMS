@@ -1153,6 +1153,9 @@ export const useReports = () => {
 
           const dispatcherInfo = dispatchers?.find((d) => d.user_id === driver.dispatcher_id);
 
+          // Get the most recent note for this driver
+          const driverNote = truckNotes?.find((note) => note.driver_id === driver.id);
+
           const formatLocation = (city: string | null, state: string | null) => {
             if (city && state) return `${city}, ${state}`;
             if (city) return city;
@@ -1270,9 +1273,13 @@ export const useReports = () => {
             hosLastUpdated: driver.hos_last_updated || null,
             twoWeekBlockDate: driver.two_week_block_date || null,
             randomDrugTestDate: driver.random_drug_test_date || null,
-            note: "",
-            lastEdit: new Date().toLocaleTimeString(),
-            editDate: new Date().toLocaleDateString(),
+            note: driverNote?.note || "",
+            lastEdit: driverNote?.updated_at
+              ? new Date(driverNote.updated_at).toLocaleTimeString()
+              : new Date().toLocaleTimeString(),
+            editDate: driverNote?.updated_at
+              ? new Date(driverNote.updated_at).toLocaleDateString()
+              : new Date().toLocaleDateString(),
             allOrders: allOrdersWithStops,
             activeOrders: activeOrders,
             activeOrdersCount: activeOrders.length,
