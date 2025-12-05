@@ -546,13 +546,18 @@ export const useReports = () => {
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
             lockedOrders = ordersWithRelations.filter((order: any) => {
-              if (order.canceled) return false;
+              // Handle CSV string booleans - "true"/"false"/1/0 need proper conversion
+              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+              if (isCanceled) return false;
               
-              const deliveryDate = order.delivery_datetime ? new Date(order.delivery_datetime) : null;
+              // Normalize delivery_datetime - CSV uses space separator, ISO uses T
+              const deliveryDateStr = order.delivery_datetime ? 
+                String(order.delivery_datetime).replace(' ', 'T') : null;
+              const deliveryDate = deliveryDateStr ? new Date(deliveryDateStr) : null;
 
               return (
                 !order.delivery_datetime ||
-                (deliveryDate && deliveryDate >= ninetyDaysAgoForFilter) ||
+                (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgoForFilter) ||
                 order.status === 'in_transit' ||
                 order.status === 'pending'
               );
