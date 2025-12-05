@@ -268,6 +268,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
         order => !unlockedOrderIds.has(order.id)
       );
       
+      // Sort locked orders by pickup_datetime descending
+      deduplicatedLockedOrders.sort((a, b) => {
+        const dateA = a.pickup_datetime || '';
+        const dateB = b.pickup_datetime || '';
+        return dateB.localeCompare(dateA);
+      });
+      
       // Merge initial unlocked orders with deduplicated locked orders
       const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
 
@@ -412,6 +419,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
               const currentDeduplicatedLocked = enrichedLockedOrders.filter(
                 order => !currentUnlockedIds.has(order.id)
               );
+              
+              // Sort locked orders by pickup_datetime descending
+              currentDeduplicatedLocked.sort((a, b) => {
+                const dateA = a.pickup_datetime || '';
+                const dateB = b.pickup_datetime || '';
+                return dateB.localeCompare(dateA);
+              });
               
               // Merge with deduplicated locked orders and update cache progressively
               const mergedData = transformOrders([...backgroundOrders, ...currentDeduplicatedLocked]);
