@@ -173,37 +173,15 @@ export const useReports = () => {
 
         if (error) throw error;
       } else {
-        // For unassigned drivers, we need a truck_id - use a placeholder or skip
-        if (!actualTruckId) {
-          // Can't create a note without a truck_id, but we can try to find a truck for this driver
-          const { data: driverTruck } = await supabase
-            .from("trucks")
-            .select("id")
-            .eq("driver1_id", driverId)
-            .maybeSingle();
-          
-          if (!driverTruck) {
-            throw new Error("Cannot create note: driver has no assigned truck");
-          }
-          
-          const { error } = await supabase.from("truck_notes").insert({
-            truck_id: driverTruck.id,
-            driver_id: driverId,
-            note,
-            updated_by: user.id,
-          });
-          if (error) throw error;
-        } else {
-          // Create new note with valid truck_id
-          const { error } = await supabase.from("truck_notes").insert({
-            truck_id: actualTruckId,
-            driver_id: driverId,
-            note,
-            updated_by: user.id,
-          });
+        // Create new note - truck_id can be null for unassigned drivers
+        const { error } = await supabase.from("truck_notes").insert({
+          truck_id: actualTruckId,
+          driver_id: driverId,
+          note,
+          updated_by: user.id,
+        });
 
-          if (error) throw error;
-        }
+        if (error) throw error;
       }
     },
     onMutate: async ({ truckId, note }) => {
