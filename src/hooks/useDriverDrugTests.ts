@@ -57,8 +57,10 @@ export const useDriverDrugTests = () => {
 
       if (error) throw error;
 
-      // Add comment to driver notes if truckId is provided
-      if (truckId && result) {
+      // Add comment to driver notes if truckId is provided and it's a valid UUID (not prefixed like "driver-xxx")
+      const isValidTruckId = truckId && !truckId.startsWith('driver-');
+      
+      if (isValidTruckId && result) {
         const noteText = result === 'positive' 
           ? 'Drug result Positive' 
           : result === 'negative' 
