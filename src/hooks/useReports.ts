@@ -681,12 +681,6 @@ export const useReports = () => {
                   order.driver2_id === truck.driver1_id,
               ) || [];
 
-            // DEBUG: Log for truck 1323
-            if (truck.truck_number === "1323") {
-              const targetOrder = driverOrders.find((o) => o.id === "c2b5d630-792b-45aa-a028-8ca26e81180c");
-              console.log("🔍 DEBUG Truck 1323 - Found target order:", !!targetOrder);
-            }
-
             // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
             const activeOrders =
               driverOrders.filter((order) => {
