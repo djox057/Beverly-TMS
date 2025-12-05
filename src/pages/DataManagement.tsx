@@ -11,7 +11,8 @@ import {
   saveLockedOrders, 
   savePickupDrops, 
   saveOrderFiles, 
-  getCacheStats 
+  getCacheStats,
+  clearCache
 } from "@/utils/ordersCache";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,13 +80,18 @@ export default function DataManagement() {
 
             await saveFunction(data);
             
-            // Update metadata to notify all users
+            // Clear local IndexedDB cache to force fresh fetch from storage
+            await clearCache();
+            
+            // Update metadata to notify all users - use upsert with id
+            const metadataId = 'singleton';
             await supabase
               .from('archived_orders_metadata')
               .upsert({
+                id: metadataId,
                 last_updated_at: new Date().toISOString(),
                 updated_by: (await supabase.auth.getUser()).data.user?.id,
-              });
+              }, { onConflict: 'id' });
             
             setImportStatus(prev => ({ ...prev, [type]: true }));
             
@@ -94,8 +100,10 @@ export default function DataManagement() {
               description: `Imported ${data.length} ${label} records from CSV. All users will see the updated data automatically.`,
             });
 
-            // Invalidate orders query to trigger reload with new cached data
+            // Invalidate both orders AND reports queries to trigger reload with new cached data
             queryClient.invalidateQueries({ queryKey: ['orders'] });
+            queryClient.invalidateQueries({ queryKey: ['reports'] });
+            queryClient.invalidateQueries({ queryKey: ['cache-stats'] });
           } catch (error) {
             console.error(`Failed to save ${type}:`, error);
             setImportStatus(prev => ({ ...prev, [type]: false }));
