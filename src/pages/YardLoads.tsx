@@ -101,8 +101,6 @@ export default function YardLoads() {
   const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort() as string[];
   const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort() as string[];
 
-  // Debug: Log yard loads
-  console.log("🏗️ [YardLoads] Total yard loads:", orders.length);
 
   // Filter orders (all are already yard loads from the query)
   const filteredOrders = orders.filter(order => {

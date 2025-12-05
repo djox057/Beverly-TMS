@@ -7,7 +7,7 @@ import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 async function enrichLockedOrdersWithLookups(
   lockedOrders: any[],
 ): Promise<any[]> {
-  console.log("🔍 [enrichLockedOrders] Starting enrichment for", lockedOrders.length, "orders");
+  // Enrich locked orders with lookup data
 
   // Extract all unique IDs and filter out nulls, undefined, and "null" strings
   const filterValidIds = (ids: any[]) => ids.filter(id => id && id !== "null" && id !== "NULL");
@@ -22,14 +22,6 @@ async function enrichLockedOrdersWithLookups(
     ...new Set(filterValidIds([...lockedOrders.map((o) => o.company_id), ...lockedOrders.map((o) => o.booked_by_company_id)])),
   ];
 
-  console.log("🔍 [enrichLockedOrders] Found:", {
-    orders: orderIds.length,
-    trucks: truckIds.length,
-    trailers: trailerIds.length,
-    drivers: driver1Ids.length + driver2Ids.length,
-    brokers: brokerIds.length,
-    companies: companyIds.length,
-  });
 
   // Helper to batch fetch data in chunks to avoid URL length limits
   const batchFetch = async (
@@ -100,14 +92,6 @@ async function enrichLockedOrdersWithLookups(
   const brokersMap = new Map((brokersData.data || []).map((b) => [b.id, b]));
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
-  console.log("🗺️ [enrichLockedOrders] Sample lookups:", {
-    sampleTruckId: truckIds[0],
-    sampleTruck: trucksMap.get(truckIds[0]),
-    sampleDriverId: driver1Ids[0],
-    sampleDriver: driversMap.get(driver1Ids[0]),
-    sampleBrokerId: brokerIds[0],
-    sampleBroker: brokersMap.get(brokerIds[0]),
-  });
 
   // Group pickup_drops and order_files from database by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
@@ -126,16 +110,6 @@ async function enrichLockedOrdersWithLookups(
     orderFilesByOrder.get(of.order_id)!.push(of);
   });
 
-  console.log("✅ [enrichLockedOrders] Lookup data fetched:", {
-    trucks: trucksData.data?.length || 0,
-    trailers: trailersData.data?.length || 0,
-    drivers: driversData.data?.length || 0,
-    brokers: brokersData.data?.length || 0,
-    companies: companiesData.data?.length || 0,
-    pickupDrops: pickupDropsData.data?.length || 0,
-    orderFiles: orderFilesData.data?.length || 0,
-  });
-  console.log("✅ [enrichLockedOrders] Attaching to orders...");
 
   // Attach lookup data to each order
   const enriched = lockedOrders.map((order) => ({
@@ -151,15 +125,6 @@ async function enrichLockedOrdersWithLookups(
     order_files: orderFilesByOrder.get(order.id) || [],
   }));
 
-  console.log("✅ [enrichLockedOrders] Enrichment complete, sample enriched order:", {
-    id: enriched[0]?.id,
-    truck_id: enriched[0]?.truck_id,
-    truck: enriched[0]?.truck,
-    driver1_id: enriched[0]?.driver1_id,
-    driver1: enriched[0]?.driver1,
-    broker_id: enriched[0]?.broker_id,
-    broker: enriched[0]?.broker,
-  });
   return enriched;
 }
 
@@ -170,15 +135,10 @@ interface UseOrdersOptions {
 export const useOrders = (options?: UseOrdersOptions) => {
   const queryClient = useQueryClient();
 
-  console.log("🔴 [useOrders] ============ HOOK CALLED ============");
-  console.log("🔴 [useOrders] Options:", JSON.stringify(options));
 
   const query = useQuery({
     queryKey: ["orders", options?.bookedBy],
     queryFn: async () => {
-      console.log("🟢 [useOrders] ============ QUERYFN EXECUTING ============");
-      console.log("🟢 [useOrders] Fetching orders with bookedBy:", options?.bookedBy);
-
       const initialBatchSize = 200;
       const batchSize = 500;
 
@@ -283,24 +243,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
         throw initialError;
       }
 
-      console.log(`[useOrders] ✅ Loaded initial ${initialBatch?.length || 0} UNLOCKED orders`);
-
       // Load LOCKED orders from cache only (no DB fetch for performance)
-      console.log("🔒 [useOrders] Loading LOCKED orders from cache...");
       const lockedOrders = await getLockedOrders();
 
       // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
       let enrichedLockedOrders: any[] = [];
       if (lockedOrders && lockedOrders.length > 0) {
-        console.log("✅ [useOrders] Loaded", lockedOrders.length, "locked orders from cache");
-        console.log("🔍 [useOrders] Enriching locked orders with lookup data from database...");
         enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
-        console.log("✅ [useOrders] Enrichment complete");
-      } else {
-        console.warn("⚠️ [useOrders] No cached locked orders found. Total data will be incomplete.");
-        console.warn(
-          "⚠️ [useOrders] Please import archived orders via Data Management page to see all historical data.",
-        );
       }
 
       // Deduplicate: remove locked orders if unlocked version exists
@@ -309,20 +258,11 @@ export const useOrders = (options?: UseOrdersOptions) => {
         order => !unlockedOrderIds.has(order.id)
       );
       
-      if (enrichedLockedOrders.length > deduplicatedLockedOrders.length) {
-        console.log(`🔄 [useOrders] Removed ${enrichedLockedOrders.length - deduplicatedLockedOrders.length} duplicate locked orders (unlocked version exists)`);
-      }
-
       // Merge initial unlocked orders with deduplicated locked orders
       const initialMergedOrders = transformOrders([...(initialBatch || []), ...deduplicatedLockedOrders]);
 
-      console.log(
-        `[useOrders] ✅ Initial merged data: ${initialMergedOrders.length} orders (${initialBatch?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)`,
-      );
-
       // Continue loading remaining UNLOCKED orders in background
       if (initialBatch && initialBatch.length === initialBatchSize) {
-        console.log("[useOrders] Starting background loading...");
 
         // Load in background but don't block initial render
         (async () => {
@@ -333,8 +273,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
             let batchCount = 1;
 
             while (hasMore) {
-              console.log(`[useOrders] Loading batch ${batchCount} starting at offset ${offset}...`);
-
               let bgQuery = supabase
                 .from("orders")
                 .select(
@@ -437,18 +375,15 @@ export const useOrders = (options?: UseOrdersOptions) => {
               }
 
               if (!batch || batch.length === 0) {
-                console.log(`[useOrders] No more orders to load at offset ${offset}`);
                 hasMore = false;
                 break;
               }
 
-              console.log(`[useOrders] ✅ Loaded batch ${batchCount}: ${batch.length} orders`);
               backgroundOrders.push(...batch);
               offset += batchSize;
               batchCount++;
 
               if (batch.length < batchSize) {
-                console.log(`[useOrders] Last batch was smaller (${batch.length} < ${batchSize}), stopping`);
                 hasMore = false;
               }
 
@@ -461,20 +396,10 @@ export const useOrders = (options?: UseOrdersOptions) => {
               // Merge with deduplicated locked orders and update cache progressively
               const mergedData = transformOrders([...backgroundOrders, ...currentDeduplicatedLocked]);
               queryClient.setQueryData(["orders", options?.bookedBy], mergedData);
-              console.log(`[useOrders] 📊 Updated cache: ${mergedData.length} total orders`);
             }
 
-            // Final deduplication count
-            const finalUnlockedIds = new Set(backgroundOrders.map(o => o.id));
-            const finalDeduplicatedCount = enrichedLockedOrders.filter(
-              order => !finalUnlockedIds.has(order.id)
-            ).length;
-            
-            console.log(
-              `[useOrders] 🎉 Background loading complete! Total: ${backgroundOrders.length} unlocked + ${finalDeduplicatedCount} locked`,
-            );
           } catch (error) {
-            console.error("[useOrders] ❌ Background loading error:", error);
+            console.error("[useOrders] Background loading error:", error);
           }
         })();
       }
@@ -489,24 +414,9 @@ export const useOrders = (options?: UseOrdersOptions) => {
     staleTime: Infinity, // Keep data fresh with real-time updates
   });
 
-  // Monitor when query data changes
-  useEffect(() => {
-    console.log("🟣 [useOrders] QUERY DATA CHANGED!", {
-      dataLength: query.data?.length,
-      isLoading: query.isLoading,
-      isError: query.isError,
-      isFetching: query.isFetching,
-      isStale: query.isStale,
-    });
-  }, [query.data, query.isLoading, query.isError, query.isFetching]);
-
   // Set up real-time subscriptions for automatic updates with smart cache manipulation
   useEffect(() => {
-    console.log("🔴 [useOrders] REALTIME EFFECT RUNNING - bookedBy:", options?.bookedBy);
-
-    // Force fresh connection with timestamp
     const channelName = `orders-realtime-${Date.now()}`;
-    console.log("🔴 [useOrders] Creating channel:", channelName);
     const channel = supabase
       .channel(channelName)
       .on(
@@ -517,25 +427,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: "orders",
         },
         async (payload) => {
-          console.log("🆕 [useOrders] ========= INSERT EVENT =========");
-          console.log("🆕 [useOrders] Order ID:", payload.new.id);
           try {
             const newOrder = await fetchSingleOrder(payload.new.id);
-            console.log("🆕 [useOrders] Fetched new order:", newOrder ? "SUCCESS" : "FAILED");
-
             if (newOrder) {
               const queryKey = ["orders", options?.bookedBy];
               queryClient.setQueryData(queryKey, (old: any) => {
-                console.log("🆕 [useOrders] OLD cache length:", old?.length);
                 if (!old) return [newOrder];
-                const newData = [newOrder, ...old];
-                console.log("🆕 [useOrders] NEW cache length:", newData.length);
-                return newData;
+                return [newOrder, ...old];
               });
-              console.log("🆕 [useOrders] ✅ INSERT complete");
             }
           } catch (error) {
-            console.error("🆕 [useOrders] ❌ Error handling INSERT:", error);
+            console.error("[useOrders] Error handling INSERT:", error);
           }
         },
       )
@@ -547,71 +449,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: "orders",
         },
         async (payload) => {
-          console.log("🚨🚨🚨 =======================================");
-          console.log("🚨🚨🚨 ORDERS TABLE UPDATE EVENT RECEIVED!!!");
-          console.log("🚨🚨🚨 =======================================");
-          console.log("✏️ [useOrders] Event type:", payload.eventType);
-          console.log("✏️ [useOrders] Table:", payload.table);
-          console.log("✏️ [useOrders] Schema:", payload.schema);
-          console.log("✏️ [useOrders] Order ID:", payload.new.id);
-          console.log("✏️ [useOrders] FULL PAYLOAD:", JSON.stringify(payload, null, 2));
-
           try {
-            console.log("✏️ [useOrders] Step 1: Fetching updated order from DB...");
             const updatedOrder = await fetchSingleOrder(payload.new.id);
-            console.log("✏️ [useOrders] Step 2: Fetch result:", updatedOrder ? "✅ SUCCESS" : "❌ FAILED");
-
-            if (!updatedOrder) {
-              console.error("✏️ [useOrders] ❌ fetchSingleOrder returned null, aborting update");
-              return;
-            }
-
-            console.log("✏️ [useOrders] Step 3: Updated order details:", {
-              id: updatedOrder.id,
-              loadNumber: updatedOrder.loadNumber,
-              driverPrice: updatedOrder.driverPrice,
-              freightAmount: updatedOrder.freightAmount,
-              status: updatedOrder.status,
-            });
+            if (!updatedOrder) return;
 
             const queryKey = ["orders", options?.bookedBy];
-            console.log("✏️ [useOrders] Step 4: Query key for cache update:", queryKey);
-
-            console.log("✏️ [useOrders] Step 5: Calling setQueryData...");
             queryClient.setQueryData(queryKey, (old: any) => {
-              console.log("✏️ [useOrders] Step 6: Inside setQueryData callback");
-              console.log("✏️ [useOrders] OLD cache:", {
-                exists: !!old,
-                isArray: Array.isArray(old),
-                length: old?.length,
-                firstOrderId: old?.[0]?.id,
-              });
-
-              if (!old || !Array.isArray(old)) {
-                console.log("✏️ [useOrders] ❌ No old data or not array, returning [updatedOrder]");
-                return [updatedOrder];
-              }
-
+              if (!old || !Array.isArray(old)) return [updatedOrder];
               const orderIndex = old.findIndex((o: any) => o.id === updatedOrder.id);
-              console.log("✏️ [useOrders] Order index in cache:", orderIndex);
-
-              if (orderIndex === -1) {
-                console.log("✏️ [useOrders] ⚠️ Order not found in cache, adding it");
-                return [updatedOrder, ...old];
-              }
-
-              console.log("✏️ [useOrders] OLD order data:", old[orderIndex]);
+              if (orderIndex === -1) return [updatedOrder, ...old];
               const newData = [...old];
               newData[orderIndex] = updatedOrder;
-              console.log("✏️ [useOrders] NEW order data:", newData[orderIndex]);
-              console.log("✏️ [useOrders] ✅ Returning updated array, length:", newData.length);
               return newData;
             });
-
-            console.log("🎉🎉🎉 UPDATE COMPLETE! Cache should be updated now 🎉🎉🎉");
           } catch (error) {
-            console.error("✏️ [useOrders] ❌ Error handling UPDATE:", error);
-            console.error("✏️ [useOrders] Error stack:", error);
+            console.error("[useOrders] Error handling UPDATE:", error);
           }
         },
       )
@@ -623,15 +475,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
           table: "orders",
         },
         (payload) => {
-          console.log("🗑️ [useOrders] DELETE event - order:", payload.old.id);
           try {
             queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
-              console.log("[useOrders] ✅ Order removed from cache");
               if (!old) return [];
               return old.filter((o: any) => o.id !== payload.old.id);
             });
           } catch (error) {
-            console.error("[useOrders] ❌ Error handling DELETE:", error);
+            console.error("[useOrders] Error handling DELETE:", error);
           }
         },
       )
@@ -645,18 +495,16 @@ export const useOrders = (options?: UseOrdersOptions) => {
         async (payload) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
-            console.log("📍 [useOrders] pickup_drops change for order:", orderId);
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
                 queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
-                  console.log("[useOrders] ✅ Cache updated after pickup_drops change");
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
                 });
               }
             } catch (error) {
-              console.error("[useOrders] ❌ Error handling pickup_drops change:", error);
+              console.error("[useOrders] Error handling pickup_drops change:", error);
             }
           }
         },
@@ -671,47 +519,23 @@ export const useOrders = (options?: UseOrdersOptions) => {
         async (payload) => {
           const orderId = (payload.new as any)?.order_id || (payload.old as any)?.order_id;
           if (orderId) {
-            console.log("📎 [useOrders] order_files change for order:", orderId);
             try {
               const updatedOrder = await fetchSingleOrder(orderId);
               if (updatedOrder) {
                 queryClient.setQueryData(["orders", options?.bookedBy], (old: any) => {
-                  console.log("[useOrders] ✅ Cache updated after order_files change");
                   if (!old) return [updatedOrder];
                   return old.map((o: any) => (o.id === orderId ? updatedOrder : o));
                 });
               }
             } catch (error) {
-              console.error("[useOrders] ❌ Error handling order_files change:", error);
+              console.error("[useOrders] Error handling order_files change:", error);
             }
           }
         },
       )
-      .subscribe((status, err) => {
-        console.log("📡 [useOrders] ========= SUBSCRIPTION STATUS =========");
-        console.log("📡 [useOrders] Status:", status);
-        console.log("📡 [useOrders] Error:", err);
-        console.log("📡 [useOrders] Channel name:", channelName);
-
-        if (status === "SUBSCRIBED") {
-          console.log("🟢🟢🟢 [useOrders] ✅✅✅ SUCCESSFULLY SUBSCRIBED TO REALTIME! 🟢🟢🟢");
-          console.log("🟢 [useOrders] Listening for INSERT, UPDATE, DELETE on orders table");
-          console.log("🟢 [useOrders] Listening for changes on pickup_drops table");
-          console.log("🟢 [useOrders] Listening for changes on order_files table");
-        } else if (status === "CHANNEL_ERROR") {
-          console.error("🔴🔴🔴 [useOrders] ❌❌❌ CHANNEL ERROR! 🔴🔴🔴");
-          console.error("🔴 [useOrders] Error details:", err);
-        } else if (status === "TIMED_OUT") {
-          console.error("🔴🔴🔴 [useOrders] ❌❌❌ SUBSCRIPTION TIMED OUT! 🔴🔴🔴");
-        } else if (status === "CLOSED") {
-          console.log("🟡 [useOrders] Channel closed");
-        } else {
-          console.log("🟡 [useOrders] Subscription status:", status);
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log("🔴 [useOrders] Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
   }, [options?.bookedBy, queryClient]);
@@ -721,7 +545,6 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
 // Helper function to fetch a single order with all joins
 async function fetchSingleOrder(orderId: string) {
-  console.log("📥 [fetchSingleOrder] Fetching order:", orderId);
   try {
     const { data, error } = await supabase
       .from("orders")
@@ -812,29 +635,22 @@ async function fetchSingleOrder(orderId: string) {
       .single();
 
     if (error) {
-      console.error("📥 [fetchSingleOrder] ❌ Error:", error);
+      console.error("[fetchSingleOrder] Error:", error);
       throw error;
     }
     if (!data) {
-      console.warn("📥 [fetchSingleOrder] ⚠️ No data returned");
       return null;
     }
 
-    console.log("📥 [fetchSingleOrder] ✅ Data fetched, transforming...");
-    // Transform and return the single order
-    const transformed = transformOrders([data])[0];
-    console.log("📥 [fetchSingleOrder] ✅ Transformation complete");
-    return transformed;
+    return transformOrders([data])[0];
   } catch (error) {
-    console.error("📥 [fetchSingleOrder] ❌ Exception:", orderId, error);
+    console.error("[fetchSingleOrder] Exception:", orderId, error);
     return null;
   }
 }
 
 // Helper function to transform orders data
 function transformOrders(allOrders: any[]) {
-  console.log(`🔄 [transformOrders] Processing ${allOrders.length} orders`);
-
   // Helper to safely convert values to numbers, handling "null" strings and undefined
   const toNum = (val: any): number => {
     if (val === null || val === undefined || val === "" || val === "null" || val === "NULL") {
@@ -844,26 +660,7 @@ function transformOrders(allOrders: any[]) {
     return isNaN(num) ? 0 : num;
   };
 
-  const transformed = (allOrders || []).map((order: any, index: number) => {
-    // Log first order to debug structure
-    if (index === 0) {
-      console.log("🔍 [transformOrders] Sample raw order:", {
-        id: order.id,
-        truck_id: order.truck_id,
-        truck: order.truck,
-        truck_number: order.truck_number,
-        driver1_id: order.driver1_id,
-        driver1: order.driver1,
-        driver_name: order.driver_name,
-        broker_id: order.broker_id,
-        broker: order.broker,
-        broker_name: order.broker_name,
-        canceled: order.canceled,
-        tonu: order.tonu,
-        date_change_notes: order.date_change_notes,
-      });
-    }
-
+  const transformed = (allOrders || []).map((order: any) => {
     // CRITICAL: Never skip transformation - always recalculate totalFreightAmount
     // This ensures cached orders (which only have freight_amount) get proper totals
     // Parse JSONB fields back to arrays (already arrays from join)
@@ -1139,19 +936,5 @@ function transformOrders(allOrders: any[]) {
     };
   });
 
-  // Log first transformed order to debug
-  if (transformed.length > 0) {
-    console.log("🎯 [transformOrders] Sample transformed order:", {
-      id: transformed[0].id,
-      truckNumber: transformed[0].truckNumber,
-      driverName: transformed[0].driverName,
-      brokerName: transformed[0].brokerName,
-      canceled: transformed[0].canceled,
-      dateChangeNotes: transformed[0].dateChangeNotes,
-      tonu: transformed[0].tonu,
-    });
-  }
-
-  console.log(`🔄 [transformOrders] Completed transformation of ${transformed.length} orders`);
   return transformed;
 }

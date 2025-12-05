@@ -32,27 +32,15 @@ export const useCompanies = () => {
   return useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      console.log('🏢 Fetching companies...');
-      
       return queryWithTimeout(async () => {
         const { data, error } = await supabase
           .from('companies')
           .select('*')
           .order('name');
         
-        console.log('🏢 Companies query result:', { 
-          data: data?.map(c => ({ id: c.id, name: c.name })), 
-          error, 
-          count: data?.length 
-        });
-        
         if (error) {
-          console.error('🏢 Error fetching companies:', error);
+          console.error('Error fetching companies:', error);
           throw error;
-        }
-        
-        if (!data || data.length === 0) {
-          console.warn('🏢 No companies found in database');
         }
         
         return data || [];

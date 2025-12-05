@@ -47,7 +47,7 @@ export const useTrucks = () => {
   return useQuery({
     queryKey: ['trucks', 'v2'], // Added version to force cache invalidation
     queryFn: async () => {
-      console.log('🚛 Fetching trucks with relationships...');
+      
       
       return queryWithTimeout(async () => {
         let allTrucks: any[] = [];
@@ -73,11 +73,11 @@ export const useTrucks = () => {
             throw error;
           }
           
-          console.log('✅ Raw truck data sample:', JSON.stringify(data?.[0], null, 2));
+          
           
           if (!data || data.length === 0) break;
           
-          console.log(`✅ Fetched ${data.length} trucks (batch ${from / batchSize + 1})`);
+          
           allTrucks = [...allTrucks, ...data];
           
           if (data.length < batchSize) break;
@@ -155,8 +155,6 @@ export const useTrucks = () => {
           };
         });
         
-        console.log(`✅ Total trucks fetched: ${trucksWithDispatchers.length}`);
-        console.log('Sample truck:', trucksWithDispatchers[0]);
         return trucksWithDispatchers;
       }, 30000);
     },

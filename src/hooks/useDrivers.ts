@@ -57,7 +57,7 @@ export const useDrivers = () => {
   return useQuery({
     queryKey: ['drivers', 'v2'], // Added version to force cache invalidation
     queryFn: async () => {
-      console.log('👤 Fetching drivers with relationships...');
+      
       
       return queryWithTimeout(async () => {
         let allDrivers: any[] = [];
