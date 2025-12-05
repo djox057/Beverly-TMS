@@ -672,11 +672,19 @@ const Orders = () => {
         .eq("order_id", orderId)
         .order("canceled_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
       if (!backup) {
-        toast.error("No backup found for this order");
+        toast.error("No backup found for this order - reverting with current values");
+        // Just uncancel without restoring original values
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({ canceled: false })
+          .eq("id", orderId);
+        if (updateError) throw updateError;
+        toast.success("Load uncanceled");
+        queryClient.invalidateQueries({ queryKey: ["orders"] });
         return;
       }
 
