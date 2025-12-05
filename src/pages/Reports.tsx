@@ -2023,60 +2023,17 @@ const Reports = () => {
     };
   }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
 
-  // Check delivery ETAs using edge function
-  useEffect(() => {
-    const checkETAs = async () => {
-      console.log("🔍 Checking delivery ETAs via edge function...");
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const response = await fetch("https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/check-delivery-etas", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa2J0YWd3Z2puaWlsbWd3dXRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2MzUyMTYsImV4cCI6MjA3NDIxMTIxNn0.Nr_W4aVefWnzDUTRdsSVlCk-Jl_pWMTshVinZoVPZqM"}`,
-          },
-          body: JSON.stringify({}),
-        });
-        if (!response.ok) {
-          const error = await response.text();
-          console.error("❌ Error checking ETAs:", error);
-          return;
-        }
-        const data = await response.json();
-        if (data?.success && data?.results) {
-          console.log(`✅ Received ${data.results.length} ETA results`);
-
-          // Store late order internal_load_numbers
-          const lateOrderNumbers = data.results
-            .filter((result: any) => result.is_late)
-            .map((result: any) => result.internal_load_number);
-
-          // Find the order IDs from internal_load_numbers
-          const lateOrderIds = new Set<string>();
-          groupedReports?.forEach((group) => {
-            group.trucks.forEach((truck) => {
-              truck.allOrders?.forEach((order) => {
-                if (lateOrderNumbers.includes(order.internal_load_number)) {
-                  lateOrderIds.add(order.id);
-                }
-              });
-            });
-          });
-          setLateDeliveries(lateOrderIds);
-          console.log(`🔶 Found ${lateOrderIds.size} late orders:`, Array.from(lateOrderIds));
-        }
-      } catch (error) {
-        console.error("❌ Failed to check ETAs:", error);
-      }
-    };
-    if (groupedReports?.length) {
-      checkETAs();
-      const interval = setInterval(checkETAs, 30 * 60 * 1000); // Check every 30 minutes (optimized from 5 min)
-      return () => clearInterval(interval);
-    }
-  }, [groupedReports]);
+  // DISABLED: Check delivery ETAs - was causing massive edge function invocations
+  // This feature called geocode-address + calculate-route for EVERY order, causing 100% CPU
+  // If needed in future, implement server-side batch processing with aggressive caching
+  // useEffect(() => {
+  //   const checkETAs = async () => { ... };
+  //   if (groupedReports?.length) {
+  //     checkETAs();
+  //     const interval = setInterval(checkETAs, 30 * 60 * 1000);
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [groupedReports]);
 
   // Auto-switch to correct dispatcher page when filters find matches
   useEffect(() => {

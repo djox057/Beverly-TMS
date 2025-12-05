@@ -22,9 +22,11 @@ export const useSamsaraLocations = () => {
       
       return data.locations as TruckLocation[];
     },
-    enabled: true, // Re-enabled with optimizations
-    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes instead of constantly
-    staleTime: 4 * 60 * 1000, // Consider data fresh for 4 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    enabled: true,
+    refetchInterval: 15 * 60 * 1000, // Refresh every 15 minutes (reduced from 5 min to lower invocations)
+    staleTime: 14 * 60 * 1000, // Consider data fresh for 14 minutes
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    refetchOnWindowFocus: false, // Don't refetch on tab focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
   });
 };
