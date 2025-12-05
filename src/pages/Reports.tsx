@@ -858,6 +858,7 @@ const Reports = () => {
           notes: cancelFormData.notes,
           freight_amount: 0,
           loaded_miles: 0,
+          mileage: dhMiles, // For canceled loads: loaded_miles (0) + dh_miles
           canceled: true,
         })
         .eq("id", zoomedLoad.orderId);
