@@ -65,22 +65,11 @@ export const useDriverDrugTests = () => {
           ? 'Drug result Negative' 
           : 'Drug test result Pending';
 
-        // Get truck to find driver
-        const { data: truck } = await supabase
-          .from("trucks")
-          .select("driver1_id")
-          .eq("id", truckId)
-          .single();
-
-        if (!truck?.driver1_id) {
-          throw new Error('Cannot save drug test note: no driver assigned to truck');
-        }
-
-        // Get existing note for this driver
+        // Get existing note for this driver (use driverId directly)
         const { data: existingNote } = await supabase
           .from("truck_notes")
           .select("id, note")
-          .eq("driver_id", truck.driver1_id)
+          .eq("driver_id", driverId)
           .maybeSingle();
 
         // Replace entire note with just the drug test result
@@ -102,7 +91,7 @@ export const useDriverDrugTests = () => {
             .from("truck_notes")
             .insert({
               truck_id: truckId,
-              driver_id: truck.driver1_id,
+              driver_id: driverId,
               note: newNote,
               updated_by: user?.id,
             });
