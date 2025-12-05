@@ -157,18 +157,13 @@ export const useReports = () => {
       const existingNote = existingNotes && existingNotes.length > 0 ? existingNotes[0] : null;
 
       if (existingNote) {
-        // Update existing note - only update truck_id if we have a valid one
-        const updateData: any = {
-          note,
-          updated_by: user.id,
-        };
-        if (actualTruckId) {
-          updateData.truck_id = actualTruckId;
-        }
-        
+        // Update existing note - don't update truck_id since notes are driver-based
         const { error } = await supabase
           .from("truck_notes")
-          .update(updateData)
+          .update({
+            note,
+            updated_by: user.id,
+          })
           .eq("driver_id", driverId);
 
         if (error) throw error;

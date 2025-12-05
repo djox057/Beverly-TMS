@@ -57,17 +57,15 @@ export const useDriverDrugTests = () => {
 
       if (error) throw error;
 
-      // Add comment to driver notes if truckId is provided and it's a valid UUID (not prefixed like "driver-xxx")
-      const isValidTruckId = truckId && !truckId.startsWith('driver-');
-      
-      if (isValidTruckId && result) {
+      // Add comment to driver notes (notes are tied to driver, not truck)
+      if (result) {
         const noteText = result === 'positive' 
           ? 'Drug result Positive' 
           : result === 'negative' 
           ? 'Drug result Negative' 
           : 'Drug test result Pending';
 
-        // Get existing note for this driver (use driverId directly)
+        // Get existing note for this driver
         const { data: existingNote } = await supabase
           .from("truck_notes")
           .select("id, note")
@@ -79,7 +77,7 @@ export const useDriverDrugTests = () => {
 
         // Update or insert driver note
         if (existingNote) {
-          // Update existing note
+          // Update existing note (don't update truck_id - notes are driver-based)
           await supabase
             .from("truck_notes")
             .update({
@@ -88,11 +86,12 @@ export const useDriverDrugTests = () => {
             })
             .eq("id", existingNote.id);
         } else {
-          // Insert new note
+          // Insert new note - truck_id can be null for unassigned drivers
+          const isValidTruckId = truckId && !truckId.startsWith('driver-');
           await supabase
             .from("truck_notes")
             .insert({
-              truck_id: truckId,
+              truck_id: isValidTruckId ? truckId : null,
               driver_id: driverId,
               note: newNote,
               updated_by: user?.id,
