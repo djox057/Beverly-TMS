@@ -24,7 +24,6 @@ import { parseAddress } from "@/utils/addressParser";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { calculateLoadedMiles, calculateDhMiles, calculateMultiStopMiles } from "@/utils/routeCalculation";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
 import { toZonedTime } from "date-fns-tz";
