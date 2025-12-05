@@ -53,7 +53,7 @@ async function enrichLockedOrdersWithLookups(
   const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
     batchFetch("trucks", "id, truck_number, company_id, company:companies(id, name)", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
-    batchFetch("drivers", "id, name", allDriverIds),
+    batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
     batchFetch("brokers", "id, name, mc_number, address", brokerIds),
     batchFetch("companies", "id, name", companyIds),
     (async () => {
@@ -204,11 +204,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
           ),
           driver1:drivers!orders_driver1_id_fkey (
             id,
-            name
+            name,
+            company_id,
+            company:companies (
+              id,
+              name
+            )
           ),
           driver2:drivers!orders_driver2_id_fkey (
             id,
-            name
+            name,
+            company_id,
+            company:companies (
+              id,
+              name
+            )
           ),
           original_driver1:drivers!orders_original_driver1_id_fkey (
             id,
@@ -334,11 +344,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
                   ),
                   driver1:drivers!orders_driver1_id_fkey (
                     id,
-                    name
+                    name,
+                    company_id,
+                    company:companies (
+                      id,
+                      name
+                    )
                   ),
                   driver2:drivers!orders_driver2_id_fkey (
                     id,
-                    name
+                    name,
+                    company_id,
+                    company:companies (
+                      id,
+                      name
+                    )
                   ),
                   original_driver1:drivers!orders_original_driver1_id_fkey (
                     id,
@@ -740,6 +760,8 @@ function transformOrders(allOrders: any[]) {
       driver2Name: order.driver2?.name || null,
       driver1Id: order.driver1_id,
       driver2Id: order.driver2_id,
+      driverCompanyName: order.driver1?.company?.name || null,
+      driverCompanyId: order.driver1?.company_id || null,
 
       // Broker info - use enriched objects only (CSV direct fields are unreliable)
       brokerName: order.broker?.name || null,

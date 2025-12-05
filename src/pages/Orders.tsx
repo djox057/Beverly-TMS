@@ -488,7 +488,7 @@ const Orders = () => {
       Invoiced: order.invoiced,
       "Total Freight": order.totalFreightAmount,
       Notes: order.notes,
-      Company: order.companyName,
+      Company: (order as any).driverCompanyName || order.companyName,
       "Booked By": order.bookedBy,
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportData);
