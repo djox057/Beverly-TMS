@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check } from "lucide-react";
+import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { format as formatDate } from "date-fns";
@@ -351,7 +352,10 @@ export default function YardArrivals() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Yard Arrivals</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Yard Arrivals</h1>
+        <CompletedDriversDialog />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Maintenance Section */}
