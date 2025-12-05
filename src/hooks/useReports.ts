@@ -111,12 +111,21 @@ export const useReports = () => {
 
   const updateTruckNote = useMutation({
     mutationFn: async ({ truckId, note, driverId }: { truckId: string; note: string; driverId?: string }) => {
-      // Get truck to find driver if not provided
-      if (!driverId) {
+      // Check if this is a "fake" truckId for unassigned drivers (prefixed with "driver-")
+      const isUnassignedDriver = truckId.startsWith('driver-');
+      const actualTruckId = isUnassignedDriver ? null : truckId;
+      
+      // For unassigned drivers, extract driverId from the prefixed truckId
+      if (isUnassignedDriver && !driverId) {
+        driverId = truckId.replace('driver-', '');
+      }
+      
+      // Get truck to find driver if not provided and we have a real truck
+      if (!driverId && actualTruckId) {
         const { data: truck, error: truckError } = await supabase
           .from("trucks")
           .select("driver1_id")
-          .eq("id", truckId)
+          .eq("id", actualTruckId)
           .maybeSingle();
 
         if (truckError) throw truckError;
@@ -124,7 +133,7 @@ export const useReports = () => {
       }
 
       if (!driverId) {
-        throw new Error("Cannot save note: no driver assigned to truck");
+        throw new Error("Cannot save note: no driver assigned");
       }
 
       // Get current user
@@ -138,7 +147,7 @@ export const useReports = () => {
       // First check if a note already exists for this driver
       const { data: existingNotes, error: fetchError } = await supabase
         .from("truck_notes")
-        .select("id")
+        .select("id, truck_id")
         .eq("driver_id", driverId)
         .order("updated_at", { ascending: false })
         .limit(1);
@@ -148,27 +157,53 @@ export const useReports = () => {
       const existingNote = existingNotes && existingNotes.length > 0 ? existingNotes[0] : null;
 
       if (existingNote) {
-        // Update existing note
+        // Update existing note - only update truck_id if we have a valid one
+        const updateData: any = {
+          note,
+          updated_by: user.id,
+        };
+        if (actualTruckId) {
+          updateData.truck_id = actualTruckId;
+        }
+        
         const { error } = await supabase
           .from("truck_notes")
-          .update({
-            note,
-            truck_id: truckId,
-            updated_by: user.id,
-          })
+          .update(updateData)
           .eq("driver_id", driverId);
 
         if (error) throw error;
       } else {
-        // Create new note
-        const { error } = await supabase.from("truck_notes").insert({
-          truck_id: truckId,
-          driver_id: driverId,
-          note,
-          updated_by: user.id,
-        });
+        // For unassigned drivers, we need a truck_id - use a placeholder or skip
+        if (!actualTruckId) {
+          // Can't create a note without a truck_id, but we can try to find a truck for this driver
+          const { data: driverTruck } = await supabase
+            .from("trucks")
+            .select("id")
+            .eq("driver1_id", driverId)
+            .maybeSingle();
+          
+          if (!driverTruck) {
+            throw new Error("Cannot create note: driver has no assigned truck");
+          }
+          
+          const { error } = await supabase.from("truck_notes").insert({
+            truck_id: driverTruck.id,
+            driver_id: driverId,
+            note,
+            updated_by: user.id,
+          });
+          if (error) throw error;
+        } else {
+          // Create new note with valid truck_id
+          const { error } = await supabase.from("truck_notes").insert({
+            truck_id: actualTruckId,
+            driver_id: driverId,
+            note,
+            updated_by: user.id,
+          });
 
-        if (error) throw error;
+          if (error) throw error;
+        }
       }
     },
     onMutate: async ({ truckId, note }) => {
