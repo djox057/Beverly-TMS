@@ -2,8 +2,35 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { geocodeAddress } from '@/utils/routeCalculation';
 import { Loader2 } from 'lucide-react';
+
+const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9udzEyMyIsImEiOiJjbWdmOHE2dnAwNWI0MmpzY3NlOXY5NHBxIn0.sb-KPJmlqi33w5aDMMRPzA';
+
+// Use Mapbox geocoding API directly instead of edge function
+async function geocodeWithMapbox(address: string): Promise<{ lat: number; lon: number } | null> {
+  if (!address || address.trim() === '') return null;
+  
+  try {
+    const encodedAddress = encodeURIComponent(address);
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${MAPBOX_TOKEN}&limit=1`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      const [lon, lat] = data.features[0].center;
+      return { lat, lon };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Mapbox geocoding error:', error);
+    return null;
+  }
+}
 
 interface TruckMapDialogProps {
   truckNumber: string;
@@ -46,8 +73,6 @@ export function TruckMapDialog({
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { data: locations } = useSamsaraLocations();
-  
-  const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9udzEyMyIsImEiOiJjbWdmOHE2dnAwNWI0MmpzY3NlOXY5NHBxIn0.sb-KPJmlqi33w5aDMMRPzA';
 
   useEffect(() => {
     if (!isOpen || !mapContainer.current) return;
@@ -92,9 +117,9 @@ export function TruckMapDialog({
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([truckLocation.longitude, truckLocation.latitude]);
 
-        // Geocode and add pickup marker
+        // Geocode and add pickup marker using Mapbox
         if (pickupAddress) {
-          const pickupCoords = await geocodeAddress(pickupAddress);
+          const pickupCoords = await geocodeWithMapbox(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
@@ -109,9 +134,9 @@ export function TruckMapDialog({
           }
         }
 
-        // Geocode and add delivery marker
+        // Geocode and add delivery marker using Mapbox
         if (deliveryAddress) {
-          const deliveryCoords = await geocodeAddress(deliveryAddress);
+          const deliveryCoords = await geocodeWithMapbox(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
@@ -126,7 +151,7 @@ export function TruckMapDialog({
 
             // If we have both pickup and delivery, draw a route
             if (pickupAddress) {
-              const pickupCoords = await geocodeAddress(pickupAddress);
+              const pickupCoords = await geocodeWithMapbox(pickupAddress);
               if (pickupCoords) {
                 await drawRoute(
                   map.current,
@@ -249,8 +274,6 @@ export function TruckMapView({
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { data: locations } = useSamsaraLocations();
-  
-  const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9udzEyMyIsImEiOiJjbWdmOHE2dnAwNWI0MmpzY3NlOXY5NHBxIn0.sb-KPJmlqi33w5aDMMRPzA';
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -315,7 +338,7 @@ export function TruckMapView({
 
         // Always show pickup marker if address exists
         if (pickupAddress) {
-          pickupCoords = await geocodeAddress(pickupAddress);
+          pickupCoords = await geocodeWithMapbox(pickupAddress);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
@@ -332,7 +355,7 @@ export function TruckMapView({
 
         // Always show delivery marker if address exists
         if (deliveryAddress) {
-          deliveryCoords = await geocodeAddress(deliveryAddress);
+          deliveryCoords = await geocodeWithMapbox(deliveryAddress);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
@@ -372,91 +395,85 @@ export function TruckMapView({
       }
     };
 
-    const drawRouteToDestination = async (
-      mapInstance: mapboxgl.Map,
-      truckCoords: [number, number],
-      destinationCoords: [number, number]
-    ) => {
-      try {
-        // Get route from OSRM (same as distance calculations)
-        const coordinates = `${truckCoords[0]},${truckCoords[1]};${destinationCoords[0]},${destinationCoords[1]}`;
-        const response = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
-        );
-        
-        const data = await response.json();
-        
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0].geometry;
-          
-          // Check if map is already loaded
-          if (mapInstance.isStyleLoaded()) {
-            addRouteToMap(mapInstance, route);
-          } else {
-            mapInstance.once('load', () => {
-              addRouteToMap(mapInstance, route);
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error drawing route:', error);
-      }
-    };
-
-    const addRouteToMap = (mapInstance: mapboxgl.Map, route: any) => {
-      if (mapInstance.getSource('route')) {
-        (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
-          type: 'Feature',
-          properties: {},
-          geometry: route
-        });
-      } else {
-        mapInstance.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: route
-          }
-        });
-
-        mapInstance.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': '#3b82f6',
-            'line-width': 4,
-            'line-opacity': 0.75
-          }
-        });
-      }
-    };
-
     initializeMap();
 
     return () => {
       map.current?.remove();
       map.current = null;
     };
-  }, [locations, truckId, truckNumber, pickupAddress, deliveryAddress]);
+  }, [locations, truckId, truckNumber, pickupAddress, deliveryAddress, hasBOL, hasPOD, pickupArrived]);
+
+  const drawRouteToDestination = async (
+    mapInstance: mapboxgl.Map,
+    startCoords: [number, number],
+    endCoords: [number, number]
+  ) => {
+    try {
+      const coordinates = `${startCoords[0]},${startCoords[1]};${endCoords[0]},${endCoords[1]}`;
+      const response = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
+      );
+      
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0].geometry;
+        
+        if (mapInstance.isStyleLoaded()) {
+          addRouteToMap(mapInstance, route);
+        } else {
+          mapInstance.once('load', () => {
+            addRouteToMap(mapInstance, route);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error drawing route:', error);
+    }
+  };
+
+  const addRouteToMap = (mapInstance: mapboxgl.Map, route: any) => {
+    if (mapInstance.getSource('route')) {
+      (mapInstance.getSource('route') as mapboxgl.GeoJSONSource).setData({
+        type: 'Feature',
+        properties: {},
+        geometry: route
+      });
+    } else {
+      mapInstance.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: route
+        }
+      });
+
+      mapInstance.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#3b82f6',
+          'line-width': 4,
+          'line-opacity': 0.75
+        }
+      });
+    }
+  };
 
   return (
-    <div className="relative w-full h-[500px]" style={{ zIndex: 101 }}>
-      <div className="absolute top-2 left-2 z-10 bg-background/95 px-3 py-1.5 rounded-md shadow-md">
-        <p className="text-sm font-semibold">Truck {truckNumber} - Live Location & Route</p>
-      </div>
-      
+    <div className="relative w-full h-full">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
-      <div ref={mapContainer} className="w-full h-full rounded-lg" />
+      <div ref={mapContainer} className="w-full h-full min-h-[400px]" />
     </div>
   );
 }

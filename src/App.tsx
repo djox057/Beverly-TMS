@@ -29,7 +29,6 @@ import Fleets from "./pages/Fleets";
 import Reports from "./pages/Reports";
 import YardArrivals from "./pages/YardArrivals";
 import Analytics from "./pages/Analytics";
-import SamsaraDebug from "./pages/SamsaraDebug";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
@@ -183,11 +182,6 @@ const AppContent = () => {
         <Route path="/analytics" element={
           <ProtectedRoute excludedRoles={['accounting']}>
             <Layout><Analytics /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/samsara-debug" element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout><SamsaraDebug /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/alerts" element={
