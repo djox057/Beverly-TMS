@@ -1896,7 +1896,7 @@ export type Database = {
           driver_id: string
           id: string
           note: string | null
-          truck_id: string
+          truck_id: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -1905,7 +1905,7 @@ export type Database = {
           driver_id: string
           id?: string
           note?: string | null
-          truck_id: string
+          truck_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -1914,7 +1914,7 @@ export type Database = {
           driver_id?: string
           id?: string
           note?: string | null
-          truck_id?: string
+          truck_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
