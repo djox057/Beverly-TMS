@@ -148,6 +148,10 @@ export default function YardLoads() {
   const drivers = Array.from(new Set(orders.map(o => o.driverName).filter(Boolean))).sort();
   const brokers = Array.from(new Set(orders.map(o => o.brokerName).filter(Boolean))).sort();
 
+  // Debug: Log orders with null driver and truck
+  const yardCandidates = orders.filter(o => !o.driver1Id && !o.truckId);
+  console.log("🏗️ [YardLoads] Total orders:", orders.length, "Yard candidates (null driver & truck):", yardCandidates.length, yardCandidates.map(o => ({ id: o.id, loadNumber: o.internalLoadNumber, driver1Id: o.driver1Id, truckId: o.truckId })));
+
   // Filter orders - only show loads with no driver AND no truck (skip for yard role since they use dedicated table)
   const filteredOrders = orders.filter(order => {
     // For yard role, data is already filtered from yard_loads table
