@@ -708,7 +708,12 @@ const Reports = () => {
       // Upload all files
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i];
-        const fileName = `${zoomedLoad.orderId}/${uploadDocType}/${Date.now()}_${file.name}`;
+        // Sanitize filename: replace special characters with safe alternatives
+        const sanitizedFileName = file.name
+          .replace(/[–—]/g, "-") // Replace en-dash and em-dash with regular hyphen
+          .replace(/[^\w\s.-]/g, "") // Remove any non-word, non-space, non-dot, non-hyphen characters
+          .replace(/\s+/g, "_"); // Replace spaces with underscores
+        const fileName = `${zoomedLoad.orderId}/${uploadDocType}/${Date.now()}_${sanitizedFileName}`;
 
         // Upload file to storage
         const { error: uploadError } = await supabase.storage.from("order-files").upload(fileName, file);
