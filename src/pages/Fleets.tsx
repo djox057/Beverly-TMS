@@ -8,13 +8,14 @@ import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft } from "lucide-react";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft, CalendarDays } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
 
 const Fleets = () => {
   const { hasRole } = useAuthContext();
@@ -45,6 +46,7 @@ const Fleets = () => {
     drivers: any[];
   } | null>(null);
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
+  const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -253,6 +255,10 @@ const Fleets = () => {
               <h1 className="text-2xl font-bold">Dispatcher Fleet Management</h1>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsAfterhoursScheduleOpen(true)}>
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Schedule Afterhours
+              </Button>
               <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -1094,6 +1100,11 @@ const Fleets = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AfterhoursScheduleDialog 
+        open={isAfterhoursScheduleOpen} 
+        onOpenChange={setIsAfterhoursScheduleOpen} 
+      />
     </DragDropContext>
   );
 };
