@@ -2306,17 +2306,21 @@ const Reports = () => {
       truck?.lost_day_notes
         ?.filter((note: any) => note.note && note.note.toLowerCase().includes("game over"))
         .map((note: any) => note.date) || [];
-    console.log("🎮 Opening game over dialog for truck:", {
-      truckId,
-      driverName,
-      truck,
-      activeOrders: truck?.activeOrders,
-    });
     
     // Check if truck has recovery status and if a recovery driver is assigned
     const needsRecovery = truck?.needsRecovery === true;
     // A recovery driver is assigned if driver1_id exists AND the driver is_recovery = true
     const hasRecoveryDriver = needsRecovery && truck?.driverId && truck?.isRecoveryDriver === true;
+    
+    console.log("🎮 Opening game over dialog for truck:", {
+      truckId,
+      driverName,
+      needsRecovery,
+      hasRecoveryDriver,
+      rawNeedsRecovery: truck?.needsRecovery,
+      isRecoveryDriver: truck?.isRecoveryDriver,
+      driverId: truck?.driverId,
+    });
     
     setGameOverDialog({
       truckId,
