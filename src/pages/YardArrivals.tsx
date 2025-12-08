@@ -401,19 +401,15 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                          <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                             <div className="flex items-start justify-between">
-                              <div className="flex-1 space-y-1">
+                              <div className="space-y-1">
                                 <p className="font-semibold">
                                   #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                                 </p>
-                                <div className="pt-1 w-full">
-                                  <p className="text-sm font-medium">Reason:</p>
-                                  <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
-                                </div>
                               </div>
                               <div className="flex gap-1">
                                 <Button
@@ -453,9 +449,15 @@ export default function YardArrivals() {
                                 >
                                   <X className="h-4 w-4 text-destructive" />
                                 </Button>
-                               </div>
-                             </div>
-                           </div>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium mb-1">Reason:</p>
+                              <div className="border rounded-md p-2 bg-background/50">
+                                <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
+                              </div>
+                            </div>
+                          </div>
                        ))}
                      </div>
                    </div>
@@ -490,19 +492,15 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                           <div className="flex items-start justify-between">
-                            <div className="flex-1 space-y-1">
+                            <div className="space-y-1">
                               <p className="font-semibold">
                                 #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
-                              <div className="pt-1 w-full">
-                                <p className="text-sm font-medium">Reason:</p>
-                                <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
-                              </div>
                             </div>
                             <div className="flex gap-1">
                               <Button
@@ -542,9 +540,15 @@ export default function YardArrivals() {
                               >
                                 <X className="h-4 w-4 text-destructive" />
                               </Button>
-                             </div>
-                           </div>
-                         </div>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium mb-1">Reason:</p>
+                            <div className="border rounded-md p-2 bg-background/50">
+                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
+                            </div>
+                          </div>
+                        </div>
                        ))}
                      </div>
                    </div>
@@ -578,19 +582,15 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
                           <div className="flex items-start justify-between">
-                            <div className="flex-1 space-y-1">
+                            <div className="space-y-1">
                               <p className="font-semibold">
                                 #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
-                              <div className="pt-1 w-full">
-                                <p className="text-sm font-medium">Reason:</p>
-                                <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
-                              </div>
                             </div>
                             <div className="flex gap-1">
                               <Button
@@ -630,9 +630,15 @@ export default function YardArrivals() {
                               >
                                 <X className="h-4 w-4 text-destructive" />
                               </Button>
-                             </div>
-                           </div>
-                         </div>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium mb-1">Reason:</p>
+                            <div className="border rounded-md p-2 bg-background/50">
+                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
+                            </div>
+                          </div>
+                        </div>
                        ))}
                      </div>
                    </div>
