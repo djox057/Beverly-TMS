@@ -443,8 +443,8 @@ export const useReports = () => {
           .select(
             `
             *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, company:companies!company_id(id, name)),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, company:companies!company_id(id, name)),
+            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
+            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
             trailer:trailer_id(trailer_number),
             company:companies(name)
           `,
@@ -937,6 +937,9 @@ export const useReports = () => {
               milesAway: truck.miles_away || 0,
               totalMiles: currentOrder?.mileage || 0,
               goingYard: truck.driver1?.going_yard || false,
+              needsRecovery: truck.needs_recovery || false,
+              isRecoveryDriver: truck.driver1?.is_recovery || false,
+              trailerId: truck.trailer_id || null,
             };
           }) || [];
 
