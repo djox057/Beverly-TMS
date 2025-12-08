@@ -489,15 +489,6 @@ const Reports = () => {
   } | null>(null);
   const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
   
-  // Combined dialog for teams
-  const [teamActionDialog, setTeamActionDialog] = useState<{
-    driver1Id: string;
-    driver1Name: string;
-    driver2Id: string;
-    driver2Name: string;
-    truckNumber: string;
-  } | null>(null);
-  const [teamActionTab, setTeamActionTab] = useState<"yard" | "2week">("yard");
 
   const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
     return localStorage.getItem("reports-truckDriverFilter") || "";
@@ -2776,23 +2767,77 @@ const Reports = () => {
                                                           Driver 1: {truck.driver1Name}
                                                         </p>
                                                         {truck.driverId && truck.driver2Id && (
-                                                          <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 w-6 p-0"
-                                                            onClick={(e) => {
-                                                              e.stopPropagation();
-                                                              setTeamActionDialog({
-                                                                driver1Id: truck.driverId!,
-                                                                driver1Name: truck.driver1Name,
-                                                                driver2Id: truck.driver2Id!,
-                                                                driver2Name: truck.driver2Name,
-                                                                truckNumber: truck.truckNumber,
-                                                              });
-                                                            }}
-                                                          >
-                                                            <Warehouse className="h-3 w-3" />
-                                                          </Button>
+                                                          <div className="flex items-center gap-1">
+                                                            {truck.goingYard ? (
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={async (e) => {
+                                                                  e.stopPropagation();
+                                                                  try {
+                                                                    // Cancel for both drivers
+                                                                    await supabase
+                                                                      .from("drivers")
+                                                                      .update({ going_yard: false })
+                                                                      .in("id", [truck.driverId, truck.driver2Id]);
+
+                                                                    await supabase
+                                                                      .from("driver_yard_actions")
+                                                                      .delete()
+                                                                      .in("driver_id", [truck.driverId, truck.driver2Id]);
+
+                                                                    toast({
+                                                                      title: "Yard action canceled for team",
+                                                                    });
+                                                                    queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                                  } catch (error) {
+                                                                    console.error("Error:", error);
+                                                                    toast({
+                                                                      title: "Error",
+                                                                      description: "Failed to cancel",
+                                                                      variant: "destructive",
+                                                                    });
+                                                                  }
+                                                                }}
+                                                              >
+                                                                <X className="h-3 w-3 text-destructive" />
+                                                              </Button>
+                                                            ) : (
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setYardActionDialog({
+                                                                    driverId: truck.driverId!,
+                                                                    driverName: truck.driver1Name,
+                                                                    driver2Id: truck.driver2Id!,
+                                                                    driver2Name: truck.driver2Name,
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <Warehouse className="h-3 w-3" />
+                                                              </Button>
+                                                            )}
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setTwoWeekNoticeDialog({
+                                                                  driverId: truck.driverId!,
+                                                                  driverName: truck.driver1Name,
+                                                                  driver2Id: truck.driver2Id!,
+                                                                  driver2Name: truck.driver2Name,
+                                                                });
+                                                              }}
+                                                            >
+                                                              <CalendarIcon className="h-3 w-3" />
+                                                            </Button>
+                                                          </div>
                                                         )}
                                                       </div>
                                                       {truck.driverPhone && (
@@ -3697,7 +3742,7 @@ const Reports = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Yard Action - {yardActionDialog?.driverName}</DialogTitle>
+            <DialogTitle>Yard Action - {yardActionDialog?.driver2Name ? `${yardActionDialog?.driverName} & ${yardActionDialog?.driver2Name}` : yardActionDialog?.driverName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
@@ -3815,15 +3860,26 @@ const Reports = () => {
                 onClick={async () => {
                   if (!yardActionDialog || !yardActionType || !yardActionComment.trim() || !yardActionDatetime) return;
                   
-                  const { error: insertError } = await supabase
-                    .from("driver_yard_actions")
-                    .insert({
-                      driver_id: yardActionDialog.driverId,
-                      action_type: yardActionType,
-                      comment: yardActionComment.trim(),
-                      arrival_datetime: yardActionDatetime.toISOString(),
-                      created_by: profile?.user_id,
-                    });
+                  const driverIds = [yardActionDialog.driverId];
+                  if (yardActionDialog.driver2Id) {
+                    driverIds.push(yardActionDialog.driver2Id);
+                  }
+                  
+                  // Insert yard actions for all drivers
+                  const insertPromises = driverIds.map(driverId => 
+                    supabase
+                      .from("driver_yard_actions")
+                      .insert({
+                        driver_id: driverId,
+                        action_type: yardActionType,
+                        comment: yardActionComment.trim(),
+                        arrival_datetime: yardActionDatetime.toISOString(),
+                        created_by: profile?.user_id,
+                      })
+                  );
+
+                  const insertResults = await Promise.all(insertPromises);
+                  const insertError = insertResults.find(r => r.error)?.error;
 
                   if (insertError) {
                     toast({
@@ -3837,7 +3893,7 @@ const Reports = () => {
                   const { error: updateError } = await supabase
                     .from("drivers")
                     .update({ going_yard: true })
-                    .eq("id", yardActionDialog.driverId);
+                    .in("id", driverIds);
 
                   if (updateError) {
                     toast({
@@ -3846,9 +3902,12 @@ const Reports = () => {
                       variant: "destructive",
                     });
                   } else {
+                    const driverNames = yardActionDialog.driver2Name 
+                      ? `${yardActionDialog.driverName} & ${yardActionDialog.driver2Name}`
+                      : yardActionDialog.driverName;
                     toast({
                       title: "Success",
-                      description: `Yard action saved for ${yardActionDialog.driverName}`,
+                      description: `Yard action saved for ${driverNames}`,
                     });
                     queryClient.invalidateQueries({ queryKey: ["reports"] });
                   }
@@ -3859,7 +3918,7 @@ const Reports = () => {
                   setYardActionDatetime(new Date());
                 }}
               >
-                Save
+                {yardActionDialog?.driver2Id ? "Save for Both Drivers" : "Save"}
               </Button>
             </div>
           </div>
@@ -3870,7 +3929,7 @@ const Reports = () => {
       <Dialog open={!!twoWeekNoticeDialog} onOpenChange={(open) => !open && setTwoWeekNoticeDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Set 2 Week Notice - {twoWeekNoticeDialog?.driverName}</DialogTitle>
+            <DialogTitle>Set 2 Week Notice - {twoWeekNoticeDialog?.driver2Name ? `${twoWeekNoticeDialog?.driverName} & ${twoWeekNoticeDialog?.driver2Name}` : twoWeekNoticeDialog?.driverName}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -3901,10 +3960,15 @@ const Reports = () => {
                 onClick={async () => {
                   if (!twoWeekNoticeDialog || !twoWeekNoticeDate) return;
                   
+                  const driverIds = [twoWeekNoticeDialog.driverId];
+                  if (twoWeekNoticeDialog.driver2Id) {
+                    driverIds.push(twoWeekNoticeDialog.driver2Id);
+                  }
+                  
                   const { error } = await supabase
                     .from("drivers")
                     .update({ two_week_block_date: format(twoWeekNoticeDate, "yyyy-MM-dd") })
-                    .eq("id", twoWeekNoticeDialog.driverId);
+                    .in("id", driverIds);
 
                   if (error) {
                     toast({
@@ -3915,9 +3979,12 @@ const Reports = () => {
                     return;
                   }
 
+                  const driverNames = twoWeekNoticeDialog.driver2Name 
+                    ? `${twoWeekNoticeDialog.driverName} & ${twoWeekNoticeDialog.driver2Name}`
+                    : twoWeekNoticeDialog.driverName;
                   toast({
                     title: "Success",
-                    description: `2 week notice set for ${twoWeekNoticeDialog.driverName}`,
+                    description: `2 week notice set for ${driverNames}`,
                   });
                   queryClient.invalidateQueries({ queryKey: ["reports"] });
                   queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
@@ -3926,289 +3993,13 @@ const Reports = () => {
                   setTwoWeekNoticeDate(new Date());
                 }}
               >
-                Save
+                {twoWeekNoticeDialog?.driver2Id ? "Save for Both Drivers" : "Save"}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Team Action Dialog (combined yard action + 2 week notice for teams) */}
-      <Dialog
-        open={!!teamActionDialog}
-        onOpenChange={(open) => {
-          if (!open) {
-            setTeamActionDialog(null);
-            setTeamActionTab("yard");
-            setYardActionType("");
-            setYardActionComment("");
-            setYardActionDatetime(new Date());
-            setTwoWeekNoticeDate(new Date());
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Team Action - Truck {teamActionDialog?.truckNumber}</DialogTitle>
-          </DialogHeader>
-          <Tabs value={teamActionTab} onValueChange={(v) => setTeamActionTab(v as "yard" | "2week")}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="yard">
-                <Warehouse className="h-4 w-4 mr-2" />
-                Yard Action
-              </TabsTrigger>
-              <TabsTrigger value="2week">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                2 Week Notice
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="yard" className="space-y-4 pt-4">
-              <div className="text-sm text-muted-foreground mb-2">
-                This will apply to both drivers: {teamActionDialog?.driver1Name} & {teamActionDialog?.driver2Name}
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">
-                  Action Type <span className="text-destructive">*</span>
-                </label>
-                <Select value={yardActionType} onValueChange={(value: "maintenance" | "return_truck" | "safety") => setYardActionType(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="return_truck">Return the truck</SelectItem>
-                    <SelectItem value="safety">Safety</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">
-                  Reason <span className="text-destructive">*</span>
-                </label>
-                <Textarea
-                  value={yardActionComment}
-                  onChange={(e) => setYardActionComment(e.target.value)}
-                  placeholder="Enter reason..."
-                  rows={4}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium">
-                  Arrival Date & Time <span className="text-destructive">*</span>
-                </label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "justify-start text-left font-normal",
-                        !yardActionDatetime && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {yardActionDatetime ? format(yardActionDatetime, "PPP p") : <span>Pick a date and time</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={yardActionDatetime}
-                      onSelect={(date) => {
-                        if (date) {
-                          const newDate = new Date(date);
-                          if (yardActionDatetime) {
-                            newDate.setHours(yardActionDatetime.getHours());
-                            newDate.setMinutes(yardActionDatetime.getMinutes());
-                          }
-                          setYardActionDatetime(newDate);
-                        }
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                    <div className="border-t p-3 space-y-2">
-                      <label className="text-sm font-medium">Time</label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="23"
-                          value={yardActionDatetime?.getHours() || 0}
-                          onChange={(e) => {
-                            const hours = parseInt(e.target.value) || 0;
-                            const newDate = yardActionDatetime ? new Date(yardActionDatetime) : new Date();
-                            newDate.setHours(Math.min(23, Math.max(0, hours)));
-                            setYardActionDatetime(newDate);
-                          }}
-                          className="w-20"
-                          placeholder="HH"
-                        />
-                        <span className="flex items-center">:</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="59"
-                          value={yardActionDatetime?.getMinutes() || 0}
-                          onChange={(e) => {
-                            const minutes = parseInt(e.target.value) || 0;
-                            const newDate = yardActionDatetime ? new Date(yardActionDatetime) : new Date();
-                            newDate.setMinutes(Math.min(59, Math.max(0, minutes)));
-                            setYardActionDatetime(newDate);
-                          }}
-                          className="w-20"
-                          placeholder="MM"
-                        />
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setTeamActionDialog(null);
-                    setYardActionType("");
-                    setYardActionComment("");
-                    setYardActionDatetime(new Date());
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={!yardActionType || !yardActionComment.trim() || !yardActionDatetime}
-                  onClick={async () => {
-                    if (!teamActionDialog || !yardActionType || !yardActionComment.trim() || !yardActionDatetime) return;
-                    
-                    // Insert yard action for BOTH drivers
-                    const { error: insertError1 } = await supabase
-                      .from("driver_yard_actions")
-                      .insert({
-                        driver_id: teamActionDialog.driver1Id,
-                        action_type: yardActionType,
-                        comment: yardActionComment.trim(),
-                        arrival_datetime: yardActionDatetime.toISOString(),
-                        created_by: profile?.user_id,
-                      });
-
-                    const { error: insertError2 } = await supabase
-                      .from("driver_yard_actions")
-                      .insert({
-                        driver_id: teamActionDialog.driver2Id,
-                        action_type: yardActionType,
-                        comment: yardActionComment.trim(),
-                        arrival_datetime: yardActionDatetime.toISOString(),
-                        created_by: profile?.user_id,
-                      });
-
-                    if (insertError1 || insertError2) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to save yard action for one or both drivers",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-
-                    // Update going_yard for BOTH drivers
-                    await supabase
-                      .from("drivers")
-                      .update({ going_yard: true })
-                      .eq("id", teamActionDialog.driver1Id);
-
-                    await supabase
-                      .from("drivers")
-                      .update({ going_yard: true })
-                      .eq("id", teamActionDialog.driver2Id);
-
-                    toast({
-                      title: "Success",
-                      description: `Yard action saved for both ${teamActionDialog.driver1Name} & ${teamActionDialog.driver2Name}`,
-                    });
-                    queryClient.invalidateQueries({ queryKey: ["reports"] });
-
-                    setTeamActionDialog(null);
-                    setYardActionType("");
-                    setYardActionComment("");
-                    setYardActionDatetime(new Date());
-                  }}
-                >
-                  Save for Both Drivers
-                </Button>
-              </div>
-            </TabsContent>
-            <TabsContent value="2week" className="space-y-4 pt-4">
-              <div className="text-sm text-muted-foreground mb-2">
-                This will set 2 week notice for both drivers: {teamActionDialog?.driver1Name} & {teamActionDialog?.driver2Name}
-              </div>
-              <div className="space-y-2">
-                <Label>Last Date of 2 Week Notice</Label>
-                <DatePicker
-                  date={twoWeekNoticeDate}
-                  onDateChange={setTwoWeekNoticeDate}
-                  placeholder="Select last date"
-                />
-                {twoWeekNoticeDate && (
-                  <p className="text-xs text-muted-foreground">
-                    Start date was: {format(new Date(twoWeekNoticeDate.getTime() - 14 * 24 * 60 * 60 * 1000), "MMMM d, yyyy")}
-                  </p>
-                )}
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setTeamActionDialog(null);
-                    setTwoWeekNoticeDate(new Date());
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={!twoWeekNoticeDate}
-                  onClick={async () => {
-                    if (!teamActionDialog || !twoWeekNoticeDate) return;
-                    
-                    const dateStr = format(twoWeekNoticeDate, "yyyy-MM-dd");
-                    
-                    // Set 2 week notice for BOTH drivers
-                    const { error: error1 } = await supabase
-                      .from("drivers")
-                      .update({ two_week_block_date: dateStr })
-                      .eq("id", teamActionDialog.driver1Id);
-
-                    const { error: error2 } = await supabase
-                      .from("drivers")
-                      .update({ two_week_block_date: dateStr })
-                      .eq("id", teamActionDialog.driver2Id);
-
-                    if (error1 || error2) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to set 2 week notice for one or both drivers",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-
-                    toast({
-                      title: "Success",
-                      description: `2 week notice set for both ${teamActionDialog.driver1Name} & ${teamActionDialog.driver2Name}`,
-                    });
-                    queryClient.invalidateQueries({ queryKey: ["reports"] });
-                    queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
-
-                    setTeamActionDialog(null);
-                    setTwoWeekNoticeDate(new Date());
-                  }}
-                >
-                  Save for Both Drivers
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
 
       <TruckNoteHistoryDialog
         driverId={historyDialogDriverId}
