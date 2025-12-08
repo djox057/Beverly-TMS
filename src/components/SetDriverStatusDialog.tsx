@@ -18,6 +18,7 @@ interface SetDriverStatusDialogProps {
   truckId: string;
   existingDates: string[];
   onConfirm: (startDate: Date, type: GameOverType, note: string, recoveryDriverId?: string) => void;
+  onInitialConfirm?: (startDate: Date, type: GameOverType, note: string) => Promise<void>;
   onRemoveAll: () => void;
 }
 
@@ -28,12 +29,15 @@ export function SetDriverStatusDialog({
   truckId,
   existingDates,
   onConfirm,
+  onInitialConfirm,
   onRemoveAll,
 }: SetDriverStatusDialogProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [type, setType] = useState<GameOverType>("yard");
   const [note, setNote] = useState("");
   const [recoveryDriverId, setRecoveryDriverId] = useState<string>("");
+  const [step, setStep] = useState<"initial" | "awaiting_recovery">("initial");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch recovery drivers
   const { data: recoveryDrivers = [] } = useQuery({
@@ -58,63 +62,160 @@ export function SetDriverStatusDialog({
       setType("yard");
       setNote("");
       setRecoveryDriverId("");
+      setStep("initial");
+      setIsProcessing(false);
     }
   }, [open]);
 
-  const handleConfirm = () => {
-    if (startDate && note.trim()) {
-      onConfirm(startDate, type, note, recoveryDriverId || undefined);
+  const handleInitialConfirm = async () => {
+    if (!startDate || !note.trim()) return;
+    
+    // If recovery driver is selected, do full confirm
+    if (recoveryDriverId) {
+      onConfirm(startDate, type, note, recoveryDriverId);
+      onOpenChange(false);
+      return;
+    }
+    
+    // No recovery driver - do initial actions then show step 2
+    if (onInitialConfirm) {
+      setIsProcessing(true);
+      try {
+        await onInitialConfirm(startDate, type, note);
+        setStep("awaiting_recovery");
+      } catch (error) {
+        // Error handling is done in parent
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // Fallback to old behavior if onInitialConfirm not provided
+      onConfirm(startDate, type, note, undefined);
       onOpenChange(false);
     }
+  };
+
+  const handleAddRecoveryDriver = () => {
+    if (recoveryDriverId && startDate) {
+      onConfirm(startDate, type, note, recoveryDriverId);
+      onOpenChange(false);
+    }
+  };
+
+  const handleDone = () => {
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Driver Status - {truckNumber}</DialogTitle>
+          <DialogTitle>
+            {step === "awaiting_recovery" 
+              ? `Recovery Driver - ${truckNumber}` 
+              : `Set Driver Status - ${truckNumber}`}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          {existingDates && existingDates.length > 0 && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-              <p className="text-sm font-medium mb-2">Current Status Dates:</p>
-              <div className="text-xs space-y-1">
-                {existingDates.map(date => (
-                  <div key={date}>{format(new Date(date), "MMM dd, yyyy")}</div>
-                ))}
+        
+        {step === "initial" ? (
+          <div className="space-y-4">
+            {existingDates && existingDates.length > 0 && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                <p className="text-sm font-medium mb-2">Current Status Dates:</p>
+                <div className="text-xs space-y-1">
+                  {existingDates.map(date => (
+                    <div key={date}>{format(new Date(date), "MMM dd, yyyy")}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Status Type</label>
+                <ToggleGroup 
+                  type="single" 
+                  value={type} 
+                  onValueChange={(value: GameOverType) => value && setType(value)} 
+                  className="justify-start"
+                >
+                  <ToggleGroupItem value="yard" className="flex-1">
+                    Left truck on the Yard
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="at_road" className="flex-1">
+                    Recovery On the road
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Date</label>
+                <DatePicker 
+                  date={startDate} 
+                  onDateChange={setStartDate} 
+                  placeholder="Select date" 
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Recovery Driver (Optional)</label>
+                <Combobox
+                  value={recoveryDriverId}
+                  onValueChange={setRecoveryDriverId}
+                  options={recoveryDrivers.map(d => ({ value: d.id, label: d.name }))}
+                  placeholder="Select recovery driver..."
+                  emptyText="No recovery drivers found"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to assign later in Recovery tab
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Note</label>
+                <Textarea 
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Enter note for this status..."
+                  className="min-h-[100px]"
+                />
               </div>
             </div>
-          )}
 
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status Type</label>
-              <ToggleGroup 
-                type="single" 
-                value={type} 
-                onValueChange={(value: GameOverType) => value && setType(value)} 
-                className="justify-start"
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleInitialConfirm} 
+                disabled={!startDate || !note.trim() || isProcessing} 
+                className="flex-1"
               >
-                <ToggleGroupItem value="yard" className="flex-1">
-                  Left truck on the Yard
-                </ToggleGroupItem>
-                <ToggleGroupItem value="at_road" className="flex-1">
-                  Recovery On the road
-                </ToggleGroupItem>
-              </ToggleGroup>
+                {isProcessing ? "Processing..." : "Set Status"}
+              </Button>
+              {existingDates && existingDates.length > 0 && (
+                <Button 
+                  onClick={() => {
+                    onRemoveAll();
+                    onOpenChange(false);
+                  }} 
+                  variant="destructive" 
+                  className="flex-1"
+                >
+                  Remove All
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Step 2: Awaiting recovery driver assignment
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+              <p className="text-sm">
+                Truck <span className="font-medium">{truckNumber}</span> has been marked for recovery. 
+                Would you like to assign a recovery driver now?
+              </p>
             </div>
 
             <div>
-              <label className="text-sm font-medium">Date</label>
-              <DatePicker 
-                date={startDate} 
-                onDateChange={setStartDate} 
-                placeholder="Select date" 
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Recovery Driver (Optional)</label>
+              <label className="text-sm font-medium mb-2 block">Recovery Driver</label>
               <Combobox
                 value={recoveryDriverId}
                 onValueChange={setRecoveryDriverId}
@@ -122,44 +223,26 @@ export function SetDriverStatusDialog({
                 placeholder="Select recovery driver..."
                 emptyText="No recovery drivers found"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Leave blank to assign later in Recovery tab
-              </p>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Note</label>
-              <Textarea 
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Enter note for this status..."
-                className="min-h-[100px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleConfirm} 
-              disabled={!startDate || !note.trim()} 
-              className="flex-1"
-            >
-              Set Status
-            </Button>
-            {existingDates && existingDates.length > 0 && (
+            <div className="flex gap-2">
               <Button 
-                onClick={() => {
-                  onRemoveAll();
-                  onOpenChange(false);
-                }} 
-                variant="destructive" 
+                onClick={handleAddRecoveryDriver} 
+                disabled={!recoveryDriverId} 
                 className="flex-1"
               >
-                Remove All
+                Add Recovery Driver
               </Button>
-            )}
+              <Button 
+                onClick={handleDone} 
+                variant="outline" 
+                className="flex-1"
+              >
+                Done
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   );
