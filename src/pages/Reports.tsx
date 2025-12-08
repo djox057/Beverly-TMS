@@ -1402,32 +1402,44 @@ const Reports = () => {
 
       // Separate same-day orders from different-day orders
       // Same-day means ALL pickups and deliveries happen on the same day
-      const sameDayOrders = allDayOrders.filter((order) => {
-        // Check if this order has both pickups and deliveries on THIS day
+      // Orders that have BOTH pickup AND delivery on THIS specific day
+      // (includes true same-day orders AND multi-day orders that happen to have stops on the same day)
+      const ordersWithBothOnDay = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
-        // And check if ALL stops are on the same day (isSameDayPickupDelivery checks first stops)
-        return hasPickupOnDay && hasDeliveryOnDay && isSameDayPickupDelivery(order);
+        return hasPickupOnDay && hasDeliveryOnDay;
       });
+      
+      // True same-day orders (first pickup and first delivery on same day)
+      const sameDayOrders = ordersWithBothOnDay.filter((order) => isSameDayPickupDelivery(order));
+      
+      // Orders with both stops on THIS day but NOT true same-day orders (multi-day loads with overlapping stops)
+      // These need to show BOTH pickup and delivery cells on this day
+      const mixedDayOrders = ordersWithBothOnDay.filter((order) => !isSameDayPickupDelivery(order));
+      
       const pickupOnlyOrders = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
-        // Has pickup on this day but not delivery on this day (or not a same-day order)
+        // Has pickup on this day but not delivery on this day
         return hasPickupOnDay && !hasDeliveryOnDay;
       });
       const deliveryOnlyOrders = allDayOrders.filter((order) => {
         const hasPickupOnDay = order.pickupStopsByDate?.has(dayStr);
         const hasDeliveryOnDay = order.deliveryStopsByDate?.has(dayStr);
-        // Has delivery on this day but not pickup on this day (or not a same-day order)
+        // Has delivery on this day but not pickup on this day
         return hasDeliveryOnDay && !hasPickupOnDay;
       });
+      
+      // Combine for rendering: pickups include mixedDayOrders, deliveries include mixedDayOrders
+      const allPickupOrders = [...pickupOnlyOrders, ...mixedDayOrders];
+      const allDeliveryOrders = [...deliveryOnlyOrders, ...mixedDayOrders];
 
       // Count total stops for this day (sum of all pickup/delivery stops from all orders)
-      const totalPickupStops = pickupOnlyOrders.reduce(
+      const totalPickupStops = allPickupOrders.reduce(
         (sum, order) => sum + (order.pickupStopsByDate?.get(dayStr) || 0),
         0,
       );
-      const totalDeliveryStops = deliveryOnlyOrders.reduce(
+      const totalDeliveryStops = allDeliveryOrders.reduce(
         (sum, order) => sum + (order.deliveryStopsByDate?.get(dayStr) || 0),
         0,
       );
@@ -1477,9 +1489,9 @@ const Reports = () => {
       // This happens when TODAY has deliveries and there are MORE deliveries coming after
       // Show ">>>" only if truck is still in transit (not on final delivery day)
       let shouldShowContinuingDelivery = false;
-      if (deliveryOnlyOrders.length > 0) {
-        // Check if any delivery-only order has MORE deliveries after this day for the SAME order
-        shouldShowContinuingDelivery = deliveryOnlyOrders.some((order) => {
+      if (allDeliveryOrders.length > 0) {
+        // Check if any delivery order has MORE deliveries after this day for the SAME order
+        shouldShowContinuingDelivery = allDeliveryOrders.some((order) => {
           if (!order.deliveryStopsByDate) return false;
           
           // Get all delivery dates for this order
@@ -1497,7 +1509,7 @@ const Reports = () => {
       // Check if this empty day is BETWEEN deliveries (should show ">>>")
       // This applies to days with no pickups AND no deliveries, but between deliveries of the SAME order
       let isInTransitBetweenDeliveries = false;
-      if (pickupOnlyOrders.length === 0 && deliveryOnlyOrders.length === 0 && sameDayOrders.length === 0) {
+      if (allPickupOrders.length === 0 && allDeliveryOrders.length === 0 && sameDayOrders.length === 0) {
         // Check if this day falls between deliveries of the same order
         isInTransitBetweenDeliveries = ordersWithDates.some((order) => {
           if (!order.deliveryStopsByDate || order.deliveryStopsByDate.size === 0) return false;
@@ -1556,7 +1568,7 @@ const Reports = () => {
       // Check if this is a missing pickup (red cell) - empty pickup cell after first pickup
       // Show red if no pickup on this day, regardless of transit state
       // IMPORTANT: Don't show red if truck is in transit (should show >>> instead)
-      const isEmptyPickup = pickupOnlyOrders.length === 0 && sameDayOrders.length === 0;
+      const isEmptyPickup = allPickupOrders.length === 0 && sameDayOrders.length === 0;
       const isAfterFirstPickup = firstPickupDate && day >= firstPickupDate;
       const isWithinTimeframe = day <= oneDayInFuture;
       const isOneDayFuture = isSameDay(day, oneDayInFuture);
