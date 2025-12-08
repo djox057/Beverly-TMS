@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      afterhours_schedule: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          scheduled_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scheduled_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scheduled_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       archived_orders_metadata: {
         Row: {
           created_at: string
