@@ -17,8 +17,11 @@ interface SetDriverStatusDialogProps {
   truckNumber: string;
   truckId: string;
   existingDates: string[];
+  hasRecoveryStatus: boolean; // truck.needs_recovery is true
+  hasRecoveryDriverAssigned: boolean; // truck already has recovery driver assigned
   onConfirm: (startDate: Date, type: GameOverType, note: string, recoveryDriverId?: string) => void;
   onInitialConfirm?: (startDate: Date, type: GameOverType, note: string) => Promise<void>;
+  onAssignRecoveryDriver: (recoveryDriverId: string) => void;
   onRemoveAll: () => void;
 }
 
@@ -28,15 +31,18 @@ export function SetDriverStatusDialog({
   truckNumber,
   truckId,
   existingDates,
+  hasRecoveryStatus,
+  hasRecoveryDriverAssigned,
   onConfirm,
   onInitialConfirm,
+  onAssignRecoveryDriver,
   onRemoveAll,
 }: SetDriverStatusDialogProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [type, setType] = useState<GameOverType>("yard");
   const [note, setNote] = useState("");
   const [recoveryDriverId, setRecoveryDriverId] = useState<string>("");
-  const [step, setStep] = useState<"initial" | "awaiting_recovery">("initial");
+  const [step, setStep] = useState<"initial" | "awaiting_recovery" | "has_recovery">("initial");
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch recovery drivers
@@ -62,10 +68,20 @@ export function SetDriverStatusDialog({
       setType("yard");
       setNote("");
       setRecoveryDriverId("");
-      setStep("initial");
       setIsProcessing(false);
+      
+      // Determine initial step based on truck state
+      if (hasRecoveryStatus) {
+        if (hasRecoveryDriverAssigned) {
+          setStep("has_recovery");
+        } else {
+          setStep("awaiting_recovery");
+        }
+      } else {
+        setStep("initial");
+      }
     }
-  }, [open]);
+  }, [open, hasRecoveryStatus, hasRecoveryDriverAssigned]);
 
   const handleInitialConfirm = async () => {
     if (!startDate || !note.trim()) return;
@@ -96,8 +112,14 @@ export function SetDriverStatusDialog({
   };
 
   const handleAddRecoveryDriver = () => {
-    if (recoveryDriverId && startDate) {
-      onConfirm(startDate, type, note, recoveryDriverId);
+    if (recoveryDriverId) {
+      // If we came from initial step with date/note, use full confirm
+      if (startDate) {
+        onConfirm(startDate, type, note, recoveryDriverId);
+      } else {
+        // If we're just assigning recovery driver to existing status
+        onAssignRecoveryDriver(recoveryDriverId);
+      }
       onOpenChange(false);
     }
   };
@@ -111,13 +133,44 @@ export function SetDriverStatusDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === "awaiting_recovery" 
-              ? `Recovery Driver - ${truckNumber}` 
-              : `Set Driver Status - ${truckNumber}`}
+            {step === "has_recovery" 
+              ? `Remove Status - ${truckNumber}`
+              : step === "awaiting_recovery" 
+                ? `Assign Recovery Driver - ${truckNumber}` 
+                : `Set Driver Status - ${truckNumber}`}
           </DialogTitle>
         </DialogHeader>
         
-        {step === "initial" ? (
+        {step === "has_recovery" ? (
+          // Truck already has recovery status AND recovery driver assigned - just show remove option
+          <div className="space-y-4">
+            <div className="p-3 bg-muted border border-border rounded-md">
+              <p className="text-sm">
+                This truck already has a recovery driver assigned. 
+                You can remove the status to reset it.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => onOpenChange(false)} 
+                variant="outline" 
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  onRemoveAll();
+                  onOpenChange(false);
+                }} 
+                variant="destructive" 
+                className="flex-1"
+              >
+                Remove Status
+              </Button>
+            </div>
+          </div>
+        ) : step === "initial" ? (
           <div className="space-y-4">
             {existingDates && existingDates.length > 0 && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
@@ -205,12 +258,12 @@ export function SetDriverStatusDialog({
             </div>
           </div>
         ) : (
-          // Step 2: Awaiting recovery driver assignment
+          // Step: Awaiting recovery driver assignment (either from initial flow or reopening)
           <div className="space-y-4">
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
               <p className="text-sm">
-                Truck <span className="font-medium">{truckNumber}</span> has been marked for recovery. 
-                Would you like to assign a recovery driver now?
+                Truck <span className="font-medium">{truckNumber}</span> {hasRecoveryStatus ? "is marked for recovery" : "has been marked for recovery"}. 
+                {hasRecoveryStatus ? " Assign a recovery driver or remove the status." : " Would you like to assign a recovery driver now?"}
               </p>
             </div>
 
@@ -233,13 +286,26 @@ export function SetDriverStatusDialog({
               >
                 Add Recovery Driver
               </Button>
-              <Button 
-                onClick={handleDone} 
-                variant="outline" 
-                className="flex-1"
-              >
-                Done
-              </Button>
+              {hasRecoveryStatus ? (
+                <Button 
+                  onClick={() => {
+                    onRemoveAll();
+                    onOpenChange(false);
+                  }} 
+                  variant="destructive" 
+                  className="flex-1"
+                >
+                  Remove Status
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleDone} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  Done
+                </Button>
+              )}
             </div>
           </div>
         )}

@@ -69,6 +69,8 @@ interface GameOverDialogState {
   truckId: string;
   truckNumber: string;
   existingDates: string[]; // Dates that already have "game over"
+  needsRecovery: boolean; // truck.needs_recovery
+  hasRecoveryDriver: boolean; // truck has a recovery driver assigned
 }
 type GameOverType = "yard" | "at_road";
 
@@ -2310,10 +2312,18 @@ const Reports = () => {
       truck,
       activeOrders: truck?.activeOrders,
     });
+    
+    // Check if truck has recovery status and if a recovery driver is assigned
+    const needsRecovery = truck?.needsRecovery === true;
+    // A recovery driver is assigned if driver1_id exists AND the driver is_recovery = true
+    const hasRecoveryDriver = needsRecovery && truck?.driverId && truck?.isRecoveryDriver === true;
+    
     setGameOverDialog({
       truckId,
       truckNumber: driverName,
       existingDates: existingGameOverDates,
+      needsRecovery,
+      hasRecoveryDriver: !!hasRecoveryDriver,
     });
   };
   return (
@@ -3459,6 +3469,87 @@ const Reports = () => {
         truckNumber={gameOverDialog?.truckNumber || ""}
         truckId={gameOverDialog?.truckId || ""}
         existingDates={gameOverDialog?.existingDates || []}
+        hasRecoveryStatus={gameOverDialog?.needsRecovery || false}
+        hasRecoveryDriverAssigned={gameOverDialog?.hasRecoveryDriver || false}
+        onAssignRecoveryDriver={async (recoveryDriverId) => {
+          if (!gameOverDialog) return;
+          try {
+            console.log("🚀 Assigning recovery driver to existing status...", { recoveryDriverId });
+            
+            // Find the truck and original driver info
+            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
+            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
+            
+            if (!truck) {
+              throw new Error("Truck not found");
+            }
+            
+            // Get original dispatcher ID
+            let originalDispatcherId = null;
+            if (truck?.driverId) {
+              const { data: originalDriver } = await supabase
+                .from("drivers")
+                .select("dispatcher_id")
+                .eq("id", truck.driverId)
+                .maybeSingle();
+              originalDispatcherId = originalDriver?.dispatcher_id || null;
+            }
+            
+            // Update truck with recovery driver
+            const { error: truckError } = await supabase
+              .from("trucks")
+              .update({ driver1_id: recoveryDriverId })
+              .eq("id", gameOverDialog.truckId);
+            
+            if (truckError) throw truckError;
+            
+            // Update active orders with recovery driver
+            if (truck?.activeOrders && truck.activeOrders.length > 0) {
+              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+              
+              // Get recovery driver's truck
+              const { data: recoveryTrucks } = await supabase
+                .from("trucks")
+                .select("id, truck_number")
+                .eq("driver1_id", recoveryDriverId)
+                .limit(1);
+              
+              const orderUpdate: any = { driver1_id: recoveryDriverId };
+              if (recoveryTrucks && recoveryTrucks.length > 0) {
+                orderUpdate.truck_id = recoveryTrucks[0].id;
+              }
+              
+              await supabase.from("orders").update(orderUpdate).in("id", activeOrderIds);
+              
+              // Save recovery history
+              for (const orderId of activeOrderIds) {
+                await supabase.from("recovery_history").insert({
+                  order_id: orderId,
+                  original_driver1_id: truck.driverId,
+                  original_driver2_id: truck.driver2Id || null,
+                  original_truck_id: gameOverDialog.truckId,
+                  original_trailer_id: truck.trailerId || null,
+                  original_dispatcher_id: originalDispatcherId,
+                  recovery_driver1_id: recoveryDriverId,
+                  recovery_truck_id: recoveryTrucks?.[0]?.id || null,
+                });
+              }
+            }
+            
+            toast({
+              title: "Recovery driver assigned",
+              description: `Recovery driver assigned to truck ${gameOverDialog.truckNumber}`,
+            });
+            setGameOverDialog(null);
+          } catch (error) {
+            console.error("❌ Assign recovery driver failed:", error);
+            toast({
+              title: "Failed to assign recovery driver",
+              description: error instanceof Error ? error.message : "Unknown error",
+              variant: "destructive",
+            });
+          }
+        }}
         onInitialConfirm={async (startDate, type, note) => {
           // This handles ONLY the "ALWAYS" actions when no recovery driver is selected
           if (!gameOverDialog) return;
