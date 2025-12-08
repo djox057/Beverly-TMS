@@ -6,6 +6,8 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
+  console.log('Delete user function called')
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -14,6 +16,7 @@ Deno.serve(async (req) => {
     // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('No authorization header')
       throw new Error('No authorization header')
     }
 
@@ -41,8 +44,11 @@ Deno.serve(async (req) => {
     }
     
     if (!user) {
+      console.error('No user found in token')
       throw new Error('No user found in token')
     }
+
+    console.log('Authenticated user:', user.id)
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(
@@ -65,22 +71,58 @@ Deno.serve(async (req) => {
       .single()
 
     if (!userRole) {
+      console.error('User does not have admin role')
       throw new Error('Unauthorized: Admin role required')
     }
+
+    console.log('User has admin role')
 
     // Get user ID to delete from request body
     const { userId } = await req.json()
     
     if (!userId) {
+      console.error('No userId provided in request body')
       throw new Error('User ID is required')
     }
 
-    // Delete the user using admin client
+    console.log('Attempting to delete user:', userId)
+
+    // First delete related records that might prevent deletion
+    // Delete from profiles table
+    const { error: profileDeleteError } = await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('user_id', userId)
+
+    if (profileDeleteError) {
+      console.error('Error deleting profile:', profileDeleteError)
+      // Continue anyway - profile might not exist
+    } else {
+      console.log('Profile deleted successfully')
+    }
+
+    // Delete from user_roles table
+    const { error: rolesDeleteError } = await supabaseAdmin
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+
+    if (rolesDeleteError) {
+      console.error('Error deleting user roles:', rolesDeleteError)
+      // Continue anyway - roles might not exist
+    } else {
+      console.log('User roles deleted successfully')
+    }
+
+    // Delete the user from auth.users using admin client
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
+      console.error('Error deleting user from auth:', deleteError)
       throw deleteError
     }
+
+    console.log('User deleted successfully from auth.users:', userId)
 
     return new Response(
       JSON.stringify({ success: true }),
