@@ -3865,21 +3865,19 @@ const Reports = () => {
                     driverIds.push(yardActionDialog.driver2Id);
                   }
                   
-                  // Insert yard actions for all drivers
-                  const insertPromises = driverIds.map(driverId => 
-                    supabase
-                      .from("driver_yard_actions")
-                      .insert({
-                        driver_id: driverId,
-                        action_type: yardActionType,
-                        comment: yardActionComment.trim(),
-                        arrival_datetime: yardActionDatetime.toISOString(),
-                        created_by: profile?.user_id,
-                      })
-                  );
-
-                  const insertResults = await Promise.all(insertPromises);
-                  const insertError = insertResults.find(r => r.error)?.error;
+                  const isTeam = !!yardActionDialog.driver2Id;
+                  
+                  // Insert single yard action (for teams, only create one with is_team flag)
+                  const { error: insertError } = await supabase
+                    .from("driver_yard_actions")
+                    .insert({
+                      driver_id: yardActionDialog.driverId,
+                      action_type: yardActionType,
+                      comment: yardActionComment.trim(),
+                      arrival_datetime: yardActionDatetime.toISOString(),
+                      created_by: profile?.user_id,
+                      is_team: isTeam,
+                    });
 
                   if (insertError) {
                     toast({

@@ -638,6 +638,7 @@ export type Database = {
           driver_id: string
           id: string
           is_checked: boolean | null
+          is_team: boolean
           updated_at: string
         }
         Insert: {
@@ -649,6 +650,7 @@ export type Database = {
           driver_id: string
           id?: string
           is_checked?: boolean | null
+          is_team?: boolean
           updated_at?: string
         }
         Update: {
@@ -660,6 +662,7 @@ export type Database = {
           driver_id?: string
           id?: string
           is_checked?: boolean | null
+          is_team?: boolean
           updated_at?: string
         }
         Relationships: [

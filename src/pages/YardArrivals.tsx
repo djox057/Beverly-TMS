@@ -39,6 +39,7 @@ interface YardAction {
   arrival_datetime: string | null;
   created_by: string | null;
   is_checked: boolean;
+  is_team: boolean;
   driver: {
     name: string;
     first_name: string;
@@ -65,7 +66,7 @@ export default function YardArrivals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string } | null>(null);
+  const [actionToCancel, setActionToCancel] = useState<{ id: string; driverId: string; driverName: string; isTeam: boolean } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [actionToEdit, setActionToEdit] = useState<YardAction | null>(null);
   const [editForm, setEditForm] = useState({
@@ -89,6 +90,7 @@ export default function YardArrivals() {
           arrival_datetime,
           created_by,
           is_checked,
+          is_team,
           drivers!driver_yard_actions_driver_id_fkey (
             name,
             first_name,
@@ -112,6 +114,7 @@ export default function YardArrivals() {
             ...action,
             driver: action.drivers,
             truck: truckData,
+            is_team: action.is_team || false,
           };
         })
       );
@@ -221,13 +224,29 @@ export default function YardArrivals() {
       // Delete the yard action
       await supabase.from("driver_yard_actions").delete().eq("id", actionToCancel.id);
 
-      // Remove going_yard status from driver
-      await supabase.from("drivers").update({ going_yard: false }).eq("id", actionToCancel.driverId);
+      // Remove going_yard status from driver(s)
+      if (actionToCancel.isTeam) {
+        // For teams, find driver2 from the truck and reset both
+        const { data: truckData } = await supabase
+          .from("trucks")
+          .select("driver1_id, driver2_id")
+          .eq("driver1_id", actionToCancel.driverId)
+          .maybeSingle();
+        
+        const driverIds = [actionToCancel.driverId];
+        if (truckData?.driver2_id) {
+          driverIds.push(truckData.driver2_id);
+        }
+        await supabase.from("drivers").update({ going_yard: false }).in("id", driverIds);
+      } else {
+        await supabase.from("drivers").update({ going_yard: false }).eq("id", actionToCancel.driverId);
+      }
 
       toast({
         title: "Yard arrival canceled",
       });
       queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
     } catch (error) {
       console.error("Error canceling yard action:", error);
       toast({
@@ -388,7 +407,7 @@ export default function YardArrivals() {
                             <div className="flex items-start justify-between">
                               <div className="flex-1 space-y-1">
                                 <p className="font-semibold">
-                                  #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                  #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
@@ -427,7 +446,8 @@ export default function YardArrivals() {
                                     setActionToCancel({
                                       id: action.id,
                                       driverId: action.driver_id,
-                                      driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                      driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                      isTeam: action.is_team,
                                     });
                                     setCancelDialogOpen(true);
                                   }}
@@ -475,7 +495,7 @@ export default function YardArrivals() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-1">
                               <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
@@ -514,7 +534,8 @@ export default function YardArrivals() {
                                   setActionToCancel({
                                     id: action.id,
                                     driverId: action.driver_id,
-                                    driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                    isTeam: action.is_team,
                                   });
                                   setCancelDialogOpen(true);
                                 }}
@@ -561,7 +582,7 @@ export default function YardArrivals() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-1">
                               <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
@@ -600,7 +621,8 @@ export default function YardArrivals() {
                                   setActionToCancel({
                                     id: action.id,
                                     driverId: action.driver_id,
-                                    driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                    isTeam: action.is_team,
                                   });
                                   setCancelDialogOpen(true);
                                 }}
