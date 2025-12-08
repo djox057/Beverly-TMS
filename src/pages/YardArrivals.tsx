@@ -353,14 +353,12 @@ export default function YardArrivals() {
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
-    // Format as MM/DD/YYYY HH:mm without timezone conversion
+    // Format as MM/DD/YYYY without time
     const date = new Date(dateString);
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${month}/${day}/${year} ${hours}:${minutes}`;
+    return `${month}/${day}/${year}`;
   };
 
   if (isLoading || isLoadingTwoWeekNotice) {
@@ -410,10 +408,11 @@ export default function YardArrivals() {
                                   #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                                  Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                                 </p>
-                                <div className="pt-1">
-                                  <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                                <div className="pt-1 w-full">
+                                  <p className="text-sm font-medium">Reason:</p>
+                                  <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
                                 </div>
                               </div>
                               <div className="flex gap-1">
@@ -498,10 +497,11 @@ export default function YardArrivals() {
                                 #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
-                              <div className="pt-1">
-                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              <div className="pt-1 w-full">
+                                <p className="text-sm font-medium">Reason:</p>
+                                <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
                               </div>
                             </div>
                             <div className="flex gap-1">
@@ -585,10 +585,11 @@ export default function YardArrivals() {
                                 #{action.truck?.truck_number || "N/A"} {action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
-                              <div className="pt-1">
-                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              <div className="pt-1 w-full">
+                                <p className="text-sm font-medium">Reason:</p>
+                                <p className="text-sm mt-0.5 break-words whitespace-pre-wrap">{action.comment}</p>
                               </div>
                             </div>
                             <div className="flex gap-1">
