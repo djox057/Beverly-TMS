@@ -1635,16 +1635,16 @@ const Reports = () => {
           >
             {/* Delivery cell (top half) - NOW includes same-day delivery stops */}
             <div
-              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
+              className={`border-b ${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? "" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              {deliveryOnlyOrders.length > 0 || sameDayOrders.length > 0 ? (
+              {allDeliveryOrders.length > 0 || sameDayOrders.length > 0 ? (
                 <div className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row">
-                  {deliveryOnlyOrders.flatMap((order) => {
+                  {allDeliveryOrders.flatMap((order) => {
                     // Get all delivery stops for this day
                     const dayStr = format(day, "yyyy-MM-dd");
                     const deliveryStopsForDay =
@@ -1656,7 +1656,7 @@ const Reports = () => {
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
                       const totalCellsOnDay =
-                        deliveryOnlyOrders.reduce(
+                        allDeliveryOrders.reduce(
                           (sum, o) =>
                             sum +
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
@@ -1712,7 +1712,7 @@ const Reports = () => {
                     return deliveryStopsForDay.map((stop: any, stopIdx: number) => {
                       const cellColor = getDeliveryCellColor(order, stop);
                       const totalCellsOnDay =
-                        deliveryOnlyOrders.reduce(
+                        allDeliveryOrders.reduce(
                           (sum, o) =>
                             sum +
                             (o.deliveryStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
@@ -1800,14 +1800,14 @@ const Reports = () => {
 
             {/* Pickup cell (bottom half) - includes same-day orders */}
             <div
-              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`}
+              className={`${!isToday && index > 0 ? "border-l" : ""} ${!isToday ? "border-r" : ""} border-gray-400 flex flex-col ${allPickupOrders.length > 0 || sameDayOrders.length > 0 ? "" : isMissingPickup ? "bg-[hsl(0_72%_53%)] dark:bg-[hsl(var(--destructive-light))]" : "bg-muted"} overflow-hidden`}
               style={{
                 height: "32px",
                 minHeight: "32px",
                 maxHeight: "32px",
               }}
             >
-              {pickupOnlyOrders.length > 0 || sameDayOrders.length > 0 ? (
+              {allPickupOrders.length > 0 || sameDayOrders.length > 0 ? (
                 <div
                   className="space-x-0.5 flex-1 p-0 overflow-hidden flex flex-row"
                   onClick={(e) => e.stopPropagation()}
@@ -1826,7 +1826,7 @@ const Reports = () => {
                     // Render a separate cell for each pickup stop
                     return pickupStopsForDay.map((stop: any, stopIdx: number) => {
                       const totalCellsOnDay =
-                        pickupOnlyOrders.reduce(
+                        allPickupOrders.reduce(
                           (sum, o) =>
                             sum +
                             (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
@@ -1870,7 +1870,7 @@ const Reports = () => {
                       );
                     });
                   })}
-                  {pickupOnlyOrders.flatMap((order) => {
+                  {allPickupOrders.flatMap((order) => {
                     const previousComplete = getPreviousLoadDeliveryStatus(order);
                     const cellColor = getPickupCellColor(order, previousComplete);
 
@@ -1884,13 +1884,20 @@ const Reports = () => {
                     // Render a separate cell for each pickup stop
                     return pickupStopsForDay.map((stop: any, stopIdx: number) => {
                       const totalCellsOnDay =
-                        pickupOnlyOrders.reduce(
+                        allPickupOrders.reduce(
                           (sum, o) =>
                             sum +
                             (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
                               .length || 0),
                           0,
-                        ) + sameDayOrders.length;
+                        ) +
+                        sameDayOrders.reduce(
+                          (sum, o) =>
+                            sum +
+                            (o.pickupStops?.filter((s: any) => formatDateTime(s.datetime, "yyyy-MM-dd") === dayStr)
+                              .length || 0),
+                          0,
+                        );
                       return (
                         <div
                           key={`pickup-${order.id}-stop-${stop.id || stopIdx}`}
@@ -1929,7 +1936,7 @@ const Reports = () => {
                     (note: any) => note.date === dateStr && note.note_type === "home_time",
                   );
                   const hasHomeTime = !!homeTimeNote;
-                  const hasDeliveryThisDay = deliveryOnlyOrders.length > 0;
+                  const hasDeliveryThisDay = allDeliveryOrders.length > 0;
 
                   return (
                     <div
