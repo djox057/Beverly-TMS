@@ -3827,44 +3827,62 @@ const Reports = () => {
           }
         }}
         onRemoveAll={async () => {
-          if (!gameOverDialog || gameOverDialog.existingDates.length === 0) {
-            toast({
-              title: "No game over dates",
-              description: "This truck has no game over dates to remove.",
-              variant: "destructive",
-            });
-            return;
-          }
+          if (!gameOverDialog) return;
+          
           try {
             // Find the truck to get driver ID
             const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
             const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
 
-            console.log("🔍 Remove All - Finding truck:", {
+            console.log("🔍 Remove Status - Finding truck:", {
               searchingForTruckId: gameOverDialog.truckId,
               foundTruck: truck,
               driverId: truck?.driverId,
+              needsRecovery: truck?.needsRecovery,
             });
 
-            if (!truck?.driverId) {
-              throw new Error("No driver found for this truck");
+            // Delete lost day notes if any exist
+            if (truck?.driverId && gameOverDialog.existingDates.length > 0) {
+              for (const date of gameOverDialog.existingDates) {
+                await deleteLostDayNote.mutateAsync({
+                  driverId: truck.driverId,
+                  date,
+                });
+              }
             }
-
-            for (const date of gameOverDialog.existingDates) {
-              await deleteLostDayNote.mutateAsync({
-                driverId: truck.driverId,
-                date,
-              });
+            
+            // Reset truck recovery status
+            const { error: truckError } = await supabase
+              .from("trucks")
+              .update({
+                needs_recovery: false,
+                left_by_driver_id: null,
+              })
+              .eq("id", gameOverDialog.truckId);
+            
+            if (truckError) {
+              console.error("❌ Failed to reset truck recovery status:", truckError);
+              throw truckError;
             }
+            
+            // Reset is_recovery on active orders for this truck
+            if (truck?.activeOrders && truck.activeOrders.length > 0) {
+              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+              await supabase
+                .from("orders")
+                .update({ is_recovery: false })
+                .in("id", activeOrderIds);
+            }
+            
             toast({
-              title: "Game over removed",
-              description: `Removed game over for ${gameOverDialog.existingDates.length} day(s) on truck ${gameOverDialog.truckNumber}`,
+              title: "Status removed",
+              description: `Recovery status removed from truck ${gameOverDialog.truckNumber}`,
             });
             setGameOverDialog(null);
           } catch (error) {
             toast({
               title: "Error",
-              description: error instanceof Error ? error.message : "Failed to remove game over",
+              description: error instanceof Error ? error.message : "Failed to remove status",
               variant: "destructive",
             });
           }
