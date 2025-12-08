@@ -3459,6 +3459,95 @@ const Reports = () => {
         truckNumber={gameOverDialog?.truckNumber || ""}
         truckId={gameOverDialog?.truckId || ""}
         existingDates={gameOverDialog?.existingDates || []}
+        onInitialConfirm={async (startDate, type, note) => {
+          // This handles ONLY the "ALWAYS" actions when no recovery driver is selected
+          if (!gameOverDialog) return;
+
+          try {
+            console.log("🚀 Starting initial set driver status (no recovery driver)...", { startDate, type, note });
+            const dateStr = format(startDate, "yyyy-MM-dd");
+            const noteText = type === "yard" ? "game over - yard" : "game over - at road";
+
+            // Find the truck to get driver info
+            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
+            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
+
+            if (!truck) {
+              throw new Error("Truck not found in reports data");
+            }
+
+            // Create lost day note for the driver
+            if (truck?.driverId) {
+              console.log("📝 Creating lost day note for driver...");
+              await updateLostDayNote.mutateAsync({
+                driverId: truck.driverId,
+                date: dateStr,
+                note: noteText,
+              });
+              console.log("✅ Lost day note created");
+            }
+
+            // Update truck note
+            console.log("📝 Updating truck note...");
+            await updateTruckNote.mutateAsync({
+              truckId: gameOverDialog.truckId,
+              note: note.trim(),
+            });
+            console.log("✅ Truck note updated");
+
+            // Set recovery status on truck (but DO NOT null out driver/trailer)
+            const { error: truckError } = await supabase
+              .from("trucks")
+              .update({
+                needs_recovery: true,
+                left_by_driver_id: truck?.driverId || null,
+              })
+              .eq("id", gameOverDialog.truckId);
+
+            if (truckError) {
+              console.error("❌ Truck update failed:", truckError);
+              throw truckError;
+            }
+            console.log("✅ Truck marked for recovery");
+
+            // Mark active orders as recovery loads (but DO NOT change driver assignment)
+            if (truck?.activeOrders && truck.activeOrders.length > 0) {
+              console.log("📦 Marking active orders as recovery:", truck.activeOrders.length);
+              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
+
+              const { error: orderError } = await supabase
+                .from("orders")
+                .update({
+                  is_recovery: true,
+                  original_driver1_id: truck.driverId,
+                  original_driver2_id: truck.driver2Id || null,
+                  original_truck_id: gameOverDialog.truckId,
+                  original_trailer_id: truck.trailerId || null,
+                })
+                .in("id", activeOrderIds);
+
+              if (orderError) {
+                console.error("❌ Order update failed:", orderError);
+                throw orderError;
+              }
+              console.log("✅ Orders marked as recovery");
+            }
+
+            console.log("🎉 Initial status set completed - awaiting recovery driver assignment");
+            toast({
+              title: "Truck marked for recovery",
+              description: `Truck ${gameOverDialog.truckNumber} marked for recovery - select a recovery driver or assign later`,
+            });
+          } catch (error) {
+            console.error("❌ Initial set driver status failed:", error);
+            toast({
+              title: "Failed to set status",
+              description: error instanceof Error ? error.message : "Unknown error occurred",
+              variant: "destructive",
+            });
+            throw error; // Re-throw to prevent step change in dialog
+          }
+        }}
         onConfirm={async (startDate, type, note, recoveryDriverId) => {
           if (!gameOverDialog) return;
 
