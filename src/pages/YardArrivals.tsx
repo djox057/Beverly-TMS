@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck } from "lucide-react";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,7 +33,7 @@ import { useState } from "react";
 interface YardAction {
   id: string;
   driver_id: string;
-  action_type: "maintenance" | "return_truck";
+  action_type: "maintenance" | "return_truck" | "safety";
   comment: string;
   created_at: string;
   arrival_datetime: string | null;
@@ -171,6 +171,7 @@ export default function YardArrivals() {
 
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
+  const safetyActions = yardActions?.filter((a) => a.action_type === "safety") || [];
 
   // Group actions by date
   const groupByDate = (actions: YardAction[]) => {
@@ -210,6 +211,7 @@ export default function YardArrivals() {
 
   const groupedMaintenance = groupByDate(maintenanceActions);
   const groupedReturnTruck = groupByDate(returnTruckActions);
+  const groupedSafety = groupByDate(safetyActions);
   const groupedTwoWeekNotice = groupTwoWeekNoticeByDate(twoWeekNoticeDrivers || []);
 
   const handleCancelAction = async () => {
@@ -357,7 +359,7 @@ export default function YardArrivals() {
         <CompletedDriversDialog />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Maintenance Section */}
         <Card>
           <CardHeader>
@@ -460,6 +462,92 @@ export default function YardArrivals() {
               <div className="space-y-6">
                 {groupedReturnTruck.map(([dateKey, actions]) => {
                   // Parse date without timezone conversion
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return (
+                  <div key={dateKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
+                      {formatDate(date, "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    <div className="space-y-3">
+                      {actions.map((action) => (
+                        <div key={action.id} className={`border rounded-lg p-4 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-1">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"} {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Time of arrival: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              </p>
+                              <div className="pt-1">
+                                <p className="text-sm"><span className="font-medium">Reason:</span> {action.comment}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToEdit(action);
+                                  setEditForm({
+                                    arrival_datetime: action.arrival_datetime || action.created_at,
+                                    comment: action.comment,
+                                  });
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCheckYardAction(action.id, action.is_checked)}
+                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                              >
+                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToCancel({
+                                    id: action.id,
+                                    driverId: action.driver_id,
+                                    driverName: action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`,
+                                  });
+                                  setCancelDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Safety Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Safety ({safetyActions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {safetyActions.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No safety arrivals</p>
+            ) : (
+              <div className="space-y-6">
+                {groupedSafety.map(([dateKey, actions]) => {
                   const [year, month, day] = dateKey.split('-').map(Number);
                   const date = new Date(year, month - 1, day);
                   return (
