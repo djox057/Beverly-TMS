@@ -1632,9 +1632,9 @@ const Trips = () => {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Trips</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Trips</h1>
       </div>
 
       <Card className="bg-background">
@@ -1674,9 +1674,9 @@ const Trips = () => {
         </CardContent>
       </Card>
 
-      <Card className="w-fit min-w-full">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>
+      <Card className="w-full min-w-0">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-4 md:p-6">
+          <CardTitle className="text-base md:text-lg">
             Trips ({filteredOrders.length} total, showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)})
           </CardTitle>
           <Button
@@ -1685,14 +1685,15 @@ const Trips = () => {
             onClick={exportFinalStatement}
             disabled={!truckFilter && !driverFilter}
             title={!truckFilter && !driverFilter ? "Filter by truck or driver first" : "Export final statement"}
+            className="text-xs md:text-sm"
           >
-            <FileDown className="h-4 w-4 mr-2" />
+            <FileDown className="h-4 w-4 mr-1 md:mr-2" />
             Final
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-6 relative">
-            <Table>
+          <div className="p-2 md:p-6 relative overflow-x-auto">
+            <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 z-20">
                 <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
