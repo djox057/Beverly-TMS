@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2, History } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
 import { useTrucks } from "@/hooks/useTrucks";
@@ -48,7 +49,7 @@ const Trailers = () => {
     insurance_expiration_date: ""
   });
 
-  const itemsPerPage = 8;
+  const itemsPerPage = 100;
   const {
     toast
   } = useToast();
@@ -260,6 +261,28 @@ const Trailers = () => {
     });
     setIsEditDialogOpen(true);
   };
+
+  const exportToExcel = () => {
+    const exportData = filteredTrailers.map(trailer => ({
+      "Trailer #": trailer.trailer_number,
+      "Trailer Type": trailer.trailer_type || "",
+      "VIN": trailer.vin || "",
+      "Connected Truck #": trailer.trucks?.[0]?.truck_number || "",
+      "DOT Inspection": trailer.dot_inspection_date || "",
+      "Plate Exp.": trailer.plate_expiration_date || "",
+      "Insurance Exp.": trailer.insurance_expiration_date || ""
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Trailers");
+    XLSX.writeFile(wb, `trailers_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    toast({
+      title: "Export Complete",
+      description: `Exported ${exportData.length} trailers to Excel`
+    });
+  };
   if (isLoading) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
@@ -277,13 +300,18 @@ const Trailers = () => {
   return <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Trailers</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Trailer
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Export to Excel
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Trailer
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add New Trailer</DialogTitle>
@@ -392,6 +420,7 @@ const Trailers = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -417,7 +446,7 @@ const Trailers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto h-[700px] flex flex-col">
+          <div className="flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
