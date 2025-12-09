@@ -16,7 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History, CalendarIcon } from "lucide-react";
+import { Search, Plus, Edit, Phone, Mail, Trash2, Loader2, CheckCircle2, Play, RefreshCw, History, CalendarIcon, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pagination,
@@ -115,7 +116,7 @@ const Drivers = () => {
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const [twoWeekNoticeDialog, setTwoWeekNoticeDialog] = useState(false);
   const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
-  const itemsPerPage = 8;
+  const itemsPerPage = 100;
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: "",
     last_name: "",
@@ -906,6 +907,35 @@ const Drivers = () => {
       });
     }
   };
+
+  const exportToExcel = () => {
+    const exportData = filteredDrivers.map((driver: any) => ({
+      "Name": driver.name || "",
+      "Phone": driver.phone || "",
+      "Email": driver.email || "",
+      "Home City": driver.home_city || "",
+      "Home State": driver.home_state || "",
+      "Truck #": driver.truck_info?.truck_number || "",
+      "Trailer #": driver.truck_info?.trailer_number || "",
+      "Dispatcher": driver.dispatcher_info?.full_name || "",
+      "Company": driver.company?.name || "",
+      "CDL #": driver.cdl_number || "",
+      "CDL Exp.": driver.cdl_expiration_date || "",
+      "Medical Exp.": driver.medical_card_expiration_date || "",
+      "Hire Date": driver.hire_date || "",
+      "Status": driver.is_active ? "Active" : "Inactive"
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Drivers");
+    XLSX.writeFile(wb, `drivers_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    toast({
+      title: "Export Complete",
+      description: `Exported ${exportData.length} drivers to Excel`
+    });
+  };
   const openEditDialog = async (driver: any) => {
     setEditingDriver(driver);
     fetchTerminationNotes(driver.id);
@@ -995,13 +1025,18 @@ const Drivers = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Drivers</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Driver
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Export to Excel
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Driver
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Driver</DialogTitle>
@@ -1633,6 +1668,7 @@ const Drivers = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -1724,7 +1760,7 @@ const Drivers = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto h-[700px]">
+          <div className="flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
