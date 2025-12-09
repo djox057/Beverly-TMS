@@ -624,8 +624,9 @@ export const useReports = () => {
                 // Skip GAME-OVER orders - they're visual indicators only
                 if (order.notes === "GAME|OVER") return false;
 
-                // Skip canceled orders
-                if (order.canceled) return false;
+                // Skip canceled orders - handle CSV string booleans properly
+                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+                if (isCanceled) return false;
 
                 const isActiveStatus = order.status === "pending" || order.status === "in_transit";
                 const hasNoDeliveryDate = !order.delivery_datetime;
@@ -639,8 +640,9 @@ export const useReports = () => {
                 // Skip GAME-OVER orders
                 if (order.notes === "GAME|OVER") return false;
 
-                // Skip canceled orders
-                if (order.canceled) return false;
+                // Skip canceled orders - handle CSV string booleans properly
+                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+                if (isCanceled) return false;
 
                 if (order.status === "delivered") return true;
 
@@ -661,7 +663,10 @@ export const useReports = () => {
             // Process all orders for this driver (including GAME-OVER for calendar rendering, but excluding canceled orders)
             const allOrdersWithStops =
               driverOrders
-                .filter((order) => !order.canceled)
+                .filter((order) => {
+                  const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+                  return !isCanceled;
+                })
                 .map((order) => {
                   const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
@@ -973,7 +978,9 @@ export const useReports = () => {
           const activeOrders =
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
-              if (order.canceled) return false;
+              // Handle CSV string booleans properly
+              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+              if (isCanceled) return false;
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
               const hasNoDeliveryDate = !order.delivery_datetime;
               const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
@@ -983,7 +990,9 @@ export const useReports = () => {
           const recentCompletedOrders =
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
-              if (order.canceled) return false;
+              // Handle CSV string booleans properly
+              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+              if (isCanceled) return false;
               if (order.status === "delivered") return true;
               
               // Consider orders with POD files as completed regardless of status
@@ -1000,7 +1009,10 @@ export const useReports = () => {
 
           const allOrdersWithStops =
             driverOrders
-              .filter((order) => !order.canceled)
+              .filter((order) => {
+                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
+                return !isCanceled;
+              })
               .map((order) => {
                 const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
                   (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
