@@ -80,8 +80,8 @@ export default function DataManagement() {
 
             await saveFunction(data);
             
-            // Clear local IndexedDB cache to force fresh fetch from storage
-            await clearCache();
+            // Note: saveFunction already updates local cache, no need to clear it
+            // The save functions upload to storage AND update local IndexedDB
             
             // Update metadata to notify all users - use upsert with id
             const metadataId = 'singleton';
