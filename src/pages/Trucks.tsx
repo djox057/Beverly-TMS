@@ -513,7 +513,7 @@ const Trucks = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col h-[700px]">
+        <CardContent className="flex flex-col h-[3200px]">
           <div className="overflow-x-auto flex-1">
             <Table>
               <TableHeader>
