@@ -426,7 +426,7 @@ export default function YardLoads() {
                         <TableCell>{order.companyName}</TableCell>
                         <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
-                          {canEditOrders && !order.locked && (
+                          {!order.locked && (
                             <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
                               <Edit className="h-4 w-4" />
                             </Button>
