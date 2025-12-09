@@ -269,29 +269,30 @@ export default function YardLoads() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Loads at the Yard</h1>
-        <div className="flex gap-2">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Loads at the Yard</h1>
+        <div className="flex flex-wrap gap-2">
           {!isYardRole && (
-            <Button onClick={exportToExcel} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
+            <Button onClick={exportToExcel} variant="outline" className="text-xs md:text-sm">
+              <Download className="mr-1 md:mr-2 h-4 w-4" />
               Export
             </Button>
           )}
           {canCreateOrders && (
-            <Button onClick={() => navigate('/new-order')}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Load
+            <Button onClick={() => navigate('/new-order')} className="text-xs md:text-sm">
+              <Plus className="mr-1 md:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">New Load</span>
+              <span className="sm:hidden">New</span>
             </Button>
           )}
         </div>
       </div>
 
-      <Card className="p-6">
+      <Card className="p-4 md:p-6">
         <div className="space-y-4">
           {/* Search and Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
             <Input
               placeholder="Search loads..."
               value={searchQuery}
@@ -351,7 +352,7 @@ export default function YardLoads() {
           </div>
 
           {/* Table */}
-          <div className="border rounded-md">
+          <div className="border rounded-md overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

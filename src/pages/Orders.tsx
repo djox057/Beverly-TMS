@@ -721,25 +721,27 @@ const Orders = () => {
   };
   return (
     <div className="h-full w-full">
-      <div className="space-y-6 p-6 max-w-none">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-semibold text-foreground">Loads</h1>
-          <div className="flex gap-2">
+      <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-none">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Loads</h1>
+          <div className="flex flex-wrap gap-2">
             {(primaryRole === "admin" || primaryRole === "accounting" || primaryRole === "manager") && (
               <>
-                <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export to Excel
+                <Button variant="outline" onClick={exportToExcel} disabled={!filteredOrders.length} className="text-xs md:text-sm">
+                  <Download className="mr-1 md:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Export to Excel</span>
+                  <span className="sm:hidden">Export</span>
                 </Button>
-                <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length}>
-                  <FileText className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={generateInvoices} disabled={!filteredOrders.length} className="text-xs md:text-sm">
+                  <FileText className="mr-1 md:mr-2 h-4 w-4" />
                   INVOICE
                 </Button>
               </>
             )}
-            <Button onClick={() => navigate("/new-order")}>
-              <FileText className="mr-2 h-4 w-4" />
-              New Load
+            <Button onClick={() => navigate("/new-order")} className="text-xs md:text-sm">
+              <FileText className="mr-1 md:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">New Load</span>
+              <span className="sm:hidden">New</span>
             </Button>
             <Button variant="outline" size="icon" onClick={() => setShowLegendDialog(true)} title="Color Legend">
               <Info className="h-4 w-4" />
@@ -755,9 +757,9 @@ const Orders = () => {
               </div>
 
               <ScrollArea className="w-full">
-                <div className="grid grid-cols-6 gap-4 pb-4">
-                  {/* Column 1: Search - spans 2 rows */}
-                  <div className="row-span-2 flex items-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-4 pb-4">
+                  {/* Column 1: Search - spans 2 rows on large screens */}
+                  <div className="col-span-2 sm:col-span-1 lg:row-span-2 flex items-center">
                     <div className="relative w-full">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                       <Input
@@ -904,7 +906,7 @@ const Orders = () => {
           </CardHeader>
           <OrdersCacheStatus />
           <CardContent className="p-0">
-            <div className="p-6">
+            <div className="p-2 md:p-6 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
