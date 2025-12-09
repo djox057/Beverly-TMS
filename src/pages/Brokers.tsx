@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, Edit, Building, Trash2, Loader2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +18,7 @@ interface BrokerFormData {
   mc_number: string;
   address: string;
 }
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 100;
 const Brokers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -205,6 +206,18 @@ const Brokers = () => {
     });
     setIsEditDialogOpen(true);
   };
+
+  const exportToExcel = () => {
+    const exportData = filteredBrokers.map(broker => ({
+      "Company Name": broker.name || "",
+      "MC Number": broker.mc_number || "",
+      "Address": broker.address || ""
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Brokers");
+    XLSX.writeFile(workbook, "brokers_export.xlsx");
+  };
   if (isLoading) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
@@ -215,12 +228,17 @@ const Brokers = () => {
   return <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Brokers</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Broker
-            </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Export to Excel
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Broker
+              </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -263,6 +281,7 @@ const Brokers = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -275,8 +294,8 @@ const Brokers = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col h-[700px]">
-          <div className="overflow-x-auto flex-1">
+        <CardContent className="flex flex-col flex-1">
+          <div className="flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
