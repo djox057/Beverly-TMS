@@ -531,9 +531,21 @@ export const useReports = () => {
           if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
             console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
 
-            // Match pickup_drops and order_files to orders
+            // Helper to convert CSV "null" strings and booleans to proper types
+            const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
+            const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
+
+            // Match pickup_drops and order_files to orders, and normalize CSV string values
             const ordersWithRelations = cachedOrders.map((order: any) => ({
               ...order,
+              // Normalize CSV string values to proper types
+              is_recovery: normalizeBool(order.is_recovery),
+              canceled: normalizeBool(order.canceled),
+              locked: normalizeBool(order.locked),
+              invoiced: normalizeBool(order.invoiced),
+              notes: normalizeNull(order.notes),
+              date_change_notes: normalizeNull(order.date_change_notes),
+              commodity: normalizeNull(order.commodity),
               pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
               order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
             }));
@@ -546,9 +558,8 @@ export const useReports = () => {
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
             lockedOrders = ordersWithRelations.filter((order: any) => {
-              // Handle CSV string booleans - "true"/"false"/1/0 need proper conversion
-              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-              if (isCanceled) return false;
+              // canceled is already normalized to boolean above
+              if (order.canceled) return false;
               
               // Normalize delivery_datetime - CSV uses space separator, ISO uses T
               const deliveryDateStr = order.delivery_datetime ? 
@@ -624,9 +635,8 @@ export const useReports = () => {
                 // Skip GAME-OVER orders - they're visual indicators only
                 if (order.notes === "GAME|OVER") return false;
 
-                // Skip canceled orders - handle CSV string booleans properly
-                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-                if (isCanceled) return false;
+                // Skip canceled orders (already normalized to boolean for CSV data)
+                if (order.canceled) return false;
 
                 const isActiveStatus = order.status === "pending" || order.status === "in_transit";
                 const hasNoDeliveryDate = !order.delivery_datetime;
@@ -640,9 +650,8 @@ export const useReports = () => {
                 // Skip GAME-OVER orders
                 if (order.notes === "GAME|OVER") return false;
 
-                // Skip canceled orders - handle CSV string booleans properly
-                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-                if (isCanceled) return false;
+                // Skip canceled orders (already normalized to boolean for CSV data)
+                if (order.canceled) return false;
 
                 if (order.status === "delivered") return true;
 
@@ -663,10 +672,7 @@ export const useReports = () => {
             // Process all orders for this driver (including GAME-OVER for calendar rendering, but excluding canceled orders)
             const allOrdersWithStops =
               driverOrders
-                .filter((order) => {
-                  const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-                  return !isCanceled;
-                })
+                .filter((order) => !order.canceled)
                 .map((order) => {
                   const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
                     (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
@@ -974,13 +980,11 @@ export const useReports = () => {
           const driverOrders =
             allOrders?.filter((order) => order.driver1_id === driver.id || order.driver2_id === driver.id) || [];
 
-          // Categorize orders
+          // Categorize orders (canceled is already normalized to boolean for CSV data)
           const activeOrders =
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
-              // Handle CSV string booleans properly
-              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-              if (isCanceled) return false;
+              if (order.canceled) return false;
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
               const hasNoDeliveryDate = !order.delivery_datetime;
               const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
@@ -990,9 +994,7 @@ export const useReports = () => {
           const recentCompletedOrders =
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
-              // Handle CSV string booleans properly
-              const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-              if (isCanceled) return false;
+              if (order.canceled) return false;
               if (order.status === "delivered") return true;
               
               // Consider orders with POD files as completed regardless of status
@@ -1009,10 +1011,7 @@ export const useReports = () => {
 
           const allOrdersWithStops =
             driverOrders
-              .filter((order) => {
-                const isCanceled = order.canceled === true || order.canceled === 'true' || order.canceled === '1' || order.canceled === 1;
-                return !isCanceled;
-              })
+              .filter((order) => !order.canceled)
               .map((order) => {
                 const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
                   (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
