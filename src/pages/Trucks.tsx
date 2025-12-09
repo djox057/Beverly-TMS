@@ -31,7 +31,7 @@ interface TruckFormData {
   plate_expiration_date: string;
   insurance_expiration_date: string;
 }
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,6 +44,7 @@ const Trucks = () => {
   const [historyTruckId, setHistoryTruckId] = useState<string | null>(null);
   const [historyTruckName, setHistoryTruckName] = useState<string>("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
@@ -86,7 +87,7 @@ const Trucks = () => {
     allDispatchers
   } = useFleetManagement();
 
-  // Filter trucks based on search term and company filter
+  // Filter trucks based on search term, company filter, and assignment filter
   const filteredTrucks = trucks?.filter(truck => {
     // Search filter
     const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -101,7 +102,12 @@ const Trucks = () => {
     const driverCompanyId = truck.driver1?.company_id;
     const matchesCompany = companyFilter === "all" || driverCompanyId === companyFilter;
     
-    return matchesSearch && matchesCompany;
+    // Assignment filter - filter by driver1 assignment status
+    const matchesAssignment = assignmentFilter === "all" || 
+      (assignmentFilter === "assigned" && truck.driver1_id) || 
+      (assignmentFilter === "unassigned" && !truck.driver1_id);
+    
+    return matchesSearch && matchesCompany && matchesAssignment;
   }) || [];
 
   // Pagination
@@ -464,6 +470,23 @@ const Trucks = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Truck Fleet</CardTitle>
             <div className="flex items-center gap-3">
+              <div className="w-[160px]">
+                <Combobox
+                  options={[
+                    { value: "all", label: "All Trucks" },
+                    { value: "assigned", label: "Assigned" },
+                    { value: "unassigned", label: "Unassigned" }
+                  ]}
+                  value={assignmentFilter}
+                  onValueChange={(value) => {
+                    setAssignmentFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Assignment"
+                  searchPlaceholder="Search..."
+                  emptyText="No option found."
+                />
+              </div>
               <div className="w-[160px]">
                 <Combobox
                   options={[
