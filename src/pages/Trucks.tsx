@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2, History } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useCompanies } from "@/hooks/useCompanies";
@@ -312,6 +313,33 @@ const Trucks = () => {
     });
     setIsEditDialogOpen(true);
   };
+
+  const exportToExcel = () => {
+    const exportData = filteredTrucks.map(truck => ({
+      "Truck #": truck.truck_number,
+      "VIN": truck.vin || "",
+      "Company": truck.driver1?.company?.name || "",
+      "Trailer #": truck.trailer?.trailer_number || "",
+      "Driver 1": truck.driver1?.name || "",
+      "Driver 2": truck.driver2?.name || "",
+      "Dispatcher": truck.dispatcher?.full_name || "",
+      "IPASS": truck.ipass || "",
+      "DOT Inspection": truck.dot_inspection_date || "",
+      "Plate Exp.": truck.plate_expiration_date || "",
+      "Insurance Exp.": truck.insurance_expiration_date || ""
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Trucks");
+    XLSX.writeFile(wb, `trucks_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    toast({
+      title: "Export Complete",
+      description: `Exported ${exportData.length} trucks to Excel`
+    });
+  };
+
   if (isLoading) {
     return <div className="space-y-6">
         <div className="flex items-center justify-center py-8">
@@ -340,13 +368,18 @@ const Trucks = () => {
   return <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold text-foreground px-[10px]">Trucks</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Truck
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Export to Excel
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Truck
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Truck</DialogTitle>
@@ -463,6 +496,7 @@ const Trucks = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -513,8 +547,8 @@ const Trucks = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col h-[3200px]">
-          <div className="overflow-x-auto flex-1">
+        <CardContent className="flex flex-col">
+          <div className="flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
