@@ -154,9 +154,53 @@ const Trips = () => {
     localStorage.setItem("trips_driverFilter", driverFilter);
   }, [driverFilter]);
 
+  // Expand orders to include original driver portions for transferred/recovered loads
+  const expandedOrders = useMemo(() => {
+    if (!orders) return [];
+    
+    const result: any[] = [];
+    
+    orders.forEach((order) => {
+      // Add the main order entry (for current driver)
+      result.push(order);
+      
+      // If this order was transferred/recovered and has an original driver with pay or miles,
+      // create a virtual entry for the original driver's portion
+      if (order.originalDriver1Id && (
+        (order.originalDriverPrice && order.originalDriverPrice > 0) ||
+        (order.originalMiles && order.originalMiles > 0)
+      )) {
+        result.push({
+          ...order,
+          // Mark as original driver portion
+          isOriginalDriverPortion: true,
+          // Override driver info with original driver
+          driverName: order.originalDriver1Name,
+          driver1Name: order.originalDriver1Name,
+          driver1Id: order.originalDriver1Id,
+          driver2Name: order.originalDriver2Name,
+          driver2Id: order.originalDriver2Id,
+          // Override truck/trailer with original if available
+          truckNumber: order.originalTruckNumber || order.truckNumber,
+          truckId: order.originalTruckId || order.truckId,
+          trailerNumber: order.originalTrailerNumber || order.trailerNumber,
+          trailerId: order.originalTrailerId || order.trailerId,
+          // Use original driver's pay and miles
+          totalDriverPay: order.originalDriverPrice || 0,
+          driverPrice: order.originalDriverPrice || 0,
+          mileage: order.originalMiles || 0,
+          // Keep other financial fields zeroed for original driver portion
+          totalFreightAmount: 0,
+        });
+      }
+    });
+    
+    return result;
+  }, [orders]);
+
   // Filter orders based on truck and driver filters
   const filteredOrders =
-    orders?.filter((order) => {
+    expandedOrders?.filter((order) => {
       const matchesTruck = !truckFilter || order.truckNumber?.toLowerCase() === truckFilter.toLowerCase();
 
       const matchesDriver = !driverFilter || order.driverName?.toLowerCase().includes(driverFilter.toLowerCase());
@@ -1818,12 +1862,19 @@ const Trips = () => {
                                     : alternatingBg;
 
                           return (
-                            <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
+                            <TableRow key={`${order.id}${order.isOriginalDriverPortion ? '-orig' : ''}`} className={`h-16 ${rowClassName}`}>
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
                               <TableCell>
-                                <div className="line-clamp-2">{order.driverName}</div>
+                                <div className="line-clamp-2">
+                                  {order.driverName}
+                                  {order.isOriginalDriverPortion && (
+                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
+                                      Orig
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">{order.internalLoadNumber}</div>
