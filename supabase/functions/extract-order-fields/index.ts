@@ -100,7 +100,7 @@ For EACH location extract:
 - city: City name
 - state: 2-letter state code
 - zip: ZIP code (5 or 9 digits)
-- date: Format as YYYY-MM-DD (use 2025 for all dates)
+- date: Convert to YYYY-MM-DD format (see DATE PARSING RULES below)
 - startTime: Format as HH:MM (24-hour)
 - endTime: Format as HH:MM (24-hour)
 - puNumber: Pickup/appointment number, BOL#, or Bill of Lading number
@@ -114,6 +114,16 @@ For EACH location extract:
 - weight: Weight in pounds - number only
 - equipment: Equipment type (e.g., "53' Dry Van", "Reefer")
 
+## DATE PARSING RULES (CRITICAL):
+US logistics documents use MM/DD/YYYY format (Month/Day/Year). You MUST parse dates correctly:
+- "12/10/2025" means December 10, 2025 → output "2025-12-10"
+- "01/15/2025" means January 15, 2025 → output "2025-01-15"
+- "10/12/2025" means October 12, 2025 → output "2025-10-12"
+- The FIRST number is always the MONTH (1-12)
+- The SECOND number is always the DAY (1-31)
+- If year is missing, assume 2025
+- Common formats to handle: "12/10/25", "12-10-2025", "Dec 10, 2025", "December 10, 2025"
+
 ## ADDRESS CLEANING RULES:
 - Remove everything after " - " (dock/gate instructions)
 - Remove: "DOCK", "DOOR", "GATE", "USE", "CALL AHEAD"
@@ -124,6 +134,7 @@ For EACH location extract:
 - Every load MUST have at least 1 pickup AND 1 delivery
 - Do NOT confuse CARRIER info with pickup/delivery addresses
 - Extract ZIP codes carefully - search near city/state
+- VERIFY dates make sense: pickup date should be before or same as delivery date
 
 ## OUTPUT FORMAT:
 
@@ -137,7 +148,7 @@ For single pickup/delivery:
     "city": "string",
     "state": "XX",
     "zip": "12345",
-    "date": "2025-MM-DD",
+    "date": "2025-12-10",
     "startTime": "HH:MM",
     "endTime": "HH:MM",
     "puNumber": "string",
@@ -149,7 +160,7 @@ For single pickup/delivery:
     "city": "string",
     "state": "XX",
     "zip": "12345",
-    "date": "2025-MM-DD",
+    "date": "2025-12-11",
     "startTime": "HH:MM",
     "endTime": "HH:MM",
     "poNumber": "string",
