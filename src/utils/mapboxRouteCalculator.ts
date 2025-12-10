@@ -14,19 +14,27 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
   
   try {
     const encodedAddress = encodeURIComponent(address);
+    console.log('📍 Geocoding address:', address);
+    
     const response = await fetch(
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=US`
     );
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error('📍 Geocoding failed with status:', response.status);
+      return null;
+    }
     
     const data = await response.json();
     
     if (data.features && data.features.length > 0) {
       const [lon, lat] = data.features[0].center;
+      const placeName = data.features[0].place_name;
+      console.log('📍 Geocoded result:', placeName, '→', { lat, lon });
       return { lat, lon };
     }
     
+    console.warn('📍 No geocoding results for:', address);
     return null;
   } catch (error) {
     console.error('Mapbox geocoding error:', error);
