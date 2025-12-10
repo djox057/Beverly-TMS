@@ -1446,20 +1446,36 @@ const EditOrder = () => {
       // Check if original assignment was N/A (manual entry case)
       const isManualOriginal = data.manualOriginalDriver || data.manualOriginalTruck;
       
-      // Build notes addition for manual original entries
+      // Build notes addition with original and recovery driver info
       let notesAddition = "";
+      const originalParts = [];
       if (isManualOriginal) {
-        const manualParts = [];
-        if (data.manualOriginalDriver) manualParts.push(`Original Driver: ${data.manualOriginalDriver}`);
-        if (data.manualOriginalTruck) manualParts.push(`Original Truck: ${data.manualOriginalTruck}`);
-        if (data.manualOriginalTrailer) manualParts.push(`Original Trailer: ${data.manualOriginalTrailer}`);
-        notesAddition = `[TRANSFER - ${manualParts.join(", ")}]`;
+        if (data.manualOriginalDriver) originalParts.push(`Driver: ${data.manualOriginalDriver}`);
+        if (data.manualOriginalTruck) originalParts.push(`Truck: ${data.manualOriginalTruck}`);
+        if (data.manualOriginalTrailer) originalParts.push(`Trailer: ${data.manualOriginalTrailer}`);
+      } else {
+        // Use current assignment as original
+        const origDriver = drivers?.find((d) => d.id === driver1)?.name;
+        const origTruck = trucks?.find((t) => t.id === truck)?.truck_number;
+        const origTrailer = trailers?.find((t) => t.id === trailerId)?.trailer_number;
+        if (origDriver) originalParts.push(`Driver: ${origDriver}`);
+        if (origTruck) originalParts.push(`Truck: ${origTruck}`);
+        if (origTrailer) originalParts.push(`Trailer: ${origTrailer}`);
       }
+      
+      // Get recovery driver info
+      const recoveryParts = [];
+      const recDriver = drivers?.find((d) => d.id === data.recoveryDriverId)?.name;
+      const recTruck = trucks?.find((t) => t.id === data.recoveryTruckId)?.truck_number;
+      const recTrailer = trailers?.find((t) => t.id === data.recoveryTrailerId)?.trailer_number;
+      if (recDriver) recoveryParts.push(`Driver: ${recDriver}`);
+      if (recTruck) recoveryParts.push(`Truck: ${recTruck}`);
+      if (recTrailer) recoveryParts.push(`Trailer: ${recTrailer}`);
+      
+      notesAddition = `[TRANSFER - Original: ${originalParts.join(", ")} | Recovery: ${recoveryParts.join(", ")}]`;
 
       // Update order with transfer information
-      const updatedNotes = notesAddition 
-        ? (notes ? `${notes}\n${notesAddition}` : notesAddition)
-        : notes;
+      const updatedNotes = notes ? `${notes}\n${notesAddition}` : notesAddition;
 
       const { error } = await supabase
         .from("orders")
