@@ -1753,55 +1753,78 @@ const NewOrder = () => {
       if (pickupsDrops.length === 0) {
         throw new Error("Cannot create order without pickup/delivery locations");
       }
-      const pickupDropData = pickupsDrops
-        .filter((item) => item.address?.trim())
-        .map((item, index) => {
-          // Ensure datetime fields are valid
-          let datetime = null;
-          let end_datetime = null;
-          try {
-            if (item.dateRange?.from && item.startTime) {
-              datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+      
+      // Geocode any addresses that don't have coordinates yet (handles race condition with useEffect)
+      const pickupDropData = await Promise.all(
+        pickupsDrops
+          .filter((item) => item.address?.trim())
+          .map(async (item, index) => {
+            // Ensure datetime fields are valid
+            let datetime = null;
+            let end_datetime = null;
+            try {
+              if (item.dateRange?.from && item.startTime) {
+                datetime = combineDateAndTime(item.dateRange.from, item.startTime);
+              }
+              if (item.dateRange?.from && item.endTime) {
+                end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+              }
+            } catch (error) {
+              console.error("Error combining date and time:", error);
             }
-            if (item.dateRange?.from && item.endTime) {
-              end_datetime = combineDateAndTime(item.dateRange.from, item.endTime);
+            
+            // Geocode if coordinates are missing
+            let latitude = item.latitude || null;
+            let longitude = item.longitude || null;
+            
+            if (!latitude || !longitude) {
+              const fullAddress = [item.address, item.city, item.state, item.zipCode]
+                .filter(Boolean)
+                .join(', ');
+              const coords = await geocodeAddress(fullAddress);
+              if (coords) {
+                latitude = coords.lat;
+                longitude = coords.lon;
+                console.log(`📍 Geocoded at submission: ${fullAddress} -> ${latitude}, ${longitude}`);
+              }
             }
-          } catch (error) {
-            console.error("Error combining date and time:", error);
-          }
-          return {
-            order_id: orderId,
-            type: item.type,
-            sequence_number: index + 1,
-            address: item.address,
-            city: item.city || null,
-            state: item.state || null,
-            zip_code: item.zipCode || null,
-            company_name: item.companyName || null,
-            datetime,
-            end_datetime,
-            latitude: item.latitude || null,
-            longitude: item.longitude || null,
-          };
-        })
-        .filter((item) => item.address && item.address.trim().length > 0); // Final safety check
+            
+            return {
+              order_id: orderId,
+              type: item.type,
+              sequence_number: index + 1,
+              address: item.address,
+              city: item.city || null,
+              state: item.state || null,
+              zip_code: item.zipCode || null,
+              company_name: item.companyName || null,
+              datetime,
+              end_datetime,
+              latitude,
+              longitude,
+            };
+          })
+      );
+      
+      // Filter out any invalid items after async mapping
+      const validPickupDropData = pickupDropData.filter((item) => item.address && item.address.trim().length > 0);
 
-      console.log(`📍 Prepared ${pickupDropData.length} pickup/drop locations for insertion:`, pickupDropData);
+      console.log(`📍 Prepared ${validPickupDropData.length} pickup/drop locations for insertion:`, validPickupDropData);
 
       // CRITICAL: Must have at least one valid pickup/drop after filtering
-      if (pickupDropData.length === 0) {
+      if (validPickupDropData.length === 0) {
         throw new Error("No valid pickup/delivery locations found. Please ensure all locations have valid addresses.");
       }
-      console.log(`📍 Inserting ${pickupDropData.length} pickup/drop locations for order ${orderId}`);
-      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(pickupDropData);
+      console.log(`📍 Inserting ${validPickupDropData.length} pickup/drop locations for order ${orderId}`);
+      const { error: pickupDropError } = await supabase.from("pickup_drops").insert(validPickupDropData);
       if (pickupDropError) {
         console.error("❌ Pickup/drop insert error:", pickupDropError);
-        console.error("Failed data:", pickupDropData);
+        console.error("Failed data:", validPickupDropData);
         // Try to delete the orphaned order since pickup_drops failed
         await supabase.from("orders").delete().eq("id", orderId);
         throw new Error(`Failed to save pickup/delivery locations: ${pickupDropError.message}`);
       }
-      console.log(`✅ Successfully inserted ${pickupDropData.length} pickup/drop locations`);
+      console.log(`✅ Successfully inserted ${validPickupDropData.length} pickup/drop locations`);
 
       // Upload files if any (this happens AFTER pickup_drops are saved)
       const allFiles = [
