@@ -13,10 +13,18 @@ async function enrichLockedOrdersWithLookups(
   const filterValidIds = (ids: any[]) => ids.filter(id => id && id !== "null" && id !== "NULL");
   
   const orderIds = lockedOrders.map((o) => o.id);
-  const truckIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.truck_id)))];
-  const trailerIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.trailer_id)))];
+  const truckIds = [...new Set(filterValidIds([
+    ...lockedOrders.map((o) => o.truck_id),
+    ...lockedOrders.map((o) => o.original_truck_id)
+  ]))];
+  const trailerIds = [...new Set(filterValidIds([
+    ...lockedOrders.map((o) => o.trailer_id),
+    ...lockedOrders.map((o) => o.original_trailer_id)
+  ]))];
   const driver1Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.driver1_id)))];
   const driver2Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.driver2_id)))];
+  const originalDriver1Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.original_driver1_id)))];
+  const originalDriver2Ids = [...new Set(filterValidIds(lockedOrders.map((o) => o.original_driver2_id)))];
   const brokerIds = [...new Set(filterValidIds(lockedOrders.map((o) => o.broker_id)))];
   const companyIds = [
     ...new Set(filterValidIds([...lockedOrders.map((o) => o.company_id), ...lockedOrders.map((o) => o.booked_by_company_id)])),
@@ -48,7 +56,7 @@ async function enrichLockedOrdersWithLookups(
   };
 
   // Fetch all lookup data from database in parallel with batching
-  const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids])];
+  const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
   const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
     batchFetch("trucks", "id, truck_number, company_id, company:companies(id, name)", truckIds),
@@ -118,6 +126,10 @@ async function enrichLockedOrdersWithLookups(
     trailer: order.trailer_id ? trailersMap.get(order.trailer_id) || null : null,
     driver1: order.driver1_id ? driversMap.get(order.driver1_id) || null : null,
     driver2: order.driver2_id ? driversMap.get(order.driver2_id) || null : null,
+    original_driver1: order.original_driver1_id ? driversMap.get(order.original_driver1_id) || null : null,
+    original_driver2: order.original_driver2_id ? driversMap.get(order.original_driver2_id) || null : null,
+    original_truck: order.original_truck_id ? trucksMap.get(order.original_truck_id) || null : null,
+    original_trailer: order.original_trailer_id ? trailersMap.get(order.original_trailer_id) || null : null,
     broker: order.broker_id ? brokersMap.get(order.broker_id) || null : null,
     company: order.company_id ? companiesMap.get(order.company_id) || null : null,
     booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
