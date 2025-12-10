@@ -3010,6 +3010,18 @@ const EditOrder = () => {
                     <h4 className="font-semibold text-sm">Transfer Assignment</h4>
                     <div className="space-y-2 text-sm">
                       <div>
+                        <span className="text-muted-foreground">Driver:</span>{" "}
+                        <span className="font-medium">{drivers?.find((d) => d.id === driver1)?.name || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Truck:</span>{" "}
+                        <span className="font-medium">{trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Trailer:</span>{" "}
+                        <span className="font-medium">{trailer || "N/A"}</span>
+                      </div>
+                      <div>
                         <span className="text-muted-foreground">Miles:</span>{" "}
                         <span className="font-medium">{recoveryMiles || "0"}</span>
                       </div>
