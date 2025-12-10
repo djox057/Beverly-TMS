@@ -65,12 +65,16 @@ export function RecoveryLoadDialog({
   const [swapTrailers, setSwapTrailers] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   
-  // Manual inputs for when original driver/truck are N/A
+  // Manual inputs for when original driver/truck/trailer are N/A
   const [manualOriginalDriver, setManualOriginalDriver] = useState<string>("");
   const [manualOriginalTruck, setManualOriginalTruck] = useState<string>("");
   const [manualOriginalTrailer, setManualOriginalTrailer] = useState<string>("");
   
-  const isOriginalNA = currentDriver === "N/A" && currentTruck === "N/A";
+  // Check each field independently for N/A status
+  const isDriverNA = currentDriver === "N/A";
+  const isTruckNA = currentTruck === "N/A";
+  const isTrailerNA = currentTrailer === "N/A";
+  const hasAnyNA = isDriverNA || isTruckNA;
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -108,9 +112,9 @@ export function RecoveryLoadDialog({
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
       recoveryDate: new Date().toISOString(),
       swapTrailers,
-      manualOriginalDriver: isOriginalNA ? manualOriginalDriver : undefined,
-      manualOriginalTruck: isOriginalNA ? manualOriginalTruck : undefined,
-      manualOriginalTrailer: isOriginalNA ? manualOriginalTrailer : undefined,
+      manualOriginalDriver: isDriverNA ? manualOriginalDriver : undefined,
+      manualOriginalTruck: isTruckNA ? manualOriginalTruck : undefined,
+      manualOriginalTrailer: isTrailerNA ? manualOriginalTrailer : undefined,
     });
 
     onOpenChange(false);
@@ -134,46 +138,46 @@ export function RecoveryLoadDialog({
           {/* Original Driver Section */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">Original Driver</h3>
-            {isOriginalNA && (
+            {hasAnyNA && (
               <p className="text-sm text-muted-foreground">
-                No driver/truck assigned. Enter original assignment details manually.
+                Some fields are not assigned. Enter details manually where needed.
               </p>
             )}
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Driver</Label>
-                {isOriginalNA ? (
+                {isDriverNA ? (
                   <Input 
                     value={manualOriginalDriver} 
                     onChange={(e) => setManualOriginalDriver(e.target.value)}
                     placeholder="Enter driver name"
                   />
                 ) : (
-                  <Input value={currentDriver || "N/A"} disabled />
+                  <Input value={currentDriver} disabled />
                 )}
               </div>
               <div>
                 <Label>Truck</Label>
-                {isOriginalNA ? (
+                {isTruckNA ? (
                   <Input 
                     value={manualOriginalTruck} 
                     onChange={(e) => setManualOriginalTruck(e.target.value)}
                     placeholder="Enter truck number"
                   />
                 ) : (
-                  <Input value={currentTruck || "N/A"} disabled />
+                  <Input value={currentTruck} disabled />
                 )}
               </div>
               <div>
                 <Label>Trailer</Label>
-                {isOriginalNA ? (
+                {isTrailerNA ? (
                   <Input 
                     value={manualOriginalTrailer} 
                     onChange={(e) => setManualOriginalTrailer(e.target.value)}
                     placeholder="Enter trailer number"
                   />
                 ) : (
-                  <Input value={currentTrailer || "N/A"} disabled />
+                  <Input value={currentTrailer} disabled />
                 )}
               </div>
             </div>
