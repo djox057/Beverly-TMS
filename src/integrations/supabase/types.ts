@@ -1376,6 +1376,8 @@ export type Database = {
           end_datetime: string | null
           going_to_at: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           order_id: string
           sequence_number: number | null
           special_instructions: string | null
@@ -1397,6 +1399,8 @@ export type Database = {
           end_datetime?: string | null
           going_to_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           order_id: string
           sequence_number?: number | null
           special_instructions?: string | null
@@ -1418,6 +1422,8 @@ export type Database = {
           end_datetime?: string | null
           going_to_at?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           order_id?: string
           sequence_number?: number | null
           special_instructions?: string | null
