@@ -1,14 +1,15 @@
 const MAPBOX_TOKEN = 'pk.eyJ1Ijoiam9udzEyMyIsImEiOiJjbWdmOHE2dnAwNWI0MmpzY3NlOXY5NHBxIn0.sb-KPJmlqi33w5aDMMRPzA';
 
-interface Coordinates {
+export interface Coordinates {
   lat: number;
   lon: number;
 }
 
 /**
  * Geocode an address using Mapbox Geocoding API
+ * Exported for use in storing coordinates in pickup_drops
  */
-async function geocodeAddress(address: string): Promise<Coordinates | null> {
+export async function geocodeAddress(address: string): Promise<Coordinates | null> {
   if (!address || address.trim() === '') return null;
   
   try {
