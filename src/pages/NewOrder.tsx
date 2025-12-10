@@ -851,6 +851,42 @@ const NewOrder = () => {
           }
         };
 
+        // Set matched broker from first file
+        if (fileIndex === 0 && extractedData.matchedBrokerId) {
+          setBroker(extractedData.matchedBrokerId);
+          console.log("Set matched broker ID:", extractedData.matchedBrokerId);
+        }
+
+        // Set PU# and PO# from first file (single pickup/delivery mode)
+        if (fileIndex === 0) {
+          // Check for PU number from pickups
+          if (extractedData.pickups?.[0]?.puNumber) {
+            setPickupPuNumber(extractedData.pickups[0].puNumber);
+            console.log("Set pickup PU#:", extractedData.pickups[0].puNumber);
+          } else if (extractedData.pickupPuNumber) {
+            setPickupPuNumber(extractedData.pickupPuNumber);
+            console.log("Set pickup PU# (legacy):", extractedData.pickupPuNumber);
+          }
+          
+          // Check for PO number from pickups
+          if (extractedData.pickups?.[0]?.poNumber) {
+            setPickupPoNumber(extractedData.pickups[0].poNumber);
+            console.log("Set pickup PO#:", extractedData.pickups[0].poNumber);
+          } else if (extractedData.pickupPoNumber) {
+            setPickupPoNumber(extractedData.pickupPoNumber);
+            console.log("Set pickup PO# (legacy):", extractedData.pickupPoNumber);
+          }
+          
+          // Check for delivery PO number
+          if (extractedData.deliveries?.[0]?.poNumber) {
+            setDeliveryPoNumber(extractedData.deliveries[0].poNumber);
+            console.log("Set delivery PO#:", extractedData.deliveries[0].poNumber);
+          } else if (extractedData.deliveryPoNumber) {
+            setDeliveryPoNumber(extractedData.deliveryPoNumber);
+            console.log("Set delivery PO# (legacy):", extractedData.deliveryPoNumber);
+          }
+        }
+
         // Accumulate pickups from this file
         if (extractedData.pickups && extractedData.pickups.length > 0) {
           extractedData.pickups.forEach((pickup: any, index: number) => {
@@ -886,7 +922,7 @@ const NewOrder = () => {
               dateRange: deliveryDateRange,
               startTime: delivery.startTime || "",
               endTime: delivery.endTime || "",
-              companyName: delivery.receiver || delivery.shipper || "",
+              companyName: delivery.shipper || "",
             });
           });
         }
