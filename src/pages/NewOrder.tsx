@@ -959,7 +959,7 @@ const NewOrder = () => {
         setDriverPrice(totalDriverPrice.toString());
       }
       
-      if (firstMileage) setLoadedMiles(firstMileage.toString());
+      // Note: Loaded miles are calculated via Mapbox from addresses, not from AI extraction
       if (firstCommodity) setCommodity(firstCommodity);
       if (firstWeight) setWeight(firstWeight.toString());
 
