@@ -1443,14 +1443,31 @@ const EditOrder = () => {
     })) || [];
   const handleRecoverySave = async (data: RecoveryData) => {
     try {
+      // Check if original assignment was N/A (manual entry case)
+      const isManualOriginal = data.manualOriginalDriver || data.manualOriginalTruck;
+      
+      // Build notes addition for manual original entries
+      let notesAddition = "";
+      if (isManualOriginal) {
+        const manualParts = [];
+        if (data.manualOriginalDriver) manualParts.push(`Original Driver: ${data.manualOriginalDriver}`);
+        if (data.manualOriginalTruck) manualParts.push(`Original Truck: ${data.manualOriginalTruck}`);
+        if (data.manualOriginalTrailer) manualParts.push(`Original Trailer: ${data.manualOriginalTrailer}`);
+        notesAddition = `[TRANSFER - ${manualParts.join(", ")}]`;
+      }
+
       // Update order with transfer information
+      const updatedNotes = notesAddition 
+        ? (notes ? `${notes}\n${notesAddition}` : notesAddition)
+        : notes;
+
       const { error } = await supabase
         .from("orders")
         .update({
           is_recovery: true,
-          original_driver1_id: driver1,
+          original_driver1_id: driver1 || null,
           original_driver2_id: driver2 || null,
-          original_truck_id: truck,
+          original_truck_id: truck || null,
           original_trailer_id: trailerId || null,
           original_miles: data.originalMiles,
           original_driver_price: data.originalDriverRate,
@@ -1462,6 +1479,7 @@ const EditOrder = () => {
           trailer_id: data.swapTrailers ? trailerId : data.recoveryTrailerId || null,
           driver1_id: data.recoveryDriverId,
           driver2_id: null,
+          notes: updatedNotes,
         })
         .eq("id", id);
       if (error) throw error;
@@ -1469,9 +1487,9 @@ const EditOrder = () => {
       // Insert recovery history record
       const { error: historyError } = await supabase.from("recovery_history").insert({
         order_id: id,
-        original_driver1_id: driver1,
+        original_driver1_id: driver1 || null,
         original_driver2_id: driver2 || null,
-        original_truck_id: truck,
+        original_truck_id: truck || null,
         original_trailer_id: trailerId || null,
         recovery_driver1_id: data.recoveryDriverId,
         recovery_driver2_id: null,
@@ -1484,8 +1502,8 @@ const EditOrder = () => {
 
       if (historyError) throw historyError;
 
-      // Handle trailer swap if requested
-      if (data.swapTrailers && trailerId && data.recoveryTrailerId) {
+      // Handle trailer swap if requested (only if both trucks have trailers)
+      if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
         const originalTrailerId = trailerId;
         const transferTrailerId = data.recoveryTrailerId;
 
@@ -1508,6 +1526,11 @@ const EditOrder = () => {
         // Invalidate trucks cache to refresh data
         queryClient.invalidateQueries({ queryKey: ["trucks"] });
       }
+
+      // Update display state with manual values if provided
+      if (data.manualOriginalDriver) setOriginalDriverName(data.manualOriginalDriver);
+      if (data.manualOriginalTruck) setOriginalTruckNumber(data.manualOriginalTruck);
+      if (data.manualOriginalTrailer) setOriginalTrailerNumber(data.manualOriginalTrailer);
 
       toast({
         title: "Success",
