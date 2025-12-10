@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.get-truck-distances-batch]
 verify_jwt = false
+
+[functions.calculate-distances-batch]
+verify_jwt = false
