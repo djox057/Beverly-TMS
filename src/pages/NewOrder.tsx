@@ -26,7 +26,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useTruckLastDelivery } from "@/hooks/useTruckLastDelivery";
 import { combineDateAndTime } from "@/utils/dateUtils";
-import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles } from "@/utils/mapboxRouteCalculator";
+import { calculateLoadedMiles, calculateMultiStopMiles, calculateDhMiles, geocodeAddress, Coordinates } from "@/utils/mapboxRouteCalculator";
 import { toZonedTime } from "date-fns-tz";
 import {
   AlertDialog,
@@ -54,6 +54,8 @@ interface PickupDrop {
   state?: string;
   zipCode?: string;
   companyName?: string;
+  latitude?: number;
+  longitude?: number;
 }
 const NewOrder = () => {
   const navigate = useNavigate();
@@ -365,14 +367,47 @@ const NewOrder = () => {
     }
   }, [truck, trucks, trailerManuallyEdited, lastSelectedTruckId]);
 
-  // Auto-calculate loaded miles when pickup and delivery addresses change
-  // COMMENTED OUT: Manual entry only
-  // Auto-calculate loaded miles when pickups/drops change
+  // Auto-calculate loaded miles and geocode addresses when pickups/drops change
   useEffect(() => {
-    const calculateMiles = async () => {
+    const geocodeAndCalculateMiles = async () => {
       if (pickupsDrops.length < 2) return;
 
-      // Get all addresses in order (all pickups first, then all deliveries)
+      // Geocode all addresses that don't have coordinates yet
+      const itemsToGeocode = pickupsDrops.filter(item => 
+        item.address.trim() && (item.latitude === undefined || item.longitude === undefined)
+      );
+      
+      if (itemsToGeocode.length > 0) {
+        const updatedItems = [...pickupsDrops];
+        let hasUpdates = false;
+        
+        for (const item of itemsToGeocode) {
+          const fullAddress = [item.address, item.city, item.state, item.zipCode]
+            .filter(Boolean)
+            .join(', ');
+          
+          const coords = await geocodeAddress(fullAddress);
+          if (coords) {
+            const index = updatedItems.findIndex(i => i.id === item.id);
+            if (index !== -1) {
+              updatedItems[index] = {
+                ...updatedItems[index],
+                latitude: coords.lat,
+                longitude: coords.lon
+              };
+              hasUpdates = true;
+              console.log(`📍 Geocoded ${item.type}: ${fullAddress} -> ${coords.lat}, ${coords.lon}`);
+            }
+          }
+        }
+        
+        if (hasUpdates) {
+          setPickupsDrops(updatedItems);
+          return; // Will re-trigger with updated coordinates
+        }
+      }
+
+      // Get all addresses in order for mile calculation
       const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
         const parts = [item.address];
         if (item.city) parts.push(item.city);
@@ -405,7 +440,7 @@ const NewOrder = () => {
       }
     };
 
-    const timeoutId = setTimeout(calculateMiles, 1500);
+    const timeoutId = setTimeout(geocodeAndCalculateMiles, 1500);
     return () => clearTimeout(timeoutId);
   }, [pickupsDrops, toast]);
 
@@ -1745,6 +1780,8 @@ const NewOrder = () => {
             company_name: item.companyName || null,
             datetime,
             end_datetime,
+            latitude: item.latitude || null,
+            longitude: item.longitude || null,
           };
         })
         .filter((item) => item.address && item.address.trim().length > 0); // Final safety check
