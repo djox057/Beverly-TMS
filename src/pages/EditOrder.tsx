@@ -53,6 +53,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
 import { toZonedTime } from "date-fns-tz";
+import { geocodeAddress } from "@/utils/mapboxRouteCalculator";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
 import { useQueryClient } from "@tanstack/react-query";
 interface PickupDrop {
@@ -70,6 +71,8 @@ interface PickupDrop {
   contactPhone?: string;
   specialInstructions?: string;
   companyName?: string;
+  latitude?: number;
+  longitude?: number;
 }
 const EditOrder = () => {
   const { id } = useParams();
@@ -588,6 +591,8 @@ const EditOrder = () => {
               contactPhone: pd.contact_phone || "",
               specialInstructions: pd.special_instructions || "",
               companyName: pd.company_name || "",
+              latitude: pd.latitude || undefined,
+              longitude: pd.longitude || undefined,
             };
           });
 
@@ -1872,46 +1877,65 @@ const EditOrder = () => {
           .order("sequence_number");
         const existing = existingPickupDrops || [];
 
-        // Prepare pickup_drop data with proper sequence numbers
-        const formPickupDrops = pickupsDrops
-          .filter((item) => item.address)
-          .map((item, index) => {
-            let datetime = null;
-            let endDatetime = null;
-            if (item.dateRange?.from && item.startTime) {
-              const [hours, minutes] = item.startTime.split(":");
-              datetime = new Date(item.dateRange.from);
-              datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-            }
+        // Prepare pickup_drop data with proper sequence numbers (async for geocoding)
+        const formPickupDrops = await Promise.all(
+          pickupsDrops
+            .filter((item) => item.address)
+            .map(async (item, index) => {
+              let datetime = null;
+              let endDatetime = null;
+              if (item.dateRange?.from && item.startTime) {
+                const [hours, minutes] = item.startTime.split(":");
+                datetime = new Date(item.dateRange.from);
+                datetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+              }
 
-            // Also save end time if provided
-            if (item.dateRange?.from && item.endTime) {
-              const [hours, minutes] = item.endTime.split(":");
-              endDatetime = new Date(item.dateRange.from);
-              endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-            }
+              // Also save end time if provided
+              if (item.dateRange?.from && item.endTime) {
+                const [hours, minutes] = item.endTime.split(":");
+                endDatetime = new Date(item.dateRange.from);
+                endDatetime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+              }
 
-            // Parse address to extract street address only (use the 'address' field from database)
-            return {
-              order_id: id,
-              type: item.type,
-              address: item.address || "",
-              city: item.city || null,
-              state: item.state || null,
-              zip_code: item.zipCode || null,
-              company_name: (item as any).companyName || null,
-              datetime: datetime
-                ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00`
-                : null,
-              end_datetime: endDatetime
-                ? `${endDatetime.getFullYear()}-${String(endDatetime.getMonth() + 1).padStart(2, "0")}-${String(endDatetime.getDate()).padStart(2, "0")} ${String(endDatetime.getHours()).padStart(2, "0")}:${String(endDatetime.getMinutes()).padStart(2, "0")}:00`
-                : null,
-              sequence_number: index + 1,
-              contact_name: item.contactName || null,
-              contact_phone: item.contactPhone || null,
-              special_instructions: item.specialInstructions || null,
-            };
-          });
+              // Geocode if coordinates are missing
+              let latitude = item.latitude || null;
+              let longitude = item.longitude || null;
+              
+              if (!latitude || !longitude) {
+                const fullAddress = [item.address, item.city, item.state, item.zipCode]
+                  .filter(Boolean)
+                  .join(', ');
+                const coords = await geocodeAddress(fullAddress);
+                if (coords) {
+                  latitude = coords.lat;
+                  longitude = coords.lon;
+                  console.log(`📍 Geocoded at submission: ${fullAddress} -> ${latitude}, ${longitude}`);
+                }
+              }
+
+              return {
+                order_id: id,
+                type: item.type,
+                address: item.address || "",
+                city: item.city || null,
+                state: item.state || null,
+                zip_code: item.zipCode || null,
+                company_name: (item as any).companyName || null,
+                datetime: datetime
+                  ? `${datetime.getFullYear()}-${String(datetime.getMonth() + 1).padStart(2, "0")}-${String(datetime.getDate()).padStart(2, "0")} ${String(datetime.getHours()).padStart(2, "0")}:${String(datetime.getMinutes()).padStart(2, "0")}:00`
+                  : null,
+                end_datetime: endDatetime
+                  ? `${endDatetime.getFullYear()}-${String(endDatetime.getMonth() + 1).padStart(2, "0")}-${String(endDatetime.getDate()).padStart(2, "0")} ${String(endDatetime.getHours()).padStart(2, "0")}:${String(endDatetime.getMinutes()).padStart(2, "0")}:00`
+                  : null,
+                sequence_number: index + 1,
+                contact_name: item.contactName || null,
+                contact_phone: item.contactPhone || null,
+                special_instructions: item.specialInstructions || null,
+                latitude,
+                longitude,
+              };
+            })
+        );
 
         // Step 1: Temporarily set all existing sequence numbers to negative to avoid conflicts
         for (let i = 0; i < existing.length; i++) {
