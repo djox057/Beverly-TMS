@@ -107,12 +107,12 @@ export function RecoveryLoadDialog({
       originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
       recoveryTruckId: useManualEntry ? "" : recoveryTruckId,
-      recoveryTrailerId: useManualEntry ? "" : recoveryTrailerId,
+      recoveryTrailerId: recoveryTrailerId,
       recoveryDriverId: useManualEntry ? "" : recoveryDriverId,
       recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
       recoveryDate: new Date().toISOString(),
-      swapTrailers: useManualEntry ? false : swapTrailers,
+      swapTrailers,
       manualTruckNumber: useManualEntry ? manualTruckNumber : undefined,
       manualDriverName: useManualEntry ? manualDriverName : undefined,
     });
@@ -189,13 +189,27 @@ export function RecoveryLoadDialog({
             </div>
             
             {useManualEntry ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Truck # *</Label>
                   <Input
                     value={manualTruckNumber}
                     onChange={(e) => setManualTruckNumber(e.target.value)}
                     placeholder="Enter truck number"
+                  />
+                </div>
+                <div>
+                  <Label>Trailer</Label>
+                  <Combobox
+                    options={trailers?.map((trailer) => ({
+                      value: trailer.id,
+                      label: trailer.trailer_number,
+                    })) || []}
+                    value={recoveryTrailerId}
+                    onValueChange={setRecoveryTrailerId}
+                    placeholder="Select trailer"
+                    searchPlaceholder="Search trailers..."
+                    emptyText="No trailer found."
                   />
                 </div>
                 <div>
@@ -276,8 +290,7 @@ export function RecoveryLoadDialog({
             </div>
           </div>
 
-          {/* Swap Trailers Checkbox - only show when not using manual entry */}
-          {!useManualEntry && (
+          {/* Swap Trailers Checkbox */}
           <div className="space-y-3 pt-4 border-t">
             <div className="flex items-start space-x-3">
               <Checkbox
@@ -304,14 +317,13 @@ export function RecoveryLoadDialog({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   <div className="space-y-1 text-sm">
-                    <div><strong>{currentTruck}</strong> will receive <strong>Trailer {trailers?.find(t => t.id === recoveryTrailerId)?.trailer_number || recoveryTrailerId}</strong></div>
-                    <div><strong>{trucks?.find(t => t.id === recoveryTruckId)?.truck_number}</strong> will receive <strong>Trailer {currentTrailer}</strong></div>
+                    <div><strong>{currentTruck || manualTruckNumber || "Original truck"}</strong> will receive <strong>Trailer {trailers?.find(t => t.id === recoveryTrailerId)?.trailer_number || recoveryTrailerId}</strong></div>
+                    <div><strong>{useManualEntry ? manualTruckNumber : trucks?.find(t => t.id === recoveryTruckId)?.truck_number || "Transfer truck"}</strong> will receive <strong>Trailer {currentTrailer}</strong></div>
                   </div>
                 </AlertDescription>
               </Alert>
             )}
           </div>
-          )}
         </div>
 
         <DialogFooter>
