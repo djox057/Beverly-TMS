@@ -161,15 +161,26 @@ const Trips = () => {
     const result: any[] = [];
     
     orders.forEach((order) => {
-      // Add the main order entry (for current driver)
-      result.push(order);
-      
-      // If this order was transferred/recovered and has an original driver with pay or miles,
-      // create a virtual entry for the original driver's portion
-      if (order.originalDriver1Id && (
+      // Check if this is a recovery/transferred load
+      const isRecoveryLoad = order.originalDriver1Id && (
         (order.originalDriverPrice && order.originalDriverPrice > 0) ||
         (order.originalMiles && order.originalMiles > 0)
-      )) {
+      );
+      
+      if (isRecoveryLoad) {
+        // For recovery driver (current driver): use recovery miles/pay if available
+        result.push({
+          ...order,
+          isRecoveryDriverPortion: true,
+          // Use recovery-specific values if available, otherwise use full values
+          totalDriverPay: order.recoveryDriverPrice || order.totalDriverPay,
+          driverPrice: order.recoveryDriverPrice || order.driverPrice,
+          mileage: order.recoveryMiles || order.mileage,
+          // Build transfer note with recovery driver info
+          transferNote: `Driver: ${order.driverName || 'N/A'}, Truck: ${order.truckNumber || 'N/A'}, Trailer: ${order.trailerNumber || 'N/A'}`,
+        });
+        
+        // Create a virtual entry for the original driver's portion
         result.push({
           ...order,
           // Mark as original driver portion
@@ -189,9 +200,12 @@ const Trips = () => {
           totalDriverPay: order.originalDriverPrice || 0,
           driverPrice: order.originalDriverPrice || 0,
           mileage: order.originalMiles || 0,
-          // Keep other financial fields zeroed for original driver portion
-          totalFreightAmount: 0,
+          // Show full freight amount for original driver portion
+          totalFreightAmount: order.totalFreightAmount,
         });
+      } else {
+        // Non-recovery order - add as-is
+        result.push(order);
       }
     });
     
@@ -1862,7 +1876,7 @@ const Trips = () => {
                                     : alternatingBg;
 
                           return (
-                            <TableRow key={`${order.id}${order.isOriginalDriverPortion ? '-orig' : ''}`} className={`h-16 ${rowClassName}`}>
+                            <TableRow key={`${order.id}${order.isOriginalDriverPortion ? '-orig' : order.isRecoveryDriverPortion ? '-rec' : ''}`} className={`h-16 ${rowClassName}`}>
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
@@ -1873,6 +1887,14 @@ const Trips = () => {
                                     <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
                                       Orig
                                     </Badge>
+                                  )}
+                                  {order.isRecoveryDriverPortion && (
+                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                      Rec
+                                    </Badge>
+                                  )}
+                                  {order.transferNote && (
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">{order.transferNote}</div>
                                   )}
                                 </div>
                               </TableCell>
