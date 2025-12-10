@@ -2,9 +2,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 interface PickupDeliveryStop {
@@ -41,40 +41,40 @@ interface ExtractedOrderData {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
     if (!geminiApiKey) {
-      throw new Error('Gemini API key not configured');
+      throw new Error("Gemini API key not configured");
     }
 
     const formData = await req.formData();
-    const pdfFile = formData.get('pdf') as File;
-    
+    const pdfFile = formData.get("pdf") as File;
+
     if (!pdfFile) {
-      throw new Error('No PDF file provided');
+      throw new Error("No PDF file provided");
     }
 
-    if (pdfFile.type !== 'application/pdf') {
-      throw new Error('File must be a PDF');
+    if (pdfFile.type !== "application/pdf") {
+      throw new Error("File must be a PDF");
     }
 
-    console.log('Processing PDF:', pdfFile.name, 'Size:', pdfFile.size);
+    console.log("Processing PDF:", pdfFile.name, "Size:", pdfFile.size);
 
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdfBuffer = new Uint8Array(arrayBuffer);
-    
-    let binaryString = '';
+
+    let binaryString = "";
     const chunkSize = 8192;
     for (let i = 0; i < pdfBuffer.length; i += chunkSize) {
       const chunk = pdfBuffer.slice(i, i + chunkSize);
@@ -166,44 +166,42 @@ Return ONLY valid JSON. No markdown, no explanations.`;
 
     let aiData;
     let candidate;
-    let modelUsed = 'gemini-2.5-flash-lite';
-    
+    let modelUsed = "gemini-2.5-flash-lite";
+
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const modelEndpoint = attempt === 1 
-        ? 'gemini-2.5-flash-lite:generateContent'
-        : 'gemini-2.5-flash:generateContent';
-      
-      modelUsed = attempt === 1 ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash';
+      const modelEndpoint =
+        attempt === 1 ? "gemini-2.5-flash-lite:generateContent" : "gemini-2.5-flash:generateContent";
+
+      modelUsed = attempt === 1 ? "gemini-2.5-flash-lite" : "gemini-2.5-flash";
       console.log(`Attempt ${attempt}: Using ${modelUsed}`);
-      
+
       const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelEndpoint}`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': geminiApiKey,
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": geminiApiKey,
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: systemPrompt },
-              { inline_data: { mime_type: 'application/pdf', data: base64Pdf } }
-            ]
-          }],
+          contents: [
+            {
+              parts: [{ text: systemPrompt }, { inline_data: { mime_type: "application/pdf", data: base64Pdf } }],
+            },
+          ],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 8192,
-          }
+            maxOutputTokens: 65536,
+          },
         }),
       });
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
         console.error(`${modelUsed} error:`, aiResponse.status, errorText);
-        
+
         if (aiResponse.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again later.');
+          throw new Error("Rate limit exceeded. Please try again later.");
         }
-        
+
         if (attempt === 2) {
           throw new Error(`Failed to analyze PDF: ${aiResponse.status}`);
         }
@@ -211,58 +209,58 @@ Return ONLY valid JSON. No markdown, no explanations.`;
       }
 
       aiData = await aiResponse.json();
-      
+
       if (aiData.promptFeedback?.blockReason) {
         throw new Error(`Request blocked: ${aiData.promptFeedback.blockReason}`);
       }
-      
+
       if (!aiData.candidates || aiData.candidates.length === 0) {
-        throw new Error('No response from AI model');
+        throw new Error("No response from AI model");
       }
-      
+
       candidate = aiData.candidates[0];
-      
-      if (candidate.finishReason === 'MAX_TOKENS' && attempt === 1) {
-        console.log('Token limit exceeded, retrying with flash...');
+
+      if (candidate.finishReason === "MAX_TOKENS" && attempt === 1) {
+        console.log("Token limit exceeded, retrying with flash...");
         continue;
       }
-      
+
       break;
     }
-    
+
     const extractedContent = candidate.content?.parts?.[0]?.text?.trim();
-    
+
     if (!extractedContent) {
-      throw new Error('No content in AI response');
+      throw new Error("No content in AI response");
     }
-    
-    console.log('AI response received, parsing JSON...');
+
+    console.log("AI response received, parsing JSON...");
 
     let extractedData: ExtractedOrderData;
     try {
       let cleanContent = extractedContent;
-      
+
       // Remove markdown code blocks
-      if (cleanContent.includes('```json')) {
+      if (cleanContent.includes("```json")) {
         const match = cleanContent.match(/```json\s*([\s\S]*?)\s*```/);
         if (match) cleanContent = match[1];
-      } else if (cleanContent.includes('```')) {
+      } else if (cleanContent.includes("```")) {
         const match = cleanContent.match(/```\s*([\s\S]*?)\s*```/);
         if (match) cleanContent = match[1];
       }
-      
+
       cleanContent = cleanContent.trim();
-      cleanContent = cleanContent.replace(/,(\s*[}\]])/g, '$1');
-      
+      cleanContent = cleanContent.replace(/,(\s*[}\]])/g, "$1");
+
       extractedData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error('JSON parse error, attempting repair...');
+      console.error("JSON parse error, attempting repair...");
       const jsonMatch = extractedContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        let repaired = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
+        let repaired = jsonMatch[0].replace(/,(\s*[}\]])/g, "$1");
         extractedData = JSON.parse(repaired);
       } else {
-        throw new Error('Failed to parse AI response as JSON');
+        throw new Error("Failed to parse AI response as JSON");
       }
     }
 
@@ -272,59 +270,57 @@ Return ONLY valid JSON. No markdown, no explanations.`;
 
     // Validation: at least 1 pickup and 1 delivery
     if (extractedData.pickups.length === 0 || extractedData.deliveries.length === 0) {
-      console.warn('Missing pickups or deliveries, attempting auto-correction...');
-      
+      console.warn("Missing pickups or deliveries, attempting auto-correction...");
+
       const allStops = [
-        ...extractedData.pickups.map(s => ({ ...s, type: 'pickup' })),
-        ...extractedData.deliveries.map(s => ({ ...s, type: 'delivery' }))
+        ...extractedData.pickups.map((s) => ({ ...s, type: "pickup" })),
+        ...extractedData.deliveries.map((s) => ({ ...s, type: "delivery" })),
       ].sort((a, b) => {
-        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || '';
-        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || '';
+        const dateA = a.date && a.startTime ? `${a.date}T${a.startTime}` : a.date || "";
+        const dateB = b.date && b.startTime ? `${b.date}T${b.startTime}` : b.date || "";
         return dateA.localeCompare(dateB);
       });
-      
+
       if (allStops.length >= 2) {
         const { type: _, ...firstStop } = allStops[0];
         const remainingStops = allStops.slice(1).map(({ type: _, ...stop }) => stop);
         extractedData.pickups = [firstStop];
         extractedData.deliveries = remainingStops;
       } else if (allStops.length < 2) {
-        throw new Error('Document must contain at least 1 pickup and 1 delivery location');
+        throw new Error("Document must contain at least 1 pickup and 1 delivery location");
       }
     }
 
     // Try to match broker from database
     if (extractedData.brokerName) {
       try {
-        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.58.0');
+        const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.58.0");
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-        
+
         const normalizeText = (text: string): string => {
           return text
             .toUpperCase()
-            .replace(/[.,;:!?'"()\[\]{}]/g, ' ')
-            .replace(/\b(INC|LLC|LTD|CO|COMPANY|CORP|CORPORATION|DBA|THE)\b/g, '')
-            .replace(/\s+/g, ' ')
+            .replace(/[.,;:!?'"()\[\]{}]/g, " ")
+            .replace(/\b(INC|LLC|LTD|CO|COMPANY|CORP|CORPORATION|DBA|THE)\b/g, "")
+            .replace(/\s+/g, " ")
             .trim();
         };
 
         const levenshtein = (a: string, b: string): number => {
           if (a.length === 0) return b.length;
           if (b.length === 0) return a.length;
-          const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+          const matrix = Array(b.length + 1)
+            .fill(null)
+            .map(() => Array(a.length + 1).fill(null));
           for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
           for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
           for (let j = 1; j <= b.length; j++) {
             for (let i = 1; i <= a.length; i++) {
               const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-              matrix[j][i] = Math.min(
-                matrix[j][i - 1] + 1,
-                matrix[j - 1][i] + 1,
-                matrix[j - 1][i - 1] + cost
-              );
+              matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + cost);
             }
           }
           return matrix[b.length][a.length];
@@ -339,37 +335,37 @@ Return ONLY valid JSON. No markdown, no explanations.`;
         let allBrokers: any[] = [];
         let page = 0;
         const pageSize = 1000;
-        
+
         while (true) {
           const { data, error } = await supabaseAdmin
-            .from('brokers')
-            .select('id, name, address, mc_number')
-            .order('name')
+            .from("brokers")
+            .select("id, name, address, mc_number")
+            .order("name")
             .range(page * pageSize, (page + 1) * pageSize - 1);
-          
+
           if (error || !data || data.length === 0) break;
           allBrokers = [...allBrokers, ...data];
           if (data.length < pageSize) break;
           page++;
         }
-        
+
         if (allBrokers.length > 0) {
-          const extractedMC = extractMC(extractedData.brokerName + ' ' + (extractedData.brokerAddress || ''));
+          const extractedMC = extractMC(extractedData.brokerName + " " + (extractedData.brokerAddress || ""));
           const normalizedExtracted = normalizeText(extractedData.brokerName);
-          
+
           let bestMatch: any = null;
           let bestScore = 0;
-          
+
           for (const broker of allBrokers) {
             let score = 0;
-            const brokerMC = broker.mc_number || extractMC(broker.name + ' ' + (broker.address || ''));
+            const brokerMC = broker.mc_number || extractMC(broker.name + " " + (broker.address || ""));
             const normalizedBroker = normalizeText(broker.name);
-            
+
             // MC number exact match = auto-match
             if (extractedMC && brokerMC && extractedMC === brokerMC) {
               score += 1000;
             }
-            
+
             // Exact name match
             if (normalizedExtracted === normalizedBroker) {
               score += 60;
@@ -380,42 +376,40 @@ Return ONLY valid JSON. No markdown, no explanations.`;
               const similarity = maxLen > 0 ? ((maxLen - distance) / maxLen) * 100 : 0;
               score += Math.round((similarity / 100) * 40);
             }
-            
+
             if (score > bestScore) {
               bestScore = score;
               bestMatch = broker;
             }
           }
-          
+
           if (bestMatch && bestScore >= 70) {
             extractedData.matchedBrokerId = bestMatch.id;
             console.log(`Matched broker: ${bestMatch.name} (score: ${bestScore})`);
           }
         }
       } catch (brokerError) {
-        console.error('Broker matching error:', brokerError);
+        console.error("Broker matching error:", brokerError);
       }
     }
 
-    console.log('Extraction complete:', {
+    console.log("Extraction complete:", {
       brokerName: extractedData.brokerName,
       brokerLoadNumber: extractedData.brokerLoadNumber,
       matchedBrokerId: extractedData.matchedBrokerId,
       pickups: extractedData.pickups?.length,
       deliveries: extractedData.deliveries?.length,
-      freightAmount: extractedData.freightAmount
+      freightAmount: extractedData.freightAmount,
     });
 
-    return new Response(
-      JSON.stringify({ success: true, data: extractedData }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify({ success: true, data: extractedData }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
-    console.error('Extraction error:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error?.message || 'Failed to extract order fields' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("Extraction error:", error);
+    return new Response(JSON.stringify({ success: false, error: error?.message || "Failed to extract order fields" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
