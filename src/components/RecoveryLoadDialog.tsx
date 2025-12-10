@@ -33,6 +33,9 @@ export interface RecoveryData {
   recoveryDriverRate: number;
   recoveryDate: string;
   swapTrailers: boolean;
+  // Manual entry fields when N/A
+  manualTruckNumber?: string;
+  manualDriverName?: string;
 }
 
 export function RecoveryLoadDialog({
@@ -61,6 +64,11 @@ export function RecoveryLoadDialog({
   const [recoveryDriverRate, setRecoveryDriverRate] = useState<string>("");
   const [swapTrailers, setSwapTrailers] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  
+  // Manual entry states
+  const [useManualEntry, setUseManualEntry] = useState<boolean>(false);
+  const [manualTruckNumber, setManualTruckNumber] = useState<string>("");
+  const [manualDriverName, setManualDriverName] = useState<string>("");
 
   const handleTruckChange = (truckId: string) => {
     setRecoveryTruckId(truckId);
@@ -78,9 +86,16 @@ export function RecoveryLoadDialog({
   const handleSave = () => {
     setError("");
 
-    if (!recoveryTruckId || !recoveryDriverId) {
-      setError("Please select transfer truck and driver");
-      return;
+    if (useManualEntry) {
+      if (!manualTruckNumber || !manualDriverName) {
+        setError("Please enter transfer truck number and driver name");
+        return;
+      }
+    } else {
+      if (!recoveryTruckId || !recoveryDriverId) {
+        setError("Please select transfer truck and driver");
+        return;
+      }
     }
 
     if (swapTrailers && (!currentTrailerId || !recoveryTrailerId)) {
@@ -91,13 +106,15 @@ export function RecoveryLoadDialog({
     onSave({
       originalMiles: parseFloat(originalMiles) || 0,
       originalDriverRate: parseFloat(originalDriverRate) || 0,
-      recoveryTruckId,
-      recoveryTrailerId,
-      recoveryDriverId,
+      recoveryTruckId: useManualEntry ? "" : recoveryTruckId,
+      recoveryTrailerId: useManualEntry ? "" : recoveryTrailerId,
+      recoveryDriverId: useManualEntry ? "" : recoveryDriverId,
       recoveryMiles: parseFloat(recoveryMiles) || 0,
       recoveryDriverRate: parseFloat(recoveryDriverRate) || 0,
       recoveryDate: new Date().toISOString(),
-      swapTrailers,
+      swapTrailers: useManualEntry ? false : swapTrailers,
+      manualTruckNumber: useManualEntry ? manualTruckNumber : undefined,
+      manualDriverName: useManualEntry ? manualDriverName : undefined,
     });
 
     onOpenChange(false);
@@ -159,51 +176,84 @@ export function RecoveryLoadDialog({
 
           {/* Transfer Driver Section */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-lg">Transfer Driver</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Truck *</Label>
-                <Combobox
-                  options={trucks?.map((truck) => ({
-                    value: truck.id,
-                    label: truck.truck_number,
-                  })) || []}
-                  value={recoveryTruckId}
-                  onValueChange={handleTruckChange}
-                  placeholder="Select truck"
-                  searchPlaceholder="Search trucks..."
-                  emptyText="No truck found."
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Transfer Driver</h3>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="manualEntry"
+                  checked={useManualEntry}
+                  onCheckedChange={(checked) => setUseManualEntry(checked as boolean)}
                 />
-              </div>
-              <div>
-                <Label>Trailer</Label>
-                <Combobox
-                  options={trailers?.map((trailer) => ({
-                    value: trailer.id,
-                    label: trailer.trailer_number,
-                  })) || []}
-                  value={recoveryTrailerId}
-                  onValueChange={setRecoveryTrailerId}
-                  placeholder="Select trailer"
-                  searchPlaceholder="Search trailers..."
-                  emptyText="No trailer found."
-                />
-              </div>
-              <div>
-                <Label>Driver *</Label>
-                <Combobox
-                  options={drivers?.map((driver) => ({
-                    value: driver.id,
-                    label: driver.name,
-                  })) || []}
-                  value={recoveryDriverId}
-                  onValueChange={setRecoveryDriverId}
-                  placeholder="Select driver"
-                  searchPlaceholder="Search drivers..."
-                  emptyText="No driver found."
-                />
+                <Label htmlFor="manualEntry" className="text-sm">Manual entry</Label>
               </div>
             </div>
+            
+            {useManualEntry ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Truck # *</Label>
+                  <Input
+                    value={manualTruckNumber}
+                    onChange={(e) => setManualTruckNumber(e.target.value)}
+                    placeholder="Enter truck number"
+                  />
+                </div>
+                <div>
+                  <Label>Driver Name *</Label>
+                  <Input
+                    value={manualDriverName}
+                    onChange={(e) => setManualDriverName(e.target.value)}
+                    placeholder="Enter driver name"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Truck *</Label>
+                  <Combobox
+                    options={trucks?.map((truck) => ({
+                      value: truck.id,
+                      label: truck.truck_number,
+                    })) || []}
+                    value={recoveryTruckId}
+                    onValueChange={handleTruckChange}
+                    placeholder="Select truck"
+                    searchPlaceholder="Search trucks..."
+                    emptyText="No truck found."
+                  />
+                </div>
+                <div>
+                  <Label>Trailer</Label>
+                  <Combobox
+                    options={trailers?.map((trailer) => ({
+                      value: trailer.id,
+                      label: trailer.trailer_number,
+                    })) || []}
+                    value={recoveryTrailerId}
+                    onValueChange={setRecoveryTrailerId}
+                    placeholder="Select trailer"
+                    searchPlaceholder="Search trailers..."
+                    emptyText="No trailer found."
+                  />
+                </div>
+                <div>
+                  <Label>Driver *</Label>
+                  <Combobox
+                    options={drivers?.map((driver) => ({
+                      value: driver.id,
+                      label: driver.name,
+                    })) || []}
+                    value={recoveryDriverId}
+                    onValueChange={setRecoveryDriverId}
+                    placeholder="Select driver"
+                    searchPlaceholder="Search drivers..."
+                    emptyText="No driver found."
+                  />
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Miles to Complete *</Label>
@@ -226,7 +276,8 @@ export function RecoveryLoadDialog({
             </div>
           </div>
 
-          {/* Swap Trailers Checkbox */}
+          {/* Swap Trailers Checkbox - only show when not using manual entry */}
+          {!useManualEntry && (
           <div className="space-y-3 pt-4 border-t">
             <div className="flex items-start space-x-3">
               <Checkbox
@@ -260,6 +311,7 @@ export function RecoveryLoadDialog({
               </Alert>
             )}
           </div>
+          )}
         </div>
 
         <DialogFooter>
