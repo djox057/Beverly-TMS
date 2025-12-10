@@ -18,6 +18,7 @@ import { US_STATES } from "@/lib/constants";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
+import { useBrokers } from "@/hooks/useBrokers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
@@ -206,6 +207,7 @@ const NewOrder = () => {
   } = useCompanies();
   const { data: allTrucks, isLoading: trucksLoading, error: trucksError } = useTrucks();
   const { data: allDrivers, isLoading: driversLoading, error: driversError } = useDrivers();
+  const { data: allBrokers } = useBrokers();
 
   // Filter trucks by dispatcher for dispatch role - check driver dispatcher
   // First, get the list of driver IDs assigned to this dispatcher
@@ -851,10 +853,20 @@ const NewOrder = () => {
           }
         };
 
-        // Set matched broker from first file
-        if (fileIndex === 0 && extractedData.matchedBrokerId) {
-          setBroker(extractedData.matchedBrokerId);
-          console.log("Set matched broker ID:", extractedData.matchedBrokerId);
+        // Set matched broker from first file by matching name
+        if (fileIndex === 0 && extractedData.brokerName && allBrokers) {
+          const brokerName = extractedData.brokerName.toLowerCase().trim();
+          const matchedBroker = allBrokers.find(b => 
+            b.name.toLowerCase().trim() === brokerName ||
+            b.name.toLowerCase().includes(brokerName) ||
+            brokerName.includes(b.name.toLowerCase())
+          );
+          if (matchedBroker) {
+            setBroker(matchedBroker.id);
+            console.log("Matched broker by name:", extractedData.brokerName, "->", matchedBroker.id);
+          } else {
+            console.log("No broker match found for:", extractedData.brokerName);
+          }
         }
 
         // Set PU# and PO# from first file (single pickup/delivery mode)
