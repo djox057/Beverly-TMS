@@ -1441,11 +1441,14 @@ const EditOrder = () => {
       value: truck.id,
       label: truck.truck_number,
     })) || [];
-  const trailerOptions =
-    trailers?.map((trailer) => ({
+  const trailerOptions = [
+    // Add deleted trailer option if exists
+    ...(deletedTrailerNumber && !trailerId ? [{ value: "deleted", label: deletedTrailerNumber }] : []),
+    ...(trailers?.map((trailer) => ({
       value: trailer.id,
       label: trailer.trailer_number,
-    })) || [];
+    })) || [])
+  ];
   const driverOptions =
     drivers?.map((driver) => ({
       value: driver.id,
@@ -2297,35 +2300,19 @@ const EditOrder = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer #</Label>
-                {deletedTrailerNumber && !trailerId ? (
-                  <div className="flex gap-2">
-                    <Input 
-                      value={deletedTrailerNumber} 
-                      disabled 
-                      className="flex-1 bg-muted text-muted-foreground"
-                    />
-                    <Combobox
-                      options={trailerOptions}
-                      value={trailerId}
-                      onValueChange={(value) => {
-                        setTrailerId(value);
-                        if (value) setDeletedTrailerNumber("");
-                      }}
-                      placeholder="Change"
-                      searchPlaceholder="Search trailers..."
-                      disabled={isLocked}
-                    />
-                  </div>
-                ) : (
-                  <Combobox
-                    options={trailerOptions}
-                    value={trailerId}
-                    onValueChange={setTrailerId}
-                    placeholder="Select trailer"
-                    searchPlaceholder="Search trailers..."
-                    disabled={isLocked}
-                  />
-                )}
+                <Combobox
+                  options={trailerOptions}
+                  value={deletedTrailerNumber && !trailerId ? "deleted" : trailerId}
+                  onValueChange={(value) => {
+                    if (value !== "deleted") {
+                      setTrailerId(value);
+                      setDeletedTrailerNumber("");
+                    }
+                  }}
+                  placeholder="Select trailer"
+                  searchPlaceholder="Search trailers..."
+                  disabled={isLocked}
+                />
               </div>
             </div>
 
