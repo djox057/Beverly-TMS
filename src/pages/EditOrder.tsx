@@ -104,6 +104,7 @@ const EditOrder = () => {
   const [driver2, setDriver2] = useState("");
   const [trailer, setTrailer] = useState("");
   const [trailerId, setTrailerId] = useState("");
+  const [deletedTrailerNumber, setDeletedTrailerNumber] = useState("");
   const [brokerLoadNumber, setBrokerLoadNumber] = useState("");
   const [pickupDateRange, setPickupDateRange] = useState<DateRange>();
   const [deliveryDateRange, setDeliveryDateRange] = useState<DateRange>();
@@ -405,6 +406,7 @@ const EditOrder = () => {
         setTruck(orderData.truck_id || "");
         setTrailer(orderData.trailer?.trailer_number || (orderData as any).deleted_trailer_number || "");
         setTrailerId(orderData.trailer_id || "");
+        setDeletedTrailerNumber((orderData as any).deleted_trailer_number || "");
         setDriver1(orderData.driver1_id || "");
         setDriver2(orderData.driver2_id || "");
         setBrokerLoadNumber(orderData.broker_load_number || "");
@@ -2295,14 +2297,35 @@ const EditOrder = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="trailer">Trailer #</Label>
-                <Combobox
-                  options={trailerOptions}
-                  value={trailerId}
-                  onValueChange={setTrailerId}
-                  placeholder="Select trailer"
-                  searchPlaceholder="Search trailers..."
-                  disabled={isLocked}
-                />
+                {deletedTrailerNumber && !trailerId ? (
+                  <div className="flex gap-2">
+                    <Input 
+                      value={deletedTrailerNumber} 
+                      disabled 
+                      className="flex-1 bg-muted text-muted-foreground"
+                    />
+                    <Combobox
+                      options={trailerOptions}
+                      value={trailerId}
+                      onValueChange={(value) => {
+                        setTrailerId(value);
+                        if (value) setDeletedTrailerNumber("");
+                      }}
+                      placeholder="Change"
+                      searchPlaceholder="Search trailers..."
+                      disabled={isLocked}
+                    />
+                  </div>
+                ) : (
+                  <Combobox
+                    options={trailerOptions}
+                    value={trailerId}
+                    onValueChange={setTrailerId}
+                    placeholder="Select trailer"
+                    searchPlaceholder="Search trailers..."
+                    disabled={isLocked}
+                  />
+                )}
               </div>
             </div>
 
