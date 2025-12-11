@@ -680,6 +680,7 @@ export type Database = {
           agreement_start_date: string | null
           cdl_expiration_date: string | null
           cdl_number: string | null
+          cents_per_mile: number | null
           clearing_house: string | null
           company_address: string | null
           company_id: string | null
@@ -707,6 +708,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_checked_for_termination: boolean | null
+          is_company_driver: boolean | null
           is_recovery: boolean | null
           last_name: string | null
           license_number: string | null
@@ -726,6 +728,7 @@ export type Database = {
           agreement_start_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
+          cents_per_mile?: number | null
           clearing_house?: string | null
           company_address?: string | null
           company_id?: string | null
@@ -753,6 +756,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_checked_for_termination?: boolean | null
+          is_company_driver?: boolean | null
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
@@ -772,6 +776,7 @@ export type Database = {
           agreement_start_date?: string | null
           cdl_expiration_date?: string | null
           cdl_number?: string | null
+          cents_per_mile?: number | null
           clearing_house?: string | null
           company_address?: string | null
           company_id?: string | null
@@ -799,6 +804,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_checked_for_termination?: boolean | null
+          is_company_driver?: boolean | null
           is_recovery?: boolean | null
           last_name?: string | null
           license_number?: string | null
