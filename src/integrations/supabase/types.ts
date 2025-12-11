@@ -1061,6 +1061,7 @@ export type Database = {
           company_id: string
           created_at: string
           date_change_notes: string | null
+          deleted_trailer_number: string | null
           delivery_datetime: string | null
           delivery_end_datetime: string | null
           detention: number | null
@@ -1156,6 +1157,7 @@ export type Database = {
           company_id: string
           created_at?: string
           date_change_notes?: string | null
+          deleted_trailer_number?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
@@ -1251,6 +1253,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           date_change_notes?: string | null
+          deleted_trailer_number?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null

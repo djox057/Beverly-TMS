@@ -237,6 +237,12 @@ const Trailers = () => {
       
       if (fetchError) throw fetchError;
 
+      // Save trailer number to orders before deletion (so it's preserved after trailer_id becomes NULL)
+      await supabase
+        .from('orders')
+        .update({ deleted_trailer_number: trailerData.trailer_number })
+        .eq('trailer_id', trailerId);
+
       // Save to deleted_trailers history table
       const { error: historyError } = await supabase
         .from('deleted_trailers')
@@ -261,7 +267,7 @@ const Trailers = () => {
         .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
 
-      // Delete from trailers (orders keep trailer_id, we look up from deleted_trailers)
+      // Delete from trailers (orders.trailer_id becomes NULL via FK, but deleted_trailer_number is preserved)
       const { error } = await supabase.from('trailers').delete().eq('id', trailerId);
       if (error) throw error;
       
@@ -273,6 +279,7 @@ const Trailers = () => {
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error: any) {
       toast({
         title: "Error",

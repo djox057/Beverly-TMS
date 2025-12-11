@@ -403,7 +403,7 @@ const EditOrder = () => {
         setBookedByCompany(orderData.booked_by_company_id || "");
         setBroker(orderData.broker_id || "");
         setTruck(orderData.truck_id || "");
-        setTrailer(orderData.trailer?.trailer_number || "");
+        setTrailer(orderData.trailer?.trailer_number || (orderData as any).deleted_trailer_number || "");
         setTrailerId(orderData.trailer_id || "");
         setDriver1(orderData.driver1_id || "");
         setDriver2(orderData.driver2_id || "");

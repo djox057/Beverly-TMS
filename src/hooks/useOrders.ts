@@ -777,7 +777,7 @@ function transformOrders(allOrders: any[]) {
       truckId: order.truck_id,
       truckCompanyName: order.truck?.company?.name || null,
       truckCompanyId: order.truck?.company?.id || null,
-      trailerNumber: order.trailer?.trailer_number || null,
+      trailerNumber: order.trailer?.trailer_number || order.deleted_trailer_number || null,
       trailerId: order.trailer_id,
 
       // Driver info - use enriched objects only (CSV direct fields are unreliable)
