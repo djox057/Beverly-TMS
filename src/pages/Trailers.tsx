@@ -267,6 +267,12 @@ const Trailers = () => {
         .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
 
+      // Nullify original_trailer_id references in orders
+      await supabase
+        .from('orders')
+        .update({ original_trailer_id: null })
+        .eq('original_trailer_id', trailerId);
+
       // Delete from trailers (orders.trailer_id becomes NULL via FK, but deleted_trailer_number is preserved)
       const { error } = await supabase.from('trailers').delete().eq('id', trailerId);
       if (error) throw error;
