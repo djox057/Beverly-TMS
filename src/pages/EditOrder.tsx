@@ -84,13 +84,16 @@ const EditOrder = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [returnToReports, setReturnToReports] = useState(false);
   const [returnToTrips, setReturnToTrips] = useState(false);
+  const [returnToAnalytics, setReturnToAnalytics] = useState(false);
 
-  // Check on mount if we should return to reports or trips
+  // Check on mount if we should return to reports, trips, or analytics
   useEffect(() => {
     const shouldReturnToReports = localStorage.getItem("returnToReports") === "true";
     const shouldReturnToTrips = localStorage.getItem("returnToTrips") === "true";
+    const shouldReturnToAnalytics = localStorage.getItem("returnToAnalytics") === "true";
     setReturnToReports(shouldReturnToReports);
     setReturnToTrips(shouldReturnToTrips);
+    setReturnToAnalytics(shouldReturnToAnalytics);
   }, []);
 
   // Form states
@@ -2122,12 +2125,13 @@ const EditOrder = () => {
                     localStorage.removeItem("returnToTrips");
                     navigate("/trips");
                     window.scrollTo(0, 0);
+                  } else if (returnToAnalytics) {
+                    localStorage.removeItem("returnToAnalytics");
+                    navigate("/analytics");
+                    window.scrollTo(0, 0);
                   } else if (shouldReturnToYardLoads) {
                     localStorage.removeItem("returnToYardLoads");
                     navigate("/yard-loads");
-                    window.scrollTo(0, 0);
-                  } else if (shouldReturnToOrders) {
-                    navigate("/orders");
                     window.scrollTo(0, 0);
                   } else if (shouldReturnToOrders) {
                     navigate("/orders");
@@ -2142,9 +2146,11 @@ const EditOrder = () => {
                   ? "Back to Reports"
                   : returnToTrips
                     ? "Back to Trips"
-                    : localStorage.getItem("returnToYardLoads") === "true"
-                      ? "Back to Yard Loads"
-                      : "Back to Orders"}
+                    : returnToAnalytics
+                      ? "Back to Analytics"
+                      : localStorage.getItem("returnToYardLoads") === "true"
+                        ? "Back to Yard Loads"
+                        : "Back to Orders"}
               </Button>
               <CardTitle className="text-2xl font-semibold">Edit Load</CardTitle>
               {isLocked && (
