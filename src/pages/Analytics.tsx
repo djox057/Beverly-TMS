@@ -1,4 +1,5 @@
 import { DateRange } from "react-day-picker";
+import { formatDateNoTimezone } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1372,6 +1373,7 @@ const Analytics = () => {
                     <TableRow>
                       <TableHead>Load #</TableHead>
                       <TableHead>Broker load#</TableHead>
+                      <TableHead>Pickup Date</TableHead>
                       <TableHead>Route</TableHead>
                       <TableHead className="text-right">Freight Amount</TableHead>
                       <TableHead className="text-right">Miles</TableHead>
@@ -1382,7 +1384,7 @@ const Analytics = () => {
                   <TableBody>
                     {qualifyingLoads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                           No qualifying loads booked today
                         </TableCell>
                       </TableRow>
@@ -1400,6 +1402,7 @@ const Analytics = () => {
                           >
                             <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                             <TableCell>{order.brokerLoadNumber}</TableCell>
+                            <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                             <TableCell>
                               {pickupLocation} → {deliveryLocation}
                             </TableCell>
@@ -1435,6 +1438,7 @@ const Analytics = () => {
                       <TableRow>
                         <TableHead>Load #</TableHead>
                         <TableHead>Broker load#</TableHead>
+                        <TableHead>Pickup Date</TableHead>
                         <TableHead>Route</TableHead>
                         <TableHead className="text-right">Freight Amount</TableHead>
                         <TableHead className="text-right">Miles</TableHead>
@@ -1445,7 +1449,7 @@ const Analytics = () => {
                     <TableBody>
                       {highRateLoads.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             No qualifying loads booked today
                           </TableCell>
                         </TableRow>
@@ -1463,6 +1467,7 @@ const Analytics = () => {
                             >
                               <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                               <TableCell>{order.brokerLoadNumber}</TableCell>
+                              <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                               <TableCell>
                                 {pickupLocation} → {deliveryLocation}
                               </TableCell>
@@ -1499,6 +1504,7 @@ const Analytics = () => {
                       <TableRow>
                         <TableHead>Load #</TableHead>
                         <TableHead>Broker load#</TableHead>
+                        <TableHead>Pickup Date</TableHead>
                         <TableHead>Route</TableHead>
                         <TableHead className="text-right">Freight Amount</TableHead>
                         <TableHead className="text-right">Driver Pay</TableHead>
@@ -1510,7 +1516,7 @@ const Analytics = () => {
                     <TableBody>
                       {highCutLoads.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No loads with 50%+ cut found
                           </TableCell>
                         </TableRow>
@@ -1530,6 +1536,7 @@ const Analytics = () => {
                             >
                               <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                               <TableCell>{order.brokerLoadNumber}</TableCell>
+                              <TableCell>{formatDateNoTimezone(order.pickupDatetime)}</TableCell>
                               <TableCell>
                                 {pickupLocation} → {deliveryLocation}
                               </TableCell>
