@@ -772,18 +772,30 @@ function transformOrders(allOrders: any[]) {
       invoiced: order.invoiced === true || order.invoiced === "true" || order.invoiced === 1,
       isRecovery: order.is_recovery === true || order.is_recovery === "true" || order.is_recovery === 1,
 
-      // Truck and equipment - use enriched objects only (CSV direct fields are unreliable)
-      truckNumber: order.truck?.truck_number || null,
+      // Truck and equipment - use enriched objects, fallback to deleted_* fields for archived orders
+      // Handle "null" strings from CSV export
+      truckNumber: order.truck?.truck_number || 
+        (order.deleted_truck_number && order.deleted_truck_number !== "null" && order.deleted_truck_number !== "NULL" 
+          ? order.deleted_truck_number : null),
       truckId: order.truck_id,
       truckCompanyName: order.truck?.company?.name || null,
       truckCompanyId: order.truck?.company?.id || null,
-      trailerNumber: order.trailer?.trailer_number || order.deleted_trailer_number || null,
+      trailerNumber: order.trailer?.trailer_number || 
+        (order.deleted_trailer_number && order.deleted_trailer_number !== "null" && order.deleted_trailer_number !== "NULL" 
+          ? order.deleted_trailer_number : null),
       trailerId: order.trailer_id,
 
-      // Driver info - use enriched objects only (CSV direct fields are unreliable)
-      driverName: order.driver1?.name || null,
-      driver1Name: order.driver1?.name || null,
-      driver2Name: order.driver2?.name || null,
+      // Driver info - use enriched objects, fallback to deleted_* fields for archived orders
+      // Handle "null" strings from CSV export
+      driverName: order.driver1?.name || 
+        (order.deleted_driver1_name && order.deleted_driver1_name !== "null" && order.deleted_driver1_name !== "NULL" 
+          ? order.deleted_driver1_name : null),
+      driver1Name: order.driver1?.name || 
+        (order.deleted_driver1_name && order.deleted_driver1_name !== "null" && order.deleted_driver1_name !== "NULL" 
+          ? order.deleted_driver1_name : null),
+      driver2Name: order.driver2?.name || 
+        (order.deleted_driver2_name && order.deleted_driver2_name !== "null" && order.deleted_driver2_name !== "NULL" 
+          ? order.deleted_driver2_name : null),
       driver1Id: order.driver1_id,
       driver2Id: order.driver2_id,
       driverCompanyName: order.driver1?.company?.name || null,
