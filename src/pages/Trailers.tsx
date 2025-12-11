@@ -228,34 +228,17 @@ const Trailers = () => {
   };
   const handleDeleteTrailer = async (trailerId: string) => {
     try {
-      // Check if trailer is referenced by any orders
-      const { count: orderCount } = await supabase
+      // Unassign trailer from orders (set to NULL to preserve order history)
+      await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true })
+        .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
-      
-      if (orderCount && orderCount > 0) {
-        toast({
-          title: "Cannot Delete Trailer",
-          description: `This trailer is assigned to ${orderCount} order${orderCount > 1 ? 's' : ''}. Remove the trailer from all orders before deleting.`,
-          variant: "destructive"
-        });
-        return;
-      }
 
-      // Check if trailer is assigned to any trucks
-      const { data: assignedTrucks } = await supabase
+      // Unassign from trucks
+      await supabase
         .from('trucks')
-        .select('truck_number')
+        .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
-      
-      if (assignedTrucks && assignedTrucks.length > 0) {
-        // Unassign from trucks first
-        await supabase
-          .from('trucks')
-          .update({ trailer_id: null })
-          .eq('trailer_id', trailerId);
-      }
 
       const { error } = await supabase.from('trailers').delete().eq('id', trailerId);
       if (error) throw error;
