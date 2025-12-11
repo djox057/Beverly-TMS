@@ -284,6 +284,54 @@ export type Database = {
           },
         ]
       }
+      deleted_trailers: {
+        Row: {
+          capacity: number | null
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          dot_inspection_date: string | null
+          id: string
+          insurance_expiration_date: string | null
+          plate_expiration_date: string | null
+          status: string | null
+          trailer_number: string
+          trailer_type: string | null
+          updated_at: string
+          vin: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dot_inspection_date?: string | null
+          id: string
+          insurance_expiration_date?: string | null
+          plate_expiration_date?: string | null
+          status?: string | null
+          trailer_number: string
+          trailer_type?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dot_inspection_date?: string | null
+          id?: string
+          insurance_expiration_date?: string | null
+          plate_expiration_date?: string | null
+          status?: string | null
+          trailer_number?: string
+          trailer_type?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Relationships: []
+      }
       dispatcher_daily_driver_counts: {
         Row: {
           created_at: string
