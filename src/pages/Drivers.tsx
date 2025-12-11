@@ -87,6 +87,8 @@ interface DriverFormData {
   ssn: string;
   fein: string;
   drugTestResult: "positive" | "negative" | "pending" | null;
+  is_company_driver: boolean;
+  cents_per_mile: string;
 }
 const Drivers = () => {
   const { hasRole, profile } = useAuthContext();
@@ -153,6 +155,8 @@ const Drivers = () => {
     ssn: "",
     fein: "",
     drugTestResult: null,
+    is_company_driver: false,
+    cents_per_mile: "",
   });
   const { toast } = useToast();
   const { data: drivers, isLoading, refetch } = useDrivers();
@@ -285,6 +289,8 @@ const Drivers = () => {
       ssn: "",
       fein: "",
       drugTestResult: null,
+      is_company_driver: false,
+      cents_per_mile: "",
     });
     setSelectedTruckId("");
     setNewlyCreatedDriverId(null);
@@ -384,6 +390,8 @@ const Drivers = () => {
           weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
+          is_company_driver: formData.is_company_driver || false,
+          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
         })
         .select()
         .single();
@@ -562,6 +570,8 @@ const Drivers = () => {
           weekly_payment: formData.weekly_payment ? parseInt(formData.weekly_payment) : null,
           weeks_count: formData.weeks_count ? parseInt(formData.weeks_count) : null,
           agreement_start_date: formData.agreement_start_date || null,
+          is_company_driver: formData.is_company_driver || false,
+          cents_per_mile: formData.is_company_driver && formData.cents_per_mile ? parseInt(formData.cents_per_mile) : null,
         })
         .eq("id", editingDriver.id);
       if (error) throw error;
@@ -989,6 +999,8 @@ const Drivers = () => {
       ssn: sensitivePIIData?.ssn || "",
       fein: sensitivePIIData?.fein || "",
       drugTestResult: null,
+      is_company_driver: driver.is_company_driver || false,
+      cents_per_mile: driver.cents_per_mile?.toString() || "",
     });
     if (truckData?.id) {
       setSelectedTruckId(truckData.id);
@@ -1611,6 +1623,48 @@ const Drivers = () => {
                         <SelectItem value="positive">Positive</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_company_driver"
+                        checked={formData.is_company_driver}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            is_company_driver: checked === true,
+                            cents_per_mile: checked ? formData.cents_per_mile : "",
+                          })
+                        }
+                      />
+                      <Label htmlFor="is_company_driver" className="cursor-pointer">
+                        Company Driver
+                      </Label>
+                    </div>
+                    {formData.is_company_driver && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="cents_per_mile"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={formData.cents_per_mile}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === "" || (parseInt(value) > 0 && Number.isInteger(parseFloat(value)))) {
+                              setFormData({
+                                ...formData,
+                                cents_per_mile: value,
+                              });
+                            }
+                          }}
+                          placeholder="60"
+                          className="w-24"
+                        />
+                        <span className="text-sm text-muted-foreground">cents/mile</span>
+                      </div>
+                    )}
                   </div>
                 </form>
               </TabsContent>
@@ -2534,6 +2588,48 @@ const Drivers = () => {
                     </div>
                   </div>
                 )}
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit_is_company_driver"
+                      checked={formData.is_company_driver}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          is_company_driver: checked === true,
+                          cents_per_mile: checked ? formData.cents_per_mile : "",
+                        })
+                      }
+                    />
+                    <Label htmlFor="edit_is_company_driver" className="cursor-pointer">
+                      Company Driver
+                    </Label>
+                  </div>
+                  {formData.is_company_driver && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="edit_cents_per_mile"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={formData.cents_per_mile}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || (parseInt(value) > 0 && Number.isInteger(parseFloat(value)))) {
+                            setFormData({
+                              ...formData,
+                              cents_per_mile: value,
+                            });
+                          }
+                        }}
+                        placeholder="60"
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">cents/mile</span>
+                    </div>
+                  )}
+                </div>
               </form>
             </TabsContent>
 
