@@ -137,6 +137,23 @@ const Analytics = () => {
   // Merge database data with local state
   const driverTiers = useMemo(() => performanceData, [performanceData]);
 
+  // Create a Set of company driver IDs for analytics calculations
+  const companyDriverIds = useMemo(() => {
+    return new Set(
+      (drivers || [])
+        .filter(d => d.is_company_driver)
+        .map(d => d.id)
+    );
+  }, [drivers]);
+
+  // Helper function: For company drivers, driver pay equals freight amount (0% cut)
+  const getEffectiveDriverPay = (order: any): number => {
+    if (order.driver1Id && companyDriverIds.has(order.driver1Id)) {
+      return Number(order.totalFreightAmount) || 0;
+    }
+    return Number(order.totalDriverPay) || 0;
+  };
+
   // Fetch all profiles to get office locations and roles indexed by full_name AND user_id
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -556,7 +573,7 @@ const Analytics = () => {
         };
       }
       acc[dispatcher].totalFreight += Number(order.totalFreightAmount) || 0;
-      acc[dispatcher].totalDriverRate += Number(order.totalDriverPay) || 0;
+      acc[dispatcher].totalDriverRate += getEffectiveDriverPay(order);
       acc[dispatcher].totalMiles += Number(order.mileage) || 0;
       acc[dispatcher].orderCount += 1;
       return acc;
@@ -660,7 +677,7 @@ const Analytics = () => {
   const totals = filteredOrders.reduce(
     (acc, order) => {
       acc.totalFreight += Number(order.totalFreightAmount) || 0;
-      acc.totalDriverRate += Number(order.totalDriverPay) || 0;
+      acc.totalDriverRate += getEffectiveDriverPay(order);
       acc.totalMiles += Number(order.mileage) || 0;
       acc.orderCount += 1;
       return acc;
