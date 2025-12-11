@@ -61,6 +61,13 @@ const Analytics = () => {
     const targetUrl = `/edit-order/${orderId}`;
     console.log("Target URL:", targetUrl);
 
+    // Set return flag for back navigation
+    localStorage.setItem("returnToAnalytics", "true");
+    localStorage.removeItem("returnToReports");
+    localStorage.removeItem("returnToTrips");
+    localStorage.removeItem("returnToOrders");
+    localStorage.removeItem("returnToYardLoads");
+
     // Try navigation with fallback to window.location
     try {
       console.log("Attempting React Router navigation...");
