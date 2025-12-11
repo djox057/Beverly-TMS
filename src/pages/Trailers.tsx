@@ -261,7 +261,7 @@ const Trailers = () => {
         .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
 
-      // Delete from trailers (orders.trailer_id will be set to NULL automatically via FK)
+      // Delete from trailers (orders keep trailer_id, we look up from deleted_trailers)
       const { error } = await supabase.from('trailers').delete().eq('id', trailerId);
       if (error) throw error;
       
