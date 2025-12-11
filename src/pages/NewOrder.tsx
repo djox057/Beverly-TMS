@@ -509,6 +509,20 @@ const NewOrder = () => {
     const timeoutId = setTimeout(calculateDh, 1500);
     return () => clearTimeout(timeoutId);
   }, [truck, lastDelivery, pickupsDrops, toast]);
+
+  // Auto-calculate driver price for company drivers based on cents per mile
+  useEffect(() => {
+    if (!driver1 || !allDrivers) return;
+    
+    const selectedDriver = allDrivers.find(d => d.id === driver1);
+    if (!selectedDriver?.is_company_driver || !selectedDriver?.cents_per_mile) return;
+    
+    const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
+    if (totalMiles <= 0) return;
+    
+    const calculatedPrice = totalMiles * (selectedDriver.cents_per_mile / 100);
+    setDriverPrice(calculatedPrice.toFixed(2));
+  }, [driver1, dhMiles, loadedMiles, allDrivers]);
   const addPickupDrop = (type: "pickup" | "delivery") => {
     const newItem: PickupDrop = {
       id: Date.now().toString(),
@@ -2763,12 +2777,25 @@ const NewOrder = () => {
                   value={driverPrice}
                   onChange={(e) => setDriverPrice(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">
-                  RPM: $
-                  {(
-                    (parseFloat(driverPrice) || 0) / ((parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0)) || 0
-                  ).toFixed(2)}
-                </p>
+                {(() => {
+                  const selectedDriver = allDrivers?.find(d => d.id === driver1);
+                  const totalMiles = (parseFloat(dhMiles) || 0) + (parseFloat(loadedMiles) || 0);
+                  if (selectedDriver?.is_company_driver && selectedDriver?.cents_per_mile) {
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        {totalMiles} miles × {selectedDriver.cents_per_mile}¢ = ${((totalMiles * selectedDriver.cents_per_mile) / 100).toFixed(2)}
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      RPM: $
+                      {(
+                        (parseFloat(driverPrice) || 0) / totalMiles || 0
+                      ).toFixed(2)}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
 
