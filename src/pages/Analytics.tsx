@@ -838,10 +838,20 @@ const Analytics = () => {
     return isToday && meetsRateThreshold;
   });
 
+  // Filter loads booked today with rate >= 5.00
+  const highRateLoads = filteredOrders.filter((order) => {
+    const createdAt = new Date(order.createdAt);
+    const isToday = createdAt >= today && createdAt <= todayEnd;
+    const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+    const meetsRateThreshold = ratePerMile >= 5.0;
+    return isToday && meetsRateThreshold;
+  });
+
   // Filter loads with 50%+ cut (respects date filters from filteredOrders)
+  // Company driver orders are excluded since their effective driver pay = freight (0% cut)
   const highCutLoads = filteredOrders.filter((order) => {
     const freightAmount = Number(order.totalFreightAmount) || 0;
-    const driverPay = Number(order.totalDriverPay) || 0;
+    const driverPay = getEffectiveDriverPay(order);
     if (freightAmount <= 0) return false;
     const cutPercent = ((freightAmount - driverPay) / freightAmount) * 100;
     return cutPercent >= 50;
@@ -1376,7 +1386,73 @@ const Analytics = () => {
                         const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
                         const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
                         return (
-                          <TableRow key={order.id}>
+                          <TableRow 
+                            key={order.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => navigateToEditOrder(order.id)}
+                          >
+                            <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                            <TableCell>{order.brokerLoadNumber}</TableCell>
+                            <TableCell>
+                              {pickupLocation} → {deliveryLocation}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              $
+                              {order.totalFreightAmount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {order.mileage != null ? order.mileage.toLocaleString() : "0"}
+                            </TableCell>
+                            <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
+                            <TableCell>{order.bookedBy}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Loads Booked Today (Rate ≥ $5.00/mile)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Load #</TableHead>
+                      <TableHead>Broker load#</TableHead>
+                      <TableHead>Route</TableHead>
+                      <TableHead className="text-right">Freight Amount</TableHead>
+                      <TableHead className="text-right">Miles</TableHead>
+                      <TableHead className="text-right">Rate/Mile</TableHead>
+                      <TableHead>Booked By</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {highRateLoads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No qualifying loads booked today
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      highRateLoads.map((order) => {
+                        const ratePerMile =
+                          order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                        const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
+                        const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
+                        return (
+                          <TableRow 
+                            key={order.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => navigateToEditOrder(order.id)}
+                          >
                             <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                             <TableCell>{order.brokerLoadNumber}</TableCell>
                             <TableCell>
