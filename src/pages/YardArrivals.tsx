@@ -48,6 +48,9 @@ interface YardAction {
   truck: {
     truck_number: string;
   } | null;
+  creator: {
+    full_name: string | null;
+  } | null;
 }
 
 interface TwoWeekNoticeDriver {
@@ -101,6 +104,21 @@ export default function YardArrivals() {
 
       if (error) throw error;
 
+      // Get unique creator IDs
+      const creatorIds = [...new Set((data || []).map(a => a.created_by).filter(Boolean))] as string[];
+      
+      // Fetch all creators at once
+      const { data: creatorsData } = creatorIds.length > 0 
+        ? await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", creatorIds)
+        : { data: [] };
+      
+      const creatorsMap = new Map(
+        (creatorsData || []).map(c => [c.user_id, c.full_name])
+      );
+
       // Fetch truck information for each driver
       const actionsWithTrucks = await Promise.all(
         (data || []).map(async (action) => {
@@ -115,6 +133,7 @@ export default function YardArrivals() {
             driver: action.drivers,
             truck: truckData,
             is_team: action.is_team || false,
+            creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
           };
         })
       );
@@ -410,6 +429,11 @@ export default function YardArrivals() {
                                 <p className="text-sm text-muted-foreground">
                                   Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                                 </p>
+                                {action.creator?.full_name && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Created by: {action.creator.full_name}
+                                  </p>
+                                )}
                               </div>
                               <div className="flex gap-1">
                                 <Button
@@ -501,6 +525,11 @@ export default function YardArrivals() {
                               <p className="text-sm text-muted-foreground">
                                 Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
+                              {action.creator?.full_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Created by: {action.creator.full_name}
+                                </p>
+                              )}
                             </div>
                             <div className="flex gap-1">
                               <Button
@@ -591,6 +620,11 @@ export default function YardArrivals() {
                               <p className="text-sm text-muted-foreground">
                                 Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                               </p>
+                              {action.creator?.full_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Created by: {action.creator.full_name}
+                                </p>
+                              )}
                             </div>
                             <div className="flex gap-1">
                               <Button
