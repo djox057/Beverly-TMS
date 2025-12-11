@@ -332,6 +332,63 @@ export type Database = {
         }
         Relationships: []
       }
+      deleted_trucks: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          dispatcher_id: string | null
+          dot_inspection_date: string | null
+          id: string
+          insurance_expiration_date: string | null
+          ipass: string | null
+          model: string | null
+          plate_expiration_date: string | null
+          status: string | null
+          truck_number: string
+          truck_type: string | null
+          updated_at: string
+          vin: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dispatcher_id?: string | null
+          dot_inspection_date?: string | null
+          id: string
+          insurance_expiration_date?: string | null
+          ipass?: string | null
+          model?: string | null
+          plate_expiration_date?: string | null
+          status?: string | null
+          truck_number: string
+          truck_type?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dispatcher_id?: string | null
+          dot_inspection_date?: string | null
+          id?: string
+          insurance_expiration_date?: string | null
+          ipass?: string | null
+          model?: string | null
+          plate_expiration_date?: string | null
+          status?: string | null
+          truck_number?: string
+          truck_type?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Relationships: []
+      }
       dispatcher_daily_driver_counts: {
         Row: {
           created_at: string
@@ -1062,6 +1119,7 @@ export type Database = {
           created_at: string
           date_change_notes: string | null
           deleted_trailer_number: string | null
+          deleted_truck_number: string | null
           delivery_datetime: string | null
           delivery_end_datetime: string | null
           detention: number | null
@@ -1158,6 +1216,7 @@ export type Database = {
           created_at?: string
           date_change_notes?: string | null
           deleted_trailer_number?: string | null
+          deleted_truck_number?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null
@@ -1254,6 +1313,7 @@ export type Database = {
           created_at?: string
           date_change_notes?: string | null
           deleted_trailer_number?: string | null
+          deleted_truck_number?: string | null
           delivery_datetime?: string | null
           delivery_end_datetime?: string | null
           detention?: number | null

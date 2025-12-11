@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTrailers } from "@/hooks/useTrailers";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,7 @@ const Trucks = () => {
   const {
     toast
   } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const {
     data: trucks,
@@ -278,18 +280,61 @@ const Trucks = () => {
   };
   const handleDeleteTruck = async (truckId: string) => {
     try {
-      const {
-        error
-      } = await supabase.from('trucks').delete().eq('id', truckId);
+      // Get truck data to save to history
+      const { data: truckData, error: fetchError } = await supabase
+        .from('trucks')
+        .select('*')
+        .eq('id', truckId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+
+      // Save truck number to orders before deletion (so it's preserved after truck_id becomes NULL)
+      await supabase
+        .from('orders')
+        .update({ deleted_truck_number: truckData.truck_number })
+        .eq('truck_id', truckId);
+
+      // Save to deleted_trucks history table
+      const { error: historyError } = await supabase
+        .from('deleted_trucks')
+        .insert({
+          id: truckData.id,
+          truck_number: truckData.truck_number,
+          vin: truckData.vin,
+          model: truckData.model,
+          truck_type: truckData.truck_type,
+          ipass: truckData.ipass,
+          dot_inspection_date: truckData.dot_inspection_date,
+          plate_expiration_date: truckData.plate_expiration_date,
+          insurance_expiration_date: truckData.insurance_expiration_date,
+          status: truckData.status,
+          company_id: truckData.company_id,
+          dispatcher_id: truckData.dispatcher_id,
+          deleted_by: user?.id
+        });
+      
+      if (historyError) throw historyError;
+
+      // Nullify original_truck_id references in orders
+      await supabase
+        .from('orders')
+        .update({ original_truck_id: null })
+        .eq('original_truck_id', truckId);
+
+      // Delete from trucks (orders.truck_id becomes NULL via FK, but deleted_truck_number is preserved)
+      const { error } = await supabase.from('trucks').delete().eq('id', truckId);
       if (error) throw error;
+      
       toast({
         title: "Success",
-        description: "Truck deleted successfully"
+        description: "Truck deleted and archived successfully"
       });
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trucks'] });
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
       queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (error: any) {
       toast({
         title: "Error",
