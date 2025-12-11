@@ -284,6 +284,141 @@ export type Database = {
           },
         ]
       }
+      deleted_drivers: {
+        Row: {
+          agreement_start_date: string | null
+          cdl_expiration_date: string | null
+          cdl_number: string | null
+          cents_per_mile: number | null
+          clearing_house: string | null
+          company_address: string | null
+          company_id: string | null
+          company_name: string | null
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          dispatcher_id: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relation: string | null
+          first_name: string | null
+          going_yard: boolean | null
+          hire_date: string | null
+          home_address: string | null
+          home_city: string | null
+          home_latitude: number | null
+          home_longitude: number | null
+          home_state: string | null
+          id: string
+          is_active: boolean | null
+          is_checked_for_termination: boolean | null
+          is_company_driver: boolean | null
+          is_recovery: boolean | null
+          last_name: string | null
+          license_number: string | null
+          mc_number: string | null
+          medical_card_expiration_date: string | null
+          mvr_date: string | null
+          name: string | null
+          phone: string | null
+          random_drug_test_date: string | null
+          termination_date: string | null
+          two_week_block_date: string | null
+          updated_at: string
+          weekly_payment: number | null
+          weeks_count: number | null
+        }
+        Insert: {
+          agreement_start_date?: string | null
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          cents_per_mile?: number | null
+          clearing_house?: string | null
+          company_address?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dispatcher_id?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          first_name?: string | null
+          going_yard?: boolean | null
+          hire_date?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
+          id: string
+          is_active?: boolean | null
+          is_checked_for_termination?: boolean | null
+          is_company_driver?: boolean | null
+          is_recovery?: boolean | null
+          last_name?: string | null
+          license_number?: string | null
+          mc_number?: string | null
+          medical_card_expiration_date?: string | null
+          mvr_date?: string | null
+          name?: string | null
+          phone?: string | null
+          random_drug_test_date?: string | null
+          termination_date?: string | null
+          two_week_block_date?: string | null
+          updated_at?: string
+          weekly_payment?: number | null
+          weeks_count?: number | null
+        }
+        Update: {
+          agreement_start_date?: string | null
+          cdl_expiration_date?: string | null
+          cdl_number?: string | null
+          cents_per_mile?: number | null
+          clearing_house?: string | null
+          company_address?: string | null
+          company_id?: string | null
+          company_name?: string | null
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          dispatcher_id?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relation?: string | null
+          first_name?: string | null
+          going_yard?: boolean | null
+          hire_date?: string | null
+          home_address?: string | null
+          home_city?: string | null
+          home_latitude?: number | null
+          home_longitude?: number | null
+          home_state?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_checked_for_termination?: boolean | null
+          is_company_driver?: boolean | null
+          is_recovery?: boolean | null
+          last_name?: string | null
+          license_number?: string | null
+          mc_number?: string | null
+          medical_card_expiration_date?: string | null
+          mvr_date?: string | null
+          name?: string | null
+          phone?: string | null
+          random_drug_test_date?: string | null
+          termination_date?: string | null
+          two_week_block_date?: string | null
+          updated_at?: string
+          weekly_payment?: number | null
+          weeks_count?: number | null
+        }
+        Relationships: []
+      }
       deleted_trailers: {
         Row: {
           capacity: number | null
@@ -1118,6 +1253,8 @@ export type Database = {
           company_id: string
           created_at: string
           date_change_notes: string | null
+          deleted_driver1_name: string | null
+          deleted_driver2_name: string | null
           deleted_trailer_number: string | null
           deleted_truck_number: string | null
           delivery_datetime: string | null
@@ -1215,6 +1352,8 @@ export type Database = {
           company_id: string
           created_at?: string
           date_change_notes?: string | null
+          deleted_driver1_name?: string | null
+          deleted_driver2_name?: string | null
           deleted_trailer_number?: string | null
           deleted_truck_number?: string | null
           delivery_datetime?: string | null
@@ -1312,6 +1451,8 @@ export type Database = {
           company_id?: string
           created_at?: string
           date_change_notes?: string | null
+          deleted_driver1_name?: string | null
+          deleted_driver2_name?: string | null
           deleted_trailer_number?: string | null
           deleted_truck_number?: string | null
           delivery_datetime?: string | null

@@ -902,12 +902,107 @@ const Drivers = () => {
   };
   const handleDeleteDriver = async (driverId: string) => {
     try {
+      // Get driver data to save to history
+      const { data: driverData, error: fetchError } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('id', driverId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+
+      // Save driver name to orders and nullify driver1_id before deletion
+      await supabase
+        .from('orders')
+        .update({ deleted_driver1_name: driverData.name, driver1_id: null })
+        .eq('driver1_id', driverId);
+
+      // Save driver name to orders and nullify driver2_id before deletion
+      await supabase
+        .from('orders')
+        .update({ deleted_driver2_name: driverData.name, driver2_id: null })
+        .eq('driver2_id', driverId);
+
+      // Save to deleted_drivers history table
+      const { error: historyError } = await supabase
+        .from('deleted_drivers')
+        .insert({
+          id: driverData.id,
+          first_name: driverData.first_name,
+          last_name: driverData.last_name,
+          name: driverData.name,
+          phone: driverData.phone,
+          email: driverData.email,
+          company_id: driverData.company_id,
+          dispatcher_id: driverData.dispatcher_id,
+          home_address: driverData.home_address,
+          home_city: driverData.home_city,
+          home_state: driverData.home_state,
+          home_latitude: driverData.home_latitude,
+          home_longitude: driverData.home_longitude,
+          cdl_number: driverData.cdl_number,
+          cdl_expiration_date: driverData.cdl_expiration_date,
+          medical_card_expiration_date: driverData.medical_card_expiration_date,
+          random_drug_test_date: driverData.random_drug_test_date,
+          hire_date: driverData.hire_date,
+          termination_date: driverData.termination_date,
+          mvr_date: driverData.mvr_date,
+          clearing_house: driverData.clearing_house,
+          license_number: driverData.license_number,
+          company_name: driverData.company_name,
+          company_address: driverData.company_address,
+          mc_number: driverData.mc_number,
+          weekly_payment: driverData.weekly_payment,
+          weeks_count: driverData.weeks_count,
+          agreement_start_date: driverData.agreement_start_date,
+          is_active: driverData.is_active,
+          is_recovery: driverData.is_recovery,
+          is_company_driver: driverData.is_company_driver,
+          cents_per_mile: driverData.cents_per_mile,
+          going_yard: driverData.going_yard,
+          two_week_block_date: driverData.two_week_block_date,
+          is_checked_for_termination: driverData.is_checked_for_termination,
+          emergency_contact_name: driverData.emergency_contact_name,
+          emergency_contact_relation: driverData.emergency_contact_relation,
+          emergency_contact_phone: driverData.emergency_contact_phone,
+          deleted_by: profile?.user_id
+        });
+      
+      if (historyError) throw historyError;
+
+      // Nullify original_driver1_id and original_driver2_id references in orders
+      await supabase
+        .from('orders')
+        .update({ original_driver1_id: null })
+        .eq('original_driver1_id', driverId);
+
+      await supabase
+        .from('orders')
+        .update({ original_driver2_id: null })
+        .eq('original_driver2_id', driverId);
+
+      // Unassign from trucks
+      await supabase
+        .from('trucks')
+        .update({ driver1_id: null })
+        .eq('driver1_id', driverId);
+
+      await supabase
+        .from('trucks')
+        .update({ driver2_id: null })
+        .eq('driver2_id', driverId);
+
+      // Delete from drivers
       const { error } = await supabase.from("drivers").delete().eq("id", driverId);
       if (error) throw error;
+      
       toast({
         title: "Success",
-        description: "Driver deleted successfully",
+        description: "Driver deleted and archived successfully",
       });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       refetch();
     } catch (error: any) {
       toast({
