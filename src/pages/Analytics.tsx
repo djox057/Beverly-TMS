@@ -1424,145 +1424,149 @@ const Analytics = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Loads Booked Today (Rate ≥ $5.00/mile)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Load #</TableHead>
-                      <TableHead>Broker load#</TableHead>
-                      <TableHead>Route</TableHead>
-                      <TableHead className="text-right">Freight Amount</TableHead>
-                      <TableHead className="text-right">Miles</TableHead>
-                      <TableHead className="text-right">Rate/Mile</TableHead>
-                      <TableHead>Booked By</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {highRateLoads.length === 0 ? (
+            {hasRole('admin') && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Loads Booked Today (Rate ≥ $5.00/mile)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No qualifying loads booked today
-                        </TableCell>
+                        <TableHead>Load #</TableHead>
+                        <TableHead>Broker load#</TableHead>
+                        <TableHead>Route</TableHead>
+                        <TableHead className="text-right">Freight Amount</TableHead>
+                        <TableHead className="text-right">Miles</TableHead>
+                        <TableHead className="text-right">Rate/Mile</TableHead>
+                        <TableHead>Booked By</TableHead>
                       </TableRow>
-                    ) : (
-                      highRateLoads.map((order) => {
-                        const ratePerMile =
-                          order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
-                        const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
-                        const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
-                        return (
-                          <TableRow 
-                            key={order.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => navigateToEditOrder(order.id)}
-                          >
-                            <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                            <TableCell>{order.brokerLoadNumber}</TableCell>
-                            <TableCell>
-                              {pickupLocation} → {deliveryLocation}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {order.totalFreightAmount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {order.mileage != null ? order.mileage.toLocaleString() : "0"}
-                            </TableCell>
-                            <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
-                            <TableCell>{order.bookedBy}</TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {highRateLoads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            No qualifying loads booked today
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        highRateLoads.map((order) => {
+                          const ratePerMile =
+                            order.mileage && order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
+                          const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
+                          const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
+                          return (
+                            <TableRow 
+                              key={order.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => navigateToEditOrder(order.id)}
+                            >
+                              <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                              <TableCell>{order.brokerLoadNumber}</TableCell>
+                              <TableCell>
+                                {pickupLocation} → {deliveryLocation}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {order.totalFreightAmount.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {order.mileage != null ? order.mileage.toLocaleString() : "0"}
+                              </TableCell>
+                              <TableCell className="text-right">${ratePerMile.toFixed(2)}</TableCell>
+                              <TableCell>{order.bookedBy}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>50%+ Cut Loads ({highCutLoads.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Load #</TableHead>
-                      <TableHead>Broker load#</TableHead>
-                      <TableHead>Route</TableHead>
-                      <TableHead className="text-right">Freight Amount</TableHead>
-                      <TableHead className="text-right">Driver Pay</TableHead>
-                      <TableHead className="text-right">Cut</TableHead>
-                      <TableHead className="text-right">Cut %</TableHead>
-                      <TableHead>Booked By</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {highCutLoads.length === 0 ? (
+            {hasRole('admin') && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>50%+ Cut Loads ({highCutLoads.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No loads with 50%+ cut found
-                        </TableCell>
+                        <TableHead>Load #</TableHead>
+                        <TableHead>Broker load#</TableHead>
+                        <TableHead>Route</TableHead>
+                        <TableHead className="text-right">Freight Amount</TableHead>
+                        <TableHead className="text-right">Driver Pay</TableHead>
+                        <TableHead className="text-right">Cut</TableHead>
+                        <TableHead className="text-right">Cut %</TableHead>
+                        <TableHead>Booked By</TableHead>
                       </TableRow>
-                    ) : (
-                      highCutLoads.map((order) => {
-                        const freightAmount = Number(order.totalFreightAmount) || 0;
-                        const driverPay = Number(order.totalDriverPay) || 0;
-                        const cut = freightAmount - driverPay;
-                        const cutPercent = freightAmount > 0 ? (cut / freightAmount) * 100 : 0;
-                        const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
-                        const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
-                        return (
-                          <TableRow 
-                            key={order.id} 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => navigateToEditOrder(order.id)}
-                          >
-                            <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                            <TableCell>{order.brokerLoadNumber}</TableCell>
-                            <TableCell>
-                              {pickupLocation} → {deliveryLocation}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {freightAmount.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {driverPay.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right text-green-600 font-medium">
-                              $
-                              {cut.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right text-green-600 font-medium">
-                              {cutPercent.toFixed(1)}%
-                            </TableCell>
-                            <TableCell>{order.bookedBy}</TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {highCutLoads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            No loads with 50%+ cut found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        highCutLoads.map((order) => {
+                          const freightAmount = Number(order.totalFreightAmount) || 0;
+                          const driverPay = Number(order.totalDriverPay) || 0;
+                          const cut = freightAmount - driverPay;
+                          const cutPercent = freightAmount > 0 ? (cut / freightAmount) * 100 : 0;
+                          const pickupLocation = `${order.pickupCity}, ${order.pickupState}`;
+                          const deliveryLocation = `${order.deliveryCity}, ${order.deliveryState}`;
+                          return (
+                            <TableRow 
+                              key={order.id} 
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => navigateToEditOrder(order.id)}
+                            >
+                              <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                              <TableCell>{order.brokerLoadNumber}</TableCell>
+                              <TableCell>
+                                {pickupLocation} → {deliveryLocation}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {freightAmount.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                $
+                                {driverPay.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right text-green-600 font-medium">
+                                $
+                                {cut.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </TableCell>
+                              <TableCell className="text-right text-green-600 font-medium">
+                                {cutPercent.toFixed(1)}%
+                              </TableCell>
+                              <TableCell>{order.bookedBy}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
