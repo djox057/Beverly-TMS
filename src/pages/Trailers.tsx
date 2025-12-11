@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
@@ -50,9 +51,8 @@ const Trailers = () => {
   });
 
   const itemsPerPage = 100;
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const {
     data: trailers,
@@ -228,11 +228,32 @@ const Trailers = () => {
   };
   const handleDeleteTrailer = async (trailerId: string) => {
     try {
-      // Unassign trailer from orders (set to NULL to preserve order history)
-      await supabase
-        .from('orders')
-        .update({ trailer_id: null })
-        .eq('trailer_id', trailerId);
+      // Get trailer data to save to history
+      const { data: trailerData, error: fetchError } = await supabase
+        .from('trailers')
+        .select('*')
+        .eq('id', trailerId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+
+      // Save to deleted_trailers history table
+      const { error: historyError } = await supabase
+        .from('deleted_trailers')
+        .insert({
+          id: trailerData.id,
+          trailer_number: trailerData.trailer_number,
+          trailer_type: trailerData.trailer_type,
+          vin: trailerData.vin,
+          capacity: trailerData.capacity,
+          dot_inspection_date: trailerData.dot_inspection_date,
+          plate_expiration_date: trailerData.plate_expiration_date,
+          insurance_expiration_date: trailerData.insurance_expiration_date,
+          status: trailerData.status,
+          deleted_by: user?.id
+        });
+      
+      if (historyError) throw historyError;
 
       // Unassign from trucks
       await supabase
@@ -240,12 +261,13 @@ const Trailers = () => {
         .update({ trailer_id: null })
         .eq('trailer_id', trailerId);
 
+      // Delete from trailers (orders.trailer_id will be set to NULL automatically via FK)
       const { error } = await supabase.from('trailers').delete().eq('id', trailerId);
       if (error) throw error;
       
       toast({
         title: "Success",
-        description: "Trailer deleted successfully"
+        description: "Trailer deleted and archived successfully"
       });
       // Invalidate all related queries to sync with other pages
       queryClient.invalidateQueries({ queryKey: ['trailers'] });
