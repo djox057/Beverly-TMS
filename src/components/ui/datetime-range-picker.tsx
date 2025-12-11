@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, startOfYear, addMonths, endOfMonth } from "date-fns";
 import { CalendarIcon, Clock } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
@@ -23,6 +23,7 @@ interface DateTimeRangePickerProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  disableDateValidation?: boolean;
 }
 
 export function DateTimeRangePicker({
@@ -35,7 +36,12 @@ export function DateTimeRangePicker({
   placeholder = "Pick date and time range",
   className,
   disabled = false,
+  disableDateValidation = false,
 }: DateTimeRangePickerProps) {
+  // Calculate valid date range: start of current year to end of next month
+  const now = new Date();
+  const minDate = disableDateValidation ? undefined : startOfYear(now);
+  const maxDate = disableDateValidation ? undefined : endOfMonth(addMonths(now, 1));
   
   // Handle calendar date selection to ensure proper same-day range handling
   const handleDateChange = (newDate: DateRange | undefined) => {
@@ -116,6 +122,8 @@ export function DateTimeRangePicker({
               onSelect={handleDateChange}
               numberOfMonths={2}
               className="pointer-events-auto"
+              fromDate={minDate}
+              toDate={maxDate}
             />
             
             {(date?.from || date?.to) && (
