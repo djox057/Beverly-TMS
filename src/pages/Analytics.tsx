@@ -831,35 +831,11 @@ const Analytics = () => {
     }
   };
 
-  // Filter loads booked today with rate <= 2.00
+  // Filter loads booked today with rate >= 2.00
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
-
-  // Calculate current week start (Monday) and end (Sunday) in Chicago time
-  const getChicagoWeekBounds = () => {
-    // Get current time in Chicago
-    const chicagoNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }));
-    const dayOfWeek = chicagoNow.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    
-    // Calculate days since Monday (if Sunday, go back 6 days)
-    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    
-    // Week start (Monday 00:00:00 Chicago time)
-    const weekStart = new Date(chicagoNow);
-    weekStart.setDate(chicagoNow.getDate() - daysSinceMonday);
-    weekStart.setHours(0, 0, 0, 0);
-    
-    // Week end (Sunday 23:59:59 Chicago time)
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    return { weekStart, weekEnd };
-  };
-  
-  const { weekStart, weekEnd } = getChicagoWeekBounds();
 
   // Filter loads booked today with rate <= 2.00, respecting role permissions
   const qualifyingLoads = filteredOrders.filter((order) => {
@@ -870,22 +846,18 @@ const Analytics = () => {
     return isToday && meetsRateThreshold;
   });
 
-  // Filter loads booked this week with rate >= 4.00 (Chicago time, Monday reset)
+  // Filter loads booked today with rate >= 4.00
   const highRateLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
-    const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
+    const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
     const meetsRateThreshold = ratePerMile >= 4.0;
-    return isThisWeek && meetsRateThreshold;
+    return isToday && meetsRateThreshold;
   });
 
-  // Filter loads with 50%+ cut booked this week (Chicago time, Monday reset)
+  // Filter loads with 50%+ cut (respects date filters from filteredOrders)
   // Company driver orders are excluded since their effective driver pay = freight (0% cut)
   const highCutLoads = filteredOrders.filter((order) => {
-    const createdAt = new Date(order.createdAt);
-    const isThisWeek = createdAt >= weekStart && createdAt <= weekEnd;
-    if (!isThisWeek) return false;
-    
     const freightAmount = Number(order.totalFreightAmount) || 0;
     const driverPay = getEffectiveDriverPay(order);
     if (freightAmount <= 0) return false;
@@ -1458,7 +1430,7 @@ const Analytics = () => {
             {hasRole('admin') && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Loads Booked This Week (Rate ≥ $4.00/mile)</CardTitle>
+                  <CardTitle>Loads Booked Today (Rate ≥ $4.00/mile)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -1478,7 +1450,7 @@ const Analytics = () => {
                       {highRateLoads.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                            No qualifying loads booked this week
+                            No qualifying loads booked today
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -1524,7 +1496,7 @@ const Analytics = () => {
             {hasRole('admin') && (
               <Card>
                 <CardHeader>
-                  <CardTitle>50%+ Cut Loads This Week ({highCutLoads.length})</CardTitle>
+                  <CardTitle>50%+ Cut Loads ({highCutLoads.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -1545,7 +1517,7 @@ const Analytics = () => {
                       {highCutLoads.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                            No loads with 50%+ cut found this week
+                            No loads with 50%+ cut found
                           </TableCell>
                         </TableRow>
                       ) : (
