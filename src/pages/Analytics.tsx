@@ -846,12 +846,12 @@ const Analytics = () => {
     return isToday && meetsRateThreshold;
   });
 
-  // Filter loads booked today with rate >= 5.00
+  // Filter loads booked today with rate >= 4.00
   const highRateLoads = filteredOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
     const isToday = createdAt >= today && createdAt <= todayEnd;
     const ratePerMile = order.mileage > 0 ? order.totalFreightAmount / order.mileage : 0;
-    const meetsRateThreshold = ratePerMile >= 5.0;
+    const meetsRateThreshold = ratePerMile >= 4.0;
     return isToday && meetsRateThreshold;
   });
 
@@ -1430,7 +1430,7 @@ const Analytics = () => {
             {hasRole('admin') && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Loads Booked Today (Rate ≥ $5.00/mile)</CardTitle>
+                  <CardTitle>Loads Booked Today (Rate ≥ $4.00/mile)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
