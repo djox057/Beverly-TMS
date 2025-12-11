@@ -289,10 +289,10 @@ const Trucks = () => {
       
       if (fetchError) throw fetchError;
 
-      // Save truck number to orders before deletion (so it's preserved after truck_id becomes NULL)
+      // Save truck number to orders and nullify truck_id before deletion
       await supabase
         .from('orders')
-        .update({ deleted_truck_number: truckData.truck_number })
+        .update({ deleted_truck_number: truckData.truck_number, truck_id: null })
         .eq('truck_id', truckId);
 
       // Save to deleted_trucks history table
