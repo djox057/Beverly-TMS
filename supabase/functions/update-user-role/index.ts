@@ -37,8 +37,8 @@ serve(async (req) => {
       }
     )
 
-    // Verify the user token
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Verify the user token by passing it directly
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
     
     if (userError) {
       console.error('Token verification error:', userError)
