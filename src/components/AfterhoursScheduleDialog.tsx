@@ -265,7 +265,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
@@ -277,12 +277,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-6 flex-1 overflow-hidden">
           {/* Left side - Add new schedule */}
-          <div className="space-y-4">
+          <div className="flex flex-col space-y-4 overflow-hidden">
             <h3 className="font-medium text-sm">Add New Schedule</h3>
             
-            <div>
+            <div className="flex-shrink-0">
               <label className="text-sm text-muted-foreground mb-2 block">Select Weekend Date</label>
               <Calendar
                 mode="single"
@@ -294,8 +294,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             </div>
 
             {selectedDate && (
-              <div className="space-y-3">
-                <label className="text-sm text-muted-foreground block">
+              <div className="flex flex-col flex-1 min-h-0 space-y-3">
+                <label className="text-sm text-muted-foreground block flex-shrink-0">
                   Select Dispatch Users for {format(selectedDate, 'EEEE, MMM d')}
                 </label>
                 {loading ? (
@@ -303,16 +303,33 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 ) : (
-                  <ScrollArea className="h-[250px] border rounded-md p-2">
+                  <ScrollArea className="flex-1 border rounded-md p-2">
                     {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
                       const officeUsers = usersByOffice[office] || [];
                       const config = OFFICE_CONFIG[office];
                       const selectedCount = selectedUsers[office].length;
+                      const isFilled = selectedCount >= config.slots;
+                      
+                      // Hide office section if slots are filled
+                      if (isFilled) {
+                        return (
+                          <div key={office} className="mb-2">
+                            <div className="flex items-center gap-2 py-1">
+                              <Badge variant="default" className="bg-green-600">
+                                {config.label} ✓
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {selectedCount}/{config.slots} complete
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
                       
                       return (
                         <div key={office} className="mb-4">
                           <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                            <Badge variant={selectedCount === config.slots ? "default" : "outline"}>
+                            <Badge variant="outline">
                               {config.label}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
@@ -350,7 +367,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             <Button 
               onClick={handleSaveSchedule} 
               disabled={saving || !selectedDate || getTotalSelectedCount() === 0}
-              className="w-full"
+              className="w-full flex-shrink-0"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Add to Schedule ({getTotalSelectedCount()} users)
@@ -358,9 +375,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </div>
 
           {/* Right side - Existing schedules */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm">Upcoming Schedules</h3>
-            <ScrollArea className="h-[450px] border rounded-md p-3">
+          <div className="flex flex-col space-y-4 overflow-hidden">
+            <h3 className="font-medium text-sm flex-shrink-0">Upcoming Schedules</h3>
+            <ScrollArea className="flex-1 border rounded-md p-3">
               {Object.keys(schedulesByDate).length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
                   No upcoming schedules
