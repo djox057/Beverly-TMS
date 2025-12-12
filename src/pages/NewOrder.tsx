@@ -927,7 +927,7 @@ const NewOrder = () => {
               datetime: pickup.date || "",
               dateRange: pickupDateRange,
               startTime: pickup.startTime || "",
-              endTime: pickup.endTime || "",
+              endTime: pickup.endTime || pickup.startTime || "",
               companyName: pickup.shipper || "",
             });
           });
@@ -947,7 +947,7 @@ const NewOrder = () => {
               datetime: delivery.date || "",
               dateRange: deliveryDateRange,
               startTime: delivery.startTime || "",
-              endTime: delivery.endTime || "",
+              endTime: delivery.endTime || delivery.startTime || "",
               companyName: delivery.shipper || "",
             });
           });
