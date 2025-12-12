@@ -70,16 +70,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
   const fetchDispatchUsers = async () => {
     setLoading(true);
     try {
-      // Get users with dispatch role
+      // Get users with dispatch, supervisor, or manager role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'dispatch');
+        .in('role', ['dispatch', 'supervisor', 'manager']);
 
       if (roleError) throw roleError;
 
       if (roleData && roleData.length > 0) {
-        const userIds = roleData.map(r => r.user_id);
+        const userIds = [...new Set(roleData.map(r => r.user_id))];
         
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -96,8 +96,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         })) || []);
       }
     } catch (error) {
-      console.error('Error fetching dispatch users:', error);
-      toast.error('Failed to load dispatch users');
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
     } finally {
       setLoading(false);
     }
@@ -346,10 +346,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   return null;
                 })()}
 
-                {/* Add new dispatchers */}
-                <div className="flex-shrink-0">
-                  <p className="text-xs text-muted-foreground mb-2">Add Dispatchers (3x KG, 2x CA, 2x BG):</p>
-                </div>
                 
                 {loading ? (
                   <div className="flex items-center justify-center py-4">
