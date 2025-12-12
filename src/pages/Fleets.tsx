@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft, CalendarDays } from "lucide-react";
+import { Truck, Plus, Minus, Users, UserCheck, GripVertical, Search, Info, ArrowRightLeft, CalendarDays, Bell } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { useFleetManagement } from "@/hooks/useFleetManagement";
@@ -16,9 +16,9 @@ import { Label } from "@/components/ui/label";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { AfterhoursScheduleDialog } from "@/components/AfterhoursScheduleDialog";
-
+import { supabase } from "@/integrations/supabase/client";
 const Fleets = () => {
-  const { hasRole } = useAuthContext();
+  const { hasRole, user } = useAuthContext();
   const { 
     dispatchers, 
     availableDrivers,
@@ -47,6 +47,51 @@ const Fleets = () => {
   } | null>(null);
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
+  const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
+
+  // Check if user is scheduled this weekend (show bell from Monday to end of Sunday, GMT+1)
+  useEffect(() => {
+    const checkWeekendSchedule = async () => {
+      if (!user?.id) return;
+      
+      // Get current time in GMT+1
+      const now = new Date();
+      const gmt1Offset = 1 * 60; // GMT+1 in minutes
+      const localOffset = now.getTimezoneOffset();
+      const gmt1Time = new Date(now.getTime() + (localOffset + gmt1Offset) * 60 * 1000);
+      
+      const dayOfWeek = gmt1Time.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      
+      // Only show bell from Monday (1) through Sunday (0)
+      // This means we show it the entire week leading up to and including the weekend
+      // Bell should appear on Monday and disappear at end of Sunday
+      
+      // Calculate the upcoming Saturday and Sunday dates
+      const daysUntilSaturday = dayOfWeek === 0 ? -1 : 6 - dayOfWeek; // If Sunday, Saturday was yesterday
+      const saturday = new Date(gmt1Time);
+      saturday.setDate(gmt1Time.getDate() + daysUntilSaturday);
+      saturday.setHours(0, 0, 0, 0);
+      
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+      
+      // Format dates for query
+      const saturdayStr = saturday.toISOString().split('T')[0];
+      const sundayStr = sunday.toISOString().split('T')[0];
+      
+      // Check if user is scheduled for this weekend
+      const { data } = await supabase
+        .from('afterhours_schedule')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('scheduled_date', [saturdayStr, sundayStr])
+        .limit(1);
+      
+      setIsScheduledThisWeekend(data && data.length > 0);
+    };
+    
+    checkWeekendSchedule();
+  }, [user?.id, isAfterhoursScheduleOpen]); // Re-check when dialog closes
 
   const itemsPerPage = 10;
 
@@ -257,7 +302,10 @@ const Fleets = () => {
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setIsAfterhoursScheduleOpen(true)}>
                 <CalendarDays className="h-4 w-4 mr-2" />
-                Schedule Afterhours
+                Weekend Schedule
+                {isScheduledThisWeekend && (
+                  <Bell className="h-4 w-4 ml-2 text-amber-500 animate-pulse" />
+                )}
               </Button>
               <Dialog open={isAssignDriverOpen} onOpenChange={setIsAssignDriverOpen}>
                 <DialogTrigger asChild>
