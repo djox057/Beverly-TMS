@@ -23,11 +23,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { createUserSchema } from "@/lib/validation";
 
+type OfficeLocation = 'Čačak' | 'KRAGUJEVAC' | 'BEOGRAD' | 'Recovery' | null;
+
 interface User {
   id: string;
   user_id: string;
   email: string;
   full_name: string | null;
+  office: OfficeLocation;
   roles: ('dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard')[];
   created_at: string;
 }
@@ -45,6 +48,7 @@ const AdminUsers = () => {
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [editRole, setEditRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
   const [editFullName, setEditFullName] = useState('');
+  const [editOffice, setEditOffice] = useState<OfficeLocation>(null);
   const [isUpdatingRoles, setIsUpdatingRoles] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [showLogoutAllDialog, setShowLogoutAllDialog] = useState(false);
@@ -54,6 +58,7 @@ const AdminUsers = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<'dispatch' | 'afterhours' | 'admin' | 'manager' | 'driver' | 'safety' | 'supervisor' | 'accounting' | 'maintenance' | 'chicago_management' | 'yard'>('dispatch');
+  const [office, setOffice] = useState<OfficeLocation>(null);
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; fullName?: string; role?: string }>({});
 
   // Security check: Only admins and accounting should access this page
@@ -97,6 +102,7 @@ const AdminUsers = () => {
         
         return {
           ...profile,
+          office: profile.office as OfficeLocation,
           roles: userRoles
         };
       });
@@ -157,7 +163,8 @@ const AdminUsers = () => {
             email, 
             password, 
             fullName: fullName || email, 
-            role 
+            role,
+            office: office || null
           })
         }
       );
@@ -180,6 +187,7 @@ const AdminUsers = () => {
       setPassword("");
       setFullName("");
       setRole('dispatch');
+      setOffice(null);
       setFormErrors({});
       setIsDialogOpen(false);
       
@@ -261,6 +269,7 @@ const AdminUsers = () => {
     setUserToEdit(user);
     setEditRole(user.roles[0] || 'dispatch');
     setEditFullName(user.full_name || '');
+    setEditOffice(user.office);
     setIsEditDialogOpen(true);
   };
 
@@ -303,14 +312,17 @@ const AdminUsers = () => {
         throw new Error(data.error);
       }
 
-      // Update full name if changed
-      if (editFullName !== userToEdit.full_name) {
-        const { error: nameError } = await supabase
+      // Update full name and office if changed
+      if (editFullName !== userToEdit.full_name || editOffice !== userToEdit.office) {
+        const { error: updateError } = await supabase
           .from('profiles')
-          .update({ full_name: editFullName })
+          .update({ 
+            full_name: editFullName,
+            office: editOffice
+          })
           .eq('user_id', userToEdit.user_id);
 
-        if (nameError) throw nameError;
+        if (updateError) throw updateError;
       }
       
       await fetchUsers();
@@ -559,6 +571,21 @@ const AdminUsers = () => {
                   <p className="text-sm text-destructive">{formErrors.role}</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-office">Office (Optional)</Label>
+                <Select value={office || "none"} onValueChange={(value) => setOffice(value === "none" ? null : value as OfficeLocation)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select office" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Office</SelectItem>
+                    <SelectItem value="Čačak">Čačak</SelectItem>
+                    <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
+                    <SelectItem value="BEOGRAD">Beograd</SelectItem>
+                    <SelectItem value="Recovery">Recovery</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
@@ -593,6 +620,7 @@ const AdminUsers = () => {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Office</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -603,6 +631,7 @@ const AdminUsers = () => {
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name || 'N/A'}</TableCell>
                   <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.office || '-'}</TableCell>
                   <TableCell>
                     {user.roles.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
@@ -648,7 +677,7 @@ const AdminUsers = () => {
               ))}
               {users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -698,6 +727,22 @@ const AdminUsers = () => {
                   <SelectItem value="chicago_management">Chicago Management</SelectItem>
                   <SelectItem value="yard">Yard</SelectItem>
                   <SelectItem value="driver">Driver</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-office">Office</Label>
+              <Select value={editOffice || "none"} onValueChange={(value) => setEditOffice(value === "none" ? null : value as OfficeLocation)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select office" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Office</SelectItem>
+                  <SelectItem value="Čačak">Čačak</SelectItem>
+                  <SelectItem value="KRAGUJEVAC">Kragujevac</SelectItem>
+                  <SelectItem value="BEOGRAD">Beograd</SelectItem>
+                  <SelectItem value="Recovery">Recovery</SelectItem>
                 </SelectContent>
               </Select>
             </div>

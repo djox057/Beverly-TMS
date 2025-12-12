@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     }
 
     // Get user data from request body
-    const { email, password, fullName, role } = await req.json()
+    const { email, password, fullName, role, office } = await req.json()
     
     if (!email || !password || !role) {
       throw new Error('Email, password, and role are required')
@@ -94,6 +94,17 @@ Deno.serve(async (req) => {
 
     if (createError) {
       throw createError
+    }
+
+    // Update profile with office if provided
+    if (office && newUser?.user?.id) {
+      const validOffices = ['Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery']
+      if (validOffices.includes(office)) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ office })
+          .eq('user_id', newUser.user.id)
+      }
     }
 
     return new Response(
