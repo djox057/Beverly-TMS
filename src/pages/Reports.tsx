@@ -478,6 +478,7 @@ const Reports = () => {
     driverName: string;
     driver2Id?: string;
     driver2Name?: string;
+    truckNumber?: string;
   } | null>(null);
   const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "safety" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
@@ -2834,6 +2835,7 @@ const Reports = () => {
                                                                     driverName: truck.driver1Name,
                                                                     driver2Id: truck.driver2Id!,
                                                                     driver2Name: truck.driver2Name,
+                                                                    truckNumber: truck.truckNumber,
                                                                   });
                                                                 }}
                                                               >
@@ -2957,6 +2959,7 @@ const Reports = () => {
                                                                     setYardActionDialog({
                                                                       driverId: truck.driverId!,
                                                                       driverName: truck.driver,
+                                                                      truckNumber: truck.truckNumber,
                                                                     });
                                                                   }}
                                                                 >
@@ -4084,6 +4087,7 @@ const Reports = () => {
                       arrival_datetime: yardActionDatetime.toISOString(),
                       created_by: profile?.user_id,
                       is_team: isTeam,
+                      truck_number: yardActionDialog.truckNumber || null,
                     });
 
                   if (insertError) {
