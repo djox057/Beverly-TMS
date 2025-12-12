@@ -282,27 +282,75 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-6 flex-1 overflow-hidden">
-          {/* Left side - Add new schedule */}
-          <div className="flex flex-col space-y-4 overflow-hidden">
-            <h3 className="font-medium text-sm">Add New Schedule</h3>
-            
-            <div className="flex-shrink-0">
-              <label className="text-sm text-muted-foreground mb-2 block">Select Weekend Date</label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                disabled={isDateDisabled}
-                className="rounded-md border"
-              />
-            </div>
+        <div className="grid grid-cols-[auto_1fr] gap-6 flex-1 overflow-hidden">
+          {/* Left side - Calendar */}
+          <div className="flex flex-col space-y-4">
+            <h3 className="font-medium text-sm">Select Weekend Date</h3>
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              disabled={isDateDisabled}
+              className="rounded-md border"
+            />
+          </div>
 
-            {selectedDate && (
-              <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                <label className="text-sm text-muted-foreground block flex-shrink-0">
-                  Select Dispatch Users for {format(selectedDate, 'EEEE, MMM d')}
-                </label>
+          {/* Right side - Schedule for selected date */}
+          <div className="flex flex-col space-y-4 overflow-hidden">
+            {selectedDate ? (
+              <>
+                <div className="flex items-center justify-between flex-shrink-0">
+                  <h3 className="font-medium text-sm">
+                    Schedule for {format(selectedDate, 'EEEE, MMM d, yyyy')}
+                  </h3>
+                  <Badge variant={isSaturday(selectedDate) ? "default" : "secondary"}>
+                    {format(selectedDate, 'EEEE')}
+                  </Badge>
+                </div>
+
+                {/* Already scheduled for this date */}
+                {(() => {
+                  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                  const existingForDate = schedulesByDate[dateStr] || [];
+                  
+                  if (existingForDate.length > 0) {
+                    return (
+                      <div className="flex-shrink-0 border rounded-md p-3 bg-muted/30">
+                        <p className="text-xs text-muted-foreground mb-2">Already Scheduled:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {existingForDate.map(schedule => (
+                            <div 
+                              key={schedule.id} 
+                              className="flex items-center gap-1 bg-background rounded px-2 py-1 text-sm"
+                            >
+                              <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                              {schedule.user?.office && (
+                                <Badge variant="outline" className="text-xs ml-1">
+                                  {getOfficeLabel(schedule.user.office)}
+                                </Badge>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-destructive hover:text-destructive ml-1"
+                                onClick={() => handleDeleteSchedule(schedule.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Add new dispatchers */}
+                <div className="flex-shrink-0">
+                  <p className="text-xs text-muted-foreground mb-2">Add Dispatchers (3x KG, 2x CA, 2x BG):</p>
+                </div>
+                
                 {loading ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -407,69 +455,21 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     })}
                   </ScrollArea>
                 )}
+
+                <Button 
+                  onClick={handleSaveSchedule} 
+                  disabled={saving || getTotalSelectedCount() === 0}
+                  className="w-full flex-shrink-0"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Add to Schedule ({getTotalSelectedCount()} users)
+                </Button>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <p className="text-sm">Select a weekend date to manage schedule</p>
               </div>
             )}
-
-            <Button 
-              onClick={handleSaveSchedule} 
-              disabled={saving || !selectedDate || getTotalSelectedCount() === 0}
-              className="w-full flex-shrink-0"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Add to Schedule ({getTotalSelectedCount()} users)
-            </Button>
-          </div>
-
-          {/* Right side - Existing schedules */}
-          <div className="flex flex-col space-y-4 overflow-hidden">
-            <h3 className="font-medium text-sm flex-shrink-0">Upcoming Schedules</h3>
-            <ScrollArea className="flex-1 border rounded-md p-3">
-              {Object.keys(schedulesByDate).length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No upcoming schedules
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(schedulesByDate).map(([date, schedules]) => (
-                    <div key={date} className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={isSaturday(new Date(date + 'T12:00:00')) ? "default" : "secondary"}>
-                          {format(new Date(date + 'T12:00:00'), 'EEEE')}
-                        </Badge>
-                        <span className="text-sm font-medium">
-                          {format(new Date(date + 'T12:00:00'), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                      <div className="pl-2 space-y-1">
-                        {schedules.map(schedule => (
-                          <div 
-                            key={schedule.id} 
-                            className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                              {schedule.user?.office && (
-                                <Badge variant="outline" className="text-xs">
-                                  {getOfficeLabel(schedule.user.office)}
-                                </Badge>
-                              )}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteSchedule(schedule.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
           </div>
         </div>
       </DialogContent>
