@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { 
   Truck, 
   FileText, 
@@ -17,7 +18,8 @@ import {
   Moon,
   Sun,
   Route,
-  Warehouse
+  Warehouse,
+  Bell
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -27,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -56,10 +59,51 @@ const navigation = [
 ];
 
 export const Sidebar = () => {
-  const { profile, signOut, hasRole, getPrimaryRole } = useAuthContext();
+  const { profile, signOut, hasRole, getPrimaryRole, user } = useAuthContext();
   const { state, isMobile } = useSidebar();
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
+  const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
+  
+  // Check if user is scheduled this weekend (show bell from Monday to end of Sunday, GMT+1)
+  useEffect(() => {
+    const checkWeekendSchedule = async () => {
+      if (!user?.id) return;
+      
+      // Get current time in GMT+1
+      const now = new Date();
+      const gmt1Offset = 1 * 60; // GMT+1 in minutes
+      const localOffset = now.getTimezoneOffset();
+      const gmt1Time = new Date(now.getTime() + (localOffset + gmt1Offset) * 60 * 1000);
+      
+      const dayOfWeek = gmt1Time.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      
+      // Calculate the upcoming Saturday and Sunday dates
+      const daysUntilSaturday = dayOfWeek === 0 ? -1 : 6 - dayOfWeek; // If Sunday, Saturday was yesterday
+      const saturday = new Date(gmt1Time);
+      saturday.setDate(gmt1Time.getDate() + daysUntilSaturday);
+      saturday.setHours(0, 0, 0, 0);
+      
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+      
+      // Format dates for query
+      const saturdayStr = saturday.toISOString().split('T')[0];
+      const sundayStr = sunday.toISOString().split('T')[0];
+      
+      // Check if user is scheduled for this weekend
+      const { data } = await supabase
+        .from('afterhours_schedule')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('scheduled_date', [saturdayStr, sundayStr])
+        .limit(1);
+      
+      setIsScheduledThisWeekend(data && data.length > 0);
+    };
+    
+    checkWeekendSchedule();
+  }, [user?.id]);
   
   // On mobile, always show text when sidebar is open
   const showText = isMobile ? true : state !== "collapsed";
@@ -192,6 +236,9 @@ export const Sidebar = () => {
                                 <Badge variant="secondary" className="ml-auto">
                                   {yardLoadsCount}
                                 </Badge>
+                              )}
+                              {item.href === "/fleets" && isScheduledThisWeekend && (
+                                <Bell className="h-4 w-4 ml-auto text-amber-500 animate-pulse" />
                               )}
                             </div>
                           )}
