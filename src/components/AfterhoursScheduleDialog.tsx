@@ -226,9 +226,17 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  // Group users by office
+  // Group users by office (case-insensitive matching)
   const usersByOffice = dispatchUsers.reduce((acc, user) => {
-    const office = user.office || 'kragujevac'; // Default to KG if no office
+    const officeRaw = user.office?.toLowerCase() || '';
+    let office: OfficeKey = 'kragujevac'; // Default
+    if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
+      office = 'cacak';
+    } else if (officeRaw.includes('beograd')) {
+      office = 'beograd';
+    } else if (officeRaw.includes('kragujevac')) {
+      office = 'kragujevac';
+    }
     if (!acc[office]) acc[office] = [];
     acc[office].push(user);
     return acc;
