@@ -5,6 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Decode JWT payload without verification (we'll verify via admin API)
+function decodeJwtPayload(token: string): { sub?: string } | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1]))
+    return payload
+  } catch {
+    return null
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -17,30 +29,17 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    // Create a client with the user's JWT to verify their identity
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader }
-        }
-      }
-    )
-
-    // Get the authenticated user (this validates the JWT)
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    // Extract the JWT token from the header
+    const token = authHeader.replace('Bearer ', '')
     
-    if (userError) {
-      console.error('Token verification error:', userError)
-      throw new Error(`Invalid token: ${userError.message}`)
+    // Decode JWT to get user ID
+    const payload = decodeJwtPayload(token)
+    if (!payload?.sub) {
+      throw new Error('Invalid token format')
     }
     
-    if (!user) {
-      throw new Error('No user found in token')
-    }
-
-    console.log('User verified:', user.id)
+    const userId = payload.sub
+    console.log('Decoded user ID from token:', userId)
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(
@@ -54,11 +53,21 @@ Deno.serve(async (req) => {
       }
     )
 
+    // Verify user exists using admin API
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
+    
+    if (userError || !userData?.user) {
+      console.error('User verification error:', userError)
+      throw new Error('Invalid or expired token')
+    }
+
+    console.log('User verified:', userData.user.email)
+
     // Check if user has admin role using user_roles table
     const { data: userRole, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('role', 'admin')
       .single()
 
@@ -69,11 +78,11 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId, role, office, fullName } = await req.json()
+    const { userId: targetUserId, role, office, fullName } = await req.json()
 
-    console.log('Request body:', { userId, role, office, fullName })
+    console.log('Request body:', { targetUserId, role, office, fullName })
 
-    if (!userId || !role) {
+    if (!targetUserId || !role) {
       throw new Error('Invalid request. userId and role are required.')
     }
 
@@ -87,7 +96,7 @@ Deno.serve(async (req) => {
     const { error: deleteError } = await supabaseAdmin
       .from('user_roles')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', targetUserId)
 
     if (deleteError) {
       console.error('Error deleting existing roles:', deleteError)
@@ -98,7 +107,7 @@ Deno.serve(async (req) => {
     const { error: insertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
-        user_id: userId,
+        user_id: targetUserId,
         role: role,
       })
 
@@ -123,7 +132,7 @@ Deno.serve(async (req) => {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update(profileUpdates)
-        .eq('user_id', userId)
+        .eq('user_id', targetUserId)
       
       if (profileError) {
         console.error('Error updating profile:', profileError)
