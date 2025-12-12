@@ -926,7 +926,7 @@ const EditOrder = () => {
           datetime: extractedData.pickupDate || "",
           dateRange: pickupDateRange,
           startTime: extractedData.pickupStartTime || extractedData.pickupTime || "",
-          endTime: extractedData.pickupEndTime || extractedData.pickupTime || "",
+          endTime: extractedData.pickupEndTime || extractedData.pickupStartTime || extractedData.pickupTime || "",
         });
       }
       if (extractedData.deliveryAddress) {
@@ -952,7 +952,7 @@ const EditOrder = () => {
           datetime: extractedData.deliveryDate || "",
           dateRange: deliveryDateRange,
           startTime: extractedData.deliveryStartTime || extractedData.deliveryTime || "",
-          endTime: extractedData.deliveryEndTime || extractedData.deliveryTime || "",
+          endTime: extractedData.deliveryEndTime || extractedData.deliveryStartTime || extractedData.deliveryTime || "",
         });
       }
       if (newPickupsDrops.length > 0) {
