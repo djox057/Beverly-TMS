@@ -10,11 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, isSaturday, isWeekend, startOfDay } from "date-fns";
 
-interface DispatchUser {
+interface ScheduleUser {
   id: string;
   email: string;
   full_name: string | null;
   office: 'kragujevac' | 'cacak' | 'beograd' | null;
+  isMaintenance?: boolean;
 }
 
 interface ScheduleEntry {
@@ -26,6 +27,7 @@ interface ScheduleEntry {
     email: string;
     full_name: string | null;
     office?: 'kragujevac' | 'cacak' | 'beograd' | null;
+    isMaintenance?: boolean;
   };
 }
 
@@ -36,24 +38,29 @@ interface AfterhoursScheduleDialogProps {
 
 // Office configuration: slots per office
 const OFFICE_CONFIG = {
-  kragujevac: { label: 'Kragujevac (KG)', slots: 3 },
-  cacak: { label: 'Čačak (CA)', slots: 2 },
-  beograd: { label: 'Beograd (BG)', slots: 2 },
+  kragujevac: { label: 'Kragujevac (KG)', slots: 4 },
+  cacak: { label: 'Čačak (CA)', slots: 3 },
+  beograd: { label: 'Beograd (BG)', slots: 3 },
 } as const;
 
+const MAINTENANCE_CONFIG = { label: 'Maintenance', slots: 10 };
+
 type OfficeKey = keyof typeof OFFICE_CONFIG;
+type SelectionKey = OfficeKey | 'maintenance';
 
 export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursScheduleDialogProps) => {
-  const [dispatchUsers, setDispatchUsers] = useState<DispatchUser[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<Record<OfficeKey, string[]>>({
+  const [scheduleUsers, setScheduleUsers] = useState<ScheduleUser[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<Record<SelectionKey, string[]>>({
     kragujevac: [],
     cacak: [],
     beograd: [],
+    maintenance: [],
   });
-  const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<OfficeKey, boolean>>({
+  const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<SelectionKey, boolean>>({
     kragujevac: false,
     cacak: false,
     beograd: false,
+    maintenance: false,
   });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
@@ -62,24 +69,25 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   useEffect(() => {
     if (open) {
-      fetchDispatchUsers();
+      fetchScheduleUsers();
       fetchExistingSchedules();
     }
   }, [open]);
 
-  const fetchDispatchUsers = async () => {
+  const fetchScheduleUsers = async () => {
     setLoading(true);
     try {
-      // Get users with dispatch, supervisor, or manager role
+      // Get users with dispatch, supervisor, manager, or maintenance role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
-        .select('user_id')
-        .in('role', ['dispatch', 'supervisor', 'manager']);
+        .select('user_id, role')
+        .in('role', ['dispatch', 'supervisor', 'manager', 'maintenance']);
 
       if (roleError) throw roleError;
 
       if (roleData && roleData.length > 0) {
         const userIds = [...new Set(roleData.map(r => r.user_id))];
+        const maintenanceUserIds = new Set(roleData.filter(r => r.role === 'maintenance').map(r => r.user_id));
         
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -88,11 +96,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
         if (profileError) throw profileError;
 
-        setDispatchUsers(profileData?.map(p => ({
+        setScheduleUsers(profileData?.map(p => ({
           id: p.user_id,
           email: p.email,
           full_name: p.full_name,
-          office: p.office as DispatchUser['office']
+          office: p.office as ScheduleUser['office'],
+          isMaintenance: maintenanceUserIds.has(p.user_id)
         })) || []);
       }
     } catch (error) {
@@ -115,13 +124,22 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
       if (error) throw error;
 
-      // Fetch user profiles for the schedules
+      // Fetch user profiles and roles for the schedules
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(s => s.user_id))];
         const { data: profiles } = await supabase
           .from('profiles')
           .select('user_id, email, full_name, office')
           .in('user_id', userIds);
+
+        // Check maintenance roles
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('user_id', userIds)
+          .eq('role', 'maintenance');
+        
+        const maintenanceUserIds = new Set(roleData?.map(r => r.user_id) || []);
 
         const schedulesWithUsers = data.map(schedule => {
           const profile = profiles?.find(p => p.user_id === schedule.user_id);
@@ -131,7 +149,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
               id: profile.user_id,
               email: profile.email,
               full_name: profile.full_name,
-              office: profile.office as DispatchUser['office']
+              office: profile.office as ScheduleUser['office'],
+              isMaintenance: maintenanceUserIds.has(profile.user_id)
             } : undefined
           };
         });
@@ -145,25 +164,26 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  const handleUserToggle = (userId: string, office: OfficeKey) => {
+  const handleUserToggle = (userId: string, category: SelectionKey) => {
     setSelectedUsers(prev => {
-      const currentOfficeUsers = prev[office];
-      const isSelected = currentOfficeUsers.includes(userId);
-      const maxSlots = OFFICE_CONFIG[office].slots;
+      const currentUsers = prev[category];
+      const isSelected = currentUsers.includes(userId);
+      const maxSlots = category === 'maintenance' ? MAINTENANCE_CONFIG.slots : OFFICE_CONFIG[category as OfficeKey].slots;
       
       if (isSelected) {
         return {
           ...prev,
-          [office]: currentOfficeUsers.filter(id => id !== userId)
+          [category]: currentUsers.filter(id => id !== userId)
         };
       } else {
-        if (currentOfficeUsers.length >= maxSlots) {
-          toast.error(`Maximum ${maxSlots} users for ${OFFICE_CONFIG[office].label}`);
+        if (currentUsers.length >= maxSlots) {
+          const label = category === 'maintenance' ? MAINTENANCE_CONFIG.label : OFFICE_CONFIG[category as OfficeKey].label;
+          toast.error(`Maximum ${maxSlots} users for ${label}`);
           return prev;
         }
         return {
           ...prev,
-          [office]: [...currentOfficeUsers, userId]
+          [category]: [...currentUsers, userId]
         };
       }
     });
@@ -203,7 +223,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       if (error) throw error;
 
       toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, 'EEEE, MMM d, yyyy')}`);
-      setSelectedUsers({ kragujevac: [], cacak: [], beograd: [] });
+      setSelectedUsers({ kragujevac: [], cacak: [], beograd: [], maintenance: [] });
       setSelectedDate(undefined);
       fetchExistingSchedules();
     } catch (error: any) {
@@ -231,8 +251,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  // Group users by office (case-insensitive matching)
-  const usersByOffice = dispatchUsers.reduce((acc, user) => {
+  // Separate maintenance users from office users
+  const maintenanceUsers = scheduleUsers.filter(u => u.isMaintenance);
+  const officeUsers = scheduleUsers.filter(u => !u.isMaintenance);
+
+  // Group non-maintenance users by office (case-insensitive matching)
+  const usersByOffice = officeUsers.reduce((acc, user) => {
     const officeRaw = user.office?.toLowerCase() || '';
     let office: OfficeKey = 'kragujevac'; // Default
     if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
@@ -245,7 +269,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     if (!acc[office]) acc[office] = [];
     acc[office].push(user);
     return acc;
-  }, {} as Record<OfficeKey, DispatchUser[]>);
+  }, {} as Record<OfficeKey, ScheduleUser[]>);
 
   // Group schedules by date
   const schedulesByDate = existingSchedules.reduce((acc, schedule) => {
@@ -277,7 +301,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             Afterhours Schedule
           </DialogTitle>
           <DialogDescription>
-            Schedule dispatch users by office: 3x KG, 2x CA, 2x BG. 
+            Schedule users by office: 4x KG, 3x CA, 3x BG + Maintenance. 
             Role changes: 6am → afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
@@ -314,8 +338,12 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   const existingForDate = schedulesByDate[dateStr] || [];
                   
                   if (existingForDate.length > 0) {
-                    // Group scheduled users by office
-                    const scheduledByOffice = existingForDate.reduce((acc, schedule) => {
+                    // Separate maintenance users from office users
+                    const maintenanceSchedules = existingForDate.filter(s => s.user?.isMaintenance);
+                    const officeSchedulesOnly = existingForDate.filter(s => !s.user?.isMaintenance);
+                    
+                    // Group non-maintenance scheduled users by office
+                    const scheduledByOffice = officeSchedulesOnly.reduce((acc, schedule) => {
                       const officeRaw = schedule.user?.office?.toLowerCase() || '';
                       let office: OfficeKey = 'kragujevac';
                       if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
@@ -338,7 +366,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           
                           const config = OFFICE_CONFIG[office];
                           return (
-                            <div key={office} className="mb-4 last:mb-0">
+                            <div key={office} className="mb-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <Badge variant="outline">{config.label}</Badge>
                                 <span className="text-xs text-muted-foreground">
@@ -366,6 +394,36 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             </div>
                           );
                         })}
+                        
+                        {/* Maintenance section at bottom */}
+                        {maintenanceSchedules.length > 0 && (
+                          <div className="mb-4 border-t pt-4 mt-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {maintenanceSchedules.length}
+                              </span>
+                            </div>
+                            <div className="space-y-1 pl-2">
+                              {maintenanceSchedules.map(schedule => (
+                                <div 
+                                  key={schedule.id} 
+                                  className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                >
+                                  <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </ScrollArea>
                     );
                   }
@@ -475,6 +533,98 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               </div>
                             );
                           })}
+                          
+                          {/* Maintenance section at bottom */}
+                          {maintenanceUsers.length > 0 && (
+                            <div className="mb-4 border-t pt-4 mt-4">
+                              {(() => {
+                                const selectedCount = selectedUsers.maintenance.length;
+                                const isFilled = selectedCount >= MAINTENANCE_CONFIG.slots;
+                                
+                                if (isFilled && !expandedFilledOffices.maintenance) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: true }))}
+                                      className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                    >
+                                      <Badge variant="default" className="bg-green-600">
+                                        {MAINTENANCE_CONFIG.label} ✓
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {selectedCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
+                                      </span>
+                                    </button>
+                                  );
+                                }
+                                
+                                if (isFilled && expandedFilledOffices.maintenance) {
+                                  const selectedMaintenanceUsers = maintenanceUsers.filter(u => selectedUsers.maintenance.includes(u.id));
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: false }))}
+                                        className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                                      >
+                                        <Badge variant="default" className="bg-green-600">
+                                          {MAINTENANCE_CONFIG.label} ✓
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {selectedCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
+                                        </span>
+                                      </button>
+                                      <div className="space-y-1 pl-2">
+                                        {selectedMaintenanceUsers.map(user => (
+                                          <label
+                                            key={user.id}
+                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                          >
+                                            <Checkbox
+                                              checked={true}
+                                              onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                            />
+                                            <span className="text-sm">
+                                              {user.full_name || user.email}
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </>
+                                  );
+                                }
+                                
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                                      <Badge variant="outline">
+                                        {MAINTENANCE_CONFIG.label}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {selectedCount}/{MAINTENANCE_CONFIG.slots} selected
+                                      </span>
+                                    </div>
+                                    <div className="space-y-1 pl-2">
+                                      {maintenanceUsers.map(user => (
+                                        <label
+                                          key={user.id}
+                                          className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                        >
+                                          <Checkbox
+                                            checked={selectedUsers.maintenance.includes(user.id)}
+                                            onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                          />
+                                          <span className="text-sm">
+                                            {user.full_name || user.email}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </ScrollArea>
                       )}
 
