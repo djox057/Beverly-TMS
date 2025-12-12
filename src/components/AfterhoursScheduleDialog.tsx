@@ -50,6 +50,11 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     cacak: [],
     beograd: [],
   });
+  const [expandedFilledOffices, setExpandedFilledOffices] = useState<Record<OfficeKey, boolean>>({
+    kragujevac: false,
+    cacak: false,
+    beograd: false,
+  });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -310,17 +315,58 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       const selectedCount = selectedUsers[office].length;
                       const isFilled = selectedCount >= config.slots;
                       
-                      // Hide office section if slots are filled
-                      if (isFilled) {
+                      // Collapse office section if slots are filled (unless expanded)
+                      if (isFilled && !expandedFilledOffices[office]) {
                         return (
                           <div key={office} className="mb-2">
-                            <div className="flex items-center gap-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
+                              className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                            >
                               <Badge variant="default" className="bg-green-600">
                                 {config.label} ✓
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {selectedCount}/{config.slots} complete
+                                {selectedCount}/{config.slots} complete - click to view
                               </span>
+                            </button>
+                          </div>
+                        );
+                      }
+                      
+                      // Show expanded filled office with collapse option
+                      if (isFilled && expandedFilledOffices[office]) {
+                        const selectedOfficeUsers = officeUsers.filter(u => selectedUsers[office].includes(u.id));
+                        return (
+                          <div key={office} className="mb-4">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
+                              className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                            >
+                              <Badge variant="default" className="bg-green-600">
+                                {config.label} ✓
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {selectedCount}/{config.slots} complete - click to hide
+                              </span>
+                            </button>
+                            <div className="space-y-1 pl-2">
+                              {selectedOfficeUsers.map(user => (
+                                <label
+                                  key={user.id}
+                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={true}
+                                    onCheckedChange={() => handleUserToggle(user.id, office)}
+                                  />
+                                  <span className="text-sm">
+                                    {user.full_name || user.email}
+                                  </span>
+                                </label>
+                              ))}
                             </div>
                           </div>
                         );
