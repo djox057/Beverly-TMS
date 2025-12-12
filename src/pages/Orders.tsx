@@ -629,11 +629,11 @@ const Orders = () => {
         .from("orders")
         .update({
           tonu: validated.tonu,
-          tonu_driver: validated.tonu,
-          driver_price: validated.driverRate,
+          tonu_driver: validated.driverRate,
           dh_miles: validated.dhMiles,
           notes: validated.notes,
           freight_amount: 0,
+          driver_price: 0,
           loaded_miles: 0,
           mileage: validated.dhMiles, // For canceled loads: loaded_miles (0) + dh_miles
           canceled: true,

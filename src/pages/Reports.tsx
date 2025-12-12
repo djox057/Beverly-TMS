@@ -865,11 +865,11 @@ const Reports = () => {
         .from("orders")
         .update({
           tonu: tonu,
-          tonu_driver: tonu,
-          driver_price: driverRate,
+          tonu_driver: driverRate,
           dh_miles: dhMiles,
           notes: cancelFormData.notes,
           freight_amount: 0,
+          driver_price: 0,
           loaded_miles: 0,
           mileage: dhMiles, // For canceled loads: loaded_miles (0) + dh_miles
           canceled: true,

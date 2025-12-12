@@ -238,7 +238,11 @@ export default function YardLoads() {
     try {
       const { error } = await supabase
         .from('orders')
-        .update({ canceled: true })
+        .update({ 
+          canceled: true,
+          freight_amount: 0,
+          driver_price: 0
+        })
         .eq('id', orderToCancel);
 
       if (error) throw error;
