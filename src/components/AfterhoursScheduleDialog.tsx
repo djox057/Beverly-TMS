@@ -8,19 +8,25 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CalendarDays, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, isSaturday, isSunday, isWeekend, startOfDay, addDays } from "date-fns";
+import { format, isSaturday, isWeekend, startOfDay } from "date-fns";
 
 interface DispatchUser {
   id: string;
   email: string;
   full_name: string | null;
+  office: 'kragujevac' | 'cacak' | 'beograd' | null;
 }
 
 interface ScheduleEntry {
   id: string;
   user_id: string;
   scheduled_date: string;
-  user?: DispatchUser;
+  user?: {
+    id: string;
+    email: string;
+    full_name: string | null;
+    office?: 'kragujevac' | 'cacak' | 'beograd' | null;
+  };
 }
 
 interface AfterhoursScheduleDialogProps {
@@ -28,9 +34,22 @@ interface AfterhoursScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Office configuration: slots per office
+const OFFICE_CONFIG = {
+  kragujevac: { label: 'Kragujevac (KG)', slots: 3 },
+  cacak: { label: 'Čačak (CA)', slots: 2 },
+  beograd: { label: 'Beograd (BG)', slots: 2 },
+} as const;
+
+type OfficeKey = keyof typeof OFFICE_CONFIG;
+
 export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursScheduleDialogProps) => {
   const [dispatchUsers, setDispatchUsers] = useState<DispatchUser[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<Record<OfficeKey, string[]>>({
+    kragujevac: [],
+    cacak: [],
+    beograd: [],
+  });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [existingSchedules, setExistingSchedules] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,7 +78,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('user_id, email, full_name')
+          .select('user_id, email, full_name, office')
           .in('user_id', userIds);
 
         if (profileError) throw profileError;
@@ -67,8 +86,9 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         setDispatchUsers(profileData?.map(p => ({
           id: p.user_id,
           email: p.email,
-          full_name: p.full_name
-        } as DispatchUser)) || []);
+          full_name: p.full_name,
+          office: p.office as DispatchUser['office']
+        })) || []);
       }
     } catch (error) {
       console.error('Error fetching dispatch users:', error);
@@ -95,7 +115,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         const userIds = [...new Set(data.map(s => s.user_id))];
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, email, full_name')
+          .select('user_id, email, full_name, office')
           .in('user_id', userIds);
 
         const schedulesWithUsers = data.map(schedule => {
@@ -105,7 +125,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             user: profile ? {
               id: profile.user_id,
               email: profile.email,
-              full_name: profile.full_name
+              full_name: profile.full_name,
+              office: profile.office as DispatchUser['office']
             } : undefined
           };
         });
@@ -119,16 +140,38 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
-  const handleUserToggle = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+  const handleUserToggle = (userId: string, office: OfficeKey) => {
+    setSelectedUsers(prev => {
+      const currentOfficeUsers = prev[office];
+      const isSelected = currentOfficeUsers.includes(userId);
+      const maxSlots = OFFICE_CONFIG[office].slots;
+      
+      if (isSelected) {
+        return {
+          ...prev,
+          [office]: currentOfficeUsers.filter(id => id !== userId)
+        };
+      } else {
+        if (currentOfficeUsers.length >= maxSlots) {
+          toast.error(`Maximum ${maxSlots} users for ${OFFICE_CONFIG[office].label}`);
+          return prev;
+        }
+        return {
+          ...prev,
+          [office]: [...currentOfficeUsers, userId]
+        };
+      }
+    });
+  };
+
+  const getTotalSelectedCount = () => {
+    return Object.values(selectedUsers).reduce((sum, users) => sum + users.length, 0);
   };
 
   const handleSaveSchedule = async () => {
-    if (!selectedDate || selectedUsers.length === 0) {
+    const allSelectedUsers = Object.values(selectedUsers).flat();
+    
+    if (!selectedDate || allSelectedUsers.length === 0) {
       toast.error('Please select a date and at least one user');
       return;
     }
@@ -143,7 +186,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       
       // Insert schedule entries for each selected user
-      const entries = selectedUsers.map(userId => ({
+      const entries = allSelectedUsers.map(userId => ({
         user_id: userId,
         scheduled_date: dateStr
       }));
@@ -154,8 +197,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
       if (error) throw error;
 
-      toast.success(`Scheduled ${selectedUsers.length} user(s) for ${format(selectedDate, 'EEEE, MMM d, yyyy')}`);
-      setSelectedUsers([]);
+      toast.success(`Scheduled ${allSelectedUsers.length} user(s) for ${format(selectedDate, 'EEEE, MMM d, yyyy')}`);
+      setSelectedUsers({ kragujevac: [], cacak: [], beograd: [] });
       setSelectedDate(undefined);
       fetchExistingSchedules();
     } catch (error: any) {
@@ -183,6 +226,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     }
   };
 
+  // Group users by office
+  const usersByOffice = dispatchUsers.reduce((acc, user) => {
+    const office = user.office || 'kragujevac'; // Default to KG if no office
+    if (!acc[office]) acc[office] = [];
+    acc[office].push(user);
+    return acc;
+  }, {} as Record<OfficeKey, DispatchUser[]>);
+
   // Group schedules by date
   const schedulesByDate = existingSchedules.reduce((acc, schedule) => {
     const date = schedule.scheduled_date;
@@ -197,17 +248,24 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return date < today || !isWeekend(date);
   };
 
+  const getOfficeLabel = (office: string | null | undefined) => {
+    if (office === 'kragujevac') return 'KG';
+    if (office === 'cacak') return 'CA';
+    if (office === 'beograd') return 'BG';
+    return '';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
             Afterhours Schedule
           </DialogTitle>
           <DialogDescription>
-            Schedule dispatch users to have their role changed to Afterhours on weekends.
-            Role changes: 6am Chicago time (dispatch → afterhours), 5pm Chicago time (afterhours → dispatch)
+            Schedule dispatch users by office: 3x KG, 2x CA, 2x BG. 
+            Role changes: 6am → afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
 
@@ -228,8 +286,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             </div>
 
             {selectedDate && (
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">
+              <div className="space-y-3">
+                <label className="text-sm text-muted-foreground block">
                   Select Dispatch Users for {format(selectedDate, 'EEEE, MMM d')}
                 </label>
                 {loading ? (
@@ -237,29 +295,45 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
                 ) : (
-                  <ScrollArea className="h-[200px] border rounded-md p-2">
-                    {dispatchUsers.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No dispatch users found
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {dispatchUsers.map(user => (
-                          <label
-                            key={user.id}
-                            className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedUsers.includes(user.id)}
-                              onCheckedChange={() => handleUserToggle(user.id)}
-                            />
-                            <span className="text-sm">
-                              {user.full_name || user.email}
+                  <ScrollArea className="h-[250px] border rounded-md p-2">
+                    {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                      const officeUsers = usersByOffice[office] || [];
+                      const config = OFFICE_CONFIG[office];
+                      const selectedCount = selectedUsers[office].length;
+                      
+                      return (
+                        <div key={office} className="mb-4">
+                          <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                            <Badge variant={selectedCount === config.slots ? "default" : "outline"}>
+                              {config.label}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {selectedCount}/{config.slots} selected
                             </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+                          </div>
+                          {officeUsers.length === 0 ? (
+                            <p className="text-xs text-muted-foreground pl-2">No dispatchers in this office</p>
+                          ) : (
+                            <div className="space-y-1 pl-2">
+                              {officeUsers.map(user => (
+                                <label
+                                  key={user.id}
+                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                >
+                                  <Checkbox
+                                    checked={selectedUsers[office].includes(user.id)}
+                                    onCheckedChange={() => handleUserToggle(user.id, office)}
+                                  />
+                                  <span className="text-sm">
+                                    {user.full_name || user.email}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </ScrollArea>
                 )}
               </div>
@@ -267,18 +341,18 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
             <Button 
               onClick={handleSaveSchedule} 
-              disabled={saving || !selectedDate || selectedUsers.length === 0}
+              disabled={saving || !selectedDate || getTotalSelectedCount() === 0}
               className="w-full"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Add to Schedule
+              Add to Schedule ({getTotalSelectedCount()} users)
             </Button>
           </div>
 
           {/* Right side - Existing schedules */}
           <div className="space-y-4">
             <h3 className="font-medium text-sm">Upcoming Schedules</h3>
-            <ScrollArea className="h-[400px] border rounded-md p-3">
+            <ScrollArea className="h-[450px] border rounded-md p-3">
               {Object.keys(schedulesByDate).length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
                   No upcoming schedules
@@ -301,7 +375,14 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             key={schedule.id} 
                             className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm"
                           >
-                            <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                            <div className="flex items-center gap-2">
+                              <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                              {schedule.user?.office && (
+                                <Badge variant="outline" className="text-xs">
+                                  {getOfficeLabel(schedule.user.office)}
+                                </Badge>
+                              )}
+                            </div>
                             <Button
                               variant="ghost"
                               size="icon"
