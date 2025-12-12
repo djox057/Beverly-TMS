@@ -278,51 +278,23 @@ const AdminUsers = () => {
 
     setIsUpdatingRoles(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('No active session');
-      }
-
-      // Update role via edge function with explicit auth header
-      const response = await fetch(
-        'https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/update-user-role',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ 
-            userId: userToEdit.user_id,
-            role: editRole
-          })
+      // Update role, full name, and office via edge function
+      const { data, error } = await supabase.functions.invoke('update-user-role', {
+        body: { 
+          userId: userToEdit.user_id,
+          role: editRole,
+          fullName: editFullName,
+          office: editOffice
         }
-      );
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error updating role:', errorText);
-        throw new Error('Failed to update role');
+      if (error) {
+        console.error('Error updating role:', error);
+        throw new Error(error.message || 'Failed to update role');
       }
-
-      const data = await response.json();
       
       if (data?.error) {
         throw new Error(data.error);
-      }
-
-      // Update full name and office if changed
-      if (editFullName !== userToEdit.full_name || editOffice !== userToEdit.office) {
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ 
-            full_name: editFullName,
-            office: editOffice
-          })
-          .eq('user_id', userToEdit.user_id);
-
-        if (updateError) throw updateError;
       }
       
       await fetchUsers();
