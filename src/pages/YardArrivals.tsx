@@ -106,6 +106,7 @@ export default function YardArrivals() {
           created_by,
           is_checked,
           is_team,
+          truck_number,
           drivers!driver_yard_actions_driver_id_fkey (
             name,
             first_name,
@@ -131,24 +132,16 @@ export default function YardArrivals() {
         (creatorsData || []).map(c => [c.user_id, c.full_name])
       );
 
-      // Fetch truck information for each driver
-      const actionsWithTrucks = await Promise.all(
-        (data || []).map(async (action) => {
-          const { data: truckData } = await supabase
-            .from("trucks")
-            .select("truck_number")
-            .eq("driver1_id", action.driver_id)
-            .maybeSingle();
-
-          return {
-            ...action,
-            driver: action.drivers,
-            truck: truckData,
-            is_team: action.is_team || false,
-            creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
-          };
-        })
-      );
+      // Map actions with truck info from saved truck_number
+      const actionsWithTrucks = (data || []).map((action) => {
+        return {
+          ...action,
+          driver: action.drivers,
+          truck: action.truck_number ? { truck_number: action.truck_number } : null,
+          is_team: action.is_team || false,
+          creator: action.created_by ? { full_name: creatorsMap.get(action.created_by) || null } : null,
+        };
+      });
 
       // Sort by arrival_datetime or created_at, ascending
       const sorted = actionsWithTrucks.sort((a, b) => {
