@@ -477,8 +477,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                         </ScrollArea>
                       )}
                       
-                      {/* Show add section for offices/maintenance below minimum threshold */}
-                      {(existingForDate.length === 0 || needsMoreDispatchers) && (
+                      {/* Show add section for offices/maintenance below minimum threshold - Admin only */}
+                      {isAdmin && (existingForDate.length === 0 || needsMoreDispatchers) && (
                         <>
                           {loading ? (
                             <div className="flex items-center justify-center py-4">
