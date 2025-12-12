@@ -31,6 +31,16 @@ import { Label } from "@/components/ui/label";
 import { useYardLoadsCount } from "@/hooks/useYardLoadsCount";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
   SidebarGroup,
@@ -64,6 +74,25 @@ export const Sidebar = () => {
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
+  const [showAcknowledgeDialog, setShowAcknowledgeDialog] = useState(false);
+  const [hasAcknowledgedToday, setHasAcknowledgedToday] = useState(false);
+  
+  // Get today's date in GMT+1 for acknowledgment storage
+  const getTodayGMT1 = () => {
+    const now = new Date();
+    const gmt1Offset = 1 * 60;
+    const localOffset = now.getTimezoneOffset();
+    const gmt1Time = new Date(now.getTime() + (localOffset + gmt1Offset) * 60 * 1000);
+    return gmt1Time.toISOString().split('T')[0];
+  };
+  
+  // Check if already acknowledged today
+  useEffect(() => {
+    if (!user?.id) return;
+    const acknowledgedDate = localStorage.getItem(`weekend_schedule_ack_${user.id}`);
+    const today = getTodayGMT1();
+    setHasAcknowledgedToday(acknowledgedDate === today);
+  }, [user?.id]);
   
   // Check if user is scheduled this weekend (show bell from Monday to end of Sunday, GMT+1)
   useEffect(() => {
@@ -104,6 +133,20 @@ export const Sidebar = () => {
     
     checkWeekendSchedule();
   }, [user?.id]);
+  
+  const handleBellClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowAcknowledgeDialog(true);
+  };
+  
+  const handleAcknowledge = () => {
+    if (!user?.id) return;
+    const today = getTodayGMT1();
+    localStorage.setItem(`weekend_schedule_ack_${user.id}`, today);
+    setHasAcknowledgedToday(true);
+    setShowAcknowledgeDialog(false);
+  };
   
   // On mobile, always show text when sidebar is open
   const showText = isMobile ? true : state !== "collapsed";
@@ -237,8 +280,11 @@ export const Sidebar = () => {
                                   {yardLoadsCount}
                                 </Badge>
                               )}
-                              {item.href === "/fleets" && isScheduledThisWeekend && (
-                                <Bell className="h-4 w-4 ml-auto text-amber-500 animate-pulse" />
+                              {item.href === "/fleets" && isScheduledThisWeekend && !hasAcknowledgedToday && (
+                                <Bell 
+                                  className="h-4 w-4 ml-auto text-amber-500 animate-pulse cursor-pointer hover:text-amber-400" 
+                                  onClick={handleBellClick}
+                                />
                               )}
                             </div>
                           )}
@@ -323,6 +369,24 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      {/* Weekend Schedule Acknowledgment Dialog */}
+      <AlertDialog open={showAcknowledgeDialog} onOpenChange={setShowAcknowledgeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Weekend Schedule Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are scheduled to work this weekend. Please confirm that you are aware of your schedule.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAcknowledge}>
+              I'm aware
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarPrimitive>
   );
 };
