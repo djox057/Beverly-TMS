@@ -17,28 +17,19 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    // Extract the JWT token from the header
-    const token = authHeader.replace('Bearer ', '')
-    
-    // Create admin client with service role key
-    const supabaseAdmin = createClient(
+    // Create a client with the user's JWT to verify their identity
+    const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        },
         global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: authHeader }
         }
       }
     )
 
-    // Get the user from the JWT token using admin API
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    // Get the authenticated user (this validates the JWT)
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
     
     if (userError) {
       console.error('Token verification error:', userError)
@@ -49,13 +40,29 @@ Deno.serve(async (req) => {
       throw new Error('No user found in token')
     }
 
+    console.log('User verified:', user.id)
+
+    // Create admin client for privileged operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+
     // Check if user has admin role using user_roles table
-    const { data: userRole } = await supabaseAdmin
+    const { data: userRole, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
       .single()
+
+    console.log('Role check result:', userRole, roleError)
 
     if (!userRole) {
       throw new Error('Unauthorized: Admin role required')
@@ -63,6 +70,8 @@ Deno.serve(async (req) => {
 
     // Get request body
     const { userId, role, office, fullName } = await req.json()
+
+    console.log('Request body:', { userId, role, office, fullName })
 
     if (!userId || !role) {
       throw new Error('Invalid request. userId and role are required.')
@@ -121,6 +130,8 @@ Deno.serve(async (req) => {
         // Don't throw - role was updated successfully
       }
     }
+
+    console.log('User role updated successfully')
 
     return new Response(
       JSON.stringify({ 
