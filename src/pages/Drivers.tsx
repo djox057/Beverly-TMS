@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -91,6 +92,7 @@ interface DriverFormData {
   cents_per_mile: string;
 }
 const Drivers = () => {
+  const location = useLocation();
   const { hasRole, profile } = useAuthContext();
   const canViewSensitiveData = hasRole("manager") || hasRole("admin") || hasRole("accounting");
   const canDelete = hasRole('admin') || hasRole('manager') || hasRole('safety') || hasRole('maintenance');
@@ -169,6 +171,22 @@ const Drivers = () => {
     // Trigger a fresh fetch
     refetch();
   }, []); // Only on mount
+
+  // Handle incoming navigation state to open edit dialog
+  useEffect(() => {
+    const state = location.state as { editDriverId?: string } | null;
+    if (state?.editDriverId && drivers && !isLoading) {
+      const driver = drivers.find((d: any) => d.id === state.editDriverId);
+      if (driver) {
+        // Use setTimeout to ensure the component is fully mounted
+        setTimeout(() => {
+          openEditDialog(driver);
+        }, 100);
+        // Clear the state to prevent re-opening on subsequent renders
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, drivers, isLoading]);
 
   const { data: allTrucks } = useAvailableTrucks();
   const { data: trucks } = useTrucks();
