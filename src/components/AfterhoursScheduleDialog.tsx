@@ -279,10 +279,36 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return acc;
   }, {} as Record<string, ScheduleEntry[]>);
 
-  // Only allow selecting weekends (Saturday/Sunday)
+  // Holidays that can be scheduled (month is 0-indexed)
+  const HOLIDAYS = [
+    { month: 0, day: 1, name: "New Year" },           // 1/1
+    { month: 4, day: 25, name: "Memorial Day" },      // 5/25
+    { month: 6, day: 4, name: "Independence Day" },   // 7/4
+    { month: 8, day: 7, name: "Labor Day" },          // 9/7
+    { month: 10, day: 26, name: "Thanksgiving" },     // 11/26
+    { month: 11, day: 25, name: "Christmas" },        // 12/25
+  ];
+
+  // Check if a date is a holiday
+  const isHoliday = (date: Date) => {
+    const month = date.getMonth();
+    const day = date.getDate();
+    return HOLIDAYS.some(h => h.month === month && h.day === day);
+  };
+
+  // Get holiday name for a date
+  const getHolidayName = (date: Date) => {
+    const month = date.getMonth();
+    const day = date.getDate();
+    const holiday = HOLIDAYS.find(h => h.month === month && h.day === day);
+    return holiday?.name || null;
+  };
+
+  // Allow selecting weekends (Saturday/Sunday) and holidays
   const isDateDisabled = (date: Date) => {
     const today = startOfDay(new Date());
-    return date < today || !isWeekend(date);
+    if (date < today) return true;
+    return !isWeekend(date) && !isHoliday(date);
   };
 
   const getOfficeLabel = (office: string | null | undefined) => {
@@ -301,7 +327,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
             Afterhours Schedule
           </DialogTitle>
           <DialogDescription>
-            Schedule users by office: 4x KG, 3x CA, 3x BG + Maintenance. 
+            Schedule users by office: 4x KG, 3x CA, 3x BG + Maintenance for weekends and holidays.
             Role changes: 6am → afterhours, 5pm → dispatch (Chicago time)
           </DialogDescription>
         </DialogHeader>
@@ -309,7 +335,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         <div className="grid grid-cols-[auto_1fr] gap-6 flex-1 overflow-hidden">
           {/* Left side - Calendar */}
           <div className="flex flex-col space-y-4">
-            <h3 className="font-medium text-sm">Select Weekend Date</h3>
+            <h3 className="font-medium text-sm">Select Date (Weekends & Holidays)</h3>
             <Calendar
               mode="single"
               selected={selectedDate}
