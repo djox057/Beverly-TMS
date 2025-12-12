@@ -337,44 +337,92 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   const dateStr = format(selectedDate, 'yyyy-MM-dd');
                   const existingForDate = schedulesByDate[dateStr] || [];
                   
-                  if (existingForDate.length > 0) {
-                    // Separate maintenance users from office users
-                    const maintenanceSchedules = existingForDate.filter(s => s.user?.isMaintenance);
-                    const officeSchedulesOnly = existingForDate.filter(s => !s.user?.isMaintenance);
-                    
-                    // Group non-maintenance scheduled users by office
-                    const scheduledByOffice = officeSchedulesOnly.reduce((acc, schedule) => {
-                      const officeRaw = schedule.user?.office?.toLowerCase() || '';
-                      let office: OfficeKey = 'kragujevac';
-                      if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
-                        office = 'cacak';
-                      } else if (officeRaw.includes('beograd')) {
-                        office = 'beograd';
-                      } else if (officeRaw.includes('kragujevac')) {
-                        office = 'kragujevac';
-                      }
-                      if (!acc[office]) acc[office] = [];
-                      acc[office].push(schedule);
-                      return acc;
-                    }, {} as Record<OfficeKey, ScheduleEntry[]>);
+                  // Define minimum thresholds for showing add section
+                  const MIN_THRESHOLDS: Record<SelectionKey, number> = {
+                    kragujevac: 3,
+                    cacak: 2,
+                    beograd: 2,
+                    maintenance: 1,
+                  };
+                  
+                  // Separate maintenance users from office users
+                  const maintenanceSchedules = existingForDate.filter(s => s.user?.isMaintenance);
+                  const officeSchedulesOnly = existingForDate.filter(s => !s.user?.isMaintenance);
+                  
+                  // Group non-maintenance scheduled users by office
+                  const scheduledByOffice = officeSchedulesOnly.reduce((acc, schedule) => {
+                    const officeRaw = schedule.user?.office?.toLowerCase() || '';
+                    let office: OfficeKey = 'kragujevac';
+                    if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
+                      office = 'cacak';
+                    } else if (officeRaw.includes('beograd')) {
+                      office = 'beograd';
+                    } else if (officeRaw.includes('kragujevac')) {
+                      office = 'kragujevac';
+                    }
+                    if (!acc[office]) acc[office] = [];
+                    acc[office].push(schedule);
+                    return acc;
+                  }, {} as Record<OfficeKey, ScheduleEntry[]>);
+                  
+                  // Check which offices need more dispatchers
+                  const officesBelowThreshold = (['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).filter(
+                    office => (scheduledByOffice[office]?.length || 0) < MIN_THRESHOLDS[office]
+                  );
+                  const maintenanceBelowThreshold = maintenanceSchedules.length < MIN_THRESHOLDS.maintenance;
+                  const needsMoreDispatchers = officesBelowThreshold.length > 0 || maintenanceBelowThreshold;
 
-                    return (
-                      <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
-                        {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
-                          const officeSchedules = scheduledByOffice[office] || [];
-                          if (officeSchedules.length === 0) return null;
+                  return (
+                    <>
+                      {/* Show existing scheduled users */}
+                      {existingForDate.length > 0 && (
+                        <ScrollArea className="border rounded-md p-3 bg-muted/30 max-h-[200px]">
+                          {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                            const officeSchedules = scheduledByOffice[office] || [];
+                            if (officeSchedules.length === 0) return null;
+                            
+                            const config = OFFICE_CONFIG[office];
+                            return (
+                              <div key={office} className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline">{config.label}</Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {officeSchedules.length}/{config.slots}
+                                  </span>
+                                </div>
+                                <div className="space-y-1 pl-2">
+                                  {officeSchedules.map(schedule => (
+                                    <div 
+                                      key={schedule.id} 
+                                      className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                    >
+                                      <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteSchedule(schedule.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                           
-                          const config = OFFICE_CONFIG[office];
-                          return (
-                            <div key={office} className="mb-4">
+                          {/* Maintenance section at bottom */}
+                          {maintenanceSchedules.length > 0 && (
+                            <div className="mb-4 border-t pt-4 mt-4">
                               <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">{config.label}</Badge>
+                                <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
                                 <span className="text-xs text-muted-foreground">
-                                  {officeSchedules.length}/{config.slots}
+                                  {maintenanceSchedules.length}
                                 </span>
                               </div>
                               <div className="space-y-1 pl-2">
-                                {officeSchedules.map(schedule => (
+                                {maintenanceSchedules.map(schedule => (
                                   <div 
                                     key={schedule.id} 
                                     className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
@@ -392,197 +440,81 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 ))}
                               </div>
                             </div>
-                          );
-                        })}
-                        
-                        {/* Maintenance section at bottom */}
-                        {maintenanceSchedules.length > 0 && (
-                          <div className="mb-4 border-t pt-4 mt-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline">{MAINTENANCE_CONFIG.label}</Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {maintenanceSchedules.length}
-                              </span>
+                          )}
+                        </ScrollArea>
+                      )}
+                      
+                      {/* Show add section for offices/maintenance below minimum threshold */}
+                      {(existingForDate.length === 0 || needsMoreDispatchers) && (
+                        <>
+                          {loading ? (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="h-5 w-5 animate-spin" />
                             </div>
-                            <div className="space-y-1 pl-2">
-                              {maintenanceSchedules.map(schedule => (
-                                <div 
-                                  key={schedule.id} 
-                                  className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
-                                >
-                                  <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 text-destructive hover:text-destructive"
-                                    onClick={() => handleDeleteSchedule(schedule.id)}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </ScrollArea>
-                    );
-                  }
-                  
-                  // Show dispatcher selection only when no one is scheduled yet
-                  return (
-                    <>
-                      {loading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        </div>
-                      ) : (
-                        <ScrollArea className="flex-1 border rounded-md p-2">
-                          {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
-                            const officeUsers = usersByOffice[office] || [];
-                            const config = OFFICE_CONFIG[office];
-                            const selectedCount = selectedUsers[office].length;
-                            const isFilled = selectedCount >= config.slots;
-                            
-                            // Collapse office section if slots are filled (unless expanded)
-                            if (isFilled && !expandedFilledOffices[office]) {
-                              return (
-                                <div key={office} className="mb-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
-                                    className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
-                                  >
-                                    <Badge variant="default" className="bg-green-600">
-                                      {config.label} ✓
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {selectedCount}/{config.slots} complete - click to view
-                                    </span>
-                                  </button>
-                                </div>
-                              );
-                            }
-                            
-                            // Show expanded filled office with collapse option
-                            if (isFilled && expandedFilledOffices[office]) {
-                              const selectedOfficeUsers = officeUsers.filter(u => selectedUsers[office].includes(u.id));
-                              return (
-                                <div key={office} className="mb-4">
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
-                                    className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
-                                  >
-                                    <Badge variant="default" className="bg-green-600">
-                                      {config.label} ✓
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      {selectedCount}/{config.slots} complete - click to hide
-                                    </span>
-                                  </button>
-                                  <div className="space-y-1 pl-2">
-                                    {selectedOfficeUsers.map(user => (
-                                      <label
-                                        key={user.id}
-                                        className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                      >
-                                        <Checkbox
-                                          checked={true}
-                                          onCheckedChange={() => handleUserToggle(user.id, office)}
-                                        />
-                                        <span className="text-sm">
-                                          {user.full_name || user.email}
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            }
-                            
-                            return (
-                              <div key={office} className="mb-4">
-                                <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                                  <Badge variant="outline">
-                                    {config.label}
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {selectedCount}/{config.slots} selected
-                                  </span>
-                                </div>
-                                {officeUsers.length === 0 ? (
-                                  <p className="text-xs text-muted-foreground pl-2">No users in this office</p>
-                                ) : (
-                                  <div className="space-y-1 pl-2">
-                                    {officeUsers.map(user => (
-                                      <label
-                                        key={user.id}
-                                        className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                      >
-                                        <Checkbox
-                                          checked={selectedUsers[office].includes(user.id)}
-                                          onCheckedChange={() => handleUserToggle(user.id, office)}
-                                        />
-                                        <span className="text-sm">
-                                          {user.full_name || user.email}
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                          
-                          {/* Maintenance section at bottom */}
-                          {maintenanceUsers.length > 0 && (
-                            <div className="mb-4 border-t pt-4 mt-4">
-                              {(() => {
-                                const selectedCount = selectedUsers.maintenance.length;
-                                const isFilled = selectedCount >= MAINTENANCE_CONFIG.slots;
+                          ) : (
+                            <ScrollArea className="flex-1 border rounded-md p-2">
+                              {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                                const officeUsersForOffice = usersByOffice[office] || [];
+                                const config = OFFICE_CONFIG[office];
+                                const existingCount = scheduledByOffice[office]?.length || 0;
+                                const selectedCount = selectedUsers[office].length;
+                                const totalCount = existingCount + selectedCount;
                                 
-                                if (isFilled && !expandedFilledOffices.maintenance) {
+                                // Skip if already at or above threshold
+                                if (existingCount >= MIN_THRESHOLDS[office]) return null;
+                                
+                                // Filter out already scheduled users
+                                const alreadyScheduledIds = new Set((scheduledByOffice[office] || []).map(s => s.user_id));
+                                const availableUsers = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
+                                
+                                const isFilled = totalCount >= config.slots;
+                                
+                                // Collapse office section if slots are filled (unless expanded)
+                                if (isFilled && !expandedFilledOffices[office]) {
                                   return (
-                                    <button
-                                      type="button"
-                                      onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: true }))}
-                                      className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
-                                    >
-                                      <Badge variant="default" className="bg-green-600">
-                                        {MAINTENANCE_CONFIG.label} ✓
-                                      </Badge>
-                                      <span className="text-xs text-muted-foreground">
-                                        {selectedCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
-                                      </span>
-                                    </button>
+                                    <div key={office} className="mb-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
+                                        className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                      >
+                                        <Badge variant="default" className="bg-green-600">
+                                          {config.label} ✓
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {totalCount}/{config.slots} complete - click to view
+                                        </span>
+                                      </button>
+                                    </div>
                                   );
                                 }
                                 
-                                if (isFilled && expandedFilledOffices.maintenance) {
-                                  const selectedMaintenanceUsers = maintenanceUsers.filter(u => selectedUsers.maintenance.includes(u.id));
+                                // Show expanded filled office with collapse option
+                                if (isFilled && expandedFilledOffices[office]) {
+                                  const selectedOfficeUsers = availableUsers.filter(u => selectedUsers[office].includes(u.id));
                                   return (
-                                    <>
+                                    <div key={office} className="mb-4">
                                       <button
                                         type="button"
-                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: false }))}
+                                        onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
                                         className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
                                       >
                                         <Badge variant="default" className="bg-green-600">
-                                          {MAINTENANCE_CONFIG.label} ✓
+                                          {config.label} ✓
                                         </Badge>
                                         <span className="text-xs text-muted-foreground">
-                                          {selectedCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
+                                          {totalCount}/{config.slots} complete - click to hide
                                         </span>
                                       </button>
                                       <div className="space-y-1 pl-2">
-                                        {selectedMaintenanceUsers.map(user => (
+                                        {selectedOfficeUsers.map(user => (
                                           <label
                                             key={user.id}
                                             className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
                                           >
                                             <Checkbox
                                               checked={true}
-                                              onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                              onCheckedChange={() => handleUserToggle(user.id, office)}
                                             />
                                             <span className="text-sm">
                                               {user.full_name || user.email}
@@ -590,52 +522,152 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                           </label>
                                         ))}
                                       </div>
-                                    </>
+                                    </div>
                                   );
                                 }
                                 
                                 return (
-                                  <>
+                                  <div key={office} className="mb-4">
                                     <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
                                       <Badge variant="outline">
-                                        {MAINTENANCE_CONFIG.label}
+                                        {config.label}
                                       </Badge>
                                       <span className="text-xs text-muted-foreground">
-                                        {selectedCount}/{MAINTENANCE_CONFIG.slots} selected
+                                        {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount} more)
                                       </span>
                                     </div>
-                                    <div className="space-y-1 pl-2">
-                                      {maintenanceUsers.map(user => (
-                                        <label
-                                          key={user.id}
-                                          className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                        >
-                                          <Checkbox
-                                            checked={selectedUsers.maintenance.includes(user.id)}
-                                            onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
-                                          />
-                                          <span className="text-sm">
-                                            {user.full_name || user.email}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  </>
+                                    {availableUsers.length === 0 ? (
+                                      <p className="text-xs text-muted-foreground pl-2">No available users in this office</p>
+                                    ) : (
+                                      <div className="space-y-1 pl-2">
+                                        {availableUsers.map(user => (
+                                          <label
+                                            key={user.id}
+                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                          >
+                                            <Checkbox
+                                              checked={selectedUsers[office].includes(user.id)}
+                                              onCheckedChange={() => handleUserToggle(user.id, office)}
+                                            />
+                                            <span className="text-sm">
+                                              {user.full_name || user.email}
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 );
-                              })()}
-                            </div>
+                              })}
+                              
+                              {/* Maintenance section at bottom - only if below threshold */}
+                              {maintenanceBelowThreshold && maintenanceUsers.length > 0 && (
+                                <div className="mb-4 border-t pt-4 mt-4">
+                                  {(() => {
+                                    const existingMaintenanceCount = maintenanceSchedules.length;
+                                    const alreadyScheduledIds = new Set(maintenanceSchedules.map(s => s.user_id));
+                                    const availableMaintenanceUsers = maintenanceUsers.filter(u => !alreadyScheduledIds.has(u.id));
+                                    const selectedCount = selectedUsers.maintenance.length;
+                                    const totalCount = existingMaintenanceCount + selectedCount;
+                                    const isFilled = totalCount >= MAINTENANCE_CONFIG.slots;
+                                    
+                                    if (isFilled && !expandedFilledOffices.maintenance) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: true }))}
+                                          className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                        >
+                                          <Badge variant="default" className="bg-green-600">
+                                            {MAINTENANCE_CONFIG.label} ✓
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to view
+                                          </span>
+                                        </button>
+                                      );
+                                    }
+                                    
+                                    if (isFilled && expandedFilledOffices.maintenance) {
+                                      const selectedMaintenanceUsers = availableMaintenanceUsers.filter(u => selectedUsers.maintenance.includes(u.id));
+                                      return (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => setExpandedFilledOffices(prev => ({ ...prev, maintenance: false }))}
+                                            className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                                          >
+                                            <Badge variant="default" className="bg-green-600">
+                                              {MAINTENANCE_CONFIG.label} ✓
+                                            </Badge>
+                                            <span className="text-xs text-muted-foreground">
+                                              {totalCount}/{MAINTENANCE_CONFIG.slots} complete - click to hide
+                                            </span>
+                                          </button>
+                                          <div className="space-y-1 pl-2">
+                                            {selectedMaintenanceUsers.map(user => (
+                                              <label
+                                                key={user.id}
+                                                className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                              >
+                                                <Checkbox
+                                                  checked={true}
+                                                  onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                                />
+                                                <span className="text-sm">
+                                                  {user.full_name || user.email}
+                                                </span>
+                                              </label>
+                                            ))}
+                                          </div>
+                                        </>
+                                      );
+                                    }
+                                    
+                                    return (
+                                      <>
+                                        <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                                          <Badge variant="outline">
+                                            {MAINTENANCE_CONFIG.label}
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {totalCount}/{MAINTENANCE_CONFIG.slots} (need {MIN_THRESHOLDS.maintenance - existingMaintenanceCount} more)
+                                          </span>
+                                        </div>
+                                        <div className="space-y-1 pl-2">
+                                          {availableMaintenanceUsers.map(user => (
+                                            <label
+                                              key={user.id}
+                                              className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                            >
+                                              <Checkbox
+                                                checked={selectedUsers.maintenance.includes(user.id)}
+                                                onCheckedChange={() => handleUserToggle(user.id, 'maintenance')}
+                                              />
+                                              <span className="text-sm">
+                                                {user.full_name || user.email}
+                                              </span>
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </ScrollArea>
                           )}
-                        </ScrollArea>
-                      )}
 
-                      <Button 
-                        onClick={handleSaveSchedule} 
-                        disabled={saving || getTotalSelectedCount() === 0}
-                        className="w-full flex-shrink-0"
-                      >
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Add to Schedule ({getTotalSelectedCount()} users)
-                      </Button>
+                          <Button 
+                            onClick={handleSaveSchedule} 
+                            disabled={saving || getTotalSelectedCount() === 0}
+                            className="w-full flex-shrink-0"
+                          >
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Add to Schedule ({getTotalSelectedCount()} users)
+                          </Button>
+                        </>
+                      )}
                     </>
                   );
                 })()}
