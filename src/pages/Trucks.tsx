@@ -298,6 +298,17 @@ const Trucks = () => {
         .update({ deleted_truck_number: truckData.truck_number, truck_id: null })
         .eq('truck_id', truckId);
 
+      // Get driver's company_id for archival (use driver1's company, not truck's company)
+      let driverCompanyId = null;
+      if (truckData.driver1_id) {
+        const { data: driverData } = await supabase
+          .from('drivers')
+          .select('company_id')
+          .eq('id', truckData.driver1_id)
+          .maybeSingle();
+        driverCompanyId = driverData?.company_id;
+      }
+
       // Save to deleted_trucks history table
       const { error: historyError } = await supabase
         .from('deleted_trucks')
@@ -312,7 +323,7 @@ const Trucks = () => {
           plate_expiration_date: truckData.plate_expiration_date,
           insurance_expiration_date: truckData.insurance_expiration_date,
           status: truckData.status,
-          company_id: truckData.company_id,
+          company_id: driverCompanyId,
           dispatcher_id: truckData.dispatcher_id,
           deleted_by: user?.id
         });

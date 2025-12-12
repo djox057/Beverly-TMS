@@ -59,7 +59,7 @@ async function enrichLockedOrdersWithLookups(
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
   const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
-    batchFetch("trucks", "id, truck_number, company_id, company:companies(id, name)", truckIds),
+    batchFetch("trucks", "id, truck_number", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
     batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
     batchFetch("brokers", "id, name, mc_number, address", brokerIds),
