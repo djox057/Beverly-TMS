@@ -527,6 +527,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       id="edit_first_name"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                      placeholder="John"
                       required
                     />
                   </div>
@@ -536,6 +537,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       id="edit_last_name"
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                      placeholder="Smith"
                       required
                     />
                   </div>
@@ -545,6 +547,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       id="edit_phone"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="(555) 123-4567"
                     />
                   </div>
                   <div className="space-y-2 col-span-4">
@@ -554,6 +557,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="john.smith@company.com"
                     />
                   </div>
                 </div>
@@ -575,6 +579,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Input
                       value={formData.emergency_contact_name}
                       onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                      placeholder="Jane Doe"
                     />
                   </div>
                   <div className="space-y-2">
@@ -582,6 +587,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Input
                       value={formData.emergency_contact_relation}
                       onChange={(e) => setFormData({ ...formData, emergency_contact_relation: e.target.value })}
+                      placeholder="Spouse"
                     />
                   </div>
                   <div className="space-y-2">
@@ -589,6 +595,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Input
                       value={formData.emergency_contact_phone}
                       onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                      placeholder="(555) 987-6543"
                     />
                   </div>
                 </div>
@@ -676,6 +683,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       <Input
                         value={formData.home_address}
                         onChange={(e) => setFormData({ ...formData, home_address: e.target.value })}
+                        placeholder="1234 Oak Street"
                       />
                     </div>
                     <div className="space-y-2 col-span-3">
@@ -683,6 +691,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       <Input
                         value={formData.home_city}
                         onChange={(e) => setFormData({ ...formData, home_city: e.target.value })}
+                        placeholder="Chicago"
                       />
                     </div>
                     <div className="space-y-2 col-span-2">
@@ -690,6 +699,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                       <Input
                         value={formData.home_state}
                         onChange={(e) => setFormData({ ...formData, home_state: e.target.value })}
+                        placeholder="IL"
                       />
                     </div>
                   </div>
@@ -709,6 +719,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.personal_id}
                             onChange={(e) => setFormData({ ...formData, personal_id: e.target.value })}
+                            placeholder="Personal ID"
                           />
                         </div>
                         <div className="space-y-2">
@@ -716,6 +727,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.fuel_card_number}
                             onChange={(e) => setFormData({ ...formData, fuel_card_number: e.target.value })}
+                            placeholder="Fuel Card Number"
                           />
                         </div>
                       </div>
@@ -725,6 +737,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.company_name}
                             onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                            placeholder="Company Name"
                           />
                         </div>
                         <div className="space-y-2">
@@ -732,6 +745,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.company_address}
                             onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
+                            placeholder="Company Address"
                           />
                         </div>
                         <div className="space-y-2">
@@ -739,6 +753,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.mc_number}
                             onChange={(e) => setFormData({ ...formData, mc_number: e.target.value })}
+                            placeholder="MC Number"
                           />
                         </div>
                       </div>
@@ -748,6 +763,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.ssn}
                             onChange={(e) => setFormData({ ...formData, ssn: e.target.value })}
+                            placeholder="SSN"
                           />
                         </div>
                         <div className="space-y-2">
@@ -755,6 +771,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                           <Input
                             value={formData.fein}
                             onChange={(e) => setFormData({ ...formData, fein: e.target.value })}
+                            placeholder="FEIN"
                           />
                         </div>
                       </div>
@@ -768,6 +785,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Input
                       value={formData.cdl_number}
                       onChange={(e) => setFormData({ ...formData, cdl_number: e.target.value })}
+                      placeholder="CDL Number"
                     />
                   </div>
                   <div className="space-y-2">
