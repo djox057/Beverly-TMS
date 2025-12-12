@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
-import { useTrucks } from "@/hooks/useTrucks";
 import { Combobox } from "@/components/ui/combobox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriverFilesManager } from "@/components/DriverFilesManager";
@@ -86,7 +85,6 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
   const { allDispatchers } = useFleetManagement();
   const { data: companies } = useCompanies();
   const { data: allTrucks } = useAvailableTrucks();
-  const { data: trucks } = useTrucks();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
@@ -510,6 +508,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Driver</DialogTitle>
+            <DialogDescription className="sr-only">Edit driver information and details</DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="info" className="w-full">
