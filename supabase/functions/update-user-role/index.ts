@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Extract the JWT token from the header
     const token = authHeader.replace('Bearer ', '')
     
-    // Create admin client for privileged operations (use service role for token verification)
+    // Create admin client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -28,11 +28,16 @@ Deno.serve(async (req) => {
         auth: {
           autoRefreshToken: false,
           persistSession: false
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
       }
     )
 
-    // Verify the user token using admin client
+    // Get the user from the JWT token using admin API
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
     
     if (userError) {
@@ -57,7 +62,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { userId, role, office } = await req.json()
+    const { userId, role, office, fullName } = await req.json()
 
     if (!userId || !role) {
       throw new Error('Invalid request. userId and role are required.')
@@ -93,18 +98,26 @@ Deno.serve(async (req) => {
       throw new Error('Failed to insert new role')
     }
 
-    // Update office in profiles if provided (can be null to clear)
+    // Update profile (full_name and/or office) if provided
+    const profileUpdates: Record<string, any> = {}
+    
+    if (fullName !== undefined) {
+      profileUpdates.full_name = fullName
+    }
+    
     if (office !== undefined) {
       const validOffices = ['Čačak', 'KRAGUJEVAC', 'BEOGRAD', 'Recovery']
-      const officeValue = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
-      
+      profileUpdates.office = office === null || office === '' ? null : (validOffices.includes(office) ? office : null)
+    }
+    
+    if (Object.keys(profileUpdates).length > 0) {
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
-        .update({ office: officeValue })
+        .update(profileUpdates)
         .eq('user_id', userId)
       
       if (profileError) {
-        console.error('Error updating office:', profileError)
+        console.error('Error updating profile:', profileError)
         // Don't throw - role was updated successfully
       }
     }
