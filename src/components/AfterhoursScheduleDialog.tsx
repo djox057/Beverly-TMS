@@ -308,158 +308,187 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                   </Badge>
                 </div>
 
-                {/* Already scheduled for this date */}
+                {/* Already scheduled for this date - grouped by office */}
                 {(() => {
                   const dateStr = format(selectedDate, 'yyyy-MM-dd');
                   const existingForDate = schedulesByDate[dateStr] || [];
                   
                   if (existingForDate.length > 0) {
+                    // Group scheduled users by office
+                    const scheduledByOffice = existingForDate.reduce((acc, schedule) => {
+                      const officeRaw = schedule.user?.office?.toLowerCase() || '';
+                      let office: OfficeKey = 'kragujevac';
+                      if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
+                        office = 'cacak';
+                      } else if (officeRaw.includes('beograd')) {
+                        office = 'beograd';
+                      } else if (officeRaw.includes('kragujevac')) {
+                        office = 'kragujevac';
+                      }
+                      if (!acc[office]) acc[office] = [];
+                      acc[office].push(schedule);
+                      return acc;
+                    }, {} as Record<OfficeKey, ScheduleEntry[]>);
+
                     return (
-                      <div className="flex-shrink-0 border rounded-md p-3 bg-muted/30">
-                        <p className="text-xs text-muted-foreground mb-2">Already Scheduled:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {existingForDate.map(schedule => (
-                            <div 
-                              key={schedule.id} 
-                              className="flex items-center gap-1 bg-background rounded px-2 py-1 text-sm"
-                            >
-                              <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                              {schedule.user?.office && (
-                                <Badge variant="outline" className="text-xs ml-1">
-                                  {getOfficeLabel(schedule.user.office)}
-                                </Badge>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 text-destructive hover:text-destructive ml-1"
-                                onClick={() => handleDeleteSchedule(schedule.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                      <ScrollArea className="flex-1 border rounded-md p-3 bg-muted/30">
+                        {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                          const officeSchedules = scheduledByOffice[office] || [];
+                          if (officeSchedules.length === 0) return null;
+                          
+                          const config = OFFICE_CONFIG[office];
+                          return (
+                            <div key={office} className="mb-4 last:mb-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="outline">{config.label}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {officeSchedules.length}/{config.slots}
+                                </span>
+                              </div>
+                              <div className="space-y-1 pl-2">
+                                {officeSchedules.map(schedule => (
+                                  <div 
+                                    key={schedule.id} 
+                                    className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                  >
+                                    <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 text-destructive hover:text-destructive"
+                                      onClick={() => handleDeleteSchedule(schedule.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          );
+                        })}
+                      </ScrollArea>
                     );
                   }
-                  return null;
-                })()}
-
-                
-                {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  </div>
-                ) : (
-                  <ScrollArea className="flex-1 border rounded-md p-2">
-                    {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
-                      const officeUsers = usersByOffice[office] || [];
-                      const config = OFFICE_CONFIG[office];
-                      const selectedCount = selectedUsers[office].length;
-                      const isFilled = selectedCount >= config.slots;
-                      
-                      // Collapse office section if slots are filled (unless expanded)
-                      if (isFilled && !expandedFilledOffices[office]) {
-                        return (
-                          <div key={office} className="mb-2">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
-                              className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
-                            >
-                              <Badge variant="default" className="bg-green-600">
-                                {config.label} ✓
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {selectedCount}/{config.slots} complete - click to view
-                              </span>
-                            </button>
-                          </div>
-                        );
-                      }
-                      
-                      // Show expanded filled office with collapse option
-                      if (isFilled && expandedFilledOffices[office]) {
-                        const selectedOfficeUsers = officeUsers.filter(u => selectedUsers[office].includes(u.id));
-                        return (
-                          <div key={office} className="mb-4">
-                            <button
-                              type="button"
-                              onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
-                              className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
-                            >
-                              <Badge variant="default" className="bg-green-600">
-                                {config.label} ✓
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {selectedCount}/{config.slots} complete - click to hide
-                              </span>
-                            </button>
-                            <div className="space-y-1 pl-2">
-                              {selectedOfficeUsers.map(user => (
-                                <label
-                                  key={user.id}
-                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={true}
-                                    onCheckedChange={() => handleUserToggle(user.id, office)}
-                                  />
-                                  <span className="text-sm">
-                                    {user.full_name || user.email}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div key={office} className="mb-4">
-                          <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
-                            <Badge variant="outline">
-                              {config.label}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {selectedCount}/{config.slots} selected
-                            </span>
-                          </div>
-                          {officeUsers.length === 0 ? (
-                            <p className="text-xs text-muted-foreground pl-2">No dispatchers in this office</p>
-                          ) : (
-                            <div className="space-y-1 pl-2">
-                              {officeUsers.map(user => (
-                                <label
-                                  key={user.id}
-                                  className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={selectedUsers[office].includes(user.id)}
-                                    onCheckedChange={() => handleUserToggle(user.id, office)}
-                                  />
-                                  <span className="text-sm">
-                                    {user.full_name || user.email}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
-                          )}
+                  
+                  // Show dispatcher selection only when no one is scheduled yet
+                  return (
+                    <>
+                      {loading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin" />
                         </div>
-                      );
-                    })}
-                  </ScrollArea>
-                )}
+                      ) : (
+                        <ScrollArea className="flex-1 border rounded-md p-2">
+                          {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                            const officeUsers = usersByOffice[office] || [];
+                            const config = OFFICE_CONFIG[office];
+                            const selectedCount = selectedUsers[office].length;
+                            const isFilled = selectedCount >= config.slots;
+                            
+                            // Collapse office section if slots are filled (unless expanded)
+                            if (isFilled && !expandedFilledOffices[office]) {
+                              return (
+                                <div key={office} className="mb-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: true }))}
+                                    className="flex items-center gap-2 py-1 hover:opacity-80 cursor-pointer"
+                                  >
+                                    <Badge variant="default" className="bg-green-600">
+                                      {config.label} ✓
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {selectedCount}/{config.slots} complete - click to view
+                                    </span>
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
+                            // Show expanded filled office with collapse option
+                            if (isFilled && expandedFilledOffices[office]) {
+                              const selectedOfficeUsers = officeUsers.filter(u => selectedUsers[office].includes(u.id));
+                              return (
+                                <div key={office} className="mb-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedFilledOffices(prev => ({ ...prev, [office]: false }))}
+                                    className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1 hover:opacity-80 cursor-pointer"
+                                  >
+                                    <Badge variant="default" className="bg-green-600">
+                                      {config.label} ✓
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {selectedCount}/{config.slots} complete - click to hide
+                                    </span>
+                                  </button>
+                                  <div className="space-y-1 pl-2">
+                                    {selectedOfficeUsers.map(user => (
+                                      <label
+                                        key={user.id}
+                                        className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                      >
+                                        <Checkbox
+                                          checked={true}
+                                          onCheckedChange={() => handleUserToggle(user.id, office)}
+                                        />
+                                        <span className="text-sm">
+                                          {user.full_name || user.email}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <div key={office} className="mb-4">
+                                <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                                  <Badge variant="outline">
+                                    {config.label}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {selectedCount}/{config.slots} selected
+                                  </span>
+                                </div>
+                                {officeUsers.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground pl-2">No users in this office</p>
+                                ) : (
+                                  <div className="space-y-1 pl-2">
+                                    {officeUsers.map(user => (
+                                      <label
+                                        key={user.id}
+                                        className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
+                                      >
+                                        <Checkbox
+                                          checked={selectedUsers[office].includes(user.id)}
+                                          onCheckedChange={() => handleUserToggle(user.id, office)}
+                                        />
+                                        <span className="text-sm">
+                                          {user.full_name || user.email}
+                                        </span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </ScrollArea>
+                      )}
 
-                <Button 
-                  onClick={handleSaveSchedule} 
-                  disabled={saving || getTotalSelectedCount() === 0}
-                  className="w-full flex-shrink-0"
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Add to Schedule ({getTotalSelectedCount()} users)
-                </Button>
+                      <Button 
+                        onClick={handleSaveSchedule} 
+                        disabled={saving || getTotalSelectedCount() === 0}
+                        className="w-full flex-shrink-0"
+                      >
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Add to Schedule ({getTotalSelectedCount()} users)
+                      </Button>
+                    </>
+                  );
+                })()}
               </>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
