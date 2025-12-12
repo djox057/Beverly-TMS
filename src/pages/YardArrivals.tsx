@@ -15,7 +15,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -31,7 +30,7 @@ import { format as formatDate } from "date-fns";
 import { useState } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useDrivers } from "@/hooks/useDrivers";
-import { DriverFilesManager } from "@/components/DriverFilesManager";
+import { EditDriverDialog } from "@/components/EditDriverDialog";
 
 interface YardAction {
   id: string;
@@ -88,7 +87,6 @@ export default function YardArrivals() {
   // Edit driver dialog state
   const [isEditDriverDialogOpen, setIsEditDriverDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Fetch all drivers for edit dialog
   const { data: allDrivers } = useDrivers();
@@ -389,48 +387,6 @@ export default function YardArrivals() {
     if (driver) {
       setEditingDriver(driver);
       setIsEditDriverDialogOpen(true);
-    }
-  };
-
-  const handleEditDriver = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    try {
-      const formData = new FormData(e.currentTarget);
-      const updates = {
-        name: formData.get('name') as string,
-        cdl_expiration_date: formData.get('cdl_expiration_date') as string || null,
-        mvr_date: formData.get('mvr_date') as string || null,
-        clearing_house: formData.get('clearing_house') as string || null,
-        medical_card_expiration_date: formData.get('medical_card_expiration_date') as string || null,
-        random_drug_test_date: formData.get('random_drug_test_date') as string || null,
-      };
-
-      const { error } = await supabase
-        .from('drivers')
-        .update(updates)
-        .eq('id', editingDriver.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Driver updated successfully"
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['yard-arrivals'] });
-      queryClient.invalidateQueries({ queryKey: ['two-week-notice-drivers'] });
-      setIsEditDriverDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update driver",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -885,10 +841,10 @@ export default function YardArrivals() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Yard Arrival</DialogTitle>
-            <DialogDescription>
-              Update the arrival time and reason for {actionToEdit?.driver?.name || `${actionToEdit?.driver?.first_name} ${actionToEdit?.driver?.last_name}`}
-            </DialogDescription>
           </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Update the arrival time and reason for {actionToEdit?.driver?.name || `${actionToEdit?.driver?.first_name} ${actionToEdit?.driver?.last_name}`}
+          </p>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="arrival-datetime">Arrival Date & Time</Label>
@@ -939,89 +895,11 @@ export default function YardArrivals() {
       </AlertDialog>
 
       {/* Edit Driver Dialog */}
-      <Dialog open={isEditDriverDialogOpen} onOpenChange={setIsEditDriverDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Driver</DialogTitle>
-          </DialogHeader>
-          {editingDriver && (
-            <form onSubmit={handleEditDriver}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Driver Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      defaultValue={editingDriver.name}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cdl_expiration_date">CDL Expiration</Label>
-                    <Input
-                      id="cdl_expiration_date"
-                      name="cdl_expiration_date"
-                      type="date"
-                      defaultValue={editingDriver.cdl_expiration_date || ''}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mvr_date">MVR Date</Label>
-                    <Input
-                      id="mvr_date"
-                      name="mvr_date"
-                      type="date"
-                      defaultValue={editingDriver.mvr_date || ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clearing_house">Clearing House</Label>
-                    <Input
-                      id="clearing_house"
-                      name="clearing_house"
-                      type="date"
-                      defaultValue={editingDriver.clearing_house || ''}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="medical_card_expiration_date">Medical Card Expiration</Label>
-                    <Input
-                      id="medical_card_expiration_date"
-                      name="medical_card_expiration_date"
-                      type="date"
-                      defaultValue={editingDriver.medical_card_expiration_date || ''}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="random_drug_test_date">Random Drug Test Date</Label>
-                    <Input
-                      id="random_drug_test_date"
-                      name="random_drug_test_date"
-                      type="date"
-                      defaultValue={editingDriver.random_drug_test_date || ''}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <DriverFilesManager driverId={editingDriver.id} />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditDriverDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save Changes"}
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+      <EditDriverDialog
+        open={isEditDriverDialogOpen}
+        onOpenChange={setIsEditDriverDialogOpen}
+        driver={editingDriver}
+      />
     </div>
   );
 }
