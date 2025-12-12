@@ -9,6 +9,7 @@ import { Loader2, CalendarDays, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, isSaturday, isWeekend, startOfDay } from "date-fns";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 interface ScheduleUser {
   id: string;
@@ -49,6 +50,8 @@ type OfficeKey = keyof typeof OFFICE_CONFIG;
 type SelectionKey = OfficeKey | 'maintenance';
 
 export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursScheduleDialogProps) => {
+  const { hasRole } = useAuthContext();
+  const isAdmin = hasRole('admin');
   const [scheduleUsers, setScheduleUsers] = useState<ScheduleUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Record<SelectionKey, string[]>>({
     kragujevac: [],
@@ -423,14 +426,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                     >
                                       <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5 text-destructive hover:text-destructive"
-                                        onClick={() => handleDeleteSchedule(schedule.id)}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
+                                      {isAdmin && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-destructive hover:text-destructive"
+                                          onClick={() => handleDeleteSchedule(schedule.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
@@ -454,14 +459,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                   >
                                     <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 text-destructive hover:text-destructive"
-                                      onClick={() => handleDeleteSchedule(schedule.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
+                                    {isAdmin && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteSchedule(schedule.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
                                   </div>
                                 ))}
                               </div>
