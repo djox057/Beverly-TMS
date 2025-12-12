@@ -1008,18 +1008,16 @@ const EditOrder = () => {
       if (!selectedDriver?.email) {
         throw new Error("Driver email not found. Please ensure the driver has an email address.");
       }
-      const selectedTruck = trucks?.find((t) => t.id === truck);
+      // Get company name from driver's company (not truck's company)
+      let companyName = selectedDriver?.company?.name;
 
-      // Get company name from truck, fallback to fetching from companies table
-      let companyName = selectedTruck?.company?.name;
-
-      // If company name is not in the truck object, fetch it from companies table
-      if (!companyName && selectedTruck?.company_id) {
-        console.log("📧 Company not in truck object, fetching from companies table...");
+      // If company name is not in the driver object, fetch it from companies table
+      if (!companyName && selectedDriver?.company_id) {
+        console.log("📧 Company not in driver object, fetching from companies table...");
         const { data: companyData, error: companyError } = await supabase
           .from("companies")
           .select("name")
-          .eq("id", selectedTruck.company_id)
+          .eq("id", selectedDriver.company_id)
           .maybeSingle();
 
         if (companyError) {
@@ -1031,7 +1029,7 @@ const EditOrder = () => {
       }
 
       if (!companyName) {
-        throw new Error("Truck company not found. Cannot determine sender email.");
+        throw new Error("Driver company not found. Cannot determine sender email.");
       }
       const emailConfig = COMPANY_EMAIL_CONFIG[companyName];
       if (!emailConfig) {
