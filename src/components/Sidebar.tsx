@@ -74,6 +74,7 @@ export const Sidebar = () => {
   const { theme, setTheme } = useTheme();
   const { data: yardLoadsCount = 0 } = useYardLoadsCount();
   const [isScheduledThisWeekend, setIsScheduledThisWeekend] = useState(false);
+  const [scheduledDates, setScheduledDates] = useState<string[]>([]);
   const [showAcknowledgeDialog, setShowAcknowledgeDialog] = useState(false);
   const [hasAcknowledgedToday, setHasAcknowledgedToday] = useState(false);
   
@@ -123,12 +124,17 @@ export const Sidebar = () => {
       // Check if user is scheduled for this weekend
       const { data } = await supabase
         .from('afterhours_schedule')
-        .select('id')
+        .select('scheduled_date')
         .eq('user_id', user.id)
-        .in('scheduled_date', [saturdayStr, sundayStr])
-        .limit(1);
+        .in('scheduled_date', [saturdayStr, sundayStr]);
       
-      setIsScheduledThisWeekend(data && data.length > 0);
+      if (data && data.length > 0) {
+        setIsScheduledThisWeekend(true);
+        setScheduledDates(data.map(d => d.scheduled_date));
+      } else {
+        setIsScheduledThisWeekend(false);
+        setScheduledDates([]);
+      }
     };
     
     checkWeekendSchedule();
@@ -146,6 +152,16 @@ export const Sidebar = () => {
     localStorage.setItem(`weekend_schedule_ack_${user.id}`, today);
     setHasAcknowledgedToday(true);
     setShowAcknowledgeDialog(false);
+  };
+  
+  // Format scheduled dates for display
+  const formatScheduledDates = () => {
+    return scheduledDates.map(dateStr => {
+      const date = new Date(dateStr + 'T00:00:00');
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const formattedDate = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      return `${dayName}, ${formattedDate}`;
+    }).join(' and ');
   };
   
   // On mobile, always show text when sidebar is open
@@ -376,7 +392,7 @@ export const Sidebar = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Weekend Schedule Reminder</AlertDialogTitle>
             <AlertDialogDescription>
-              You are scheduled to work this weekend. Please confirm that you are aware of your schedule.
+              You are scheduled to work on <span className="font-medium text-foreground">{formatScheduledDates()}</span>. Please confirm that you are aware of your schedule.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
