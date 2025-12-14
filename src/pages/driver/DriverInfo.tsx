@@ -1,7 +1,7 @@
 import { useDriverData } from "@/hooks/useDriverData";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, User, Building, Truck, Phone, Mail, MapPin, Warehouse, CalendarIcon } from "lucide-react";
+import { Loader2, User, Building, Truck, Phone, Mail, MapPin, Warehouse, CalendarIcon, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
+import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
+import { Progress } from "@/components/ui/progress";
 
 export default function DriverInfo() {
   const { data, isLoading } = useDriverData();
@@ -25,6 +27,47 @@ export default function DriverInfo() {
   const [showYardActionDialog, setShowYardActionDialog] = useState(false);
   const [showTwoWeekNoticeDialog, setShowTwoWeekNoticeDialog] = useState(false);
   const [twoWeekNoticeDate, setTwoWeekNoticeDate] = useState<Date | undefined>(new Date());
+  const [showCashAdvanceDialog, setShowCashAdvanceDialog] = useState(false);
+  const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
+
+  const { data: cashAdvanceData, refetch: refetchCashAdvance } = useDriverCashAdvance(data?.driver?.id || null);
+
+  const handleCashAdvanceRequest = async () => {
+    if (!data?.driver?.id || !data?.driver?.name) return;
+    
+    setIsRequestingCashAdvance(true);
+    try {
+      const { data: response, error } = await supabase.functions.invoke("send-cash-advance-request", {
+        body: {
+          driverId: data.driver.id,
+          driverName: data.driver.name,
+          truckNumber: data.truck?.truck_number || "N/A",
+          companyName: data.truck?.company?.name || "",
+        },
+      });
+
+      if (error) throw error;
+
+      if (!response?.success) {
+        throw new Error(response?.error || "Failed to request cash advance");
+      }
+
+      toast({
+        title: "Success",
+        description: "Cash advance request sent successfully",
+      });
+      refetchCashAdvance();
+      setShowCashAdvanceDialog(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to request cash advance",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingCashAdvance(false);
+    }
+  };
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
@@ -114,6 +157,14 @@ export default function DriverInfo() {
                     onClick={() => setShowTwoWeekNoticeDialog(true)}
                   >
                     <CalendarIcon className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setShowCashAdvanceDialog(true)}
+                  >
+                    <DollarSign className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
@@ -343,6 +394,61 @@ export default function DriverInfo() {
                 Save
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cash Advance Dialog */}
+      <Dialog open={showCashAdvanceDialog} onOpenChange={setShowCashAdvanceDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Request Cash Advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Weekly Usage</span>
+                <span className="text-sm font-medium">
+                  ${cashAdvanceData?.weeklyAmount || 0} / $150
+                </span>
+              </div>
+              <Progress value={((cashAdvanceData?.weekCount || 0) / 3) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">
+                {cashAdvanceData?.weekCount || 0} of 3 requests this week
+              </p>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Today</span>
+              <span className="text-sm font-medium">
+                {cashAdvanceData?.todayCount || 0} / 1 request
+              </span>
+            </div>
+
+            {!cashAdvanceData?.canRequest ? (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                <p className="text-sm text-destructive">
+                  {(cashAdvanceData?.weekCount || 0) >= 3
+                    ? "Weekly limit reached. Resets Monday at midnight."
+                    : "Daily limit reached. Resets at midnight."}
+                </p>
+              </div>
+            ) : (
+              <Button
+                onClick={handleCashAdvanceRequest}
+                className="w-full"
+                disabled={isRequestingCashAdvance}
+              >
+                {isRequestingCashAdvance ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Requesting...
+                  </>
+                ) : (
+                  "Request $50 Cash Advance"
+                )}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
