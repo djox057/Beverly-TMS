@@ -8,14 +8,10 @@ import { useEffect } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
-import { DriverLayout } from "./components/DriverLayout";
 import { supabase } from "./integrations/supabase/client";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
-import DriverDashboard from "./pages/driver/DriverDashboard";
-import DriverOrders from "./pages/driver/DriverOrders";
-import DriverInfo from "./pages/driver/DriverInfo";
 import AdminUsers from "./pages/AdminUsers";
 import NewOrder from "./pages/NewOrder";
 import EditOrder from "./pages/EditOrder";
@@ -197,22 +193,6 @@ const AppContent = () => {
         <Route path="/data-management" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><DataManagement /></Layout>
-          </ProtectedRoute>
-        } />
-        {/* Driver Portal Routes */}
-        <Route path="/driver" element={
-          <ProtectedRoute requiredRole="driver">
-            <DriverLayout><DriverDashboard /></DriverLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/driver/orders" element={
-          <ProtectedRoute requiredRole="driver">
-            <DriverLayout><DriverOrders /></DriverLayout>
-          </ProtectedRoute>
-        } />
-        <Route path="/driver/info" element={
-          <ProtectedRoute requiredRole="driver">
-            <DriverLayout><DriverInfo /></DriverLayout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
