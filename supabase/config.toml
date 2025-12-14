@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.calculate-distances-batch]
 verify_jwt = false
+
+[functions.send-efs-request]
+verify_jwt = false
