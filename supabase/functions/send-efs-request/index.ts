@@ -1,0 +1,132 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "https://esm.sh/resend@4.0.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface EfsRequestBody {
+  orderId: string;
+  lumperAmount: number;
+  truckNumber: string;
+  driverName: string;
+  loadNumber: string;
+  companyName: string;
+}
+
+// Map company name to EFS sender email
+const getEfsEmail = (companyName: string | null): string => {
+  if (!companyName) return "efs@bfprime.net";
+  const normalized = companyName.toUpperCase();
+  if (normalized.includes("BEVERLY FREIGHT")) return "efs@beverlyfreight.net";
+  if (normalized.includes("BF PRIME UNITED")) return "efs@bfprimeunited.net";
+  if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
+  if (normalized.includes("BG PRIME")) return "efs@bfprime.net";
+  if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
+  return "efs@bfprime.net";
+};
+
+const handler = async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName }: EfsRequestBody = await req.json();
+
+    console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName });
+
+    // Validate required fields
+    if (!orderId || !lumperAmount || !truckNumber || !driverName || !loadNumber) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Format the email body
+    const emailBody = `Unit #${truckNumber}
+Driver ${driverName}
+Amount $${lumperAmount.toFixed(2)}
+Purpose Lumper fee`;
+
+    // Determine sender email based on company
+    const fromEmail = getEfsEmail(companyName);
+
+    console.log("Sending EFS email from:", fromEmail);
+
+    // Send email via Resend
+    const emailResponse = await resend.emails.send({
+      from: `EFS Request <${fromEmail}>`,
+      to: ["efsrequest@gmail.com"],
+      subject: "EFS request by App",
+      text: emailBody,
+    });
+
+    console.log("Email sent successfully:", emailResponse);
+
+    // Update the order's lumper field in the database
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get current lumper value and add to it
+    const { data: order, error: fetchError } = await supabase
+      .from("orders")
+      .select("lumper")
+      .eq("id", orderId)
+      .single();
+
+    if (fetchError) {
+      console.error("Error fetching order:", fetchError);
+      throw new Error(`Failed to fetch order: ${fetchError.message}`);
+    }
+
+    const currentLumper = order?.lumper || 0;
+    const newLumper = currentLumper + lumperAmount;
+
+    const { error: updateError } = await supabase
+      .from("orders")
+      .update({ lumper: newLumper })
+      .eq("id", orderId);
+
+    if (updateError) {
+      console.error("Error updating order lumper:", updateError);
+      throw new Error(`Failed to update lumper: ${updateError.message}`);
+    }
+
+    console.log("Order lumper updated from", currentLumper, "to", newLumper);
+
+    // Return success with the confirmation message
+    const confirmationMessage = `EFS Money Code
+
+Unit #${truckNumber}
+Driver ${driverName}
+Amount $${lumperAmount.toFixed(2)}
+Purpose Lumper fee
+load #${loadNumber}`;
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        confirmationMessage,
+        emailSent: true,
+        newLumperAmount: newLumper
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("Error in send-efs-request function:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+};
+
+serve(handler);

@@ -31,6 +31,7 @@ import {
   Upload,
   CalendarIcon,
   Pill,
+  DollarSign,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -514,10 +515,19 @@ const Reports = () => {
     notes: string;
     truckNumber: string;
     driverNames: string;
+    companyName: string;
+    internalLoadNumber: string;
   } | null>(null);
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
+  
+  // Lumper Request state
+  const [lumperDialogOpen, setLumperDialogOpen] = useState(false);
+  const [lumperAmount, setLumperAmount] = useState("");
+  const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
+  const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
+  
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -652,6 +662,8 @@ const Reports = () => {
       notes: order.loadDetails.notes,
       truckNumber: truck.truckNumber,
       driverNames: truck.driverNames,
+      companyName: truck.companyName || "",
+      internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
     };
   }, []);
 
@@ -895,6 +907,57 @@ const Reports = () => {
         description: "Failed to cancel load",
         variant: "destructive",
       });
+    }
+  };
+
+  // Lumper request handler
+  const handleLumperRequest = async () => {
+    if (!zoomedLoad?.orderId || !lumperAmount) return;
+
+    const amount = parseFloat(lumperAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingLumper(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-efs-request", {
+        body: {
+          orderId: zoomedLoad.orderId,
+          lumperAmount: amount,
+          truckNumber: zoomedLoad.truckNumber,
+          driverName: zoomedLoad.driverNames,
+          loadNumber: zoomedLoad.internalLoadNumber,
+          companyName: zoomedLoad.companyName,
+        },
+      });
+
+      if (error) throw error;
+
+      // Show confirmation message
+      setLumperConfirmation(data.confirmationMessage);
+      
+      toast({
+        title: "Success",
+        description: "Lumper request sent and order updated",
+      });
+
+      // Refresh reports list
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    } catch (error) {
+      console.error("Error sending lumper request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send lumper request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingLumper(false);
     }
   };
 
@@ -4524,8 +4587,20 @@ const Reports = () => {
                   );
                 })}
 
-                {/* Cancel Button - centered right */}
-                <div className="ml-auto">
+                {/* Lumper Request and Cancel Button */}
+                <div className="ml-auto flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setLumperAmount("");
+                      setLumperConfirmation(null);
+                      setLumperDialogOpen(true);
+                    }}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Lumper Request
+                  </Button>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -5057,6 +5132,85 @@ const Reports = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lumper Request Dialog */}
+      <Dialog open={lumperDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setLumperDialogOpen(false);
+          setLumperAmount("");
+          setLumperConfirmation(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {lumperConfirmation ? "Lumper Request Sent" : "Lumper Request"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {lumperConfirmation ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap font-mono text-sm">
+                {lumperConfirmation}
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={() => {
+                  setLumperDialogOpen(false);
+                  setLumperAmount("");
+                  setLumperConfirmation(null);
+                }}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="lumper-amount">Lumper Amount ($)</Label>
+                <Input
+                  id="lumper-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={lumperAmount}
+                  onChange={(e) => setLumperAmount(e.target.value)}
+                  placeholder="Enter lumper amount"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                <p><strong>Truck:</strong> #{zoomedLoad?.truckNumber}</p>
+                <p><strong>Driver:</strong> {zoomedLoad?.driverNames}</p>
+                <p><strong>Load:</strong> #{zoomedLoad?.internalLoadNumber}</p>
+              </div>
+              
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setLumperDialogOpen(false)}
+                  disabled={isSubmittingLumper}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleLumperRequest}
+                  disabled={!lumperAmount || isSubmittingLumper}
+                >
+                  {isSubmittingLumper ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Confirm"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
