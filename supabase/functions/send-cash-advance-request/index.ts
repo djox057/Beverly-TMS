@@ -20,6 +20,7 @@ interface CashAdvanceRequest {
   driverName: string;
   truckNumber: string;
   companyName: string;
+  amount: number;
 }
 
 // Get Chicago time
@@ -53,9 +54,17 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { driverId, driverName, truckNumber, companyName }: CashAdvanceRequest = await req.json();
+    const { driverId, driverName, truckNumber, companyName, amount }: CashAdvanceRequest = await req.json();
 
-    console.log("Cash advance request received:", { driverId, driverName, truckNumber, companyName });
+    // Validate amount
+    if (amount < 0 || amount > 150) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Amount must be between $0 and $150" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Cash advance request received:", { driverId, driverName, truckNumber, companyName, amount });
 
     // Create Supabase client with service role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -98,10 +107,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Check this week's cash advances
+    // Check this week's cash advances with amounts
     const { data: weekAdvances, error: weekError } = await supabase
       .from("driver_cash_advances")
-      .select("id")
+      .select("id, amount")
       .eq("driver_id", driverId)
       .gte("requested_at", weekStart.toISOString());
 
@@ -111,7 +120,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const weekCount = weekAdvances?.length || 0;
-    console.log("Week's advances count:", weekCount);
+    const weeklyAmount = weekAdvances?.reduce((sum: number, adv: { amount: number }) => sum + (adv.amount || 0), 0) || 0;
+    const remainingAmount = 150 - weeklyAmount;
+    console.log("Week's advances:", { weekCount, weeklyAmount, remainingAmount });
 
     if (weekCount >= 3) {
       return new Response(
@@ -128,12 +139,29 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    if (amount > remainingAmount) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Amount exceeds remaining weekly limit. You can request up to $${remainingAmount}.`,
+          todayCount,
+          weekCount,
+          weeklyAmount,
+          remainingAmount,
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
     // Insert cash advance record
     const { error: insertError } = await supabase
       .from("driver_cash_advances")
       .insert({
         driver_id: driverId,
-        amount: 50,
+        amount: amount,
         truck_number: truckNumber,
       });
 
@@ -153,7 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send email
     const emailBody = `Unit: ${truckNumber || "N/A"}
 Driver: ${driverName}
-Amount: $50
+Amount: $${amount}
 Purpose: Cash advance`;
 
     console.log("Sending email from:", fromEmail);

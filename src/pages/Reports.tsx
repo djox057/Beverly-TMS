@@ -537,6 +537,7 @@ const Reports = () => {
     companyName: string;
   } | null>(null);
   const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
+  const [cashAdvanceAmount, setCashAdvanceAmount] = useState(50);
   const { data: cashAdvanceData, refetch: refetchCashAdvance, isLoading: isCashAdvanceLoading } = useDriverCashAdvance(cashAdvanceDialog?.driverId || null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -5266,7 +5267,10 @@ const Reports = () => {
 
       {/* Cash Advance Dialog */}
       <Dialog open={!!cashAdvanceDialog} onOpenChange={(open) => {
-        if (!open) setCashAdvanceDialog(null);
+        if (!open) {
+          setCashAdvanceDialog(null);
+          setCashAdvanceAmount(50); // Reset to default
+        }
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -5295,11 +5299,11 @@ const Reports = () => {
                   <div className="w-full bg-muted rounded-full h-2.5">
                     <div 
                       className="bg-primary h-2.5 rounded-full transition-all"
-                      style={{ width: `${((cashAdvanceData?.weekCount || 0) / 3) * 100}%` }}
+                      style={{ width: `${Math.min(((cashAdvanceData?.weeklyAmount || 0) / 150) * 100, 100)}%` }}
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {cashAdvanceData?.weekCount || 0} of 3 requests this week
+                    {cashAdvanceData?.weekCount || 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount || 150} remaining
                   </p>
                 </div>
 
@@ -5311,13 +5315,37 @@ const Reports = () => {
                   </span>
                 </div>
 
+                {/* Amount Input */}
+                {cashAdvanceData?.canRequest && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cash-advance-amount" className="text-sm font-medium">Amount ($)</Label>
+                    <Input
+                      id="cash-advance-amount"
+                      type="number"
+                      min={0}
+                      max={Math.min(150, cashAdvanceData?.remainingAmount || 150)}
+                      value={cashAdvanceAmount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount || 150)));
+                      }}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount || 150)}
+                    </p>
+                  </div>
+                )}
+
                 {/* Status Message - only show when data loaded and can't request */}
                 {cashAdvanceData && !cashAdvanceData.canRequest && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive font-medium">
                       {cashAdvanceData.todayCount >= 1 
                         ? "Daily limit reached. Resets at midnight (Chicago time)."
-                        : "Weekly limit reached. Resets Monday at midnight (Chicago time)."}
+                        : cashAdvanceData.weekCount >= 3
+                          ? "Weekly request limit reached. Resets Monday at midnight (Chicago time)."
+                          : "Weekly amount limit reached. Resets Monday at midnight (Chicago time)."}
                     </p>
                   </div>
                 )}
@@ -5327,7 +5355,10 @@ const Reports = () => {
             <div className="flex gap-2 justify-end">
               <Button 
                 variant="outline" 
-                onClick={() => setCashAdvanceDialog(null)}
+                onClick={() => {
+                  setCashAdvanceDialog(null);
+                  setCashAdvanceAmount(50);
+                }}
                 disabled={isRequestingCashAdvance}
               >
                 Close
@@ -5345,6 +5376,7 @@ const Reports = () => {
                           driverName: cashAdvanceDialog.driverName,
                           truckNumber: cashAdvanceDialog.truckNumber,
                           companyName: cashAdvanceDialog.companyName,
+                          amount: cashAdvanceAmount,
                         },
                       });
 
@@ -5352,11 +5384,12 @@ const Reports = () => {
                       
                       toast({
                         title: "Cash advance requested",
-                        description: `$50 cash advance sent for ${cashAdvanceDialog.driverName}`,
+                        description: `$${cashAdvanceAmount} cash advance sent for ${cashAdvanceDialog.driverName}`,
                       });
                       
                       refetchCashAdvance();
                       setCashAdvanceDialog(null);
+                      setCashAdvanceAmount(50);
                     } catch (error) {
                       console.error("Cash advance error:", error);
                       toast({
@@ -5368,7 +5401,7 @@ const Reports = () => {
                       setIsRequestingCashAdvance(false);
                     }
                   }}
-                  disabled={isRequestingCashAdvance}
+                  disabled={isRequestingCashAdvance || cashAdvanceAmount <= 0}
                 >
                   {isRequestingCashAdvance ? (
                     <>
@@ -5376,7 +5409,7 @@ const Reports = () => {
                       Sending...
                     </>
                   ) : (
-                    "Request $50 Cash Advance"
+                    `Request $${cashAdvanceAmount} Cash Advance`
                   )}
                 </Button>
               )}
