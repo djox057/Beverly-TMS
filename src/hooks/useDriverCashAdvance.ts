@@ -42,10 +42,10 @@ export function useDriverCashAdvance(driverId: string | null) {
         throw todayError;
       }
 
-      // Fetch this week's advances
+      // Fetch this week's advances with amounts
       const { data: weekAdvances, error: weekError } = await supabase
         .from("driver_cash_advances")
-        .select("id")
+        .select("id, amount")
         .eq("driver_id", driverId)
         .gte("requested_at", weekStart.toISOString());
 
@@ -56,10 +56,11 @@ export function useDriverCashAdvance(driverId: string | null) {
 
       const todayCount = todayAdvances?.length || 0;
       const weekCount = weekAdvances?.length || 0;
-      const weeklyAmount = weekCount * 50;
-      const canRequest = todayCount < 1 && weekCount < 3;
+      const weeklyAmount = weekAdvances?.reduce((sum, adv) => sum + (adv.amount || 0), 0) || 0;
+      const remainingAmount = 150 - weeklyAmount;
+      const canRequest = todayCount < 1 && weekCount < 3 && remainingAmount > 0;
 
-      return { todayCount, weekCount, weeklyAmount, canRequest };
+      return { todayCount, weekCount, weeklyAmount, remainingAmount, canRequest };
     },
     enabled: !!driverId,
     staleTime: 30000, // 30 seconds
