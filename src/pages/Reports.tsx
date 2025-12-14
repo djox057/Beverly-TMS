@@ -652,6 +652,13 @@ const Reports = () => {
   const getLoadDetailsForZoom = useCallback((orderId: string, truck: any) => {
     const order = truck.allOrders?.find((o: any) => o.id === orderId);
     if (!order) return null;
+    
+    // Build driver names from driver1Name and driver2Name
+    let driverNames = truck.driver1Name || "";
+    if (truck.driver2Name) {
+      driverNames = driverNames ? `${driverNames} / ${truck.driver2Name}` : truck.driver2Name;
+    }
+    
     return {
       orderId: order.id,
       loadNumber: order.loadDetails.loadNumber,
@@ -661,7 +668,7 @@ const Reports = () => {
       documents: (order.loadDetails.documents || []).map((d: any) => d.category),
       notes: order.loadDetails.notes,
       truckNumber: truck.truckNumber,
-      driverNames: truck.driverNames,
+      driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
       internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
     };
@@ -931,8 +938,8 @@ const Reports = () => {
           orderId: zoomedLoad.orderId,
           lumperAmount: amount,
           truckNumber: zoomedLoad.truckNumber,
-          driverName: zoomedLoad.driverNames,
-          loadNumber: zoomedLoad.internalLoadNumber,
+          driverName: zoomedLoad.driverNames || "Unknown Driver",
+          loadNumber: zoomedLoad.brokerLoadNumber || zoomedLoad.loadNumber,
           companyName: zoomedLoad.companyName,
         },
       });
@@ -5183,8 +5190,8 @@ const Reports = () => {
               
               <div className="text-sm text-muted-foreground">
                 <p><strong>Truck:</strong> #{zoomedLoad?.truckNumber}</p>
-                <p><strong>Driver:</strong> {zoomedLoad?.driverNames}</p>
-                <p><strong>Load:</strong> #{zoomedLoad?.internalLoadNumber}</p>
+                <p><strong>Driver:</strong> {zoomedLoad?.driverNames || "N/A"}</p>
+                <p><strong>Load:</strong> #{zoomedLoad?.brokerLoadNumber || zoomedLoad?.loadNumber}</p>
               </div>
               
               <div className="flex gap-2 justify-end">
