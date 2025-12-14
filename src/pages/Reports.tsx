@@ -537,7 +537,7 @@ const Reports = () => {
     companyName: string;
   } | null>(null);
   const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
-  const { data: cashAdvanceData, refetch: refetchCashAdvance } = useDriverCashAdvance(cashAdvanceDialog?.driverId || null);
+  const { data: cashAdvanceData, refetch: refetchCashAdvance, isLoading: isCashAdvanceLoading } = useDriverCashAdvance(cashAdvanceDialog?.driverId || null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -5278,42 +5278,50 @@ const Reports = () => {
               <p><strong>Truck:</strong> #{cashAdvanceDialog?.truckNumber}</p>
             </div>
 
-            {/* Weekly Usage Progress */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Weekly Usage</span>
-                <span className="text-sm font-semibold">
-                  ${cashAdvanceData?.weeklyAmount || 0} / $150
-                </span>
+            {isCashAdvanceLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-              <div className="w-full bg-muted rounded-full h-2.5">
-                <div 
-                  className="bg-primary h-2.5 rounded-full transition-all"
-                  style={{ width: `${((cashAdvanceData?.weekCount || 0) / 3) * 100}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {cashAdvanceData?.weekCount || 0} of 3 requests this week
-              </p>
-            </div>
+            ) : (
+              <>
+                {/* Weekly Usage Progress */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Weekly Usage</span>
+                    <span className="text-sm font-semibold">
+                      ${cashAdvanceData?.weeklyAmount || 0} / $150
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2.5">
+                    <div 
+                      className="bg-primary h-2.5 rounded-full transition-all"
+                      style={{ width: `${((cashAdvanceData?.weekCount || 0) / 3) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cashAdvanceData?.weekCount || 0} of 3 requests this week
+                  </p>
+                </div>
 
-            {/* Daily Usage */}
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Today</span>
-              <span className="text-sm">
-                {cashAdvanceData?.todayCount || 0} / 1 request
-              </span>
-            </div>
+                {/* Daily Usage */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Today</span>
+                  <span className="text-sm">
+                    {cashAdvanceData?.todayCount || 0} / 1 request
+                  </span>
+                </div>
 
-            {/* Status Message */}
-            {!cashAdvanceData?.canRequest && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                <p className="text-sm text-destructive font-medium">
-                  {(cashAdvanceData?.todayCount || 0) >= 1 
-                    ? "Daily limit reached. Resets at midnight (Chicago time)."
-                    : "Weekly limit reached. Resets Monday at midnight (Chicago time)."}
-                </p>
-              </div>
+                {/* Status Message - only show when data loaded and can't request */}
+                {cashAdvanceData && !cashAdvanceData.canRequest && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive font-medium">
+                      {cashAdvanceData.todayCount >= 1 
+                        ? "Daily limit reached. Resets at midnight (Chicago time)."
+                        : "Weekly limit reached. Resets Monday at midnight (Chicago time)."}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex gap-2 justify-end">
@@ -5324,7 +5332,7 @@ const Reports = () => {
               >
                 Close
               </Button>
-              {cashAdvanceData?.canRequest && (
+              {!isCashAdvanceLoading && cashAdvanceData?.canRequest && (
                 <Button 
                   onClick={async () => {
                     if (!cashAdvanceDialog) return;
