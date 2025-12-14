@@ -42,6 +42,7 @@ import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
+import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
@@ -527,6 +528,16 @@ const Reports = () => {
   const [lumperAmount, setLumperAmount] = useState("");
   const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
   const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
+  
+  // Cash Advance state
+  const [cashAdvanceDialog, setCashAdvanceDialog] = useState<{
+    driverId: string;
+    driverName: string;
+    truckNumber: string;
+    companyName: string;
+  } | null>(null);
+  const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
+  const { data: cashAdvanceData, refetch: refetchCashAdvance } = useDriverCashAdvance(cashAdvanceDialog?.driverId || null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -2928,6 +2939,22 @@ const Reports = () => {
                                                             >
                                                               <CalendarIcon className="h-3 w-3" />
                                                             </Button>
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setCashAdvanceDialog({
+                                                                  driverId: truck.driverId!,
+                                                                  driverName: truck.driver1Name,
+                                                                  truckNumber: truck.truckNumber,
+                                                                  companyName: truck.companyName || "",
+                                                                });
+                                                              }}
+                                                            >
+                                                              <DollarSign className="h-3 w-3" />
+                                                            </Button>
                                                           </div>
                                                         )}
                                                       </div>
@@ -3049,6 +3076,22 @@ const Reports = () => {
                                                                 }}
                                                               >
                                                                 <CalendarIcon className="h-3 w-3" />
+                                                              </Button>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setCashAdvanceDialog({
+                                                                    driverId: truck.driverId!,
+                                                                    driverName: truck.driver,
+                                                                    truckNumber: truck.truckNumber,
+                                                                    companyName: truck.companyName || "",
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <DollarSign className="h-3 w-3" />
                                                               </Button>
                                                             </>
                                                           )}
@@ -5218,6 +5261,119 @@ const Reports = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cash Advance Dialog */}
+      <Dialog open={!!cashAdvanceDialog} onOpenChange={(open) => {
+        if (!open) setCashAdvanceDialog(null);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Cash Advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <p><strong>Driver:</strong> {cashAdvanceDialog?.driverName}</p>
+              <p><strong>Truck:</strong> #{cashAdvanceDialog?.truckNumber}</p>
+            </div>
+
+            {/* Weekly Usage Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Weekly Usage</span>
+                <span className="text-sm font-semibold">
+                  ${cashAdvanceData?.weeklyAmount || 0} / $150
+                </span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2.5">
+                <div 
+                  className="bg-primary h-2.5 rounded-full transition-all"
+                  style={{ width: `${((cashAdvanceData?.weekCount || 0) / 3) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {cashAdvanceData?.weekCount || 0} of 3 requests this week
+              </p>
+            </div>
+
+            {/* Daily Usage */}
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Today</span>
+              <span className="text-sm">
+                {cashAdvanceData?.todayCount || 0} / 1 request
+              </span>
+            </div>
+
+            {/* Status Message */}
+            {!cashAdvanceData?.canRequest && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">
+                  {(cashAdvanceData?.todayCount || 0) >= 1 
+                    ? "Daily limit reached. Resets at midnight (Chicago time)."
+                    : "Weekly limit reached. Resets Monday at midnight (Chicago time)."}
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setCashAdvanceDialog(null)}
+                disabled={isRequestingCashAdvance}
+              >
+                Close
+              </Button>
+              {cashAdvanceData?.canRequest && (
+                <Button 
+                  onClick={async () => {
+                    if (!cashAdvanceDialog) return;
+                    
+                    setIsRequestingCashAdvance(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke("send-cash-advance-request", {
+                        body: {
+                          driverId: cashAdvanceDialog.driverId,
+                          driverName: cashAdvanceDialog.driverName,
+                          truckNumber: cashAdvanceDialog.truckNumber,
+                          companyName: cashAdvanceDialog.companyName,
+                        },
+                      });
+
+                      if (error) throw error;
+                      
+                      toast({
+                        title: "Cash advance requested",
+                        description: `$50 cash advance sent for ${cashAdvanceDialog.driverName}`,
+                      });
+                      
+                      refetchCashAdvance();
+                      setCashAdvanceDialog(null);
+                    } catch (error) {
+                      console.error("Cash advance error:", error);
+                      toast({
+                        title: "Error",
+                        description: error instanceof Error ? error.message : "Failed to request cash advance",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsRequestingCashAdvance(false);
+                    }
+                  }}
+                  disabled={isRequestingCashAdvance}
+                >
+                  {isRequestingCashAdvance ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Request $50 Cash Advance"
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>
