@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.send-efs-request]
 verify_jwt = false
+
+[functions.send-cash-advance-request]
+verify_jwt = false

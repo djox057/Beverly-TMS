@@ -611,6 +611,41 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_cash_advances: {
+        Row: {
+          amount: number
+          created_at: string
+          driver_id: string
+          id: string
+          requested_at: string
+          truck_number: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          driver_id: string
+          id?: string
+          requested_at?: string
+          truck_number?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          driver_id?: string
+          id?: string
+          requested_at?: string
+          truck_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_cash_advances_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_drug_tests: {
         Row: {
           created_at: string
