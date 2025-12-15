@@ -847,6 +847,16 @@ const Reports = () => {
 
       if (error) throw error;
 
+      // Check for business logic errors (returned with success: false)
+      if (data?.success === false) {
+        toast({
+          title: "Lumper request failed",
+          description: data.error || "Request failed",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Show confirmation message
       setLumperConfirmation(data.confirmationMessage);
       
@@ -5234,6 +5244,17 @@ const Reports = () => {
                       });
 
                       if (error) throw error;
+                      
+                      // Check for business logic errors (returned with success: false)
+                      if (data?.success === false) {
+                        toast({
+                          title: "Cannot request cash advance",
+                          description: data.error || "Request failed",
+                          variant: "destructive",
+                        });
+                        refetchCashAdvance();
+                        return;
+                      }
                       
                       toast({
                         title: "Cash advance requested",
