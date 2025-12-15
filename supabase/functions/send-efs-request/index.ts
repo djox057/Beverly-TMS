@@ -16,6 +16,7 @@ interface EfsRequestBody {
   driverName: string;
   loadNumber: string;
   companyName: string;
+  requesterEmail?: string;
 }
 
 // Map company name to EFS sender email
@@ -37,9 +38,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName }: EfsRequestBody = await req.json();
+    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail }: EfsRequestBody = await req.json();
 
-    console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName });
+    console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail });
 
     // Validate required fields
     if (!orderId || !lumperAmount || !truckNumber || !driverName || !loadNumber) {
@@ -60,10 +61,11 @@ Purpose Lumper fee`;
 
     console.log("Sending EFS email from:", fromEmail);
 
-    // Send email via Resend
+    // Send email via Resend with BCC to requester
     const emailResponse = await resend.emails.send({
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
+      ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       subject: "EFS request by App",
       text: emailBody,
     });

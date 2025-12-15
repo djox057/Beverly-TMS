@@ -840,6 +840,7 @@ const Reports = () => {
           driverName: zoomedLoad.driverNames || "Unknown Driver",
           loadNumber: zoomedLoad.brokerLoadNumber || zoomedLoad.loadNumber,
           companyName: zoomedLoad.companyName,
+          requesterEmail: profile?.email,
         },
       });
 
@@ -5226,6 +5227,7 @@ const Reports = () => {
                           truckNumber: cashAdvanceDialog.truckNumber,
                           companyName: cashAdvanceDialog.companyName,
                           amount: cashAdvanceAmount,
+                          requesterEmail: profile?.email,
                         },
                       });
 
