@@ -5153,7 +5153,7 @@ const Reports = () => {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {cashAdvanceData?.weekCount || 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount || 150} remaining
+                    {cashAdvanceData?.weekCount ?? 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount ?? 150} remaining
                   </p>
                 </div>
 
@@ -5173,16 +5173,16 @@ const Reports = () => {
                       id="cash-advance-amount"
                       type="number"
                       min={0}
-                      max={Math.min(150, cashAdvanceData?.remainingAmount || 150)}
+                      max={Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
                       value={cashAdvanceAmount}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
-                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount || 150)));
+                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount ?? 150)));
                       }}
                       className="w-full"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount || 150)}
+                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
                     </p>
                   </div>
                 )}
@@ -5191,11 +5191,11 @@ const Reports = () => {
                 {cashAdvanceData && !cashAdvanceData.canRequest && (
                   <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                     <p className="text-sm text-destructive font-medium">
-                      {cashAdvanceData.todayCount >= 1 
-                        ? "Daily limit reached. Resets at midnight (Chicago time)."
+                      {(cashAdvanceData.remainingAmount ?? 150) <= 0
+                        ? "Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time)."
                         : cashAdvanceData.weekCount >= 3
-                          ? "Weekly request limit reached. Resets Monday at midnight (Chicago time)."
-                          : "Weekly amount limit reached. Resets Monday at midnight (Chicago time)."}
+                          ? "Weekly request limit (3 requests) reached. Resets Monday at midnight (Chicago time)."
+                          : "Daily limit reached. Resets at midnight (Chicago time)."}
                     </p>
                   </div>
                 )}
