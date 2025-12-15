@@ -176,6 +176,8 @@ const handler = async (req: Request): Promise<Response> => {
       fromEmail = "efs@beverlyfreight.net";
     } else if (companyName?.toLowerCase().includes("united")) {
       fromEmail = "efs@bfprimeunited.net";
+    } else if (companyName?.toLowerCase().includes("bg prime")) {
+      fromEmail = "efs@bgprime.net";
     }
 
     // Send email
