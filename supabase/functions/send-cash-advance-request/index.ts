@@ -16,28 +16,46 @@ interface CashAdvanceRequest {
   requesterEmail?: string;
 }
 
-// Get Chicago time
-function getChicagoTime(): Date {
+// Get Chicago timezone offset in milliseconds
+function getChicagoOffset(date: Date): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+  
+  const chicagoDate = new Date(Date.UTC(
+    getPart('year'), getPart('month') - 1, getPart('day'),
+    getPart('hour'), getPart('minute'), getPart('second')
+  ));
+  
+  return chicagoDate.getTime() - date.getTime();
+}
+
+// Get start of today in Chicago time as UTC ISO string
+function getChicagoTodayStartUTC(): string {
   const now = new Date();
-  const chicagoTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
-  return chicagoTime;
+  const chicagoOffset = getChicagoOffset(now);
+  const chicagoNow = new Date(now.getTime() + chicagoOffset);
+  chicagoNow.setUTCHours(0, 0, 0, 0);
+  const utcMidnight = new Date(chicagoNow.getTime() - chicagoOffset);
+  return utcMidnight.toISOString();
 }
 
-// Get start of today in Chicago time
-function getChicagoTodayStart(): Date {
-  const chicago = getChicagoTime();
-  chicago.setHours(0, 0, 0, 0);
-  return chicago;
-}
-
-// Get start of current week (Monday) in Chicago time
-function getChicagoWeekStart(): Date {
-  const chicago = getChicagoTime();
-  const dayOfWeek = chicago.getDay();
-  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days since Monday
-  chicago.setDate(chicago.getDate() - diff);
-  chicago.setHours(0, 0, 0, 0);
-  return chicago;
+// Get start of current week (Monday) in Chicago time as UTC ISO string
+function getChicagoWeekStartUTC(): string {
+  const now = new Date();
+  const chicagoOffset = getChicagoOffset(now);
+  const chicagoNow = new Date(now.getTime() + chicagoOffset);
+  const dayOfWeek = chicagoNow.getUTCDay();
+  const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  chicagoNow.setUTCDate(chicagoNow.getUTCDate() - diff);
+  chicagoNow.setUTCHours(0, 0, 0, 0);
+  const utcMonday = new Date(chicagoNow.getTime() - chicagoOffset);
+  return utcMonday.toISOString();
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -64,18 +82,18 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get Chicago time boundaries
-    const todayStart = getChicagoTodayStart();
-    const weekStart = getChicagoWeekStart();
+    // Get Chicago time boundaries as UTC ISO strings
+    const todayStart = getChicagoTodayStartUTC();
+    const weekStart = getChicagoWeekStartUTC();
 
-    console.log("Time boundaries:", { todayStart: todayStart.toISOString(), weekStart: weekStart.toISOString() });
+    console.log("Time boundaries (UTC):", { todayStart, weekStart });
 
     // Check today's cash advances
     const { data: todayAdvances, error: todayError } = await supabase
       .from("driver_cash_advances")
       .select("id")
       .eq("driver_id", driverId)
-      .gte("requested_at", todayStart.toISOString());
+      .gte("requested_at", todayStart);
 
     if (todayError) {
       console.error("Error checking today's advances:", todayError);
@@ -105,7 +123,7 @@ const handler = async (req: Request): Promise<Response> => {
       .from("driver_cash_advances")
       .select("id, amount")
       .eq("driver_id", driverId)
-      .gte("requested_at", weekStart.toISOString());
+      .gte("requested_at", weekStart);
 
     if (weekError) {
       console.error("Error checking week's advances:", weekError);
