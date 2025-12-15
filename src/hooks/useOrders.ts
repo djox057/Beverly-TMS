@@ -332,35 +332,42 @@ export const useOrders = (options?: UseOrdersOptions) => {
       // Get archive timestamp to determine which locked orders need fresh DB fetch
       const archiveTimestamp = await getArchiveLastUpdatedAt();
       
-      // Load LOCKED orders from cache
-      const archivedLockedOrders = await getLockedOrders();
-      
-      // Fetch fresh locked orders from DB (updated after archive was created)
+      // Fetch fresh locked orders from DB (updated after archive was created, or ALL if no archive metadata)
       const freshLockedOrders = await fetchFreshLockedOrders(archiveTimestamp);
       
       // Create a map of fresh locked orders by ID for quick lookup
       const freshLockedMap = new Map(freshLockedOrders.map(o => [o.id, o]));
       
-      // Merge: fresh DB version wins over archived version
       let mergedLockedOrders: any[] = [];
-      if (archivedLockedOrders && archivedLockedOrders.length > 0) {
-        // For each archived order, use fresh version if available
-        const archivedWithFreshOverrides = archivedLockedOrders.map(archivedOrder => {
-          const freshVersion = freshLockedMap.get(archivedOrder.id);
-          return freshVersion || archivedOrder;
-        });
-        
-        // Add any fresh locked orders not in archive (newly locked since archive)
-        const archivedIds = new Set(archivedLockedOrders.map(o => o.id));
-        const newlyLockedOrders = freshLockedOrders.filter(o => !archivedIds.has(o.id));
-        
-        mergedLockedOrders = [...archivedWithFreshOverrides, ...newlyLockedOrders];
-      } else {
-        // No archive - use fresh locked orders directly
+      
+      // If no archive metadata exists, use fresh DB data directly (don't trust cache)
+      if (!archiveTimestamp) {
+        console.log('[useOrders] No archive metadata - using fresh DB data only');
         mergedLockedOrders = freshLockedOrders;
+      } else {
+        // Load LOCKED orders from cache only when we have archive metadata
+        const archivedLockedOrders = await getLockedOrders();
+        
+        // Merge: fresh DB version wins over archived version
+        if (archivedLockedOrders && archivedLockedOrders.length > 0) {
+          // For each archived order, use fresh version if available
+          const archivedWithFreshOverrides = archivedLockedOrders.map(archivedOrder => {
+            const freshVersion = freshLockedMap.get(archivedOrder.id);
+            return freshVersion || archivedOrder;
+          });
+          
+          // Add any fresh locked orders not in archive (newly locked since archive)
+          const archivedIds = new Set(archivedLockedOrders.map(o => o.id));
+          const newlyLockedOrders = freshLockedOrders.filter(o => !archivedIds.has(o.id));
+          
+          mergedLockedOrders = [...archivedWithFreshOverrides, ...newlyLockedOrders];
+        } else {
+          // No archive cache - use fresh locked orders directly
+          mergedLockedOrders = freshLockedOrders;
+        }
       }
       
-      console.log(`[useOrders] Locked orders: ${archivedLockedOrders?.length || 0} archived, ${freshLockedOrders.length} fresh, ${mergedLockedOrders.length} merged`);
+      console.log(`[useOrders] Locked orders: ${freshLockedOrders.length} fresh from DB, ${mergedLockedOrders.length} total merged`);
 
       // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
       // Only enrich archived orders - fresh ones already have joins
