@@ -2068,12 +2068,56 @@ const EditOrder = () => {
     if (!id) return;
 
     try {
+      // Get first pickup and last delivery coordinates for mile calculation
+      const pickupsList = pickupsDrops.filter(pd => pd.type === 'pickup');
+      const deliveriesList = pickupsDrops.filter(pd => pd.type === 'delivery');
+      const firstPickup = pickupsList[0];
+      const lastDelivery = deliveriesList[deliveriesList.length - 1];
+      
+      let originalMiles = 0;
+      let recoveryMilesCalc = 0;
+
+      // Try to calculate miles if we have coordinates
+      if (firstPickup?.latitude && firstPickup?.longitude && lastDelivery?.latitude && lastDelivery?.longitude) {
+        try {
+          const { data: milesData } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
+            body: {
+              pickupLat: firstPickup.latitude,
+              pickupLon: firstPickup.longitude,
+              deliveryLat: lastDelivery.latitude,
+              deliveryLon: lastDelivery.longitude,
+            }
+          });
+          
+          if (milesData) {
+            originalMiles = milesData.originalMiles || 0;
+            recoveryMilesCalc = milesData.recoveryMiles || 0;
+          }
+        } catch (mileError) {
+          console.error("Error calculating miles:", mileError);
+        }
+      }
+
+      // Calculate original driver price proportionally
+      const totalMiles = (originalMiles + recoveryMilesCalc) || Number(loadedMiles) || 1;
+      const originalDriverPrice = originalMiles > 0 
+        ? Math.round((Number(driverPrice) || 0) * (originalMiles / totalMiles))
+        : 0;
+
       const { error } = await supabase
         .from("orders")
         .update({
           driver1_id: null,
           driver2_id: null,
           truck_id: null,
+          is_recovery: true,
+          original_driver1_id: driver1 || null,
+          original_driver2_id: driver2 || null,
+          original_truck_id: truck || null,
+          original_trailer_id: trailer || null,
+          original_miles: originalMiles,
+          original_driver_price: originalDriverPrice,
+          recovery_miles: recoveryMilesCalc,
         })
         .eq("id", id);
 
@@ -2081,12 +2125,10 @@ const EditOrder = () => {
 
       toast({
         title: "Success",
-        description: "Trailer left at the yard. Driver and truck assignments cleared.",
+        description: `Load marked as left at yard. Original miles: ${originalMiles}, Miles to complete: ${recoveryMilesCalc}`,
       });
 
       setYardDialogOpen(false);
-
-      // Navigate back to yard loads
       localStorage.setItem("returnToYardLoads", "true");
       navigate("/yard-loads");
     } catch (error) {

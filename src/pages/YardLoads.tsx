@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useYardLoadsFromOrders } from "@/hooks/useYardLoadsFromOrders";
+import { useYardLoadsFromOrders, YardLoadOrder } from "@/hooks/useYardLoadsFromOrders";
 import { useCompanies } from "@/hooks/useCompanies";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/pagination";
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen } from "lucide-react";
+import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -36,6 +36,8 @@ import * as XLSX from 'xlsx';
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DateRange } from "react-day-picker";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
+import { AssignTransferDriverDialog, TransferDriverData } from "@/components/AssignTransferDriverDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -95,6 +97,9 @@ export default function YardLoads() {
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [selectedOrderForTransfer, setSelectedOrderForTransfer] = useState<YardLoadOrder | null>(null);
+  const queryClient = useQueryClient();
 
   // Get unique values for filters
   const trucks = Array.from(new Set(orders.map(o => o.truckNumber).filter(Boolean))).sort() as string[];
@@ -272,6 +277,51 @@ export default function YardLoads() {
     }
   };
 
+  const openTransferDialog = (order: YardLoadOrder) => {
+    setSelectedOrderForTransfer(order);
+    setTransferDialogOpen(true);
+  };
+
+  const handleAssignTransferDriver = async (data: TransferDriverData) => {
+    if (!selectedOrderForTransfer) return;
+
+    try {
+      // Update the order with transfer driver info
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          driver1_id: data.transferDriverId,
+          truck_id: data.transferTruckId,
+          trailer_id: data.transferTrailerId || null,
+          recovery_miles: data.recoveryMiles,
+          recovery_driver_price: data.recoveryDriverPrice,
+        })
+        .eq('id', selectedOrderForTransfer.id);
+
+      if (error) throw error;
+
+      // Create recovery history entry
+      await supabase.from('recovery_history').insert({
+        order_id: selectedOrderForTransfer.id,
+        original_driver1_id: selectedOrderForTransfer.originalDriverId,
+        original_truck_id: selectedOrderForTransfer.originalTruckId,
+        original_trailer_id: selectedOrderForTransfer.originalTrailerId,
+        recovery_driver1_id: data.transferDriverId,
+        recovery_truck_id: data.transferTruckId,
+        recovery_trailer_id: data.transferTrailerId || null,
+        recovery_date: new Date().toISOString(),
+      });
+
+      toast.success("Transfer driver assigned successfully");
+      queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+      setTransferDialogOpen(false);
+      setSelectedOrderForTransfer(null);
+    } catch (error) {
+      console.error('Error assigning transfer driver:', error);
+      toast.error("Failed to assign transfer driver");
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -364,14 +414,14 @@ export default function YardLoads() {
                   <TableHead className="w-20">Load #</TableHead>
                   <TableHead className="w-32">Delivery Date</TableHead>
                   <TableHead className="w-40">Delivery City</TableHead>
-                  <TableHead className="w-16">Miles</TableHead>
+                  <TableHead className="w-32">Original Driver</TableHead>
+                  <TableHead className="w-24">Orig Miles</TableHead>
+                  <TableHead className="w-24">Miles to Complete</TableHead>
                   <TableHead className="w-24">Driver Pay</TableHead>
-                  <TableHead className="w-36">Broker Name</TableHead>
-                  <TableHead className="w-28">Broker Load #</TableHead>
                   <TableHead className="w-28">Freight Amount</TableHead>
+                  <TableHead className="w-36">Broker Name</TableHead>
                   <TableHead className="w-28">Company</TableHead>
-                  <TableHead className="w-24">Booked By</TableHead>
-                  <TableHead className="w-16">Actions</TableHead>
+                  <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,23 +438,10 @@ export default function YardLoads() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedOrders.map((order: any) => {
+                  paginatedOrders.map((order: YardLoadOrder) => {
                     const isRecovery = order.isRecovery;
-                    const hasRedFees = (order.lateFeeDriver > 0) || (order.noTrackingFeeDriver > 0) || (order.wrongAddressFeeDriver > 0);
-                    const hasGreenFees = (order.detentionDriver > 0) || (order.layoverDriver > 0);
-                    const hasYellowFees = (order.escortFee > 0) || (order.lumper > 0);
-                    const hasOrangeCondition = order.canceled || (order.dateChangeNotes && order.dateChangeNotes.trim() !== '');
-                    
                     const rowClassName = isRecovery
                       ? 'bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_85%)] dark:hover:bg-[hsl(270_50%_30%)]'
-                      : hasRedFees 
-                      ? 'bg-[hsl(0_84%_90%)] dark:bg-[hsl(0_62%_25%)] hover:bg-[hsl(0_84%_85%)] dark:hover:bg-[hsl(0_62%_30%)]'
-                      : hasGreenFees
-                      ? 'bg-[hsl(120_60%_90%)] dark:bg-[hsl(120_40%_25%)] hover:bg-[hsl(120_60%_85%)] dark:hover:bg-[hsl(120_40%_30%)]'
-                      : hasYellowFees
-                      ? 'bg-[hsl(45_93%_90%)] dark:bg-[hsl(45_93%_30%)] hover:bg-[hsl(45_93%_85%)] dark:hover:bg-[hsl(45_93%_35%)]'
-                      : hasOrangeCondition
-                      ? 'bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_85%)] dark:hover:bg-[hsl(25_75%_35%)]'
                       : '';
                     
                     return (
@@ -415,27 +452,60 @@ export default function YardLoads() {
                         <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">
                           {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
                         </div></TableCell>
-                        <TableCell>{order.mileage?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          {order.isRecovery && order.originalDriverName ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-xs">Orig</Badge>
+                              <span className="text-sm line-clamp-1">{order.originalDriverName}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {order.isRecovery && order.originalMiles ? (
+                            <span>{order.originalMiles.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {order.isRecovery && order.recoveryMiles ? (
+                            <span className="font-semibold">{order.recoveryMiles.toLocaleString()}</span>
+                          ) : (
+                            <span className="text-muted-foreground">{order.mileage?.toLocaleString() || '0'}</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(order.driverPrice || 0)}
                           </div>
                         </TableCell>
-                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
-                        <TableCell>{order.brokerLoadNumber}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(order.freightAmount || 0)}
                           </div>
                         </TableCell>
+                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
                         <TableCell>{order.companyName}</TableCell>
-                        <TableCell><div className="line-clamp-2">{order.bookedBy}</div></TableCell>
                         <TableCell>
-                          {!order.locked && (
-                            <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <div className="flex gap-1">
+                            {order.isRecovery && (
+                              <Button 
+                                variant="default" 
+                                size="sm" 
+                                onClick={() => openTransferDialog(order)}
+                                title="Assign Transfer Driver"
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {!order.locked && canEditOrders && (
+                              <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -528,6 +598,19 @@ export default function YardLoads() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Assign Transfer Driver Dialog */}
+      <AssignTransferDriverDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        onSave={handleAssignTransferDriver}
+        originalDriverName={selectedOrderForTransfer?.originalDriverName || null}
+        originalTruckNumber={selectedOrderForTransfer?.originalTruckNumber || null}
+        originalTrailerNumber={selectedOrderForTransfer?.originalTrailerNumber || null}
+        originalMiles={selectedOrderForTransfer?.originalMiles || 0}
+        originalDriverPrice={selectedOrderForTransfer?.originalDriverPrice || 0}
+        recoveryMiles={selectedOrderForTransfer?.recoveryMiles || 0}
+      />
     </div>
   );
 }

@@ -1,0 +1,236 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
+import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
+import { useDrivers } from "@/hooks/useDrivers";
+import { Combobox } from "@/components/ui/combobox";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface AssignTransferDriverDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (data: TransferDriverData) => void;
+  // Original driver info (read-only display)
+  originalDriverName: string | null;
+  originalTruckNumber: string | null;
+  originalTrailerNumber: string | null;
+  originalMiles: number;
+  originalDriverPrice: number;
+  // Pre-filled recovery miles
+  recoveryMiles: number;
+}
+
+export interface TransferDriverData {
+  transferTruckId: string;
+  transferTrailerId: string;
+  transferDriverId: string;
+  recoveryMiles: number;
+  recoveryDriverPrice: number;
+}
+
+export function AssignTransferDriverDialog({
+  open,
+  onOpenChange,
+  onSave,
+  originalDriverName,
+  originalTruckNumber,
+  originalTrailerNumber,
+  originalMiles,
+  originalDriverPrice,
+  recoveryMiles: initialRecoveryMiles,
+}: AssignTransferDriverDialogProps) {
+  const { data: trucks } = useAvailableTrucks(true);
+  const { data: drivers } = useDrivers();
+  const [selectedTruckId, setSelectedTruckId] = useState<string>("");
+  
+  const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
+
+  const [transferTruckId, setTransferTruckId] = useState<string>("");
+  const [transferTrailerId, setTransferTrailerId] = useState<string>("");
+  const [transferDriverId, setTransferDriverId] = useState<string>("");
+  const [recoveryMiles, setRecoveryMiles] = useState<string>("");
+  const [recoveryDriverPrice, setRecoveryDriverPrice] = useState<string>("");
+  const [error, setError] = useState<string>("");
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTransferTruckId("");
+      setTransferTrailerId("");
+      setTransferDriverId("");
+      setSelectedTruckId("");
+      setRecoveryMiles(initialRecoveryMiles?.toString() || "");
+      setRecoveryDriverPrice("");
+      setError("");
+    }
+  }, [open, initialRecoveryMiles]);
+
+  const handleTruckChange = (truckId: string) => {
+    setTransferTruckId(truckId);
+    setSelectedTruckId(truckId);
+    
+    const selectedTruck = trucks?.find((t) => t.id === truckId);
+    if (selectedTruck) {
+      const trailerId = selectedTruck.trailer_id || "";
+      const driverId = selectedTruck.driver1_id || "";
+      setTransferTrailerId(trailerId);
+      setTransferDriverId(driverId);
+    }
+  };
+
+  const handleSave = () => {
+    setError("");
+
+    if (!transferTruckId || !transferDriverId) {
+      setError("Please select transfer truck and driver");
+      return;
+    }
+
+    if (!recoveryDriverPrice || parseFloat(recoveryDriverPrice) <= 0) {
+      setError("Please enter a driver rate");
+      return;
+    }
+
+    onSave({
+      transferTruckId,
+      transferTrailerId,
+      transferDriverId,
+      recoveryMiles: parseFloat(recoveryMiles) || 0,
+      recoveryDriverPrice: parseFloat(recoveryDriverPrice) || 0,
+    });
+
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Assign Transfer Driver</DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-6">
+          {/* Original Driver Section (Read-only) */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">Original Driver</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Driver</Label>
+                <Input value={originalDriverName || "N/A"} disabled className="bg-muted" />
+              </div>
+              <div>
+                <Label>Truck</Label>
+                <Input value={originalTruckNumber || "N/A"} disabled className="bg-muted" />
+              </div>
+              <div>
+                <Label>Trailer</Label>
+                <Input value={originalTrailerNumber || "N/A"} disabled className="bg-muted" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Miles Driven</Label>
+                <Input value={originalMiles?.toLocaleString() || "0"} disabled className="bg-muted" />
+              </div>
+              <div>
+                <Label>Driver Rate</Label>
+                <Input 
+                  value={originalDriverPrice ? `$${originalDriverPrice.toFixed(2)}` : "$0.00"} 
+                  disabled 
+                  className="bg-muted" 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Transfer Driver Section */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold text-lg">Transfer Driver</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Truck *</Label>
+                <Combobox
+                  options={trucks?.map((truck) => ({
+                    value: truck.id,
+                    label: truck.truck_number,
+                  })) || []}
+                  value={transferTruckId}
+                  onValueChange={handleTruckChange}
+                  placeholder="Select truck"
+                  searchPlaceholder="Search trucks..."
+                  emptyText="No truck found."
+                />
+              </div>
+              <div>
+                <Label>Trailer</Label>
+                <Combobox
+                  options={trailers?.map((trailer) => ({
+                    value: trailer.id,
+                    label: trailer.trailer_number,
+                  })) || []}
+                  value={transferTrailerId}
+                  onValueChange={setTransferTrailerId}
+                  placeholder="Select trailer"
+                  searchPlaceholder="Search trailers..."
+                  emptyText="No trailer found."
+                />
+              </div>
+              <div>
+                <Label>Driver *</Label>
+                <Combobox
+                  options={drivers?.map((driver) => ({
+                    value: driver.id,
+                    label: driver.name,
+                  })) || []}
+                  value={transferDriverId}
+                  onValueChange={setTransferDriverId}
+                  placeholder="Select driver"
+                  searchPlaceholder="Search drivers..."
+                  emptyText="No driver found."
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Miles to Complete *</Label>
+                <Input
+                  type="number"
+                  value={recoveryMiles}
+                  onChange={(e) => setRecoveryMiles(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <Label>Driver Rate *</Label>
+                <Input
+                  type="number"
+                  value={recoveryDriverPrice}
+                  onChange={(e) => setRecoveryDriverPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>Assign Transfer Driver</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
