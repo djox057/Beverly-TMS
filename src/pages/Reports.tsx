@@ -58,7 +58,32 @@ import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useReportsDialogs } from "./Reports/useReportsDialogs";
+import { useReportsFilters } from "./Reports/useReportsFilters";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  getCompanyBackgroundColor,
+  getChicagoToday,
+  formatDocuments,
+  formatDateTime,
+  formatTime,
+  formatTimeRange,
+  has5SecondsPassed,
+  hasPreviousOrdersWithoutPOD,
+  shouldShowGoingToPickup,
+  shouldShowAtPickup,
+  shouldShowGoingToDelivery,
+  shouldShowAtDelivery,
+  getPickupCellColor,
+  getDeliveryCellColor,
+  getLostDayNote,
+  isGameOverDay,
+  isSameDayPickupDelivery,
+  parseOrdersWithDates,
+  getPreviousLoadDeliveryStatus,
+  getStatusColors,
+} from "./Reports/helpers";
+import type { GameOverType } from "./Reports/helpers";
 interface EditingState {
   truckId: string;
   field: "pickup-location" | "pickup-datetime" | "delivery-location" | "delivery-datetime" | "note" | "miles-away";
@@ -74,40 +99,7 @@ interface GameOverDialogState {
   needsRecovery: boolean; // truck.needs_recovery
   hasRecoveryDriver: boolean; // truck has a recovery driver assigned
 }
-type GameOverType = "yard" | "at_road";
-
-// Helper function to get company-based background color for truck cells
-const getCompanyBackgroundColor = (companyName: string | null) => {
-  if (!companyName) return {};
-  const normalizedName = companyName.toUpperCase();
-  if (normalizedName.includes("BEVERLY FREIGHT")) {
-    return {
-      backgroundColor: "hsl(var(--company-beverly-freight))",
-      color: "hsl(var(--company-beverly-freight-foreground))",
-    };
-  } else if (normalizedName.includes("BF PRIME UNITED")) {
-    return {
-      backgroundColor: "hsl(var(--company-bf-prime-united))",
-      color: "hsl(var(--company-bf-prime-united-foreground))",
-    };
-  } else if (normalizedName.includes("BF PRIME")) {
-    return {
-      backgroundColor: "hsl(var(--company-bf-prime))",
-      color: "hsl(var(--company-bf-prime-foreground))",
-    };
-  } else if (normalizedName.includes("BEVERLY GROUP")) {
-    return {
-      backgroundColor: "hsl(var(--company-beverly-group))",
-      color: "hsl(var(--company-beverly-group-foreground))",
-    };
-  } else if (normalizedName.includes("BG PRIME")) {
-    return {
-      backgroundColor: "hsl(var(--company-bg-prime))",
-      color: "hsl(var(--company-bg-prime-foreground))",
-    };
-  }
-  return {};
-};
+// getStatusBadge - kept locally as it returns JSX
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "In Transit":
@@ -139,33 +131,6 @@ const getStatusBadge = (status: string) => {
         <span className="px-1 py-0.5 text-[10px] bg-muted text-muted-foreground border border-border">{status}</span>
       );
   }
-};
-
-// Helper to get current date in Chicago timezone
-const getChicagoToday = () => {
-  const now = new Date();
-  const chicagoTime = toZonedTime(now, "America/Chicago");
-  chicagoTime.setHours(0, 0, 0, 0);
-  return chicagoTime;
-};
-
-// Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
-const formatDocuments = (
-  documents: Array<{
-    category: string;
-  }>,
-) => {
-  const categoryOrder = ["RC", "BOL", "POD", "ADDITIONAL"];
-  const foundCategories = new Set<string>();
-  const orderedDocs: string[] = [];
-  categoryOrder.forEach((category) => {
-    const doc = documents.find((d) => d.category === category && !foundCategories.has(d.category));
-    if (doc) {
-      foundCategories.add(doc.category);
-      orderedDocs.push(doc.category);
-    }
-  });
-  return orderedDocs.length > 0 ? orderedDocs.join(", ") : "None";
 };
 
 // EditableNoteField component to avoid hooks violation
@@ -363,61 +328,7 @@ const Reports = () => {
   );
 
   // Note: Drug test notes are now added directly to truck notes when status changes
-
-  // Helper to format datetime without timezone conversion
-  const formatDateTime = (datetimeStr: string, formatStr: string) => {
-    if (!datetimeStr || datetimeStr === "—") return "—";
-    
-    try {
-      const parsed = parseSimpleDateTime(datetimeStr);
-      // Create date from parsed components (no timezone conversion)
-      const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-      
-      // Validate that the date is valid
-      if (isNaN(date.getTime())) {
-        console.warn('[formatDateTime] Invalid date created from:', datetimeStr);
-        return "—";
-      }
-      
-      return format(date, formatStr);
-    } catch (error) {
-      console.warn('[formatDateTime] Error formatting date:', datetimeStr, error);
-      return "—";
-    }
-  };
-
-  // Helper to format time only
-  const formatTime = (datetimeStr: string) => {
-    if (!datetimeStr || datetimeStr === "—") return "—";
-    
-    try {
-      const parsed = parseSimpleDateTime(datetimeStr);
-      return parsed.timeString;
-    } catch (error) {
-      console.warn('[formatTime] Error parsing time:', datetimeStr, error);
-      return "—";
-    }
-  };
-
-  // Helper to format time range (or single time if start equals end)
-  const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
-    if (!datetimeStr || datetimeStr === "—") return "—";
-
-    const parsed = parseSimpleDateTime(datetimeStr);
-    const startTimeFormatted = `${parsed.hours.toString().padStart(2, "0")}:${parsed.minutes.toString().padStart(2, "0")}`;
-
-    // If no end time or end time is "—", just show start time
-    if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
-
-    const parsedEnd = parseSimpleDateTime(endDatetimeStr);
-    const endTimeFormatted = `${parsedEnd.hours.toString().padStart(2, "0")}:${parsedEnd.minutes.toString().padStart(2, "0")}`;
-
-    // If start and end are the same, only show one time
-    if (startTimeFormatted === endTimeFormatted) return startTimeFormatted;
-
-    // Otherwise show range
-    return `${startTimeFormatted}-${endTimeFormatted}`;
-  };
+  // formatDateTime, formatTime, formatTimeRange are imported from ./Reports/helpers
 
   // Offices list
   const offices = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
