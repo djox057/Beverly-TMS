@@ -1,14 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-interface ResendEmailPayload {
-  from: string;
-  to: string[];
-  subject: string;
-  text: string;
-}
-
-
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +13,7 @@ interface CashAdvanceRequest {
   truckNumber: string;
   companyName: string;
   amount: number;
+  requesterEmail?: string;
 }
 
 // Get Chicago time
@@ -54,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { driverId, driverName, truckNumber, companyName, amount }: CashAdvanceRequest = await req.json();
+    const { driverId, driverName, truckNumber, companyName, amount, requesterEmail }: CashAdvanceRequest = await req.json();
 
     // Validate amount
     if (amount < 0 || amount > 150) {
@@ -189,11 +182,12 @@ Purpose: Cash advance`;
     console.log("Sending email from:", fromEmail);
     console.log("Email body:", emailBody);
 
-    // Send email using Resend REST API
+    // Send email using Resend REST API with BCC to requester
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const emailPayload: ResendEmailPayload = {
+    const emailPayload = {
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
+      ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       subject: "EFS request by App",
       text: emailBody,
     };
