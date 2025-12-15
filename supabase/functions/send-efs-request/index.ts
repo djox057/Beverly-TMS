@@ -61,11 +61,12 @@ Purpose Lumper fee`;
 
     console.log("Sending EFS email from:", fromEmail);
 
-    // Send email via Resend with BCC to requester
+    // Send email via Resend with BCC to requester and Reply-To for both dispatcher and company EFS
     const emailResponse = await resend.emails.send({
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
+      replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
       subject: "EFS request by App",
       text: emailBody,
     });

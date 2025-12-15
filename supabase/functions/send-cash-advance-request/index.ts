@@ -200,12 +200,13 @@ Purpose: Cash advance`;
     console.log("Sending email from:", fromEmail);
     console.log("Email body:", emailBody);
 
-    // Send email using Resend REST API with BCC to requester
+    // Send email using Resend REST API with BCC to requester and Reply-To for both dispatcher and company EFS
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const emailPayload = {
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
+      replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
       subject: "EFS request by App",
       text: emailBody,
     };
