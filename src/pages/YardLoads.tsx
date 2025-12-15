@@ -282,6 +282,43 @@ export default function YardLoads() {
     setTransferDialogOpen(true);
   };
 
+  // Revert transfer for left-at-yard loads - restores original driver/truck
+  const handleRevertTransfer = async (order: YardLoadOrder) => {
+    if (!order.isRecovery || !order.originalDriverId || !order.originalTruckId) {
+      toast.error("Cannot revert - missing original assignment data");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          driver1_id: order.originalDriverId,
+          driver2_id: order.originalDriver2Id || null,
+          truck_id: order.originalTruckId,
+          trailer_id: order.originalTrailerId || null,
+          is_recovery: false,
+          original_driver1_id: null,
+          original_driver2_id: null,
+          original_truck_id: null,
+          original_trailer_id: null,
+          original_miles: null,
+          original_driver_price: null,
+          recovery_miles: null,
+          recovery_driver_price: null,
+        })
+        .eq('id', order.id);
+
+      if (error) throw error;
+
+      toast.success("Transfer reverted - original driver and truck restored");
+      queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+    } catch (error) {
+      console.error('Error reverting transfer:', error);
+      toast.error("Failed to revert transfer");
+    }
+  };
+
   const handleAssignTransferDriver = async (data: TransferDriverData) => {
     if (!selectedOrderForTransfer) return;
 
@@ -491,14 +528,26 @@ export default function YardLoads() {
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
-                              <Button 
-                                variant="default" 
-                                size="sm" 
-                                onClick={() => openTransferDialog(order)}
-                                title="Assign Transfer Driver"
-                              >
-                                <UserPlus className="h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button 
+                                  variant="default" 
+                                  size="sm" 
+                                  onClick={() => openTransferDialog(order)}
+                                  title="Assign Transfer Driver"
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </Button>
+                                {order.originalDriverId && order.originalTruckId && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleRevertTransfer(order)}
+                                    title="Revert Transfer - Restore Original Driver"
+                                  >
+                                    <Undo2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                             {!order.locked && canEditOrders && (
                               <Button variant="outline" size="sm" onClick={() => navigateToEditOrder(order.id)}>

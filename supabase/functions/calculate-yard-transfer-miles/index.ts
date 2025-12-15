@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.78.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,24 +21,42 @@ async function getRouteDistance(
   startLat: number,
   startLon: number,
   endLat: number,
-  endLon: number
+  endLon: number,
+  supabase: any
 ): Promise<number | null> {
-  const mapboxToken = Deno.env.get("MAPBOX_ACCESS_TOKEN");
+  // Round coordinates for cache lookup
+  const roundLat = (lat: number) => Math.round(lat * 100000) / 100000;
   
-  if (!mapboxToken) {
-    console.error("MAPBOX_ACCESS_TOKEN not configured");
-    return null;
+  // Check cache first
+  const { data: cached } = await supabase
+    .from('route_cache')
+    .select('distance_miles, created_at')
+    .eq('start_lat', roundLat(startLat))
+    .eq('start_lon', roundLat(startLon))
+    .eq('end_lat', roundLat(endLat))
+    .eq('end_lon', roundLat(endLon))
+    .maybeSingle();
+
+  if (cached) {
+    const cacheAge = Date.now() - new Date(cached.created_at).getTime();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    
+    if (cacheAge < thirtyDaysMs) {
+      console.log('✅ Route cache hit');
+      return cached.distance_miles;
+    }
   }
 
   try {
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLon},${startLat};${endLon},${endLat}?access_token=${mapboxToken}&overview=false`;
+    // Use OSRM API (free, no API key needed)
+    const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=false&alternatives=false&steps=false`;
     
     console.log(`Calculating route from (${startLat}, ${startLon}) to (${endLat}, ${endLon})`);
     
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.error(`Mapbox API error: ${response.status}`);
+      console.error(`OSRM API error: ${response.status}`);
       return null;
     }
     
@@ -47,10 +66,23 @@ async function getRouteDistance(
       const distanceMeters = data.routes[0].distance;
       const distanceMiles = Math.round(distanceMeters / 1609.34);
       console.log(`Route distance: ${distanceMiles} miles`);
+      
+      // Store in cache
+      await supabase
+        .from('route_cache')
+        .insert({
+          start_lat: roundLat(startLat),
+          start_lon: roundLat(startLon),
+          end_lat: roundLat(endLat),
+          end_lon: roundLat(endLon),
+          distance_miles: distanceMiles,
+          distance_meters: distanceMeters,
+        });
+      
       return distanceMiles;
     }
     
-    console.error("No routes found in Mapbox response");
+    console.error("No routes found in OSRM response");
     return null;
   } catch (error) {
     console.error("Error calculating route:", error);
@@ -82,11 +114,16 @@ serve(async (req) => {
       );
     }
 
+    // Initialize Supabase client for cache
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createClient(supabaseUrl!, supabaseKey!);
+
     // Calculate original miles: Pickup → Terminal
-    const originalMiles = await getRouteDistance(pickupLat, pickupLon, TERMINAL_LAT, TERMINAL_LON);
+    const originalMiles = await getRouteDistance(pickupLat, pickupLon, TERMINAL_LAT, TERMINAL_LON, supabase);
     
     // Calculate recovery miles: Terminal → Delivery
-    const recoveryMiles = await getRouteDistance(TERMINAL_LAT, TERMINAL_LON, deliveryLat, deliveryLon);
+    const recoveryMiles = await getRouteDistance(TERMINAL_LAT, TERMINAL_LON, deliveryLat, deliveryLon, supabase);
 
     console.log("Mile calculations complete:", { originalMiles, recoveryMiles });
 
