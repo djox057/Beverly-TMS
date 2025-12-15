@@ -1,0 +1,372 @@
+import { format, isSameDay, addDays } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
+
+// Helper function to get company-based background color for truck cells
+export const getCompanyBackgroundColor = (companyName: string | null) => {
+  if (!companyName) return {};
+  const normalizedName = companyName.toUpperCase();
+  if (normalizedName.includes("BEVERLY FREIGHT")) {
+    return {
+      backgroundColor: "hsl(var(--company-beverly-freight))",
+      color: "hsl(var(--company-beverly-freight-foreground))",
+    };
+  } else if (normalizedName.includes("BF PRIME UNITED")) {
+    return {
+      backgroundColor: "hsl(var(--company-bf-prime-united))",
+      color: "hsl(var(--company-bf-prime-united-foreground))",
+    };
+  } else if (normalizedName.includes("BF PRIME")) {
+    return {
+      backgroundColor: "hsl(var(--company-bf-prime))",
+      color: "hsl(var(--company-bf-prime-foreground))",
+    };
+  } else if (normalizedName.includes("BEVERLY GROUP")) {
+    return {
+      backgroundColor: "hsl(var(--company-beverly-group))",
+      color: "hsl(var(--company-beverly-group-foreground))",
+    };
+  } else if (normalizedName.includes("BG PRIME")) {
+    return {
+      backgroundColor: "hsl(var(--company-bg-prime))",
+      color: "hsl(var(--company-bg-prime-foreground))",
+    };
+  }
+  return {};
+};
+
+// Helper to get current date in Chicago timezone
+export const getChicagoToday = () => {
+  const now = new Date();
+  const chicagoTime = toZonedTime(now, "America/Chicago");
+  chicagoTime.setHours(0, 0, 0, 0);
+  return chicagoTime;
+};
+
+// Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
+export const formatDocuments = (
+  documents: Array<{ category: string }>,
+) => {
+  const categoryOrder = ["RC", "BOL", "POD", "ADDITIONAL"];
+  const foundCategories = new Set<string>();
+  const orderedDocs: string[] = [];
+  categoryOrder.forEach((category) => {
+    const doc = documents.find((d) => d.category === category && !foundCategories.has(d.category));
+    if (doc) {
+      foundCategories.add(doc.category);
+      orderedDocs.push(doc.category);
+    }
+  });
+  return orderedDocs.length > 0 ? orderedDocs.join(", ") : "None";
+};
+
+// Helper to format datetime without timezone conversion
+export const formatDateTime = (datetimeStr: string, formatStr: string) => {
+  if (!datetimeStr || datetimeStr === "—") return "—";
+  
+  try {
+    const parsed = parseSimpleDateTime(datetimeStr);
+    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+    
+    if (isNaN(date.getTime())) {
+      return "—";
+    }
+    
+    return format(date, formatStr);
+  } catch {
+    return "—";
+  }
+};
+
+// Helper to format time only
+export const formatTime = (datetimeStr: string) => {
+  if (!datetimeStr || datetimeStr === "—") return "—";
+  
+  try {
+    const parsed = parseSimpleDateTime(datetimeStr);
+    return parsed.timeString;
+  } catch {
+    return "—";
+  }
+};
+
+// Helper to format time range (or single time if start equals end)
+export const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
+  if (!datetimeStr || datetimeStr === "—") return "—";
+
+  const parsed = parseSimpleDateTime(datetimeStr);
+  const startTimeFormatted = `${parsed.hours.toString().padStart(2, "0")}:${parsed.minutes.toString().padStart(2, "0")}`;
+
+  if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
+
+  const parsedEnd = parseSimpleDateTime(endDatetimeStr);
+  const endTimeFormatted = `${parsedEnd.hours.toString().padStart(2, "0")}:${parsedEnd.minutes.toString().padStart(2, "0")}`;
+
+  if (startTimeFormatted === endTimeFormatted) return startTimeFormatted;
+
+  return `${startTimeFormatted}-${endTimeFormatted}`;
+};
+
+// Helper function to check if 5 seconds have passed since button click
+export const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
+  if (!timestamp) return false;
+  const clickTime = new Date(timestamp).getTime();
+  const now = new Date().getTime();
+  return now - clickTime >= 5000;
+};
+
+// Helper to check if any previous orders are missing POD (delivery not completed)
+export const hasPreviousOrdersWithoutPOD = (truck: any | null, currentOrder: any): boolean => {
+  if (!truck || !truck.allOrders || !currentOrder) return false;
+
+  return truck.allOrders.some((order: any) => {
+    if (order.id === currentOrder.id) return false;
+    if (order.notes === "GAME|OVER") return false;
+
+    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+
+    return hasBOL && !hasPOD;
+  });
+};
+
+// Helper to determine if we should show Going to Pickup button
+export const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null): boolean => {
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const goingToPickupClicked = !!stop.going_to_at;
+  const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
+
+  if (hasIncompleteDeliveries) return false;
+  return !hasBOL && !goingToPickupClicked;
+};
+
+// Helper to determine if we should show At Pickup button
+export const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null): boolean => {
+  if (stop.arrived_at) return false;
+
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const goingToPickupClicked = !!stop.going_to_at;
+  const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
+  const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
+
+  if (hasIncompleteDeliveries) return false;
+  return goingToPickupClicked && fiveSecondsPassed && !hasBOL;
+};
+
+// Helper to determine if we should show Going to Delivery button
+export const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const goingToDeliveryClicked = !!stop.going_to_at;
+
+  if (goingToDeliveryClicked) return false;
+  return hasBOL;
+};
+
+// Helper to determine if we should show At Delivery button
+export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
+  if (stop.arrived_at) return false;
+
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const goingToDeliveryClicked = !!stop.going_to_at;
+  const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
+
+  return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
+};
+
+// Helper to get pickup cell color based on status and previous load
+export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+  if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
+
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasArrived = order.pickupStop?.arrived_at;
+  
+  if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
+  if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
+  return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
+};
+
+// Helper to get delivery cell color based on status
+export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeliveries: Set<string>) => {
+  if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
+
+  const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
+  const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+  const hasArrived = stop?.arrived_at;
+  const isLate = lateDeliveries.has(order.id);
+
+  const deliveryStops =
+    order.deliveryStops ||
+    order.pickup_drops
+      ?.filter((pd: any) => pd.type === "delivery")
+      .sort((a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0)) ||
+    [];
+
+  const podCount = order.order_files?.filter((file: any) => file.file_category === "POD").length || 0;
+
+  if (deliveryStops.length > 1 && stop) {
+    const stopIndex = deliveryStops.findIndex((s: any) => s.id === stop.id);
+    if (podCount > stopIndex) {
+      return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+    }
+  } else {
+    if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  }
+
+  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
+  if (hasBOL && hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
+  if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
+  return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
+};
+
+// Helper function to get lost day note for a specific date
+export const getLostDayNote = (truck: any, date: Date): string => {
+  const dateStr = format(date, "yyyy-MM-dd");
+  const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+
+  if (!lostDayNote) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    const oneDayFuture = addDays(today, 1);
+    if (isSameDay(checkDate, oneDayFuture)) {
+      return "No pre-book 🥺?";
+    }
+    if (isSameDay(checkDate, today)) {
+      return "Empty";
+    }
+    return "Lost day";
+  }
+
+  if (lostDayNote.note_type === "home_time") {
+    return "Home Time";
+  }
+
+  return lostDayNote.note || "Lost day";
+};
+
+// Type for game over check result
+export type GameOverType = "yard" | "at_road";
+
+// Helper function to check if a date has "game over" note
+export const isGameOverDay = (truck: any, date: Date): { isGameOver: boolean; type: GameOverType | null } => {
+  const dateStr = format(date, "yyyy-MM-dd");
+  const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
+  const note = lostDayNote?.note?.toLowerCase();
+  
+  if (note === "game over - yard") return { isGameOver: true, type: "yard" };
+  if (note === "game over - at road") return { isGameOver: true, type: "at_road" };
+  return { isGameOver: false, type: null };
+};
+
+// Helper function to check if pickup and delivery are on the same date
+export const isSameDayPickupDelivery = (order: any) => {
+  return order.pickupDate && order.deliveryDate && isSameDay(order.pickupDate, order.deliveryDate);
+};
+
+// Parse orders with dates for calendar rendering
+export const parseOrdersWithDates = (truck: any) => {
+  return truck.allOrders
+    ?.map((order: any) => {
+      const pickupDate = order.pickup_datetime
+        ? (() => {
+            const parsed = parseSimpleDateTime(order.pickup_datetime);
+            return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+          })()
+        : null;
+      const deliveryDate = order.delivery_datetime
+        ? (() => {
+            const parsed = parseSimpleDateTime(order.delivery_datetime);
+            return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+          })()
+        : null;
+
+      const pickupStopsByDate = new Map<string, number>();
+      const deliveryStopsByDate = new Map<string, number>();
+      
+      order.pickupStops?.forEach((stop: any) => {
+        if (stop.datetime) {
+          const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+          pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+        }
+      });
+      order.deliveryStops?.forEach((stop: any) => {
+        if (stop.datetime) {
+          const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+          deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+        }
+      });
+      
+      return {
+        ...order,
+        pickupDate,
+        deliveryDate,
+        pickupStopsByDate,
+        deliveryStopsByDate,
+        pickupLocation: order.pickupStop
+          ? order.pickupStop.city && order.pickupStop.state
+            ? `${order.pickupStop.city}, ${order.pickupStop.state}`
+            : order.pickupStop.address || "—"
+          : "—",
+        deliveryLocation: order.deliveryStop
+          ? order.deliveryStop.city && order.deliveryStop.state
+            ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
+            : order.deliveryStop.address || "—"
+          : "—",
+      };
+    })
+    .sort((a: any, b: any) => {
+      if (!a.pickupDate && !b.pickupDate) return 0;
+      if (!a.pickupDate) return 1;
+      if (!b.pickupDate) return -1;
+      return a.pickupDate.getTime() - b.pickupDate.getTime();
+    }) || [];
+};
+
+// Get previous load delivery status
+export const getPreviousLoadDeliveryStatus = (ordersWithDates: any[], currentOrder: any): boolean => {
+  const currentIndex = ordersWithDates.findIndex((o) => o.id === currentOrder.id);
+  if (currentIndex <= 0) return true;
+
+  const previousOrder = ordersWithDates[currentIndex - 1];
+  const hasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
+  return !!hasPOD;
+};
+
+// Status colors helper
+export const getStatusColors = (status: string) => {
+  switch (status) {
+    case "In Transit":
+      return {
+        bg: "bg-[hsl(var(--cell-transit))]",
+        text: "text-[hsl(var(--cell-transit-foreground))]",
+        border: "border-border",
+      };
+    case "Loading":
+      return {
+        bg: "bg-[hsl(var(--cell-loading))]",
+        text: "text-[hsl(var(--cell-loading-foreground))]",
+        border: "border-border",
+      };
+    case "Available":
+      return {
+        bg: "bg-[hsl(var(--cell-available))]",
+        text: "text-[hsl(var(--cell-available-foreground))]",
+        border: "border-border",
+      };
+    case "Maintenance":
+      return {
+        bg: "bg-[hsl(var(--cell-maintenance))]",
+        text: "text-[hsl(var(--cell-maintenance-foreground))]",
+        border: "border-border",
+      };
+    default:
+      return {
+        bg: "bg-muted",
+        text: "text-muted-foreground",
+        border: "border-border",
+      };
+  }
+};

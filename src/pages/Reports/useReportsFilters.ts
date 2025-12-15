@@ -1,0 +1,131 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { isSameDay } from "date-fns";
+
+// Filter state hook
+export function useReportsFilters() {
+  // Load filter values from localStorage
+  const [showEmptyTrucks, setShowEmptyTrucks] = useState(() => {
+    const saved = localStorage.getItem("reports-showEmptyTrucks");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const [showNewDrivers, setShowNewDrivers] = useState(() => {
+    const saved = localStorage.getItem("reports-showNewDrivers");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const [showTwoWeekNotice, setShowTwoWeekNotice] = useState(() => {
+    const saved = localStorage.getItem("reports-showTwoWeekNotice");
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const [truckDriverFilter, setTruckDriverFilter] = useState(() => {
+    return localStorage.getItem("reports-truckDriverFilter") || "";
+  });
+
+  const [dispatchNameFilter, setDispatchNameFilter] = useState(() => {
+    return localStorage.getItem("reports-dispatchNameFilter") || "";
+  });
+
+  const [loadNumberFilter, setLoadNumberFilter] = useState(() => {
+    return localStorage.getItem("reports-loadNumberFilter") || "";
+  });
+
+  // Persist filter values to localStorage
+  useEffect(() => {
+    localStorage.setItem("reports-showEmptyTrucks", JSON.stringify(showEmptyTrucks));
+  }, [showEmptyTrucks]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-showNewDrivers", JSON.stringify(showNewDrivers));
+  }, [showNewDrivers]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-showTwoWeekNotice", JSON.stringify(showTwoWeekNotice));
+  }, [showTwoWeekNotice]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-truckDriverFilter", truckDriverFilter);
+  }, [truckDriverFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-dispatchNameFilter", dispatchNameFilter);
+  }, [dispatchNameFilter]);
+
+  useEffect(() => {
+    localStorage.setItem("reports-loadNumberFilter", loadNumberFilter);
+  }, [loadNumberFilter]);
+
+  // Debounce filter values to prevent lag
+  const debouncedTruckDriverFilter = useDebounce(truckDriverFilter, 300);
+  const debouncedDispatchNameFilter = useDebounce(dispatchNameFilter, 300);
+  const debouncedLoadNumberFilter = useDebounce(loadNumberFilter, 300);
+
+  // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
+  const isNewDriver = useCallback((truck: any) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
+
+    if (realOrders.length === 0) {
+      return true;
+    }
+
+    if (realOrders.length === 1) {
+      const order = realOrders[0];
+      if (!order.pickupStop?.datetime) return false;
+      const pickupDate = new Date(order.pickupStop.datetime);
+      pickupDate.setHours(0, 0, 0, 0);
+      return isSameDay(pickupDate, today);
+    }
+    return false;
+  }, []);
+
+  // Helper to check if truck has any game over days
+  const hasGameOverDays = useCallback((truck: any) => {
+    return (
+      truck.lost_day_notes?.some((note: any) => {
+        const noteText = note.note?.toLowerCase() || "";
+        return noteText.includes("game over");
+      }) || false
+    );
+  }, []);
+
+  return useMemo(() => ({
+    // Filter states
+    showEmptyTrucks,
+    setShowEmptyTrucks,
+    showNewDrivers,
+    setShowNewDrivers,
+    showTwoWeekNotice,
+    setShowTwoWeekNotice,
+    truckDriverFilter,
+    setTruckDriverFilter,
+    dispatchNameFilter,
+    setDispatchNameFilter,
+    loadNumberFilter,
+    setLoadNumberFilter,
+    
+    // Debounced values
+    debouncedTruckDriverFilter,
+    debouncedDispatchNameFilter,
+    debouncedLoadNumberFilter,
+    
+    // Helper functions
+    isNewDriver,
+    hasGameOverDays,
+  }), [
+    showEmptyTrucks,
+    showNewDrivers,
+    showTwoWeekNotice,
+    truckDriverFilter,
+    dispatchNameFilter,
+    loadNumberFilter,
+    debouncedTruckDriverFilter,
+    debouncedDispatchNameFilter,
+    debouncedLoadNumberFilter,
+    isNewDriver,
+    hasGameOverDays,
+  ]);
+}
