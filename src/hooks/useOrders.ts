@@ -1,71 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { getLockedOrders, saveLockedOrders, getArchiveLastUpdatedAt } from "@/utils/ordersCache";
-
-// Helper function to fetch fresh locked orders (updated after archive was created)
-async function fetchFreshLockedOrders(archiveTimestamp: string | null): Promise<any[]> {
-  if (!archiveTimestamp) {
-    // No archive metadata - fetch ALL locked orders from DB as fallback
-    console.log('📡 No archive timestamp, fetching all locked orders from DB...');
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        pickup_drops (*),
-        order_files (*),
-        broker:brokers (id, name, mc_number, address),
-        company:companies!orders_company_id_fkey (id, name),
-        booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-        truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-        trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-        driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-        driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-        original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-        original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-        original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-        original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-      `)
-      .eq("locked", true);
-
-    if (error) {
-      console.error('[fetchFreshLockedOrders] Error fetching all locked:', error);
-      return [];
-    }
-    return data || [];
-  }
-
-  // Fetch locked orders updated AFTER the archive was created
-  console.log('📡 Fetching locked orders updated after:', archiveTimestamp);
-  const { data, error } = await supabase
-    .from("orders")
-    .select(`
-      *,
-      pickup_drops (*),
-      order_files (*),
-      broker:brokers (id, name, mc_number, address),
-      company:companies!orders_company_id_fkey (id, name),
-      booked_by_company:companies!orders_booked_by_company_id_fkey (id, name),
-      truck:trucks!orders_truck_id_fkey (id, truck_number, company:companies (id, name)),
-      trailer:trailers!orders_trailer_id_fkey (id, trailer_number),
-      driver1:drivers!orders_driver1_id_fkey (id, name, company_id, company:companies (id, name)),
-      driver2:drivers!orders_driver2_id_fkey (id, name, company_id, company:companies (id, name)),
-      original_driver1:drivers!orders_original_driver1_id_fkey (id, name),
-      original_driver2:drivers!orders_original_driver2_id_fkey (id, name),
-      original_truck:trucks!orders_original_truck_id_fkey (id, truck_number),
-      original_trailer:trailers!orders_original_trailer_id_fkey (id, trailer_number)
-    `)
-    .eq("locked", true)
-    .gt("updated_at", archiveTimestamp);
-
-  if (error) {
-    console.error('[fetchFreshLockedOrders] Error:', error);
-    return [];
-  }
-
-  console.log('✅ Found', data?.length || 0, 'fresh locked orders (updated after archive)');
-  return data || [];
-}
+import { getLockedOrders, saveLockedOrders } from "@/utils/ordersCache";
 
 // Helper function to enrich locked orders with lookup data and fetch pickup_drops/order_files from database
 async function enrichLockedOrdersWithLookups(
@@ -329,59 +265,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
         throw initialError;
       }
 
-      // Get archive timestamp to determine which locked orders need fresh DB fetch
-      const archiveTimestamp = await getArchiveLastUpdatedAt();
-      
-      // Fetch fresh locked orders from DB (updated after archive was created, or ALL if no archive metadata)
-      const freshLockedOrders = await fetchFreshLockedOrders(archiveTimestamp);
-      
-      // Create a map of fresh locked orders by ID for quick lookup
-      const freshLockedMap = new Map(freshLockedOrders.map(o => [o.id, o]));
-      
-      let mergedLockedOrders: any[] = [];
-      
-      // If no archive metadata exists, use fresh DB data directly (don't trust cache)
-      if (!archiveTimestamp) {
-        console.log('[useOrders] No archive metadata - using fresh DB data only');
-        mergedLockedOrders = freshLockedOrders;
-      } else {
-        // Load LOCKED orders from cache only when we have archive metadata
-        const archivedLockedOrders = await getLockedOrders();
-        
-        // Merge: fresh DB version wins over archived version
-        if (archivedLockedOrders && archivedLockedOrders.length > 0) {
-          // For each archived order, use fresh version if available
-          const archivedWithFreshOverrides = archivedLockedOrders.map(archivedOrder => {
-            const freshVersion = freshLockedMap.get(archivedOrder.id);
-            return freshVersion || archivedOrder;
-          });
-          
-          // Add any fresh locked orders not in archive (newly locked since archive)
-          const archivedIds = new Set(archivedLockedOrders.map(o => o.id));
-          const newlyLockedOrders = freshLockedOrders.filter(o => !archivedIds.has(o.id));
-          
-          mergedLockedOrders = [...archivedWithFreshOverrides, ...newlyLockedOrders];
-        } else {
-          // No archive cache - use fresh locked orders directly
-          mergedLockedOrders = freshLockedOrders;
-        }
-      }
-      
-      console.log(`[useOrders] Locked orders: ${freshLockedOrders.length} fresh from DB, ${mergedLockedOrders.length} total merged`);
+      // Load LOCKED orders from cache only (no DB fetch for performance)
+      const lockedOrders = await getLockedOrders();
 
       // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
-      // Only enrich archived orders - fresh ones already have joins
       let enrichedLockedOrders: any[] = [];
-      if (mergedLockedOrders.length > 0) {
-        // Separate fresh (already enriched) from archived (need enrichment)
-        const needsEnrichment = mergedLockedOrders.filter(o => !freshLockedMap.has(o.id));
-        const alreadyEnriched = mergedLockedOrders.filter(o => freshLockedMap.has(o.id));
-        
-        const enrichedArchived = needsEnrichment.length > 0 
-          ? await enrichLockedOrdersWithLookups(needsEnrichment)
-          : [];
-        
-        enrichedLockedOrders = [...alreadyEnriched, ...enrichedArchived];
+      if (lockedOrders && lockedOrders.length > 0) {
+        enrichedLockedOrders = await enrichLockedOrdersWithLookups(lockedOrders);
       }
 
       // Deduplicate: remove locked orders if unlocked version exists

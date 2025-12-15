@@ -1,27 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { supabase } from '@/integrations/supabase/client';
 
-// Get the last updated timestamp of the archive from metadata table
-export async function getArchiveLastUpdatedAt(): Promise<string | null> {
-  try {
-    const { data, error } = await supabase
-      .from('archived_orders_metadata')
-      .select('last_updated_at')
-      .eq('id', 'singleton')
-      .single();
-
-    if (error || !data) {
-      console.log('📦 No archive metadata found');
-      return null;
-    }
-
-    return data.last_updated_at;
-  } catch (error) {
-    console.error('Failed to get archive metadata:', error);
-    return null;
-  }
-}
-
 interface OrdersCacheDB extends DBSchema {
   'locked-orders': {
     key: string;
