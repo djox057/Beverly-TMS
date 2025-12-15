@@ -29,6 +29,7 @@ export interface YardLoadOrder {
   driver1Id: string | null;
   // Recovery/transfer fields
   originalDriverId: string | null;
+  originalDriver2Id: string | null;
   originalDriverName: string | null;
   originalTruckId: string | null;
   originalTruckNumber: string | null;
@@ -65,6 +66,7 @@ export const useYardLoadsFromOrders = () => {
           pickup_datetime,
           delivery_datetime,
           original_driver1_id,
+          original_driver2_id,
           original_truck_id,
           original_trailer_id,
           original_miles,
@@ -145,6 +147,7 @@ export const useYardLoadsFromOrders = () => {
           driver1Id: order.driver1_id,
           // Recovery/transfer fields
           originalDriverId: order.original_driver1_id || null,
+          originalDriver2Id: order.original_driver2_id || null,
           originalDriverName: order.original_driver?.name || null,
           originalTruckId: order.original_truck_id || null,
           originalTruckNumber: order.original_truck?.truck_number || null,

@@ -22,6 +22,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Trash2,
   Loader2,
@@ -2074,13 +2082,27 @@ const EditOrder = () => {
       const firstPickup = pickupsList[0];
       const lastDelivery = deliveriesList[deliveriesList.length - 1];
       
-      let originalMiles = 0;
+      console.log("Left at yard - Current state:", { 
+        driver1, driver2, truck, trailerId, trailer,
+        driversCount: drivers?.length,
+        trucksCount: trucks?.length,
+        pickupsDrops: pickupsDrops.length 
+      });
+
+      let originalMilesCalc = 0;
       let recoveryMilesCalc = 0;
 
       // Try to calculate miles if we have coordinates
       if (firstPickup?.latitude && firstPickup?.longitude && lastDelivery?.latitude && lastDelivery?.longitude) {
         try {
-          const { data: milesData } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
+          console.log("Calling edge function with coordinates:", {
+            pickupLat: firstPickup.latitude,
+            pickupLon: firstPickup.longitude,
+            deliveryLat: lastDelivery.latitude,
+            deliveryLon: lastDelivery.longitude,
+          });
+          
+          const { data: milesData, error: milesError } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
             body: {
               pickupLat: firstPickup.latitude,
               pickupLon: firstPickup.longitude,
@@ -2089,50 +2111,65 @@ const EditOrder = () => {
             }
           });
           
+          console.log("Miles calculation response:", { milesData, milesError });
+          
           if (milesData) {
-            originalMiles = milesData.originalMiles || 0;
+            originalMilesCalc = milesData.originalMiles || 0;
             recoveryMilesCalc = milesData.recoveryMiles || 0;
           }
         } catch (mileError) {
           console.error("Error calculating miles:", mileError);
         }
+      } else {
+        console.log("Missing coordinates for mile calculation:", { firstPickup, lastDelivery });
       }
 
       // Calculate original driver price proportionally
-      const totalMiles = (originalMiles + recoveryMilesCalc) || Number(loadedMiles) || 1;
-      const originalDriverPrice = originalMiles > 0 
-        ? Math.round((Number(driverPrice) || 0) * (originalMiles / totalMiles))
+      const totalMiles = (originalMilesCalc + recoveryMilesCalc) || Number(loadedMiles) || 1;
+      const originalDriverPriceCalc = originalMilesCalc > 0 
+        ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
         : 0;
 
       // Look up actual UUIDs from state values
-      // truck/driver1/driver2 should be UUIDs, but fallback to name/number search in case of data issues
+      // truck/driver1/driver2 should be UUIDs
       const currentDriver1 = drivers?.find(d => d.id === driver1) || drivers?.find(d => d.name === driver1);
       const currentDriver2 = drivers?.find(d => d.id === driver2) || drivers?.find(d => d.name === driver2);
       const currentTruck = trucks?.find(t => t.id === truck) || trucks?.find(t => t.truck_number === truck);
       const currentTrailer = trailers?.find(t => t.id === trailerId) || trailers?.find(t => t.trailer_number === trailer);
 
+      console.log("Found entities:", {
+        currentDriver1: currentDriver1?.name,
+        currentDriver2: currentDriver2?.name,
+        currentTruck: currentTruck?.truck_number,
+        currentTrailer: currentTrailer?.trailer_number,
+      });
+
+      const updateData = {
+        driver1_id: null,
+        driver2_id: null,
+        truck_id: null,
+        is_recovery: true,
+        original_driver1_id: currentDriver1?.id || null,
+        original_driver2_id: currentDriver2?.id || null,
+        original_truck_id: currentTruck?.id || null,
+        original_trailer_id: currentTrailer?.id || null,
+        original_miles: originalMilesCalc,
+        original_driver_price: originalDriverPriceCalc,
+        recovery_miles: recoveryMilesCalc,
+      };
+      
+      console.log("Updating order with:", updateData);
+
       const { error } = await supabase
         .from("orders")
-        .update({
-          driver1_id: null,
-          driver2_id: null,
-          truck_id: null,
-          is_recovery: true,
-          original_driver1_id: currentDriver1?.id || null,
-          original_driver2_id: currentDriver2?.id || null,
-          original_truck_id: currentTruck?.id || null,
-          original_trailer_id: currentTrailer?.id || null,
-          original_miles: originalMiles,
-          original_driver_price: originalDriverPrice,
-          recovery_miles: recoveryMilesCalc,
-        })
+        .update(updateData)
         .eq("id", id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Load marked as left at yard. Original miles: ${originalMiles}, Miles to complete: ${recoveryMilesCalc}`,
+        description: `Load marked as left at yard. Original miles: ${originalMilesCalc}, Miles to complete: ${recoveryMilesCalc}`,
       });
 
       setYardDialogOpen(false);
@@ -3707,21 +3744,71 @@ const EditOrder = () => {
       />
 
       {/* Yard Dialog */}
-      <AlertDialog open={yardDialogOpen} onOpenChange={setYardDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Left Trailer at the Yard</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will clear the driver and truck assignments from this load. The trailer will be marked as available
-              at the yard. Are you sure you want to continue?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLeftAtYard}>Confirm</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={yardDialogOpen} onOpenChange={setYardDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Left Trailer at the Yard</DialogTitle>
+            <DialogDescription>
+              This will clear the driver and truck assignments from this load and create a transfer record.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Original Assignment Info */}
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <h4 className="font-semibold text-sm">Original Assignment</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Driver: </span>
+                  <span>{drivers?.find(d => d.id === driver1)?.name || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Truck: </span>
+                  <span>{trucks?.find(t => t.id === truck)?.truck_number || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Trailer: </span>
+                  <span>{trailer || 'N/A'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Miles Info */}
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <h4 className="font-semibold text-sm">Miles Calculation</h4>
+              <p className="text-xs text-muted-foreground">
+                Miles will be calculated automatically: Pickup → Terminal and Terminal → Delivery
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Loaded Miles: </span>
+                  <span>{loadedMiles || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Original Driver Rate */}
+            <div className="space-y-2">
+              <Label htmlFor="originalDriverRateInput">Original Driver Rate ($)</Label>
+              <Input
+                id="originalDriverRateInput"
+                type="number"
+                placeholder="Will be calculated proportionally"
+                value={originalDriverPrice}
+                onChange={(e) => setOriginalDriverPrice(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to auto-calculate based on miles driven to terminal
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setYardDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleLeftAtYard}>Confirm Left at Yard</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
