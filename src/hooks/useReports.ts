@@ -94,9 +94,26 @@ export const useReports = () => {
       const { error } = await supabase.from("trucks").update({ status }).eq("id", truckId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ truckId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) =>
+            truck.id === truckId ? { ...truck, status } : truck
+          ),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updateTruckMilesAway = useMutation({
@@ -104,9 +121,26 @@ export const useReports = () => {
       const { error } = await supabase.from("trucks").update({ miles_away: milesAway }).eq("id", truckId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ truckId, milesAway }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) =>
+            truck.id === truckId ? { ...truck, milesAway } : truck
+          ),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updateTruckNote = useMutation({
@@ -205,9 +239,7 @@ export const useReports = () => {
         queryClient.setQueryData(["reports"], context.previousData);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
-    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updatePickupDrop = useMutation({
@@ -227,9 +259,39 @@ export const useReports = () => {
       const { error } = await supabase.from("pickup_drops").update(updateData).eq("id", pickupDropId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ pickupDropId, address, datetime }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => ({
+            ...truck,
+            allOrders: truck.allOrders?.map((order: any) => ({
+              ...order,
+              pickupStops: order.pickupStops?.map((stop: any) =>
+                stop.id === pickupDropId
+                  ? { ...stop, ...(address !== undefined && { address }), ...(datetime !== undefined && { datetime }) }
+                  : stop
+              ),
+              deliveryStops: order.deliveryStops?.map((stop: any) =>
+                stop.id === pickupDropId
+                  ? { ...stop, ...(address !== undefined && { address }), ...(datetime !== undefined && { datetime }) }
+                  : stop
+              ),
+            })),
+          })),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updateLostDayNote = useMutation({
@@ -265,9 +327,34 @@ export const useReports = () => {
         throw upsertError;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ driverId, date, note, noteType }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => {
+            if (truck.driverId !== driverId) return truck;
+            // Update lost day notes for this truck/driver
+            const existingNotes = truck.lostDayNotes || [];
+            const noteIndex = existingNotes.findIndex((n: any) => n.date === date);
+            const newNote = { date, note, note_type: noteType, driver_id: driverId };
+            const updatedNotes = noteIndex >= 0
+              ? existingNotes.map((n: any, i: number) => i === noteIndex ? newNote : n)
+              : [...existingNotes, newNote];
+            return { ...truck, lostDayNotes: updatedNotes };
+          }),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updatePickupDropArrival = useMutation({
@@ -286,9 +373,36 @@ export const useReports = () => {
       const { error } = await supabase.from("pickup_drops").update({ arrived_at: timestamp }).eq("id", pickupDropId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ pickupDropId, arrivalTime }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      const timestamp = arrivalTime || new Date().toISOString();
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => ({
+            ...truck,
+            allOrders: truck.allOrders?.map((order: any) => ({
+              ...order,
+              pickupStops: order.pickupStops?.map((stop: any) =>
+                stop.id === pickupDropId ? { ...stop, arrived_at: timestamp } : stop
+              ),
+              deliveryStops: order.deliveryStops?.map((stop: any) =>
+                stop.id === pickupDropId ? { ...stop, arrived_at: timestamp } : stop
+              ),
+            })),
+          })),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const updateCheckInOutTimes = useMutation({
@@ -312,9 +426,39 @@ export const useReports = () => {
       
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    onMutate: async ({ pickupDropId, checkInTime, checkOutTime }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => ({
+            ...truck,
+            allOrders: truck.allOrders?.map((order: any) => ({
+              ...order,
+              pickupStops: order.pickupStops?.map((stop: any) =>
+                stop.id === pickupDropId
+                  ? { ...stop, ...(checkInTime !== undefined && { arrived_at: checkInTime }), ...(checkOutTime !== undefined && { checked_out_at: checkOutTime }) }
+                  : stop
+              ),
+              deliveryStops: order.deliveryStops?.map((stop: any) =>
+                stop.id === pickupDropId
+                  ? { ...stop, ...(checkInTime !== undefined && { arrived_at: checkInTime }), ...(checkOutTime !== undefined && { checked_out_at: checkOutTime }) }
+                  : stop
+              ),
+            })),
+          })),
+        }));
+      });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const markGoingToPickup = useMutation({
@@ -355,9 +499,7 @@ export const useReports = () => {
         queryClient.setQueryData(["reports"], context.previousData);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
-    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   const markGoingToDelivery = useMutation({
@@ -398,9 +540,7 @@ export const useReports = () => {
         queryClient.setQueryData(["reports"], context.previousData);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reports"] });
-    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
 
   // Helper function to determine document status

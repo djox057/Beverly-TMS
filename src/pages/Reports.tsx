@@ -335,11 +335,28 @@ const Reports = () => {
       const { error } = await supabase.from("lost_day_notes").delete().eq("driver_id", driverId).eq("date", date);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["reports"],
+    onMutate: async ({ driverId, date }) => {
+      await queryClient.cancelQueries({ queryKey: ["reports"] });
+      const previousData = queryClient.getQueryData(["reports"]);
+      queryClient.setQueryData(["reports"], (old: any) => {
+        if (!old) return old;
+        return old.map((group: any) => ({
+          ...group,
+          trucks: group.trucks.map((truck: any) => {
+            if (truck.driverId !== driverId) return truck;
+            const updatedNotes = (truck.lostDayNotes || []).filter((n: any) => n.date !== date);
+            return { ...truck, lostDayNotes: updatedNotes };
+          }),
+        }));
       });
+      return { previousData };
     },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["reports"], context.previousData);
+      }
+    },
+    // Real-time subscription handles cache updates - no invalidation needed
   });
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [calendarDates, setCalendarDates] = useState<DispatcherCalendarState>({});
@@ -851,17 +868,8 @@ const Reports = () => {
   };
 
   // Note: localStorage persistence for filters is handled by useReportsFilters hook
-
-  // Force re-render every 30 seconds to update button visibility (optimized from 5s)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Invalidate to trigger button visibility updates
-      queryClient.invalidateQueries({
-        queryKey: ["reports"],
-      });
-    }, 30000); // Changed from 5000ms to 30000ms
-    return () => clearInterval(interval);
-  }, [queryClient]);
+  // Removed: 30-second interval invalidation - it was causing UI blocking after every action
+  // The real-time subscription already handles data updates
   const { toast } = useToast();
   const { open: sidebarOpen } = useSidebar();
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -2734,7 +2742,7 @@ const Reports = () => {
                                                                     toast({
                                                                       title: "Yard action canceled for team",
                                                                     });
-                                                                    queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                                    // Real-time subscription handles cache updates
                                                                   } catch (error) {
                                                                     console.error("Error:", error);
                                                                     toast({
@@ -2876,7 +2884,7 @@ const Reports = () => {
                                                                       toast({
                                                                         title: "Yard action canceled",
                                                                       });
-                                                                      queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                                      // Real-time subscription handles cache updates
                                                                     } catch (error) {
                                                                       console.error("Error:", error);
                                                                       toast({
@@ -3310,8 +3318,7 @@ const Reports = () => {
                                                   title: "Recovery reverted",
                                                   description: `Load ${recoveryOrder.load_number} returned to original driver`,
                                                 });
-
-                                                queryClient.invalidateQueries({ queryKey: ["reports"] });
+                                                // Real-time subscription handles cache updates
                                               } catch (error) {
                                                 toast({
                                                   title: "Failed to revert",
@@ -4074,7 +4081,7 @@ const Reports = () => {
                       title: "Success",
                       description: `Yard action saved for ${driverNames}`,
                     });
-                    queryClient.invalidateQueries({ queryKey: ["reports"] });
+                    // Real-time subscription handles cache updates
                   }
 
                   setYardActionDialog(null);
@@ -4151,7 +4158,7 @@ const Reports = () => {
                     title: "Success",
                     description: `2 week notice set for ${driverNames}`,
                   });
-                  queryClient.invalidateQueries({ queryKey: ["reports"] });
+                  // Real-time subscription handles reports cache updates
                   queryClient.invalidateQueries({ queryKey: ["two-week-notice-drivers"] });
 
                   setTwoWeekNoticeDialog(null);
