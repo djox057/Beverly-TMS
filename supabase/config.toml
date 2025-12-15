@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.send-cash-advance-request]
 verify_jwt = false
+
+[functions.calculate-yard-transfer-miles]
+verify_jwt = false

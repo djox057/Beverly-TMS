@@ -27,6 +27,17 @@ export interface YardLoadOrder {
   isRecovery: boolean;
   truckId: string | null;
   driver1Id: string | null;
+  // Recovery/transfer fields
+  originalDriverId: string | null;
+  originalDriverName: string | null;
+  originalTruckId: string | null;
+  originalTruckNumber: string | null;
+  originalTrailerId: string | null;
+  originalTrailerNumber: string | null;
+  originalMiles: number | null;
+  originalDriverPrice: number | null;
+  recoveryMiles: number | null;
+  recoveryDriverPrice: number | null;
 }
 
 export const useYardLoadsFromOrders = () => {
@@ -53,6 +64,13 @@ export const useYardLoadsFromOrders = () => {
           driver1_id,
           pickup_datetime,
           delivery_datetime,
+          original_driver1_id,
+          original_truck_id,
+          original_trailer_id,
+          original_miles,
+          original_driver_price,
+          recovery_miles,
+          recovery_driver_price,
           trailer:trailers!orders_trailer_id_fkey (
             trailer_number
           ),
@@ -61,6 +79,15 @@ export const useYardLoadsFromOrders = () => {
           ),
           company:companies!orders_company_id_fkey (
             name
+          ),
+          original_driver:drivers!orders_original_driver1_id_fkey (
+            name
+          ),
+          original_truck:trucks!orders_original_truck_id_fkey (
+            truck_number
+          ),
+          original_trailer:trailers!orders_original_trailer_id_fkey (
+            trailer_number
           ),
           pickup_drops (
             id,
@@ -116,6 +143,17 @@ export const useYardLoadsFromOrders = () => {
           isRecovery: order.is_recovery || false,
           truckId: order.truck_id,
           driver1Id: order.driver1_id,
+          // Recovery/transfer fields
+          originalDriverId: order.original_driver1_id || null,
+          originalDriverName: order.original_driver?.name || null,
+          originalTruckId: order.original_truck_id || null,
+          originalTruckNumber: order.original_truck?.truck_number || null,
+          originalTrailerId: order.original_trailer_id || null,
+          originalTrailerNumber: order.original_trailer?.trailer_number || null,
+          originalMiles: order.original_miles || null,
+          originalDriverPrice: order.original_driver_price || null,
+          recoveryMiles: order.recovery_miles || null,
+          recoveryDriverPrice: order.recovery_driver_price || null,
         } as YardLoadOrder;
       });
     },
