@@ -2104,6 +2104,13 @@ const EditOrder = () => {
         ? Math.round((Number(driverPrice) || 0) * (originalMiles / totalMiles))
         : 0;
 
+      // Look up actual UUIDs from state values
+      // truck/driver1/driver2 should be UUIDs, but fallback to name/number search in case of data issues
+      const currentDriver1 = drivers?.find(d => d.id === driver1) || drivers?.find(d => d.name === driver1);
+      const currentDriver2 = drivers?.find(d => d.id === driver2) || drivers?.find(d => d.name === driver2);
+      const currentTruck = trucks?.find(t => t.id === truck) || trucks?.find(t => t.truck_number === truck);
+      const currentTrailer = trailers?.find(t => t.id === trailerId) || trailers?.find(t => t.trailer_number === trailer);
+
       const { error } = await supabase
         .from("orders")
         .update({
@@ -2111,10 +2118,10 @@ const EditOrder = () => {
           driver2_id: null,
           truck_id: null,
           is_recovery: true,
-          original_driver1_id: driver1 || null,
-          original_driver2_id: driver2 || null,
-          original_truck_id: truck || null,
-          original_trailer_id: trailer || null,
+          original_driver1_id: currentDriver1?.id || null,
+          original_driver2_id: currentDriver2?.id || null,
+          original_truck_id: currentTruck?.id || null,
+          original_trailer_id: currentTrailer?.id || null,
           original_miles: originalMiles,
           original_driver_price: originalDriverPrice,
           recovery_miles: recoveryMilesCalc,
