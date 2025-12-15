@@ -17,6 +17,15 @@ interface EfsRequestBody {
   loadNumber: string;
   companyName: string;
   requesterEmail?: string;
+  requesterName?: string;
+}
+
+// Extract last word from name (e.g., "David Mijailovic-Dom" -> "Dom")
+function getLastNamePart(fullName: string | undefined): string {
+  if (!fullName) return "App";
+  // Split by space first, then by hyphen to get the very last part
+  const parts = fullName.trim().split(/[\s-]+/);
+  return parts[parts.length - 1] || "App";
 }
 
 // Map company name to EFS sender email
@@ -38,7 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail }: EfsRequestBody = await req.json();
+    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail, requesterName }: EfsRequestBody = await req.json();
 
     console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail });
 
@@ -62,12 +71,13 @@ Purpose Lumper fee`;
     console.log("Sending EFS email from:", fromEmail);
 
     // Send email via Resend with BCC to requester and Reply-To for both dispatcher and company EFS
+    const lastNamePart = getLastNamePart(requesterName);
     const emailResponse = await resend.emails.send({
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
       replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
-      subject: "EFS request by App",
+      subject: `EFS request by ${lastNamePart}`,
       text: emailBody,
     });
 

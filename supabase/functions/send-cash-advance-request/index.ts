@@ -14,6 +14,15 @@ interface CashAdvanceRequest {
   companyName: string;
   amount: number;
   requesterEmail?: string;
+  requesterName?: string;
+}
+
+// Extract last word from name (e.g., "David Mijailovic-Dom" -> "Dom")
+function getLastNamePart(fullName: string | undefined): string {
+  if (!fullName) return "App";
+  // Split by space first, then by hyphen to get the very last part
+  const parts = fullName.trim().split(/[\s-]+/);
+  return parts[parts.length - 1] || "App";
 }
 
 // Get Chicago timezone offset in milliseconds
@@ -65,7 +74,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { driverId, driverName, truckNumber, companyName, amount, requesterEmail }: CashAdvanceRequest = await req.json();
+    const { driverId, driverName, truckNumber, companyName, amount, requesterEmail, requesterName }: CashAdvanceRequest = await req.json();
 
     // Validate amount
     if (amount < 0 || amount > 150) {
@@ -202,12 +211,13 @@ Purpose: Cash advance`;
 
     // Send email using Resend REST API with BCC to requester and Reply-To for both dispatcher and company EFS
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const lastNamePart = getLastNamePart(requesterName);
     const emailPayload = {
       from: `EFS Request <${fromEmail}>`,
       to: ["efsrequest@gmail.com"],
       ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
-      replyTo: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
-      subject: "EFS request by App",
+      reply_to: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
+      subject: `EFS request by ${lastNamePart}`,
       text: emailBody,
     };
 

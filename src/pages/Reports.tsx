@@ -841,6 +841,7 @@ const Reports = () => {
           loadNumber: zoomedLoad.brokerLoadNumber || zoomedLoad.loadNumber,
           companyName: zoomedLoad.companyName,
           requesterEmail: profile?.email,
+          requesterName: profile?.full_name,
         },
       });
 
@@ -5228,6 +5229,7 @@ const Reports = () => {
                           companyName: cashAdvanceDialog.companyName,
                           amount: cashAdvanceAmount,
                           requesterEmail: profile?.email,
+                          requesterName: profile?.full_name,
                         },
                       });
 
