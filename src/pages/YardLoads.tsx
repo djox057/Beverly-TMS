@@ -449,28 +449,27 @@ export default function YardLoads() {
                 <TableRow>
                   <TableHead className="w-20">Trailer #</TableHead>
                   <TableHead className="w-20">Load #</TableHead>
-                  <TableHead className="w-32">Delivery Date</TableHead>
-                  <TableHead className="w-40">Delivery City</TableHead>
-                  <TableHead className="w-32">Original Driver</TableHead>
-                  <TableHead className="w-24">Orig Miles</TableHead>
-                  <TableHead className="w-24">Miles to Complete</TableHead>
-                  <TableHead className="w-24">Driver Pay</TableHead>
-                  <TableHead className="w-28">Freight Amount</TableHead>
+                  <TableHead className="w-28">Broker Load #</TableHead>
+                  <TableHead className="w-28">Delivery Date</TableHead>
+                  <TableHead className="w-36">Delivery City</TableHead>
+                  <TableHead className="w-24">Miles</TableHead>
                   <TableHead className="w-36">Broker Name</TableHead>
+                  <TableHead className="w-28">Freight Amount</TableHead>
                   <TableHead className="w-28">Company</TableHead>
+                  <TableHead className="w-28">Booked By</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       Loading...
                     </TableCell>
                   </TableRow>
                 ) : paginatedOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       No loads found
                     </TableCell>
                   </TableRow>
@@ -483,48 +482,24 @@ export default function YardLoads() {
                     
                     return (
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
-                        <TableCell className="font-medium">{order.trailerNumber}</TableCell>
+                        <TableCell className="font-medium">{order.trailerNumber || '-'}</TableCell>
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4">{formatDateNoTimezone(order.deliveryDate)}</div></TableCell>
-                        <TableCell className="p-0"><div className="h-full p-4 line-clamp-2">
+                        <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
+                        <TableCell>{formatDateNoTimezone(order.deliveryDate)}</TableCell>
+                        <TableCell className="line-clamp-2">
                           {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
-                        </div></TableCell>
-                        <TableCell>
-                          {order.isRecovery && order.originalDriverName ? (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-xs">Orig</Badge>
-                              <span className="text-sm line-clamp-1">{order.originalDriverName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
                         </TableCell>
                         <TableCell>
-                          {order.isRecovery && order.originalMiles ? (
-                            <span>{order.originalMiles.toLocaleString()}</span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
+                          {order.recoveryMiles?.toLocaleString() || order.mileage?.toLocaleString() || '0'}
                         </TableCell>
-                        <TableCell>
-                          {order.isRecovery && order.recoveryMiles ? (
-                            <span className="font-semibold">{order.recoveryMiles.toLocaleString()}</span>
-                          ) : (
-                            <span className="text-muted-foreground">{order.mileage?.toLocaleString() || '0'}</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-semibold text-green-600 dark:text-green-400">
-                            {formatCurrency(order.driverPrice || 0)}
-                          </div>
-                        </TableCell>
+                        <TableCell className="line-clamp-2">{order.brokerName || '-'}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(order.freightAmount || 0)}
                           </div>
                         </TableCell>
-                        <TableCell><div className="line-clamp-2">{order.brokerName}</div></TableCell>
-                        <TableCell>{order.companyName}</TableCell>
+                        <TableCell>{order.companyName || '-'}</TableCell>
+                        <TableCell>{order.bookedBy || '-'}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             {order.isRecovery && (
