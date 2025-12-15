@@ -1587,8 +1587,10 @@ const EditOrder = () => {
   };
 
   const handleRevertTransfer = async () => {
+    if (!id) return;
+
     try {
-      // Get the recovery history for this order
+      // Get the recovery history for this order (normal transfer flow)
       const { data: recoveryHistory, error: historyError } = await supabase
         .from("recovery_history")
         .select("*")
@@ -1597,12 +1599,64 @@ const EditOrder = () => {
         .maybeSingle();
 
       if (historyError) throw historyError;
+
+      // Fallback: Yard-transfer (Left at the Yard) loads do NOT create a recovery_history row.
       if (!recoveryHistory) {
+        const { data: orderRow, error: orderRowError } = await supabase
+          .from("orders")
+          .select(
+            "is_recovery, truck_id, driver1_id, original_driver1_id, original_driver2_id, original_truck_id, original_trailer_id",
+          )
+          .eq("id", id)
+          .maybeSingle();
+
+        if (orderRowError) throw orderRowError;
+
+        const isLeftAtYardTransfer =
+          !!orderRow?.is_recovery &&
+          !orderRow?.truck_id &&
+          !orderRow?.driver1_id &&
+          (orderRow?.original_driver1_id || orderRow?.original_truck_id || orderRow?.original_trailer_id);
+
+        if (!isLeftAtYardTransfer) {
+          toast({
+            title: "No Transfer to Revert",
+            description: "No active transfer history found for this load",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { error: yardRevertError } = await supabase
+          .from("orders")
+          .update({
+            is_recovery: false,
+            driver1_id: orderRow?.original_driver1_id || null,
+            driver2_id: orderRow?.original_driver2_id || null,
+            truck_id: orderRow?.original_truck_id || null,
+            trailer_id: orderRow?.original_trailer_id || null,
+
+            // Clear yard-transfer fields
+            original_driver1_id: null,
+            original_driver2_id: null,
+            original_truck_id: null,
+            original_trailer_id: null,
+            original_miles: null,
+            original_driver_price: null,
+            recovery_miles: null,
+            recovery_driver_price: null,
+            recovery_date: null,
+          })
+          .eq("id", id);
+
+        if (yardRevertError) throw yardRevertError;
+
         toast({
-          title: "No Transfer to Revert",
-          description: "No active transfer history found for this load",
-          variant: "destructive",
+          title: "Success",
+          description: "Yard transfer reverted — original driver and truck restored",
         });
+
+        await loadOrderData();
         return;
       }
 
@@ -2130,14 +2184,31 @@ const EditOrder = () => {
         ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
         : 0;
 
-      // Look up actual UUIDs from state values
-      // truck/driver1/driver2 should be UUIDs
-      const currentDriver1 = drivers?.find(d => d.id === driver1) || drivers?.find(d => d.name === driver1);
-      const currentDriver2 = drivers?.find(d => d.id === driver2) || drivers?.find(d => d.name === driver2);
-      const currentTruck = trucks?.find(t => t.id === truck) || trucks?.find(t => t.truck_number === truck);
-      const currentTrailer = trailers?.find(t => t.id === trailerId) || trailers?.find(t => t.trailer_number === trailer);
+      // Get current persisted assignment IDs (most reliable)
+      const { data: currentOrder, error: currentOrderError } = await supabase
+        .from("orders")
+        .select("driver1_id, driver2_id, truck_id, trailer_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (currentOrderError) throw currentOrderError;
+
+      // Fallback to state lookups (in case the user changed selections but didn't save)
+      const currentDriver1 = drivers?.find((d) => d.id === driver1) || drivers?.find((d) => d.name === driver1);
+      const currentDriver2 = drivers?.find((d) => d.id === driver2) || drivers?.find((d) => d.name === driver2);
+      const currentTruck = trucks?.find((t) => t.id === truck) || trucks?.find((t) => t.truck_number === truck);
+      const currentTrailer = trailers?.find((t) => t.id === trailerId) || trailers?.find((t) => t.trailer_number === trailer);
+
+      const originalDriver1Id = currentOrder?.driver1_id || currentDriver1?.id || null;
+      const originalDriver2Id = currentOrder?.driver2_id || currentDriver2?.id || null;
+      const originalTruckId = currentOrder?.truck_id || currentTruck?.id || null;
+      const originalTrailerId = currentOrder?.trailer_id || currentTrailer?.id || null;
 
       console.log("Found entities:", {
+        originalDriver1Id,
+        originalDriver2Id,
+        originalTruckId,
+        originalTrailerId,
         currentDriver1: currentDriver1?.name,
         currentDriver2: currentDriver2?.name,
         currentTruck: currentTruck?.truck_number,
@@ -2149,10 +2220,10 @@ const EditOrder = () => {
         driver2_id: null,
         truck_id: null,
         is_recovery: true,
-        original_driver1_id: currentDriver1?.id || null,
-        original_driver2_id: currentDriver2?.id || null,
-        original_truck_id: currentTruck?.id || null,
-        original_trailer_id: currentTrailer?.id || null,
+        original_driver1_id: originalDriver1Id,
+        original_driver2_id: originalDriver2Id,
+        original_truck_id: originalTruckId,
+        original_trailer_id: originalTrailerId,
         original_miles: originalMilesCalc,
         original_driver_price: originalDriverPriceCalc,
         recovery_miles: recoveryMilesCalc,
