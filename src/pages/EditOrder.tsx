@@ -206,6 +206,9 @@ const EditOrder = () => {
   const [isLocked, setIsLocked] = useState(false);
   const [isGeneratingConfirmation, setIsGeneratingConfirmation] = useState(false);
   const [yardDialogOpen, setYardDialogOpen] = useState(false);
+  const [yardOriginalMiles, setYardOriginalMiles] = useState("");
+  const [yardRecoveryMiles, setYardRecoveryMiles] = useState("");
+  const [yardMilesLoading, setYardMilesLoading] = useState(false);
 
   // Partial load state
   const [isPartial, setIsPartial] = useState(false);
@@ -2143,46 +2146,17 @@ const EditOrder = () => {
         pickupsDrops: pickupsDrops.length 
       });
 
-      let originalMilesCalc = 0;
-      let recoveryMilesCalc = 0;
+      // Use user-entered miles or fall back to 0
+      const originalMilesCalc = yardOriginalMiles ? Number(yardOriginalMiles) : 0;
+      const recoveryMilesCalc = yardRecoveryMiles ? Number(yardRecoveryMiles) : 0;
 
-      // Try to calculate miles if we have coordinates
-      if (firstPickup?.latitude && firstPickup?.longitude && lastDelivery?.latitude && lastDelivery?.longitude) {
-        try {
-          console.log("Calling edge function with coordinates:", {
-            pickupLat: firstPickup.latitude,
-            pickupLon: firstPickup.longitude,
-            deliveryLat: lastDelivery.latitude,
-            deliveryLon: lastDelivery.longitude,
-          });
-          
-          const { data: milesData, error: milesError } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
-            body: {
-              pickupLat: firstPickup.latitude,
-              pickupLon: firstPickup.longitude,
-              deliveryLat: lastDelivery.latitude,
-              deliveryLon: lastDelivery.longitude,
-            }
-          });
-          
-          console.log("Miles calculation response:", { milesData, milesError });
-          
-          if (milesData) {
-            originalMilesCalc = milesData.originalMiles || 0;
-            recoveryMilesCalc = milesData.recoveryMiles || 0;
-          }
-        } catch (mileError) {
-          console.error("Error calculating miles:", mileError);
-        }
-      } else {
-        console.log("Missing coordinates for mile calculation:", { firstPickup, lastDelivery });
-      }
-
-      // Calculate original driver price proportionally
+      // Calculate original driver price proportionally if not manually entered
       const totalMiles = (originalMilesCalc + recoveryMilesCalc) || Number(loadedMiles) || 1;
-      const originalDriverPriceCalc = originalMilesCalc > 0 
-        ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
-        : 0;
+      const originalDriverPriceCalc = originalDriverPrice 
+        ? Number(originalDriverPrice)
+        : (originalMilesCalc > 0 
+            ? Math.round((Number(driverPrice) || 0) * (originalMilesCalc / totalMiles))
+            : 0);
 
       // Get current persisted assignment IDs (most reliable)
       const { data: currentOrder, error: currentOrderError } = await supabase
@@ -3733,7 +3707,40 @@ const EditOrder = () => {
             <div className="flex justify-between items-center">
               <div>
                 {(truck || driver1) && !isLocked && (
-                  <Button type="button" variant="outline" onClick={() => setYardDialogOpen(true)}>
+                  <Button type="button" variant="outline" onClick={async () => {
+                    setYardDialogOpen(true);
+                    setYardOriginalMiles("");
+                    setYardRecoveryMiles("");
+                    setOriginalDriverPrice("");
+                    
+                    // Calculate miles automatically
+                    const pickupsList = pickupsDrops.filter(pd => pd.type === 'pickup');
+                    const deliveriesList = pickupsDrops.filter(pd => pd.type === 'delivery');
+                    const firstPickup = pickupsList[0];
+                    const lastDelivery = deliveriesList[deliveriesList.length - 1];
+                    
+                    if (firstPickup?.latitude && firstPickup?.longitude && lastDelivery?.latitude && lastDelivery?.longitude) {
+                      setYardMilesLoading(true);
+                      try {
+                        const { data: milesData } = await supabase.functions.invoke('calculate-yard-transfer-miles', {
+                          body: {
+                            pickupLat: firstPickup.latitude,
+                            pickupLon: firstPickup.longitude,
+                            deliveryLat: lastDelivery.latitude,
+                            deliveryLon: lastDelivery.longitude,
+                          }
+                        });
+                        if (milesData) {
+                          setYardOriginalMiles(milesData.originalMiles?.toString() || "");
+                          setYardRecoveryMiles(milesData.recoveryMiles?.toString() || "");
+                        }
+                      } catch (err) {
+                        console.error("Error calculating miles:", err);
+                      } finally {
+                        setYardMilesLoading(false);
+                      }
+                    }
+                  }}>
                     <Warehouse className="h-4 w-4 mr-2" />
                     Left Trailer at the Yard
                   </Button>
@@ -3844,17 +3851,29 @@ const EditOrder = () => {
               </div>
             </div>
 
-            {/* Miles Info */}
-            <div className="p-4 bg-muted rounded-lg space-y-2">
-              <h4 className="font-semibold text-sm">Miles Calculation</h4>
-              <p className="text-xs text-muted-foreground">
-                Miles will be calculated automatically: Pickup → Terminal and Terminal → Delivery
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Loaded Miles: </span>
-                  <span>{loadedMiles || 0}</span>
-                </div>
+            {/* Miles Inputs */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="yardOriginalMilesInput">Miles to Terminal (Original)</Label>
+                <Input
+                  id="yardOriginalMilesInput"
+                  type="number"
+                  placeholder={yardMilesLoading ? "Calculating..." : "Enter miles"}
+                  value={yardOriginalMiles}
+                  onChange={(e) => setYardOriginalMiles(e.target.value)}
+                  disabled={yardMilesLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="yardRecoveryMilesInput">Miles to Delivery (Recovery)</Label>
+                <Input
+                  id="yardRecoveryMilesInput"
+                  type="number"
+                  placeholder={yardMilesLoading ? "Calculating..." : "Enter miles"}
+                  value={yardRecoveryMiles}
+                  onChange={(e) => setYardRecoveryMiles(e.target.value)}
+                  disabled={yardMilesLoading}
+                />
               </div>
             </div>
 
