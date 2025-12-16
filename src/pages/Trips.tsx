@@ -211,6 +211,14 @@ const Trips = () => {
         // Add legacy Rec (seq 1) if not in order_transfers
         if (legacyIsRecoveryLoad && !existingSeq.has(1) && !addedSequences.has(1)) {
           addedSequences.add(1);
+          // Get recovery driver info from recovery_history if available
+          const recoveryHistory = Array.isArray(order.recoveryHistory) && order.recoveryHistory.length > 0 
+            ? order.recoveryHistory[0] 
+            : null;
+          const recDriverName = recoveryHistory?.recoveryDriver1?.name || recoveryHistory?.recoveryDriver1Name;
+          const recTruckNumber = recoveryHistory?.recoveryTruck?.truck_number || recoveryHistory?.recoveryTruckNumber;
+          const recTrailerNumber = recoveryHistory?.recoveryTrailer?.trailer_number || recoveryHistory?.recoveryTrailerNumber;
+          
           segments.push({
             ...order,
             virtualId: `${order.id}_legacy_transfer_1`,
@@ -218,10 +226,15 @@ const Trips = () => {
             transferBadge: "Rec",
             isOriginalDriverPortion: false,
             isRecoveryDriverPortion: true,
+            // Use recovery_history data for driver/truck/trailer, NOT current order values
+            driverName: recDriverName || "Unknown",
+            driver1Name: recDriverName,
+            truckNumber: recTruckNumber || order.truckNumber,
+            trailerNumber: recTrailerNumber || order.trailerNumber,
             totalDriverPay: order.recoveryDriverPrice || order.totalDriverPay,
             driverPrice: order.recoveryDriverPrice || order.driverPrice,
             mileage: order.recoveryMiles || order.mileage,
-            transferNote: `Driver: ${order.driverName || "N/A"}, Truck: ${order.truckNumber || "N/A"}, Trailer: ${order.trailerNumber || "N/A"}`,
+            transferNote: `Original: Driver: ${order.originalDriver1Name || "N/A"}, Truck: ${order.originalTruckNumber || "N/A"}, Trailer: ${order.originalTrailerNumber || "N/A"}`,
           });
         }
 
