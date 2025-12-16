@@ -1017,6 +1017,18 @@ const Drivers = () => {
         .delete()
         .eq('driver_id', driverId);
 
+      // Delete related truck_notes
+      await supabase
+        .from('truck_notes')
+        .delete()
+        .eq('driver_id', driverId);
+
+      // Delete related truck_note_history
+      await supabase
+        .from('truck_note_history')
+        .delete()
+        .eq('driver_id', driverId);
+
       // Delete from drivers
       const { error } = await supabase.from("drivers").delete().eq("id", driverId);
       if (error) throw error;
