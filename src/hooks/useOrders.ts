@@ -241,6 +241,29 @@ export const useOrders = (options?: UseOrdersOptions) => {
               trailer_number
             )
           ),
+          recovery_history (
+            id,
+            recovery_driver1_id,
+            recovery_driver2_id,
+            recovery_truck_id,
+            recovery_trailer_id,
+            recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
+              id,
+              name
+            ),
+            recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
+              id,
+              name
+            ),
+            recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
+              id,
+              truck_number
+            ),
+            recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
+              id,
+              trailer_number
+            )
+          ),
           broker:brokers (
             id,
             name,
@@ -414,6 +437,29 @@ export const useOrders = (options?: UseOrdersOptions) => {
                       truck_number
                     ),
                     trailer:trailers!order_transfers_trailer_id_fkey (
+                      id,
+                      trailer_number
+                    )
+                  ),
+                  recovery_history (
+                    id,
+                    recovery_driver1_id,
+                    recovery_driver2_id,
+                    recovery_truck_id,
+                    recovery_trailer_id,
+                    recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
+                      id,
+                      name
+                    ),
+                    recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
+                      id,
+                      name
+                    ),
+                    recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
+                      id,
+                      truck_number
+                    ),
+                    recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
                       id,
                       trailer_number
                     )
@@ -734,6 +780,29 @@ async function fetchSingleOrder(orderId: string) {
             truck_number
           ),
           trailer:trailers!order_transfers_trailer_id_fkey (
+            id,
+            trailer_number
+          )
+        ),
+        recovery_history (
+          id,
+          recovery_driver1_id,
+          recovery_driver2_id,
+          recovery_truck_id,
+          recovery_trailer_id,
+          recovery_driver1:drivers!recovery_history_recovery_driver1_id_fkey (
+            id,
+            name
+          ),
+          recovery_driver2:drivers!recovery_history_recovery_driver2_id_fkey (
+            id,
+            name
+          ),
+          recovery_truck:trucks!recovery_history_recovery_truck_id_fkey (
+            id,
+            truck_number
+          ),
+          recovery_trailer:trailers!recovery_history_recovery_trailer_id_fkey (
             id,
             trailer_number
           )
@@ -1105,6 +1174,23 @@ function transformOrders(allOrders: any[]) {
       order_files: orderFiles,
       order_transfers: Array.isArray(order.order_transfers) 
         ? order.order_transfers.sort((a: any, b: any) => a.sequence_number - b.sequence_number)
+        : [],
+      recoveryHistory: Array.isArray(order.recovery_history) 
+        ? order.recovery_history.map((rh: any) => ({
+            id: rh.id,
+            recoveryDriver1Id: rh.recovery_driver1_id,
+            recoveryDriver2Id: rh.recovery_driver2_id,
+            recoveryTruckId: rh.recovery_truck_id,
+            recoveryTrailerId: rh.recovery_trailer_id,
+            recoveryDriver1Name: rh.recovery_driver1?.name,
+            recoveryDriver2Name: rh.recovery_driver2?.name,
+            recoveryTruckNumber: rh.recovery_truck?.truck_number,
+            recoveryTrailerNumber: rh.recovery_trailer?.trailer_number,
+            recoveryDriver1: rh.recovery_driver1,
+            recoveryDriver2: rh.recovery_driver2,
+            recoveryTruck: rh.recovery_truck,
+            recoveryTrailer: rh.recovery_trailer,
+          }))
         : [],
       rcFiles,
       podFiles,
