@@ -2005,6 +2005,70 @@ export type Database = {
           },
         ]
       }
+      repairs: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          driver_id: string
+          id: string
+          is_paid: boolean
+          reason: string
+          repair_type: string
+          trailer_id: string | null
+          truck_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          driver_id: string
+          id?: string
+          is_paid?: boolean
+          reason: string
+          repair_type: string
+          trailer_id?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string
+          id?: string
+          is_paid?: boolean
+          reason?: string
+          repair_type?: string
+          trailer_id?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repairs_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repairs_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repairs_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_cache: {
         Row: {
           created_at: string | null
