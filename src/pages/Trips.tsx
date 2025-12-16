@@ -169,17 +169,22 @@ const Trips = () => {
           ? [...order.order_transfers].sort((a: any, b: any) => a.sequence_number - b.sequence_number)
           : [];
 
-        // Some existing multi-transfer loads may only have seq >= 2 in order_transfers.
-        // In that case, fall back to legacy original/recovery fields for missing seq 0/1.
+        // Build set of sequence numbers already in order_transfers
+        const existingSeq = new Set<number>(transfers.map((t: any) => Number(t.sequence_number)));
+        
+        // Track which sequences we've added to prevent duplicates
+        const addedSequences = new Set<number>();
+        const segments: any[] = [];
+
+        // Legacy check: some multi-transfer loads may only have seq >= 2 in order_transfers
         const legacyIsRecoveryLoad = !!order.originalDriver1Id && (
           (order.originalDriverPrice && order.originalDriverPrice > 0) ||
           (order.originalMiles && order.originalMiles > 0)
         );
 
-        const existingSeq = new Set<number>(transfers.map((t: any) => Number(t.sequence_number)));
-        const segments: any[] = [];
-
-        if (legacyIsRecoveryLoad && !existingSeq.has(0)) {
+        // Add legacy Original (seq 0) if not in order_transfers
+        if (legacyIsRecoveryLoad && !existingSeq.has(0) && !addedSequences.has(0)) {
+          addedSequences.add(0);
           segments.push({
             ...order,
             virtualId: `${order.id}_legacy_transfer_0`,
@@ -203,7 +208,9 @@ const Trips = () => {
           });
         }
 
-        if (legacyIsRecoveryLoad && !existingSeq.has(1)) {
+        // Add legacy Rec (seq 1) if not in order_transfers
+        if (legacyIsRecoveryLoad && !existingSeq.has(1) && !addedSequences.has(1)) {
+          addedSequences.add(1);
           segments.push({
             ...order,
             virtualId: `${order.id}_legacy_transfer_1`,
@@ -218,18 +225,22 @@ const Trips = () => {
           });
         }
 
+        // Add all transfers from order_transfers (skip duplicates)
         transfers.forEach((transfer: any) => {
-          const isOriginal = transfer.sequence_number === 0;
-          const badge =
-            isOriginal ? "Orig" : transfer.sequence_number === 1 ? "Rec" : `Transfer ${transfer.sequence_number}`;
+          const seq = Number(transfer.sequence_number);
+          if (addedSequences.has(seq)) return; // Skip if already added
+          addedSequences.add(seq);
+
+          const isOriginal = seq === 0;
+          const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
 
           segments.push({
             ...order,
-            virtualId: `${order.id}_transfer_${transfer.sequence_number}`,
-            transferSequence: transfer.sequence_number,
+            virtualId: `${order.id}_transfer_${seq}`,
+            transferSequence: seq,
             transferBadge: badge,
             isOriginalDriverPortion: isOriginal,
-            isRecoveryDriverPortion: transfer.sequence_number === 1,
+            isRecoveryDriverPortion: seq === 1,
             driver1Id: transfer.driver1_id,
             driver2Id: transfer.driver2_id,
             driverName: transfer.driver1?.name || transfer.manual_driver_name || order.driverName,
