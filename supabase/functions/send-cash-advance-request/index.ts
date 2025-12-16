@@ -310,17 +310,20 @@ Purpose: Cash advance`;
     console.log("Resend response:", { ok: emailResponse.ok, status: emailResponse.status, result: emailResult });
 
     if (!emailResponse.ok) {
-      console.error("Resend API error:", { status: emailResponse.status, result: emailResult });
+      console.error("Resend API error:", { status: emailResponse.status, result: emailResult, fromEmail });
 
       // Rollback record so user can retry (do not count failed sends toward limits)
       if (insertedAdvance?.id) {
         await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
       }
 
+      // Extract the actual error message from Resend
+      const resendErrorMessage = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Email failed to send (Resend ${emailResponse.status}).`,
+          error: `Email failed: ${resendErrorMessage}. Sender domain "${fromEmail}" may need to be verified in Resend.`,
         }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
