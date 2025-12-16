@@ -989,45 +989,8 @@ const Drivers = () => {
 
       if (historyError) throw historyError;
 
-      // Nullify original_driver1_id and original_driver2_id references in orders
-      await supabase
-        .from('orders')
-        .update({ original_driver1_id: null })
-        .eq('original_driver1_id', driverId);
-
-      await supabase
-        .from('orders')
-        .update({ original_driver2_id: null })
-        .eq('original_driver2_id', driverId);
-
-      // Unassign from trucks
-      await supabase
-        .from('trucks')
-        .update({ driver1_id: null })
-        .eq('driver1_id', driverId);
-
-      await supabase
-        .from('trucks')
-        .update({ driver2_id: null })
-        .eq('driver2_id', driverId);
-
-      // Delete related lost_day_notes
-      await supabase
-        .from('lost_day_notes')
-        .delete()
-        .eq('driver_id', driverId);
-
-      // Delete related truck_notes
-      await supabase
-        .from('truck_notes')
-        .delete()
-        .eq('driver_id', driverId);
-
-      // Delete related truck_note_history
-      await supabase
-        .from('truck_note_history')
-        .delete()
-        .eq('driver_id', driverId);
+      // Note: Foreign key constraints now handle cascading deletes (truck_notes, truck_note_history, lost_day_notes)
+      // and SET NULL for nullable references (trucks.driver1_id, trucks.driver2_id, orders.*, recovery_history.*)
 
       // Delete from drivers
       const { error } = await supabase.from("drivers").delete().eq("id", driverId);
