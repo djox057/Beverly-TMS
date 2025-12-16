@@ -128,45 +128,114 @@ export function RepairDialog({
     }
   }, [open, repair]);
 
-  // Filter trucks based on input
+  // Filter trucks based on input (hide dropdown when exact match is unique)
   useEffect(() => {
-    if (truckNumber.length > 0) {
-      setFilteredTrucks(
-        trucks.filter((t) =>
-          t.truck_number.toLowerCase().includes(truckNumber.toLowerCase())
-        ).slice(0, 10)
-      );
-    } else {
+    if (!truckNumber) {
       setFilteredTrucks([]);
+      return;
     }
-  }, [truckNumber, trucks]);
 
-  // Filter trailers based on input
-  useEffect(() => {
-    if (trailerNumber.length > 0) {
-      setFilteredTrailers(
-        trailers.filter((t) =>
-          t.trailer_number.toLowerCase().includes(trailerNumber.toLowerCase())
-        ).slice(0, 10)
-      );
-    } else {
-      setFilteredTrailers([]);
+    const selectedTruck = selectedTruckId
+      ? trucks.find((t) => t.id === selectedTruckId)
+      : null;
+
+    // If an item is already selected, never show the dropdown for the exact value
+    if (
+      selectedTruck &&
+      selectedTruck.truck_number.toLowerCase() === truckNumber.toLowerCase()
+    ) {
+      setFilteredTrucks([]);
+      return;
     }
-  }, [trailerNumber, trailers]);
+
+    const exact = trucks.filter(
+      (t) => t.truck_number.toLowerCase() === truckNumber.toLowerCase()
+    );
+
+    if (exact.length === 1) {
+      if (selectedTruckId !== exact[0].id) {
+        handleTruckSelect(exact[0]);
+      }
+      setFilteredTrucks([]);
+      return;
+    }
+
+    setFilteredTrucks(
+      trucks
+        .filter((t) =>
+          t.truck_number.toLowerCase().includes(truckNumber.toLowerCase())
+        )
+        .slice(0, 10)
+    );
+  }, [truckNumber, trucks, selectedTruckId]);
+
+  // Filter trailers based on input (hide dropdown when exact match is unique)
+  useEffect(() => {
+    if (!trailerNumber) {
+      setFilteredTrailers([]);
+      return;
+    }
+
+    const selectedTrailer = selectedTrailerId
+      ? trailers.find((t) => t.id === selectedTrailerId)
+      : null;
+
+    // If an item is already selected, never show the dropdown for the exact value
+    if (
+      selectedTrailer &&
+      selectedTrailer.trailer_number.toLowerCase() === trailerNumber.toLowerCase()
+    ) {
+      setFilteredTrailers([]);
+      return;
+    }
+
+    const exact = trailers.filter(
+      (t) => t.trailer_number.toLowerCase() === trailerNumber.toLowerCase()
+    );
+
+    if (exact.length === 1) {
+      if (selectedTrailerId !== exact[0].id) {
+        handleTrailerSelect(exact[0]);
+      }
+      setFilteredTrailers([]);
+      return;
+    }
+
+    setFilteredTrailers(
+      trailers
+        .filter((t) =>
+          t.trailer_number.toLowerCase().includes(trailerNumber.toLowerCase())
+        )
+        .slice(0, 10)
+    );
+  }, [trailerNumber, trailers, selectedTrailerId]);
 
   const handleTruckSelect = (truck: TruckOption) => {
+    // Driver is required, so only allow selecting trucks with an assigned driver
+    if (!truck.driver1_id || !truck.driver_name) {
+      toast.error("This truck has no driver assigned");
+      return;
+    }
+
     setTruckNumber(truck.truck_number);
     setSelectedTruckId(truck.id);
     setFilteredTrucks([]);
 
     // Auto-fill driver
-    if (truck.driver1_id && truck.driver_name) {
-      setSelectedDriverId(truck.driver1_id);
-      setDriverName(truck.driver_name);
-    }
+    setSelectedDriverId(truck.driver1_id);
+    setDriverName(truck.driver_name);
 
-    // Ask to confirm trailer if truck has one
+    // Ask to confirm trailer if truck has one (unless it's already selected)
     if (truck.trailer_id && truck.trailer_number) {
+      if (selectedTrailerId === truck.trailer_id) {
+        setSelectedTrailerId(truck.trailer_id);
+        setTrailerNumber(truck.trailer_number);
+        setShowTrailerConfirm(false);
+        setSuggestedTrailerId(null);
+        setSuggestedTrailerNumber("");
+        return;
+      }
+
       setSuggestedTrailerId(truck.trailer_id);
       setSuggestedTrailerNumber(truck.trailer_number);
       setShowTrailerConfirm(true);
@@ -188,6 +257,18 @@ export function RepairDialog({
     setTrailerNumber(trailer.trailer_number);
     setSelectedTrailerId(trailer.id);
     setFilteredTrailers([]);
+
+    // Auto-fill truck + driver if this trailer is currently assigned to a truck
+    const connectedTruck = trucks.find(
+      (t) => t.trailer_id === trailer.id && t.driver1_id && t.driver_name
+    );
+
+    if (connectedTruck) {
+      setSelectedTruckId(connectedTruck.id);
+      setTruckNumber(connectedTruck.truck_number);
+      setSelectedDriverId(connectedTruck.driver1_id!);
+      setDriverName(connectedTruck.driver_name!);
+    }
   };
 
   const handleSubmit = () => {
@@ -258,7 +339,7 @@ export function RepairDialog({
                 placeholder="Search truck number..."
               />
               {filteredTrucks.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
                   {filteredTrucks.map((truck) => (
                     <div
                       key={truck.id}
@@ -319,7 +400,7 @@ export function RepairDialog({
                 placeholder="Search trailer number..."
               />
               {filteredTrailers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-auto">
                   {filteredTrailers.map((trailer) => (
                     <div
                       key={trailer.id}
