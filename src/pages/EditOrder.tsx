@@ -1731,6 +1731,13 @@ const EditOrder = () => {
 
         if (yardRevertError) throw yardRevertError;
 
+        const { error: transfersDeleteError } = await supabase
+          .from("order_transfers")
+          .delete()
+          .eq("order_id", id);
+
+        if (transfersDeleteError) throw transfersDeleteError;
+
         toast({
           title: "Success",
           description: "Yard transfer reverted — original driver and truck restored",
@@ -1768,7 +1775,12 @@ const EditOrder = () => {
       if (orderError) throw orderError;
 
       // Delete order_transfers records for this order
-      await supabase.from("order_transfers").delete().eq("order_id", id);
+      const { error: transfersDeleteError } = await supabase
+        .from("order_transfers")
+        .delete()
+        .eq("order_id", id);
+
+      if (transfersDeleteError) throw transfersDeleteError;
 
       // If trailers were swapped, swap them back
       if (
