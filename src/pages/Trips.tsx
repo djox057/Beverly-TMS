@@ -274,8 +274,10 @@ const Trips = () => {
           .sort((a, b) => (a.transferSequence ?? 0) - (b.transferSequence ?? 0))
           .forEach((seg) => result.push(seg));
       } else {
-        // Legacy: Check if this is a recovery/transferred load using old system
-        const isRecoveryLoad = order.originalDriver1Id && (
+        // Legacy: Split into Orig/Rec only if the order is still marked as recovery.
+        // Some revert flows may leave original_* fields populated, but those should NOT
+        // create extra trip rows once is_recovery is false.
+        const isRecoveryLoad = !!order.isRecovery && !!order.originalDriver1Id && (
           (order.originalDriverPrice && order.originalDriverPrice > 0) ||
           (order.originalMiles && order.originalMiles > 0)
         );
