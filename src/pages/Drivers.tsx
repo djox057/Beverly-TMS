@@ -1011,6 +1011,12 @@ const Drivers = () => {
         .update({ driver2_id: null })
         .eq('driver2_id', driverId);
 
+      // Delete related lost_day_notes
+      await supabase
+        .from('lost_day_notes')
+        .delete()
+        .eq('driver_id', driverId);
+
       // Delete from drivers
       const { error } = await supabase.from("drivers").delete().eq("id", driverId);
       if (error) throw error;
