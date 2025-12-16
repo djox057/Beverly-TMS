@@ -311,6 +311,9 @@ export default function YardLoads() {
 
       if (error) throw error;
 
+      // Delete order_transfers records for this order
+      await supabase.from("order_transfers").delete().eq("order_id", order.id);
+
       toast.success("Transfer reverted - original driver and truck restored");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
     } catch (error) {

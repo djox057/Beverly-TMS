@@ -1740,7 +1740,7 @@ const EditOrder = () => {
         return;
       }
 
-      // Revert order back to original state
+      // Revert order back to original state - clear ALL transfer fields
       const { error: orderError } = await supabase
         .from("orders")
         .update({
@@ -1749,13 +1749,26 @@ const EditOrder = () => {
           trailer_id: recoveryHistory.original_trailer_id,
           driver1_id: recoveryHistory.original_driver1_id,
           driver2_id: recoveryHistory.original_driver2_id,
+          // Clear all original_* fields
+          original_driver1_id: null,
+          original_driver2_id: null,
+          original_truck_id: null,
+          original_trailer_id: null,
+          original_miles: null,
+          original_driver_price: null,
+          original_freight_amount: null,
+          // Clear all recovery_* fields
           recovery_date: null,
           recovery_miles: null,
           recovery_driver_price: null,
+          recovery_freight_amount: null,
         })
         .eq("id", id);
 
       if (orderError) throw orderError;
+
+      // Delete order_transfers records for this order
+      await supabase.from("order_transfers").delete().eq("order_id", id);
 
       // If trailers were swapped, swap them back
       if (
