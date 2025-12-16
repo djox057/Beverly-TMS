@@ -942,10 +942,10 @@ const Drivers = () => {
         .update({ deleted_driver2_name: driverData.name, driver2_id: null })
         .eq('driver2_id', driverId);
 
-      // Save to deleted_drivers history table
+      // Save to deleted_drivers history table (upsert to handle re-deletion)
       const { error: historyError } = await supabase
         .from('deleted_drivers')
-        .insert({
+        .upsert({
           id: driverData.id,
           first_name: driverData.first_name,
           last_name: driverData.last_name,
@@ -985,7 +985,7 @@ const Drivers = () => {
           emergency_contact_relation: driverData.emergency_contact_relation,
           emergency_contact_phone: driverData.emergency_contact_phone,
           deleted_by: profile?.user_id
-        });
+        }, { onConflict: 'id' });
       
       if (historyError) throw historyError;
 
