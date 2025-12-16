@@ -161,8 +161,9 @@ const Trips = () => {
     const result: any[] = [];
     
     orders.forEach((order) => {
-      // Check if this order has order_transfers records (new multi-transfer system)
-      const hasTransfers = order.order_transfers && order.order_transfers.length > 0;
+      // Check if this order has order_transfers records AND is still a recovery load
+      // After reverting, is_recovery becomes false so we should show as single row
+      const hasTransfers = order.order_transfers && order.order_transfers.length > 0 && order.isRecovery;
       
       if (hasTransfers) {
         const transfers = Array.isArray(order.order_transfers)
