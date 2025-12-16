@@ -626,6 +626,8 @@ export const useReports = () => {
             is_recovery,
             locked,
             mileage,
+            loaded_miles,
+            dh_miles,
             pickup_drops (
               id,
               type,
