@@ -74,22 +74,72 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { driverId, driverName, truckNumber, companyName, amount, requesterEmail, requesterName }: CashAdvanceRequest = await req.json();
+    const body: CashAdvanceRequest = await req.json();
+    const { driverId, driverName, truckNumber, companyName, amount } = body;
+
+    // Prefer resolving requester identity from the JWT (more reliable than client-provided fields)
+    let requesterEmail = body.requesterEmail;
+    let requesterName = body.requesterName;
 
     // Validate amount
     if (amount < 0 || amount > 150) {
       return new Response(
         JSON.stringify({ success: false, error: "Amount must be between $0 and $150" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
       );
     }
 
-    console.log("Cash advance request received:", { driverId, driverName, truckNumber, companyName, amount });
+    console.log("Cash advance request received:", {
+      driverId,
+      driverName,
+      truckNumber,
+      companyName,
+      amount,
+      requesterEmail,
+      requesterName,
+    });
 
-    // Create Supabase client with service role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Create Supabase admin client (service role)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Resolve requester from JWT (role-independent)
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      });
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError) {
+        console.warn("Could not resolve requester from JWT:", userError);
+      } else if (userData?.user) {
+        requesterEmail = userData.user.email ?? requesterEmail;
+        requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
+
+        const { data: requesterProfile, error: requesterProfileError } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+
+        if (requesterProfileError) {
+          console.warn("Failed to fetch requester profile:", requesterProfileError);
+        } else {
+          requesterName = requesterProfile?.full_name || requesterName;
+        }
+      }
+    }
+
+    console.log("Requester resolved:", { requesterEmail, requesterName });
+
 
     // Get Chicago time boundaries as UTC ISO strings
     const todayStart = getChicagoTodayStartUTC();
@@ -177,13 +227,15 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Insert cash advance record
-    const { error: insertError } = await supabase
+    const { data: insertedAdvance, error: insertError } = await supabase
       .from("driver_cash_advances")
       .insert({
         driver_id: driverId,
-        amount: amount,
+        amount,
         truck_number: truckNumber,
-      });
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Error inserting cash advance:", insertError);
@@ -211,6 +263,23 @@ Purpose: Cash advance`;
 
     // Send email using Resend REST API with BCC to requester and Reply-To for both dispatcher and company EFS
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("Missing RESEND_API_KEY");
+
+      // Rollback record so user can retry (do not count failed sends toward limits)
+      if (insertedAdvance?.id) {
+        await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service is not configured (missing RESEND_API_KEY).",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+
     const lastNamePart = getLastNamePart(requesterName);
     const emailPayload = {
       from: `EFS Request <${fromEmail}>`,
@@ -230,8 +299,35 @@ Purpose: Cash advance`;
       body: JSON.stringify(emailPayload),
     });
 
-    const emailResult = await emailResponse.json();
+    const emailResultText = await emailResponse.text();
+    let emailResult: any = null;
+    try {
+      emailResult = emailResultText ? JSON.parse(emailResultText) : null;
+    } catch {
+      emailResult = { raw: emailResultText };
+    }
+
+    console.log("Resend response:", { ok: emailResponse.ok, status: emailResponse.status, result: emailResult });
+
+    if (!emailResponse.ok) {
+      console.error("Resend API error:", { status: emailResponse.status, result: emailResult });
+
+      // Rollback record so user can retry (do not count failed sends toward limits)
+      if (insertedAdvance?.id) {
+        await supabase.from("driver_cash_advances").delete().eq("id", insertedAdvance.id);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Email failed to send (Resend ${emailResponse.status}).`,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
+
     console.log("Email sent successfully:", emailResult);
+
 
     return new Response(
       JSON.stringify({
