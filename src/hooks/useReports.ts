@@ -778,6 +778,10 @@ export const useReports = () => {
                 // Skip canceled orders (already normalized to boolean for CSV data)
                 if (order.canceled) return false;
 
+                // Skip orders with POD files - they are completed
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                if (hasPOD) return false;
+
                 const isActiveStatus = order.status === "pending" || order.status === "in_transit";
                 const hasNoDeliveryDate = !order.delivery_datetime;
                 const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
@@ -1125,6 +1129,9 @@ export const useReports = () => {
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
+              // Skip orders with POD files - they are completed
+              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              if (hasPOD) return false;
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
               const hasNoDeliveryDate = !order.delivery_datetime;
               const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
