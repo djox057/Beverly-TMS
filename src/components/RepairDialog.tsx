@@ -36,6 +36,7 @@ interface TruckOption {
 interface TrailerOption {
   id: string;
   trailer_number: string;
+  connected_truck?: TruckOption | null;
 }
 
 export function RepairDialog({
@@ -82,17 +83,28 @@ export function RepairDialog({
           .order('trailer_number'),
       ]);
 
-      if (trucksRes.data) {
-        setTrucks(trucksRes.data.map((t: any) => ({
-          id: t.id,
-          truck_number: t.truck_number,
-          driver1_id: t.driver1_id,
-          trailer_id: t.trailer_id,
-          driver_name: t.drivers?.name || null,
-          trailer_number: t.trailers?.trailer_number || null,
-        })));
+      const trucksList: TruckOption[] = trucksRes.data?.map((t: any) => ({
+        id: t.id,
+        truck_number: t.truck_number,
+        driver1_id: t.driver1_id,
+        trailer_id: t.trailer_id,
+        driver_name: t.drivers?.name || null,
+        trailer_number: t.trailers?.trailer_number || null,
+      })) || [];
+      
+      setTrucks(trucksList);
+      
+      // Map trailers with their connected truck/driver info
+      if (trailersRes.data) {
+        setTrailers(trailersRes.data.map((trailer: any) => {
+          const connectedTruck = trucksList.find(t => t.trailer_id === trailer.id);
+          return {
+            id: trailer.id,
+            trailer_number: trailer.trailer_number,
+            connected_truck: connectedTruck || null,
+          };
+        }));
       }
-      if (trailersRes.data) setTrailers(trailersRes.data);
     };
 
     if (open) loadOptions();
@@ -258,16 +270,12 @@ export function RepairDialog({
     setSelectedTrailerId(trailer.id);
     setFilteredTrailers([]);
 
-    // Auto-fill truck + driver if this trailer is currently assigned to a truck
-    const connectedTruck = trucks.find(
-      (t) => t.trailer_id === trailer.id && t.driver1_id && t.driver_name
-    );
-
-    if (connectedTruck) {
-      setSelectedTruckId(connectedTruck.id);
-      setTruckNumber(connectedTruck.truck_number);
-      setSelectedDriverId(connectedTruck.driver1_id!);
-      setDriverName(connectedTruck.driver_name!);
+    // Auto-fill driver from connected truck
+    if (trailer.connected_truck?.driver1_id && trailer.connected_truck?.driver_name) {
+      setSelectedTruckId(trailer.connected_truck.id);
+      setTruckNumber(trailer.connected_truck.truck_number);
+      setSelectedDriverId(trailer.connected_truck.driver1_id);
+      setDriverName(trailer.connected_truck.driver_name);
     }
   };
 
@@ -407,7 +415,12 @@ export function RepairDialog({
                       className="px-3 py-2 cursor-pointer hover:bg-accent"
                       onClick={() => handleTrailerSelect(trailer)}
                     >
-                      {trailer.trailer_number}
+                      <span className="font-medium">{trailer.trailer_number}</span>
+                      {trailer.connected_truck?.driver_name && (
+                        <span className="text-muted-foreground text-sm ml-2">
+                          ({trailer.connected_truck.driver_name})
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
