@@ -94,8 +94,8 @@ export default function Repairs() {
         <TableRow>
           <TableHead>Date</TableHead>
           {activeTab === 'truck' && <TableHead>Truck #</TableHead>}
-          <TableHead>Driver</TableHead>
           {activeTab === 'trailer' && <TableHead>Trailer #</TableHead>}
+          <TableHead>Driver</TableHead>
           <TableHead>Reason</TableHead>
           <TableHead>Amount</TableHead>
           <TableHead>Paid</TableHead>
@@ -125,8 +125,8 @@ export default function Repairs() {
                 {format(new Date(repair.created_at), 'MM/dd/yyyy')}
               </TableCell>
               {activeTab === 'truck' && <TableCell>{repair.truck_number || '-'}</TableCell>}
-              <TableCell>{repair.driver_name || '-'}</TableCell>
               {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
+              <TableCell>{repair.driver_name || '-'}</TableCell>
               <TableCell className="max-w-[200px] truncate">
                 {repair.reason}
               </TableCell>
