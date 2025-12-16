@@ -11,6 +11,7 @@ export interface Repair {
   reason: string;
   amount: number;
   is_paid: boolean;
+  repair_date: string;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -28,6 +29,7 @@ export interface RepairFormData {
   reason: string;
   amount: number;
   is_paid: boolean;
+  repair_date: string;
 }
 
 export function useRepairs(repairType?: 'truck' | 'trailer') {
@@ -75,6 +77,7 @@ export function useRepairs(repairType?: 'truck' | 'trailer') {
           reason: data.reason,
           amount: data.amount,
           is_paid: data.is_paid,
+          repair_date: data.repair_date,
         })
         .select()
         .single();

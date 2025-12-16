@@ -2014,6 +2014,7 @@ export type Database = {
           id: string
           is_paid: boolean
           reason: string
+          repair_date: string
           repair_type: string
           trailer_id: string | null
           truck_id: string | null
@@ -2027,6 +2028,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           reason: string
+          repair_date?: string
           repair_type: string
           trailer_id?: string | null
           truck_id?: string | null
@@ -2040,6 +2042,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           reason?: string
+          repair_date?: string
           repair_type?: string
           trailer_id?: string | null
           truck_id?: string | null

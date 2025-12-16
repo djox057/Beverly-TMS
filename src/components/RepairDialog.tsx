@@ -14,6 +14,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { Repair, RepairFormData } from "@/hooks/useRepairs";
 import { toast } from "sonner";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+import { format } from "date-fns";
+
+const CHICAGO_TZ = "America/Chicago";
+
+// Get current date in Chicago timezone as YYYY-MM-DD
+const getChicagoDateString = (): string => {
+  return formatInTimeZone(new Date(), CHICAGO_TZ, "yyyy-MM-dd");
+};
 
 interface RepairDialogProps {
   open: boolean;
@@ -56,6 +65,7 @@ export function RepairDialog({
   const [reason, setReason] = useState("");
   const [amount, setAmount] = useState("");
   const [isPaid, setIsPaid] = useState(false);
+  const [repairDate, setRepairDate] = useState(getChicagoDateString());
   const [showTrailerConfirm, setShowTrailerConfirm] = useState(false);
   const [suggestedTrailerId, setSuggestedTrailerId] = useState<string | null>(null);
   const [suggestedTrailerNumber, setSuggestedTrailerNumber] = useState("");
@@ -123,6 +133,7 @@ export function RepairDialog({
         setReason(repair.reason);
         setAmount(repair.amount.toString());
         setIsPaid(repair.is_paid);
+        setRepairDate(repair.repair_date || getChicagoDateString());
       } else {
         setTruckNumber("");
         setSelectedTruckId(null);
@@ -133,6 +144,7 @@ export function RepairDialog({
         setReason("");
         setAmount("");
         setIsPaid(false);
+        setRepairDate(getChicagoDateString());
       }
       setShowTrailerConfirm(false);
       setSuggestedTrailerId(null);
@@ -311,6 +323,7 @@ export function RepairDialog({
       reason: reason.trim(),
       amount: parsedAmount,
       is_paid: isPaid,
+      repair_date: repairDate,
     });
 
     onOpenChange(false);
@@ -333,6 +346,17 @@ export function RepairDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Repair Date */}
+          <div className="space-y-2">
+            <Label htmlFor="repair_date">Date *</Label>
+            <Input
+              id="repair_date"
+              type="date"
+              value={repairDate}
+              onChange={(e) => setRepairDate(e.target.value)}
+            />
+          </div>
+
           {/* Truck Number */}
           <div className="space-y-2">
             <Label htmlFor="truck">Truck #</Label>

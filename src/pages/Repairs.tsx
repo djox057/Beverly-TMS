@@ -16,7 +16,21 @@ import { Wrench, Plus, Truck, Container, Search } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useRepairs, Repair, RepairFormData } from "@/hooks/useRepairs";
 import { RepairDialog } from "@/components/RepairDialog";
-import { format } from "date-fns";
+import { parse, format } from "date-fns";
+
+const CHICAGO_TZ = "America/Chicago";
+
+// Format date string (YYYY-MM-DD) for display as MM/DD/YYYY
+const formatRepairDate = (dateStr: string | null): string => {
+  if (!dateStr) return '-';
+  try {
+    // Parse the date string as YYYY-MM-DD and format as MM/DD/YYYY
+    const [year, month, day] = dateStr.split('-');
+    return `${month}/${day}/${year}`;
+  } catch {
+    return '-';
+  }
+};
 
 export default function Repairs() {
   const { hasRole } = useAuthContext();
@@ -122,7 +136,7 @@ export default function Repairs() {
               onClick={() => handleEditRepair(repair)}
             >
               <TableCell>
-                {format(new Date(repair.created_at), 'MM/dd/yyyy')}
+                {formatRepairDate(repair.repair_date)}
               </TableCell>
               {activeTab === 'truck' && <TableCell>{repair.truck_number || '-'}</TableCell>}
               {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
