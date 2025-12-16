@@ -19,7 +19,8 @@ import {
   Sun,
   Route,
   Warehouse,
-  Bell
+  Bell,
+  Wrench
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -185,21 +186,23 @@ export const Sidebar = () => {
       return true;
     });
     
-    // Admin role: all navigation + Alerts + User Management + Data Management
+    // Admin role: all navigation + Alerts + Repairs + User Management + Data Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Repairs", href: "/repairs", icon: Wrench },
         { name: "Data Management", href: "/data-management", icon: Settings },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
     
-    // Manager role: all pages + Alerts (full operational access)
+    // Manager role: all pages + Alerts + Repairs (full operational access)
     if (primaryRole === 'manager') {
       return [
         ...filteredNav,
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
@@ -211,17 +214,21 @@ export const Sidebar = () => {
       ];
     }
     
-    // Chicago Management role: all pages + Alerts (view-only access to everything)
+    // Chicago Management role: all pages + Alerts + Repairs (view-only access to everything)
     if (primaryRole === 'chicago_management') {
       return [
         ...filteredNav,
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
-    // Accounting role: all pages except Analytics (financial + operational oversight)
+    // Accounting role: all pages except Analytics + Repairs (financial + operational oversight)
     if (primaryRole === 'accounting') {
-      return filteredNav.filter(item => item.href !== '/analytics');
+      return [
+        ...filteredNav.filter(item => item.href !== '/analytics'),
+        { name: "Repairs", href: "/repairs", icon: Wrench }
+      ];
     }
     
     // Safety role: specific pages only (New Load, Loads, Trucks, Trailers, Drivers, Reports, Yard Arrivals, Alerts)
@@ -233,12 +240,13 @@ export const Sidebar = () => {
       ];
     }
     
-    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Yard Arrivals, Alerts)
+    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Yard Arrivals, Alerts, Repairs)
     if (hasRole('maintenance')) {
       const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/reports', '/yard-arrivals'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
-        { name: "Alerts", href: "/alerts", icon: AlertTriangle }
+        { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+        { name: "Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
