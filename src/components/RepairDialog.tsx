@@ -11,13 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { Repair, RepairFormData } from "@/hooks/useRepairs";
 import { toast } from "sonner";
@@ -45,11 +38,6 @@ interface TrailerOption {
   trailer_number: string;
 }
 
-interface DriverOption {
-  id: string;
-  name: string;
-}
-
 export function RepairDialog({
   open,
   onOpenChange,
@@ -73,14 +61,13 @@ export function RepairDialog({
 
   const [trucks, setTrucks] = useState<TruckOption[]>([]);
   const [trailers, setTrailers] = useState<TrailerOption[]>([]);
-  const [drivers, setDrivers] = useState<DriverOption[]>([]);
   const [filteredTrucks, setFilteredTrucks] = useState<TruckOption[]>([]);
   const [filteredTrailers, setFilteredTrailers] = useState<TrailerOption[]>([]);
 
   // Load options on mount
   useEffect(() => {
     const loadOptions = async () => {
-      const [trucksRes, trailersRes, driversRes] = await Promise.all([
+      const [trucksRes, trailersRes] = await Promise.all([
         supabase
           .from('trucks')
           .select(`
@@ -93,11 +80,6 @@ export function RepairDialog({
           .from('trailers')
           .select('id, trailer_number')
           .order('trailer_number'),
-        supabase
-          .from('drivers')
-          .select('id, name')
-          .eq('is_active', true)
-          .order('name'),
       ]);
 
       if (trucksRes.data) {
@@ -111,7 +93,6 @@ export function RepairDialog({
         })));
       }
       if (trailersRes.data) setTrailers(trailersRes.data);
-      if (driversRes.data) setDrivers(driversRes.data);
     };
 
     if (open) loadOptions();
@@ -314,29 +295,15 @@ export function RepairDialog({
             </div>
           )}
 
-          {/* Driver */}
-          <div className="space-y-2">
-            <Label htmlFor="driver">Driver *</Label>
-            <Select
-              value={selectedDriverId || ""}
-              onValueChange={(value) => {
-                setSelectedDriverId(value);
-                const driver = drivers.find((d) => d.id === value);
-                setDriverName(driver?.name || "");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select driver" />
-              </SelectTrigger>
-              <SelectContent>
-                {drivers.map((driver) => (
-                  <SelectItem key={driver.id} value={driver.id}>
-                    {driver.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Driver (read-only, auto-filled from truck) */}
+          {driverName && (
+            <div className="space-y-2">
+              <Label>Driver</Label>
+              <div className="px-3 py-2 bg-muted rounded-md text-sm">
+                {driverName}
+              </div>
+            </div>
+          )}
 
           {/* Trailer Number */}
           <div className="space-y-2">
