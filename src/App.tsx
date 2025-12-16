@@ -28,6 +28,7 @@ import Analytics from "./pages/Analytics";
 import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
+import Repairs from "./pages/Repairs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -183,6 +184,11 @@ const AppContent = () => {
         <Route path="/alerts" element={
           <ProtectedRoute>
             <Layout><Alerts /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/repairs" element={
+          <ProtectedRoute>
+            <Layout><Repairs /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/trips" element={
