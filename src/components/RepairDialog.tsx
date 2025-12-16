@@ -313,7 +313,11 @@ export function RepairDialog({
       return;
     }
 
-    const parsedAmount = parseFloat(amount) || 0;
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      toast.error("Amount is required");
+      return;
+    }
 
     onSubmit({
       repair_type: repairType,
