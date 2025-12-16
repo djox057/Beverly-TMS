@@ -942,7 +942,7 @@ const Drivers = () => {
         .update({ deleted_driver2_name: driverData.name, driver2_id: null })
         .eq('driver2_id', driverId);
 
-      // Save to deleted_drivers history table (upsert to handle re-deletion)
+      // Save to deleted_drivers history table (insert-only; ignore duplicates)
       const { error: historyError } = await supabase
         .from('deleted_drivers')
         .upsert({
@@ -971,13 +971,13 @@ const Drivers = () => {
           company_name: driverData.company_name,
           company_address: driverData.company_address,
           mc_number: driverData.mc_number,
-          weekly_payment: driverData.weekly_payment,
-          weeks_count: driverData.weeks_count,
+          weekly_payment: driverData.weekly_payment == null ? null : Math.round(Number(driverData.weekly_payment)),
+          weeks_count: driverData.weeks_count == null ? null : Math.round(Number(driverData.weeks_count)),
           agreement_start_date: driverData.agreement_start_date,
           is_active: driverData.is_active,
           is_recovery: driverData.is_recovery,
           is_company_driver: driverData.is_company_driver,
-          cents_per_mile: driverData.cents_per_mile,
+          cents_per_mile: driverData.cents_per_mile == null ? null : Math.round(Number(driverData.cents_per_mile)),
           going_yard: driverData.going_yard,
           two_week_block_date: driverData.two_week_block_date,
           is_checked_for_termination: driverData.is_checked_for_termination,
@@ -985,8 +985,8 @@ const Drivers = () => {
           emergency_contact_relation: driverData.emergency_contact_relation,
           emergency_contact_phone: driverData.emergency_contact_phone,
           deleted_by: profile?.user_id
-        }, { onConflict: 'id' });
-      
+        }, { onConflict: 'id', ignoreDuplicates: true });
+
       if (historyError) throw historyError;
 
       // Nullify original_driver1_id and original_driver2_id references in orders
