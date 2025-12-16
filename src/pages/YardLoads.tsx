@@ -494,13 +494,15 @@ export default function YardLoads() {
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                         <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
                         <TableCell>{formatDateNoTimezone(order.deliveryDate)}</TableCell>
-                        <TableCell className="line-clamp-2">
-                          {order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}
+                        <TableCell>
+                          <span className="line-clamp-2">{order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}</span>
                         </TableCell>
                         <TableCell>
                           {order.recoveryMiles?.toLocaleString() || order.mileage?.toLocaleString() || '0'}
                         </TableCell>
-                        <TableCell className="line-clamp-2">{order.brokerName || '-'}</TableCell>
+                        <TableCell>
+                          <span className="line-clamp-2">{order.brokerName || '-'}</span>
+                        </TableCell>
                         <TableCell>
                           <div className="font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(order.freightAmount || 0)}
