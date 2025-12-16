@@ -543,6 +543,22 @@ const EditOrder = () => {
           setTrailersSwapped(recoveryHistory?.trailers_swapped || false);
         }
 
+        // Load order transfers from database
+        const { data: transfersData } = await supabase
+          .from("order_transfers")
+          .select(`
+            *,
+            driver1:drivers!order_transfers_driver1_id_fkey(id, name),
+            truck:trucks!order_transfers_truck_id_fkey(id, truck_number),
+            trailer:trailers!order_transfers_trailer_id_fkey(id, trailer_number)
+          `)
+          .eq("order_id", id)
+          .order("sequence_number", { ascending: true });
+        
+        if (transfersData && transfersData.length > 0) {
+          setOrderTransfers(transfersData);
+        }
+
         // Load date change notes and original delivery date for tracking changes
         setDateChangeNotes((orderData as any).date_change_notes || "");
         if (orderData.delivery_datetime) {
@@ -1542,6 +1558,46 @@ const EditOrder = () => {
       });
 
       if (historyError) throw historyError;
+
+      // Insert transfer records into order_transfers table for multi-transfer tracking
+      const transferRecords = [
+        // Original assignment (sequence 0)
+        {
+          order_id: id,
+          sequence_number: 0,
+          driver1_id: isManualOriginal ? null : (driver1 || null),
+          truck_id: isManualOriginal ? null : (truck || null),
+          trailer_id: isManualOriginal ? null : (trailerId || null),
+          miles: data.originalMiles,
+          driver_price: data.originalDriverRate,
+          transfer_date: data.recoveryDate,
+          created_by: profile?.user_id || null,
+          manual_driver_name: isManualOriginal ? data.manualOriginalDriver : null,
+          manual_truck_number: isManualOriginal ? data.manualOriginalTruck : null,
+          manual_trailer_number: isManualOriginal ? data.manualOriginalTrailer : null,
+        },
+        // First transfer (sequence 1)
+        {
+          order_id: id,
+          sequence_number: 1,
+          driver1_id: data.recoveryDriverId,
+          truck_id: data.recoveryTruckId,
+          trailer_id: data.swapTrailers ? trailerId : (data.recoveryTrailerId || null),
+          miles: data.recoveryMiles,
+          driver_price: data.recoveryDriverRate,
+          transfer_date: data.recoveryDate,
+          created_by: profile?.user_id || null,
+        },
+      ];
+
+      const { error: transferError } = await supabase
+        .from("order_transfers")
+        .insert(transferRecords);
+
+      if (transferError) {
+        console.error("Error inserting transfer records:", transferError);
+        // Don't throw - recovery history is more important, this is supplementary
+      }
 
       // Handle trailer swap if requested (only if both trucks have trailers)
       if (data.swapTrailers && trailerId && data.recoveryTrailerId && truck) {
@@ -3201,59 +3257,101 @@ const EditOrder = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm">Original Assignment</h4>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Driver:</span>{" "}
-                        <span className="font-medium">{originalDriverName || "N/A"}</span>
+                {/* Show transfers from order_transfers table if available */}
+                {orderTransfers.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {orderTransfers.map((transfer, index) => (
+                      <div key={transfer.id} className="space-y-3 p-3 bg-background/50 rounded-lg border">
+                        <h4 className="font-semibold text-sm">
+                          {transfer.sequence_number === 0 ? "Original" : `Transfer #${transfer.sequence_number}`}
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Driver:</span>{" "}
+                            <span className="font-medium">
+                              {transfer.manual_driver_name || transfer.driver1?.name || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Truck:</span>{" "}
+                            <span className="font-medium">
+                              {transfer.manual_truck_number || transfer.truck?.truck_number || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Trailer:</span>{" "}
+                            <span className="font-medium">
+                              {transfer.manual_trailer_number || transfer.trailer?.trailer_number || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Miles:</span>{" "}
+                            <span className="font-medium">{transfer.miles || "0"}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                            <span className="font-medium">${parseFloat(transfer.driver_price || "0").toFixed(2)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">Truck:</span>{" "}
-                        <span className="font-medium">{originalTruckNumber || "N/A"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Trailer:</span>{" "}
-                        <span className="font-medium">{originalTrailerNumber || "N/A"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Miles:</span>{" "}
-                        <span className="font-medium">{originalMiles || "0"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Driver Rate:</span>{" "}
-                        <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
+                    ))}
+                  </div>
+                ) : (
+                  /* Fallback to legacy display if no order_transfers records */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-sm">Original Assignment</h4>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Driver:</span>{" "}
+                          <span className="font-medium">{originalDriverName || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Truck:</span>{" "}
+                          <span className="font-medium">{originalTruckNumber || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Trailer:</span>{" "}
+                          <span className="font-medium">{originalTrailerNumber || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Miles:</span>{" "}
+                          <span className="font-medium">{originalMiles || "0"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                          <span className="font-medium">${parseFloat(originalDriverPrice || "0").toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-sm">Transfer Assignment</h4>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Driver:</span>{" "}
-                        <span className="font-medium">{drivers?.find((d) => d.id === driver1)?.name || "N/A"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Truck:</span>{" "}
-                        <span className="font-medium">{trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Trailer:</span>{" "}
-                        <span className="font-medium">{trailer || "N/A"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Miles:</span>{" "}
-                        <span className="font-medium">{recoveryMiles || "0"}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Driver Rate:</span>{" "}
-                        <span className="font-medium">${parseFloat(recoveryDriverPrice || "0").toFixed(2)}</span>
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-sm">Transfer Assignment</h4>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Driver:</span>{" "}
+                          <span className="font-medium">{drivers?.find((d) => d.id === driver1)?.name || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Truck:</span>{" "}
+                          <span className="font-medium">{trucks?.find((t) => t.id === truck)?.truck_number || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Trailer:</span>{" "}
+                          <span className="font-medium">{trailer || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Miles:</span>{" "}
+                          <span className="font-medium">{recoveryMiles || "0"}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Driver Rate:</span>{" "}
+                          <span className="font-medium">${parseFloat(recoveryDriverPrice || "0").toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {trailersSwapped && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200">
@@ -3887,14 +3985,31 @@ const EditOrder = () => {
         open={addTransferDialogOpen}
         onOpenChange={setAddTransferDialogOpen}
         onSave={handleAddTransfer}
-        previousTransfer={{
-          driverName: drivers?.find((d) => d.id === driver1)?.name || "N/A",
-          truckNumber: trucks?.find((t) => t.id === truck)?.truck_number || "N/A",
-          trailerNumber: trailers?.find((t) => t.id === trailerId)?.trailer_number || "N/A",
-          miles: orderTransfers.length > 0 ? orderTransfers[orderTransfers.length - 1]?.miles || 0 : parseInt(recoveryMiles) || 0,
-          driverPrice: orderTransfers.length > 0 ? orderTransfers[orderTransfers.length - 1]?.driver_price || 0 : parseFloat(recoveryDriverPrice) || 0,
-        }}
-        sequenceNumber={orderTransfers.length > 0 ? orderTransfers.length : 2}
+        previousTransfer={
+          orderTransfers.length > 0
+            ? {
+                driverName: orderTransfers[orderTransfers.length - 1]?.driver1?.name || 
+                            orderTransfers[orderTransfers.length - 1]?.manual_driver_name || "N/A",
+                truckNumber: orderTransfers[orderTransfers.length - 1]?.truck?.truck_number || 
+                             orderTransfers[orderTransfers.length - 1]?.manual_truck_number || "N/A",
+                trailerNumber: orderTransfers[orderTransfers.length - 1]?.trailer?.trailer_number || 
+                               orderTransfers[orderTransfers.length - 1]?.manual_trailer_number || "N/A",
+                miles: orderTransfers[orderTransfers.length - 1]?.miles || 0,
+                driverPrice: orderTransfers[orderTransfers.length - 1]?.driver_price || 0,
+              }
+            : {
+                driverName: drivers?.find((d) => d.id === driver1)?.name || "N/A",
+                truckNumber: trucks?.find((t) => t.id === truck)?.truck_number || "N/A",
+                trailerNumber: trailers?.find((t) => t.id === trailerId)?.trailer_number || "N/A",
+                miles: parseInt(recoveryMiles) || 0,
+                driverPrice: parseFloat(recoveryDriverPrice) || 0,
+              }
+        }
+        sequenceNumber={
+          orderTransfers.length > 0
+            ? Math.max(...orderTransfers.map((t) => t.sequence_number)) + 1
+            : 2
+        }
       />
 
       {/* Yard Dialog */}
