@@ -165,23 +165,73 @@ const Trips = () => {
       const hasTransfers = order.order_transfers && order.order_transfers.length > 0;
       
       if (hasTransfers) {
-        // Create virtual entries for each transfer segment
-        order.order_transfers.forEach((transfer: any, idx: number) => {
-          const isOriginal = transfer.sequence_number === 0;
-          const badge = isOriginal ? "Orig" : transfer.sequence_number === 1 ? "Rec" : `Transfer ${transfer.sequence_number}`;
-          
-          result.push({
+        const transfers = Array.isArray(order.order_transfers)
+          ? [...order.order_transfers].sort((a: any, b: any) => a.sequence_number - b.sequence_number)
+          : [];
+
+        // Some existing multi-transfer loads may only have seq >= 2 in order_transfers.
+        // In that case, fall back to legacy original/recovery fields for missing seq 0/1.
+        const legacyIsRecoveryLoad = !!order.originalDriver1Id && (
+          (order.originalDriverPrice && order.originalDriverPrice > 0) ||
+          (order.originalMiles && order.originalMiles > 0)
+        );
+
+        const existingSeq = new Set<number>(transfers.map((t: any) => Number(t.sequence_number)));
+        const segments: any[] = [];
+
+        if (legacyIsRecoveryLoad && !existingSeq.has(0)) {
+          segments.push({
             ...order,
-            // Unique identifier for this segment
+            virtualId: `${order.id}_legacy_transfer_0`,
+            transferSequence: 0,
+            transferBadge: "Orig",
+            isOriginalDriverPortion: true,
+            isRecoveryDriverPortion: false,
+            driverName: order.originalDriver1Name,
+            driver1Name: order.originalDriver1Name,
+            driver1Id: order.originalDriver1Id,
+            driver2Name: order.originalDriver2Name,
+            driver2Id: order.originalDriver2Id,
+            truckNumber: order.originalTruckNumber || order.truckNumber,
+            truckId: order.originalTruckId || order.truckId,
+            trailerNumber: order.originalTrailerNumber || order.trailerNumber,
+            trailerId: order.originalTrailerId || order.trailerId,
+            totalDriverPay: order.originalDriverPrice || 0,
+            driverPrice: order.originalDriverPrice || 0,
+            mileage: order.originalMiles || 0,
+            totalFreightAmount: order.totalFreightAmount,
+          });
+        }
+
+        if (legacyIsRecoveryLoad && !existingSeq.has(1)) {
+          segments.push({
+            ...order,
+            virtualId: `${order.id}_legacy_transfer_1`,
+            transferSequence: 1,
+            transferBadge: "Rec",
+            isOriginalDriverPortion: false,
+            isRecoveryDriverPortion: true,
+            totalDriverPay: order.recoveryDriverPrice || order.totalDriverPay,
+            driverPrice: order.recoveryDriverPrice || order.driverPrice,
+            mileage: order.recoveryMiles || order.mileage,
+            transferNote: `Driver: ${order.driverName || "N/A"}, Truck: ${order.truckNumber || "N/A"}, Trailer: ${order.trailerNumber || "N/A"}`,
+          });
+        }
+
+        transfers.forEach((transfer: any) => {
+          const isOriginal = transfer.sequence_number === 0;
+          const badge =
+            isOriginal ? "Orig" : transfer.sequence_number === 1 ? "Rec" : `Transfer ${transfer.sequence_number}`;
+
+          segments.push({
+            ...order,
             virtualId: `${order.id}_transfer_${transfer.sequence_number}`,
             transferSequence: transfer.sequence_number,
             transferBadge: badge,
             isOriginalDriverPortion: isOriginal,
-            isRecoveryDriverPortion: !isOriginal,
-            // Override driver/truck/trailer with transfer-specific values
+            isRecoveryDriverPortion: transfer.sequence_number === 1,
             driver1Id: transfer.driver1_id,
             driver2Id: transfer.driver2_id,
-            // Use joined driver name, then manual, then fallback to order
             driverName: transfer.driver1?.name || transfer.manual_driver_name || order.driverName,
             driver1Name: transfer.driver1?.name || transfer.manual_driver_name,
             driver2Name: transfer.driver2?.name,
@@ -189,12 +239,15 @@ const Trips = () => {
             truckNumber: transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber,
             trailerId: transfer.trailer_id,
             trailerNumber: transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber,
-            // Use transfer-specific miles and pay
             mileage: transfer.miles || 0,
             totalDriverPay: transfer.driver_price || 0,
             driverPrice: transfer.driver_price || 0,
           });
         });
+
+        segments
+          .sort((a, b) => (a.transferSequence ?? 0) - (b.transferSequence ?? 0))
+          .forEach((seg) => result.push(seg));
       } else {
         // Legacy: Check if this is a recovery/transferred load using old system
         const isRecoveryLoad = order.originalDriver1Id && (
@@ -1917,7 +1970,7 @@ const Trips = () => {
                                     : alternatingBg;
 
                           return (
-                            <TableRow key={`${order.id}${order.isOriginalDriverPortion ? '-orig' : order.isRecoveryDriverPortion ? '-rec' : ''}`} className={`h-16 ${rowClassName}`}>
+                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName}`}>
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
