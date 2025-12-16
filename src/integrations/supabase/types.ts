@@ -1280,6 +1280,99 @@ export type Database = {
           },
         ]
       }
+      order_transfers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_price: number | null
+          driver1_id: string | null
+          driver2_id: string | null
+          id: string
+          manual_driver_name: string | null
+          manual_trailer_number: string | null
+          manual_truck_number: string | null
+          miles: number | null
+          order_id: string
+          sequence_number: number
+          trailer_id: string | null
+          transfer_date: string | null
+          truck_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_price?: number | null
+          driver1_id?: string | null
+          driver2_id?: string | null
+          id?: string
+          manual_driver_name?: string | null
+          manual_trailer_number?: string | null
+          manual_truck_number?: string | null
+          miles?: number | null
+          order_id: string
+          sequence_number?: number
+          trailer_id?: string | null
+          transfer_date?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_price?: number | null
+          driver1_id?: string | null
+          driver2_id?: string | null
+          id?: string
+          manual_driver_name?: string | null
+          manual_trailer_number?: string | null
+          manual_truck_number?: string | null
+          miles?: number | null
+          order_id?: string
+          sequence_number?: number
+          trailer_id?: string | null
+          transfer_date?: string | null
+          truck_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_transfers_driver1_id_fkey"
+            columns: ["driver1_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_transfers_driver2_id_fkey"
+            columns: ["driver2_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_transfers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_transfers_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_transfers_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           booked_by: string

@@ -154,58 +154,97 @@ const Trips = () => {
     localStorage.setItem("trips_driverFilter", driverFilter);
   }, [driverFilter]);
 
-  // Expand orders to include original driver portions for transferred/recovered loads
+  // Expand orders to include all transfer segments
   const expandedOrders = useMemo(() => {
     if (!orders) return [];
     
     const result: any[] = [];
     
     orders.forEach((order) => {
-      // Check if this is a recovery/transferred load
-      const isRecoveryLoad = order.originalDriver1Id && (
-        (order.originalDriverPrice && order.originalDriverPrice > 0) ||
-        (order.originalMiles && order.originalMiles > 0)
-      );
+      // Check if this order has order_transfers records (new multi-transfer system)
+      const hasTransfers = order.order_transfers && order.order_transfers.length > 0;
       
-      if (isRecoveryLoad) {
-        // For recovery driver (current driver): use recovery miles/pay if available
-        result.push({
-          ...order,
-          isRecoveryDriverPortion: true,
-          // Use recovery-specific values if available, otherwise use full values
-          totalDriverPay: order.recoveryDriverPrice || order.totalDriverPay,
-          driverPrice: order.recoveryDriverPrice || order.driverPrice,
-          mileage: order.recoveryMiles || order.mileage,
-          // Build transfer note with recovery driver info
-          transferNote: `Driver: ${order.driverName || 'N/A'}, Truck: ${order.truckNumber || 'N/A'}, Trailer: ${order.trailerNumber || 'N/A'}`,
-        });
-        
-        // Create a virtual entry for the original driver's portion
-        result.push({
-          ...order,
-          // Mark as original driver portion
-          isOriginalDriverPortion: true,
-          // Override driver info with original driver
-          driverName: order.originalDriver1Name,
-          driver1Name: order.originalDriver1Name,
-          driver1Id: order.originalDriver1Id,
-          driver2Name: order.originalDriver2Name,
-          driver2Id: order.originalDriver2Id,
-          // Override truck/trailer with original if available
-          truckNumber: order.originalTruckNumber || order.truckNumber,
-          truckId: order.originalTruckId || order.truckId,
-          trailerNumber: order.originalTrailerNumber || order.trailerNumber,
-          trailerId: order.originalTrailerId || order.trailerId,
-          // Use original driver's pay and miles
-          totalDriverPay: order.originalDriverPrice || 0,
-          driverPrice: order.originalDriverPrice || 0,
-          mileage: order.originalMiles || 0,
-          // Show full freight amount for original driver portion
-          totalFreightAmount: order.totalFreightAmount,
+      if (hasTransfers) {
+        // Create virtual entries for each transfer segment
+        order.order_transfers.forEach((transfer: any, idx: number) => {
+          const isOriginal = transfer.sequence_number === 0;
+          const badge = isOriginal ? "Orig" : transfer.sequence_number === 1 ? "Rec" : `Transfer ${transfer.sequence_number}`;
+          
+          result.push({
+            ...order,
+            // Unique identifier for this segment
+            virtualId: `${order.id}_transfer_${transfer.sequence_number}`,
+            transferSequence: transfer.sequence_number,
+            transferBadge: badge,
+            isOriginalDriverPortion: isOriginal,
+            isRecoveryDriverPortion: !isOriginal,
+            // Override driver/truck/trailer with transfer-specific values
+            driver1Id: transfer.driver1_id,
+            driver2Id: transfer.driver2_id,
+            // Use manual values if no ID available
+            driverName: transfer.manual_driver_name || order.driverName,
+            truckId: transfer.truck_id,
+            truckNumber: transfer.manual_truck_number || order.truckNumber,
+            trailerId: transfer.trailer_id,
+            trailerNumber: transfer.manual_trailer_number || order.trailerNumber,
+            // Use transfer-specific miles and pay
+            mileage: transfer.miles || 0,
+            totalDriverPay: transfer.driver_price || 0,
+            driverPrice: transfer.driver_price || 0,
+          });
         });
       } else {
-        // Non-recovery order - add as-is
-        result.push(order);
+        // Legacy: Check if this is a recovery/transferred load using old system
+        const isRecoveryLoad = order.originalDriver1Id && (
+          (order.originalDriverPrice && order.originalDriverPrice > 0) ||
+          (order.originalMiles && order.originalMiles > 0)
+        );
+        
+        if (isRecoveryLoad) {
+          // For recovery driver (current driver): use recovery miles/pay if available
+          result.push({
+            ...order,
+            isRecoveryDriverPortion: true,
+            transferBadge: "Rec",
+            transferSequence: 1,
+            // Use recovery-specific values if available, otherwise use full values
+            totalDriverPay: order.recoveryDriverPrice || order.totalDriverPay,
+            driverPrice: order.recoveryDriverPrice || order.driverPrice,
+            mileage: order.recoveryMiles || order.mileage,
+            // Build transfer note with recovery driver info
+            transferNote: `Driver: ${order.driverName || 'N/A'}, Truck: ${order.truckNumber || 'N/A'}, Trailer: ${order.trailerNumber || 'N/A'}`,
+          });
+          
+          // Create a virtual entry for the original driver's portion
+          result.push({
+            ...order,
+            virtualId: `${order.id}_original`,
+            // Mark as original driver portion
+            isOriginalDriverPortion: true,
+            transferBadge: "Orig",
+            transferSequence: 0,
+            // Override driver info with original driver
+            driverName: order.originalDriver1Name,
+            driver1Name: order.originalDriver1Name,
+            driver1Id: order.originalDriver1Id,
+            driver2Name: order.originalDriver2Name,
+            driver2Id: order.originalDriver2Id,
+            // Override truck/trailer with original if available
+            truckNumber: order.originalTruckNumber || order.truckNumber,
+            truckId: order.originalTruckId || order.truckId,
+            trailerNumber: order.originalTrailerNumber || order.trailerNumber,
+            trailerId: order.originalTrailerId || order.trailerId,
+            // Use original driver's pay and miles
+            totalDriverPay: order.originalDriverPrice || 0,
+            driverPrice: order.originalDriverPrice || 0,
+            mileage: order.originalMiles || 0,
+            // Show full freight amount for original driver portion
+            totalFreightAmount: order.totalFreightAmount,
+          });
+        } else {
+          // Non-recovery order - add as-is
+          result.push(order);
+        }
       }
     });
     
@@ -1883,12 +1922,27 @@ const Trips = () => {
                               <TableCell>
                                 <div className="line-clamp-2">
                                   {order.driverName}
-                                  {order.isOriginalDriverPortion && (
+                                  {order.transferBadge && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`ml-1 text-[10px] px-1 py-0 ${
+                                        order.transferBadge === "Orig" 
+                                          ? "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300"
+                                          : order.transferBadge === "Rec"
+                                            ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                            : "bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300"
+                                      }`}
+                                    >
+                                      {order.transferBadge}
+                                    </Badge>
+                                  )}
+                                  {/* Legacy badges for orders without transferBadge */}
+                                  {!order.transferBadge && order.isOriginalDriverPortion && (
                                     <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300">
                                       Orig
                                     </Badge>
                                   )}
-                                  {order.isRecoveryDriverPortion && (
+                                  {!order.transferBadge && order.isRecoveryDriverPortion && (
                                     <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                                       Rec
                                     </Badge>
