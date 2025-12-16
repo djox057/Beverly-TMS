@@ -181,12 +181,14 @@ const Trips = () => {
             // Override driver/truck/trailer with transfer-specific values
             driver1Id: transfer.driver1_id,
             driver2Id: transfer.driver2_id,
-            // Use manual values if no ID available
-            driverName: transfer.manual_driver_name || order.driverName,
+            // Use joined driver name, then manual, then fallback to order
+            driverName: transfer.driver1?.name || transfer.manual_driver_name || order.driverName,
+            driver1Name: transfer.driver1?.name || transfer.manual_driver_name,
+            driver2Name: transfer.driver2?.name,
             truckId: transfer.truck_id,
-            truckNumber: transfer.manual_truck_number || order.truckNumber,
+            truckNumber: transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber,
             trailerId: transfer.trailer_id,
-            trailerNumber: transfer.manual_trailer_number || order.trailerNumber,
+            trailerNumber: transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber,
             // Use transfer-specific miles and pay
             mileage: transfer.miles || 0,
             totalDriverPay: transfer.driver_price || 0,

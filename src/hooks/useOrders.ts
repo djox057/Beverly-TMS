@@ -223,7 +223,23 @@ export const useOrders = (options?: UseOrdersOptions) => {
             manual_driver_name,
             manual_truck_number,
             manual_trailer_number,
-            transfer_date
+            transfer_date,
+            driver1:drivers!order_transfers_driver1_id_fkey (
+              id,
+              name
+            ),
+            driver2:drivers!order_transfers_driver2_id_fkey (
+              id,
+              name
+            ),
+            truck:trucks!order_transfers_truck_id_fkey (
+              id,
+              truck_number
+            ),
+            trailer:trailers!order_transfers_trailer_id_fkey (
+              id,
+              trailer_number
+            )
           ),
           broker:brokers (
             id,
@@ -384,7 +400,23 @@ export const useOrders = (options?: UseOrdersOptions) => {
                     manual_driver_name,
                     manual_truck_number,
                     manual_trailer_number,
-                    transfer_date
+                    transfer_date,
+                    driver1:drivers!order_transfers_driver1_id_fkey (
+                      id,
+                      name
+                    ),
+                    driver2:drivers!order_transfers_driver2_id_fkey (
+                      id,
+                      name
+                    ),
+                    truck:trucks!order_transfers_truck_id_fkey (
+                      id,
+                      truck_number
+                    ),
+                    trailer:trailers!order_transfers_trailer_id_fkey (
+                      id,
+                      trailer_number
+                    )
                   ),
                   broker:brokers (
                     id,
@@ -688,7 +720,23 @@ async function fetchSingleOrder(orderId: string) {
           manual_driver_name,
           manual_truck_number,
           manual_trailer_number,
-          transfer_date
+          transfer_date,
+          driver1:drivers!order_transfers_driver1_id_fkey (
+            id,
+            name
+          ),
+          driver2:drivers!order_transfers_driver2_id_fkey (
+            id,
+            name
+          ),
+          truck:trucks!order_transfers_truck_id_fkey (
+            id,
+            truck_number
+          ),
+          trailer:trailers!order_transfers_trailer_id_fkey (
+            id,
+            trailer_number
+          )
         ),
         broker:brokers (
           id,
