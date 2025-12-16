@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Wrench, Plus, Truck, Container } from "lucide-react";
+import { Wrench, Plus, Truck, Container, Search } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useRepairs, Repair, RepairFormData } from "@/hooks/useRepairs";
 import { RepairDialog } from "@/components/RepairDialog";
@@ -22,6 +23,7 @@ export default function Repairs() {
   const [activeTab, setActiveTab] = useState<'truck' | 'trailer'>('truck');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<Repair | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
 
   const { repairs, isLoading, createRepair, updateRepair, deleteRepair, togglePaid } = useRepairs(activeTab);
 
@@ -74,14 +76,26 @@ export default function Repairs() {
     }).format(amount);
   };
 
+  // Filter repairs by search term
+  const filteredRepairs = repairs.filter((repair) => {
+    if (!searchFilter) return true;
+    const search = searchFilter.toLowerCase();
+    const matchesDriver = repair.driver_name?.toLowerCase().includes(search);
+    if (activeTab === 'truck') {
+      return matchesDriver || repair.truck_number?.toLowerCase().includes(search);
+    } else {
+      return matchesDriver || repair.trailer_number?.toLowerCase().includes(search);
+    }
+  });
+
   const renderRepairsTable = () => (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Date</TableHead>
-          <TableHead>Truck #</TableHead>
+          {activeTab === 'truck' && <TableHead>Truck #</TableHead>}
           <TableHead>Driver</TableHead>
-          <TableHead>Trailer #</TableHead>
+          {activeTab === 'trailer' && <TableHead>Trailer #</TableHead>}
           <TableHead>Reason</TableHead>
           <TableHead>Amount</TableHead>
           <TableHead>Paid</TableHead>
@@ -90,18 +104,18 @@ export default function Repairs() {
       <TableBody>
         {isLoading ? (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
               Loading repairs...
             </TableCell>
           </TableRow>
-        ) : repairs.length === 0 ? (
+        ) : filteredRepairs.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
               No repairs found
             </TableCell>
           </TableRow>
         ) : (
-          repairs.map((repair) => (
+          filteredRepairs.map((repair) => (
             <TableRow
               key={repair.id}
               className="cursor-pointer hover:bg-muted/50"
@@ -110,9 +124,9 @@ export default function Repairs() {
               <TableCell>
                 {format(new Date(repair.created_at), 'MM/dd/yyyy')}
               </TableCell>
-              <TableCell>{repair.truck_number || '-'}</TableCell>
+              {activeTab === 'truck' && <TableCell>{repair.truck_number || '-'}</TableCell>}
               <TableCell>{repair.driver_name || '-'}</TableCell>
-              <TableCell>{repair.trailer_number || '-'}</TableCell>
+              {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
               <TableCell className="max-w-[200px] truncate">
                 {repair.reason}
               </TableCell>
@@ -138,12 +152,23 @@ export default function Repairs() {
           <Wrench className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">Repairs</h1>
         </div>
-        {canModify && (
-          <Button onClick={handleAddRepair}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Repair
-          </Button>
-        )}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={activeTab === 'truck' ? "Search Truck# or Driver..." : "Search Trailer# or Driver..."}
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="pl-9 w-64"
+            />
+          </div>
+          {canModify && (
+            <Button onClick={handleAddRepair}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Repair
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
