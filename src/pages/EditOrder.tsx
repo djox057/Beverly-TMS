@@ -63,6 +63,7 @@ import { combineDateAndTime, parseSimpleDateTime } from "@/utils/dateUtils";
 import { toZonedTime } from "date-fns-tz";
 import { geocodeAddress } from "@/utils/mapboxRouteCalculator";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
+import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDialog";
 import { useQueryClient } from "@tanstack/react-query";
 interface PickupDrop {
   id: string;
@@ -242,6 +243,8 @@ const EditOrder = () => {
   // Transfer load state
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [addTransferDialogOpen, setAddTransferDialogOpen] = useState(false);
+  const [orderTransfers, setOrderTransfers] = useState<any[]>([]);
   const [originalDriverName, setOriginalDriverName] = useState("");
   const [originalTruckNumber, setOriginalTruckNumber] = useState("");
   const [originalTrailerNumber, setOriginalTrailerNumber] = useState("");
@@ -1584,6 +1587,56 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to mark load as transfer",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for adding additional transfers
+  const handleAddTransfer = async (data: AddTransferData) => {
+    try {
+      // Get the last transfer to use as "previous"
+      const lastTransfer = orderTransfers[orderTransfers.length - 1];
+      
+      // Insert new transfer record
+      const { error } = await supabase.from("order_transfers").insert({
+        order_id: id,
+        sequence_number: data.sequenceNumber,
+        driver1_id: data.newDriverId,
+        truck_id: data.newTruckId,
+        trailer_id: data.newTrailerId || null,
+        miles: data.newMiles,
+        driver_price: data.newDriverPrice,
+        transfer_date: data.transferDate,
+        created_by: profile?.user_id || null,
+      });
+
+      if (error) throw error;
+
+      // Update the order's current driver/truck/trailer
+      const { error: orderError } = await supabase
+        .from("orders")
+        .update({
+          driver1_id: data.newDriverId,
+          truck_id: data.newTruckId,
+          trailer_id: data.newTrailerId || null,
+        })
+        .eq("id", id);
+
+      if (orderError) throw orderError;
+
+      toast({
+        title: "Success",
+        description: `Transfer #${data.sequenceNumber} added successfully`,
+      });
+
+      await loadOrderData();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    } catch (error: any) {
+      console.error("Error adding transfer:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add transfer",
         variant: "destructive",
       });
     }
@@ -3787,6 +3840,15 @@ const EditOrder = () => {
                       Transfer Load
                     </Button>
                   )}
+                {/* Add Transfer button for orders that already have transfers */}
+                {(hasRole("manager") || hasRole("supervisor") || hasRole("admin") || hasRole("dispatch")) &&
+                  isRecovery &&
+                  !isLocked && (
+                    <Button type="button" variant="outline" onClick={() => setAddTransferDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Transfer
+                    </Button>
+                  )}
                 {(hasRole("manager") || hasRole("supervisor") || hasRole("admin")) && isRecovery && !isLocked && (
                   <Button type="button" variant="destructive" onClick={handleRevertTransfer}>
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -3819,6 +3881,20 @@ const EditOrder = () => {
         currentTrailerId={trailerId}
         totalMiles={parseInt(loadedMiles) || 0}
         totalDriverRate={parseFloat(driverPrice) || 0}
+      />
+
+      <AddTransferDialog
+        open={addTransferDialogOpen}
+        onOpenChange={setAddTransferDialogOpen}
+        onSave={handleAddTransfer}
+        previousTransfer={{
+          driverName: drivers?.find((d) => d.id === driver1)?.name || "N/A",
+          truckNumber: trucks?.find((t) => t.id === truck)?.truck_number || "N/A",
+          trailerNumber: trailers?.find((t) => t.id === trailerId)?.trailer_number || "N/A",
+          miles: orderTransfers.length > 0 ? orderTransfers[orderTransfers.length - 1]?.miles || 0 : parseInt(recoveryMiles) || 0,
+          driverPrice: orderTransfers.length > 0 ? orderTransfers[orderTransfers.length - 1]?.driver_price || 0 : parseFloat(recoveryDriverPrice) || 0,
+        }}
+        sequenceNumber={orderTransfers.length > 0 ? orderTransfers.length : 2}
       />
 
       {/* Yard Dialog */}

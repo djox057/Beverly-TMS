@@ -58,7 +58,7 @@ async function enrichLockedOrdersWithLookups(
   // Fetch all lookup data from database in parallel with batching
   const allDriverIds = [...new Set([...driver1Ids, ...driver2Ids, ...originalDriver1Ids, ...originalDriver2Ids])];
   
-  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData] = await Promise.all([
+  const [trucksData, trailersData, driversData, brokersData, companiesData, pickupDropsData, orderFilesData, orderTransfersData] = await Promise.all([
     batchFetch("trucks", "id, truck_number", truckIds),
     batchFetch("trailers", "id, trailer_number", trailerIds),
     batchFetch("drivers", "id, name, company_id, company:companies(id, name)", allDriverIds),
@@ -91,6 +91,20 @@ async function enrichLockedOrdersWithLookups(
       );
       return { data: results.flatMap(r => r.data || []) };
     })(),
+    // Fetch order_transfers from database for archived orders
+    (async () => {
+      if (orderIds.length === 0) return { data: [] };
+      const batches: string[][] = [];
+      for (let i = 0; i < orderIds.length; i += 50) {
+        batches.push(orderIds.slice(i, i + 50));
+      }
+      const results = await Promise.all(
+        batches.map(batch => 
+          supabase.from("order_transfers").select("*").in("order_id", batch)
+        )
+      );
+      return { data: results.flatMap(r => r.data || []) };
+    })(),
   ]);
 
   // Create lookup maps
@@ -101,7 +115,7 @@ async function enrichLockedOrdersWithLookups(
   const companiesMap = new Map((companiesData.data || []).map((c) => [c.id, c]));
 
 
-  // Group pickup_drops and order_files from database by order_id
+  // Group pickup_drops, order_files, and order_transfers from database by order_id
   const pickupDropsByOrder = new Map<string, any[]>();
   (pickupDropsData.data || []).forEach((pd) => {
     if (!pickupDropsByOrder.has(pd.order_id)) {
@@ -116,6 +130,14 @@ async function enrichLockedOrdersWithLookups(
       orderFilesByOrder.set(of.order_id, []);
     }
     orderFilesByOrder.get(of.order_id)!.push(of);
+  });
+
+  const orderTransfersByOrder = new Map<string, any[]>();
+  (orderTransfersData.data || []).forEach((ot) => {
+    if (!orderTransfersByOrder.has(ot.order_id)) {
+      orderTransfersByOrder.set(ot.order_id, []);
+    }
+    orderTransfersByOrder.get(ot.order_id)!.push(ot);
   });
 
 
@@ -135,6 +157,7 @@ async function enrichLockedOrdersWithLookups(
     booked_by_company: order.booked_by_company_id ? companiesMap.get(order.booked_by_company_id) || null : null,
     pickup_drops: pickupDropsByOrder.get(order.id) || [],
     order_files: orderFilesByOrder.get(order.id) || [],
+    order_transfers: (orderTransfersByOrder.get(order.id) || []).sort((a, b) => a.sequence_number - b.sequence_number),
   }));
 
   return enriched;
@@ -187,6 +210,20 @@ export const useOrders = (options?: UseOrdersOptions) => {
             content_type,
             uploaded_by,
             created_at
+          ),
+          order_transfers (
+            id,
+            sequence_number,
+            driver1_id,
+            driver2_id,
+            truck_id,
+            trailer_id,
+            miles,
+            driver_price,
+            manual_driver_name,
+            manual_truck_number,
+            manual_trailer_number,
+            transfer_date
           ),
           broker:brokers (
             id,
@@ -334,6 +371,20 @@ export const useOrders = (options?: UseOrdersOptions) => {
                     content_type,
                     uploaded_by,
                     created_at
+                  ),
+                  order_transfers (
+                    id,
+                    sequence_number,
+                    driver1_id,
+                    driver2_id,
+                    truck_id,
+                    trailer_id,
+                    miles,
+                    driver_price,
+                    manual_driver_name,
+                    manual_truck_number,
+                    manual_trailer_number,
+                    transfer_date
                   ),
                   broker:brokers (
                     id,
@@ -624,6 +675,20 @@ async function fetchSingleOrder(orderId: string) {
           content_type,
           uploaded_by,
           created_at
+        ),
+        order_transfers (
+          id,
+          sequence_number,
+          driver1_id,
+          driver2_id,
+          truck_id,
+          trailer_id,
+          miles,
+          driver_price,
+          manual_driver_name,
+          manual_truck_number,
+          manual_trailer_number,
+          transfer_date
         ),
         broker:brokers (
           id,
@@ -990,6 +1055,9 @@ function transformOrders(allOrders: any[]) {
       // Arrays
       pickup_drops: pickupDrops,
       order_files: orderFiles,
+      order_transfers: Array.isArray(order.order_transfers) 
+        ? order.order_transfers.sort((a: any, b: any) => a.sequence_number - b.sequence_number)
+        : [],
       rcFiles,
       podFiles,
       bolFiles,
