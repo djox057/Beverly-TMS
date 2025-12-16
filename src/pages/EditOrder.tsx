@@ -2180,6 +2180,14 @@ const EditOrder = () => {
               const delivery = deliveries[startIndex + i];
               await supabase.from("pickup_drops").update({ checked_out_at: checkoutTimestamp }).eq("id", delivery.id);
             }
+            
+            // Auto-set status to "delivered" when all deliveries have PODs
+            if (totalPodCount >= deliveries.length) {
+              await supabase
+                .from("orders")
+                .update({ status: "delivered" })
+                .eq("id", id);
+            }
           }
         }
       }

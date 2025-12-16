@@ -691,6 +691,15 @@ const Reports = () => {
             }
           }
         }
+        
+        // Auto-set status to "delivered" when POD uploaded and all deliveries have PODs
+        const totalDeliveries = zoomedLoad.allDeliveryStops?.length || 1;
+        if (podCount >= totalDeliveries) {
+          await supabase
+            .from("orders")
+            .update({ status: "delivered" })
+            .eq("id", zoomedLoad.orderId);
+        }
       }
 
       toast({
