@@ -29,18 +29,18 @@ export const ChristmasNoteDialog = ({
   truckId,
   truckNumber,
 }: ChristmasNoteDialogProps) => {
-  const { getNoteForDriver, upsertNote } = useChristmasNotes();
+  const { christmasNotes, upsertNote } = useChristmasNotes();
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load existing note when dialog opens
   useEffect(() => {
-    if (open) {
-      const existingNote = getNoteForDriver(driverId);
+    if (open && driverId) {
+      const existingNote = christmasNotes.find(n => n.driver_id === driverId);
       setNote(existingNote?.note || "");
     }
-  }, [open, driverId, getNoteForDriver]);
+  }, [open, driverId, christmasNotes]);
 
   const handleSubmit = async () => {
     if (!note.trim()) {
