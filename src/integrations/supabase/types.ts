@@ -1394,7 +1394,7 @@ export type Database = {
       orders: {
         Row: {
           booked_by: string
-          booked_by_company_id: string | null
+          booked_by_company_id: string
           broker_id: string | null
           broker_load_number: string | null
           canceled: boolean
@@ -1493,7 +1493,7 @@ export type Database = {
         }
         Insert: {
           booked_by: string
-          booked_by_company_id?: string | null
+          booked_by_company_id: string
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
@@ -1592,7 +1592,7 @@ export type Database = {
         }
         Update: {
           booked_by?: string
-          booked_by_company_id?: string | null
+          booked_by_company_id?: string
           broker_id?: string | null
           broker_load_number?: string | null
           canceled?: boolean
