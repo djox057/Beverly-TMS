@@ -3381,32 +3381,78 @@ const EditOrder = () => {
                                 <span className="text-muted-foreground">Driver Rate:</span>{" "}
                                 <span className="font-medium">${parseFloat(transfer.driver_price || "0").toFixed(2)}</span>
                               </div>
-                              {/* Transfer Location */}
-                              {(transfer.transfer_city || transfer.transfer_state) ? (
-                                <div className="pt-2 border-t mt-2">
-                                  <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="text-xs">
-                                      {transfer.sequence_number === 0 ? "Handoff Location" : "Pickup Location"}
-                                    </span>
-                                  </div>
-                                  <div className="font-medium">
-                                    {transfer.transfer_city}, {transfer.transfer_state}
-                                  </div>
-                                  {transfer.transfer_datetime && (
-                                    <div className="text-muted-foreground text-xs">
-                                      {new Date(transfer.transfer_datetime).toLocaleString()}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="pt-2 border-t mt-2">
-                                  <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="text-xs">No location set - click edit to add</span>
-                                  </div>
-                                </div>
-                              )}
+                              {/* Locations */}
+                              {(() => {
+                                const seq = transfer.sequence_number || 0;
+                                const prev = orderTransfers.find(
+                                  (t) => (t.sequence_number || 0) === seq - 1
+                                );
+                                const hasNext = orderTransfers.some(
+                                  (t) => (t.sequence_number || 0) === seq + 1
+                                );
+
+                                // Pickup location for Transfer #N is the previous segment's handoff (seq N-1).
+                                // Legacy fallback (missing previous): use this transfer's own location.
+                                const pickupSource =
+                                  seq === 0
+                                    ? null
+                                    : (prev?.transfer_city || prev?.transfer_state)
+                                      ? prev
+                                      : (transfer.transfer_city || transfer.transfer_state)
+                                        ? transfer
+                                        : null;
+
+                                // Only show "No location set" prompt for handoff when a NEXT transfer exists.
+                                // This prevents prompts on the last transfer (e.g. Transfer #1 when there's no Transfer #2).
+                                const shouldShowHandoff = seq === 0 || hasNext;
+
+                                return (
+                                  <>
+                                    {seq !== 0 && pickupSource && (
+                                      <div className="pt-2 border-t mt-2">
+                                        <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                                          <MapPin className="h-3 w-3" />
+                                          <span className="text-xs">Pickup Location</span>
+                                        </div>
+                                        <div className="font-medium">
+                                          {pickupSource.transfer_city}, {pickupSource.transfer_state}
+                                        </div>
+                                        {pickupSource.transfer_datetime && (
+                                          <div className="text-muted-foreground text-xs">
+                                            {new Date(pickupSource.transfer_datetime).toLocaleString()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {shouldShowHandoff && (
+                                      (transfer.transfer_city || transfer.transfer_state) ? (
+                                        <div className="pt-2 border-t mt-2">
+                                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                                            <MapPin className="h-3 w-3" />
+                                            <span className="text-xs">Handoff Location</span>
+                                          </div>
+                                          <div className="font-medium">
+                                            {transfer.transfer_city}, {transfer.transfer_state}
+                                          </div>
+                                          {transfer.transfer_datetime && (
+                                            <div className="text-muted-foreground text-xs">
+                                              {new Date(transfer.transfer_datetime).toLocaleString()}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="pt-2 border-t mt-2">
+                                          <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                            <MapPin className="h-3 w-3" />
+                                            <span className="text-xs">No location set - click edit to add</span>
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         ))}
