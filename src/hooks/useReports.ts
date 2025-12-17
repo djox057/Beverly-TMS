@@ -739,7 +739,7 @@ export const useReports = () => {
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops)...');
+        console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops and order_transfers)...');
         const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await supabase
           .from("orders")
           .select(`
@@ -764,6 +764,8 @@ export const useReports = () => {
             mileage,
             loaded_miles,
             dh_miles,
+            original_driver1_id,
+            original_driver2_id,
             pickup_drops (
               id,
               type,
@@ -783,6 +785,20 @@ export const useReports = () => {
               file_category,
               file_name,
               file_path
+            ),
+            order_transfers (
+              id,
+              sequence_number,
+              driver1_id,
+              driver2_id,
+              truck_id,
+              trailer_id,
+              miles,
+              driver_price,
+              transfer_city,
+              transfer_state,
+              transfer_address,
+              transfer_datetime
             )
           `)
           .eq("canceled", false)
@@ -1052,9 +1068,11 @@ export const useReports = () => {
                     : allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null
                 : null;
 
-            // Ensure pickup and delivery come from the SAME order (data integrity fix)
-            const pickupStop = currentOrder?.pickupStop;
-            const deliveryStop = currentOrder?.deliveryStop;
+            // Use transfer-aware stops for drivers with transfers
+            const driverIdForTransfer = truck.driver1_id;
+            const transferStopInfo = driverIdForTransfer && currentOrder
+              ? getTransferAwareStops(driverIdForTransfer, currentOrder, currentOrder?.pickupStop, currentOrder?.deliveryStop)
+              : { effectivePickupStop: currentOrder?.pickupStop, effectiveDeliveryStop: currentOrder?.deliveryStop, isTransferDriver: false, driverSequenceNumber: 0 };
 
             // Get the most recent note for this driver
             const truckNote = truckNotes?.find((note) => note.driver_id === truck.driver1_id);
@@ -1072,6 +1090,35 @@ export const useReports = () => {
               if (city) return city;
               if (state) return state;
               return "—";
+            };
+
+            // Format transfer info as a stop-like object
+            const formatTransferInfo = (transferInfo?: { city: string; state: string; address?: string; datetime?: string }) => {
+              if (!transferInfo) return null;
+              
+              let location = "—";
+              const parts = [];
+              if (transferInfo.address) parts.push(transferInfo.address);
+              if (transferInfo.city) parts.push(transferInfo.city);
+              if (transferInfo.state) parts.push(transferInfo.state);
+              
+              if (parts.length > 0) {
+                location = parts.join(", ");
+                if (location.length > 30) {
+                  location = location.substring(0, 30) + "...";
+                }
+              }
+              
+              let date = "—";
+              let time = "—";
+              
+              if (transferInfo.datetime) {
+                const parsed = parseSimpleDateTime(transferInfo.datetime);
+                date = parsed.dateString;
+                time = parsed.timeString;
+              }
+              
+              return { id: null, location, date, time };
             };
 
             // Format pickup/delivery info
@@ -1187,12 +1234,16 @@ export const useReports = () => {
               dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
               dispatcherId: truck.driver1?.dispatcher_id,
               status,
-              pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
-              delivery: formatStopInfo(
-                deliveryStop,
-                currentOrder?.delivery_datetime,
-                currentOrder?.delivery_end_datetime,
-              ),
+              pickup: transferStopInfo.transferPickupInfo 
+                ? formatTransferInfo(transferStopInfo.transferPickupInfo)! 
+                : formatStopInfo(transferStopInfo.effectivePickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
+              delivery: transferStopInfo.transferDeliveryInfo 
+                ? formatTransferInfo(transferStopInfo.transferDeliveryInfo)! 
+                : formatStopInfo(
+                    transferStopInfo.effectiveDeliveryStop,
+                    currentOrder?.delivery_datetime,
+                    currentOrder?.delivery_end_datetime,
+                  ),
               awayDays: currentOrder
                 ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24))
                 : 0,
@@ -1378,8 +1429,10 @@ export const useReports = () => {
                   : allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null
               : null;
 
-          const pickupStop = currentOrder?.pickupStop;
-          const deliveryStop = currentOrder?.deliveryStop;
+          // Use transfer-aware stops for unassigned drivers with transfers
+          const transferStopInfo = currentOrder
+            ? getTransferAwareStops(driver.id, currentOrder, currentOrder?.pickupStop, currentOrder?.deliveryStop)
+            : { effectivePickupStop: null, effectiveDeliveryStop: null, isTransferDriver: false, driverSequenceNumber: 0 };
 
           const dispatcherInfo = dispatchers?.find((d) => d.user_id === driver.dispatcher_id);
 
@@ -1391,6 +1444,35 @@ export const useReports = () => {
             if (city) return city;
             if (state) return state;
             return "—";
+          };
+
+          // Format transfer info as a stop-like object
+          const formatTransferInfo = (transferInfo?: { city: string; state: string; address?: string; datetime?: string }) => {
+            if (!transferInfo) return null;
+            
+            let location = "—";
+            const parts = [];
+            if (transferInfo.address) parts.push(transferInfo.address);
+            if (transferInfo.city) parts.push(transferInfo.city);
+            if (transferInfo.state) parts.push(transferInfo.state);
+            
+            if (parts.length > 0) {
+              location = parts.join(", ");
+              if (location.length > 30) {
+                location = location.substring(0, 30) + "...";
+              }
+            }
+            
+            let date = "—";
+            let time = "—";
+            
+            if (transferInfo.datetime) {
+              const parsed = parseSimpleDateTime(transferInfo.datetime);
+              date = parsed.dateString;
+              time = parsed.timeString;
+            }
+            
+            return { id: null, location, date, time };
           };
 
           const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
@@ -1477,12 +1559,16 @@ export const useReports = () => {
             dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
             dispatcherId: driver.dispatcher_id,
             status,
-            pickup: formatStopInfo(pickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
-            delivery: formatStopInfo(
-              deliveryStop,
-              currentOrder?.delivery_datetime,
-              currentOrder?.delivery_end_datetime,
-            ),
+            pickup: transferStopInfo.transferPickupInfo 
+              ? formatTransferInfo(transferStopInfo.transferPickupInfo)! 
+              : formatStopInfo(transferStopInfo.effectivePickupStop, currentOrder?.pickup_datetime, currentOrder?.pickup_end_datetime),
+            delivery: transferStopInfo.transferDeliveryInfo 
+              ? formatTransferInfo(transferStopInfo.transferDeliveryInfo)! 
+              : formatStopInfo(
+                  transferStopInfo.effectiveDeliveryStop,
+                  currentOrder?.delivery_datetime,
+                  currentOrder?.delivery_end_datetime,
+                ),
             awayDays: currentOrder
               ? Math.floor((Date.now() - new Date(currentOrder.updated_at).getTime()) / (1000 * 60 * 60 * 24))
               : 0,
