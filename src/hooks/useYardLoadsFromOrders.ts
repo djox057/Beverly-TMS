@@ -5,6 +5,7 @@ export interface YardLoadOrder {
   id: string;
   internalLoadNumber: number | null;
   trailerNumber: string | null;
+  trailerId: string | null;
   deliveryDate: string | null;
   deliveryCity: string | null;
   deliveryState: string | null;
@@ -63,6 +64,7 @@ export const useYardLoadsFromOrders = () => {
           is_recovery,
           truck_id,
           driver1_id,
+          trailer_id,
           pickup_datetime,
           delivery_datetime,
           original_driver1_id,
@@ -74,6 +76,7 @@ export const useYardLoadsFromOrders = () => {
           recovery_miles,
           recovery_driver_price,
           trailer:trailers!orders_trailer_id_fkey (
+            id,
             trailer_number
           ),
           broker:brokers!orders_broker_id_fkey (
@@ -123,6 +126,7 @@ export const useYardLoadsFromOrders = () => {
           id: order.id,
           internalLoadNumber: order.internal_load_number,
           trailerNumber: order.trailer?.trailer_number || null,
+          trailerId: order.trailer_id || null,
           deliveryDate: order.delivery_datetime || lastDelivery?.datetime || null,
           deliveryCity: lastDelivery?.city || null,
           deliveryState: lastDelivery?.state || null,
