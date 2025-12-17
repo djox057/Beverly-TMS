@@ -47,9 +47,53 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail, requesterName }: EfsRequestBody = await req.json();
+    const body: EfsRequestBody = await req.json();
+    const { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName } = body;
+
+    // Prefer resolving requester identity from the JWT (more reliable than client-provided fields)
+    let requesterEmail = body.requesterEmail;
+    let requesterName = body.requesterName;
 
     console.log("EFS Request received:", { orderId, lumperAmount, truckNumber, driverName, loadNumber, companyName, requesterEmail });
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Resolve requester from JWT (role-independent)
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      });
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError) {
+        console.warn("Could not resolve requester from JWT:", userError);
+      } else if (userData?.user) {
+        requesterEmail = userData.user.email ?? requesterEmail;
+        requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: requesterProfile, error: requesterProfileError } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+
+        if (requesterProfileError) {
+          console.warn("Failed to fetch requester profile:", requesterProfileError);
+        } else {
+          requesterName = requesterProfile?.full_name || requesterName;
+        }
+      }
+    }
+
+    console.log("Requester resolved:", { requesterEmail, requesterName });
 
     // Validate required fields
     if (!orderId || !lumperAmount || !truckNumber || !driverName || !loadNumber) {
@@ -84,12 +128,10 @@ Purpose Lumper fee`;
     console.log("Email sent successfully:", emailResponse);
 
     // Update the order's lumper field in the database
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get current lumper value and add to it
-    const { data: order, error: fetchError } = await supabase
+    const { data: order, error: fetchError } = await supabaseAdmin
       .from("orders")
       .select("lumper")
       .eq("id", orderId)
@@ -103,7 +145,7 @@ Purpose Lumper fee`;
     const currentLumper = order?.lumper || 0;
     const newLumper = currentLumper + lumperAmount;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("orders")
       .update({ lumper: newLumper })
       .eq("id", orderId);
