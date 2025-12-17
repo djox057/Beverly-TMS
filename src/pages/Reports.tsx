@@ -2706,11 +2706,6 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
-                                          {(truck as any).segmentLabel && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-purple-100 text-purple-800 border border-purple-300">
-                                              {(truck as any).segmentLabel}
-                                            </span>
-                                          )}
                                           {truck.randomDrugTestDate && (
                                             <Popover>
                                               <PopoverTrigger asChild>
