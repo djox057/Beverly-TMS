@@ -925,13 +925,30 @@ export const useReports = () => {
           trucks?.map((truck) => {
             const now = new Date().getTime();
 
-            // Get orders for this truck - include both truck assignment and driver assignment
+            // Get orders for this truck - include:
+            // 1. Current driver assignment (driver1_id or driver2_id)
+            // 2. Original driver assignment (for transfer loads)
+            // 3. Transfer drivers from order_transfers
             const driverOrders =
-              allOrders?.filter(
-                (order) => 
-                  order.driver1_id === truck.driver1_id || 
-                  order.driver2_id === truck.driver1_id,
-              ) || [];
+              allOrders?.filter((order) => {
+                const driverId = truck.driver1_id;
+                if (!driverId) return false;
+                
+                // Current assignment
+                if (order.driver1_id === driverId || order.driver2_id === driverId) return true;
+                
+                // Original driver (for transfer loads)
+                if (order.original_driver1_id === driverId || order.original_driver2_id === driverId) return true;
+                
+                // Check if driver is in order_transfers
+                const transfers = order.order_transfers || [];
+                const isTransferDriver = transfers.some((t: any) => 
+                  t.driver1_id === driverId || t.driver2_id === driverId
+                );
+                if (isTransferDriver) return true;
+                
+                return false;
+              }) || [];
 
             // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
             const activeOrders =

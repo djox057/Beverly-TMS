@@ -1194,16 +1194,25 @@ const Reports = () => {
     const ordersWithDates =
       truck.allOrders
         ?.map((order: any) => {
-          // Parse datetime without timezone conversion
-          const pickupDate = order.pickup_datetime
+          // For transfer drivers, use their segment dates (from transfer-aware pickupStops/deliveryStops)
+          // instead of the original order dates
+          const firstPickupStop = order.pickupStops?.[0];
+          const lastDeliveryStop = order.deliveryStops?.[order.deliveryStops?.length - 1];
+          
+          // Use first pickup stop datetime (transfer-aware) if available, otherwise fall back to order datetime
+          const pickupDatetimeToUse = firstPickupStop?.datetime || order.pickup_datetime;
+          const pickupDate = pickupDatetimeToUse
             ? (() => {
-                const parsed = parseSimpleDateTime(order.pickup_datetime);
+                const parsed = parseSimpleDateTime(pickupDatetimeToUse);
                 return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
               })()
             : null;
-          const deliveryDate = order.delivery_datetime
+          
+          // Use last delivery stop datetime (transfer-aware) if available, otherwise fall back to order datetime
+          const deliveryDatetimeToUse = lastDeliveryStop?.datetime || order.delivery_datetime;
+          const deliveryDate = deliveryDatetimeToUse
             ? (() => {
-                const parsed = parseSimpleDateTime(order.delivery_datetime);
+                const parsed = parseSimpleDateTime(deliveryDatetimeToUse);
                 return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
               })()
             : null;
