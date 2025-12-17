@@ -36,6 +36,11 @@ export interface RecoveryData {
   manualOriginalDriver?: string;
   manualOriginalTruck?: string;
   manualOriginalTrailer?: string;
+  // Transfer location fields
+  transferCity: string;
+  transferState: string;
+  transferAddress?: string;
+  transferDatetime: string;
 }
 
 export function RecoveryLoadDialog({
@@ -70,6 +75,16 @@ export function RecoveryLoadDialog({
   const [manualOriginalTruck, setManualOriginalTruck] = useState<string>("");
   const [manualOriginalTrailer, setManualOriginalTrailer] = useState<string>("");
   
+  // Transfer location fields
+  const [transferCity, setTransferCity] = useState<string>("");
+  const [transferState, setTransferState] = useState<string>("");
+  const [transferAddress, setTransferAddress] = useState<string>("");
+  const [transferDatetime, setTransferDatetime] = useState<string>(() => {
+    // Default to current Chicago time formatted for datetime-local input
+    const now = new Date();
+    return now.toISOString().slice(0, 16);
+  });
+  
   // Check each field independently for N/A status
   const isDriverNA = currentDriver === "N/A";
   const isTruckNA = currentTruck === "N/A";
@@ -97,6 +112,16 @@ export function RecoveryLoadDialog({
       return;
     }
 
+    if (!transferCity || !transferState) {
+      setError("Please enter transfer location (city and state)");
+      return;
+    }
+
+    if (!transferDatetime) {
+      setError("Please select transfer date and time");
+      return;
+    }
+
     if (swapTrailers && (!currentTrailerId || !recoveryTrailerId)) {
       setError("Both trucks must have trailers to perform a swap");
       return;
@@ -115,6 +140,10 @@ export function RecoveryLoadDialog({
       manualOriginalDriver: isDriverNA ? manualOriginalDriver : undefined,
       manualOriginalTruck: isTruckNA ? manualOriginalTruck : undefined,
       manualOriginalTrailer: isTrailerNA ? manualOriginalTrailer : undefined,
+      transferCity,
+      transferState,
+      transferAddress: transferAddress || undefined,
+      transferDatetime: new Date(transferDatetime).toISOString(),
     });
 
     onOpenChange(false);
@@ -203,8 +232,51 @@ export function RecoveryLoadDialog({
             </div>
           </div>
 
+          {/* Transfer Location Section */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold text-lg">Transfer Location & Time</h3>
+            <p className="text-sm text-muted-foreground">
+              Where and when did the original driver hand off the load?
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>City *</Label>
+                <Input
+                  value={transferCity}
+                  onChange={(e) => setTransferCity(e.target.value)}
+                  placeholder="e.g. Chicago"
+                />
+              </div>
+              <div>
+                <Label>State *</Label>
+                <Input
+                  value={transferState}
+                  onChange={(e) => setTransferState(e.target.value.toUpperCase())}
+                  placeholder="e.g. IL"
+                  maxLength={2}
+                />
+              </div>
+              <div>
+                <Label>Date & Time *</Label>
+                <Input
+                  type="datetime-local"
+                  value={transferDatetime}
+                  onChange={(e) => setTransferDatetime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Full Address (optional)</Label>
+              <Input
+                value={transferAddress}
+                onChange={(e) => setTransferAddress(e.target.value)}
+                placeholder="e.g. 123 Main St, Chicago, IL 60601"
+              />
+            </div>
+          </div>
+
           {/* Transfer Driver Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-lg">Transfer Driver</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>

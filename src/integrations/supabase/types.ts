@@ -1295,7 +1295,13 @@ export type Database = {
           order_id: string
           sequence_number: number
           trailer_id: string | null
+          transfer_address: string | null
+          transfer_city: string | null
           transfer_date: string | null
+          transfer_datetime: string | null
+          transfer_latitude: number | null
+          transfer_longitude: number | null
+          transfer_state: string | null
           truck_id: string | null
           updated_at: string
         }
@@ -1313,7 +1319,13 @@ export type Database = {
           order_id: string
           sequence_number?: number
           trailer_id?: string | null
+          transfer_address?: string | null
+          transfer_city?: string | null
           transfer_date?: string | null
+          transfer_datetime?: string | null
+          transfer_latitude?: number | null
+          transfer_longitude?: number | null
+          transfer_state?: string | null
           truck_id?: string | null
           updated_at?: string
         }
@@ -1331,7 +1343,13 @@ export type Database = {
           order_id?: string
           sequence_number?: number
           trailer_id?: string | null
+          transfer_address?: string | null
+          transfer_city?: string | null
           transfer_date?: string | null
+          transfer_datetime?: string | null
+          transfer_latitude?: number | null
+          transfer_longitude?: number | null
+          transfer_state?: string | null
           truck_id?: string | null
           updated_at?: string
         }
