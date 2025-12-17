@@ -29,6 +29,7 @@ import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
 import Repairs from "./pages/Repairs";
+import Christmas from "./pages/Christmas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -199,6 +200,11 @@ const AppContent = () => {
         <Route path="/data-management" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><DataManagement /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/christmas" element={
+          <ProtectedRoute>
+            <Layout><Christmas /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
