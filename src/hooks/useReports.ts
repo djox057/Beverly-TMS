@@ -81,15 +81,40 @@ const getTransferAwareStops = (
     };
   }
 
-  // Original driver case (sequence 0)
-  if (isOriginalDriver && !driverTransfer) {
-    // Original driver's delivery is the first transfer location (if exists)
-    const firstTransfer = sortedTransfers[0];
+  // Original driver case - check if driver matches original_driver1_id or original_driver2_id
+  // They may also have a transfer record at seq 0, but should still use original pickup
+  const isActualOriginalDriver = order.original_driver1_id === driverId || order.original_driver2_id === driverId;
+  
+  if (isActualOriginalDriver) {
+    // Original driver's delivery is their own transfer location (seq 0) if it exists
+    const originalDriverTransfer = sortedTransfers.find((t: any) => 
+      (t.driver1_id === driverId || t.driver2_id === driverId) && 
+      (t.sequence_number === 0 || t.sequence_number === undefined || t.sequence_number === null)
+    );
     
-    if (firstTransfer?.transfer_city) {
+    // If original driver has their own transfer record with location data, use it for delivery
+    if (originalDriverTransfer?.transfer_city) {
       return {
         effectivePickupStop: originalPickupStop,
         effectiveDeliveryStop: null, // Will use transferDeliveryInfo instead
+        isTransferDriver: false,
+        driverSequenceNumber: 0,
+        segmentLabel: "Orig",
+        transferDeliveryInfo: {
+          city: originalDriverTransfer.transfer_city,
+          state: originalDriverTransfer.transfer_state || "",
+          address: originalDriverTransfer.transfer_address,
+          datetime: originalDriverTransfer.transfer_datetime,
+        },
+      };
+    }
+    
+    // Otherwise check if there's a first transfer (for legacy data)
+    const firstTransfer = sortedTransfers[0];
+    if (firstTransfer?.transfer_city) {
+      return {
+        effectivePickupStop: originalPickupStop,
+        effectiveDeliveryStop: null,
         isTransferDriver: false,
         driverSequenceNumber: 0,
         segmentLabel: "Orig",
