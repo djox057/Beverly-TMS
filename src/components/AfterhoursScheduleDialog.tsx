@@ -201,8 +201,23 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       return;
     }
 
-    if (!isWeekend(selectedDate)) {
-      toast.error('Please select a Saturday or Sunday');
+    // Check if it's a weekend or holiday
+    const isValidScheduleDate = isWeekend(selectedDate) || (() => {
+      const month = selectedDate.getMonth();
+      const day = selectedDate.getDate();
+      const HOLIDAYS = [
+        { month: 0, day: 1 },   // New Year
+        { month: 4, day: 25 },  // Memorial Day
+        { month: 6, day: 4 },   // Independence Day
+        { month: 8, day: 7 },   // Labor Day
+        { month: 10, day: 26 }, // Thanksgiving
+        { month: 11, day: 25 }, // Christmas
+      ];
+      return HOLIDAYS.some(h => h.month === month && h.day === day);
+    })();
+    
+    if (!isValidScheduleDate) {
+      toast.error('Please select a weekend or holiday');
       return;
     }
 
