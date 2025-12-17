@@ -1023,11 +1023,6 @@ export const useReports = () => {
 
                   // For transfer drivers, create synthetic stops from their transfer segment
                   if (driverTransfer && driverTransfer.transfer_city) {
-                    const seqNum = driverTransfer.sequence_number || 1;
-                    const nextTransfer = sortedTransfers.find((t: any) => 
-                      (t.sequence_number || 0) > seqNum
-                    );
-
                     // This driver's pickup is their transfer location (where they picked up)
                     pickupStops = [{
                       id: `transfer-pickup-${driverTransfer.id}`,
@@ -1039,19 +1034,8 @@ export const useReports = () => {
                       sequence_number: 1,
                     }];
 
-                    // This driver's delivery is either next transfer or original final delivery
-                    if (nextTransfer?.transfer_city) {
-                      deliveryStops = [{
-                        id: `transfer-delivery-${nextTransfer.id}`,
-                        type: "delivery",
-                        city: nextTransfer.transfer_city,
-                        state: nextTransfer.transfer_state || "",
-                        address: nextTransfer.transfer_address || "",
-                        datetime: nextTransfer.transfer_datetime,
-                        sequence_number: 1,
-                      }];
-                    }
-                    // else keep original deliveryStops (final delivery)
+                    // This driver's delivery is always the original order's final delivery
+                    // (keep original deliveryStops - no change needed)
                   } else if (isOriginalDriver && sortedTransfers.length > 0 && sortedTransfers[0]?.transfer_city) {
                     // Original driver's delivery is the first transfer location
                     const firstTransfer = sortedTransfers[0];
@@ -1461,11 +1445,6 @@ export const useReports = () => {
 
                 // For transfer drivers, create synthetic stops from their transfer segment
                 if (driverTransfer && driverTransfer.transfer_city) {
-                  const seqNum = driverTransfer.sequence_number || 1;
-                  const nextTransfer = sortedTransfers.find((t: any) => 
-                    (t.sequence_number || 0) > seqNum
-                  );
-
                   // This driver's pickup is their transfer location (where they picked up)
                   pickupStops = [{
                     id: `transfer-pickup-${driverTransfer.id}`,
@@ -1477,19 +1456,8 @@ export const useReports = () => {
                     sequence_number: 1,
                   }];
 
-                  // This driver's delivery is either next transfer or original final delivery
-                  if (nextTransfer?.transfer_city) {
-                    deliveryStops = [{
-                      id: `transfer-delivery-${nextTransfer.id}`,
-                      type: "delivery",
-                      city: nextTransfer.transfer_city,
-                      state: nextTransfer.transfer_state || "",
-                      address: nextTransfer.transfer_address || "",
-                      datetime: nextTransfer.transfer_datetime,
-                      sequence_number: 1,
-                    }];
-                  }
-                  // else keep original deliveryStops (final delivery)
+                  // This driver's delivery is always the original order's final delivery
+                  // (keep original deliveryStops - no change needed)
                 } else if (isOriginalDriver && sortedTransfers.length > 0 && sortedTransfers[0]?.transfer_city) {
                   // Original driver's delivery is the first transfer location
                   const firstTransfer = sortedTransfers[0];
