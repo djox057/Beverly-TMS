@@ -175,6 +175,9 @@ export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null =
 
 // Helper to get pickup cell color based on status and previous load
 export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+  // Show red for canceled orders
+  if (order.canceled) return "bg-red-500/80 text-white border-red-500/50";
+  
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
   const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
@@ -189,6 +192,9 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
 
 // Helper to get delivery cell color based on status
 export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeliveries: Set<string>) => {
+  // Show red for canceled orders
+  if (order.canceled) return "bg-red-500/80 text-white border-red-500/50";
+  
   if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
   const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
