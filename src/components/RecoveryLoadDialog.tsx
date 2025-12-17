@@ -235,10 +235,7 @@ export function RecoveryLoadDialog({
           {/* Transfer Location Section */}
           <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-lg">Transfer Location & Time</h3>
-            <p className="text-sm text-muted-foreground">
-              Where and when did the original driver hand off the load?
-            </p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-[1fr_80px_1.5fr] gap-4">
               <div>
                 <Label>City *</Label>
                 <Input
@@ -252,7 +249,7 @@ export function RecoveryLoadDialog({
                 <Input
                   value={transferState}
                   onChange={(e) => setTransferState(e.target.value.toUpperCase())}
-                  placeholder="e.g. IL"
+                  placeholder="IL"
                   maxLength={2}
                 />
               </div>
