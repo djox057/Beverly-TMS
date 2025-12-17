@@ -801,6 +801,7 @@ export const useReports = () => {
             status,
             notes,
             date_change_notes,
+            created_at,
             updated_at,
             pickup_datetime,
             pickup_end_datetime,

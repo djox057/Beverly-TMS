@@ -1072,6 +1072,8 @@ const Reports = () => {
 
     // Helper to get pickup cell color based on status and previous load
     const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+      if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+
       // Check if this is a recovery load first - purple background
       if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
@@ -1087,6 +1089,8 @@ const Reports = () => {
 
     // Helper to get delivery cell color based on status
     const getDeliveryCellColor = (order: any, stop?: any) => {
+      if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
+
       // Check if this is a recovery load first - purple background
       if (order.is_recovery) return "bg-purple-500/80 text-white border-purple-500/50";
 
