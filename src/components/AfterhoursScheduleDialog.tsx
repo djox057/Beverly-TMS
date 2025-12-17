@@ -117,13 +117,10 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
 
   const fetchExistingSchedules = async () => {
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
-      
       const { data, error } = await supabase
         .from('afterhours_schedule')
         .select('*')
-        .gte('scheduled_date', today)
-        .order('scheduled_date', { ascending: true });
+        .order('scheduled_date', { ascending: false });
 
       if (error) throw error;
 
@@ -307,12 +304,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return holiday?.name || null;
   };
 
-  // Allow selecting weekends (Saturday/Sunday) and holidays
+  // Allow selecting weekends (Saturday/Sunday) and holidays - including past dates for viewing
   const isDateDisabled = (date: Date) => {
-    const today = startOfDay(new Date());
-    if (date < today) return true;
     return !isWeekend(date) && !isHoliday(date);
   };
+
+  // Check if selected date is in the past
+  const isPastDate = selectedDate ? startOfDay(selectedDate) < startOfDay(new Date()) : false;
 
   const getOfficeLabel = (office: string | null | undefined) => {
     if (office === 'kragujevac') return 'KG';
@@ -327,7 +325,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5" />
-            Afterhours Schedule
+            Weekend Schedule
           </DialogTitle>
           <DialogDescription>
             Schedule users by office: 4x KG, 3x CA, 3x BG + Maintenance for weekends and holidays.
@@ -355,6 +353,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                 <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="font-medium text-sm">
                     Schedule for {format(selectedDate, 'EEEE, MMM d, yyyy')}
+                    {isPastDate && <span className="text-muted-foreground ml-2">(Past)</span>}
                   </h3>
                   <Badge variant={isSaturday(selectedDate) ? "default" : "secondary"}>
                     {format(selectedDate, 'EEEE')}
@@ -429,7 +428,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                     >
                                       <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                      {isAdmin && (
+                                      {isAdmin && !isPastDate && (
                                         <Button
                                           variant="ghost"
                                           size="icon"
@@ -462,7 +461,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                   >
                                     <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                    {isAdmin && (
+                                    {isAdmin && !isPastDate && (
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -479,9 +478,16 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                           )}
                         </ScrollArea>
                       )}
+
+                      {/* Show message for past dates with no schedules */}
+                      {isPastDate && existingForDate.length === 0 && (
+                        <div className="flex items-center justify-center py-8 text-muted-foreground">
+                          <p className="text-sm">No schedule recorded for this date</p>
+                        </div>
+                      )}
                       
-                      {/* Show add section for offices/maintenance below minimum threshold - Admin only */}
-                      {isAdmin && (existingForDate.length === 0 || needsMoreDispatchers) && (
+                      {/* Show add section for offices/maintenance below minimum threshold - Admin only, future dates only */}
+                      {isAdmin && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers) && (
                         <>
                           {loading ? (
                             <div className="flex items-center justify-center py-4">
