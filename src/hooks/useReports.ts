@@ -852,7 +852,7 @@ export const useReports = () => {
               transfer_datetime
             )
           `)
-          .eq("canceled", false)
+          // Note: canceled orders are included and filtered in JS to show most recent canceled if no newer load
           .eq("locked", false)
           .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
           .order("delivery_datetime", { ascending: false, nullsFirst: true })
@@ -903,8 +903,7 @@ export const useReports = () => {
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
             lockedOrders = ordersWithRelations.filter((order: any) => {
-              // canceled is already normalized to boolean above
-              if (order.canceled) return false;
+              // Note: canceled orders are included and filtered in JS to show most recent canceled if no newer load
               
               // Normalize delivery_datetime - CSV uses space separator, ISO uses T
               const deliveryDateStr = order.delivery_datetime ? 
@@ -1035,10 +1034,33 @@ export const useReports = () => {
                 return false;
               }) || [];
 
-            // Process all orders for this driver (including GAME-OVER for calendar rendering, but excluding canceled orders)
+            // Determine which canceled order to show (most recent one if no newer non-canceled order)
+            const truckDriverId = truck.driver1_id;
+            let canceledOrderToShow: string | null = null;
+            if (truckDriverId) {
+              const driverOnlyOrders = driverOrders.filter((o) => o.driver1_id === truckDriverId);
+              const canceledOrders = driverOnlyOrders
+                .filter((o) => o.canceled)
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              const nonCanceledOrders = driverOnlyOrders.filter((o) => !o.canceled);
+              
+              if (canceledOrders.length > 0) {
+                const mostRecentCanceled = canceledOrders[0];
+                const canceledCreatedAt = new Date(mostRecentCanceled.created_at).getTime();
+                const hasNewerNonCanceled = nonCanceledOrders.some(
+                  (o) => new Date(o.created_at).getTime() > canceledCreatedAt
+                );
+                if (!hasNewerNonCanceled) {
+                  canceledOrderToShow = mostRecentCanceled.id;
+                }
+              }
+            }
+
+            // Process all orders for this driver (including GAME-OVER for calendar rendering)
+            // Include canceled order only if it's the one we determined should be shown
             const allOrdersWithStops =
               driverOrders
-                .filter((order) => !order.canceled)
+                .filter((order) => !order.canceled || order.id === canceledOrderToShow)
                 .map((order) => {
                   // Get original pickup/delivery stops
                   let pickupStops = (order.pickup_drops?.filter((stop: any) => stop.type === "pickup") || []).sort(
