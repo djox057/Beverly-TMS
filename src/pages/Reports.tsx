@@ -2577,31 +2577,27 @@ const Reports = () => {
                                     return aDate - bDate;
                                   })[0];
 
-                                // Extract ALL pickup and delivery stops from pickup_drops for multi-drop support
-                                if (currentOrder && currentOrder.pickup_drops) {
-                                  currentOrder.pickupStops = currentOrder.pickup_drops
-                                    .filter((pd: any) => pd.type === "pickup")
-                                    .sort((a: any, b: any) => {
-                                      const aSeq = a.sequence_number ?? 0;
-                                      const bSeq = b.sequence_number ?? 0;
-                                      return aSeq - bSeq;
-                                    });
-                                  currentOrder.deliveryStops = currentOrder.pickup_drops
-                                    .filter((pd: any) => pd.type === "delivery")
-                                    .sort((a: any, b: any) => {
-                                      const aSeq = a.sequence_number ?? 0;
-                                      const bSeq = b.sequence_number ?? 0;
-                                      return aSeq - bSeq;
-                                    });
-                                  // Keep first stop as pickupStop/deliveryStop for backward compatibility
-                                  currentOrder.pickupStop = currentOrder.pickupStops[0];
-                                  currentOrder.deliveryStop = currentOrder.deliveryStops[0];
-                                }
+                                // Multi-drop support (non-mutating): derive stops if missing
+                                const pickupStopsForDisplay =
+                                  currentOrder?.pickupStops ??
+                                  (currentOrder?.pickup_drops
+                                    ? currentOrder.pickup_drops
+                                        .filter((pd: any) => pd.type === "pickup")
+                                        .sort((a: any, b: any) => {
+                                          const aSeq = a.sequence_number ?? 0;
+                                          const bSeq = b.sequence_number ?? 0;
+                                          return aSeq - bSeq;
+                                        })
+                                    : []);
+
+
+                                const pickupStopForDisplay = currentOrder?.pickupStop ?? pickupStopsForDisplay[0];
+
                                 const hasBOL =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "BOL") || false;
                                 const hasPOD =
                                   currentOrder?.order_files?.some((file: any) => file.file_category === "POD") || false;
-                                const pickupArrived = !!currentOrder?.pickupStop?.arrived_at;
+                                const pickupArrived = !!pickupStopForDisplay?.arrived_at;
 
                                 // Check if any HOS timer is 0 or below
                                 const hasExpiredHOS =
