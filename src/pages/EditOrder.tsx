@@ -44,6 +44,7 @@ import {
   Download,
   Eye,
   Layers,
+  MapPin,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DateRange } from "react-day-picker";
@@ -64,7 +65,9 @@ import { toZonedTime } from "date-fns-tz";
 import { geocodeAddress } from "@/utils/mapboxRouteCalculator";
 import { RecoveryLoadDialog, RecoveryData } from "@/components/RecoveryLoadDialog";
 import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDialog";
+import { EditTransferDialog, EditTransferData } from "@/components/EditTransferDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -244,6 +247,8 @@ const EditOrder = () => {
   const [isRecovery, setIsRecovery] = useState(false);
   const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
   const [addTransferDialogOpen, setAddTransferDialogOpen] = useState(false);
+  const [editTransferDialogOpen, setEditTransferDialogOpen] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState<any>(null);
   const [orderTransfers, setOrderTransfers] = useState<any[]>([]);
   const [originalDriverName, setOriginalDriverName] = useState("");
   const [originalTruckNumber, setOriginalTruckNumber] = useState("");
@@ -1661,6 +1666,48 @@ const EditOrder = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to add transfer",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for editing existing transfers
+  const handleEditTransferSave = async (data: EditTransferData) => {
+    try {
+      const updateData: any = {
+        transfer_city: data.transferCity,
+        transfer_state: data.transferState,
+        transfer_address: data.transferAddress || null,
+        transfer_datetime: data.transferDatetime,
+      };
+
+      // Only update these fields if they were changed
+      if (data.truckId !== undefined) updateData.truck_id = data.truckId || null;
+      if (data.trailerId !== undefined) updateData.trailer_id = data.trailerId || null;
+      if (data.driverId !== undefined) updateData.driver1_id = data.driverId || null;
+      if (data.miles !== undefined) updateData.miles = data.miles;
+      if (data.driverPrice !== undefined) updateData.driver_price = data.driverPrice;
+
+      const { error } = await supabase
+        .from("order_transfers")
+        .update(updateData)
+        .eq("id", data.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Transfer updated successfully",
+      });
+
+      await loadOrderData();
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    } catch (error: any) {
+      console.error("Error updating transfer:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update transfer",
         variant: "destructive",
       });
     }
@@ -3272,10 +3319,41 @@ const EditOrder = () => {
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {orderTransfers.map((transfer) => (
-                          <div key={transfer.id} className="space-y-3 p-3 bg-background/50 rounded-lg border">
-                            <h4 className="font-semibold text-sm">
-                              {transfer.sequence_number === 0 ? "Original" : `Transfer #${transfer.sequence_number}`}
-                            </h4>
+                          <div key={transfer.id} className="space-y-3 p-3 bg-background/50 rounded-lg border relative">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-semibold text-sm">
+                                {transfer.sequence_number === 0 ? "Original" : `Transfer #${transfer.sequence_number}`}
+                              </h4>
+                              {!isLocked && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setEditingTransfer({
+                                      id: transfer.id,
+                                      sequenceNumber: transfer.sequence_number,
+                                      driverId: transfer.driver1_id,
+                                      driverName: transfer.manual_driver_name || transfer.driver1?.name,
+                                      truckId: transfer.truck_id,
+                                      truckNumber: transfer.manual_truck_number || transfer.truck?.truck_number,
+                                      trailerId: transfer.trailer_id,
+                                      trailerNumber: transfer.manual_trailer_number || transfer.trailer?.trailer_number,
+                                      miles: transfer.miles,
+                                      driverPrice: transfer.driver_price,
+                                      transferCity: transfer.transfer_city,
+                                      transferState: transfer.transfer_state,
+                                      transferAddress: transfer.transfer_address,
+                                      transferDatetime: transfer.transfer_datetime,
+                                    });
+                                    setEditTransferDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
                             <div className="space-y-2 text-sm">
                               <div>
                                 <span className="text-muted-foreground">Driver:</span>{" "}
@@ -3303,6 +3381,32 @@ const EditOrder = () => {
                                 <span className="text-muted-foreground">Driver Rate:</span>{" "}
                                 <span className="font-medium">${parseFloat(transfer.driver_price || "0").toFixed(2)}</span>
                               </div>
+                              {/* Transfer Location */}
+                              {(transfer.transfer_city || transfer.transfer_state) ? (
+                                <div className="pt-2 border-t mt-2">
+                                  <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="text-xs">
+                                      {transfer.sequence_number === 0 ? "Handoff Location" : "Pickup Location"}
+                                    </span>
+                                  </div>
+                                  <div className="font-medium">
+                                    {transfer.transfer_city}, {transfer.transfer_state}
+                                  </div>
+                                  {transfer.transfer_datetime && (
+                                    <div className="text-muted-foreground text-xs">
+                                      {new Date(transfer.transfer_datetime).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="pt-2 border-t mt-2">
+                                  <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="text-xs">No location set - click edit to add</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -4142,6 +4246,16 @@ const EditOrder = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Transfer Dialog */}
+      {editingTransfer && (
+        <EditTransferDialog
+          open={editTransferDialogOpen}
+          onOpenChange={setEditTransferDialogOpen}
+          onSave={handleEditTransferSave}
+          transfer={editingTransfer}
+        />
+      )}
     </div>
   );
 };
