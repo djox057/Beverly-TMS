@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDateNoTimezone } from '@/lib/utils';
 import ExcelJS from 'exceljs';
 
 // Helper function to load file from Supabase storage
@@ -227,7 +227,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
     let lateFeeTotal = 0;
     
     group.orders.forEach((order) => {
-      const pickupDate = order.pickupDate.split(' - ')[0];
+      const pickupDate = formatDateNoTimezone(order.pickupDate.split(' - ')[0]);
       
       // Build origin-destination text with all pickups and deliveries
       let originDestination = '';
