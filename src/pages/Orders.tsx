@@ -29,12 +29,10 @@ import {
   Calculator,
   Undo2,
   Info,
-  Mail,
   Layers,
 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useCompanies } from "@/hooks/useCompanies";
-import { useDriverEmailLog } from "@/hooks/useDriverEmailLog";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +74,6 @@ const Orders = () => {
   const { hasRole, getPrimaryRole, profile } = useAuthContext();
   const primaryRole = getPrimaryRole();
   const queryClient = useQueryClient();
-  const { data: emailLogMap } = useDriverEmailLog();
 
   console.log("🟦 [Orders Page] Component rendering");
 
@@ -979,18 +976,6 @@ const Orders = () => {
                           </TableCell>
                           <TableCell className="w-20">
                             <div className="flex items-center gap-1">
-                              {hasRole("admin") && emailLogMap?.has(order.id) && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger>
-                                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Email sent to driver</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
                               {(order as any).isPartial && (
                                 <TooltipProvider>
                                   <Tooltip>
