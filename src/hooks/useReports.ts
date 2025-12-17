@@ -151,17 +151,24 @@ const getTransferAwareStops = (
       (t.sequence_number || 0) > seqNum
     );
 
-    // This driver's pickup is the PREVIOUS transfer's handoff location
-    // For seq 1 driver, this is seq 0's transfer_city (where original driver dropped off)
-    const pickupInfo = previousTransfer?.transfer_city ? {
-      city: previousTransfer.transfer_city,
-      state: previousTransfer.transfer_state || "",
-      address: previousTransfer.transfer_address,
-      datetime: previousTransfer.transfer_datetime,
+    // This driver's pickup is the PREVIOUS transfer's handoff location when available.
+    // Fallback for legacy data (no seq 0): use this driver's own transfer location.
+    const pickupSource =
+      (previousTransfer?.transfer_city || previousTransfer?.transfer_state)
+        ? previousTransfer
+        : (driverTransfer.transfer_city || driverTransfer.transfer_state)
+          ? driverTransfer
+          : undefined;
+
+    const pickupInfo = pickupSource ? {
+      city: pickupSource.transfer_city,
+      state: pickupSource.transfer_state || "",
+      address: pickupSource.transfer_address,
+      datetime: pickupSource.transfer_datetime,
     } : undefined;
 
     // This driver's delivery is either the next transfer location or original delivery
-    const deliveryInfo = nextTransfer?.transfer_city ? {
+    const deliveryInfo = (nextTransfer?.transfer_city || nextTransfer?.transfer_state) ? {
       city: nextTransfer.transfer_city,
       state: nextTransfer.transfer_state || "",
       address: nextTransfer.transfer_address,
