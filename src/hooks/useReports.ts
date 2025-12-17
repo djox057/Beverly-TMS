@@ -1039,15 +1039,38 @@ export const useReports = () => {
                     (a.sequence_number || 0) - (b.sequence_number || 0)
                   );
                   
+                  // Check if this is an ACTUAL original driver (matches original_driver1_id or original_driver2_id)
+                  const isActualOriginalDriver = order.original_driver1_id === driverIdForOrder || 
+                    order.original_driver2_id === driverIdForOrder;
+                  
                   const driverTransfer = sortedTransfers.find((t: any) => 
                     t.driver1_id === driverIdForOrder || t.driver2_id === driverIdForOrder
                   );
-                  
-                  const isOriginalDriver = order.original_driver1_id === driverIdForOrder || 
-                    (order.driver1_id === driverIdForOrder && !driverTransfer);
 
-                  // For transfer drivers, create synthetic stops from their transfer segment
-                  if (driverTransfer && driverTransfer.transfer_city) {
+                  // Original driver case - check FIRST, before transfer driver logic
+                  // Original drivers keep their original pickup, but their delivery is their transfer location
+                  if (isActualOriginalDriver && sortedTransfers.length > 0) {
+                    // Find original driver's own transfer record (seq 0) or use first transfer
+                    const originalDriverTransfer = sortedTransfers.find((t: any) => 
+                      (t.driver1_id === driverIdForOrder || t.driver2_id === driverIdForOrder) &&
+                      (t.sequence_number === 0 || t.sequence_number === undefined || t.sequence_number === null)
+                    ) || sortedTransfers[0];
+                    
+                    if (originalDriverTransfer?.transfer_city) {
+                      // Keep original pickupStops, but update delivery to transfer location
+                      deliveryStops = [{
+                        id: `transfer-delivery-${originalDriverTransfer.id}`,
+                        type: "delivery",
+                        city: originalDriverTransfer.transfer_city,
+                        state: originalDriverTransfer.transfer_state || "",
+                        address: originalDriverTransfer.transfer_address || "",
+                        datetime: originalDriverTransfer.transfer_datetime,
+                        sequence_number: 1,
+                      }];
+                    }
+                    // pickupStops remain as original
+                  } else if (driverTransfer && driverTransfer.transfer_city) {
+                    // Transfer driver case - NOT an original driver
                     const seqNum = driverTransfer.sequence_number || 1;
                     const nextTransfer = sortedTransfers.find((t: any) => 
                       (t.sequence_number || 0) > seqNum
@@ -1077,19 +1100,6 @@ export const useReports = () => {
                       }];
                     }
                     // else keep original deliveryStops (final delivery)
-                  } else if (isOriginalDriver && sortedTransfers.length > 0 && sortedTransfers[0]?.transfer_city) {
-                    // Original driver's delivery is the first transfer location
-                    const firstTransfer = sortedTransfers[0];
-                    deliveryStops = [{
-                      id: `transfer-delivery-${firstTransfer.id}`,
-                      type: "delivery",
-                      city: firstTransfer.transfer_city,
-                      state: firstTransfer.transfer_state || "",
-                      address: firstTransfer.transfer_address || "",
-                      datetime: firstTransfer.transfer_datetime,
-                      sequence_number: 1,
-                    }];
-                    // Keep original pickupStops for original driver
                   }
 
                   // For display: use first pickup and last delivery
