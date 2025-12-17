@@ -1051,7 +1051,32 @@ export const useReports = () => {
                 const hasNewerNonCanceled = nonCanceledOrders.some(
                   (o) => new Date(o.created_at).getTime() > canceledCreatedAt
                 );
-                if (!hasNewerNonCanceled) {
+                
+                // Additional check: if canceled load's pickup is before previous load's delivery, don't show it
+                let canceledPickupBeforePreviousDelivery = false;
+                if (!hasNewerNonCanceled && nonCanceledOrders.length > 0) {
+                  // Get the most recent non-canceled order (previous load)
+                  const sortedNonCanceled = [...nonCanceledOrders].sort(
+                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                  );
+                  const previousLoad = sortedNonCanceled[0];
+                  
+                  // Get canceled order's pickup datetime
+                  const canceledPickupDatetime = mostRecentCanceled.pickup_datetime;
+                  // Get previous load's delivery datetime
+                  const previousDeliveryDatetime = previousLoad.delivery_datetime;
+                  
+                  if (canceledPickupDatetime && previousDeliveryDatetime) {
+                    const canceledPickupTime = new Date(canceledPickupDatetime.replace(' ', 'T')).getTime();
+                    const previousDeliveryTime = new Date(previousDeliveryDatetime.replace(' ', 'T')).getTime();
+                    
+                    if (canceledPickupTime < previousDeliveryTime) {
+                      canceledPickupBeforePreviousDelivery = true;
+                    }
+                  }
+                }
+                
+                if (!hasNewerNonCanceled && !canceledPickupBeforePreviousDelivery) {
                   canceledOrderToShow = mostRecentCanceled.id;
                 }
               }
