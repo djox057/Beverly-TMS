@@ -2703,7 +2703,7 @@ const Reports = () => {
                                         }}
                                       >
                                         <div
-                                          className="flex items-center gap-2 relative"
+                                          className="flex items-center gap-2"
                                           onClick={(e) => {
                                             // Also allow clicking on the driver name text
                                             if (
@@ -2725,9 +2725,10 @@ const Reports = () => {
                                             }
                                           }}
                                         >
+                                          <span>{truck.driver}</span>
                                           {truck.driverId && truck.dispatcherId && shouldShowSnowflake(truck.driverId, truck.dispatcherId) && (
                                             <button
-                                              className="absolute -top-1 -right-1 z-10"
+                                              className="inline-flex"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 setChristmasNoteDialog({
@@ -2738,10 +2739,9 @@ const Reports = () => {
                                                 });
                                               }}
                                             >
-                                              <span className="text-sm cursor-pointer hover:scale-125 transition-transform animate-snowflake">❄️</span>
+                                              <span className="text-base cursor-pointer hover:scale-125 transition-transform animate-snowflake">❄️</span>
                                             </button>
                                           )}
-                                          <span>{truck.driver}</span>
                                           {truck.randomDrugTestDate && (
                                             <Popover>
                                               <PopoverTrigger asChild>
