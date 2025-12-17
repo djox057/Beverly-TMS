@@ -118,7 +118,7 @@ const getTransferAwareStops = (
       (t.sequence_number || 0) > seqNum
     );
 
-    // This driver's pickup is their own transfer location
+    // This driver's pickup is their own transfer location (if populated)
     const pickupInfo = driverTransfer.transfer_city ? {
       city: driverTransfer.transfer_city,
       state: driverTransfer.transfer_state || "",
@@ -134,8 +134,10 @@ const getTransferAwareStops = (
       datetime: nextTransfer.transfer_datetime,
     } : undefined;
 
+    // If no transfer location data exists, fall back to original stops
+    // This ensures pickup/delivery still displays even when transfer details aren't filled in
     return {
-      effectivePickupStop: null, // Will use transferPickupInfo
+      effectivePickupStop: pickupInfo ? null : originalPickupStop,
       effectiveDeliveryStop: deliveryInfo ? null : originalDeliveryStop,
       isTransferDriver: true,
       driverSequenceNumber: seqNum,
