@@ -67,7 +67,7 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Yard Arrivals", href: "/yard-arrivals", icon: Warehouse },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
-  { name: "❄️Christmas❄️", href: "/christmas", icon: TrendingUp },
+  { name: "❄️Christmas❄️", href: "/christmas", icon: () => <span>🎄</span> },
 ];
 
 export const Sidebar = () => {
