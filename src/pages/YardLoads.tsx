@@ -360,6 +360,39 @@ export default function YardLoads() {
         }
       }
 
+      // Create order_transfers records for Original (sequence 0) and Transfer #1 (sequence 1)
+      // First, delete any existing transfers for this order to avoid duplicates
+      await supabase
+        .from('order_transfers')
+        .delete()
+        .eq('order_id', selectedOrderForTransfer.id);
+
+      // Create Original (sequence 0) record
+      await supabase.from('order_transfers').insert({
+        order_id: selectedOrderForTransfer.id,
+        sequence_number: 0,
+        driver1_id: selectedOrderForTransfer.originalDriverId,
+        truck_id: selectedOrderForTransfer.originalTruckId,
+        trailer_id: selectedOrderForTransfer.originalTrailerId,
+        miles: selectedOrderForTransfer.originalMiles,
+        driver_price: selectedOrderForTransfer.originalDriverPrice,
+        transfer_city: data.transferCity,
+        transfer_state: data.transferState,
+        transfer_address: data.transferAddress || null,
+        transfer_datetime: data.transferDatetime,
+      });
+
+      // Create Transfer #1 (sequence 1) record
+      await supabase.from('order_transfers').insert({
+        order_id: selectedOrderForTransfer.id,
+        sequence_number: 1,
+        driver1_id: data.transferDriverId,
+        truck_id: data.transferTruckId,
+        trailer_id: yardLoadTrailerId,
+        miles: data.recoveryMiles,
+        driver_price: data.recoveryDriverPrice,
+      });
+
       // Create recovery history entry
       await supabase.from('recovery_history').insert({
         order_id: selectedOrderForTransfer.id,
@@ -374,6 +407,7 @@ export default function YardLoads() {
 
       toast.success("Transfer driver assigned successfully");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
       setTransferDialogOpen(false);
       setSelectedOrderForTransfer(null);
     } catch (error) {
