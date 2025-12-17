@@ -982,12 +982,73 @@ export const useReports = () => {
               driverOrders
                 .filter((order) => !order.canceled)
                 .map((order) => {
-                  const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
-                    (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
+                  // Get original pickup/delivery stops
+                  let pickupStops = (order.pickup_drops?.filter((stop: any) => stop.type === "pickup") || []).sort(
+                    (a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
-                  const deliveryStops = (order.pickup_drops?.filter((stop) => stop.type === "delivery") || []).sort(
-                    (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
+                  let deliveryStops = (order.pickup_drops?.filter((stop: any) => stop.type === "delivery") || []).sort(
+                    (a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0),
                   );
+
+                  // Check if this driver is a transfer driver on this order
+                  const driverIdForOrder = truck.driver1_id;
+                  const transfers = order.order_transfers || [];
+                  const sortedTransfers = [...transfers].sort((a: any, b: any) => 
+                    (a.sequence_number || 0) - (b.sequence_number || 0)
+                  );
+                  
+                  const driverTransfer = sortedTransfers.find((t: any) => 
+                    t.driver1_id === driverIdForOrder || t.driver2_id === driverIdForOrder
+                  );
+                  
+                  const isOriginalDriver = order.original_driver1_id === driverIdForOrder || 
+                    (order.driver1_id === driverIdForOrder && !driverTransfer);
+
+                  // For transfer drivers, create synthetic stops from their transfer segment
+                  if (driverTransfer && driverTransfer.transfer_city) {
+                    const seqNum = driverTransfer.sequence_number || 1;
+                    const nextTransfer = sortedTransfers.find((t: any) => 
+                      (t.sequence_number || 0) > seqNum
+                    );
+
+                    // This driver's pickup is their transfer location (where they picked up)
+                    pickupStops = [{
+                      id: `transfer-pickup-${driverTransfer.id}`,
+                      type: "pickup",
+                      city: driverTransfer.transfer_city,
+                      state: driverTransfer.transfer_state || "",
+                      address: driverTransfer.transfer_address || "",
+                      datetime: driverTransfer.transfer_datetime,
+                      sequence_number: 1,
+                    }];
+
+                    // This driver's delivery is either next transfer or original final delivery
+                    if (nextTransfer?.transfer_city) {
+                      deliveryStops = [{
+                        id: `transfer-delivery-${nextTransfer.id}`,
+                        type: "delivery",
+                        city: nextTransfer.transfer_city,
+                        state: nextTransfer.transfer_state || "",
+                        address: nextTransfer.transfer_address || "",
+                        datetime: nextTransfer.transfer_datetime,
+                        sequence_number: 1,
+                      }];
+                    }
+                    // else keep original deliveryStops (final delivery)
+                  } else if (isOriginalDriver && sortedTransfers.length > 0 && sortedTransfers[0]?.transfer_city) {
+                    // Original driver's delivery is the first transfer location
+                    const firstTransfer = sortedTransfers[0];
+                    deliveryStops = [{
+                      id: `transfer-delivery-${firstTransfer.id}`,
+                      type: "delivery",
+                      city: firstTransfer.transfer_city,
+                      state: firstTransfer.transfer_state || "",
+                      address: firstTransfer.transfer_address || "",
+                      datetime: firstTransfer.transfer_datetime,
+                      sequence_number: 1,
+                    }];
+                    // Keep original pickupStops for original driver
+                  }
 
                   // For display: use first pickup and last delivery
                   const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
@@ -999,8 +1060,8 @@ export const useReports = () => {
                     ...order,
                     pickupStop,
                     deliveryStop,
-                    pickupStops, // All pickups
-                    deliveryStops, // All deliveries
+                    pickupStops, // All pickups (transfer-aware)
+                    deliveryStops, // All deliveries (transfer-aware)
                     isActive: activeOrders.some((activeOrder) => activeOrder.id === order.id),
                     isRecentCompleted: recentCompletedOrders.some((completedOrder) => completedOrder.id === order.id),
                     documentStatus,
@@ -1030,7 +1091,7 @@ export const useReports = () => {
                           }
                         : null,
                       // Include all pickup and delivery stops - use individual stop datetime for multi-stop loads
-                      allPickupStops: pickupStops.map((stop) => ({
+                      allPickupStops: pickupStops.map((stop: any) => ({
                         address: stop.address || "—",
                         city: stop.city || "—",
                         state: stop.state || "—",
@@ -1038,7 +1099,7 @@ export const useReports = () => {
                         datetime: stop.datetime || order.pickup_datetime || "—",
                         endDatetime: order.pickup_end_datetime || "—",
                       })),
-                      allDeliveryStops: deliveryStops.map((stop) => ({
+                      allDeliveryStops: deliveryStops.map((stop: any) => ({
                         address: stop.address || "—",
                         city: stop.city || "—",
                         state: stop.state || "—",
@@ -1047,7 +1108,7 @@ export const useReports = () => {
                         endDatetime: order.delivery_end_datetime || "—",
                       })),
                       // Simplified document info - only categories needed
-                      documents: (order.order_files || []).map((file) => ({
+                      documents: (order.order_files || []).map((file: any) => ({
                         category: file.file_category,
                       })),
                       notes: order.notes || "—",
@@ -1359,12 +1420,73 @@ export const useReports = () => {
             driverOrders
               .filter((order) => !order.canceled)
               .map((order) => {
-                const pickupStops = (order.pickup_drops?.filter((stop) => stop.type === "pickup") || []).sort(
-                  (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
+                // Get original pickup/delivery stops
+                let pickupStops = (order.pickup_drops?.filter((stop: any) => stop.type === "pickup") || []).sort(
+                  (a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0),
                 );
-                const deliveryStops = (order.pickup_drops?.filter((stop) => stop.type === "delivery") || []).sort(
-                  (a, b) => (a.sequence_number || 0) - (b.sequence_number || 0),
+                let deliveryStops = (order.pickup_drops?.filter((stop: any) => stop.type === "delivery") || []).sort(
+                  (a: any, b: any) => (a.sequence_number || 0) - (b.sequence_number || 0),
                 );
+
+                // Check if this driver is a transfer driver on this order
+                const driverIdForOrder = driver.id;
+                const transfers = order.order_transfers || [];
+                const sortedTransfers = [...transfers].sort((a: any, b: any) => 
+                  (a.sequence_number || 0) - (b.sequence_number || 0)
+                );
+                
+                const driverTransfer = sortedTransfers.find((t: any) => 
+                  t.driver1_id === driverIdForOrder || t.driver2_id === driverIdForOrder
+                );
+                
+                const isOriginalDriver = order.original_driver1_id === driverIdForOrder || 
+                  (order.driver1_id === driverIdForOrder && !driverTransfer);
+
+                // For transfer drivers, create synthetic stops from their transfer segment
+                if (driverTransfer && driverTransfer.transfer_city) {
+                  const seqNum = driverTransfer.sequence_number || 1;
+                  const nextTransfer = sortedTransfers.find((t: any) => 
+                    (t.sequence_number || 0) > seqNum
+                  );
+
+                  // This driver's pickup is their transfer location (where they picked up)
+                  pickupStops = [{
+                    id: `transfer-pickup-${driverTransfer.id}`,
+                    type: "pickup",
+                    city: driverTransfer.transfer_city,
+                    state: driverTransfer.transfer_state || "",
+                    address: driverTransfer.transfer_address || "",
+                    datetime: driverTransfer.transfer_datetime,
+                    sequence_number: 1,
+                  }];
+
+                  // This driver's delivery is either next transfer or original final delivery
+                  if (nextTransfer?.transfer_city) {
+                    deliveryStops = [{
+                      id: `transfer-delivery-${nextTransfer.id}`,
+                      type: "delivery",
+                      city: nextTransfer.transfer_city,
+                      state: nextTransfer.transfer_state || "",
+                      address: nextTransfer.transfer_address || "",
+                      datetime: nextTransfer.transfer_datetime,
+                      sequence_number: 1,
+                    }];
+                  }
+                  // else keep original deliveryStops (final delivery)
+                } else if (isOriginalDriver && sortedTransfers.length > 0 && sortedTransfers[0]?.transfer_city) {
+                  // Original driver's delivery is the first transfer location
+                  const firstTransfer = sortedTransfers[0];
+                  deliveryStops = [{
+                    id: `transfer-delivery-${firstTransfer.id}`,
+                    type: "delivery",
+                    city: firstTransfer.transfer_city,
+                    state: firstTransfer.transfer_state || "",
+                    address: firstTransfer.transfer_address || "",
+                    datetime: firstTransfer.transfer_datetime,
+                    sequence_number: 1,
+                  }];
+                  // Keep original pickupStops for original driver
+                }
 
                 const pickupStop = pickupStops.length > 0 ? pickupStops[0] : null;
                 const deliveryStop = deliveryStops.length > 0 ? deliveryStops[deliveryStops.length - 1] : null;
@@ -1404,7 +1526,7 @@ export const useReports = () => {
                           endDatetime: order.delivery_end_datetime || "—",
                         }
                       : null,
-                    allPickupStops: pickupStops.map((stop) => ({
+                    allPickupStops: pickupStops.map((stop: any) => ({
                       address: stop.address || "—",
                       city: stop.city || "—",
                       state: stop.state || "—",
@@ -1412,7 +1534,7 @@ export const useReports = () => {
                       datetime: stop.datetime || order.pickup_datetime || "—",
                       endDatetime: order.pickup_end_datetime || "—",
                     })),
-                    allDeliveryStops: deliveryStops.map((stop) => ({
+                    allDeliveryStops: deliveryStops.map((stop: any) => ({
                       address: stop.address || "—",
                       city: stop.city || "—",
                       state: stop.state || "—",
@@ -1420,7 +1542,7 @@ export const useReports = () => {
                       datetime: stop.datetime || order.delivery_datetime || "—",
                       endDatetime: order.delivery_end_datetime || "—",
                     })),
-                    documents: (order.order_files || []).map((file) => ({
+                    documents: (order.order_files || []).map((file: any) => ({
                       category: file.file_category,
                     })),
                     notes: order.notes || "—",
