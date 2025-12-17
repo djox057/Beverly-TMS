@@ -224,6 +224,12 @@ export const useOrders = (options?: UseOrdersOptions) => {
             manual_truck_number,
             manual_trailer_number,
             transfer_date,
+            transfer_city,
+            transfer_state,
+            transfer_address,
+            transfer_datetime,
+            transfer_latitude,
+            transfer_longitude,
             driver1:drivers!order_transfers_driver1_id_fkey (
               id,
               name
@@ -424,6 +430,12 @@ export const useOrders = (options?: UseOrdersOptions) => {
                     manual_truck_number,
                     manual_trailer_number,
                     transfer_date,
+                    transfer_city,
+                    transfer_state,
+                    transfer_address,
+                    transfer_datetime,
+                    transfer_latitude,
+                    transfer_longitude,
                     driver1:drivers!order_transfers_driver1_id_fkey (
                       id,
                       name
@@ -767,6 +779,12 @@ async function fetchSingleOrder(orderId: string) {
           manual_truck_number,
           manual_trailer_number,
           transfer_date,
+          transfer_city,
+          transfer_state,
+          transfer_address,
+          transfer_datetime,
+          transfer_latitude,
+          transfer_longitude,
           driver1:drivers!order_transfers_driver1_id_fkey (
             id,
             name

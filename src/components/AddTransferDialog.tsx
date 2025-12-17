@@ -7,7 +7,7 @@ import { useAvailableTrucks } from "@/hooks/useAvailableTrucks";
 import { useAvailableTrailers } from "@/hooks/useAvailableTrailers";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, MapPin } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface PreviousTransfer {
@@ -16,6 +16,9 @@ interface PreviousTransfer {
   trailerNumber: string;
   miles: number;
   driverPrice: number;
+  // Previous transfer location (for display)
+  transferCity?: string;
+  transferState?: string;
 }
 
 interface AddTransferDialogProps {
@@ -34,6 +37,11 @@ export interface AddTransferData {
   newDriverPrice: number;
   transferDate: string;
   sequenceNumber: number;
+  // Transfer location fields
+  transferCity: string;
+  transferState: string;
+  transferAddress?: string;
+  transferDatetime: string;
 }
 
 export function AddTransferDialog({
@@ -56,6 +64,12 @@ export function AddTransferDialog({
   const [newDriverPrice, setNewDriverPrice] = useState<string>("");
   const [error, setError] = useState<string>("");
 
+  // Transfer location fields
+  const [transferCity, setTransferCity] = useState<string>("");
+  const [transferState, setTransferState] = useState<string>("");
+  const [transferAddress, setTransferAddress] = useState<string>("");
+  const [transferDatetime, setTransferDatetime] = useState<string>("");
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
@@ -66,6 +80,12 @@ export function AddTransferDialog({
       setNewDriverPrice("");
       setSelectedTruckId("");
       setError("");
+      // Reset location fields
+      setTransferCity("");
+      setTransferState("");
+      setTransferAddress("");
+      // Default to current time
+      setTransferDatetime(new Date().toISOString().slice(0, 16));
     }
   }, [open]);
 
@@ -95,6 +115,16 @@ export function AddTransferDialog({
       return;
     }
 
+    if (!transferCity || !transferState) {
+      setError("Please enter transfer location (city and state)");
+      return;
+    }
+
+    if (!transferDatetime) {
+      setError("Please select transfer date and time");
+      return;
+    }
+
     onSave({
       newTruckId,
       newTrailerId,
@@ -103,6 +133,10 @@ export function AddTransferDialog({
       newDriverPrice: parseFloat(newDriverPrice) || 0,
       transferDate: new Date().toISOString(),
       sequenceNumber,
+      transferCity,
+      transferState,
+      transferAddress: transferAddress || undefined,
+      transferDatetime: new Date(transferDatetime).toISOString(),
     });
 
     onOpenChange(false);
@@ -150,10 +184,60 @@ export function AddTransferDialog({
                 <Input value={`$${previousTransfer.driverPrice?.toFixed(2) || "0.00"}`} disabled />
               </div>
             </div>
+            {/* Show previous transfer pickup location */}
+            {(previousTransfer.transferCity || previousTransfer.transferState) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                <MapPin className="h-4 w-4" />
+                <span>Picked up at: {previousTransfer.transferCity}, {previousTransfer.transferState}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Transfer Location Section */}
+          <div className="space-y-4 border-t pt-4">
+            <h3 className="font-semibold text-lg">Transfer Location & Time</h3>
+            <p className="text-sm text-muted-foreground">
+              Where and when did the previous driver hand off the load to this new driver?
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>City *</Label>
+                <Input
+                  value={transferCity}
+                  onChange={(e) => setTransferCity(e.target.value)}
+                  placeholder="e.g. Chicago"
+                />
+              </div>
+              <div>
+                <Label>State *</Label>
+                <Input
+                  value={transferState}
+                  onChange={(e) => setTransferState(e.target.value.toUpperCase())}
+                  placeholder="e.g. IL"
+                  maxLength={2}
+                />
+              </div>
+              <div>
+                <Label>Date & Time *</Label>
+                <Input
+                  type="datetime-local"
+                  value={transferDatetime}
+                  onChange={(e) => setTransferDatetime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Full Address (optional)</Label>
+              <Input
+                value={transferAddress}
+                onChange={(e) => setTransferAddress(e.target.value)}
+                placeholder="e.g. 123 Main St, Chicago, IL 60601"
+              />
+            </div>
           </div>
 
           {/* New Transfer Driver Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 border-t pt-4">
             <h3 className="font-semibold text-lg">New Transfer Driver #{sequenceNumber}</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>

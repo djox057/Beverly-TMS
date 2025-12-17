@@ -11,6 +11,142 @@ const queryWithTimeout = async <T,>(queryFn: () => Promise<T>, timeoutMs: number
 };
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
+// Helper to compute transfer-aware pickup/delivery for a driver's segment
+interface TransferSegmentInfo {
+  effectivePickupStop: any | null;
+  effectiveDeliveryStop: any | null;
+  isTransferDriver: boolean;
+  driverSequenceNumber: number;
+  transferPickupInfo?: {
+    city: string;
+    state: string;
+    address?: string;
+    datetime?: string;
+  };
+  transferDeliveryInfo?: {
+    city: string;
+    state: string;
+    address?: string;
+    datetime?: string;
+  };
+}
+
+/**
+ * Computes the effective pickup and delivery stops for a driver based on transfers.
+ * - Original driver (seq 0): pickup = original first pickup, delivery = transfer 1 location OR original last delivery
+ * - Transfer driver N (seq N): pickup = transfer N location, delivery = transfer N+1 location OR original last delivery
+ */
+const getTransferAwareStops = (
+  driverId: string,
+  order: any,
+  originalPickupStop: any,
+  originalDeliveryStop: any
+): TransferSegmentInfo => {
+  const transfers = order.order_transfers || [];
+  
+  // Default: no transfers, use original stops
+  if (transfers.length === 0) {
+    return {
+      effectivePickupStop: originalPickupStop,
+      effectiveDeliveryStop: originalDeliveryStop,
+      isTransferDriver: false,
+      driverSequenceNumber: 0,
+    };
+  }
+
+  // Sort transfers by sequence_number
+  const sortedTransfers = [...transfers].sort((a: any, b: any) => 
+    (a.sequence_number || 0) - (b.sequence_number || 0)
+  );
+
+  // Find if this driver is the original driver or a transfer driver
+  const isOriginalDriver = order.original_driver1_id === driverId || order.driver1_id === driverId;
+  
+  // Find transfer record where this driver is the transfer driver
+  const driverTransfer = sortedTransfers.find((t: any) => 
+    t.driver1_id === driverId || t.driver2_id === driverId
+  );
+
+  if (!driverTransfer && !isOriginalDriver) {
+    // Driver not found in transfers and not original - fallback to original stops
+    return {
+      effectivePickupStop: originalPickupStop,
+      effectiveDeliveryStop: originalDeliveryStop,
+      isTransferDriver: false,
+      driverSequenceNumber: 0,
+    };
+  }
+
+  // Original driver case (sequence 0)
+  if (isOriginalDriver && !driverTransfer) {
+    // Original driver's delivery is the first transfer location (if exists)
+    const firstTransfer = sortedTransfers[0];
+    
+    if (firstTransfer?.transfer_city) {
+      return {
+        effectivePickupStop: originalPickupStop,
+        effectiveDeliveryStop: null, // Will use transferDeliveryInfo instead
+        isTransferDriver: false,
+        driverSequenceNumber: 0,
+        transferDeliveryInfo: {
+          city: firstTransfer.transfer_city,
+          state: firstTransfer.transfer_state || "",
+          address: firstTransfer.transfer_address,
+          datetime: firstTransfer.transfer_datetime,
+        },
+      };
+    }
+    
+    return {
+      effectivePickupStop: originalPickupStop,
+      effectiveDeliveryStop: originalDeliveryStop,
+      isTransferDriver: false,
+      driverSequenceNumber: 0,
+    };
+  }
+
+  // Transfer driver case
+  if (driverTransfer) {
+    const seqNum = driverTransfer.sequence_number || 1;
+    const nextTransfer = sortedTransfers.find((t: any) => 
+      (t.sequence_number || 0) > seqNum
+    );
+
+    // This driver's pickup is their own transfer location
+    const pickupInfo = driverTransfer.transfer_city ? {
+      city: driverTransfer.transfer_city,
+      state: driverTransfer.transfer_state || "",
+      address: driverTransfer.transfer_address,
+      datetime: driverTransfer.transfer_datetime,
+    } : undefined;
+
+    // This driver's delivery is either the next transfer location or original delivery
+    const deliveryInfo = nextTransfer?.transfer_city ? {
+      city: nextTransfer.transfer_city,
+      state: nextTransfer.transfer_state || "",
+      address: nextTransfer.transfer_address,
+      datetime: nextTransfer.transfer_datetime,
+    } : undefined;
+
+    return {
+      effectivePickupStop: null, // Will use transferPickupInfo
+      effectiveDeliveryStop: deliveryInfo ? null : originalDeliveryStop,
+      isTransferDriver: true,
+      driverSequenceNumber: seqNum,
+      transferPickupInfo: pickupInfo,
+      transferDeliveryInfo: deliveryInfo,
+    };
+  }
+
+  // Fallback
+  return {
+    effectivePickupStop: originalPickupStop,
+    effectiveDeliveryStop: originalDeliveryStop,
+    isTransferDriver: false,
+    driverSequenceNumber: 0,
+  };
+};
+
 export const useReports = () => {
   const queryClient = useQueryClient();
 
