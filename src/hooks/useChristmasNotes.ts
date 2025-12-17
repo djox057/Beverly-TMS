@@ -14,6 +14,7 @@ export interface ChristmasNote {
   driver_name?: string;
   truck_number?: string;
   dispatcher_name?: string;
+  dispatcher_office?: string;
 }
 
 export const useChristmasNotes = () => {
@@ -42,18 +43,19 @@ export const useChristmasNotes = () => {
         truckIds.length > 0 
           ? supabase.from("trucks").select("id, truck_number").in("id", truckIds)
           : Promise.resolve({ data: [] }),
-        supabase.from("profiles").select("user_id, full_name").in("user_id", dispatcherIds),
+        supabase.from("profiles").select("user_id, full_name, office").in("user_id", dispatcherIds),
       ]);
       
       const driversMap = new Map((driversRes.data || []).map(d => [d.id, d.name]));
       const trucksMap = new Map((trucksRes.data || []).map(t => [t.id, t.truck_number]));
-      const profilesMap = new Map((profilesRes.data || []).map(p => [p.user_id, p.full_name]));
+      const profilesMap = new Map((profilesRes.data || []).map(p => [p.user_id, { name: p.full_name, office: p.office }]));
       
       return data.map(note => ({
         ...note,
         driver_name: driversMap.get(note.driver_id) || "Unknown",
         truck_number: note.truck_id ? trucksMap.get(note.truck_id) : null,
-        dispatcher_name: profilesMap.get(note.dispatcher_id) || "Unknown",
+        dispatcher_name: profilesMap.get(note.dispatcher_id)?.name || "Unknown",
+        dispatcher_office: profilesMap.get(note.dispatcher_id)?.office || "Unknown",
       })) as ChristmasNote[];
     },
     staleTime: 30000,
