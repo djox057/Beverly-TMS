@@ -1085,26 +1085,39 @@ export const useReports = () => {
                       }];
                     }
                     // pickupStops remain as original
-                  } else if (driverTransfer && driverTransfer.transfer_city) {
+                  } else if (driverTransfer) {
                     // Transfer driver case - NOT an original driver
                     const seqNum = driverTransfer.sequence_number || 1;
-                    const nextTransfer = sortedTransfers.find((t: any) => 
+                    const previousTransfer = sortedTransfers.find((t: any) =>
+                      (t.sequence_number || 0) === seqNum - 1
+                    );
+                    const nextTransfer = sortedTransfers.find((t: any) =>
                       (t.sequence_number || 0) > seqNum
                     );
 
-                    // This driver's pickup is their transfer location (where they picked up)
-                    pickupStops = [{
-                      id: `transfer-pickup-${driverTransfer.id}`,
-                      type: "pickup",
-                      city: driverTransfer.transfer_city,
-                      state: driverTransfer.transfer_state || "",
-                      address: driverTransfer.transfer_address || "",
-                      datetime: driverTransfer.transfer_datetime,
-                      sequence_number: 1,
-                    }];
+                    // Pickup for Transfer #N is the previous segment's handoff location.
+                    // Legacy fallback: if previous isn't populated, use this transfer's own location.
+                    const pickupSource =
+                      (previousTransfer?.transfer_city || previousTransfer?.transfer_state)
+                        ? previousTransfer
+                        : (driverTransfer.transfer_city || driverTransfer.transfer_state)
+                          ? driverTransfer
+                          : null;
+
+                    if (pickupSource) {
+                      pickupStops = [{
+                        id: `transfer-pickup-${pickupSource.id}`,
+                        type: "pickup",
+                        city: pickupSource.transfer_city,
+                        state: pickupSource.transfer_state || "",
+                        address: pickupSource.transfer_address || "",
+                        datetime: pickupSource.transfer_datetime,
+                        sequence_number: 1,
+                      }];
+                    }
 
                     // This driver's delivery is either next transfer or original final delivery
-                    if (nextTransfer?.transfer_city) {
+                    if (nextTransfer?.transfer_city || nextTransfer?.transfer_state) {
                       deliveryStops = [{
                         id: `transfer-delivery-${nextTransfer.id}`,
                         type: "delivery",
@@ -1511,25 +1524,38 @@ export const useReports = () => {
                   (order.driver1_id === driverIdForOrder && !driverTransfer);
 
                 // For transfer drivers, create synthetic stops from their transfer segment
-                if (driverTransfer && driverTransfer.transfer_city) {
+                if (driverTransfer) {
                   const seqNum = driverTransfer.sequence_number || 1;
-                  const nextTransfer = sortedTransfers.find((t: any) => 
+                  const previousTransfer = sortedTransfers.find((t: any) =>
+                    (t.sequence_number || 0) === seqNum - 1
+                  );
+                  const nextTransfer = sortedTransfers.find((t: any) =>
                     (t.sequence_number || 0) > seqNum
                   );
 
-                  // This driver's pickup is their transfer location (where they picked up)
-                  pickupStops = [{
-                    id: `transfer-pickup-${driverTransfer.id}`,
-                    type: "pickup",
-                    city: driverTransfer.transfer_city,
-                    state: driverTransfer.transfer_state || "",
-                    address: driverTransfer.transfer_address || "",
-                    datetime: driverTransfer.transfer_datetime,
-                    sequence_number: 1,
-                  }];
+                  // Pickup for Transfer #N is the previous segment's handoff location.
+                  // Legacy fallback: if previous isn't populated, use this transfer's own location.
+                  const pickupSource =
+                    (previousTransfer?.transfer_city || previousTransfer?.transfer_state)
+                      ? previousTransfer
+                      : (driverTransfer.transfer_city || driverTransfer.transfer_state)
+                        ? driverTransfer
+                        : null;
+
+                  if (pickupSource) {
+                    pickupStops = [{
+                      id: `transfer-pickup-${pickupSource.id}`,
+                      type: "pickup",
+                      city: pickupSource.transfer_city,
+                      state: pickupSource.transfer_state || "",
+                      address: pickupSource.transfer_address || "",
+                      datetime: pickupSource.transfer_datetime,
+                      sequence_number: 1,
+                    }];
+                  }
 
                   // This driver's delivery is either next transfer or original final delivery
-                  if (nextTransfer?.transfer_city) {
+                  if (nextTransfer?.transfer_city || nextTransfer?.transfer_state) {
                     deliveryStops = [{
                       id: `transfer-delivery-${nextTransfer.id}`,
                       type: "delivery",
