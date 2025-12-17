@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useChristmasNotes } from "@/hooks/useChristmasNotes";
+import { useAuthContext } from "@/contexts/AuthContext";
 import {
   Table,
   TableBody,
@@ -9,14 +10,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Search, Pencil } from "lucide-react";
+import { ChristmasNoteDialog } from "@/components/ChristmasNoteDialog";
 
 const OFFICE_ORDER = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
 
 const Christmas = () => {
   const { christmasNotes, isLoading } = useChristmasNotes();
+  const { user } = useAuthContext();
   const [activeOffice, setActiveOffice] = useState<string>("Čačak");
   const [searchFilter, setSearchFilter] = useState("");
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean;
+    driverId: string;
+    driverName: string;
+    truckId: string | null;
+    truckNumber: string;
+  } | null>(null);
 
   // Filter to only show notes that have actual text
   const notesWithContent = useMemo(() => 
@@ -67,6 +78,16 @@ const Christmas = () => {
     });
     return counts;
   }, [groupedByOffice]);
+
+  const handleEditNote = (note: typeof notesWithContent[0]) => {
+    setEditDialog({
+      open: true,
+      driverId: note.driver_id,
+      driverName: note.driver_name || "Unknown",
+      truckId: note.truck_id,
+      truckNumber: note.truck_number || "-",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -163,20 +184,36 @@ const Christmas = () => {
                         <TableHead className="w-[100px]">Truck #</TableHead>
                         <TableHead className="w-[200px]">Driver</TableHead>
                         <TableHead>Note</TableHead>
+                        <TableHead className="w-[60px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {notes.map((note) => (
-                        <TableRow key={note.id}>
-                          <TableCell className="font-mono font-medium">
-                            {note.truck_number || "-"}
-                          </TableCell>
-                          <TableCell>{note.driver_name}</TableCell>
-                          <TableCell>
-                            <p className="whitespace-pre-wrap">{note.note}</p>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {notes.map((note) => {
+                        const canEdit = note.dispatcher_id === user?.id;
+                        return (
+                          <TableRow key={note.id}>
+                            <TableCell className="font-mono font-medium">
+                              {note.truck_number || "-"}
+                            </TableCell>
+                            <TableCell>{note.driver_name}</TableCell>
+                            <TableCell>
+                              <p className="whitespace-pre-wrap">{note.note}</p>
+                            </TableCell>
+                            <TableCell>
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleEditNote(note)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -185,6 +222,18 @@ const Christmas = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Dialog */}
+      {editDialog && (
+        <ChristmasNoteDialog
+          open={editDialog.open}
+          onOpenChange={(open) => !open && setEditDialog(null)}
+          driverId={editDialog.driverId}
+          driverName={editDialog.driverName}
+          truckId={editDialog.truckId}
+          truckNumber={editDialog.truckNumber}
+        />
+      )}
     </div>
   );
 };
