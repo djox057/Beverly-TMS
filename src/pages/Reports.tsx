@@ -38,12 +38,14 @@ import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
+import { ChristmasNoteDialog } from "@/components/ChristmasNoteDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
+import { useChristmasNotes } from "@/hooks/useChristmasNotes";
 import { supabase } from "@/integrations/supabase/client";
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -266,6 +268,7 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
   
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
+  const { shouldShowSnowflake, christmasNotes } = useChristmasNotes();
 
   // Helper to get driver cell styling (combines drug test and game over styling)
   const getDriverCellStyle = useCallback(
@@ -460,6 +463,14 @@ const Reports = () => {
   } | null>(null);
   const [redCellNote, setRedCellNote] = useState("");
   const [redCellIsHomeTime, setRedCellIsHomeTime] = useState(false);
+  
+  // Christmas note dialog state
+  const [christmasNoteDialog, setChristmasNoteDialog] = useState<{
+    driverId: string;
+    driverName: string;
+    truckId: string | null;
+    truckNumber: string;
+  } | null>(null);
 
   // Helper function to check if 5 seconds have passed since button click
   const has5SecondsPassed = (timestamp: string | null | undefined): boolean => {
@@ -2715,6 +2726,22 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
+                                          {truck.driverId && truck.dispatcherId && shouldShowSnowflake(truck.driverId, truck.dispatcherId) && (
+                                            <button
+                                              className="inline-flex"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setChristmasNoteDialog({
+                                                  driverId: truck.driverId!,
+                                                  driverName: truck.driver,
+                                                  truckId: truck.id,
+                                                  truckNumber: truck.truckNumber,
+                                                });
+                                              }}
+                                            >
+                                              <span className="text-base cursor-pointer hover:scale-125 transition-transform animate-snowflake">❄️</span>
+                                            </button>
+                                          )}
                                           {truck.randomDrugTestDate && (
                                             <Popover>
                                               <PopoverTrigger asChild>
@@ -5315,6 +5342,16 @@ const Reports = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Christmas Note Dialog */}
+      <ChristmasNoteDialog
+        open={!!christmasNoteDialog}
+        onOpenChange={(open) => !open && setChristmasNoteDialog(null)}
+        driverId={christmasNoteDialog?.driverId || ""}
+        driverName={christmasNoteDialog?.driverName || ""}
+        truckId={christmasNoteDialog?.truckId || null}
+        truckNumber={christmasNoteDialog?.truckNumber || ""}
+      />
     </>
   );
 };

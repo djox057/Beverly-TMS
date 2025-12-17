@@ -214,3 +214,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Snowflake animation */
+@keyframes snowflake-sway {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(2px) rotate(5deg);
+  }
+  75% {
+    transform: translateX(-2px) rotate(-5deg);
+  }
+}
+
+.animate-snowflake {
+  animation: snowflake-sway 1.5s ease-in-out infinite;
+}
