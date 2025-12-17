@@ -330,20 +330,35 @@ export default function YardLoads() {
   const handleAssignTransferDriver = async (data: TransferDriverData) => {
     if (!selectedOrderForTransfer) return;
 
+    const yardLoadTrailerId = selectedOrderForTransfer.trailerId;
+
     try {
-      // Update the order with transfer driver info
+      // Update the order with transfer driver info - use yard load's trailer
       const { error } = await supabase
         .from('orders')
         .update({
           driver1_id: data.transferDriverId,
           truck_id: data.transferTruckId,
-          trailer_id: data.transferTrailerId || null,
+          trailer_id: yardLoadTrailerId || null, // Use yard load's trailer
           recovery_miles: data.recoveryMiles,
           recovery_driver_price: data.recoveryDriverPrice,
         })
         .eq('id', selectedOrderForTransfer.id);
 
       if (error) throw error;
+
+      // Update the truck's trailer to the yard load's trailer
+      if (data.transferTruckId && yardLoadTrailerId) {
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: yardLoadTrailerId })
+          .eq('id', data.transferTruckId);
+
+        if (truckError) {
+          console.error('Error updating truck trailer:', truckError);
+          // Don't throw, the main assignment succeeded
+        }
+      }
 
       // Create recovery history entry
       await supabase.from('recovery_history').insert({
@@ -353,7 +368,7 @@ export default function YardLoads() {
         original_trailer_id: selectedOrderForTransfer.originalTrailerId,
         recovery_driver1_id: data.transferDriverId,
         recovery_truck_id: data.transferTruckId,
-        recovery_trailer_id: data.transferTrailerId || null,
+        recovery_trailer_id: yardLoadTrailerId || null,
         recovery_date: new Date().toISOString(),
       });
 
@@ -644,6 +659,8 @@ export default function YardLoads() {
         originalMiles={selectedOrderForTransfer?.originalMiles || 0}
         originalDriverPrice={selectedOrderForTransfer?.originalDriverPrice || 0}
         recoveryMiles={selectedOrderForTransfer?.recoveryMiles || 0}
+        yardLoadTrailerId={selectedOrderForTransfer?.trailerId}
+        yardLoadTrailerNumber={selectedOrderForTransfer?.trailerNumber}
       />
     </div>
   );

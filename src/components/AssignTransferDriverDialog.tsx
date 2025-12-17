@@ -22,6 +22,9 @@ interface AssignTransferDriverDialogProps {
   originalDriverPrice: number;
   // Pre-filled recovery miles
   recoveryMiles: number;
+  // Yard load's trailer (to swap with assigned truck)
+  yardLoadTrailerId?: string | null;
+  yardLoadTrailerNumber?: string | null;
 }
 
 export interface TransferDriverData {
@@ -47,6 +50,8 @@ export function AssignTransferDriverDialog({
   originalMiles,
   originalDriverPrice,
   recoveryMiles: initialRecoveryMiles,
+  yardLoadTrailerId,
+  yardLoadTrailerNumber,
 }: AssignTransferDriverDialogProps) {
   const { data: trucks } = useAvailableTrucks(true);
   const { data: drivers } = useDrivers();
@@ -61,8 +66,8 @@ export function AssignTransferDriverDialog({
   const [recoveryDriverPrice, setRecoveryDriverPrice] = useState<string>("");
   const [error, setError] = useState<string>("");
 
-  // Transfer location fields
-  const [transferCity, setTransferCity] = useState<string>("Chicago");
+  // Transfer location fields - default to Lynwood, IL for yard transfers
+  const [transferCity, setTransferCity] = useState<string>("Lynwood");
   const [transferState, setTransferState] = useState<string>("IL");
   const [transferAddress, setTransferAddress] = useState<string>("");
   const [transferDatetime, setTransferDatetime] = useState<string>("");
@@ -71,20 +76,20 @@ export function AssignTransferDriverDialog({
   useEffect(() => {
     if (open) {
       setTransferTruckId("");
-      setTransferTrailerId("");
+      setTransferTrailerId(yardLoadTrailerId || "");
       setTransferDriverId("");
       setSelectedTruckId("");
       setRecoveryMiles(initialRecoveryMiles?.toString() || "");
       setRecoveryDriverPrice("");
       setError("");
-      // Default location to Chicago terminal for yard transfers
-      setTransferCity("Chicago");
+      // Default location to Lynwood terminal for yard transfers
+      setTransferCity("Lynwood");
       setTransferState("IL");
       setTransferAddress("");
       // Default to current time
       setTransferDatetime(new Date().toISOString().slice(0, 16));
     }
-  }, [open, initialRecoveryMiles]);
+  }, [open, initialRecoveryMiles, yardLoadTrailerId]);
 
   const handleTruckChange = (truckId: string) => {
     setTransferTruckId(truckId);
@@ -92,10 +97,11 @@ export function AssignTransferDriverDialog({
     
     const selectedTruck = trucks?.find((t) => t.id === truckId);
     if (selectedTruck) {
-      const trailerId = selectedTruck.trailer_id || "";
+      // Keep yard load's trailer instead of truck's trailer
+      // Only auto-fill driver from truck
       const driverId = selectedTruck.driver1_id || "";
-      setTransferTrailerId(trailerId);
       setTransferDriverId(driverId);
+      // Keep the yard load's trailer (already set in useEffect)
     }
   };
 
@@ -247,17 +253,11 @@ export function AssignTransferDriverDialog({
                 />
               </div>
               <div>
-                <Label>Trailer</Label>
-                <Combobox
-                  options={trailers?.map((trailer) => ({
-                    value: trailer.id,
-                    label: trailer.trailer_number,
-                  })) || []}
-                  value={transferTrailerId}
-                  onValueChange={setTransferTrailerId}
-                  placeholder="Select trailer"
-                  searchPlaceholder="Search trailers..."
-                  emptyText="No trailer found."
+                <Label>Trailer (from yard load)</Label>
+                <Input
+                  value={yardLoadTrailerNumber || "N/A"}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
               <div>
