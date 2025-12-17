@@ -164,7 +164,7 @@ export default function Repairs() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Wrench className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Repairs</h1>
+          <h1 className="text-3xl font-bold">Maintenance and Repairs</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative">

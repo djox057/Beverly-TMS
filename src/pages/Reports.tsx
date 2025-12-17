@@ -4666,6 +4666,12 @@ const Reports = () => {
                   <span className="text-sm">Load rescheduled or in transit</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="w-20 h-8 bg-destructive/80 text-destructive-foreground rounded flex items-center justify-center text-xs font-medium">
+                    Canceled
+                  </div>
+                  <span className="text-sm">Load was canceled (visible until newer load assigned)</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <div className="w-20 h-8 bg-muted rounded flex items-center justify-center text-xs font-medium">
                     Empty
                   </div>

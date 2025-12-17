@@ -186,23 +186,23 @@ export const Sidebar = () => {
       return true;
     });
     
-    // Admin role: all navigation + Alerts + Repairs + User Management + Data Management
+    // Admin role: all navigation + Alerts + Maintenance and Repairs + User Management + Data Management
     if (primaryRole === 'admin') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Repairs", href: "/repairs", icon: Wrench },
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
         { name: "Data Management", href: "/data-management", icon: Settings },
         { name: "User Management", href: "/admin/users", icon: Settings }
       ];
     }
     
-    // Manager role: all pages + Alerts + Repairs (full operational access)
+    // Manager role: all pages + Alerts + Maintenance and Repairs (full operational access)
     if (primaryRole === 'manager') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
@@ -214,20 +214,20 @@ export const Sidebar = () => {
       ];
     }
     
-    // Chicago Management role: all pages + Alerts + Repairs (view-only access to everything)
+    // Chicago Management role: all pages + Alerts + Maintenance and Repairs (view-only access to everything)
     if (primaryRole === 'chicago_management') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
-    // Accounting role: all pages except Analytics + Repairs (financial + operational oversight)
+    // Accounting role: all pages except Analytics + Maintenance and Repairs (financial + operational oversight)
     if (primaryRole === 'accounting') {
       return [
         ...filteredNav.filter(item => item.href !== '/analytics'),
-        { name: "Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
@@ -240,13 +240,13 @@ export const Sidebar = () => {
       ];
     }
     
-    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Yard Arrivals, Alerts, Repairs)
+    // Maintenance role: specific pages (New Load, Loads, Drivers, Trucks, Trailers, Reports, Yard Arrivals, Alerts, Maintenance and Repairs)
     if (hasRole('maintenance')) {
       const maintenancePages = ['/new-order', '/orders', '/drivers', '/trucks', '/trailers', '/reports', '/yard-arrivals'];
       return [
         ...filteredNav.filter(item => maintenancePages.includes(item.href)),
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
       ];
     }
     
