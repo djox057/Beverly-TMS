@@ -2,13 +2,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Table,
   TableBody,
@@ -315,66 +309,48 @@ const FuelReports = () => {
 
             <div className="space-y-2">
               <Label>Truck #</Label>
-              <Select
+              <Combobox
+                options={[
+                  { value: "ALL", label: "All Trucks" },
+                  ...truckNumbers.map((truck) => ({ value: truck, label: truck })),
+                ]}
                 value={filters.truckNumber || "ALL"}
                 onValueChange={(value) =>
                   handleFilterChange({ ...filters, truckNumber: value === "ALL" ? "" : value })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Trucks" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Trucks</SelectItem>
-                  {truckNumbers.map((truck) => (
-                    <SelectItem key={truck} value={truck}>
-                      {truck}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="All Trucks"
+                searchPlaceholder="Search trucks..."
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Driver</Label>
-              <Select
+              <Combobox
+                options={[
+                  { value: "ALL", label: "All Drivers" },
+                  ...driverNames.map((driver) => ({ value: driver, label: driver })),
+                ]}
                 value={filters.driverName || "ALL"}
                 onValueChange={(value) =>
                   handleFilterChange({ ...filters, driverName: value === "ALL" ? "" : value })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Drivers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Drivers</SelectItem>
-                  {driverNames.map((driver) => (
-                    <SelectItem key={driver} value={driver}>
-                      {driver}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="All Drivers"
+                searchPlaceholder="Search drivers..."
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Item Type</Label>
-              <Select
+              <Combobox
+                options={[
+                  { value: "ALL", label: "All Items" },
+                  ...itemTypes.map((item) => ({ value: item, label: item })),
+                ]}
                 value={filters.itemType}
                 onValueChange={(value) => handleFilterChange({ ...filters, itemType: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Items" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Items</SelectItem>
-                  {itemTypes.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="All Items"
+                searchPlaceholder="Search items..."
+              />
             </div>
 
             <div className="space-y-2">
