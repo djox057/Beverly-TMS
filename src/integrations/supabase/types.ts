@@ -1184,6 +1184,7 @@ export type Database = {
         Row: {
           amount: number | null
           city: string | null
+          company: string | null
           created_at: string
           driver_name: string
           fees: number | null
@@ -1202,6 +1203,7 @@ export type Database = {
         Insert: {
           amount?: number | null
           city?: string | null
+          company?: string | null
           created_at?: string
           driver_name: string
           fees?: number | null
@@ -1220,6 +1222,7 @@ export type Database = {
         Update: {
           amount?: number | null
           city?: string | null
+          company?: string | null
           created_at?: string
           driver_name?: string
           fees?: number | null
