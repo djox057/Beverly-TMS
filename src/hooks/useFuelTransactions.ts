@@ -56,39 +56,59 @@ export const getDefaultDateRange = () => {
   };
 };
 
+// Helper function to fetch all records in batches
+const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
+  const BATCH_SIZE = 1000;
+  let allData: FuelTransaction[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from("fuel_transactions")
+      .select("*")
+      .order("transaction_date", { ascending: false })
+      .range(from, from + BATCH_SIZE - 1);
+
+    if (filters.startDate) {
+      query = query.gte("transaction_date", format(filters.startDate, "yyyy-MM-dd"));
+    }
+    if (filters.endDate) {
+      query = query.lte("transaction_date", format(filters.endDate, "yyyy-MM-dd"));
+    }
+    if (filters.truckNumber) {
+      query = query.eq("truck_number", filters.truckNumber);
+    }
+    if (filters.driverName) {
+      query = query.eq("driver_name", filters.driverName);
+    }
+    if (filters.itemType && filters.itemType !== "ALL") {
+      query = query.eq("item", filters.itemType);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    allData = [...allData, ...(data as FuelTransaction[])];
+    
+    if (data.length < BATCH_SIZE) {
+      hasMore = false;
+    } else {
+      from += BATCH_SIZE;
+    }
+  }
+
+  return allData;
+};
+
 export const useFuelTransactions = (filters: FuelFilters) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch transactions with filters
+  // Fetch transactions with filters (batched to handle 10,000+ records)
   const { data: transactions = [], isLoading, error } = useQuery({
     queryKey: ["fuel-transactions", filters],
-    queryFn: async () => {
-      let query = supabase
-        .from("fuel_transactions")
-        .select("*")
-        .order("transaction_date", { ascending: false });
-
-      if (filters.startDate) {
-        query = query.gte("transaction_date", format(filters.startDate, "yyyy-MM-dd"));
-      }
-      if (filters.endDate) {
-        query = query.lte("transaction_date", format(filters.endDate, "yyyy-MM-dd"));
-      }
-      if (filters.truckNumber) {
-        query = query.eq("truck_number", filters.truckNumber);
-      }
-      if (filters.driverName) {
-        query = query.eq("driver_name", filters.driverName);
-      }
-      if (filters.itemType && filters.itemType !== "ALL") {
-        query = query.eq("item", filters.itemType);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as FuelTransaction[];
-    },
+    queryFn: async () => fetchAllInBatches(filters),
   });
 
   // Get unique truck numbers for filter dropdown
