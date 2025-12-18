@@ -50,6 +50,7 @@ const FuelReports = () => {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingCompany, setUploadingCompany] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [dragOver, setDragOver] = useState(false);
 
   const [filters, setFilters] = useState<FuelFilters>({
     startDate: null,
@@ -85,11 +86,38 @@ const FuelReports = () => {
     setCurrentPage(1);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, companyId: string) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
 
-    setUploadingCompany(companyId);
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
+    if (files.length === 0) {
+      toast({
+        title: "Invalid file",
+        description: "Please drop CSV files only.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Process each dropped file
+    files.forEach(file => processFile(file, "drop"));
+  };
+
+  const processFile = (file: File, companyId: string) => {
+    if (companyId !== "drop") {
+      setUploadingCompany(companyId);
+    }
 
     Papa.parse(file, {
       header: true,
@@ -162,6 +190,13 @@ const FuelReports = () => {
         setUploadingCompany(null);
       },
     });
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, companyId: string) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    processFile(file, companyId);
 
     // Reset file input
     const ref = fileInputRefs.current[companyId];
@@ -224,7 +259,25 @@ const FuelReports = () => {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Upload CSV by Company</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Drag and Drop Zone */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              dragOver 
+                ? "border-primary bg-primary/5" 
+                : "border-muted-foreground/25 hover:border-muted-foreground/50"
+            }`}
+          >
+            <Upload className={`h-8 w-8 mx-auto mb-2 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
+            <p className="text-sm text-muted-foreground">
+              Drag and drop CSV files here, or use buttons below
+            </p>
+          </div>
+
+          {/* Company Buttons */}
           <div className="flex flex-wrap gap-3">
             {COMPANIES.map((company) => (
               <div key={company.id}>
