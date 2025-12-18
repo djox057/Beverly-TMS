@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2, History, Download } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History, Download, CheckCircle2, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useTrucks } from "@/hooks/useTrucks";
 import { useDrivers } from "@/hooks/useDrivers";
@@ -23,6 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TruckFilesManager } from "@/components/TruckFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
+import { Textarea } from "@/components/ui/textarea";
+
 interface TruckFormData {
   truck_number: string;
   vin: string;
@@ -34,6 +36,14 @@ interface TruckFormData {
   plate_expiration_date: string;
   insurance_expiration_date: string;
 }
+
+interface TerminationNote {
+  id: string;
+  note: string;
+  created_at: string;
+  created_by: string | null;
+}
+
 const ITEMS_PER_PAGE = 100;
 
 const Trucks = () => {
@@ -48,6 +58,11 @@ const Trucks = () => {
   const [historyTruckName, setHistoryTruckName] = useState<string>("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [terminationNote, setTerminationNote] = useState("");
+  const [terminationNotes, setTerminationNotes] = useState<TerminationNote[]>([]);
   const [formData, setFormData] = useState<TruckFormData>({
     truck_number: "",
     vin: "",
@@ -93,7 +108,7 @@ const Trucks = () => {
     allDispatchers
   } = useFleetManagement();
 
-  // Filter trucks based on search term, company filter, and assignment filter
+  // Filter trucks based on search term, company filter, assignment filter, and status filter
   const filteredTrucks = trucks?.filter(truck => {
     // Search filter
     const matchesSearch = truck.truck_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -113,7 +128,12 @@ const Trucks = () => {
       (assignmentFilter === "assigned" && truck.driver1_id) || 
       (assignmentFilter === "unassigned" && !truck.driver1_id);
     
-    return matchesSearch && matchesCompany && matchesAssignment;
+    // Status filter - filter by is_active status
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && truck.is_active !== false) || 
+      (statusFilter === "inactive" && truck.is_active === false);
+    
+    return matchesSearch && matchesCompany && matchesAssignment && matchesStatus;
   }) || [];
 
   // Pagination
@@ -357,7 +377,7 @@ const Trucks = () => {
       });
     }
   };
-  const openEditDialog = (truck: any) => {
+  const openEditDialog = async (truck: any) => {
     setEditingTruck(truck);
     setFormData({
       truck_number: truck.truck_number || "",
@@ -370,7 +390,127 @@ const Trucks = () => {
       plate_expiration_date: truck.plate_expiration_date || "",
       insurance_expiration_date: truck.insurance_expiration_date || ""
     });
+    
+    // Fetch termination notes if truck is inactive
+    if (truck.is_active === false) {
+      const { data: notes } = await supabase
+        .from('truck_termination_notes')
+        .select('*')
+        .eq('truck_id', truck.id)
+        .order('created_at', { ascending: false });
+      setTerminationNotes(notes || []);
+    } else {
+      setTerminationNotes([]);
+    }
+    
     setIsEditDialogOpen(true);
+  };
+
+  // Done functionality - mark truck as inactive
+  const handleDoneClick = () => {
+    setShowDoneConfirmation(true);
+  };
+
+  const handleConfirmDone = () => {
+    setShowDoneConfirmation(false);
+    setShowNoteDialog(true);
+  };
+
+  const handleSaveTerminationNote = async () => {
+    if (!editingTruck || !terminationNote.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Save termination note
+      const { error: noteError } = await supabase
+        .from('truck_termination_notes')
+        .insert({
+          truck_id: editingTruck.id,
+          note: terminationNote.trim(),
+          created_by: user?.id
+        });
+      
+      if (noteError) throw noteError;
+      
+      // Update truck: set is_active = false, termination_date = today, clear assignments
+      const { error: updateError } = await supabase
+        .from('trucks')
+        .update({
+          is_active: false,
+          termination_date: new Date().toISOString().split('T')[0],
+          driver1_id: null,
+          driver2_id: null,
+          trailer_id: null
+        })
+        .eq('id', editingTruck.id);
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: "Success",
+        description: `Truck ${editingTruck.truck_number} marked as done`
+      });
+      
+      setShowNoteDialog(false);
+      setTerminationNote("");
+      setIsEditDialogOpen(false);
+      setEditingTruck(null);
+      
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['drivers'] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark truck as done",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Start functionality - reactivate truck
+  const handleStartTruck = async () => {
+    if (!editingTruck) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Delete all termination notes
+      await supabase
+        .from('truck_termination_notes')
+        .delete()
+        .eq('truck_id', editingTruck.id);
+      
+      // Update truck: set is_active = true, clear termination_date
+      const { error: updateError } = await supabase
+        .from('trucks')
+        .update({
+          is_active: true,
+          termination_date: null
+        })
+        .eq('id', editingTruck.id);
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: "Success",
+        description: `Truck ${editingTruck.truck_number} reactivated`
+      });
+      
+      setIsEditDialogOpen(false);
+      setEditingTruck(null);
+      
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reactivate truck",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const exportToExcel = () => {
@@ -563,6 +703,23 @@ const Trucks = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Truck Fleet</CardTitle>
             <div className="flex items-center gap-3">
+              <div className="w-[140px]">
+                <Combobox
+                  options={[
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                    { value: "all", label: "All Status" }
+                  ]}
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Status"
+                  searchPlaceholder="Search..."
+                  emptyText="No option found."
+                />
+              </div>
               <div className="w-[160px]">
                 <Combobox
                   options={[
@@ -895,14 +1052,57 @@ const Trucks = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Update Truck
-                  </Button>
+                {/* Termination notes section for inactive trucks */}
+                {editingTruck?.is_active === false && terminationNotes.length > 0 && (
+                  <div className="space-y-2 p-3 bg-muted rounded-md">
+                    <Label className="text-destructive font-semibold">Termination Notes</Label>
+                    {terminationNotes.map((note) => (
+                      <div key={note.id} className="text-sm text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(note.created_at).toLocaleString()}
+                        </span>
+                        <p>{note.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-between gap-3">
+                  <div>
+                    {canDelete && editingTruck?.is_active !== false && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        onClick={handleDoneClick}
+                        disabled={isSubmitting}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Done
+                      </Button>
+                    )}
+                    {canDelete && editingTruck?.is_active === false && (
+                      <Button 
+                        type="button" 
+                        variant="default" 
+                        onClick={handleStartTruck}
+                        disabled={isSubmitting}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Play className="mr-2 h-4 w-4" />
+                        Start
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Update Truck
+                    </Button>
+                  </div>
                 </div>
               </form>
             </TabsContent>
@@ -916,6 +1116,54 @@ const Trucks = () => {
               )}
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Done Confirmation Dialog */}
+      <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Truck as Done?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark truck {editingTruck?.truck_number} as inactive and clear all driver and trailer assignments.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDone}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Termination Note Dialog */}
+      <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Termination Note</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Note for truck {editingTruck?.truck_number}</Label>
+              <Textarea
+                value={terminationNote}
+                onChange={(e) => setTerminationNote(e.target.value)}
+                placeholder="Enter reason for marking this truck as done..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNoteDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveTerminationNote} 
+              disabled={isSubmitting || !terminationNote.trim()}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save & Mark Done
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

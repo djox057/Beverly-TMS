@@ -2278,6 +2278,41 @@ export type Database = {
           },
         ]
       }
+      trailer_termination_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+          trailer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+          trailer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+          trailer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trailer_termination_notes_trailer_id_fkey"
+            columns: ["trailer_id"]
+            isOneToOne: false
+            referencedRelation: "trailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trailers: {
         Row: {
           capacity: number | null
@@ -2285,8 +2320,10 @@ export type Database = {
           dot_inspection_date: string | null
           id: string
           insurance_expiration_date: string | null
+          is_active: boolean
           plate_expiration_date: string | null
           status: string | null
+          termination_date: string | null
           trailer_number: string
           trailer_type: string | null
           updated_at: string
@@ -2298,8 +2335,10 @@ export type Database = {
           dot_inspection_date?: string | null
           id?: string
           insurance_expiration_date?: string | null
+          is_active?: boolean
           plate_expiration_date?: string | null
           status?: string | null
+          termination_date?: string | null
           trailer_number: string
           trailer_type?: string | null
           updated_at?: string
@@ -2311,8 +2350,10 @@ export type Database = {
           dot_inspection_date?: string | null
           id?: string
           insurance_expiration_date?: string | null
+          is_active?: boolean
           plate_expiration_date?: string | null
           status?: string | null
+          termination_date?: string | null
           trailer_number?: string
           trailer_type?: string | null
           updated_at?: string
@@ -2540,6 +2581,41 @@ export type Database = {
           },
         ]
       }
+      truck_termination_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+          truck_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+          truck_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+          truck_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_termination_notes_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trucks: {
         Row: {
           company_id: string | null
@@ -2551,12 +2627,14 @@ export type Database = {
           id: string
           insurance_expiration_date: string | null
           ipass: string | null
+          is_active: boolean
           left_by_driver_id: string | null
           miles_away: number | null
           model: string | null
           needs_recovery: boolean | null
           plate_expiration_date: string | null
           status: string | null
+          termination_date: string | null
           trailer_id: string | null
           truck_number: string
           truck_type: string | null
@@ -2573,12 +2651,14 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
+          is_active?: boolean
           left_by_driver_id?: string | null
           miles_away?: number | null
           model?: string | null
           needs_recovery?: boolean | null
           plate_expiration_date?: string | null
           status?: string | null
+          termination_date?: string | null
           trailer_id?: string | null
           truck_number: string
           truck_type?: string | null
@@ -2595,12 +2675,14 @@ export type Database = {
           id?: string
           insurance_expiration_date?: string | null
           ipass?: string | null
+          is_active?: boolean
           left_by_driver_id?: string | null
           miles_away?: number | null
           model?: string | null
           needs_recovery?: boolean | null
           plate_expiration_date?: string | null
           status?: string | null
+          termination_date?: string | null
           trailer_id?: string | null
           truck_number?: string
           truck_type?: string | null
