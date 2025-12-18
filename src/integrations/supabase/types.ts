@@ -1180,6 +1180,63 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_transactions: {
+        Row: {
+          amount: number | null
+          city: string | null
+          created_at: string
+          driver_name: string
+          fees: number | null
+          id: string
+          item: string
+          location_name: string | null
+          quantity: number | null
+          state: string | null
+          transaction_date: string
+          transaction_number: string
+          truck_number: string
+          unit_price: number | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          amount?: number | null
+          city?: string | null
+          created_at?: string
+          driver_name: string
+          fees?: number | null
+          id?: string
+          item: string
+          location_name?: string | null
+          quantity?: number | null
+          state?: string | null
+          transaction_date: string
+          transaction_number: string
+          truck_number: string
+          unit_price?: number | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          amount?: number | null
+          city?: string | null
+          created_at?: string
+          driver_name?: string
+          fees?: number | null
+          id?: string
+          item?: string
+          location_name?: string | null
+          quantity?: number | null
+          state?: string | null
+          transaction_date?: string
+          transaction_number?: string
+          truck_number?: string
+          unit_price?: number | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       geocoding_cache: {
         Row: {
           address: string
