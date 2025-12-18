@@ -3417,9 +3417,10 @@ const EditOrder = () => {
                                         <div className="font-medium">
                                           {pickupSource.transfer_city}, {pickupSource.transfer_state}
                                         </div>
-                                        {pickupSource.transfer_datetime && (
+                                        {/* Use THIS transfer's datetime (when they picked up), not previous transfer's */}
+                                        {transfer.transfer_datetime && (
                                           <div className="text-muted-foreground text-xs">
-                                            {new Date(pickupSource.transfer_datetime).toLocaleString()}
+                                            {new Date(transfer.transfer_datetime).toLocaleString()}
                                           </div>
                                         )}
                                       </div>
