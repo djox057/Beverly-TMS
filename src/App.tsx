@@ -29,6 +29,7 @@ import Alerts from "./pages/Alerts";
 import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
 import Repairs from "./pages/Repairs";
+import FuelReports from "./pages/FuelReports";
 import Christmas from "./pages/Christmas";
 import NotFound from "./pages/NotFound";
 
@@ -190,6 +191,11 @@ const AppContent = () => {
         <Route path="/repairs" element={
           <ProtectedRoute>
             <Layout><Repairs /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/fuel-reports" element={
+          <ProtectedRoute>
+            <Layout><FuelReports /></Layout>
           </ProtectedRoute>
         } />
         <Route path="/trips" element={
