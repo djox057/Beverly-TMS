@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Search, Pencil } from "lucide-react";
 import { ChristmasNoteDialog } from "@/components/ChristmasNoteDialog";
-
+import { ChristmasDecorations } from "@/components/ChristmasDecorations";
 const OFFICE_ORDER = ["Čačak", "KRAGUJEVAC", "BEOGRAD", "Recovery"];
 
 const Christmas = () => {
@@ -101,9 +101,12 @@ const Christmas = () => {
   const hasDataInActiveOffice = Object.keys(activeOfficeData).length > 0;
 
   return (
-    <div className="w-full flex flex-col h-full">
+    <div className="w-full flex flex-col h-full relative overflow-hidden">
+      {/* Christmas Decorations */}
+      <ChristmasDecorations />
+      
       {/* Header */}
-      <div className="text-center py-4 border-b">
+      <div className="text-center py-4 border-b relative z-20 bg-background/80 backdrop-blur-sm">
         <h1 className="text-2xl font-bold flex items-center justify-center gap-3">
           <span className="text-3xl animate-bounce" style={{ animationDelay: "0ms" }}>❄️</span>
           Christmas Notes
@@ -112,14 +115,14 @@ const Christmas = () => {
       </div>
 
       {/* Office Tabs */}
-      <div className="flex border-b bg-muted/30">
+      <div className="flex border-b bg-muted/30 relative z-20 backdrop-blur-sm">
         {OFFICE_ORDER.map((office) => (
           <button
             key={office}
             onClick={() => setActiveOffice(office)}
             className={`flex-1 py-3 px-4 text-sm font-medium transition-colors relative ${
               activeOffice === office
-                ? "bg-background text-foreground border-b-2 border-primary"
+                ? "bg-background/80 text-foreground border-b-2 border-primary"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             }`}
           >
@@ -134,7 +137,7 @@ const Christmas = () => {
       </div>
 
       {/* Search Filter */}
-      <div className="p-4 border-b">
+      <div className="p-4 border-b relative z-20 bg-background/80 backdrop-blur-sm">
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -147,7 +150,7 @@ const Christmas = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="christmas-scroll-container flex-1 overflow-auto p-4 relative z-20 bg-background/60 backdrop-blur-sm">
         {notesWithContent.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-4xl mb-4">🎄</p>
