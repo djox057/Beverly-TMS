@@ -101,7 +101,19 @@ const Christmas = () => {
   const hasDataInActiveOffice = Object.keys(activeOfficeData).length > 0;
 
   return (
-    <div className="w-full flex flex-col h-full">
+    <div className="w-full flex flex-col h-full relative overflow-hidden">
+      {/* Background Video */}
+      <video
+        autoPlay
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover -z-10"
+        style={{ pointerEvents: 'none' }}
+      >
+        <source src="/videos/christmas-background.mp4" type="video/mp4" />
+      </video>
+      {/* Dark overlay for better text readability */}
+      <div className="absolute inset-0 bg-background/70 -z-10" />
       {/* Header */}
       <div className="text-center py-4 border-b">
         <h1 className="text-2xl font-bold flex items-center justify-center gap-3">
