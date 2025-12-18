@@ -164,7 +164,8 @@ const getTransferAwareStops = (
       city: pickupSource.transfer_city,
       state: pickupSource.transfer_state || "",
       address: pickupSource.transfer_address,
-      datetime: pickupSource.transfer_datetime,
+      // Use transfer driver's own datetime (when they picked up), not the previous driver's handoff time
+      datetime: driverTransfer.transfer_datetime || pickupSource.transfer_datetime,
     } : undefined;
 
     // This driver's delivery is either the next transfer location or original delivery
@@ -1604,7 +1605,8 @@ export const useReports = () => {
                       city: pickupSource.transfer_city,
                       state: pickupSource.transfer_state || "",
                       address: pickupSource.transfer_address || "",
-                      datetime: pickupSource.transfer_datetime,
+                      // Use transfer driver's own datetime (when they picked up), not the previous driver's handoff time
+                      datetime: driverTransfer.transfer_datetime || pickupSource.transfer_datetime,
                       sequence_number: 1,
                     }];
                   }
