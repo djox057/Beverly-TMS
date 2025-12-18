@@ -9,6 +9,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle, MapPin } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 interface EditTransferDialogProps {
   open: boolean;
@@ -51,10 +52,12 @@ export function EditTransferDialog({
   onSave,
   transfer,
 }: EditTransferDialogProps) {
+  const CHICAGO_TZ = "America/Chicago";
+
   const { data: trucks } = useAvailableTrucks(true);
   const { data: drivers } = useDrivers();
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
-  
+
   const { data: trailers } = useAvailableTrailers(selectedTruckId || undefined);
 
   const [truckId, setTruckId] = useState<string>("");
@@ -82,19 +85,20 @@ export function EditTransferDialog({
       setTransferCity(transfer.transferCity || "");
       setTransferState(transfer.transferState || "");
       setTransferAddress(transfer.transferAddress || "");
-      // Convert ISO datetime to datetime-local format (LOCAL time, not UTC)
+
+      // Convert timestamptz -> Chicago wall time for datetime-local input
       if (transfer.transferDatetime) {
-        const date = new Date(transfer.transferDatetime);
-        // Format as local time for datetime-local input
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const chicagoDate = toZonedTime(new Date(transfer.transferDatetime), CHICAGO_TZ);
+        const year = chicagoDate.getFullYear();
+        const month = String(chicagoDate.getMonth() + 1).padStart(2, "0");
+        const day = String(chicagoDate.getDate()).padStart(2, "0");
+        const hours = String(chicagoDate.getHours()).padStart(2, "0");
+        const minutes = String(chicagoDate.getMinutes()).padStart(2, "0");
         setTransferDatetime(`${year}-${month}-${day}T${hours}:${minutes}`);
       } else {
         setTransferDatetime("");
       }
+
       setError("");
     }
   }, [open, transfer]);
@@ -102,7 +106,7 @@ export function EditTransferDialog({
   const handleTruckChange = (newTruckId: string) => {
     setTruckId(newTruckId);
     setSelectedTruckId(newTruckId);
-    
+
     const selectedTruck = trucks?.find((t) => t.id === newTruckId);
     if (selectedTruck) {
       setTrailerId(selectedTruck.trailer_id || "");
@@ -123,6 +127,9 @@ export function EditTransferDialog({
       return;
     }
 
+    // Interpret the datetime-local value as America/Chicago, regardless of the user's browser timezone
+    const chicagoUtc = fromZonedTime(new Date(transferDatetime), CHICAGO_TZ);
+
     onSave({
       id: transfer.id,
       truckId: truckId || undefined,
@@ -133,7 +140,7 @@ export function EditTransferDialog({
       transferCity,
       transferState,
       transferAddress: transferAddress || undefined,
-      transferDatetime: new Date(transferDatetime).toISOString(),
+      transferDatetime: chicagoUtc.toISOString(),
     });
 
     onOpenChange(false);

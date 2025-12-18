@@ -1,6 +1,35 @@
 import { format, isSameDay, addDays } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+
+const CHICAGO_TZ = "America/Chicago";
+
+const hasExplicitTimezone = (value: string) => /[zZ]$|[+-]\d{2}:\d{2}$/.test(value.trim());
+
+/**
+ * Returns a Date whose *fields* represent the time in America/Chicago.
+ * - If the string contains a timezone (Z or +HH:MM), it will be converted to Chicago.
+ * - If the string has no timezone, it's treated as a Chicago wall-time.
+ */
+const toChicagoZonedDate = (datetimeStr: string): Date | null => {
+  if (!datetimeStr || datetimeStr === "—") return null;
+
+  try {
+    const utcInstant = hasExplicitTimezone(datetimeStr)
+      ? new Date(datetimeStr)
+      : (() => {
+          const parsed = parseSimpleDateTime(datetimeStr);
+          const chicagoWall = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes, 0);
+          return fromZonedTime(chicagoWall, CHICAGO_TZ);
+        })();
+
+    if (isNaN(utcInstant.getTime())) return null;
+
+    return toZonedTime(utcInstant, CHICAGO_TZ);
+  } catch {
+    return null;
+  }
+};
 
 // Helper function to get company-based background color for truck cells
 export const getCompanyBackgroundColor = (companyName: string | null) => {
@@ -38,15 +67,13 @@ export const getCompanyBackgroundColor = (companyName: string | null) => {
 // Helper to get current date in Chicago timezone
 export const getChicagoToday = () => {
   const now = new Date();
-  const chicagoTime = toZonedTime(now, "America/Chicago");
+  const chicagoTime = toZonedTime(now, CHICAGO_TZ);
   chicagoTime.setHours(0, 0, 0, 0);
   return chicagoTime;
 };
 
 // Helper to format documents in order: RC, BOL, POD, Additional (max 1 per category)
-export const formatDocuments = (
-  documents: Array<{ category: string }>,
-) => {
+export const formatDocuments = (documents: Array<{ category: string }>) => {
   const categoryOrder = ["RC", "BOL", "POD", "ADDITIONAL"];
   const foundCategories = new Set<string>();
   const orderedDocs: string[] = [];
@@ -60,47 +87,33 @@ export const formatDocuments = (
   return orderedDocs.length > 0 ? orderedDocs.join(", ") : "None";
 };
 
-// Helper to format datetime without timezone conversion
+// Helper to format datetime in America/Chicago
 export const formatDateTime = (datetimeStr: string, formatStr: string) => {
-  if (!datetimeStr || datetimeStr === "—") return "—";
-  
-  try {
-    const parsed = parseSimpleDateTime(datetimeStr);
-    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-    
-    if (isNaN(date.getTime())) {
-      return "—";
-    }
-    
-    return format(date, formatStr);
-  } catch {
-    return "—";
-  }
+  const date = toChicagoZonedDate(datetimeStr);
+  if (!date) return "—";
+  return format(date, formatStr);
 };
 
-// Helper to format time only
+// Helper to format time only in America/Chicago
 export const formatTime = (datetimeStr: string) => {
-  if (!datetimeStr || datetimeStr === "—") return "—";
-  
-  try {
-    const parsed = parseSimpleDateTime(datetimeStr);
-    return parsed.timeString;
-  } catch {
-    return "—";
-  }
+  const date = toChicagoZonedDate(datetimeStr);
+  if (!date) return "—";
+  return format(date, "HH:mm");
 };
 
-// Helper to format time range (or single time if start equals end)
+// Helper to format time range (or single time if start equals end) in America/Chicago
 export const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
-  if (!datetimeStr || datetimeStr === "—") return "—";
+  const start = toChicagoZonedDate(datetimeStr);
+  if (!start) return "—";
 
-  const parsed = parseSimpleDateTime(datetimeStr);
-  const startTimeFormatted = `${parsed.hours.toString().padStart(2, "0")}:${parsed.minutes.toString().padStart(2, "0")}`;
+  const startTimeFormatted = format(start, "HH:mm");
 
   if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
 
-  const parsedEnd = parseSimpleDateTime(endDatetimeStr);
-  const endTimeFormatted = `${parsedEnd.hours.toString().padStart(2, "0")}:${parsedEnd.minutes.toString().padStart(2, "0")}`;
+  const end = toChicagoZonedDate(endDatetimeStr);
+  if (!end) return startTimeFormatted;
+
+  const endTimeFormatted = format(end, "HH:mm");
 
   if (startTimeFormatted === endTimeFormatted) return startTimeFormatted;
 
@@ -183,7 +196,7 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
   const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
   const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
   const hasArrived = order.pickupStop?.arrived_at;
-  
+
   if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
   if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
   if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
@@ -261,7 +274,7 @@ export const isGameOverDay = (truck: any, date: Date): { isGameOver: boolean; ty
   const dateStr = format(date, "yyyy-MM-dd");
   const lostDayNote = truck.lost_day_notes?.find((note: any) => note.date === dateStr);
   const note = lostDayNote?.note?.toLowerCase();
-  
+
   if (note === "game over - yard") return { isGameOver: true, type: "yard" };
   if (note === "game over - at road") return { isGameOver: true, type: "at_road" };
   return { isGameOver: false, type: null };
@@ -274,61 +287,53 @@ export const isSameDayPickupDelivery = (order: any) => {
 
 // Parse orders with dates for calendar rendering
 export const parseOrdersWithDates = (truck: any) => {
-  return truck.allOrders
-    ?.map((order: any) => {
-      const pickupDate = order.pickup_datetime
-        ? (() => {
-            const parsed = parseSimpleDateTime(order.pickup_datetime);
-            return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-          })()
-        : null;
-      const deliveryDate = order.delivery_datetime
-        ? (() => {
-            const parsed = parseSimpleDateTime(order.delivery_datetime);
-            return new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
-          })()
-        : null;
+  return (
+    truck.allOrders
+      ?.map((order: any) => {
+        const pickupDate = order.pickup_datetime ? toChicagoZonedDate(order.pickup_datetime) : null;
+        const deliveryDate = order.delivery_datetime ? toChicagoZonedDate(order.delivery_datetime) : null;
 
-      const pickupStopsByDate = new Map<string, number>();
-      const deliveryStopsByDate = new Map<string, number>();
-      
-      order.pickupStops?.forEach((stop: any) => {
-        if (stop.datetime) {
-          const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
-          pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
-        }
-      });
-      order.deliveryStops?.forEach((stop: any) => {
-        if (stop.datetime) {
-          const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
-          deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
-        }
-      });
-      
-      return {
-        ...order,
-        pickupDate,
-        deliveryDate,
-        pickupStopsByDate,
-        deliveryStopsByDate,
-        pickupLocation: order.pickupStop
-          ? order.pickupStop.city && order.pickupStop.state
-            ? `${order.pickupStop.city}, ${order.pickupStop.state}`
-            : order.pickupStop.address || "—"
-          : "—",
-        deliveryLocation: order.deliveryStop
-          ? order.deliveryStop.city && order.deliveryStop.state
-            ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
-            : order.deliveryStop.address || "—"
-          : "—",
-      };
-    })
-    .sort((a: any, b: any) => {
-      if (!a.pickupDate && !b.pickupDate) return 0;
-      if (!a.pickupDate) return 1;
-      if (!b.pickupDate) return -1;
-      return a.pickupDate.getTime() - b.pickupDate.getTime();
-    }) || [];
+        const pickupStopsByDate = new Map<string, number>();
+        const deliveryStopsByDate = new Map<string, number>();
+
+        order.pickupStops?.forEach((stop: any) => {
+          if (stop.datetime) {
+            const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+            pickupStopsByDate.set(stopDate, (pickupStopsByDate.get(stopDate) || 0) + 1);
+          }
+        });
+        order.deliveryStops?.forEach((stop: any) => {
+          if (stop.datetime) {
+            const stopDate = formatDateTime(stop.datetime, "yyyy-MM-dd");
+            deliveryStopsByDate.set(stopDate, (deliveryStopsByDate.get(stopDate) || 0) + 1);
+          }
+        });
+
+        return {
+          ...order,
+          pickupDate,
+          deliveryDate,
+          pickupStopsByDate,
+          deliveryStopsByDate,
+          pickupLocation: order.pickupStop
+            ? order.pickupStop.city && order.pickupStop.state
+              ? `${order.pickupStop.city}, ${order.pickupStop.state}`
+              : order.pickupStop.address || "—"
+            : "—",
+          deliveryLocation: order.deliveryStop
+            ? order.deliveryStop.city && order.deliveryStop.state
+              ? `${order.deliveryStop.city}, ${order.deliveryStop.state}`
+              : order.deliveryStop.address || "—"
+            : "—",
+        };
+      })
+      .sort((a: any, b: any) => {
+        if (!a.pickupDate && !b.pickupDate) return 0;
+        if (!a.pickupDate) return 1;
+        if (!b.pickupDate) return -1;
+        return a.pickupDate.getTime() - b.pickupDate.getTime();
+      }) || []
+  );
 };
 
 // Get previous load delivery status
