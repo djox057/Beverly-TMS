@@ -101,20 +101,23 @@ const Christmas = () => {
   const hasDataInActiveOffice = Object.keys(activeOfficeData).length > 0;
 
   return (
-    <div className="w-full flex flex-col h-full relative overflow-hidden">
+    <div className="w-full flex flex-col h-full relative overflow-hidden isolate">
       {/* Background Video */}
       <video
         autoPlay
         muted
         playsInline
+        preload="auto"
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ pointerEvents: 'none', zIndex: -2 }}
+        style={{ pointerEvents: "none" }}
       >
         <source src="/videos/christmas-background.mp4" type="video/mp4" />
       </video>
       {/* Dark overlay for better text readability */}
-      <div className="absolute inset-0 bg-background/60" style={{ zIndex: -1 }} />
-      {/* Header */}
+      <div className="absolute inset-0 bg-background/40" />
+
+      <div className="relative z-10 w-full flex flex-col h-full">
+        {/* Header */}
       <div className="text-center py-4 border-b">
         <h1 className="text-2xl font-bold flex items-center justify-center gap-3">
           <span className="text-3xl animate-bounce" style={{ animationDelay: "0ms" }}>❄️</span>
@@ -247,6 +250,7 @@ const Christmas = () => {
         />
       )}
     </div>
+  </div>
   );
 };
 
