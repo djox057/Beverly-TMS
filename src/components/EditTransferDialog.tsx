@@ -9,7 +9,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { Combobox } from "@/components/ui/combobox";
 import { AlertCircle, MapPin } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 interface EditTransferDialogProps {
   open: boolean;
@@ -52,8 +52,6 @@ export function EditTransferDialog({
   onSave,
   transfer,
 }: EditTransferDialogProps) {
-  const CHICAGO_TZ = "America/Chicago";
-
   const { data: trucks } = useAvailableTrucks(true);
   const { data: drivers } = useDrivers();
   const [selectedTruckId, setSelectedTruckId] = useState<string>("");
@@ -86,14 +84,14 @@ export function EditTransferDialog({
       setTransferState(transfer.transferState || "");
       setTransferAddress(transfer.transferAddress || "");
 
-      // Convert timestamptz -> Chicago wall time for datetime-local input
+      // Parse the datetime as naive (strip timezone) for datetime-local input
       if (transfer.transferDatetime) {
-        const chicagoDate = toZonedTime(new Date(transfer.transferDatetime), CHICAGO_TZ);
-        const year = chicagoDate.getFullYear();
-        const month = String(chicagoDate.getMonth() + 1).padStart(2, "0");
-        const day = String(chicagoDate.getDate()).padStart(2, "0");
-        const hours = String(chicagoDate.getHours()).padStart(2, "0");
-        const minutes = String(chicagoDate.getMinutes()).padStart(2, "0");
+        const parsed = parseSimpleDateTime(transfer.transferDatetime);
+        const year = parsed.year;
+        const month = String(parsed.month).padStart(2, "0");
+        const day = String(parsed.day).padStart(2, "0");
+        const hours = String(parsed.hours).padStart(2, "0");
+        const minutes = String(parsed.minutes).padStart(2, "0");
         setTransferDatetime(`${year}-${month}-${day}T${hours}:${minutes}`);
       } else {
         setTransferDatetime("");
@@ -127,8 +125,9 @@ export function EditTransferDialog({
       return;
     }
 
-    // Interpret the datetime-local value as America/Chicago, regardless of the user's browser timezone
-    const chicagoUtc = fromZonedTime(new Date(transferDatetime), CHICAGO_TZ);
+    // Save as ISO string with Z suffix (naive Chicago wall-time stored as UTC literal)
+    // This matches the convention used elsewhere in the app
+    const isoDatetime = transferDatetime.replace("T", " ") + ":00";
 
     onSave({
       id: transfer.id,
@@ -140,7 +139,7 @@ export function EditTransferDialog({
       transferCity,
       transferState,
       transferAddress: transferAddress || undefined,
-      transferDatetime: chicagoUtc.toISOString(),
+      transferDatetime: isoDatetime,
     });
 
     onOpenChange(false);
