@@ -111,45 +111,78 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     queryFn: async () => fetchAllInBatches(filters),
   });
 
-  // Get unique truck numbers for filter dropdown
+  // Get unique truck numbers for filter dropdown (batched)
   const { data: truckNumbers = [] } = useQuery({
     queryKey: ["fuel-truck-numbers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fuel_transactions")
-        .select("truck_number")
-        .order("truck_number");
-      if (error) throw error;
-      const unique = [...new Set(data.map((d) => d.truck_number))];
-      return unique;
+      const BATCH_SIZE = 1000;
+      const allTrucks: string[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("fuel_transactions")
+          .select("truck_number")
+          .order("truck_number")
+          .range(from, from + BATCH_SIZE - 1);
+        if (error) throw error;
+        allTrucks.push(...data.map((d) => d.truck_number));
+        hasMore = data.length === BATCH_SIZE;
+        from += BATCH_SIZE;
+      }
+
+      return [...new Set(allTrucks)].sort();
     },
   });
 
-  // Get unique driver names for filter dropdown
+  // Get unique driver names for filter dropdown (batched)
   const { data: driverNames = [] } = useQuery({
     queryKey: ["fuel-driver-names"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fuel_transactions")
-        .select("driver_name")
-        .order("driver_name");
-      if (error) throw error;
-      const unique = [...new Set(data.map((d) => d.driver_name))];
-      return unique;
+      const BATCH_SIZE = 1000;
+      const allDrivers: string[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("fuel_transactions")
+          .select("driver_name")
+          .order("driver_name")
+          .range(from, from + BATCH_SIZE - 1);
+        if (error) throw error;
+        allDrivers.push(...data.map((d) => d.driver_name));
+        hasMore = data.length === BATCH_SIZE;
+        from += BATCH_SIZE;
+      }
+
+      return [...new Set(allDrivers)].sort();
     },
   });
 
-  // Get unique item types for filter dropdown
+  // Get unique item types for filter dropdown (batched)
   const { data: itemTypes = [] } = useQuery({
     queryKey: ["fuel-item-types"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fuel_transactions")
-        .select("item")
-        .order("item");
-      if (error) throw error;
-      const unique = [...new Set(data.map((d) => d.item))];
-      return unique;
+      const BATCH_SIZE = 1000;
+      const allItems: string[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("fuel_transactions")
+          .select("item")
+          .order("item")
+          .range(from, from + BATCH_SIZE - 1);
+        if (error) throw error;
+        allItems.push(...data.map((d) => d.item));
+        hasMore = data.length === BATCH_SIZE;
+        from += BATCH_SIZE;
+      }
+
+      return [...new Set(allItems)].sort();
     },
   });
 
