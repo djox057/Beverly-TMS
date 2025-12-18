@@ -379,6 +379,29 @@ async function refreshOrderFilesInBackground(db: IDBPDatabase<OrdersCacheDB>): P
   }
 }
 
+// Get order transfers from storage (if available) - no local caching, just storage fetch
+export async function getOrderTransfers(): Promise<any[] | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('order-transfers.json');
+
+    if (error) {
+      // File doesn't exist yet - this is expected for older cached data
+      console.log('📦 No order transfers cache found - will use database data for transfers');
+      return null;
+    }
+
+    const text = await data.text();
+    const orderTransfers = JSON.parse(text);
+    console.log('✅ Loaded', orderTransfers.length, 'order transfers from company storage');
+    return orderTransfers;
+  } catch (error) {
+    console.error('Failed to get order transfers:', error);
+    return null;
+  }
+}
+
 export function isCacheValid(timestamp?: number): boolean {
   if (!timestamp) return false;
   const age = Date.now() - timestamp;
