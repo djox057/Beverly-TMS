@@ -1,31 +1,22 @@
 import { format, isSameDay, addDays } from "date-fns";
-import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { toZonedTime } from "date-fns-tz";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 const CHICAGO_TZ = "America/Chicago";
 
-const hasExplicitTimezone = (value: string) => /[zZ]$|[+-]\d{2}:\d{2}$/.test(value.trim());
-
 /**
- * Returns a Date whose *fields* represent the time in America/Chicago.
- * - If the string contains a timezone (Z or +HH:MM), it will be converted to Chicago.
- * - If the string has no timezone, it's treated as a Chicago wall-time.
+ * Parses a datetime string as a NAIVE datetime (ignoring any timezone info).
+ * The database stores Chicago wall-time values with +00 offset, so we strip the offset
+ * and treat the date/time parts as the intended Chicago wall-time.
  */
-const toChicagoZonedDate = (datetimeStr: string): Date | null => {
+const toNaiveDate = (datetimeStr: string): Date | null => {
   if (!datetimeStr || datetimeStr === "—") return null;
 
   try {
-    const utcInstant = hasExplicitTimezone(datetimeStr)
-      ? new Date(datetimeStr)
-      : (() => {
-          const parsed = parseSimpleDateTime(datetimeStr);
-          const chicagoWall = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes, 0);
-          return fromZonedTime(chicagoWall, CHICAGO_TZ);
-        })();
-
-    if (isNaN(utcInstant.getTime())) return null;
-
-    return toZonedTime(utcInstant, CHICAGO_TZ);
+    const parsed = parseSimpleDateTime(datetimeStr);
+    const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes, 0);
+    if (isNaN(date.getTime())) return null;
+    return date;
   } catch {
     return null;
   }
@@ -87,30 +78,30 @@ export const formatDocuments = (documents: Array<{ category: string }>) => {
   return orderedDocs.length > 0 ? orderedDocs.join(", ") : "None";
 };
 
-// Helper to format datetime in America/Chicago
+// Helper to format datetime - treats stored values as naive Chicago wall-time
 export const formatDateTime = (datetimeStr: string, formatStr: string) => {
-  const date = toChicagoZonedDate(datetimeStr);
+  const date = toNaiveDate(datetimeStr);
   if (!date) return "—";
   return format(date, formatStr);
 };
 
-// Helper to format time only in America/Chicago
+// Helper to format time only - treats stored values as naive Chicago wall-time
 export const formatTime = (datetimeStr: string) => {
-  const date = toChicagoZonedDate(datetimeStr);
+  const date = toNaiveDate(datetimeStr);
   if (!date) return "—";
   return format(date, "HH:mm");
 };
 
-// Helper to format time range (or single time if start equals end) in America/Chicago
+// Helper to format time range (or single time if start equals end)
 export const formatTimeRange = (datetimeStr: string, endDatetimeStr: string | null | undefined) => {
-  const start = toChicagoZonedDate(datetimeStr);
+  const start = toNaiveDate(datetimeStr);
   if (!start) return "—";
 
   const startTimeFormatted = format(start, "HH:mm");
 
   if (!endDatetimeStr || endDatetimeStr === "—") return startTimeFormatted;
 
-  const end = toChicagoZonedDate(endDatetimeStr);
+  const end = toNaiveDate(endDatetimeStr);
   if (!end) return startTimeFormatted;
 
   const endTimeFormatted = format(end, "HH:mm");
@@ -290,8 +281,8 @@ export const parseOrdersWithDates = (truck: any) => {
   return (
     truck.allOrders
       ?.map((order: any) => {
-        const pickupDate = order.pickup_datetime ? toChicagoZonedDate(order.pickup_datetime) : null;
-        const deliveryDate = order.delivery_datetime ? toChicagoZonedDate(order.delivery_datetime) : null;
+        const pickupDate = order.pickup_datetime ? toNaiveDate(order.pickup_datetime) : null;
+        const deliveryDate = order.delivery_datetime ? toNaiveDate(order.delivery_datetime) : null;
 
         const pickupStopsByDate = new Map<string, number>();
         const deliveryStopsByDate = new Map<string, number>();
