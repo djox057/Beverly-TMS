@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useChristmasNotes } from "@/hooks/useChristmasNotes";
 import { useAuthContext } from "@/contexts/AuthContext";
 import {
@@ -28,46 +28,6 @@ const Christmas = () => {
     truckId: string | null;
     truckNumber: string;
   } | null>(null);
-
-  // Video ping-pong loop
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isReversing, setIsReversing] = useState(false);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    let animationId: number;
-
-    const handleEnded = () => {
-      setIsReversing(true);
-    };
-
-    const reversePlayback = () => {
-      if (!isReversing || !video) return;
-      
-      video.currentTime -= 0.033; // ~30fps reverse
-      
-      if (video.currentTime <= 0) {
-        video.currentTime = 0;
-        setIsReversing(false);
-        video.play();
-      } else {
-        animationId = requestAnimationFrame(reversePlayback);
-      }
-    };
-
-    video.addEventListener("ended", handleEnded);
-
-    if (isReversing) {
-      animationId = requestAnimationFrame(reversePlayback);
-    }
-
-    return () => {
-      video.removeEventListener("ended", handleEnded);
-      if (animationId) cancelAnimationFrame(animationId);
-    };
-  }, [isReversing]);
 
   // Filter to only show notes that have actual text
   const notesWithContent = useMemo(() => 
@@ -141,24 +101,8 @@ const Christmas = () => {
   const hasDataInActiveOffice = Object.keys(activeOfficeData).length > 0;
 
   return (
-    <div className="w-full flex flex-col h-full relative overflow-hidden isolate">
-      {/* Background Video with ping-pong loop */}
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ pointerEvents: "none" }}
-      >
-        <source src="/videos/christmas-background.mp4" type="video/mp4" />
-      </video>
-      {/* Dark overlay for better text readability */}
-      <div className="absolute inset-0 bg-background/40" />
-
-      <div className="relative z-10 w-full flex flex-col h-full">
-        {/* Header */}
+    <div className="w-full flex flex-col h-full">
+      {/* Header */}
       <div className="text-center py-4 border-b">
         <h1 className="text-2xl font-bold flex items-center justify-center gap-3">
           <span className="text-3xl animate-bounce" style={{ animationDelay: "0ms" }}>❄️</span>
@@ -291,7 +235,6 @@ const Christmas = () => {
         />
       )}
     </div>
-  </div>
   );
 };
 
