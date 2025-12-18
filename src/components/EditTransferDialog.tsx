@@ -82,10 +82,16 @@ export function EditTransferDialog({
       setTransferCity(transfer.transferCity || "");
       setTransferState(transfer.transferState || "");
       setTransferAddress(transfer.transferAddress || "");
-      // Convert ISO datetime to datetime-local format
+      // Convert ISO datetime to datetime-local format (LOCAL time, not UTC)
       if (transfer.transferDatetime) {
         const date = new Date(transfer.transferDatetime);
-        setTransferDatetime(date.toISOString().slice(0, 16));
+        // Format as local time for datetime-local input
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        setTransferDatetime(`${year}-${month}-${day}T${hours}:${minutes}`);
       } else {
         setTransferDatetime("");
       }
