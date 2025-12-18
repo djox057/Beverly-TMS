@@ -868,11 +868,12 @@ export const useReports = () => {
         let lockedOrders: any[] = [];
         try {
           console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
-          const { getLockedOrders, getPickupDrops, getOrderFiles } = await import("@/utils/ordersCache");
+          const { getLockedOrders, getPickupDrops, getOrderFiles, getOrderTransfers } = await import("@/utils/ordersCache");
           
           const cachedOrders = await getLockedOrders();
           const cachedPickupDrops = await getPickupDrops();
           const cachedOrderFiles = await getOrderFiles();
+          const cachedOrderTransfers = await getOrderTransfers();
 
           if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
             console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
@@ -881,7 +882,7 @@ export const useReports = () => {
             const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
             const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
 
-            // Match pickup_drops and order_files to orders, and normalize CSV string values
+            // Match pickup_drops, order_files, and order_transfers to orders, and normalize CSV string values
             const ordersWithRelations = cachedOrders.map((order: any) => ({
               ...order,
               // Normalize CSV string values to proper types
@@ -894,6 +895,7 @@ export const useReports = () => {
               commodity: normalizeNull(order.commodity),
               pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
               order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+              order_transfers: cachedOrderTransfers?.filter((ot: any) => ot.order_id === order.id) || [],
             }));
 
             const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
@@ -933,8 +935,12 @@ export const useReports = () => {
         // Locked orders now only appear after CSV cache is updated via Data Management page.
 
         // Combine unlocked (from database) and locked (from storage bucket) orders
-        const allOrders = [...(unlockedOrdersRaw || []), ...lockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${lockedOrders.length} locked)`);
+        // IMPORTANT: Deduplicate by order ID, prioritizing unlocked orders (from DB) 
+        // because they have the latest data including order_transfers
+        const unlockedOrderIds = new Set((unlockedOrdersRaw || []).map((o: any) => o.id));
+        const deduplicatedLockedOrders = lockedOrders.filter((o: any) => !unlockedOrderIds.has(o.id));
+        const allOrders = [...(unlockedOrdersRaw || []), ...deduplicatedLockedOrders];
+        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked, ${lockedOrders.length - deduplicatedLockedOrders.length} duplicates removed)`);
 
         // STEP 3: Fetch supporting data and build reports
         // Fetch dispatcher information separately
