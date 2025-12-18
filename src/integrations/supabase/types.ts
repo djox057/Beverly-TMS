@@ -2774,6 +2774,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_schedule_manager: { Args: { _user_id: string }; Returns: boolean }
       log_pii_view: {
         Args: {
           p_driver_id: string
