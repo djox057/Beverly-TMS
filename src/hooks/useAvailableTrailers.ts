@@ -65,7 +65,8 @@ export const useAvailableTrailers = (currentTruckId?: string) => {
     queryFn: async () => {
       const { data: trailers, error: trailersError } = await supabase
         .from('trailers')
-        .select('id, trailer_number')
+        .select('id, trailer_number, is_active')
+        .eq('is_active', true) // Only return active trailers
         .order('trailer_number', { ascending: true });
       
       if (trailersError) throw trailersError;

@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination";
-import { Search, Plus, Edit, Trash2, Loader2, History, Download } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Loader2, History, Download, CheckCircle2, Play } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useTrailers } from "@/hooks/useTrailers";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrailerFilesManager } from "@/components/TrailerFilesManager";
 import { useQueryClient } from "@tanstack/react-query";
 import { AssignmentHistoryDialog } from "@/components/AssignmentHistoryDialog";
+import { Textarea } from "@/components/ui/textarea";
+
 interface TrailerFormData {
   trailer_number: string;
   trailer_type: string;
@@ -30,9 +32,18 @@ interface TrailerFormData {
   plate_expiration_date: string;
   insurance_expiration_date: string;
 }
+
+interface TerminationNote {
+  id: string;
+  note: string;
+  created_at: string;
+  created_by: string | null;
+}
+
 const Trailers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -41,6 +52,10 @@ const Trailers = () => {
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [historyTrailerId, setHistoryTrailerId] = useState<string | null>(null);
   const [historyTrailerName, setHistoryTrailerName] = useState<string>("");
+  const [showDoneConfirmation, setShowDoneConfirmation] = useState(false);
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [terminationNote, setTerminationNote] = useState("");
+  const [terminationNotes, setTerminationNotes] = useState<TerminationNote[]>([]);
   const [formData, setFormData] = useState<TrailerFormData>({
     trailer_number: "",
     trailer_type: "",
@@ -83,7 +98,7 @@ const Trailers = () => {
     setCurrentPage(1);
   }, [searchTerm, assignmentFilter]);
 
-  // Filter trailers based on search term and assignment status
+  // Filter trailers based on search term, assignment status, and status filter
   const filteredTrailers = trailers?.filter(trailer => {
     // Search filter
     const matchesSearch = trailer.trailer_number.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -97,7 +112,12 @@ const Trailers = () => {
       (assignmentFilter === "assigned" && isAssigned) || 
       (assignmentFilter === "unassigned" && !isAssigned);
     
-    return matchesSearch && matchesAssignment;
+    // Status filter
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && trailer.is_active !== false) || 
+      (statusFilter === "inactive" && trailer.is_active === false);
+    
+    return matchesSearch && matchesAssignment && matchesStatus;
   }) || [];
 
   // Pagination
@@ -297,7 +317,7 @@ const Trailers = () => {
       });
     }
   };
-  const openEditDialog = (trailer: any) => {
+  const openEditDialog = async (trailer: any) => {
     setEditingTrailer(trailer);
     setFormData({
       trailer_number: trailer.trailer_number || "",
@@ -308,7 +328,129 @@ const Trailers = () => {
       plate_expiration_date: trailer.plate_expiration_date || "",
       insurance_expiration_date: trailer.insurance_expiration_date || ""
     });
+    
+    // Fetch termination notes if trailer is inactive
+    if (trailer.is_active === false) {
+      const { data: notes } = await supabase
+        .from('trailer_termination_notes')
+        .select('*')
+        .eq('trailer_id', trailer.id)
+        .order('created_at', { ascending: false });
+      setTerminationNotes(notes || []);
+    } else {
+      setTerminationNotes([]);
+    }
+    
     setIsEditDialogOpen(true);
+  };
+
+  // Done functionality - mark trailer as inactive
+  const handleDoneClick = () => {
+    setShowDoneConfirmation(true);
+  };
+
+  const handleConfirmDone = () => {
+    setShowDoneConfirmation(false);
+    setShowNoteDialog(true);
+  };
+
+  const handleSaveTerminationNote = async () => {
+    if (!editingTrailer || !terminationNote.trim()) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Save termination note
+      const { error: noteError } = await supabase
+        .from('trailer_termination_notes')
+        .insert({
+          trailer_id: editingTrailer.id,
+          note: terminationNote.trim(),
+          created_by: user?.id
+        });
+      
+      if (noteError) throw noteError;
+      
+      // Clear trailer from any trucks that have it assigned
+      await supabase
+        .from('trucks')
+        .update({ trailer_id: null })
+        .eq('trailer_id', editingTrailer.id);
+      
+      // Update trailer: set is_active = false, termination_date = today
+      const { error: updateError } = await supabase
+        .from('trailers')
+        .update({
+          is_active: false,
+          termination_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', editingTrailer.id);
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: "Success",
+        description: `Trailer ${editingTrailer.trailer_number} marked as done`
+      });
+      
+      setShowNoteDialog(false);
+      setTerminationNote("");
+      setIsEditDialogOpen(false);
+      setEditingTrailer(null);
+      
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+      queryClient.invalidateQueries({ queryKey: ['trucks'] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark trailer as done",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Start functionality - reactivate trailer
+  const handleStartTrailer = async () => {
+    if (!editingTrailer) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Delete all termination notes
+      await supabase
+        .from('trailer_termination_notes')
+        .delete()
+        .eq('trailer_id', editingTrailer.id);
+      
+      // Update trailer: set is_active = true, clear termination_date
+      const { error: updateError } = await supabase
+        .from('trailers')
+        .update({
+          is_active: true,
+          termination_date: null
+        })
+        .eq('id', editingTrailer.id);
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: "Success",
+        description: `Trailer ${editingTrailer.trailer_number} reactivated`
+      });
+      
+      setIsEditDialogOpen(false);
+      setEditingTrailer(null);
+      
+      queryClient.invalidateQueries({ queryKey: ['trailers'] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reactivate trailer",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const exportToExcel = () => {
@@ -477,6 +619,16 @@ const Trailers = () => {
           <div className="flex items-center justify-between">
             <CardTitle>Trailer Inventory</CardTitle>
             <div className="flex items-center gap-3">
+              <Select value={statusFilter} onValueChange={(value: "all" | "active" | "inactive") => setStatusFilter(value)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={assignmentFilter} onValueChange={(value: "all" | "assigned" | "unassigned") => setAssignmentFilter(value)}>
                 <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Assignment status" />
@@ -771,14 +923,46 @@ const Trailers = () => {
                   </Select>
                 </div>
 
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Update Trailer
-                  </Button>
+                {/* Termination notes section for inactive trailers */}
+                {editingTrailer?.is_active === false && terminationNotes.length > 0 && (
+                  <div className="space-y-2 p-3 bg-muted rounded-md">
+                    <Label className="text-destructive font-semibold">Termination Notes</Label>
+                    {terminationNotes.map((note) => (
+                      <div key={note.id} className="text-sm text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(note.created_at).toLocaleString()}
+                        </span>
+                        <p>{note.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-between gap-3">
+                  <div>
+                    {canDelete && editingTrailer?.is_active !== false && (
+                      <Button type="button" variant="destructive" onClick={handleDoneClick} disabled={isSubmitting}>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Done
+                      </Button>
+                    )}
+                    {canDelete && editingTrailer?.is_active === false && (
+                      <Button type="button" variant="default" onClick={handleStartTrailer} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Play className="mr-2 h-4 w-4" />
+                        Start
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Update Trailer
+                    </Button>
+                  </div>
                 </div>
               </form>
             </TabsContent>
@@ -792,6 +976,49 @@ const Trailers = () => {
               )}
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Done Confirmation Dialog */}
+      <AlertDialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Trailer as Done?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark trailer {editingTrailer?.trailer_number} as inactive and remove it from any assigned trucks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDone}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Termination Note Dialog */}
+      <Dialog open={showNoteDialog} onOpenChange={setShowNoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Termination Note</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Note for trailer {editingTrailer?.trailer_number}</Label>
+              <Textarea
+                value={terminationNote}
+                onChange={(e) => setTerminationNote(e.target.value)}
+                placeholder="Enter reason for marking this trailer as done..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNoteDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveTerminationNote} disabled={isSubmitting || !terminationNote.trim()}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save & Mark Done
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
