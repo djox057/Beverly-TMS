@@ -49,9 +49,13 @@ const MAINTENANCE_CONFIG = { label: 'Maintenance', slots: 10 };
 type OfficeKey = keyof typeof OFFICE_CONFIG;
 type SelectionKey = OfficeKey | 'maintenance';
 
+// Special users who can manage weekend schedules regardless of role
+const SCHEDULE_MANAGER_EMAILS = ['tommyj@bfprime.net', 'acccoc225@gmail.com'];
+
 export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursScheduleDialogProps) => {
-  const { hasRole } = useAuthContext();
+  const { hasRole, profile } = useAuthContext();
   const isAdmin = hasRole('admin');
+  const canManageSchedules = isAdmin || SCHEDULE_MANAGER_EMAILS.includes(profile?.email?.toLowerCase() || '');
   const [scheduleUsers, setScheduleUsers] = useState<ScheduleUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Record<SelectionKey, string[]>>({
     kragujevac: [],
@@ -443,7 +447,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                     >
                                       <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                      {isAdmin && !isPastDate && (
+                                      {canManageSchedules && !isPastDate && (
                                         <Button
                                           variant="ghost"
                                           size="icon"
@@ -476,7 +480,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                     className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
                                   >
                                     <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                    {isAdmin && !isPastDate && (
+                                    {canManageSchedules && !isPastDate && (
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -502,7 +506,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                       )}
                       
                       {/* Show add section for offices/maintenance below minimum threshold - Admin only, future dates only */}
-                      {isAdmin && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers) && (
+                      {canManageSchedules && !isPastDate && (existingForDate.length === 0 || needsMoreDispatchers) && (
                         <>
                           {loading ? (
                             <div className="flex items-center justify-center py-4">
