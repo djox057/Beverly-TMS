@@ -107,13 +107,13 @@ const Christmas = () => {
         autoPlay
         muted
         playsInline
-        className="absolute inset-0 w-full h-full object-cover -z-10"
-        style={{ pointerEvents: 'none' }}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ pointerEvents: 'none', zIndex: -2 }}
       >
         <source src="/videos/christmas-background.mp4" type="video/mp4" />
       </video>
       {/* Dark overlay for better text readability */}
-      <div className="absolute inset-0 bg-background/70 -z-10" />
+      <div className="absolute inset-0 bg-background/60" style={{ zIndex: -1 }} />
       {/* Header */}
       <div className="text-center py-4 border-b">
         <h1 className="text-2xl font-bold flex items-center justify-center gap-3">
