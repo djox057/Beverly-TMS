@@ -106,13 +106,13 @@ export default function Repairs() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Date</TableHead>
-          {activeTab === 'truck' && <TableHead>Truck #</TableHead>}
-          {activeTab === 'trailer' && <TableHead>Trailer #</TableHead>}
-          <TableHead>Driver</TableHead>
-          <TableHead>Reason</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Paid</TableHead>
+          <TableHead className="w-28">Date</TableHead>
+          {activeTab === 'truck' && <TableHead className="w-28">Truck #</TableHead>}
+          {activeTab === 'trailer' && <TableHead className="w-28">Trailer #</TableHead>}
+          <TableHead className="w-40">Driver</TableHead>
+          <TableHead className="min-w-[300px]">Reason</TableHead>
+          <TableHead className="w-24">Amount</TableHead>
+          <TableHead className="w-16">Paid</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -141,7 +141,7 @@ export default function Repairs() {
               {activeTab === 'truck' && <TableCell>{repair.truck_number || '-'}</TableCell>}
               {activeTab === 'trailer' && <TableCell>{repair.trailer_number || '-'}</TableCell>}
               <TableCell>{repair.driver_name || '-'}</TableCell>
-              <TableCell className="max-w-[200px] truncate">
+              <TableCell>
                 {repair.reason}
               </TableCell>
               <TableCell>{formatCurrency(repair.amount)}</TableCell>
@@ -160,7 +160,7 @@ export default function Repairs() {
   );
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Wrench className="h-8 w-8 text-primary" />
@@ -189,7 +189,7 @@ export default function Repairs() {
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'truck' | 'trailer')}>
             <div className="border-b px-4">
-              <TabsList className="h-12">
+              <TabsList className="h-12 bg-transparent p-0">
                 <TabsTrigger value="truck" className="flex items-center gap-2">
                   <Truck className="h-4 w-4" />
                   Truck Repairs
