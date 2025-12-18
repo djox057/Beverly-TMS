@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useChristmasNotes } from "@/hooks/useChristmasNotes";
 import { useAuthContext } from "@/contexts/AuthContext";
 import {
@@ -28,6 +28,46 @@ const Christmas = () => {
     truckId: string | null;
     truckNumber: string;
   } | null>(null);
+
+  // Video ping-pong loop
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isReversing, setIsReversing] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let animationId: number;
+
+    const handleEnded = () => {
+      setIsReversing(true);
+    };
+
+    const reversePlayback = () => {
+      if (!isReversing || !video) return;
+      
+      video.currentTime -= 0.033; // ~30fps reverse
+      
+      if (video.currentTime <= 0) {
+        video.currentTime = 0;
+        setIsReversing(false);
+        video.play();
+      } else {
+        animationId = requestAnimationFrame(reversePlayback);
+      }
+    };
+
+    video.addEventListener("ended", handleEnded);
+
+    if (isReversing) {
+      animationId = requestAnimationFrame(reversePlayback);
+    }
+
+    return () => {
+      video.removeEventListener("ended", handleEnded);
+      if (animationId) cancelAnimationFrame(animationId);
+    };
+  }, [isReversing]);
 
   // Filter to only show notes that have actual text
   const notesWithContent = useMemo(() => 
@@ -102,8 +142,9 @@ const Christmas = () => {
 
   return (
     <div className="w-full flex flex-col h-full relative overflow-hidden isolate">
-      {/* Background Video */}
+      {/* Background Video with ping-pong loop */}
       <video
+        ref={videoRef}
         autoPlay
         muted
         playsInline
