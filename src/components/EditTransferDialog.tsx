@@ -244,7 +244,7 @@ export function EditTransferDialog({
                 ? "Where did this driver hand off the load to the next driver?"
                 : "Where did this driver pick up the load from the previous driver?"}
             </p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-[1fr_80px_1.5fr] gap-4">
               <div>
                 <Label>City *</Label>
                 <Input
@@ -258,7 +258,7 @@ export function EditTransferDialog({
                 <Input
                   value={transferState}
                   onChange={(e) => setTransferState(e.target.value.toUpperCase())}
-                  placeholder="e.g. IL"
+                  placeholder="IL"
                   maxLength={2}
                 />
               </div>
