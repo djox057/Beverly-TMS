@@ -106,13 +106,13 @@ export default function Repairs() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-28 text-center">Date</TableHead>
-          {activeTab === 'truck' && <TableHead className="w-28 text-center">Truck #</TableHead>}
-          {activeTab === 'trailer' && <TableHead className="w-28 text-center">Trailer #</TableHead>}
-          <TableHead className="w-40 text-center">Driver</TableHead>
+          <TableHead className="w-28">Date</TableHead>
+          {activeTab === 'truck' && <TableHead className="w-28">Truck #</TableHead>}
+          {activeTab === 'trailer' && <TableHead className="w-28">Trailer #</TableHead>}
+          <TableHead className="w-40">Driver</TableHead>
           <TableHead className="min-w-[200px] text-center">Reason</TableHead>
-          <TableHead className="w-32 text-center">Amount</TableHead>
-          <TableHead className="w-16 text-center">Paid</TableHead>
+          <TableHead className="w-32">Amount</TableHead>
+          <TableHead className="w-16">Paid</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
