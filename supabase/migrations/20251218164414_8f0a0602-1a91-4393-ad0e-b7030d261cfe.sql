@@ -1,0 +1,2 @@
+-- Remove the unique constraint on transaction_number since different companies may have same transaction numbers
+ALTER TABLE public.fuel_transactions DROP CONSTRAINT IF EXISTS fuel_transactions_transaction_number_key;
