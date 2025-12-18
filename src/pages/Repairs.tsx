@@ -106,13 +106,13 @@ export default function Repairs() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-28">Date</TableHead>
-          {activeTab === 'truck' && <TableHead className="w-28">Truck #</TableHead>}
-          {activeTab === 'trailer' && <TableHead className="w-28">Trailer #</TableHead>}
-          <TableHead className="w-40">Driver</TableHead>
-          <TableHead className="min-w-[300px]">Reason</TableHead>
-          <TableHead className="w-24">Amount</TableHead>
-          <TableHead className="w-16">Paid</TableHead>
+          <TableHead className="w-28 text-center">Date</TableHead>
+          {activeTab === 'truck' && <TableHead className="w-28 text-center">Truck #</TableHead>}
+          {activeTab === 'trailer' && <TableHead className="w-28 text-center">Trailer #</TableHead>}
+          <TableHead className="w-40 text-center">Driver</TableHead>
+          <TableHead className="min-w-[200px] text-center">Reason</TableHead>
+          <TableHead className="w-32 text-center">Amount</TableHead>
+          <TableHead className="w-16 text-center">Paid</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -188,7 +188,7 @@ export default function Repairs() {
       <Card>
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'truck' | 'trailer')}>
-            <div className="border-b px-4">
+            <div className="border-b">
               <TabsList className="h-12 bg-transparent p-0">
                 <TabsTrigger value="truck" className="flex items-center gap-2">
                   <Truck className="h-4 w-4" />
