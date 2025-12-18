@@ -3420,7 +3420,11 @@ const EditOrder = () => {
                                         {/* Use THIS transfer's datetime (when they picked up), not previous transfer's */}
                                         {transfer.transfer_datetime && (
                                           <div className="text-muted-foreground text-xs">
-                                            {new Date(transfer.transfer_datetime).toLocaleString()}
+                                            {(() => {
+                                              const parsed = parseSimpleDateTime(transfer.transfer_datetime);
+                                              const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                                              return date.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+                                            })()}
                                           </div>
                                         )}
                                       </div>
@@ -3438,7 +3442,11 @@ const EditOrder = () => {
                                           </div>
                                           {transfer.transfer_datetime && (
                                             <div className="text-muted-foreground text-xs">
-                                              {new Date(transfer.transfer_datetime).toLocaleString()}
+                                              {(() => {
+                                                const parsed = parseSimpleDateTime(transfer.transfer_datetime);
+                                                const date = new Date(parsed.year, parsed.month - 1, parsed.day, parsed.hours, parsed.minutes);
+                                                return date.toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+                                              })()}
                                             </div>
                                           )}
                                         </div>
