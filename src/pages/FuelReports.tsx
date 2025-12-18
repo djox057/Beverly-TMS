@@ -42,8 +42,8 @@ const FuelReports = () => {
   const defaultRange = getDefaultDateRange();
 
   const [filters, setFilters] = useState<FuelFilters>({
-    startDate: defaultRange.startDate,
-    endDate: defaultRange.endDate,
+    startDate: null,
+    endDate: null,
     truckNumber: "",
     driverName: "",
     itemType: "ALL",
@@ -85,15 +85,23 @@ const FuelReports = () => {
             continue;
           }
 
-          // Parse date (format: MM/DD/YYYY)
+          // Parse date - handle both YYYY-MM-DD and MM/DD/YYYY formats
           let transactionDate: string;
-          try {
-            const parsedDate = parse(tranDateStr, "MM/dd/yyyy", new Date());
-            transactionDate = format(parsedDate, "yyyy-MM-dd");
-          } catch {
-            console.warn(`Invalid date format: ${tranDateStr}`);
-            continue;
+          if (tranDateStr.includes("-")) {
+            // Already in YYYY-MM-DD format
+            transactionDate = tranDateStr;
+          } else {
+            try {
+              const parsedDate = parse(tranDateStr, "MM/dd/yyyy", new Date());
+              transactionDate = format(parsedDate, "yyyy-MM-dd");
+            } catch {
+              console.warn(`Invalid date format: ${tranDateStr}`);
+              continue;
+            }
           }
+
+          // Handle state column variations (State/Prov or State/ Prov)
+          const stateValue = row["State/Prov"]?.trim() || row["State/ Prov"]?.trim() || null;
 
           records.push({
             truck_number: truckNumber,
@@ -102,7 +110,7 @@ const FuelReports = () => {
             transaction_date: transactionDate,
             location_name: row["Location Name"]?.trim() || null,
             city: row["City"]?.trim() || null,
-            state: row["State/Prov"]?.trim() || null,
+            state: stateValue,
             fees: parseFloat(row["Fees"]) || 0,
             item: item,
             unit_price: parseFloat(row["Unit Price"]) || 0,
