@@ -50,7 +50,7 @@ const FuelReports = () => {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [uploadingCompany, setUploadingCompany] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [dragOver, setDragOver] = useState(false);
+  const [dragOverCompany, setDragOverCompany] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<FuelFilters>({
     startDate: null,
@@ -86,19 +86,19 @@ const FuelReports = () => {
     setCurrentPage(1);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, companyId: string) => {
     e.preventDefault();
-    setDragOver(true);
+    setDragOverCompany(companyId);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOver(false);
+    setDragOverCompany(null);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent, companyId: string, companyLabel: string) => {
     e.preventDefault();
-    setDragOver(false);
+    setDragOverCompany(null);
     
     const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
     if (files.length === 0) {
@@ -110,14 +110,12 @@ const FuelReports = () => {
       return;
     }
     
-    // Process each dropped file
-    files.forEach(file => processFile(file, "drop"));
+    // Process the first dropped file for this company
+    processFile(files[0], companyId, companyLabel);
   };
 
-  const processFile = (file: File, companyId: string) => {
-    if (companyId !== "drop") {
-      setUploadingCompany(companyId);
-    }
+  const processFile = (file: File, companyId: string, companyLabel: string) => {
+    setUploadingCompany(companyId);
 
     Papa.parse(file, {
       header: true,
@@ -177,7 +175,7 @@ const FuelReports = () => {
           return;
         }
 
-        uploadTransactions(records, {
+        uploadTransactions({ records, company: companyLabel }, {
           onSettled: () => setUploadingCompany(null),
         });
       },
@@ -192,11 +190,11 @@ const FuelReports = () => {
     });
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, companyId: string) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, companyId: string, companyLabel: string) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    processFile(file, companyId);
+    processFile(file, companyId, companyLabel);
 
     // Reset file input
     const ref = fileInputRefs.current[companyId];
@@ -254,53 +252,40 @@ const FuelReports = () => {
         </AlertDialog>
       </div>
 
-      {/* Company Upload Buttons */}
+      {/* Company Upload Zones */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Upload CSV by Company</CardTitle>
+          <CardTitle className="text-sm font-medium">Upload CSV by Company (drag & drop or click)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Drag and Drop Zone */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-              dragOver 
-                ? "border-primary bg-primary/5" 
-                : "border-muted-foreground/25 hover:border-muted-foreground/50"
-            }`}
-          >
-            <Upload className={`h-8 w-8 mx-auto mb-2 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
-            <p className="text-sm text-muted-foreground">
-              Drag and drop CSV files here, or use buttons below
-            </p>
-          </div>
-
-          {/* Company Buttons */}
-          <div className="flex flex-wrap gap-3">
+        <CardContent>
+          <div className="grid grid-cols-5 gap-3">
             {COMPANIES.map((company) => (
-              <div key={company.id}>
+              <div
+                key={company.id}
+                onDragOver={(e) => handleDragOver(e, company.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, company.id, company.label)}
+                onClick={() => fileInputRefs.current[company.id]?.click()}
+                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+                  dragOverCompany === company.id
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/30"
+                } ${uploadingCompany === company.id ? "opacity-50" : ""}`}
+              >
                 <input
                   ref={(el) => (fileInputRefs.current[company.id] = el)}
                   type="file"
                   accept=".csv"
-                  onChange={(e) => handleFileUpload(e, company.id)}
+                  onChange={(e) => handleFileUpload(e, company.id, company.label)}
                   className="hidden"
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRefs.current[company.id]?.click()}
-                  disabled={isUploading}
-                  className="min-w-[160px]"
-                >
-                  {uploadingCompany === company.id ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4 mr-2" />
-                  )}
-                  {company.label}
-                </Button>
+                {uploadingCompany === company.id ? (
+                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+                ) : (
+                  <Upload className={`h-6 w-6 mx-auto mb-2 ${dragOverCompany === company.id ? "text-primary" : "text-muted-foreground"}`} />
+                )}
+                <p className="text-sm font-medium">{company.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">Drop CSV or click</p>
               </div>
             ))}
           </div>

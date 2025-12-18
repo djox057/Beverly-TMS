@@ -34,6 +34,7 @@ export interface FuelTransactionInsert {
   unit_price?: number;
   quantity?: number;
   amount?: number;
+  company?: string | null;
 }
 
 export interface FuelFilters {
@@ -132,37 +133,43 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
   });
 
-  // Upload transactions mutation
+  // Upload transactions mutation (replaces existing data for the company)
   const uploadMutation = useMutation({
-    mutationFn: async (records: FuelTransactionInsert[]) => {
+    mutationFn: async ({ records, company }: { records: FuelTransactionInsert[]; company: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Add uploaded_by to each record
-      const recordsWithUploader = records.map(record => ({
+      // Delete existing transactions for this company first
+      const { error: deleteError } = await supabase
+        .from("fuel_transactions")
+        .delete()
+        .eq("company", company);
+      
+      if (deleteError) throw deleteError;
+      
+      // Add company and uploaded_by to each record
+      const recordsWithMetadata = records.map(record => ({
         ...record,
+        company,
         uploaded_by: user?.id || null,
       }));
 
-      // Use upsert to handle duplicates (based on transaction_number)
+      // Insert new records
       const { data, error } = await supabase
         .from("fuel_transactions")
-        .upsert(recordsWithUploader, { 
-          onConflict: "transaction_number",
-          ignoreDuplicates: true 
-        })
+        .insert(recordsWithMetadata)
         .select();
 
       if (error) throw error;
-      return data;
+      return { data, company };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, company }) => {
       queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-truck-numbers"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-driver-names"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-item-types"] });
       toast({
         title: "Upload successful",
-        description: `${data?.length || 0} fuel transactions imported.`,
+        description: `${data?.length || 0} transactions imported for ${company}.`,
       });
     },
     onError: (error) => {
