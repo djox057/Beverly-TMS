@@ -476,7 +476,7 @@ const Trips = () => {
   ) => {
     try {
       // Load the BF Prime Drivers template
-      const response = await fetch("/templates/BF_Prime_Drivers_template.xlsx");
+      const response = await fetch("/Template/BF_Prime-3.xlsx");
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
@@ -680,7 +680,7 @@ const Trips = () => {
   ) => {
     try {
       // Load the Beverly Freight Inc template
-      const response = await fetch("/templates/Beverly_Freight_Inc_template.xlsx");
+      const response = await fetch("/Template/Beverly_Freight-3.xlsx");
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
@@ -891,7 +891,7 @@ const Trips = () => {
   ) => {
     try {
       // Load the BG Prime Inc template
-      const response = await fetch("/templates/BG_Prime_Inc_statement.xlsx");
+      const response = await fetch("/Template/BG_Inc-3.xlsx");
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
@@ -1082,7 +1082,7 @@ const Trips = () => {
   ) => {
     try {
       // Load the template
-      const response = await fetch("/templates/BF_Prime_UNITED_template.xlsx");
+      const response = await fetch("/Template/BF_Prime_United-3.xlsx");
       const arrayBuffer = await response.arrayBuffer();
 
       const workbook = new ExcelJS.Workbook();
@@ -1460,7 +1460,7 @@ const Trips = () => {
 
   const exportFinalBFPrimeDriversTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
     try {
-      const response = await fetch("/templates/BF_Prime_Drivers_template.xlsx");
+      const response = await fetch("/Template/BF_Prime-3.xlsx");
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(await response.arrayBuffer());
       const worksheet = workbook.getWorksheet(1);
@@ -1521,7 +1521,7 @@ const Trips = () => {
 
   const exportFinalBeverlyFreightTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
     try {
-      const response = await fetch("/templates/Beverly_Freight_Inc_template.xlsx");
+      const response = await fetch("/Template/Beverly_Freight-3.xlsx");
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(await response.arrayBuffer());
       const worksheet = workbook.getWorksheet(1);
@@ -1588,7 +1588,7 @@ const Trips = () => {
 
   const exportFinalBGPrimeIncTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
     try {
-      const response = await fetch("/templates/BG_Prime_Inc_statement.xlsx");
+      const response = await fetch("/Template/BG_Inc-3.xlsx");
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(await response.arrayBuffer());
       const worksheet = workbook.getWorksheet(1);
@@ -1665,7 +1665,7 @@ const Trips = () => {
 
   const exportFinalBFPrimeTemplate = async (week: any, startDate: Date, endDate: Date, firstOrder: any, driver: any) => {
     try {
-      const response = await fetch("/templates/BF_Prime_UNITED_template.xlsx");
+      const response = await fetch("/Template/BF_Prime_United-3.xlsx");
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(await response.arrayBuffer());
       const worksheet = workbook.getWorksheet(1);
