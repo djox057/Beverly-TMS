@@ -30,6 +30,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCompanies } from "@/hooks/useCompanies";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format } from "date-fns";
+import { formatPhoneNumber } from "@/lib/utils";
 
 interface DriverFormData {
   first_name: string;
@@ -194,12 +195,12 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
     setFormData({
       first_name: driver.first_name || "",
       last_name: driver.last_name || "",
-      phone: driver.phone || "",
+      phone: formatPhoneNumber(driver.phone || ""),
       email: driver.email || "",
       company_id: driver.company_id || "",
       emergency_contact_name: driver.emergency_contact_name || "",
       emergency_contact_relation: driver.emergency_contact_relation || "",
-      emergency_contact_phone: driver.emergency_contact_phone || "",
+      emergency_contact_phone: formatPhoneNumber(driver.emergency_contact_phone || ""),
       truck_id: truckData?.id || "",
       trailer_id: truckData?.trailer_id || "",
       dispatcher_id: driver.dispatcher_id || "",
@@ -545,7 +546,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Input
                       id="edit_phone"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: formatPhoneNumber(e.target.value) })}
                       placeholder="(555) 123-4567"
                     />
                   </div>
@@ -593,7 +594,7 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
                     <Label>Emergency Contact Phone</Label>
                     <Input
                       value={formData.emergency_contact_phone}
-                      onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, emergency_contact_phone: formatPhoneNumber(e.target.value) })}
                       placeholder="(555) 987-6543"
                     />
                   </div>
