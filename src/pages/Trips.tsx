@@ -47,34 +47,122 @@ type FuelTransaction = {
   amount: number;
 };
 
-// Helper to calculate fuel date range based on delivery dates
-// Fuel range: (first delivery date - 1 day) to (last delivery date - 1 day)
-const calculateFuelDateRange = (orders: any[]): { fuelStart: Date; fuelEnd: Date } | null => {
+// Helper to parse date string to Date object without timezone shift
+const parseDateNoTimezoneToDate = (dateStr: string): Date | null => {
+  try {
+    const normalizedStr = String(dateStr).replace(" ", "T");
+    const datePart = normalizedStr.split("T")[0];
+    if (!datePart) return null;
+    return new Date(datePart + "T12:00:00");
+  } catch (e) {
+    return null;
+  }
+};
+
+// Helper to find the last delivery date from a list of orders
+const findLastDeliveryDate = (orders: any[]): Date | null => {
   const deliveryDates: Date[] = [];
 
   orders.forEach((order) => {
     if (order.deliveryDate) {
-      // Parse date without timezone shift
-      const normalizedStr = String(order.deliveryDate).replace(" ", "T");
-      const datePart = normalizedStr.split("T")[0];
-      if (datePart) {
-        // Use noon to avoid any timezone issues
-        deliveryDates.push(new Date(datePart + "T12:00:00"));
-      }
+      const date = parseDateNoTimezoneToDate(order.deliveryDate);
+      if (date) deliveryDates.push(date);
     }
   });
 
   if (deliveryDates.length === 0) return null;
 
-  // Sort dates
+  // Sort dates and return the last one
   deliveryDates.sort((a, b) => a.getTime() - b.getTime());
+  return deliveryDates[deliveryDates.length - 1];
+};
 
-  const firstDelivery = deliveryDates[0];
-  const lastDelivery = deliveryDates[deliveryDates.length - 1];
+// Helper to fetch the previous week's last delivery for a truck
+const fetchPreviousWeekLastDelivery = async (
+  truckId: string,
+  currentWeekMonday: Date
+): Promise<Date | null> => {
+  // Calculate previous week range (Monday to Sunday before current week)
+  const prevWeekMonday = addDays(currentWeekMonday, -7);
+  const prevWeekSunday = addDays(currentWeekMonday, -1);
 
-  // Fuel range is day before first delivery to day before last delivery
-  const fuelStart = addDays(firstDelivery, -1);
-  const fuelEnd = addDays(lastDelivery, -1);
+  // Query orders for this truck with deliveries in the previous week
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      delivery_datetime,
+      truck_id,
+      pickup_drops!inner(datetime, type)
+    `)
+    .eq("truck_id", truckId)
+    .eq("status", "Delivered")
+    .not("delivery_datetime", "is", null);
+
+  if (error) {
+    console.error("Error fetching previous week orders:", error);
+    return null;
+  }
+
+  if (!orders || orders.length === 0) return null;
+
+  // Filter orders to only those with delivery in the previous week
+  const prevWeekDeliveries: Date[] = [];
+
+  orders.forEach((order: any) => {
+    // Get delivery datetime from pickup_drops or order level
+    let deliveryDate: Date | null = null;
+
+    // First try to get from pickup_drops
+    const dropStops = order.pickup_drops?.filter((pd: any) => pd.type === "drop") || [];
+    if (dropStops.length > 0) {
+      const lastDrop = dropStops.sort((a: any, b: any) => 
+        (b.datetime || "").localeCompare(a.datetime || "")
+      )[0];
+      if (lastDrop?.datetime) {
+        deliveryDate = parseDateNoTimezoneToDate(lastDrop.datetime);
+      }
+    }
+
+    // Fallback to order delivery_datetime
+    if (!deliveryDate && order.delivery_datetime) {
+      deliveryDate = parseDateNoTimezoneToDate(order.delivery_datetime);
+    }
+
+    if (deliveryDate) {
+      // Check if delivery is within previous week
+      if (deliveryDate >= prevWeekMonday && deliveryDate <= prevWeekSunday) {
+        prevWeekDeliveries.push(deliveryDate);
+      }
+    }
+  });
+
+  if (prevWeekDeliveries.length === 0) return null;
+
+  // Return the last delivery date from previous week
+  prevWeekDeliveries.sort((a, b) => a.getTime() - b.getTime());
+  return prevWeekDeliveries[prevWeekDeliveries.length - 1];
+};
+
+// Helper to calculate fuel date range based on the new logic:
+// - Fuel start: Previous week's last delivery date (or current week Monday if none)
+// - Fuel end: Current week's last delivery date - 1 day
+const calculateFuelDateRange = (
+  previousWeekLastDelivery: Date | null,
+  currentWeekLastDelivery: Date | null,
+  currentWeekMonday: Date
+): { fuelStart: Date; fuelEnd: Date } | null => {
+  // If no delivery in current week → return null (no fuel)
+  if (!currentWeekLastDelivery) return null;
+
+  // Fuel start: previous week last delivery OR current week Monday if none
+  const fuelStart = previousWeekLastDelivery || currentWeekMonday;
+
+  // Fuel end: current week last delivery - 1 day
+  const fuelEnd = addDays(currentWeekLastDelivery, -1);
+
+  // If fuel end is before fuel start (edge case), return null
+  if (fuelEnd < fuelStart) return null;
 
   return { fuelStart, fuelEnd };
 };
@@ -101,68 +189,43 @@ const fetchFuelTransactionsForTruck = async (
   return data || [];
 };
 
-// Helper to fetch unpaid fuel transactions before a given date
-const fetchUnpaidFuelBeforeDate = async (
+// Function to fetch fuel transactions for a statement using the new logic:
+// - Fuel start: Previous week's last delivery date (or current week Monday if none)
+// - Fuel end: Current week's last delivery date - 1 day
+const fetchFuelTransactionsForStatement = async (
   truckNumber: string,
-  beforeDate: Date
+  truckId: string,
+  orders: any[],
+  currentWeekMonday: Date
 ): Promise<FuelTransaction[]> => {
-  const { data, error } = await supabase
-    .from("fuel_transactions")
-    .select("id, transaction_number, transaction_date, location_name, city, state, fees, unit_price, quantity, amount")
-    .eq("truck_number", truckNumber)
-    .eq("paid", false)
-    .lt("transaction_date", format(beforeDate, "yyyy-MM-dd"))
-    .order("transaction_date", { ascending: true });
+  // Find current week's last delivery from the orders
+  const currentWeekLastDelivery = findLastDeliveryDate(orders);
 
-  if (error) {
-    console.error("Error fetching unpaid fuel transactions:", error);
+  // If no delivery in current week, return empty
+  if (!currentWeekLastDelivery) {
+    console.log("No deliveries found in current week - no fuel to fetch");
     return [];
   }
 
-  return data || [];
-};
+  // Fetch previous week's last delivery
+  const previousWeekLastDelivery = await fetchPreviousWeekLastDelivery(truckId, currentWeekMonday);
 
-// Combined function to fetch all fuel transactions for a statement
-// Includes: fuel within delivery-based date range + all unpaid fuel from before
-const fetchFuelTransactionsForStatement = async (
-  truckNumber: string,
-  orders: any[]
-): Promise<FuelTransaction[]> => {
-  const fuelRange = calculateFuelDateRange(orders);
-  
-  if (!fuelRange) {
-    // No delivery dates found, just fetch unpaid fuel
-    const unpaidFuel = await fetchUnpaidFuelBeforeDate(truckNumber, new Date());
-    return unpaidFuel;
-  }
-
-  // Fetch fuel within the calculated range
-  const rangeFuel = await fetchFuelTransactionsForTruck(
-    truckNumber,
-    fuelRange.fuelStart,
-    fuelRange.fuelEnd
+  // Calculate fuel range with new logic
+  const fuelRange = calculateFuelDateRange(
+    previousWeekLastDelivery,
+    currentWeekLastDelivery,
+    currentWeekMonday
   );
 
-  // Fetch unpaid fuel from before the range start
-  const unpaidFuel = await fetchUnpaidFuelBeforeDate(truckNumber, fuelRange.fuelStart);
-
-  // Combine and deduplicate by transaction_number
-  const allFuel = [...unpaidFuel, ...rangeFuel];
-  const seen = new Set<string>();
-  const deduped: FuelTransaction[] = [];
-
-  for (const fuel of allFuel) {
-    const key = fuel.id || fuel.transaction_number;
-    if (!seen.has(key)) {
-      seen.add(key);
-      deduped.push(fuel);
-    }
+  if (!fuelRange) {
+    console.log("Could not calculate valid fuel range");
+    return [];
   }
 
-  // Sort by date
-  deduped.sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+  console.log(`Fuel range: ${format(fuelRange.fuelStart, "yyyy-MM-dd")} to ${format(fuelRange.fuelEnd, "yyyy-MM-dd")}`);
 
-  return deduped;
+  // Fetch fuel transactions within the calculated range only
+  return await fetchFuelTransactionsForTruck(truckNumber, fuelRange.fuelStart, fuelRange.fuelEnd);
 };
 
 // Helper to write fuel transactions to worksheet
@@ -988,10 +1051,12 @@ const Trips = () => {
       });
 
       // Fetch and write fuel transactions (rows 48-66 for BF Prime)
-      // Uses delivery-based date range + unpaid fuel from previous weeks
+      // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         firstOrder.truckNumber || "",
-        week.orders
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 48, 66);
 
@@ -1350,10 +1415,12 @@ const Trips = () => {
       });
 
       // Fetch and write fuel transactions (rows 49-63 for Beverly Freight)
-      // Uses delivery-based date range + unpaid fuel from previous weeks
+      // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         truckNumber || "",
-        week.orders
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 49, 63);
 
@@ -1698,10 +1765,12 @@ const Trips = () => {
       });
 
       // Fetch and write fuel transactions (rows 38-44 for BG Inc)
-      // Uses delivery-based date range + unpaid fuel from previous weeks
+      // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         firstOrder.truckNumber || "",
-        week.orders
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 38, 44);
 
@@ -2033,10 +2102,12 @@ const Trips = () => {
       });
 
       // Fetch and write fuel transactions (rows 23-34 for BF Prime United)
-      // Uses delivery-based date range + unpaid fuel from previous weeks
+      // Uses new logic: prev week last delivery to current week last delivery - 1
       const fuelTransactions = await fetchFuelTransactionsForStatement(
         firstOrder.truckNumber || "",
-        week.orders
+        firstOrder.truckId || "",
+        week.orders,
+        weekStartDate
       );
       writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 23, 34);
 
