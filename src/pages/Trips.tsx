@@ -547,9 +547,9 @@ const Trips = () => {
         k3Cell.font = { size: 16 };
       }
 
-      // F7: Company name
+      // F7: Driver's company name (the company the driver has/owns, NOT the company they drive for)
       const f7Cell = worksheet.getCell("F7");
-      f7Cell.value = driver?.companies?.name || driver?.company_name || "";
+      f7Cell.value = driver?.company_name || "";
       f7Cell.font = { size: 16 };
 
       // F5 AND K4: Truck number
@@ -753,9 +753,9 @@ const Trips = () => {
         k3Cell.font = { size: 16 };
       }
 
-      // F7: Company name
+      // F7: Driver's company name (the company the driver has/owns, NOT the company they drive for)
       const f7Cell = worksheet.getCell("F7");
-      f7Cell.value = driver?.companies?.name || driver?.company_name || "";
+      f7Cell.value = driver?.company_name || "";
       f7Cell.font = { size: 16 };
 
       // F5 AND K4: Truck number
@@ -966,9 +966,13 @@ const Trips = () => {
       const c9Cell = worksheet.getCell("C9");
       c9Cell.value = `${format(weekStartDate, "M/d/yyyy")}-${format(weekEndDate, "M/d/yyyy")}`;
 
-      // F8: Driver name
+      // F8: Driver's company name (the company the driver has/owns)
       const f8Cell = worksheet.getCell("F8");
-      f8Cell.value = driver?.name || firstOrder.driverName || "";
+      f8Cell.value = driver?.company_name || "";
+
+      // F9: Driver name
+      const f9Cell = worksheet.getCell("F9");
+      f9Cell.value = driver?.name || firstOrder.driverName || "";
 
       // J8: Agreement start date
       if (driver?.agreement_start_date) {
