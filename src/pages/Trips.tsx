@@ -682,10 +682,10 @@ const Trips = () => {
         }
       });
 
-      // Write credits section starting at row 22 (after trips which end at row 20)
-      let creditsRow = 22;
+      // Write credits section (rows 25-27 for BF Prime Drivers)
+      let creditsRow = 25;
       credits.forEach((credit) => {
-        if (creditsRow > 29) return; // Limit to prevent overflow
+        if (creditsRow > 27) return; // Credits section is 25-27
         worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
@@ -730,7 +730,8 @@ const Trips = () => {
         }
       });
 
-      // Deductions - fixed deductions
+      // Deductions section (rows 32-43 for BF Prime Drivers)
+      // Fixed deductions at the start
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
@@ -759,10 +760,10 @@ const Trips = () => {
         j36Cell.numFmt = "$#,##0.00";
       }
 
-      // Write negative additionals after fixed deductions (starting at row 38)
+      // Write negative additionals after fixed deductions (rows 38-43)
       let negativeRow = 38;
       negativeAdditionals.forEach((neg) => {
-        if (negativeRow > 45) return; // Limit to prevent overflow
+        if (negativeRow > 43) return; // Deductions section ends at 43
         worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
         worksheet.getCell(`C${negativeRow}`).value = neg.type;
         worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
@@ -1015,10 +1016,10 @@ const Trips = () => {
         }
       });
 
-      // Write credits section starting at row 22 (after trips which end at row 20)
-      let creditsRow = 22;
+      // Write credits section (rows 25-27 for Beverly Freight)
+      let creditsRow = 25;
       credits.forEach((credit) => {
-        if (creditsRow > 29) return; // Limit to prevent overflow
+        if (creditsRow > 27) return; // Credits section is 25-27
         worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
@@ -1063,7 +1064,7 @@ const Trips = () => {
         }
       });
 
-      // Deductions - fixed deductions
+      // Deductions section (rows 32-44 for Beverly Freight)
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
@@ -1092,10 +1093,10 @@ const Trips = () => {
         j36Cell.numFmt = "$#,##0.00";
       }
 
-      // Write negative additionals after fixed deductions (starting at row 38)
+      // Write negative additionals after fixed deductions (rows 38-44)
       let negativeRow = 38;
       negativeAdditionals.forEach((neg) => {
-        if (negativeRow > 45) return; // Limit to prevent overflow
+        if (negativeRow > 44) return; // Deductions section ends at 44
         worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
         worksheet.getCell(`C${negativeRow}`).value = neg.type;
         worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
@@ -1324,10 +1325,10 @@ const Trips = () => {
         }
       });
 
-      // Write credits section starting at row 20 (after trips which end at row 19)
-      let creditsRow = 20;
+      // Write credits section (rows 48-50 for BG Inc)
+      let creditsRow = 48;
       credits.forEach((credit) => {
-        if (creditsRow > 23) return; // Limit to prevent overflow into deductions
+        if (creditsRow > 50) return; // Credits section is 48-50
         worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
@@ -1372,7 +1373,7 @@ const Trips = () => {
         }
       });
 
-      // Add fixed deductions starting at row 24
+      // Deductions section (rows 24-32 for BG Inc)
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
         { row: 24, description: "Cargo Insurance", amount: 285.0 },
@@ -1413,10 +1414,10 @@ const Trips = () => {
         j28Cell.numFmt = "$#,##0.00";
       }
 
-      // Write negative additionals after fixed deductions (starting at row 30)
+      // Write negative additionals after fixed deductions (rows 30-32)
       let negativeRow = 30;
       negativeAdditionals.forEach((neg) => {
-        if (negativeRow > 37) return; // Limit to prevent overflow
+        if (negativeRow > 32) return; // Deductions section ends at 32
         worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
         worksheet.getCell(`C${negativeRow}`).value = neg.type;
         worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
@@ -1632,10 +1633,10 @@ const Trips = () => {
         }
       });
 
-      // Write credits section starting at row 20 (after trips which end at row 19)
-      let creditsRow = 20;
+      // Write credits section (rows 52-54 for BF Prime United)
+      let creditsRow = 52;
       credits.forEach((credit) => {
-        if (creditsRow > 37) return; // Limit to prevent overflow into deductions (which start at 39)
+        if (creditsRow > 54) return; // Credits section is 52-54
         worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
         worksheet.getCell(`C${creditsRow}`).value = credit.type;
         worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
@@ -1721,10 +1722,10 @@ const Trips = () => {
         j43Cell.numFmt = "$#,##0.00";
       }
 
-      // Write negative additionals after fixed deductions (starting at row 45)
+      // Write negative additionals after fixed deductions (rows 45-47)
       let negativeRow = 45;
       negativeAdditionals.forEach((neg) => {
-        if (negativeRow > 55) return; // Limit to prevent overflow
+        if (negativeRow > 47) return; // Deductions section ends at 47
         worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
         worksheet.getCell(`C${negativeRow}`).value = neg.type;
         worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
