@@ -623,6 +623,18 @@ const Trips = () => {
         currentRow++;
       });
 
+      // Apply USD currency format to Trips section Column I (rows 14-20)
+      for (let row = 14; row <= 20; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
+      // Apply USD currency format to Fuel section Column I (rows 48-66)
+      for (let row = 48; row <= 66; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
       // Collect positive additionals (Credits) from all orders
       const credits: Array<{
         internalLoadNumber: string;
@@ -959,6 +971,18 @@ const Trips = () => {
         currentRow++;
       });
 
+      // Apply USD currency format to Trips section Column I (rows 14-20)
+      for (let row = 14; row <= 20; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
+      // Apply USD currency format to Fuel section Column I (rows 49-63)
+      for (let row = 49; row <= 63; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
       // Set J column formulas for rows 14-20 (=SUM(I{row}*0.88))
       for (let row = 14; row <= 20; row++) {
         const cellJ = worksheet.getCell(`J${row}`);
@@ -1284,6 +1308,18 @@ const Trips = () => {
         currentRow++;
       });
 
+      // Apply USD currency format to Trips section Column I (rows 13-19)
+      for (let row = 13; row <= 19; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
+      // Apply USD currency format to Fuel section Column I (rows 38-44)
+      for (let row = 38; row <= 44; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
       // Collect positive additionals (Credits) from all orders
       const credits: Array<{
         internalLoadNumber: string;
@@ -1598,6 +1634,18 @@ const Trips = () => {
 
         currentRow++;
       });
+
+      // Apply USD currency format to Trips section Column I (rows 13-19)
+      for (let row = 13; row <= 19; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
+
+      // Apply USD currency format to Fuel section Column I (rows 23-34)
+      for (let row = 23; row <= 34; row++) {
+        const cell = worksheet.getCell(`I${row}`);
+        cell.numFmt = "$#,##0.00";
+      }
 
       // Collect positive additionals (Credits) from all orders
       const credits: Array<{
