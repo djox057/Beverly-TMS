@@ -86,6 +86,9 @@ const fetchPreviousWeekLastDelivery = async (
   const prevWeekMonday = addDays(currentWeekMonday, -7);
   const prevWeekSunday = addDays(currentWeekMonday, -1);
 
+  console.log(`Fetching previous week deliveries for truck ${truckId}`);
+  console.log(`Previous week range: ${format(prevWeekMonday, "yyyy-MM-dd")} to ${format(prevWeekSunday, "yyyy-MM-dd")}`);
+
   // Query orders for this truck with deliveries in the previous week
   const { data: orders, error } = await supabase
     .from("orders")
@@ -103,6 +106,8 @@ const fetchPreviousWeekLastDelivery = async (
     console.error("Error fetching previous week orders:", error);
     return null;
   }
+
+  console.log(`Found ${orders?.length || 0} total delivered orders for truck`);
 
   if (!orders || orders.length === 0) return null;
 
@@ -132,16 +137,21 @@ const fetchPreviousWeekLastDelivery = async (
     if (deliveryDate) {
       // Check if delivery is within previous week
       if (deliveryDate >= prevWeekMonday && deliveryDate <= prevWeekSunday) {
+        console.log(`Found previous week delivery: ${format(deliveryDate, "yyyy-MM-dd")}`);
         prevWeekDeliveries.push(deliveryDate);
       }
     }
   });
 
+  console.log(`Previous week deliveries count: ${prevWeekDeliveries.length}`);
+
   if (prevWeekDeliveries.length === 0) return null;
 
   // Return the last delivery date from previous week
   prevWeekDeliveries.sort((a, b) => a.getTime() - b.getTime());
-  return prevWeekDeliveries[prevWeekDeliveries.length - 1];
+  const lastDelivery = prevWeekDeliveries[prevWeekDeliveries.length - 1];
+  console.log(`Previous week last delivery: ${format(lastDelivery, "yyyy-MM-dd")}`);
+  return lastDelivery;
 };
 
 // Helper to calculate fuel date range based on the new logic:
