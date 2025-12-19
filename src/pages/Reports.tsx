@@ -1963,7 +1963,12 @@ const Reports = () => {
                       }}
                     >
                       {isMissingPickup ? (
-                        getLostDayNote(day)
+                        <span 
+                          className="line-clamp-2 text-center px-0.5"
+                          title={getLostDayNote(day)}
+                        >
+                          {getLostDayNote(day)}
+                        </span>
                       ) : isInTransit || shouldShowPickupInTransit ? (
                         hasRescheduledOrders ? (
                           "RESCHEDULED"
