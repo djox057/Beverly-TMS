@@ -1180,6 +1180,41 @@ export type Database = {
         }
         Relationships: []
       }
+      fuel_driver_mappings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          driver_id: string | null
+          fuel_driver_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          fuel_driver_name: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          driver_id?: string | null
+          fuel_driver_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_driver_mappings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_transactions: {
         Row: {
           amount: number | null
