@@ -7,9 +7,11 @@ type ExcelJsMedia = {
   base64?: string;
 };
 
-const toImageExtension = (ext?: string) => {
+const toImageExtension = (ext?: string): "gif" | "jpeg" | "png" => {
   const cleaned = (ext || "png").toLowerCase().replace(/^\./, "");
-  return cleaned === "jpg" ? "jpeg" : cleaned;
+  if (cleaned === "jpg" || cleaned === "jpeg") return "jpeg";
+  if (cleaned === "gif") return "gif";
+  return "png";
 };
 
 const base64ToUint8Array = (base64: string) => {
