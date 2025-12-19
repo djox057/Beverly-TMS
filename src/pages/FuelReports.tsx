@@ -502,6 +502,7 @@ const FuelReports = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Paid</TableHead>
                     <TableHead>Truck #</TableHead>
                     <TableHead>Driver Name</TableHead>
                     <TableHead>Transaction #</TableHead>
@@ -519,6 +520,17 @@ const FuelReports = () => {
                 <TableBody>
                   {paginatedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            transaction.paid
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                          }`}
+                        >
+                          {transaction.paid ? "Yes" : "No"}
+                        </span>
+                      </TableCell>
                       <TableCell className="font-medium">{transaction.truck_number}</TableCell>
                       <TableCell>{transaction.driver_name}</TableCell>
                       <TableCell className="font-mono text-xs">{transaction.transaction_number}</TableCell>

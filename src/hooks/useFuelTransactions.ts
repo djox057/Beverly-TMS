@@ -19,6 +19,7 @@ export interface FuelTransaction {
   amount: number;
   uploaded_at: string;
   uploaded_by: string | null;
+  paid: boolean;
 }
 
 export interface FuelTransactionInsert {
