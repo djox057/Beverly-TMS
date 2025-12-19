@@ -468,17 +468,26 @@ const Trips = () => {
 
   // Helper function to clean up worksheet - delete rows after 60 and columns after L
   const cleanupWorksheet = (worksheet: ExcelJS.Worksheet) => {
-    // Delete all rows after row 60
-    const totalRows = worksheet.rowCount;
-    if (totalRows > 60) {
-      worksheet.spliceRows(61, totalRows - 60);
+    // Delete all rows after row 60 (delete from bottom up to avoid index issues)
+    // Use a high number to ensure we catch all rows in template
+    const maxRowsToCheck = 200;
+    for (let i = maxRowsToCheck; i > 60; i--) {
+      const row = worksheet.getRow(i);
+      row.values = []; // Clear values
+      row.commit();
     }
+    // Now actually remove the rows by splicing
+    worksheet.spliceRows(61, maxRowsToCheck - 60);
     
     // Delete all columns after L (column 12)
-    const totalColumns = worksheet.columnCount;
-    if (totalColumns > 12) {
-      worksheet.spliceColumns(13, totalColumns - 12);
+    // First clear the column data, then splice
+    const maxColsToCheck = 50;
+    for (let col = maxColsToCheck; col > 12; col--) {
+      worksheet.getColumn(col).eachCell({ includeEmpty: true }, (cell) => {
+        cell.value = null;
+      });
     }
+    worksheet.spliceColumns(13, maxColsToCheck - 12);
   };
 
   const exportBFPrimeDriversTemplate = async (
