@@ -351,12 +351,15 @@ const Trips = () => {
 
   // Mutation to toggle paid status
   const togglePaidMutation = useMutation({
-    mutationFn: async ({ truckNumber, driverName, weekStart, isPaid }: { 
+    mutationFn: async ({ truckNumber, truckId, driverName, weekStart, weekOrders, isPaid }: { 
       truckNumber: string; 
+      truckId: string;
       driverName: string; 
-      weekStart: string; 
+      weekStart: string;
+      weekOrders: any[];
       isPaid: boolean;
     }) => {
+      // Update the trip paid status
       const { error } = await supabase
         .from("trips_paid_status")
         .upsert({
@@ -369,9 +372,39 @@ const Trips = () => {
         });
       
       if (error) throw error;
+
+      // If marking as paid, also mark the fuel transactions as paid
+      if (isPaid && truckNumber && truckId) {
+        const currentWeekMonday = new Date(weekStart + "T12:00:00");
+        
+        // Get fuel transactions using the same logic as for statements
+        const fuelTransactions = await fetchFuelTransactionsForStatement(
+          truckNumber,
+          truckId,
+          weekOrders,
+          currentWeekMonday
+        );
+
+        // Mark each fuel transaction as paid
+        if (fuelTransactions.length > 0) {
+          const fuelIds = fuelTransactions.map(f => f.id);
+          const { error: fuelError } = await supabase
+            .from("fuel_transactions")
+            .update({ paid: true })
+            .in("id", fuelIds);
+
+          if (fuelError) {
+            console.error("Error marking fuel as paid:", fuelError);
+            // Don't throw - the main paid status was updated successfully
+          } else {
+            console.log(`Marked ${fuelIds.length} fuel transactions as paid`);
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trips-paid-status"] });
+      queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
     },
     onError: (error) => {
       console.error("Error toggling paid status:", error);
@@ -380,12 +413,14 @@ const Trips = () => {
   });
 
   // Toggle paid status for a week
-  const togglePaidStatus = (truckNumber: string, driverName: string, weekStart: string) => {
+  const togglePaidStatus = (truckNumber: string, truckId: string, driverName: string, weekStart: string, weekOrders: any[]) => {
     const currentStatus = isWeekPaid(truckNumber, driverName, weekStart);
     togglePaidMutation.mutate({
       truckNumber,
+      truckId,
       driverName,
       weekStart,
+      weekOrders,
       isPaid: !currentStatus,
     });
   };
@@ -2813,7 +2848,7 @@ const Trips = () => {
                                   <Checkbox
                                     id={`paid-${week.weekStart}`}
                                     checked={weekIsPaid}
-                                    onCheckedChange={() => togglePaidStatus(weekTruckNumber, weekDriverName, week.weekStart)}
+                                    onCheckedChange={() => togglePaidStatus(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
                                   />
                                   <label
                                     htmlFor={`paid-${week.weekStart}`}
