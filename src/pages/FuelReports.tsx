@@ -17,6 +17,7 @@ import { useFuelTransactions, getDefaultDateRange, FuelTransactionInsert, FuelFi
 import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
 import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
 import { format, parse } from "date-fns";
+import { formatDateNoTimezone } from "@/lib/utils";
 import Papa from "papaparse";
 import {
   AlertDialog,
@@ -543,7 +544,7 @@ const FuelReports = () => {
                       <TableCell>{transaction.driver_name}</TableCell>
                       <TableCell className="font-mono text-xs">{transaction.transaction_number}</TableCell>
                       <TableCell>
-                        {format(new Date(transaction.transaction_date), "MM/dd/yyyy")}
+                        {formatDateNoTimezone(transaction.transaction_date)}
                       </TableCell>
                       <TableCell className="max-w-[150px] truncate" title={transaction.location_name || ""}>
                         {transaction.location_name || "-"}
