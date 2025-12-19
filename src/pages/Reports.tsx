@@ -2185,8 +2185,11 @@ const Reports = () => {
 
           // Check if truck has any pickup or same-day order today
           // Need to check pickupStopsByDate for multi-stop loads
+          // NOTE: Canceled orders should NOT count as having a pickup - truck is still empty
           const hasPickupToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
+            // Canceled orders don't count as having a pickup
+            if (order.canceled) return false;
             
             // Check using pickupStopsByDate which tracks ALL pickups by date
             if (order.pickupStopsByDate) {
