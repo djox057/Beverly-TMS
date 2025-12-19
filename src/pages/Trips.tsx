@@ -466,6 +466,21 @@ const Trips = () => {
     }
   };
 
+  // Helper function to clean up worksheet - delete rows after 60 and columns after L
+  const cleanupWorksheet = (worksheet: ExcelJS.Worksheet) => {
+    // Delete all rows after row 60
+    const totalRows = worksheet.rowCount;
+    if (totalRows > 60) {
+      worksheet.spliceRows(61, totalRows - 60);
+    }
+    
+    // Delete all columns after L (column 12)
+    const totalColumns = worksheet.columnCount;
+    if (totalColumns > 12) {
+      worksheet.spliceColumns(13, totalColumns - 12);
+    }
+  };
+
   const exportBFPrimeDriversTemplate = async (
     week: any,
     weekStartDate: Date,
@@ -644,6 +659,9 @@ const Trips = () => {
         j36Cell.value = driver.weekly_payment;
         j36Cell.numFmt = "$#,##0.00";
       }
+
+      // Clean up worksheet - delete rows after 60 and columns after L
+      cleanupWorksheet(worksheet);
 
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
@@ -856,6 +874,9 @@ const Trips = () => {
         j36Cell.numFmt = "$#,##0.00";
       }
 
+      // Clean up worksheet - delete rows after 60 and columns after L
+      cleanupWorksheet(worksheet);
+
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1049,6 +1070,9 @@ const Trips = () => {
         j28Cell.numFmt = "$#,##0.00";
       }
 
+      // Clean up worksheet - delete rows after 60 and columns after L
+      cleanupWorksheet(worksheet);
+
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
       const driverName = driver?.name || firstOrder?.driverName || "";
@@ -1234,6 +1258,9 @@ const Trips = () => {
         j43Cell.value = driver.weekly_payment;
         j43Cell.numFmt = "$#,##0.00";
       }
+
+      // Clean up worksheet - delete rows after 60 and columns after L
+      cleanupWorksheet(worksheet);
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
@@ -1508,6 +1535,7 @@ const Trips = () => {
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      cleanupWorksheet(worksheet);
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1575,6 +1603,7 @@ const Trips = () => {
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      cleanupWorksheet(worksheet);
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Beverly_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1652,6 +1681,7 @@ const Trips = () => {
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      cleanupWorksheet(worksheet);
       const filename = `BG_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1715,6 +1745,7 @@ const Trips = () => {
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      cleanupWorksheet(worksheet);
       const filename = `BF_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
