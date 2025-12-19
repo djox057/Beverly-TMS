@@ -632,52 +632,58 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.detentionDriver && order.detentionDriver > 0) {
+        const detention = Number(order.detentionDriver) || 0;
+        if (detention > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.detentionDriver
+            amount: detention
           });
         }
-        if (order.layoverDriver && order.layoverDriver > 0) {
+        const layover = Number(order.layoverDriver) || 0;
+        if (layover > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.layoverDriver
+            amount: layover
           });
         }
-        if (order.tonuDriver && order.tonuDriver > 0) {
+        const tonu = Number(order.tonuDriver) || 0;
+        if (tonu > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.tonuDriver
+            amount: tonu
           });
         }
-        if (order.extraStopDriver && order.extraStopDriver > 0) {
+        const extraStop = Number(order.extraStopDriver) || 0;
+        if (extraStop > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.extraStopDriver
+            amount: extraStop
           });
         }
-        if (order.lumperDriver && order.lumperDriver > 0) {
+        const lumper = Number(order.lumperDriver) || 0;
+        if (lumper > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.lumperDriver
+            amount: lumper
           });
         }
-        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+        const otherCharges = Number(order.otherChargesDriver) || 0;
+        if (otherCharges > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.otherChargesDriver
+            amount: otherCharges
           });
         }
       });
@@ -704,28 +710,31 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+        const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
+        if (lateFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.lateFeeDriver)
+            amount: lateFee
           });
         }
-        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+        const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
+        if (noTrackingFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.noTrackingFeeDriver)
+            amount: noTrackingFee
           });
         }
-        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+        const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
+        if (wrongAddressFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.wrongAddressFeeDriver)
+            amount: wrongAddressFee
           });
         }
       });
@@ -966,52 +975,58 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.detentionDriver && order.detentionDriver > 0) {
+        const detention = Number(order.detentionDriver) || 0;
+        if (detention > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.detentionDriver
+            amount: detention
           });
         }
-        if (order.layoverDriver && order.layoverDriver > 0) {
+        const layover = Number(order.layoverDriver) || 0;
+        if (layover > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.layoverDriver
+            amount: layover
           });
         }
-        if (order.tonuDriver && order.tonuDriver > 0) {
+        const tonu = Number(order.tonuDriver) || 0;
+        if (tonu > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.tonuDriver
+            amount: tonu
           });
         }
-        if (order.extraStopDriver && order.extraStopDriver > 0) {
+        const extraStop = Number(order.extraStopDriver) || 0;
+        if (extraStop > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.extraStopDriver
+            amount: extraStop
           });
         }
-        if (order.lumperDriver && order.lumperDriver > 0) {
+        const lumper = Number(order.lumperDriver) || 0;
+        if (lumper > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.lumperDriver
+            amount: lumper
           });
         }
-        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+        const otherCharges = Number(order.otherChargesDriver) || 0;
+        if (otherCharges > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.otherChargesDriver
+            amount: otherCharges
           });
         }
       });
@@ -1038,28 +1053,31 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+        const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
+        if (lateFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.lateFeeDriver)
+            amount: lateFee
           });
         }
-        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+        const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
+        if (noTrackingFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.noTrackingFeeDriver)
+            amount: noTrackingFee
           });
         }
-        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+        const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
+        if (wrongAddressFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.wrongAddressFeeDriver)
+            amount: wrongAddressFee
           });
         }
       });
@@ -1275,52 +1293,58 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.detentionDriver && order.detentionDriver > 0) {
+        const detention = Number(order.detentionDriver) || 0;
+        if (detention > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.detentionDriver
+            amount: detention
           });
         }
-        if (order.layoverDriver && order.layoverDriver > 0) {
+        const layover = Number(order.layoverDriver) || 0;
+        if (layover > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.layoverDriver
+            amount: layover
           });
         }
-        if (order.tonuDriver && order.tonuDriver > 0) {
+        const tonu = Number(order.tonuDriver) || 0;
+        if (tonu > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.tonuDriver
+            amount: tonu
           });
         }
-        if (order.extraStopDriver && order.extraStopDriver > 0) {
+        const extraStop = Number(order.extraStopDriver) || 0;
+        if (extraStop > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.extraStopDriver
+            amount: extraStop
           });
         }
-        if (order.lumperDriver && order.lumperDriver > 0) {
+        const lumper = Number(order.lumperDriver) || 0;
+        if (lumper > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.lumperDriver
+            amount: lumper
           });
         }
-        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+        const otherCharges = Number(order.otherChargesDriver) || 0;
+        if (otherCharges > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.otherChargesDriver
+            amount: otherCharges
           });
         }
       });
@@ -1347,33 +1371,34 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+        const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
+        if (lateFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.lateFeeDriver)
+            amount: lateFee
           });
         }
-        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+        const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
+        if (noTrackingFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.noTrackingFeeDriver)
+            amount: noTrackingFee
           });
         }
-        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+        const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
+        if (wrongAddressFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.wrongAddressFeeDriver)
+            amount: wrongAddressFee
           });
         }
       });
-
-      // Deductions section (rows 24-32 for BG Inc)
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
         { row: 24, description: "Cargo Insurance", amount: 285.0 },
@@ -1583,52 +1608,58 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.detentionDriver && order.detentionDriver > 0) {
+        const detention = Number(order.detentionDriver) || 0;
+        if (detention > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Detention",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.detentionDriver
+            amount: detention
           });
         }
-        if (order.layoverDriver && order.layoverDriver > 0) {
+        const layover = Number(order.layoverDriver) || 0;
+        if (layover > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Layover",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.layoverDriver
+            amount: layover
           });
         }
-        if (order.tonuDriver && order.tonuDriver > 0) {
+        const tonu = Number(order.tonuDriver) || 0;
+        if (tonu > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "TONU",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.tonuDriver
+            amount: tonu
           });
         }
-        if (order.extraStopDriver && order.extraStopDriver > 0) {
+        const extraStop = Number(order.extraStopDriver) || 0;
+        if (extraStop > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Extra Stop",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.extraStopDriver
+            amount: extraStop
           });
         }
-        if (order.lumperDriver && order.lumperDriver > 0) {
+        const lumper = Number(order.lumperDriver) || 0;
+        if (lumper > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Lumper",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.lumperDriver
+            amount: lumper
           });
         }
-        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+        const otherCharges = Number(order.otherChargesDriver) || 0;
+        if (otherCharges > 0) {
           credits.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Other Charges",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: order.otherChargesDriver
+            amount: otherCharges
           });
         }
       });
@@ -1655,33 +1686,34 @@ const Trips = () => {
       }> = [];
 
       week.orders.forEach((order: any) => {
-        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+        const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
+        if (lateFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Late Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.lateFeeDriver)
+            amount: lateFee
           });
         }
-        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+        const noTrackingFee = Math.abs(Number(order.noTrackingFeeDriver) || 0);
+        if (noTrackingFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "No Tracking Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.noTrackingFeeDriver)
+            amount: noTrackingFee
           });
         }
-        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+        const wrongAddressFee = Math.abs(Number(order.wrongAddressFeeDriver) || 0);
+        if (wrongAddressFee > 0) {
           negativeAdditionals.push({
             internalLoadNumber: order.internalLoadNumber || "",
             type: "Wrong Address Fee",
             deliveryDate: formatDateDisplay(order.deliveryDate),
-            amount: Math.abs(order.wrongAddressFeeDriver)
+            amount: wrongAddressFee
           });
         }
       });
-
-      // Add fixed deductions
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
         { row: 39, description: "Cargo Insurance", amount: 285.0 },
