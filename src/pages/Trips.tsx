@@ -193,22 +193,22 @@ const writeFuelTransactionsToWorksheet = (
 
     // F: fees
     const feesCell = worksheet.getCell(`F${currentRow}`);
-    feesCell.value = fuel.fees || 0;
+    feesCell.value = parseFloat(String(fuel.fees)) || 0;
     feesCell.numFmt = "$#,##0.00";
 
     // H: unit_price
     const unitPriceCell = worksheet.getCell(`H${currentRow}`);
-    unitPriceCell.value = fuel.unit_price || 0;
+    unitPriceCell.value = parseFloat(String(fuel.unit_price)) || 0;
     unitPriceCell.numFmt = "$#,##0.000";
 
     // I: quantity
     const quantityCell = worksheet.getCell(`I${currentRow}`);
-    quantityCell.value = fuel.quantity || 0;
+    quantityCell.value = parseFloat(String(fuel.quantity)) || 0;
     quantityCell.numFmt = "#,##0.00";
 
     // J: amount
     const amountCell = worksheet.getCell(`J${currentRow}`);
-    amountCell.value = fuel.amount || 0;
+    amountCell.value = parseFloat(String(fuel.amount)) || 0;
     amountCell.numFmt = "$#,##0.00";
 
     currentRow++;
