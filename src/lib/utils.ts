@@ -43,3 +43,21 @@ export function formatDateNoTimezone(dateStr: string | null | undefined): string
   const [year, month, day] = datePart.split('-');
   return `${month}/${day}/${year}`;
 }
+
+/**
+ * Format a phone number to (XXX) XXX-XXXX format.
+ * Strips all non-digit characters and formats if exactly 10 digits.
+ */
+export function formatPhoneNumber(value: string): string {
+  // Remove all non-digit characters
+  const digits = value.replace(/\D/g, '');
+  
+  // If more than 10 digits, truncate
+  const truncated = digits.slice(0, 10);
+  
+  // Format based on length
+  if (truncated.length === 0) return '';
+  if (truncated.length <= 3) return `(${truncated}`;
+  if (truncated.length <= 6) return `(${truncated.slice(0, 3)}) ${truncated.slice(3)}`;
+  return `(${truncated.slice(0, 3)}) ${truncated.slice(3, 6)}-${truncated.slice(6)}`;
+}
