@@ -14,6 +14,16 @@ import {
 } from "@/components/ui/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Search, Loader2, FileDown, Edit } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
@@ -375,8 +385,8 @@ const Trips = () => {
       
       if (error) throw error;
 
-      // If marking as paid, also mark the fuel transactions as paid
-      if (isPaid && truckNumber && truckId) {
+      // Also update fuel transactions paid status
+      if (truckNumber && truckId) {
         const currentWeekMonday = new Date(weekStart + "T12:00:00");
         
         // Get fuel transactions using the same logic as for statements
@@ -387,19 +397,18 @@ const Trips = () => {
           currentWeekMonday
         );
 
-        // Mark each fuel transaction as paid
+        // Update fuel transactions paid status
         if (fuelTransactions.length > 0) {
           const fuelIds = fuelTransactions.map(f => f.id);
           const { error: fuelError } = await supabase
             .from("fuel_transactions")
-            .update({ paid: true })
+            .update({ paid: isPaid })
             .in("id", fuelIds);
 
           if (fuelError) {
-            console.error("Error marking fuel as paid:", fuelError);
-            // Don't throw - the main paid status was updated successfully
+            console.error("Error updating fuel paid status:", fuelError);
           } else {
-            console.log(`Marked ${fuelIds.length} fuel transactions as paid`);
+            console.log(`Set ${fuelIds.length} fuel transactions to paid=${isPaid}`);
           }
         }
       }
@@ -414,17 +423,44 @@ const Trips = () => {
     },
   });
 
-  // Toggle paid status for a week
-  const togglePaidStatus = (truckNumber: string, truckId: string, driverName: string, weekStart: string, weekOrders: any[]) => {
+  // State for paid confirmation dialog
+  const [paidConfirmDialog, setPaidConfirmDialog] = useState<{
+    open: boolean;
+    truckNumber: string;
+    truckId: string;
+    driverName: string;
+    weekStart: string;
+    weekOrders: any[];
+    newPaidStatus: boolean;
+  } | null>(null);
+
+  // Show confirmation dialog before toggling paid status
+  const handlePaidToggle = (truckNumber: string, truckId: string, driverName: string, weekStart: string, weekOrders: any[]) => {
     const currentStatus = isWeekPaid(truckNumber, driverName, weekStart);
-    togglePaidMutation.mutate({
+    setPaidConfirmDialog({
+      open: true,
       truckNumber,
       truckId,
       driverName,
       weekStart,
       weekOrders,
-      isPaid: !currentStatus,
+      newPaidStatus: !currentStatus,
     });
+  };
+
+  // Confirm paid status toggle
+  const confirmPaidToggle = () => {
+    if (paidConfirmDialog) {
+      togglePaidMutation.mutate({
+        truckNumber: paidConfirmDialog.truckNumber,
+        truckId: paidConfirmDialog.truckId,
+        driverName: paidConfirmDialog.driverName,
+        weekStart: paidConfirmDialog.weekStart,
+        weekOrders: paidConfirmDialog.weekOrders,
+        isPaid: paidConfirmDialog.newPaidStatus,
+      });
+      setPaidConfirmDialog(null);
+    }
   };
 
   // Check if a week is paid
@@ -2850,7 +2886,7 @@ const Trips = () => {
                                   <Checkbox
                                     id={`paid-${week.weekStart}`}
                                     checked={weekIsPaid}
-                                    onCheckedChange={() => togglePaidStatus(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
+                                    onCheckedChange={() => handlePaidToggle(weekTruckNumber, week.orders[0]?.truckId || "", weekDriverName, week.weekStart, week.orders)}
                                   />
                                   <label
                                     htmlFor={`paid-${week.weekStart}`}
@@ -3047,6 +3083,27 @@ const Trips = () => {
           )}
         </CardContent>
       </Card>
+      {/* Paid Confirmation Dialog */}
+      <AlertDialog open={paidConfirmDialog?.open ?? false} onOpenChange={(open) => !open && setPaidConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {paidConfirmDialog?.newPaidStatus ? "Mark Week as Paid?" : "Mark Week as Unpaid?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {paidConfirmDialog?.newPaidStatus 
+                ? "This will mark the week and its associated fuel transactions as paid."
+                : "This will mark the week and its associated fuel transactions as unpaid."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPaidToggle}>
+              {paidConfirmDialog?.newPaidStatus ? "Mark Paid" : "Mark Unpaid"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
