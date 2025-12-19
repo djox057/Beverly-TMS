@@ -47,6 +47,7 @@ const FuelReports = () => {
   const [uploadingCompany, setUploadingCompany] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [dragOverCompany, setDragOverCompany] = useState<string | null>(null);
+  const [togglePaidTransaction, setTogglePaidTransaction] = useState<{ id: string; currentPaid: boolean; driverName: string } | null>(null);
 
   const [filters, setFilters] = useState<FuelFilters>({
     startDate: null,
@@ -67,6 +68,8 @@ const FuelReports = () => {
     isUploading,
     deleteAll,
     isDeleting,
+    togglePaid,
+    isTogglingPaid,
   } = useFuelTransactions(filters);
 
   const { unmatchedDrivers, refetchUnmatched } = useFuelDriverMappings();
@@ -521,15 +524,20 @@ const FuelReports = () => {
                   {paginatedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        <button
+                          onClick={() => setTogglePaidTransaction({
+                            id: transaction.id,
+                            currentPaid: transaction.paid,
+                            driverName: transaction.driver_name,
+                          })}
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                             transaction.paid
                               ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                               : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                           }`}
                         >
                           {transaction.paid ? "Yes" : "No"}
-                        </span>
+                        </button>
                       </TableCell>
                       <TableCell className="font-medium">{transaction.truck_number}</TableCell>
                       <TableCell>{transaction.driver_name}</TableCell>
@@ -571,6 +579,37 @@ const FuelReports = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Toggle Paid Confirmation Dialog */}
+      <AlertDialog open={!!togglePaidTransaction} onOpenChange={(open) => !open && setTogglePaidTransaction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark as {togglePaidTransaction?.currentPaid ? "Unpaid" : "Paid"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this transaction for {togglePaidTransaction?.driverName} as {togglePaidTransaction?.currentPaid ? "unpaid" : "paid"}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (togglePaidTransaction) {
+                  togglePaid({
+                    id: togglePaidTransaction.id,
+                    paid: !togglePaidTransaction.currentPaid,
+                  });
+                  setTogglePaidTransaction(null);
+                }
+              }}
+              disabled={isTogglingPaid}
+            >
+              {isTogglingPaid ? "Updating..." : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
