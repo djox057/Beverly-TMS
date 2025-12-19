@@ -810,7 +810,7 @@ const Trips = () => {
 
         // I: Driver pay - BASE ONLY (driverPrice, not totalDriverPay)
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.driverPrice || 0;
+        cellI.value = parseFloat(order.driverPrice) || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
@@ -1166,7 +1166,7 @@ const Trips = () => {
 
         // I: Driver Pay - BASE ONLY (driverPrice, not totalDriverPay)
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.driverPrice || 0;
+        cellI.value = parseFloat(order.driverPrice) || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
@@ -1509,7 +1509,7 @@ const Trips = () => {
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
         // Driver pay - BASE ONLY (driverPrice, not totalDriverPay)
-        const driverPay = order.driverPrice || 0;
+        const driverPay = parseFloat(order.driverPrice) || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
@@ -1846,7 +1846,7 @@ const Trips = () => {
         const driverPay = order.driverPrice || 0;
 
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = driverPay;
+        cellI.value = parseFloat(String(driverPay)) || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
@@ -2302,7 +2302,7 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
         currentRow++;
       });
@@ -2365,7 +2365,7 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
         currentRow++;
       });
@@ -2438,7 +2438,7 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
         currentRow++;
       });
@@ -2509,7 +2509,7 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = parseFloat(order.totalDriverPay) || 0;
         cellI.numFmt = "$#,##0.00";
         currentRow++;
       });
