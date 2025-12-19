@@ -264,6 +264,27 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
   });
 
+  // Toggle paid status mutation
+  const togglePaidMutation = useMutation({
+    mutationFn: async ({ id, paid }: { id: string; paid: boolean }) => {
+      const { error } = await supabase
+        .from("fuel_transactions")
+        .update({ paid })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Calculate summary statistics
   const summary = {
     dieselGallons: transactions
@@ -298,5 +319,7 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     isUploading: uploadMutation.isPending,
     deleteAll: deleteAllMutation.mutate,
     isDeleting: deleteAllMutation.isPending,
+    togglePaid: togglePaidMutation.mutate,
+    isTogglingPaid: togglePaidMutation.isPending,
   };
 };
