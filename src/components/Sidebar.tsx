@@ -217,12 +217,13 @@ export const Sidebar = () => {
       ];
     }
     
-    // Chicago Management role: all pages + Alerts + Maintenance and Repairs (view-only access to everything)
+    // Chicago Management role: all pages + Alerts + Maintenance and Repairs + Fuel Reports (view-only access to everything)
     if (primaryRole === 'chicago_management') {
       return [
         ...filteredNav,
         { name: "Alerts", href: "/alerts", icon: AlertTriangle },
-        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench }
+        { name: "Maintenance and Repairs", href: "/repairs", icon: Wrench },
+        { name: "Fuel Reports", href: "/fuel-reports", icon: Fuel }
       ];
     }
     
