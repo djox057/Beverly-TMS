@@ -33,6 +33,98 @@ const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: 
   // no-op
 };
 
+// Helper to fetch fuel transactions for a truck within a date range
+const fetchFuelTransactionsForTruck = async (
+  truckNumber: string,
+  startDate: Date,
+  endDate: Date
+): Promise<Array<{
+  transaction_number: string;
+  transaction_date: string;
+  location_name: string | null;
+  city: string | null;
+  state: string | null;
+  fees: number;
+  unit_price: number;
+  quantity: number;
+  amount: number;
+}>> => {
+  const { data, error } = await supabase
+    .from("fuel_transactions")
+    .select("transaction_number, transaction_date, location_name, city, state, fees, unit_price, quantity, amount")
+    .eq("truck_number", truckNumber)
+    .gte("transaction_date", format(startDate, "yyyy-MM-dd"))
+    .lte("transaction_date", format(endDate, "yyyy-MM-dd"))
+    .order("transaction_date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching fuel transactions:", error);
+    return [];
+  }
+
+  return data || [];
+};
+
+// Helper to write fuel transactions to worksheet
+const writeFuelTransactionsToWorksheet = (
+  worksheet: ExcelJS.Worksheet,
+  fuelTransactions: Array<{
+    transaction_number: string;
+    transaction_date: string;
+    location_name: string | null;
+    city: string | null;
+    state: string | null;
+    fees: number;
+    unit_price: number;
+    quantity: number;
+    amount: number;
+  }>,
+  startRow: number,
+  endRow: number
+) => {
+  let currentRow = startRow;
+  fuelTransactions.forEach((fuel) => {
+    if (currentRow > endRow) return;
+
+    // A: transaction_number
+    worksheet.getCell(`A${currentRow}`).value = fuel.transaction_number || "";
+
+    // B: transaction_date
+    worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(fuel.transaction_date);
+
+    // C: location_name
+    worksheet.getCell(`C${currentRow}`).value = fuel.location_name || "";
+
+    // D: city
+    worksheet.getCell(`D${currentRow}`).value = fuel.city || "";
+
+    // E: state
+    worksheet.getCell(`E${currentRow}`).value = fuel.state || "";
+
+    // F: fees
+    const feesCell = worksheet.getCell(`F${currentRow}`);
+    feesCell.value = fuel.fees || 0;
+    feesCell.numFmt = "$#,##0.00";
+
+    // H: unit_price
+    const unitPriceCell = worksheet.getCell(`H${currentRow}`);
+    unitPriceCell.value = fuel.unit_price || 0;
+    unitPriceCell.numFmt = "$#,##0.000";
+
+    // I: quantity
+    const quantityCell = worksheet.getCell(`I${currentRow}`);
+    quantityCell.value = fuel.quantity || 0;
+    quantityCell.numFmt = "#,##0.00";
+
+    // J: amount
+    const amountCell = worksheet.getCell(`J${currentRow}`);
+    amountCell.value = fuel.amount || 0;
+    amountCell.numFmt = "$#,##0.00";
+
+    currentRow++;
+  });
+};
+
 // Helper to format datetime strings without timezone conversion
 // Extracts date parts directly from the string (Chicago time)
 const formatDateDisplay = (dateStr: string | null | undefined) => {
@@ -805,6 +897,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Fetch and write fuel transactions (rows 48-66 for BF Prime)
+      const fuelTransactions = await fetchFuelTransactionsForTruck(
+        firstOrder.truckNumber || "",
+        weekStartDate,
+        weekEndDate
+      );
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 48, 66);
+
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1159,6 +1259,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Fetch and write fuel transactions (rows 49-63 for Beverly Freight)
+      const fuelTransactions = await fetchFuelTransactionsForTruck(
+        truckNumber || "",
+        weekStartDate,
+        weekEndDate
+      );
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 49, 63);
+
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1499,6 +1607,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Fetch and write fuel transactions (rows 38-44 for BG Inc)
+      const fuelTransactions = await fetchFuelTransactionsForTruck(
+        firstOrder.truckNumber || "",
+        weekStartDate,
+        weekEndDate
+      );
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 38, 44);
+
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
       const driverName = driver?.name || firstOrder?.driverName || "";
@@ -1825,6 +1941,14 @@ const Trips = () => {
         amtCell.numFmt = "$#,##0.00";
         negativeRow++;
       });
+
+      // Fetch and write fuel transactions (rows 23-34 for BF Prime United)
+      const fuelTransactions = await fetchFuelTransactionsForTruck(
+        firstOrder.truckNumber || "",
+        weekStartDate,
+        weekEndDate
+      );
+      writeFuelTransactionsToWorksheet(worksheet, fuelTransactions, 23, 34);
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
