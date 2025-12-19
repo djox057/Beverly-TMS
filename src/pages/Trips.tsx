@@ -27,136 +27,94 @@ import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// Helper to clean up worksheet by removing extra rows and columns
+// Nuclear option: Create a completely fresh workbook by copying only the data we need
+// This guarantees clean dimensions because we're building from scratch
+const rebuildWorkbookClean = async (
+  sourceWorkbook: ExcelJS.Workbook,
+  sourceSheetIndex: number,
+  maxRow: number,
+  maxCol: number = 12
+): Promise<ExcelJS.Workbook> => {
+  const sourceSheet = sourceWorkbook.getWorksheet(sourceSheetIndex);
+  if (!sourceSheet) throw new Error("Source worksheet not found");
+
+  const newWorkbook = new ExcelJS.Workbook();
+  const newSheet = newWorkbook.addWorksheet(sourceSheet.name || "Sheet1");
+
+  // Copy column widths
+  for (let col = 1; col <= maxCol; col++) {
+    const sourceCol = sourceSheet.getColumn(col);
+    const targetCol = newSheet.getColumn(col);
+    if (sourceCol.width) targetCol.width = sourceCol.width;
+    if (sourceCol.hidden) targetCol.hidden = sourceCol.hidden;
+  }
+
+  // Copy row heights and cell data
+  for (let row = 1; row <= maxRow; row++) {
+    const sourceRow = sourceSheet.getRow(row);
+    const targetRow = newSheet.getRow(row);
+    
+    // Copy row properties
+    if (sourceRow.height) targetRow.height = sourceRow.height;
+    if (sourceRow.hidden) targetRow.hidden = sourceRow.hidden;
+
+    // Copy cells
+    for (let col = 1; col <= maxCol; col++) {
+      const sourceCell = sourceRow.getCell(col);
+      const targetCell = targetRow.getCell(col);
+
+      // Copy value (handle formulas)
+      if (sourceCell.formula) {
+        targetCell.value = { formula: sourceCell.formula };
+      } else if (sourceCell.value !== null && sourceCell.value !== undefined) {
+        targetCell.value = sourceCell.value;
+      }
+
+      // Copy style
+      if (sourceCell.style && Object.keys(sourceCell.style).length > 0) {
+        targetCell.style = JSON.parse(JSON.stringify(sourceCell.style));
+      }
+
+      // Copy number format
+      if (sourceCell.numFmt) {
+        targetCell.numFmt = sourceCell.numFmt;
+      }
+    }
+  }
+
+  // Copy merged cells (only those within our range)
+  const sourceAny = sourceSheet as any;
+  if (sourceAny._merges) {
+    for (const key of Object.keys(sourceAny._merges)) {
+      const merge = sourceAny._merges[key];
+      if (merge && merge.top <= maxRow && merge.left <= maxCol && 
+          merge.bottom <= maxRow && merge.right <= maxCol) {
+        try {
+          newSheet.mergeCells(merge.top, merge.left, merge.bottom, merge.right);
+        } catch (e) {
+          // Skip if merge fails (e.g., already merged)
+        }
+      }
+    }
+  }
+
+  // Copy page setup if present
+  if (sourceSheet.pageSetup) {
+    newSheet.pageSetup = { ...sourceSheet.pageSetup };
+  }
+
+  // Copy views if present
+  if (sourceSheet.views && sourceSheet.views.length > 0) {
+    newSheet.views = [...sourceSheet.views];
+  }
+
+  return newWorkbook;
+};
+
+// Legacy cleanup function (kept for reference but rebuildWorkbookClean is preferred)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
-  const wsAny = worksheet as any;
-
-  // Step 1: Completely destroy and remove all rows beyond maxRow
-  if (Array.isArray(wsAny._rows)) {
-    for (let i = maxRow; i < wsAny._rows.length; i++) {
-      const row = wsAny._rows[i];
-      if (row) {
-        // Destroy all cells in this row first
-        if (Array.isArray(row._cells)) {
-          for (let j = 0; j < row._cells.length; j++) {
-            const cell = row._cells[j];
-            if (cell) {
-              cell.value = null;
-              cell.style = {};
-              if (typeof cell.destroy === 'function') cell.destroy();
-              row._cells[j] = undefined;
-            }
-          }
-          row._cells.length = 0;
-        }
-        // Destroy the row object
-        if (typeof row.destroy === 'function') row.destroy();
-        wsAny._rows[i] = undefined;
-      }
-    }
-    wsAny._rows.length = maxRow;
-  }
-
-  // Step 2: For remaining rows, destroy cells beyond maxCol
-  if (Array.isArray(wsAny._rows)) {
-    for (let i = 0; i < wsAny._rows.length; i++) {
-      const row = wsAny._rows[i];
-      if (row && Array.isArray(row._cells)) {
-        for (let j = maxCol; j < row._cells.length; j++) {
-          const cell = row._cells[j];
-          if (cell) {
-            cell.value = null;
-            cell.style = {};
-            if (typeof cell.destroy === 'function') cell.destroy();
-            row._cells[j] = undefined;
-          }
-        }
-        row._cells.length = maxCol;
-      }
-    }
-  }
-
-  // Step 3: Remove column definitions beyond maxCol
-  if (Array.isArray(wsAny._columns)) {
-    for (let i = maxCol; i < wsAny._columns.length; i++) {
-      wsAny._columns[i] = undefined;
-    }
-    wsAny._columns.length = maxCol;
-  }
-
-  // Step 4: Clear any merge references that extend outside our range
-  if (wsAny._merges && typeof wsAny._merges === 'object') {
-    const mergesToRemove: string[] = [];
-    for (const key of Object.keys(wsAny._merges)) {
-      const merge = wsAny._merges[key];
-      if (merge) {
-        // Check if merge extends beyond our limits
-        if (merge.top > maxRow || merge.left > maxCol || 
-            merge.bottom > maxRow || merge.right > maxCol) {
-          mergesToRemove.push(key);
-        }
-      }
-    }
-    mergesToRemove.forEach(key => delete wsAny._merges[key]);
-  }
-
-  // Step 5: Also clean the worksheet's _media if it references cells outside range
-  if (Array.isArray(wsAny._media)) {
-    wsAny._media = wsAny._media.filter((media: any) => {
-      if (media && media.range) {
-        return media.range.tl?.row <= maxRow && media.range.tl?.col <= maxCol;
-      }
-      return true;
-    });
-  }
-
-  // Step 6: Clear conditional formatting rules outside our range
-  if (Array.isArray(wsAny.conditionalFormattings)) {
-    wsAny.conditionalFormattings = wsAny.conditionalFormattings.filter((cf: any) => {
-      if (cf && cf.ref) {
-        const match = cf.ref.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
-        if (match) {
-          const endRow = parseInt(match[4], 10);
-          const endColLetter = match[3];
-          const endCol = endColLetter.split('').reduce((acc: number, char: string) => 
-            acc * 26 + char.charCodeAt(0) - 64, 0);
-          return endRow <= maxRow && endCol <= maxCol;
-        }
-      }
-      return true;
-    });
-  }
-
-  // Step 7: Clear data validations outside our range
-  if (wsAny.dataValidations && wsAny.dataValidations.model) {
-    const validations = wsAny.dataValidations.model;
-    for (const address of Object.keys(validations)) {
-      const match = address.match(/([A-Z]+)(\d+)/);
-      if (match) {
-        const row = parseInt(match[2], 10);
-        const colLetter = match[1];
-        const col = colLetter.split('').reduce((acc: number, char: string) => 
-          acc * 26 + char.charCodeAt(0) - 64, 0);
-        if (row > maxRow || col > maxCol) {
-          delete validations[address];
-        }
-      }
-    }
-  }
-
-  // Step 8: Best-effort dimension hint (do NOT set worksheet.dimensions; it's getter-only in ExcelJS)
-  const lastColLetter = String.fromCharCode(64 + maxCol);
-  const dimensionRef = `A1:${lastColLetter}${maxRow}`;
-
-  // If the worksheet was parsed from a template, ExcelJS may keep a cached string model.
-  // Keep it in sync when present.
-  if (wsAny._model && typeof wsAny._model === "object") {
-    wsAny._model.dimensions = dimensionRef;
-  }
-
-  // Streaming worksheet-writer uses _dimensions; setting it here is harmless and can help
-  // if this worksheet is ever serialized through that code path.
-  wsAny._dimensions = dimensionRef;
+  // This function is now mostly a no-op since we use rebuildWorkbookClean
+  // Keeping it to avoid breaking any code that still calls it
 };
 
 // Helper to format datetime strings without timezone conversion
@@ -784,10 +742,9 @@ const Trips = () => {
       const weekEnd = format(weekEndDate, "MM-dd-yyyy");
       const filename = `${driverName}_Statement_${weekStart}_to_${weekEnd}.xlsx`;
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 73, 12);
-
-      const buffer = await workbook.xlsx.writeBuffer();
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73, 12);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
@@ -998,10 +955,9 @@ const Trips = () => {
       const weekEnd = format(weekEndDate, "MM-dd-yyyy");
       const filename = `${driverName}_Beverly_Freight_Statement_${weekStart}_to_${weekEnd}.xlsx`;
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 70, 12);
-
-      const buffer = await workbook.xlsx.writeBuffer();
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70, 12);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
@@ -1194,11 +1150,9 @@ const Trips = () => {
       const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
       const filename = `BG_Prime_Inc_${weekRange}${driverInfo}.xlsx`;
 
-      // Save file
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 61, 12);
-
-      const buffer = await workbook.xlsx.writeBuffer();
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 61, 12);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1383,11 +1337,9 @@ const Trips = () => {
       const driverInfo = driverName && typeof driverName === "string" ? `_${driverName.replace(/\s+/g, "-")}` : "";
       const filename = `BF_Prime_${weekRange}${driverInfo}.xlsx`;
 
-      // Save file
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 67, 12);
-
-      const buffer = await workbook.xlsx.writeBuffer();
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 67, 12);
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1653,11 +1605,10 @@ const Trips = () => {
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 73 + extraRowsNeeded, 12);
-
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 73 + extraRowsNeeded, 12);
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
-      const buffer = await workbook.xlsx.writeBuffer();
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
@@ -1723,11 +1674,10 @@ const Trips = () => {
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 70 + extraRowsNeeded, 12);
-
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 70 + extraRowsNeeded, 12);
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Beverly_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
-      const buffer = await workbook.xlsx.writeBuffer();
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
@@ -1803,11 +1753,10 @@ const Trips = () => {
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 61 + extraRowsNeeded, 12);
-
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 61 + extraRowsNeeded, 12);
       const filename = `BG_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
-      const buffer = await workbook.xlsx.writeBuffer();
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
@@ -1869,11 +1818,10 @@ const Trips = () => {
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
-      // Cleanup: remove extra rows/columns before writing
-      cleanupWorksheet(worksheet, 67 + extraRowsNeeded, 12);
-
+      // Nuclear option: rebuild workbook from scratch with only the data we need
+      const cleanWorkbook = await rebuildWorkbookClean(workbook, 1, 67 + extraRowsNeeded, 12);
       const filename = `BF_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
-      const buffer = await workbook.xlsx.writeBuffer();
+      const buffer = await cleanWorkbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
