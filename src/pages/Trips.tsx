@@ -262,11 +262,6 @@ const Trips = () => {
           // Use transfer's datetime for the delivery date if available
           const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
           
-          // Debug log for load 3573
-          if (order.internalLoadNumber === 3573) {
-            console.log(`[Trips] Load 3573 transfer ${seq}: transfer_datetime=${transfer.transfer_datetime}, using deliveryDate=${transferDeliveryDate}`);
-          }
-          
           segments.push({
             ...order,
             virtualId: `${order.id}_transfer_${seq}`,
