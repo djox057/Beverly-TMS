@@ -408,6 +408,9 @@ const Reports = () => {
     driverNames: string;
     companyName: string;
     internalLoadNumber: string;
+    freightAmount: number;
+    driverPay: number;
+    loadedMiles: number;
   } | null>(null);
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -581,6 +584,9 @@ const Reports = () => {
       driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
       internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
+      freightAmount: order.freight_amount || 0,
+      driverPay: order.driver_price || 0,
+      loadedMiles: order.loaded_miles || 0,
     };
   }, []);
 
@@ -4250,8 +4256,18 @@ const Reports = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-4 flex-wrap">
               <div className="space-y-1">
-                <div className="text-lg font-semibold">
-                  Load #{zoomedLoad?.loadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="text-lg font-semibold">
+                    Load #{zoomedLoad?.loadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
+                  </div>
+                  <div className="text-sm text-muted-foreground font-normal">
+                    ${zoomedLoad?.freightAmount?.toLocaleString() || 0} freight • ${zoomedLoad?.driverPay?.toLocaleString() || 0} driver • {zoomedLoad?.loadedMiles?.toLocaleString() || 0} mi
+                    {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 && (
+                      <span className="ml-2">
+                        (${(zoomedLoad.freightAmount / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM)
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="text-sm text-muted-foreground font-normal">
                   Truck {zoomedLoad?.truckNumber} • {zoomedLoad?.driverNames}
