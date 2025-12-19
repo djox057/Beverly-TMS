@@ -144,21 +144,19 @@ const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: 
     }
   }
 
-  // Step 8: FORCE DIMENSION RESET - Critical for correct XML output
+  // Step 8: Best-effort dimension hint (do NOT set worksheet.dimensions; it's getter-only in ExcelJS)
   const lastColLetter = String.fromCharCode(64 + maxCol);
   const dimensionRef = `A1:${lastColLetter}${maxRow}`;
 
-  // Clear all cached dimension properties
-  wsAny._dimensions = undefined;
-  if (wsAny._model) {
+  // If the worksheet was parsed from a template, ExcelJS may keep a cached string model.
+  // Keep it in sync when present.
+  if (wsAny._model && typeof wsAny._model === "object") {
     wsAny._model.dimensions = dimensionRef;
   }
-  if (wsAny.dimensions) {
-    wsAny.dimensions = dimensionRef;
-  }
-  if (wsAny.properties) {
-    wsAny.properties.dimensions = dimensionRef;
-  }
+
+  // Streaming worksheet-writer uses _dimensions; setting it here is harmless and can help
+  // if this worksheet is ever serialized through that code path.
+  wsAny._dimensions = dimensionRef;
 };
 
 // Helper to format datetime strings without timezone conversion
