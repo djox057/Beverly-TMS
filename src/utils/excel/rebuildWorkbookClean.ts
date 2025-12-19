@@ -145,8 +145,29 @@ export const rebuildWorkbookClean = async (
     }
   }
 
-  // Copy page setup / views if present
-  if (sourceSheet.pageSetup) newSheet.pageSetup = { ...sourceSheet.pageSetup };
+  // Copy page setup and enforce fit-to-page for PDF export
+  newSheet.pageSetup = {
+    ...(sourceSheet.pageSetup || {}),
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 1,
+    orientation: 'portrait',
+    paperSize: 9, // A4
+    horizontalCentered: true,
+    margins: {
+      left: 0.2,
+      right: 0.2,
+      top: 0.3,
+      bottom: 0.3,
+      header: 0.2,
+      footer: 0.2,
+    },
+  };
+  
+  // Set print area to ensure only our content is printed
+  const lastColLetter = String.fromCharCode(64 + maxCol); // Convert col number to letter (12 -> L)
+  newSheet.pageSetup.printArea = `A1:${lastColLetter}${maxRow}`;
+  
   if (sourceSheet.views && sourceSheet.views.length > 0) newSheet.views = [...sourceSheet.views];
 
   // Copy images if possible
