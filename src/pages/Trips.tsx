@@ -646,15 +646,6 @@ const Trips = () => {
         j36Cell.numFmt = "$#,##0.00";
       }
 
-      // Delete all rows beyond row 50 to clean up template
-      const lastRowToKeep = 50;
-      const totalRows = worksheet.rowCount;
-      if (totalRows > lastRowToKeep) {
-        for (let row = totalRows; row > lastRowToKeep; row--) {
-          worksheet.spliceRows(row, 1);
-        }
-      }
-
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -866,15 +857,6 @@ const Trips = () => {
         j36Cell.numFmt = "$#,##0.00";
       }
 
-      // Delete all rows beyond row 50 to clean up template
-      const lastRowToKeep = 50;
-      const totalRows = worksheet.rowCount;
-      if (totalRows > lastRowToKeep) {
-        for (let row = totalRows; row > lastRowToKeep; row--) {
-          worksheet.spliceRows(row, 1);
-        }
-      }
-
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1068,15 +1050,6 @@ const Trips = () => {
         j28Cell.numFmt = "$#,##0.00";
       }
 
-      // Delete all rows beyond row 40 to clean up template
-      const lastRowToKeep = 40;
-      const totalRows = worksheet.rowCount;
-      if (totalRows > lastRowToKeep) {
-        for (let row = totalRows; row > lastRowToKeep; row--) {
-          worksheet.spliceRows(row, 1);
-        }
-      }
-
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
       const driverName = driver?.name || firstOrder?.driverName || "";
@@ -1261,15 +1234,6 @@ const Trips = () => {
         const j43Cell = worksheet.getCell("J43");
         j43Cell.value = driver.weekly_payment;
         j43Cell.numFmt = "$#,##0.00";
-      }
-
-      // Delete all rows beyond row 55 to clean up template
-      const lastRowToKeep = 55;
-      const totalRows = worksheet.rowCount;
-      if (totalRows > lastRowToKeep) {
-        for (let row = totalRows; row > lastRowToKeep; row--) {
-          worksheet.spliceRows(row, 1);
-        }
       }
 
       // Generate filename
