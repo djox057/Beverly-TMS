@@ -26,95 +26,11 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 
-// Nuclear option: Create a completely fresh workbook by copying only the data we need
-// This guarantees clean dimensions because we're building from scratch
-const rebuildWorkbookClean = async (
-  sourceWorkbook: ExcelJS.Workbook,
-  sourceSheetIndex: number,
-  maxRow: number,
-  maxCol: number = 12
-): Promise<ExcelJS.Workbook> => {
-  const sourceSheet = sourceWorkbook.getWorksheet(sourceSheetIndex);
-  if (!sourceSheet) throw new Error("Source worksheet not found");
-
-  const newWorkbook = new ExcelJS.Workbook();
-  const newSheet = newWorkbook.addWorksheet(sourceSheet.name || "Sheet1");
-
-  // Copy column widths
-  for (let col = 1; col <= maxCol; col++) {
-    const sourceCol = sourceSheet.getColumn(col);
-    const targetCol = newSheet.getColumn(col);
-    if (sourceCol.width) targetCol.width = sourceCol.width;
-    if (sourceCol.hidden) targetCol.hidden = sourceCol.hidden;
-  }
-
-  // Copy row heights and cell data
-  for (let row = 1; row <= maxRow; row++) {
-    const sourceRow = sourceSheet.getRow(row);
-    const targetRow = newSheet.getRow(row);
-    
-    // Copy row properties
-    if (sourceRow.height) targetRow.height = sourceRow.height;
-    if (sourceRow.hidden) targetRow.hidden = sourceRow.hidden;
-
-    // Copy cells
-    for (let col = 1; col <= maxCol; col++) {
-      const sourceCell = sourceRow.getCell(col);
-      const targetCell = targetRow.getCell(col);
-
-      // Copy value (handle formulas)
-      if (sourceCell.formula) {
-        targetCell.value = { formula: sourceCell.formula };
-      } else if (sourceCell.value !== null && sourceCell.value !== undefined) {
-        targetCell.value = sourceCell.value;
-      }
-
-      // Copy style
-      if (sourceCell.style && Object.keys(sourceCell.style).length > 0) {
-        targetCell.style = JSON.parse(JSON.stringify(sourceCell.style));
-      }
-
-      // Copy number format
-      if (sourceCell.numFmt) {
-        targetCell.numFmt = sourceCell.numFmt;
-      }
-    }
-  }
-
-  // Copy merged cells (only those within our range)
-  const sourceAny = sourceSheet as any;
-  if (sourceAny._merges) {
-    for (const key of Object.keys(sourceAny._merges)) {
-      const merge = sourceAny._merges[key];
-      if (merge && merge.top <= maxRow && merge.left <= maxCol && 
-          merge.bottom <= maxRow && merge.right <= maxCol) {
-        try {
-          newSheet.mergeCells(merge.top, merge.left, merge.bottom, merge.right);
-        } catch (e) {
-          // Skip if merge fails (e.g., already merged)
-        }
-      }
-    }
-  }
-
-  // Copy page setup if present
-  if (sourceSheet.pageSetup) {
-    newSheet.pageSetup = { ...sourceSheet.pageSetup };
-  }
-
-  // Copy views if present
-  if (sourceSheet.views && sourceSheet.views.length > 0) {
-    newSheet.views = [...sourceSheet.views];
-  }
-
-  return newWorkbook;
-};
-
-// Legacy cleanup function (kept for reference but rebuildWorkbookClean is preferred)
+// Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
-  // This function is now mostly a no-op since we use rebuildWorkbookClean
-  // Keeping it to avoid breaking any code that still calls it
+  // no-op
 };
 
 // Helper to format datetime strings without timezone conversion
@@ -972,7 +888,8 @@ const Trips = () => {
       toast.success("Statement exported successfully");
     } catch (error) {
       console.error("Error exporting Beverly Freight template:", error);
-      toast.error("Failed to export statement");
+      const message = error instanceof Error ? error.message : "Failed to export statement";
+      toast.error(message);
     }
   };
 
