@@ -586,7 +586,7 @@ const Trips = () => {
         });
       }
 
-      // Trips Rows 14-20
+      // Trips Rows 14-20 - Only base driver pay (driverPrice), not totalDriverPay
       let currentRow = 14;
       week.orders.forEach((order: any) => {
         if (currentRow > 20) return;
@@ -615,15 +615,122 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Driver pay
+        // I: Driver pay - BASE ONLY (driverPrice, not totalDriverPay)
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = order.driverPrice || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
       });
 
-      // Deductions
+      // Collect positive additionals (Credits) from all orders
+      const credits: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.detentionDriver && order.detentionDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.detentionDriver
+          });
+        }
+        if (order.layoverDriver && order.layoverDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.layoverDriver
+          });
+        }
+        if (order.tonuDriver && order.tonuDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.tonuDriver
+          });
+        }
+        if (order.extraStopDriver && order.extraStopDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.extraStopDriver
+          });
+        }
+        if (order.lumperDriver && order.lumperDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.lumperDriver
+          });
+        }
+        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.otherChargesDriver
+          });
+        }
+      });
+
+      // Write credits section starting at row 22 (after trips which end at row 20)
+      let creditsRow = 22;
+      credits.forEach((credit) => {
+        if (creditsRow > 29) return; // Limit to prevent overflow
+        worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Collect negative additionals for deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.lateFeeDriver)
+          });
+        }
+        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.noTrackingFeeDriver)
+          });
+        }
+        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.wrongAddressFeeDriver)
+          });
+        }
+      });
+
+      // Deductions - fixed deductions
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
@@ -651,6 +758,19 @@ const Trips = () => {
         j36Cell.value = driver.weekly_payment;
         j36Cell.numFmt = "$#,##0.00";
       }
+
+      // Write negative additionals after fixed deductions (starting at row 38)
+      let negativeRow = 38;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 45) return; // Limit to prevent overflow
+        worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
+        worksheet.getCell(`C${negativeRow}`).value = neg.type;
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
 
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
@@ -792,7 +912,7 @@ const Trips = () => {
         });
       }
 
-      // Trips Rows 14-20
+      // Trips Rows 14-20 - Only base driver pay (driverPrice), not totalDriverPay
       let currentRow = 14;
       week.orders.forEach((order: any) => {
         if (currentRow > 20) return;
@@ -821,9 +941,9 @@ const Trips = () => {
         // H: Mileage
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        // I: Driver Pay
+        // I: Driver Pay - BASE ONLY (driverPrice, not totalDriverPay)
         const cellI = worksheet.getCell(`I${currentRow}`);
-        cellI.value = order.totalDriverPay || 0;
+        cellI.value = order.driverPrice || 0;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
@@ -836,7 +956,114 @@ const Trips = () => {
         cellJ.numFmt = "$#,##0.00";
       }
 
-      // Deductions
+      // Collect positive additionals (Credits) from all orders
+      const credits: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.detentionDriver && order.detentionDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.detentionDriver
+          });
+        }
+        if (order.layoverDriver && order.layoverDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.layoverDriver
+          });
+        }
+        if (order.tonuDriver && order.tonuDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.tonuDriver
+          });
+        }
+        if (order.extraStopDriver && order.extraStopDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.extraStopDriver
+          });
+        }
+        if (order.lumperDriver && order.lumperDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.lumperDriver
+          });
+        }
+        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.otherChargesDriver
+          });
+        }
+      });
+
+      // Write credits section starting at row 22 (after trips which end at row 20)
+      let creditsRow = 22;
+      credits.forEach((credit) => {
+        if (creditsRow > 29) return; // Limit to prevent overflow
+        worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Collect negative additionals for deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.lateFeeDriver)
+          });
+        }
+        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.noTrackingFeeDriver)
+          });
+        }
+        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.wrongAddressFeeDriver)
+          });
+        }
+      });
+
+      // Deductions - fixed deductions
       const deductions = [
         { row: 32, description: "Cargo Insurance", amount: 250.0 },
         { row: 33, description: "Trailer + Insurance", amount: 285.0 },
@@ -864,6 +1091,19 @@ const Trips = () => {
         j36Cell.value = driver.weekly_payment;
         j36Cell.numFmt = "$#,##0.00";
       }
+
+      // Write negative additionals after fixed deductions (starting at row 38)
+      let negativeRow = 38;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 45) return; // Limit to prevent overflow
+        worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
+        worksheet.getCell(`C${negativeRow}`).value = neg.type;
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
 
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
@@ -1003,7 +1243,7 @@ const Trips = () => {
         worksheet.getCell(`I${row}`).value = null;
       }
 
-      // Fill in trip details starting at row 13 (same as BF Prime United LLC)
+      // Fill in trip details starting at row 13 - BASE ONLY (driverPrice, not totalDriverPay)
       let currentRow = 13;
 
       week.orders.forEach((order: any) => {
@@ -1016,7 +1256,8 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        const driverPay = order.totalDriverPay || 0;
+        // Driver pay - BASE ONLY (driverPrice, not totalDriverPay)
+        const driverPay = order.driverPrice || 0;
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
@@ -1024,7 +1265,114 @@ const Trips = () => {
         currentRow++;
       });
 
-      // Add fixed deductions starting at row 24 (same structure as BF Prime United LLC)
+      // Collect positive additionals (Credits) from all orders
+      const credits: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.detentionDriver && order.detentionDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.detentionDriver
+          });
+        }
+        if (order.layoverDriver && order.layoverDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.layoverDriver
+          });
+        }
+        if (order.tonuDriver && order.tonuDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.tonuDriver
+          });
+        }
+        if (order.extraStopDriver && order.extraStopDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.extraStopDriver
+          });
+        }
+        if (order.lumperDriver && order.lumperDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.lumperDriver
+          });
+        }
+        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.otherChargesDriver
+          });
+        }
+      });
+
+      // Write credits section starting at row 20 (after trips which end at row 19)
+      let creditsRow = 20;
+      credits.forEach((credit) => {
+        if (creditsRow > 23) return; // Limit to prevent overflow into deductions
+        worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Collect negative additionals for deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.lateFeeDriver)
+          });
+        }
+        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.noTrackingFeeDriver)
+          });
+        }
+        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.wrongAddressFeeDriver)
+          });
+        }
+      });
+
+      // Add fixed deductions starting at row 24
       const endDateFormatted = format(weekEndDate, "M/d/yyyy");
       const deductions = [
         { row: 24, description: "Cargo Insurance", amount: 285.0 },
@@ -1064,6 +1412,19 @@ const Trips = () => {
         j28Cell.value = driver.weekly_payment;
         j28Cell.numFmt = "$#,##0.00";
       }
+
+      // Write negative additionals after fixed deductions (starting at row 30)
+      let negativeRow = 30;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 37) return; // Limit to prevent overflow
+        worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
+        worksheet.getCell(`C${negativeRow}`).value = neg.type;
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
@@ -1189,7 +1550,7 @@ const Trips = () => {
         worksheet.getCell(`I${row}`).value = null;
       }
 
-      // Fill in trip details starting at row 13
+      // Fill in trip details starting at row 13 - BASE ONLY (driverPrice, not totalDriverPay)
       let currentRow = 13;
 
       week.orders.forEach((order: any) => {
@@ -1202,13 +1563,121 @@ const Trips = () => {
         worksheet.getCell(`G${currentRow}`).value = order.deliveryState || "";
         worksheet.getCell(`H${currentRow}`).value = order.mileage || 0;
 
-        const driverPay = order.totalDriverPay || 0;
+        // Driver pay - BASE ONLY (driverPrice, not totalDriverPay)
+        const driverPay = order.driverPrice || 0;
 
         const cellI = worksheet.getCell(`I${currentRow}`);
         cellI.value = driverPay;
         cellI.numFmt = "$#,##0.00";
 
         currentRow++;
+      });
+
+      // Collect positive additionals (Credits) from all orders
+      const credits: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.detentionDriver && order.detentionDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Detention",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.detentionDriver
+          });
+        }
+        if (order.layoverDriver && order.layoverDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Layover",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.layoverDriver
+          });
+        }
+        if (order.tonuDriver && order.tonuDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "TONU",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.tonuDriver
+          });
+        }
+        if (order.extraStopDriver && order.extraStopDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Extra Stop",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.extraStopDriver
+          });
+        }
+        if (order.lumperDriver && order.lumperDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Lumper",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.lumperDriver
+          });
+        }
+        if (order.otherChargesDriver && order.otherChargesDriver > 0) {
+          credits.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Other Charges",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: order.otherChargesDriver
+          });
+        }
+      });
+
+      // Write credits section starting at row 20 (after trips which end at row 19)
+      let creditsRow = 20;
+      credits.forEach((credit) => {
+        if (creditsRow > 37) return; // Limit to prevent overflow into deductions (which start at 39)
+        worksheet.getCell(`B${creditsRow}`).value = credit.internalLoadNumber;
+        worksheet.getCell(`C${creditsRow}`).value = credit.type;
+        worksheet.getCell(`I${creditsRow}`).value = credit.deliveryDate;
+        const amtCell = worksheet.getCell(`J${creditsRow}`);
+        amtCell.value = credit.amount;
+        amtCell.numFmt = "$#,##0.00";
+        creditsRow++;
+      });
+
+      // Collect negative additionals for deductions
+      const negativeAdditionals: Array<{
+        internalLoadNumber: string;
+        type: string;
+        deliveryDate: string;
+        amount: number;
+      }> = [];
+
+      week.orders.forEach((order: any) => {
+        if (order.lateFeeDriver && order.lateFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Late Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.lateFeeDriver)
+          });
+        }
+        if (order.noTrackingFeeDriver && order.noTrackingFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "No Tracking Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.noTrackingFeeDriver)
+          });
+        }
+        if (order.wrongAddressFeeDriver && order.wrongAddressFeeDriver !== 0) {
+          negativeAdditionals.push({
+            internalLoadNumber: order.internalLoadNumber || "",
+            type: "Wrong Address Fee",
+            deliveryDate: formatDateDisplay(order.deliveryDate),
+            amount: Math.abs(order.wrongAddressFeeDriver)
+          });
+        }
       });
 
       // Add fixed deductions
@@ -1251,6 +1720,19 @@ const Trips = () => {
         j43Cell.value = driver.weekly_payment;
         j43Cell.numFmt = "$#,##0.00";
       }
+
+      // Write negative additionals after fixed deductions (starting at row 45)
+      let negativeRow = 45;
+      negativeAdditionals.forEach((neg) => {
+        if (negativeRow > 55) return; // Limit to prevent overflow
+        worksheet.getCell(`B${negativeRow}`).value = neg.internalLoadNumber;
+        worksheet.getCell(`C${negativeRow}`).value = neg.type;
+        worksheet.getCell(`I${negativeRow}`).value = neg.deliveryDate;
+        const amtCell = worksheet.getCell(`J${negativeRow}`);
+        amtCell.value = neg.amount;
+        amtCell.numFmt = "$#,##0.00";
+        negativeRow++;
+      });
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
