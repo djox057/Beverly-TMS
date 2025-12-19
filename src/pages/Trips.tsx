@@ -782,6 +782,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Apply USD currency format to Trips column I (rows 14-20) and Fuel column I (rows 48-66)
+      for (let row = 14; row <= 20; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+      for (let row = 48; row <= 66; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1124,6 +1132,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Apply USD currency format to Trips column I (rows 14-20) and Fuel column I (rows 49-63)
+      for (let row = 14; row <= 20; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+      for (let row = 49; row <= 63; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+
       // Generate filename
       const driverName = driver?.name?.replace(/\s+/g, "_") || "Unknown";
       const weekStart = format(weekStartDate, "MM-dd-yyyy");
@@ -1452,6 +1468,14 @@ const Trips = () => {
         negativeRow++;
       });
 
+      // Apply USD currency format to Trips column I (rows 14-20) and Fuel column I (rows 38-44)
+      for (let row = 14; row <= 20; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+      for (let row = 38; row <= 44; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
       const driverName = driver?.name || firstOrder?.driverName || "";
@@ -1766,6 +1790,14 @@ const Trips = () => {
         amtCell.numFmt = "$#,##0.00";
         negativeRow++;
       });
+
+      // Apply USD currency format to Trips column I (rows 14-20) and Fuel column I (rows 23-34)
+      for (let row = 14; row <= 20; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
+      for (let row = 23; row <= 34; row++) {
+        worksheet.getCell(`I${row}`).numFmt = '"$"#,##0.00';
+      }
 
       // Generate filename
       const weekRange = `${format(weekStartDate, "MMM-d")}-${format(weekEndDate, "MMM-d-yyyy")}`;
