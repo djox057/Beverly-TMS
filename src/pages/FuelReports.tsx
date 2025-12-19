@@ -14,6 +14,8 @@ import {
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useFuelTransactions, getDefaultDateRange, FuelTransactionInsert, FuelFilters } from "@/hooks/useFuelTransactions";
+import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
+import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
 import { format, parse } from "date-fns";
 import Papa from "papaparse";
 import {
@@ -66,6 +68,8 @@ const FuelReports = () => {
     deleteAll,
     isDeleting,
   } = useFuelTransactions(filters);
+
+  const { unmatchedDrivers, refetchUnmatched } = useFuelDriverMappings();
 
   // Pagination
   const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
@@ -170,7 +174,10 @@ const FuelReports = () => {
         }
 
         uploadTransactions({ records, company: companyLabel }, {
-          onSettled: () => setUploadingCompany(null),
+          onSettled: () => {
+            setUploadingCompany(null);
+            refetchUnmatched();
+          },
         });
       },
       error: (error) => {
@@ -220,30 +227,34 @@ const FuelReports = () => {
           <h1 className="text-3xl font-bold">Fuel Reports</h1>
         </div>
         
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" disabled={isDeleting || transactions.length === 0}>
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              Clear All
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete all fuel transactions?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete all {transactions.length} fuel transactions. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteAll()}>Delete All</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center gap-2">
+          <FuelDriverMappingDialog unmatchedCount={unmatchedDrivers.length} />
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={isDeleting || transactions.length === 0}>
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Clear All
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete all fuel transactions?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all {transactions.length} fuel transactions. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteAll()}>Delete All</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {/* Company Upload Zones */}
