@@ -109,6 +109,56 @@ const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: 
       return true;
     });
   }
+
+  // Step 6: Clear conditional formatting rules outside our range
+  if (Array.isArray(wsAny.conditionalFormattings)) {
+    wsAny.conditionalFormattings = wsAny.conditionalFormattings.filter((cf: any) => {
+      if (cf && cf.ref) {
+        const match = cf.ref.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+        if (match) {
+          const endRow = parseInt(match[4], 10);
+          const endColLetter = match[3];
+          const endCol = endColLetter.split('').reduce((acc: number, char: string) => 
+            acc * 26 + char.charCodeAt(0) - 64, 0);
+          return endRow <= maxRow && endCol <= maxCol;
+        }
+      }
+      return true;
+    });
+  }
+
+  // Step 7: Clear data validations outside our range
+  if (wsAny.dataValidations && wsAny.dataValidations.model) {
+    const validations = wsAny.dataValidations.model;
+    for (const address of Object.keys(validations)) {
+      const match = address.match(/([A-Z]+)(\d+)/);
+      if (match) {
+        const row = parseInt(match[2], 10);
+        const colLetter = match[1];
+        const col = colLetter.split('').reduce((acc: number, char: string) => 
+          acc * 26 + char.charCodeAt(0) - 64, 0);
+        if (row > maxRow || col > maxCol) {
+          delete validations[address];
+        }
+      }
+    }
+  }
+
+  // Step 8: FORCE DIMENSION RESET - Critical for correct XML output
+  const lastColLetter = String.fromCharCode(64 + maxCol);
+  const dimensionRef = `A1:${lastColLetter}${maxRow}`;
+
+  // Clear all cached dimension properties
+  wsAny._dimensions = undefined;
+  if (wsAny._model) {
+    wsAny._model.dimensions = dimensionRef;
+  }
+  if (wsAny.dimensions) {
+    wsAny.dimensions = dimensionRef;
+  }
+  if (wsAny.properties) {
+    wsAny.properties.dimensions = dimensionRef;
+  }
 };
 
 // Helper to format datetime strings without timezone conversion
