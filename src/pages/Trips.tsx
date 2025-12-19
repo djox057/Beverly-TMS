@@ -226,6 +226,9 @@ const Trips = () => {
           const recTruckNumber = recoveryHistory?.recoveryTruck?.truck_number || recoveryHistory?.recoveryTruckNumber;
           const recTrailerNumber = recoveryHistory?.recoveryTrailer?.trailer_number || recoveryHistory?.recoveryTrailerNumber;
           
+          // Use recovery_date for legacy Rec segment if available
+          const recDeliveryDate = order.recoveryDate || order.deliveryDatetime;
+          
           segments.push({
             ...order,
             virtualId: `${order.id}_legacy_transfer_1`,
@@ -242,6 +245,9 @@ const Trips = () => {
             driverPrice: order.recoveryDriverPrice || order.driverPrice,
             mileage: order.recoveryMiles || order.mileage,
             transferNote: `Original: Driver: ${order.originalDriver1Name || "N/A"}, Truck: ${order.originalTruckNumber || "N/A"}, Trailer: ${order.originalTrailerNumber || "N/A"}`,
+            // Override delivery date with recovery date
+            deliveryDatetime: recDeliveryDate,
+            deliveryDate: recDeliveryDate,
           });
         }
 
@@ -254,6 +260,9 @@ const Trips = () => {
           const isOriginal = seq === 0;
           const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
 
+          // Use transfer's datetime for the delivery date if available
+          const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
+          
           segments.push({
             ...order,
             virtualId: `${order.id}_transfer_${seq}`,
@@ -273,6 +282,9 @@ const Trips = () => {
             mileage: transfer.miles || 0,
             totalDriverPay: transfer.driver_price || 0,
             driverPrice: transfer.driver_price || 0,
+            // Override delivery date with transfer's specific datetime
+            deliveryDatetime: transferDeliveryDate,
+            deliveryDate: transferDeliveryDate,
           });
         });
 
