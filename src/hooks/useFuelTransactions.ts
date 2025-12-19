@@ -187,43 +187,105 @@ export const useFuelTransactions = (filters: FuelFilters) => {
     },
   });
 
-  // Upload transactions mutation (replaces existing data for the company)
+  // Helper to create a unique key for deduplication
+  const createDuplicateKey = (record: {
+    truck_number: string;
+    driver_name: string;
+    transaction_number: string;
+    transaction_date: string;
+    location_name?: string | null;
+    city?: string | null;
+    state?: string | null;
+    fees?: number | null;
+    item: string;
+    unit_price?: number | null;
+    quantity?: number | null;
+    amount?: number | null;
+  }) => {
+    return [
+      record.truck_number,
+      record.driver_name,
+      record.transaction_number,
+      record.transaction_date,
+      record.location_name || "",
+      record.city || "",
+      record.state || "",
+      record.fees ?? 0,
+      record.item,
+      record.unit_price ?? 0,
+      record.quantity ?? 0,
+      record.amount ?? 0,
+    ].join("|");
+  };
+
+  // Upload transactions mutation (adds new records, skips duplicates)
   const uploadMutation = useMutation({
     mutationFn: async ({ records, company }: { records: FuelTransactionInsert[]; company: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Delete existing transactions for this company first
-      const { error: deleteError } = await supabase
-        .from("fuel_transactions")
-        .delete()
-        .eq("company", company);
-      
-      if (deleteError) throw deleteError;
-      
-      // Add company and uploaded_by to each record
-      const recordsWithMetadata = records.map(record => ({
+      // Fetch existing transactions for this company to check for duplicates
+      const BATCH_SIZE = 1000;
+      const existingRecords: FuelTransaction[] = [];
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("fuel_transactions")
+          .select("*")
+          .eq("company", company)
+          .range(from, from + BATCH_SIZE - 1);
+        
+        if (error) throw error;
+        existingRecords.push(...(data as FuelTransaction[]));
+        hasMore = data.length === BATCH_SIZE;
+        from += BATCH_SIZE;
+      }
+
+      // Create a set of existing record keys for fast lookup
+      const existingKeys = new Set(existingRecords.map(createDuplicateKey));
+
+      // Filter out duplicates from new records
+      const newRecords = records.filter(record => {
+        const key = createDuplicateKey(record);
+        return !existingKeys.has(key);
+      });
+
+      if (newRecords.length === 0) {
+        return { data: [], company, skipped: records.length };
+      }
+
+      // Add company and uploaded_by to each new record
+      const recordsWithMetadata = newRecords.map(record => ({
         ...record,
         company,
         uploaded_by: user?.id || null,
       }));
 
-      // Insert new records
-      const { data, error } = await supabase
-        .from("fuel_transactions")
-        .insert(recordsWithMetadata)
-        .select();
+      // Insert new records in batches
+      const insertedRecords: FuelTransaction[] = [];
+      for (let i = 0; i < recordsWithMetadata.length; i += BATCH_SIZE) {
+        const batch = recordsWithMetadata.slice(i, i + BATCH_SIZE);
+        const { data, error } = await supabase
+          .from("fuel_transactions")
+          .insert(batch)
+          .select();
 
-      if (error) throw error;
-      return { data, company };
+        if (error) throw error;
+        insertedRecords.push(...(data as FuelTransaction[]));
+      }
+
+      return { data: insertedRecords, company, skipped: records.length - newRecords.length };
     },
-    onSuccess: ({ data, company }) => {
+    onSuccess: ({ data, company, skipped }) => {
       queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-truck-numbers"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-driver-names"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-item-types"] });
+      const skippedMsg = skipped > 0 ? ` (${skipped} duplicates skipped)` : "";
       toast({
         title: "Upload successful",
-        description: `${data?.length || 0} transactions imported for ${company}.`,
+        description: `${data?.length || 0} new transactions imported for ${company}${skippedMsg}.`,
       });
     },
     onError: (error) => {
