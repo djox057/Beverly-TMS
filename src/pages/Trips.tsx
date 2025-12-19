@@ -29,38 +29,85 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to clean up worksheet by removing extra rows and columns
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
-  // Remove trailing rows/cols using a single splice (more reliable than repeated single deletes)
-  const rowsToDelete = worksheet.rowCount - maxRow;
-  if (rowsToDelete > 0) {
-    worksheet.spliceRows(maxRow + 1, rowsToDelete);
-  }
-
-  const colsToDelete = worksheet.columnCount - maxCol;
-  if (colsToDelete > 0) {
-    worksheet.spliceColumns(maxCol + 1, colsToDelete);
-  }
-
-  // NOTE:
-  // ExcelJS splice operations can "clear" cells but keep them allocated in the internal model,
-  // which makes Excel still treat far rows/cols as part of the used range (Ctrl+End goes there).
-  // Hard-trim internal arrays so the saved file truly ends at maxRow / maxCol.
   const wsAny = worksheet as any;
 
+  // Step 1: Completely destroy and remove all rows beyond maxRow
   if (Array.isArray(wsAny._rows)) {
-    if (wsAny._rows.length > maxRow) wsAny._rows.length = maxRow;
+    for (let i = maxRow; i < wsAny._rows.length; i++) {
+      const row = wsAny._rows[i];
+      if (row) {
+        // Destroy all cells in this row first
+        if (Array.isArray(row._cells)) {
+          for (let j = 0; j < row._cells.length; j++) {
+            const cell = row._cells[j];
+            if (cell) {
+              cell.value = null;
+              cell.style = {};
+              if (typeof cell.destroy === 'function') cell.destroy();
+              row._cells[j] = undefined;
+            }
+          }
+          row._cells.length = 0;
+        }
+        // Destroy the row object
+        if (typeof row.destroy === 'function') row.destroy();
+        wsAny._rows[i] = undefined;
+      }
+    }
+    wsAny._rows.length = maxRow;
+  }
 
-    for (const row of wsAny._rows) {
-      if (row && Array.isArray(row._cells) && row._cells.length > maxCol) {
-        for (let i = maxCol; i < row._cells.length; i++) {
-          row._cells[i] = undefined;
+  // Step 2: For remaining rows, destroy cells beyond maxCol
+  if (Array.isArray(wsAny._rows)) {
+    for (let i = 0; i < wsAny._rows.length; i++) {
+      const row = wsAny._rows[i];
+      if (row && Array.isArray(row._cells)) {
+        for (let j = maxCol; j < row._cells.length; j++) {
+          const cell = row._cells[j];
+          if (cell) {
+            cell.value = null;
+            cell.style = {};
+            if (typeof cell.destroy === 'function') cell.destroy();
+            row._cells[j] = undefined;
+          }
         }
         row._cells.length = maxCol;
       }
     }
   }
 
-  if (Array.isArray(wsAny._columns) && wsAny._columns.length > maxCol) {
+  // Step 3: Remove column definitions beyond maxCol
+  if (Array.isArray(wsAny._columns)) {
+    for (let i = maxCol; i < wsAny._columns.length; i++) {
+      wsAny._columns[i] = undefined;
+    }
     wsAny._columns.length = maxCol;
+  }
+
+  // Step 4: Clear any merge references that extend outside our range
+  if (wsAny._merges && typeof wsAny._merges === 'object') {
+    const mergesToRemove: string[] = [];
+    for (const key of Object.keys(wsAny._merges)) {
+      const merge = wsAny._merges[key];
+      if (merge) {
+        // Check if merge extends beyond our limits
+        if (merge.top > maxRow || merge.left > maxCol || 
+            merge.bottom > maxRow || merge.right > maxCol) {
+          mergesToRemove.push(key);
+        }
+      }
+    }
+    mergesToRemove.forEach(key => delete wsAny._merges[key]);
+  }
+
+  // Step 5: Also clean the worksheet's _media if it references cells outside range
+  if (Array.isArray(wsAny._media)) {
+    wsAny._media = wsAny._media.filter((media: any) => {
+      if (media && media.range) {
+        return media.range.tl?.row <= maxRow && media.range.tl?.col <= maxCol;
+      }
+      return true;
+    });
   }
 };
 
