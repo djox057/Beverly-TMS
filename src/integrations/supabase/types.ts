@@ -1226,6 +1226,7 @@ export type Database = {
           id: string
           item: string
           location_name: string | null
+          paid: boolean
           quantity: number | null
           state: string | null
           transaction_date: string
@@ -1245,6 +1246,7 @@ export type Database = {
           id?: string
           item: string
           location_name?: string | null
+          paid?: boolean
           quantity?: number | null
           state?: string | null
           transaction_date: string
@@ -1264,6 +1266,7 @@ export type Database = {
           id?: string
           item?: string
           location_name?: string | null
+          paid?: boolean
           quantity?: number | null
           state?: string | null
           transaction_date?: string
