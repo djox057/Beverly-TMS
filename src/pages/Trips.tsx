@@ -27,6 +27,18 @@ import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+// Helper to clean up worksheet by removing extra rows and columns
+const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
+  // Remove extra rows beyond maxRow
+  while (worksheet.rowCount > maxRow) {
+    worksheet.spliceRows(worksheet.rowCount, 1);
+  }
+  // Remove extra columns beyond maxCol (L = 12)
+  while (worksheet.columnCount > maxCol) {
+    worksheet.spliceColumns(worksheet.columnCount, 1);
+  }
+};
+
 // Helper to format datetime strings without timezone conversion
 // Extracts date parts directly from the string (Chicago time)
 const formatDateDisplay = (dateStr: string | null | undefined) => {
@@ -652,6 +664,9 @@ const Trips = () => {
       const weekEnd = format(weekEndDate, "MM-dd-yyyy");
       const filename = `${driverName}_Statement_${weekStart}_to_${weekEnd}.xlsx`;
 
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 73, 12);
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -863,6 +878,9 @@ const Trips = () => {
       const weekEnd = format(weekEndDate, "MM-dd-yyyy");
       const filename = `${driverName}_Beverly_Freight_Statement_${weekStart}_to_${weekEnd}.xlsx`;
 
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 70, 12);
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1057,6 +1075,9 @@ const Trips = () => {
       const filename = `BG_Prime_Inc_${weekRange}${driverInfo}.xlsx`;
 
       // Save file
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 61, 12);
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
@@ -1243,6 +1264,9 @@ const Trips = () => {
       const filename = `BF_Prime_${weekRange}${driverInfo}.xlsx`;
 
       // Save file
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 67, 12);
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
@@ -1509,6 +1533,9 @@ const Trips = () => {
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 73 + extraRowsNeeded, 12);
+
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1575,6 +1602,9 @@ const Trips = () => {
         if (amt !== undefined) { const c = worksheet.getCell(`J${deductionStartRow + offset}`); c.value = amt; c.numFmt = "$#,##0.00"; }
       });
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 70 + extraRowsNeeded, 12);
 
       const filename = `${(driver?.name || "Unknown").replace(/\s+/g, "_")}_Beverly_Final_${format(startDate, "MM-dd-yyyy")}_to_${format(endDate, "MM-dd-yyyy")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
@@ -1653,6 +1683,9 @@ const Trips = () => {
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
 
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 61 + extraRowsNeeded, 12);
+
       const filename = `BG_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1715,6 +1748,9 @@ const Trips = () => {
         worksheet.getCell(`E${deductionStartRow + 4}`).value = `${weeksPassed}/${driver.weeks_count}`;
       }
       if (driver?.weekly_payment) { const c = worksheet.getCell(`J${deductionStartRow + 4}`); c.value = driver.weekly_payment; c.numFmt = "$#,##0.00"; }
+
+      // Cleanup: remove extra rows/columns before writing
+      cleanupWorksheet(worksheet, 67 + extraRowsNeeded, 12);
 
       const filename = `BF_Prime_Final_${format(startDate, "MMM-d")}-${format(endDate, "MMM-d-yyyy")}_${(driver?.name || "Unknown").replace(/\s+/g, "-")}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
