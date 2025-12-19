@@ -29,13 +29,38 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // Helper to clean up worksheet by removing extra rows and columns
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
-  // Remove extra rows beyond maxRow
-  while (worksheet.rowCount > maxRow) {
-    worksheet.spliceRows(worksheet.rowCount, 1);
+  // Remove trailing rows/cols using a single splice (more reliable than repeated single deletes)
+  const rowsToDelete = worksheet.rowCount - maxRow;
+  if (rowsToDelete > 0) {
+    worksheet.spliceRows(maxRow + 1, rowsToDelete);
   }
-  // Remove extra columns beyond maxCol (L = 12)
-  while (worksheet.columnCount > maxCol) {
-    worksheet.spliceColumns(worksheet.columnCount, 1);
+
+  const colsToDelete = worksheet.columnCount - maxCol;
+  if (colsToDelete > 0) {
+    worksheet.spliceColumns(maxCol + 1, colsToDelete);
+  }
+
+  // NOTE:
+  // ExcelJS splice operations can "clear" cells but keep them allocated in the internal model,
+  // which makes Excel still treat far rows/cols as part of the used range (Ctrl+End goes there).
+  // Hard-trim internal arrays so the saved file truly ends at maxRow / maxCol.
+  const wsAny = worksheet as any;
+
+  if (Array.isArray(wsAny._rows)) {
+    if (wsAny._rows.length > maxRow) wsAny._rows.length = maxRow;
+
+    for (const row of wsAny._rows) {
+      if (row && Array.isArray(row._cells) && row._cells.length > maxCol) {
+        for (let i = maxCol; i < row._cells.length; i++) {
+          row._cells[i] = undefined;
+        }
+        row._cells.length = maxCol;
+      }
+    }
+  }
+
+  if (Array.isArray(wsAny._columns) && wsAny._columns.length > maxCol) {
+    wsAny._columns.length = maxCol;
   }
 };
 
