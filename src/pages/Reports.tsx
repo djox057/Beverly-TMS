@@ -562,43 +562,9 @@ const Reports = () => {
   };
 
   // Helper to get all load details for zoom dialog
-  const getLoadDetailsForZoom = useCallback((orderId: string, truck: any) => {
+  const getLoadDetailsForZoom = useCallback(async (orderId: string, truck: any) => {
     const order = truck.allOrders?.find((o: any) => o.id === orderId);
     if (!order) return null;
-
-    // Handle DB (snake_case) + cached (camelCase / shortened) fields + "null" strings
-    const toNum = (val: any): number => {
-      if (val === null || val === undefined || val === "" || val === "null" || val === "NULL") return 0;
-      const num = Number(val);
-      return Number.isFinite(num) ? num : 0;
-    };
-
-    const totalDriverPay =
-      toNum(order.driver_price || order.driverPrice || order.driverPay) +
-      toNum(order.detention_driver || order.detentionDriver) +
-      toNum(order.layover_driver || order.layoverDriver) +
-      toNum(order.tonu_driver || order.tonuDriver) +
-      toNum(order.extra_stop_driver || order.extraStopDriver) +
-      toNum(order.lumper_driver || order.lumperDriver) +
-      toNum(order.late_fee_driver || order.lateFeeDriver) +
-      toNum(order.no_tracking_fee_driver || order.noTrackingFeeDriver) +
-      toNum(order.wrong_address_fee_driver || order.wrongAddressFeeDriver) +
-      toNum(order.other_charges_driver || order.otherChargesDriver);
-
-    const totalFreightAmount =
-      toNum(order.freight_amount || order.freightAmount || order.freight) +
-      toNum(order.detention) +
-      toNum(order.layover) +
-      toNum(order.tonu) +
-      toNum(order.extra_stop || order.extraStop) +
-      toNum(order.lumper) +
-      toNum(order.late_fee || order.lateFee) +
-      toNum(order.no_tracking_fee || order.noTrackingFee) +
-      toNum(order.wrong_address_fee || order.wrongAddressFee) +
-      toNum(order.escort_fee || order.escortFee) +
-      toNum(order.other_charges || order.otherCharges);
-
-    const loadedMiles = toNum(order.loaded_miles || order.loadedMiles || order.mileage || order.miles);
 
     // Build driver names from driver1Name and driver2Name
     let driverNames = truck.driver1Name || "";
@@ -606,7 +572,8 @@ const Reports = () => {
       driverNames = driverNames ? `${driverNames} / ${truck.driver2Name}` : truck.driver2Name;
     }
 
-    return {
+    // Base details from order (already in memory)
+    const baseDetails = {
       orderId: order.id,
       loadNumber: order.loadDetails.loadNumber,
       brokerLoadNumber: order.loadDetails.brokerLoadNumber,
@@ -618,10 +585,66 @@ const Reports = () => {
       driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
       internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
-      freightAmount: totalFreightAmount,
-      driverPay: totalDriverPay,
-      loadedMiles,
+      freightAmount: 0,
+      driverPay: 0,
+      loadedMiles: 0,
     };
+
+    // Fetch financial data for this specific order from DB
+    try {
+      const { data: orderData } = await supabase
+        .from("orders")
+        .select(`
+          freight_amount, driver_price, loaded_miles, mileage,
+          detention, detention_driver, layover, layover_driver,
+          tonu, tonu_driver, extra_stop, extra_stop_driver,
+          lumper, lumper_driver, late_fee, late_fee_driver,
+          no_tracking_fee, no_tracking_fee_driver,
+          wrong_address_fee, wrong_address_fee_driver,
+          escort_fee, other_charges, other_charges_driver
+        `)
+        .eq("id", orderId)
+        .single();
+
+      if (orderData) {
+        const toNum = (val: any): number => {
+          if (val === null || val === undefined) return 0;
+          const num = Number(val);
+          return Number.isFinite(num) ? num : 0;
+        };
+
+        baseDetails.freightAmount =
+          toNum(orderData.freight_amount) +
+          toNum(orderData.detention) +
+          toNum(orderData.layover) +
+          toNum(orderData.tonu) +
+          toNum(orderData.extra_stop) +
+          toNum(orderData.lumper) +
+          toNum(orderData.late_fee) +
+          toNum(orderData.no_tracking_fee) +
+          toNum(orderData.wrong_address_fee) +
+          toNum(orderData.escort_fee) +
+          toNum(orderData.other_charges);
+
+        baseDetails.driverPay =
+          toNum(orderData.driver_price) +
+          toNum(orderData.detention_driver) +
+          toNum(orderData.layover_driver) +
+          toNum(orderData.tonu_driver) +
+          toNum(orderData.extra_stop_driver) +
+          toNum(orderData.lumper_driver) +
+          toNum(orderData.late_fee_driver) +
+          toNum(orderData.no_tracking_fee_driver) +
+          toNum(orderData.wrong_address_fee_driver) +
+          toNum(orderData.other_charges_driver);
+
+        baseDetails.loadedMiles = toNum(orderData.loaded_miles) || toNum(orderData.mileage);
+      }
+    } catch (err) {
+      console.error("Error fetching order financial data:", err);
+    }
+
+    return baseDetails;
   }, []);
 
   // File upload handlers
@@ -1711,8 +1734,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                          onClick={async () => {
+                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -1767,8 +1790,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                          onClick={async () => {
+                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -1881,8 +1904,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                          onClick={async () => {
+                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -1939,8 +1962,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={() => {
-                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
+                          onClick={async () => {
+                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
