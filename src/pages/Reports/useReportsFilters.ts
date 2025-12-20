@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { isSameDay } from "date-fns";
+import { parseSimpleDateTime } from "@/utils/dateUtils";
 
 // Filter state hook
 export function useReportsFilters() {
@@ -75,8 +76,9 @@ export function useReportsFilters() {
     if (realOrders.length === 1) {
       const order = realOrders[0];
       if (!order.pickupStop?.datetime) return false;
-      const pickupDate = new Date(order.pickupStop.datetime);
-      pickupDate.setHours(0, 0, 0, 0);
+      // Use parseSimpleDateTime to avoid timezone conversion
+      const parsed = parseSimpleDateTime(order.pickupStop.datetime);
+      const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
       return isSameDay(pickupDate, today);
     }
     return false;
