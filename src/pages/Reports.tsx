@@ -584,9 +584,9 @@ const Reports = () => {
       driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
       internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
-      freightAmount: order.freight_amount || 0,
-      driverPay: order.driver_price || 0,
-      loadedMiles: order.loaded_miles || 0,
+      freightAmount: order.loadDetails?.freightAmount || order.freight_amount || 0,
+      driverPay: order.loadDetails?.driverPrice || order.driver_price || 0,
+      loadedMiles: order.loadDetails?.loadedMiles || order.loaded_miles || 0,
     };
   }, []);
 
@@ -4260,13 +4260,24 @@ const Reports = () => {
                   <div className="text-lg font-semibold">
                     Load #{zoomedLoad?.loadNumber} • Broker #{zoomedLoad?.brokerLoadNumber}
                   </div>
-                  <div className="text-sm text-muted-foreground font-normal">
-                    ${zoomedLoad?.freightAmount?.toLocaleString() || 0} freight • ${zoomedLoad?.driverPay?.toLocaleString() || 0} driver • {zoomedLoad?.loadedMiles?.toLocaleString() || 0} mi
-                    {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 && (
-                      <span className="ml-2">
-                        (${(zoomedLoad.freightAmount / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM)
-                      </span>
-                    )}
+                  <div className="text-sm text-muted-foreground font-normal flex flex-wrap items-center gap-x-4">
+                    <span>
+                      ${zoomedLoad?.freightAmount?.toLocaleString() || 0} freight
+                      {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 && zoomedLoad?.freightAmount && (
+                        <span className="ml-1 text-xs">
+                          (${(zoomedLoad.freightAmount / zoomedLoad.loadedMiles).toFixed(2)}/mi)
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      ${zoomedLoad?.driverPay?.toLocaleString() || 0} driver
+                      {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 && zoomedLoad?.driverPay && (
+                        <span className="ml-1 text-xs">
+                          (${(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi)
+                        </span>
+                      )}
+                    </span>
+                    <span>{zoomedLoad?.loadedMiles?.toLocaleString() || 0} mi</span>
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground font-normal">
