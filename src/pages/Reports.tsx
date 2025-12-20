@@ -2252,27 +2252,22 @@ const Reports = () => {
             return false; // Exclude in-transit trucks
           }
 
-          // Check if truck has any pickup or same-day order today
-          // Need to check pickupStopsByDate for multi-stop loads
+          // Check if truck has any pickup today (check ALL pickup stops for multi-stop loads)
           // NOTE: Canceled orders should NOT count as having a pickup - truck is still empty
           const hasPickupToday = truck.allOrders?.some((order: any) => {
             if (order.notes === "GAME|OVER") return false;
             // Canceled orders don't count as having a pickup
             if (order.canceled) return false;
             
-            // Check using pickupStopsByDate which tracks ALL pickups by date
-            if (order.pickupStopsByDate) {
-              const pickupCount = order.pickupStopsByDate.get(todayStr);
-              if (pickupCount && pickupCount > 0) {
-                return true;
-              }
-            }
+            // Check all pickup stops (handles multi-stop loads)
+            const allPickupStops = order.pickupStops || (order.pickupStop ? [order.pickupStop] : []);
             
-            // Fallback: check the single pickupStop if pickupStopsByDate is not available
-            if (!order.pickupStop?.datetime) return false;
-            const parsed = parseSimpleDateTime(order.pickupStop.datetime);
-            const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
-            return isSameDay(pickupDate, today);
+            return allPickupStops.some((stop: any) => {
+              if (!stop?.datetime) return false;
+              const parsed = parseSimpleDateTime(stop.datetime);
+              const pickupDate = new Date(parsed.year, parsed.month - 1, parsed.day);
+              return isSameDay(pickupDate, today);
+            });
           });
           if (hasPickupToday) {
             return false; // Must have NO pickup today
