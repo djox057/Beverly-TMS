@@ -2166,8 +2166,7 @@ const Reports = () => {
 
     // New drivers filter: show only trucks with no loads ever OR exactly 1 load with pickup today
     if (showNewDrivers) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getChicagoToday();
       return reports
         .map((group) => {
           const newDriverTrucks = group.trucks.filter((truck) => {
@@ -2205,8 +2204,7 @@ const Reports = () => {
 
     // Filter to show only trucks with red cells for today (any text: "Empty", "Lost day", etc.)
     // Must match the exact display logic for isMissingPickup
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getChicagoToday();
     const tomorrow = addDays(today, 1);
     const todayStr = format(today, "yyyy-MM-dd");
     return reports

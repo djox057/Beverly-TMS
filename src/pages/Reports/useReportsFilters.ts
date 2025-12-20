@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { isSameDay } from "date-fns";
 import { parseSimpleDateTime } from "@/utils/dateUtils";
+import { getChicagoToday } from "./helpers";
 
 // Filter state hook
 export function useReportsFilters() {
@@ -65,8 +66,7 @@ export function useReportsFilters() {
 
   // Helper function to check if a driver is "new" (no loads or exactly 1 load with pickup today)
   const isNewDriver = useCallback((truck: any) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getChicagoToday();
     const realOrders = truck.allOrders?.filter((order: any) => order.notes !== "GAME|OVER") || [];
 
     if (realOrders.length === 0) {
