@@ -2280,7 +2280,9 @@ const Reports = () => {
 
           // Check for game over before today
           const hasGameOverBefore = truck.lost_day_notes?.some((note: any) => {
-            const noteDate = new Date(note.date + "T00:00:00");
+            // Parse date without timezone conversion
+            const [year, month, day] = note.date.split("-").map(Number);
+            const noteDate = new Date(year, month - 1, day);
             if (noteDate >= today) return false; // Only check days before today
             const noteText = note.note?.toLowerCase() || "";
             return noteText.includes("game over");
