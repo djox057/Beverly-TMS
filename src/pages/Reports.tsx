@@ -410,6 +410,7 @@ const Reports = () => {
     internalLoadNumber: string;
     freightAmount: number;
     loadedMiles: number;
+    driverPay: number;
   } | null>(null);
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -586,9 +587,10 @@ const Reports = () => {
       internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
       freightAmount: 0,
       loadedMiles: 0,
+      driverPay: 0,
     };
 
-    // Fetch financial data for this specific order from DB (freight only, no driver pay)
+    // Fetch financial data for this specific order from DB
     try {
       const { data: orderData } = await supabase
         .from("orders")
@@ -596,7 +598,10 @@ const Reports = () => {
           freight_amount, loaded_miles, mileage,
           detention, layover, tonu, extra_stop,
           lumper, late_fee, no_tracking_fee,
-          wrong_address_fee, escort_fee, other_charges
+          wrong_address_fee, escort_fee, other_charges,
+          driver_price, detention_driver, layover_driver, tonu_driver,
+          extra_stop_driver, lumper_driver, late_fee_driver,
+          no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver
         `)
         .eq("id", orderId)
         .single();
@@ -622,6 +627,18 @@ const Reports = () => {
           toNum(orderData.other_charges);
 
         baseDetails.loadedMiles = toNum(orderData.loaded_miles) || toNum(orderData.mileage);
+
+        baseDetails.driverPay =
+          toNum(orderData.driver_price) +
+          toNum(orderData.detention_driver) +
+          toNum(orderData.layover_driver) +
+          toNum(orderData.tonu_driver) +
+          toNum(orderData.extra_stop_driver) +
+          toNum(orderData.lumper_driver) +
+          toNum(orderData.late_fee_driver) +
+          toNum(orderData.no_tracking_fee_driver) +
+          toNum(orderData.wrong_address_fee_driver) +
+          toNum(orderData.other_charges_driver);
       }
     } catch (err) {
       console.error("Error fetching order financial data:", err);
@@ -4302,6 +4319,15 @@ const Reports = () => {
                       {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
                         <span className="text-xs text-muted-foreground/80">
                           {(zoomedLoad.freightAmount / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col leading-tight">
+                      <span>${zoomedLoad?.driverPay?.toLocaleString() || 0} driver pay</span>
+                      {zoomedLoad?.loadedMiles && zoomedLoad.loadedMiles > 0 ? (
+                        <span className="text-xs text-muted-foreground/80">
+                          {(zoomedLoad.driverPay / zoomedLoad.loadedMiles).toFixed(2)}/mi RPM
                         </span>
                       ) : null}
                     </div>
