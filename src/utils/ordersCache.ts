@@ -70,7 +70,7 @@ export async function saveLockedOrders(orders: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('locked-orders.json', blob, {
-        cacheControl: '3600',
+        cacheControl: '0',
         upsert: true,
       });
 
@@ -100,7 +100,7 @@ export async function savePickupDrops(pickupDrops: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('pickup-drops.json', blob, {
-        cacheControl: '3600',
+        cacheControl: '0',
         upsert: true,
       });
 
@@ -130,7 +130,7 @@ export async function saveOrderFiles(orderFiles: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('order-files.json', blob, {
-        cacheControl: '3600',
+        cacheControl: '0',
         upsert: true,
       });
 
@@ -174,9 +174,10 @@ export async function getLockedOrders(): Promise<any[] | null> {
 
     // No local cache - fetch from company storage
     console.log('📡 Fetching locked orders from company storage (no local cache)...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('locked-orders.json');
+      .download(`locked-orders.json?t=${cacheBuster}`);
 
     if (error) {
       console.log('📦 No company archived orders found');
@@ -205,9 +206,10 @@ export async function getLockedOrders(): Promise<any[] | null> {
 async function refreshLockedOrdersInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
   try {
     console.log('🔄 Refreshing locked orders in background...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('locked-orders.json');
+      .download(`locked-orders.json?t=${cacheBuster}`);
 
     if (error) {
       console.log('⚠️ Background refresh failed:', error.message);
@@ -252,9 +254,10 @@ export async function getPickupDrops(): Promise<any[] | null> {
 
     // No local cache - fetch from company storage
     console.log('📡 Fetching pickup/drops from company storage (no local cache)...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('pickup-drops.json');
+      .download(`pickup-drops.json?t=${cacheBuster}`);
 
     if (error) {
       console.log('📦 No company archived pickup/drops found');
@@ -283,9 +286,10 @@ export async function getPickupDrops(): Promise<any[] | null> {
 async function refreshPickupDropsInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
   try {
     console.log('🔄 Refreshing pickup/drops in background...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('pickup-drops.json');
+      .download(`pickup-drops.json?t=${cacheBuster}`);
 
     if (error) return;
 
@@ -327,9 +331,10 @@ export async function getOrderFiles(): Promise<any[] | null> {
 
     // No local cache - fetch from company storage
     console.log('📡 Fetching order files from company storage (no local cache)...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('order-files.json');
+      .download(`order-files.json?t=${cacheBuster}`);
 
     if (error) {
       console.log('📦 No company archived order files found');
@@ -358,9 +363,10 @@ export async function getOrderFiles(): Promise<any[] | null> {
 async function refreshOrderFilesInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
   try {
     console.log('🔄 Refreshing order files in background...');
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('order-files.json');
+      .download(`order-files.json?t=${cacheBuster}`);
 
     if (error) return;
 
@@ -382,9 +388,10 @@ async function refreshOrderFilesInBackground(db: IDBPDatabase<OrdersCacheDB>): P
 // Get order transfers from storage (if available) - no local caching, just storage fetch
 export async function getOrderTransfers(): Promise<any[] | null> {
   try {
+    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download('order-transfers.json');
+      .download(`order-transfers.json?t=${cacheBuster}`);
 
     if (error) {
       // File doesn't exist yet - this is expected for older cached data
