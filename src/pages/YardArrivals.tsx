@@ -522,7 +522,7 @@ export default function YardArrivals() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TruckIcon className="h-5 w-5" />
-              Returning Truck ({returnTruckActions.length})
+              Returning Truck & Recoveries ({returnTruckActions.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
