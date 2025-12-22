@@ -4052,7 +4052,7 @@ const Reports = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="return_truck">Return the truck</SelectItem>
+                  <SelectItem value="return_truck">Return Truck & Recoveries</SelectItem>
                   <SelectItem value="safety">Safety</SelectItem>
                 </SelectContent>
               </Select>
