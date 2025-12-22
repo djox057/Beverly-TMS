@@ -42,6 +42,9 @@ export interface ZoomedLoadState {
   driverNames: string;
   companyName: string;
   internalLoadNumber: string;
+  freightAmount: number;
+  loadedMiles: number;
+  driverPay: number;
 }
 
 export interface CashAdvanceDialogState {
