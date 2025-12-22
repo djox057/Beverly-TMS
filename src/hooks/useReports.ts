@@ -998,24 +998,24 @@ export const useReports = () => {
                 return false;
               }) || [];
 
-            // Categorize orders (exclude GAME-OVER and canceled orders from active orders)
+            // activeOrders: Orders without POD that could be "current order"
+            // Per REPORTS_SPECIFICATION.md Section 3: Current order is first order without POD
+            // If order without POD is followed by order with POD, skip to next without POD
             const activeOrders =
               driverOrders.filter((order) => {
                 // Skip GAME-OVER orders - they're visual indicators only
                 if (order.notes === "GAME|OVER") return false;
 
-                // Skip canceled orders (already normalized to boolean for CSV data)
+                // Skip canceled orders
                 if (order.canceled) return false;
 
-                // Skip orders with POD files - they are completed
+                // Skip orders with POD files - they are completed and can't be "current"
                 const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
                 if (hasPOD) return false;
 
+                // Any pending/in_transit order without POD is a candidate for current order
                 const isActiveStatus = order.status === "pending" || order.status === "in_transit";
-                const hasNoDeliveryDate = !order.delivery_datetime;
-                const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
-
-                return isActiveStatus && (hasNoDeliveryDate || deliveryInFuture);
+                return isActiveStatus;
               }) || [];
 
             const recentCompletedOrders =
@@ -1521,18 +1521,18 @@ export const useReports = () => {
           const driverOrders =
             allOrders?.filter((order) => order.driver1_id === driver.id || order.driver2_id === driver.id) || [];
 
-          // Categorize orders (canceled is already normalized to boolean for CSV data)
+          // activeOrders: Orders without POD that could be "current order"
+          // Per REPORTS_SPECIFICATION.md Section 3: Current order is first order without POD
           const activeOrders =
             driverOrders.filter((order) => {
               if (order.notes === "GAME|OVER") return false;
               if (order.canceled) return false;
-              // Skip orders with POD files - they are completed
+              // Skip orders with POD files - they are completed and can't be "current"
               const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
               if (hasPOD) return false;
+              // Any pending/in_transit order without POD is a candidate for current order
               const isActiveStatus = order.status === "pending" || order.status === "in_transit";
-              const hasNoDeliveryDate = !order.delivery_datetime;
-              const deliveryInFuture = order.delivery_datetime && new Date(order.delivery_datetime).getTime() > now;
-              return isActiveStatus && (hasNoDeliveryDate || deliveryInFuture);
+              return isActiveStatus;
             }) || [];
 
           const recentCompletedOrders =
