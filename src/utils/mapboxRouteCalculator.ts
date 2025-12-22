@@ -1,4 +1,4 @@
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN || '';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Coordinates {
   lat: number;
@@ -6,96 +6,84 @@ export interface Coordinates {
 }
 
 /**
- * Geocode an address using Mapbox Geocoding API
- * Exported for use in storing coordinates in pickup_drops
+ * Geocode an address using the edge function with Mapbox
  */
 export async function geocodeAddress(address: string): Promise<Coordinates | null> {
   if (!address || address.trim() === '') return null;
   
   try {
-    const encodedAddress = encodeURIComponent(address);
     console.log('📍 Geocoding address:', address);
     
-    const response = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=US`
-    );
+    const { data, error } = await supabase.functions.invoke('calculate-mapbox-route', {
+      body: { type: 'geocode', address }
+    });
     
-    if (!response.ok) {
-      console.error('📍 Geocoding failed with status:', response.status);
+    if (error) {
+      console.error('📍 Geocoding error:', error);
       return null;
     }
     
-    const data = await response.json();
-    
-    if (data.features && data.features.length > 0) {
-      const [lon, lat] = data.features[0].center;
-      const placeName = data.features[0].place_name;
-      console.log('📍 Geocoded result:', placeName, '→', { lat, lon });
-      return { lat, lon };
+    if (data?.success && data?.coordinates) {
+      console.log('📍 Geocoded result:', address, '→', data.coordinates);
+      return data.coordinates;
     }
     
     console.warn('📍 No geocoding results for:', address);
     return null;
   } catch (error) {
-    console.error('Mapbox geocoding error:', error);
+    console.error('Geocoding error:', error);
     return null;
   }
 }
 
 /**
- * Calculate driving distance between two coordinates using Mapbox Directions API
+ * Calculate driving distance between two coordinates using the edge function
  */
 async function getRouteDistance(start: Coordinates, end: Coordinates): Promise<number | null> {
   try {
-    const coordinates = `${start.lon},${start.lat};${end.lon},${end.lat}`;
-    const response = await fetch(
-      `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?access_token=${MAPBOX_TOKEN}`
-    );
+    const { data, error } = await supabase.functions.invoke('calculate-mapbox-route', {
+      body: { type: 'route', start, end }
+    });
     
-    if (!response.ok) return null;
+    if (error) {
+      console.error('Route calculation error:', error);
+      return null;
+    }
     
-    const data = await response.json();
-    
-    if (data.routes && data.routes.length > 0) {
-      // Distance is in meters, convert to miles
-      const distanceInMeters = data.routes[0].distance;
-      const distanceInMiles = Math.round(distanceInMeters / 1609.344);
-      return distanceInMiles;
+    if (data?.success) {
+      return data.miles;
     }
     
     return null;
   } catch (error) {
-    console.error('Mapbox directions error:', error);
+    console.error('Route distance error:', error);
     return null;
   }
 }
 
 /**
- * Calculate driving distance for a multi-stop route using Mapbox Directions API
+ * Calculate driving distance for a multi-stop route using the edge function
  */
 async function getMultiStopRouteDistance(coordinates: Coordinates[]): Promise<number | null> {
   if (coordinates.length < 2) return null;
   
   try {
-    const coordString = coordinates.map(c => `${c.lon},${c.lat}`).join(';');
-    const response = await fetch(
-      `https://api.mapbox.com/directions/v5/mapbox/driving/${coordString}?access_token=${MAPBOX_TOKEN}`
-    );
+    const { data, error } = await supabase.functions.invoke('calculate-mapbox-route', {
+      body: { type: 'multi-stop-route', coordinates }
+    });
     
-    if (!response.ok) return null;
+    if (error) {
+      console.error('Multi-stop route calculation error:', error);
+      return null;
+    }
     
-    const data = await response.json();
-    
-    if (data.routes && data.routes.length > 0) {
-      // Distance is in meters, convert to miles
-      const distanceInMeters = data.routes[0].distance;
-      const distanceInMiles = Math.round(distanceInMeters / 1609.344);
-      return distanceInMiles;
+    if (data?.success) {
+      return data.miles;
     }
     
     return null;
   } catch (error) {
-    console.error('Mapbox multi-stop directions error:', error);
+    console.error('Multi-stop route distance error:', error);
     return null;
   }
 }
