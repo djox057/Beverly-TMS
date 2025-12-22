@@ -46,10 +46,8 @@ export const OrdersCacheStatus = () => {
     setIsRefreshing(true);
     try {
       await clearCache();
-      // Invalidate both orders and reports queries to refresh all data
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast.success("Cache cleared. Refreshing orders and reports...");
+      toast.success("Cache cleared. Refreshing orders...");
       
       // Reload stats after a short delay
       setTimeout(async () => {

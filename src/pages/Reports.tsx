@@ -32,7 +32,6 @@ import {
   CalendarIcon,
   Pill,
   DollarSign,
-  RefreshCw,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -63,7 +62,6 @@ import { parseSimpleDateTime } from "@/utils/dateUtils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useReportsDialogs } from "./Reports/useReportsDialogs";
 import { useReportsFilters } from "./Reports/useReportsFilters";
-import { clearCache } from "@/utils/ordersCache";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   getCompanyBackgroundColor,
@@ -333,30 +331,6 @@ const Reports = () => {
   } = useReports();
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
-  const [isRefreshingCache, setIsRefreshingCache] = useState(false);
-
-  // Handler to refresh archived orders cache
-  const handleRefreshCache = async () => {
-    setIsRefreshingCache(true);
-    try {
-      await clearCache();
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['reports'] });
-      toast({
-        title: "Cache cleared",
-        description: "Refreshing reports with latest data...",
-      });
-    } catch (error) {
-      console.error("Error refreshing cache:", error);
-      toast({
-        title: "Error",
-        description: "Failed to refresh cache",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshingCache(false);
-    }
-  };
 
   // Delete lost day note mutation
   const deleteLostDayNote = useMutation({
@@ -2444,18 +2418,7 @@ const Reports = () => {
                   <X className="h-4 w-4" />
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshCache}
-                disabled={isRefreshingCache}
-                className="gap-2 ml-auto"
-                title="Refresh archived orders cache"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshingCache ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setLegendDialogOpen(true)} className="gap-2 ml-auto">
                 <HelpCircle className="h-4 w-4" />
                 Legend
               </Button>
