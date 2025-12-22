@@ -907,7 +907,8 @@ export const useReports = () => {
             ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
             lockedOrders = ordersWithRelations.filter((order: any) => {
-              // Note: canceled orders are included and filtered in JS to show most recent canceled if no newer load
+              // Per spec: Locked canceled orders should NOT display
+              if (order.canceled || order.status === 'canceled') return false;
               
               // Normalize delivery_datetime - CSV uses space separator, ISO uses T
               const deliveryDateStr = order.delivery_datetime ? 
@@ -1254,27 +1255,61 @@ export const useReports = () => {
                 }) || [];
 
             // Select primary order for display (backward compatibility, exclude GAME-OVER)
-            // Prioritize: 1) in_transit orders, 2) pending orders by earliest pickup
+            // Per spec: in_transit orders DON'T take priority over pending orders
+            // Sort only by earliest pickup time
             const sortedActiveOrders = allOrdersWithStops
               .filter((order) => order.isActive && activeOrders.some((active) => active.id === order.id))
               .sort((a, b) => {
-                // in_transit comes first
-                if (a.status === 'in_transit' && b.status !== 'in_transit') return -1;
-                if (b.status === 'in_transit' && a.status !== 'in_transit') return 1;
-                // Then sort by pickup datetime (earliest first)
+                // Sort by pickup datetime (earliest first) - NO status priority
                 const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
                 const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
                 return aPickup - bPickup;
               });
 
-            const currentOrder =
-              allOrdersWithStops.length > 0
-                ? sortedActiveOrders.length > 0
-                  ? sortedActiveOrders[0]
-                  : recentCompletedOrders.length > 0
-                    ? allOrdersWithStops.find((order) => order.isRecentCompleted)
-                    : allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null
-                : null;
+            // Find current order with "skip to next without POD" rule
+            // Per spec: If an order without POD is followed by an order WITH POD, 
+            // then another without POD, the LAST one without POD is current
+            let currentOrder: typeof sortedActiveOrders[0] | null = null;
+            
+            if (sortedActiveOrders.length > 0) {
+              // Find first order without POD
+              const firstWithoutPODIndex = sortedActiveOrders.findIndex(order => {
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                return !hasPOD;
+              });
+              
+              if (firstWithoutPODIndex >= 0) {
+                // Check if any subsequent order has POD
+                const hasSubsequentWithPOD = sortedActiveOrders.slice(firstWithoutPODIndex + 1).some(order => {
+                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                  return hasPOD;
+                });
+                
+                if (hasSubsequentWithPOD) {
+                  // Find the next order without POD after the one with POD
+                  for (let i = firstWithoutPODIndex + 1; i < sortedActiveOrders.length; i++) {
+                    const hasPOD = sortedActiveOrders[i].order_files?.some((file: any) => file.file_category === 'POD');
+                    if (!hasPOD) {
+                      currentOrder = sortedActiveOrders[i];
+                      break;
+                    }
+                  }
+                  // If no subsequent without POD found, use the first one
+                  if (!currentOrder) {
+                    currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+                  }
+                } else {
+                  currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+                }
+              } else {
+                // All active orders have POD, use the first one
+                currentOrder = sortedActiveOrders[0];
+              }
+            } else if (recentCompletedOrders.length > 0) {
+              currentOrder = allOrdersWithStops.find((order) => order.isRecentCompleted) || null;
+            } else if (allOrdersWithStops.length > 0) {
+              currentOrder = allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null;
+            }
 
             // Use transfer-aware stops for drivers with transfers
             const driverIdForTransfer = truck.driver1_id;
@@ -1553,9 +1588,57 @@ export const useReports = () => {
               return false;
             }) || [];
 
+          // Per REPORTS_SPECIFICATION.md Section 2.2: Canceled Order Exception
+          // The most recent canceled order SHOULD display IF:
+          // - There is no newer non-canceled order after it (by created_at)
+          // - The canceled order's pickup is NOT before the previous load's delivery
+          let canceledOrderToShow: string | null = null;
+          {
+            const canceledOrders = driverOrders
+              .filter((o) => o.canceled)
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const nonCanceledOrders = driverOrders.filter((o) => !o.canceled);
+            
+            if (canceledOrders.length > 0) {
+              const mostRecentCanceled = canceledOrders[0];
+              const canceledCreatedAt = new Date(mostRecentCanceled.created_at).getTime();
+              const hasNewerNonCanceled = nonCanceledOrders.some(
+                (o) => new Date(o.created_at).getTime() > canceledCreatedAt
+              );
+              
+              // Additional check: if canceled load's pickup is before previous load's delivery, don't show it
+              let canceledPickupBeforePreviousDelivery = false;
+              if (!hasNewerNonCanceled && nonCanceledOrders.length > 0) {
+                // Get the most recent non-canceled order (previous load)
+                const sortedNonCanceled = [...nonCanceledOrders].sort(
+                  (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                const previousLoad = sortedNonCanceled[0];
+                
+                // Get canceled order's pickup datetime
+                const canceledPickupDatetime = mostRecentCanceled.pickup_datetime;
+                // Get previous load's delivery datetime
+                const previousDeliveryDatetime = previousLoad.delivery_datetime;
+                
+                if (canceledPickupDatetime && previousDeliveryDatetime) {
+                  const canceledPickupTime = new Date(canceledPickupDatetime.replace(' ', 'T')).getTime();
+                  const previousDeliveryTime = new Date(previousDeliveryDatetime.replace(' ', 'T')).getTime();
+                  
+                  if (canceledPickupTime < previousDeliveryTime) {
+                    canceledPickupBeforePreviousDelivery = true;
+                  }
+                }
+              }
+              
+              if (!hasNewerNonCanceled && !canceledPickupBeforePreviousDelivery) {
+                canceledOrderToShow = mostRecentCanceled.id;
+              }
+            }
+          }
+
           const allOrdersWithStops =
             driverOrders
-              .filter((order) => !order.canceled)
+              .filter((order) => !order.canceled || order.id === canceledOrderToShow)
               .map((order) => {
                 // Get original pickup/delivery stops
                 let pickupStops = (order.pickup_drops?.filter((stop: any) => stop.type === "pickup") || []).sort(
@@ -1701,16 +1784,59 @@ export const useReports = () => {
                 };
               }) || [];
 
-          const currentOrder =
-            allOrdersWithStops.length > 0
-              ? activeOrders.length > 0
-                ? allOrdersWithStops.find(
-                    (order) => order.isActive && activeOrders.some((active) => active.id === order.id),
-                  )
-                : recentCompletedOrders.length > 0
-                  ? allOrdersWithStops.find((order) => order.isRecentCompleted)
-                  : allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null
-              : null;
+          // Per spec: Sort only by earliest pickup time (no in_transit priority)
+          const sortedActiveOrders = allOrdersWithStops
+            .filter((order) => order.isActive && activeOrders.some((active) => active.id === order.id))
+            .sort((a, b) => {
+              const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+              const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+              return aPickup - bPickup;
+            });
+
+          // Find current order with "skip to next without POD" rule
+          // Per spec: If an order without POD is followed by an order WITH POD, 
+          // then another without POD, the LAST one without POD is current
+          let currentOrder: typeof sortedActiveOrders[0] | null = null;
+          
+          if (sortedActiveOrders.length > 0) {
+            // Find first order without POD
+            const firstWithoutPODIndex = sortedActiveOrders.findIndex(order => {
+              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+              return !hasPOD;
+            });
+            
+            if (firstWithoutPODIndex >= 0) {
+              // Check if any subsequent order has POD
+              const hasSubsequentWithPOD = sortedActiveOrders.slice(firstWithoutPODIndex + 1).some(order => {
+                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+                return hasPOD;
+              });
+              
+              if (hasSubsequentWithPOD) {
+                // Find the next order without POD after the one with POD
+                for (let i = firstWithoutPODIndex + 1; i < sortedActiveOrders.length; i++) {
+                  const hasPOD = sortedActiveOrders[i].order_files?.some((file: any) => file.file_category === 'POD');
+                  if (!hasPOD) {
+                    currentOrder = sortedActiveOrders[i];
+                    break;
+                  }
+                }
+                // If no subsequent without POD found, use the first one
+                if (!currentOrder) {
+                  currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+                }
+              } else {
+                currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+              }
+            } else {
+              // All active orders have POD, use the first one
+              currentOrder = sortedActiveOrders[0];
+            }
+          } else if (recentCompletedOrders.length > 0) {
+            currentOrder = allOrdersWithStops.find((order) => order.isRecentCompleted) || null;
+          } else if (allOrdersWithStops.length > 0) {
+            currentOrder = allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null;
+          }
 
           // Use transfer-aware stops for unassigned drivers with transfers
           const transferStopInfo: TransferSegmentInfo = currentOrder
