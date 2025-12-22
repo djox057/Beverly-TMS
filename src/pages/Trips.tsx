@@ -51,6 +51,7 @@ type FuelTransaction = {
   location_name: string | null;
   city: string | null;
   state: string | null;
+  item: string | null;
   fees: number;
   unit_price: number;
   quantity: number;
@@ -187,7 +188,7 @@ const fetchFuelTransactionsForTruck = async (
 ): Promise<FuelTransaction[]> => {
   const { data, error } = await supabase
     .from("fuel_transactions")
-    .select("id, transaction_number, transaction_date, location_name, city, state, fees, unit_price, quantity, amount")
+    .select("id, transaction_number, transaction_date, location_name, city, state, item, fees, unit_price, quantity, amount")
     .eq("truck_number", truckNumber)
     .gte("transaction_date", format(startDate, "yyyy-MM-dd"))
     .lte("transaction_date", format(endDate, "yyyy-MM-dd"))
@@ -271,19 +272,25 @@ const writeFuelTransactionsToWorksheet = (
     feesCell.value = parseFloat(String(fuel.fees)) || 0;
     feesCell.numFmt = "$#,##0.00";
 
-    // H: unit_price
+    // G: item
+    worksheet.getCell(`G${currentRow}`).value = fuel.item || "";
+
+    // H: unit_price - set to amount when quantity is 1
+    const quantity = parseFloat(String(fuel.quantity)) || 0;
+    const amount = parseFloat(String(fuel.amount)) || 0;
+    const unitPrice = (quantity === 1 || quantity === 1.0) ? amount : (parseFloat(String(fuel.unit_price)) || 0);
     const unitPriceCell = worksheet.getCell(`H${currentRow}`);
-    unitPriceCell.value = parseFloat(String(fuel.unit_price)) || 0;
+    unitPriceCell.value = unitPrice;
     unitPriceCell.numFmt = "$#,##0.000";
 
     // I: quantity
     const quantityCell = worksheet.getCell(`I${currentRow}`);
-    quantityCell.value = parseFloat(String(fuel.quantity)) || 0;
+    quantityCell.value = quantity;
     quantityCell.numFmt = "#,##0.00";
 
     // J: amount
     const amountCell = worksheet.getCell(`J${currentRow}`);
-    amountCell.value = parseFloat(String(fuel.amount)) || 0;
+    amountCell.value = amount;
     amountCell.numFmt = "$#,##0.00";
 
     currentRow++;
@@ -309,6 +316,21 @@ const formatDateDisplay = (dateStr: string | null | undefined) => {
   } catch (e) {
     return dateStr;
   }
+};
+
+// Helper to sort orders ascending by date for statements
+const sortOrdersAscending = (orders: any[]) => {
+  return [...orders].sort((a, b) => {
+    const getDateValue = (dateStr: string | null | undefined): number => {
+      if (!dateStr) return 0;
+      const normalizedStr = String(dateStr).replace(" ", "T");
+      const datePart = normalizedStr.split("T")[0];
+      return datePart ? new Date(datePart + "T12:00:00").getTime() : 0;
+    };
+    const dateA = getDateValue(a.deliveryDate) || getDateValue(a.pickupDate);
+    const dateB = getDateValue(b.deliveryDate) || getDateValue(b.pickupDate);
+    return dateA - dateB; // Oldest first (ascending)
+  });
 };
 
 const getStatusBadge = (status: string) => {
@@ -822,6 +844,9 @@ const Trips = () => {
         throw new Error("Template worksheet not found");
       }
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       // Fetch and update invoice number from database
       const { data: configData, error: configError } = await supabase
         .from("invoice_number_config")
@@ -917,7 +942,7 @@ const Trips = () => {
 
       // Trips Rows 14-20 - Only base driver pay (driverPrice), not totalDriverPay
       let currentRow = 14;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         if (currentRow > 20) return;
 
         // A: Internal load number
@@ -972,7 +997,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const detention = Number(order.detentionDriver) || 0;
         if (detention > 0) {
           credits.push({
@@ -1050,7 +1075,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
         if (lateFee > 0) {
           negativeAdditionals.push({
@@ -1180,6 +1205,9 @@ const Trips = () => {
         throw new Error("Template worksheet not found");
       }
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       // Fetch and update invoice number from database
       const { data: configData, error: configError } = await supabase
         .from("invoice_number_config")
@@ -1275,7 +1303,7 @@ const Trips = () => {
 
       // Trips Rows 14-20 - Only base driver pay (driverPrice), not totalDriverPay
       let currentRow = 14;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         if (currentRow > 20) return;
 
         // A: Trip No. (Internal load number)
@@ -1337,7 +1365,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const detention = Number(order.detentionDriver) || 0;
         if (detention > 0) {
           credits.push({
@@ -1415,7 +1443,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
         if (lateFee > 0) {
           negativeAdditionals.push({
@@ -1545,6 +1573,9 @@ const Trips = () => {
         throw new Error("Template worksheet not found");
       }
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       // Fetch and update invoice number from database
       const { data: configData, error: configError } = await supabase
         .from("invoice_number_config")
@@ -1638,7 +1669,7 @@ const Trips = () => {
       // Fill in trip details starting at row 13 - BASE ONLY (driverPrice, not totalDriverPay)
       let currentRow = 13;
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -1677,7 +1708,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const detention = Number(order.detentionDriver) || 0;
         if (detention > 0) {
           credits.push({
@@ -1755,7 +1786,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
         if (lateFee > 0) {
           negativeAdditionals.push({
@@ -1891,6 +1922,9 @@ const Trips = () => {
         throw new Error("Template worksheet not found");
       }
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       // Set row 12 to auto-fit (fit to data)
       worksheet.getRow(12).height = undefined; // Auto-fit
 
@@ -1974,7 +2008,7 @@ const Trips = () => {
       // Fill in trip details starting at row 13 - BASE ONLY (driverPrice, not totalDriverPay)
       let currentRow = 13;
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -2014,7 +2048,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const detention = Number(order.detentionDriver) || 0;
         if (detention > 0) {
           credits.push({
@@ -2092,7 +2126,7 @@ const Trips = () => {
         amount: number;
       }> = [];
 
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         const lateFee = Math.abs(Number(order.lateFeeDriver) || 0);
         if (lateFee > 0) {
           negativeAdditionals.push({
@@ -2210,8 +2244,10 @@ const Trips = () => {
 
   const exportGenericExcel = (week: any, weekStartDate: Date, weekEndDate: Date) => {
     try {
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
       // Prepare data for Excel
-      const excelData = week.orders.map((order: any) => ({
+      const excelData = sortedOrders.map((order: any) => ({
         "Truck #": order.truckNumber || "",
         "Load #": order.internalLoadNumber || "",
         "Pickup Date": formatDateDisplay(order.pickupDate),
@@ -2435,8 +2471,11 @@ const Trips = () => {
       }
       worksheet.getCell("J7").value = driver?.name || "";
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       let currentRow = 14;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -2498,8 +2537,11 @@ const Trips = () => {
       }
       worksheet.getCell("J7").value = driver?.name || "";
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       let currentRow = 14;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -2571,8 +2613,11 @@ const Trips = () => {
       worksheet.getCell("J9").value = firstOrder.truckNumber || "";
       if (driver?.weekly_payment && driver?.weeks_count) worksheet.getCell("J10").value = `$${driver.weekly_payment}/${driver.weeks_count}weeks`;
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       let currentRow = 13;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
@@ -2642,8 +2687,11 @@ const Trips = () => {
       worksheet.getCell("F6").value = firstOrder.truckNumber || "";
       worksheet.getCell("B5").value = `${format(startDate, "M/d/yyyy")}-${format(endDate, "M/d/yyyy")}`;
 
+      // Sort orders ascending by date for statement export
+      const sortedOrders = sortOrdersAscending(week.orders);
+
       let currentRow = 28;
-      week.orders.forEach((order: any) => {
+      sortedOrders.forEach((order: any) => {
         worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
         worksheet.getCell(`C${currentRow}`).value = order.pickupCity || "";
