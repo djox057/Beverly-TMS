@@ -285,7 +285,7 @@ export function EfsRequestDialog({
                 <SelectTrigger id="efs-purpose" className="w-full">
                   <SelectValue placeholder="Select purpose" />
                 </SelectTrigger>
-                <SelectContent className="z-[200]" position="popper" sideOffset={4}>
+                <SelectContent position="popper" sideOffset={4}>
                   {EFS_PURPOSE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
