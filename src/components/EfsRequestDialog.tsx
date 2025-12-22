@@ -120,6 +120,7 @@ export function EfsRequestDialog({
       
       const { data, error } = await supabase.functions.invoke("send-efs-other-request", {
         body: {
+          driverId,
           driverName,
           truckNumber,
           companyName,
@@ -281,10 +282,10 @@ export function EfsRequestDialog({
             <div className="space-y-2">
               <Label htmlFor="efs-purpose" className="text-sm font-medium">Purpose</Label>
               <Select value={otherPurpose} onValueChange={setOtherPurpose}>
-                <SelectTrigger id="efs-purpose">
+                <SelectTrigger id="efs-purpose" className="w-full">
                   <SelectValue placeholder="Select purpose" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[200]" position="popper" sideOffset={4}>
                   {EFS_PURPOSE_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

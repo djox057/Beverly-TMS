@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 interface EfsOtherRequest {
+  driverId?: string;
   driverName: string;
   truckNumber: string;
   companyName: string;
@@ -43,13 +44,14 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const body: EfsOtherRequest = await req.json();
-    const { driverName, truckNumber, companyName, amount, purpose } = body;
+    const { driverId, driverName, truckNumber, companyName, amount, purpose } = body;
 
     // Prefer resolving requester identity from the JWT
     let requesterEmail = body.requesterEmail;
     let requesterName = body.requesterName;
 
     console.log("EFS Other request received:", {
+      driverId,
       driverName,
       truckNumber,
       companyName,
@@ -181,6 +183,25 @@ Purpose: ${purpose}`;
     }
 
     console.log("Email sent successfully:", emailResult);
+
+    // Save to database
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { error: dbError } = await supabase.from("efs_other_requests").insert({
+      driver_id: driverId || null,
+      driver_name: driverName,
+      truck_number: truckNumber,
+      company_name: companyName,
+      amount: amount,
+      purpose: purpose,
+      requested_by: requesterName || requesterEmail || null,
+    });
+
+    if (dbError) {
+      console.error("Failed to save EFS request to database:", dbError);
+      // Don't fail the request, email was already sent
+    } else {
+      console.log("EFS request saved to database");
+    }
 
     return new Response(
       JSON.stringify({
