@@ -275,13 +275,13 @@ const writeFuelTransactionsToWorksheet = (
     // G: item
     worksheet.getCell(`G${currentRow}`).value = fuel.item || "";
 
-    // H: unit_price - set to amount when quantity is 1
+    // H: unit_price - set to amount when quantity is 1, rounded to 2 decimals
     const quantity = parseFloat(String(fuel.quantity)) || 0;
     const amount = parseFloat(String(fuel.amount)) || 0;
     const unitPrice = (quantity === 1 || quantity === 1.0) ? amount : (parseFloat(String(fuel.unit_price)) || 0);
     const unitPriceCell = worksheet.getCell(`H${currentRow}`);
-    unitPriceCell.value = unitPrice;
-    unitPriceCell.numFmt = "$#,##0.000";
+    unitPriceCell.value = Math.round(unitPrice * 100) / 100;
+    unitPriceCell.numFmt = "$#,##0.00";
 
     // I: quantity
     const quantityCell = worksheet.getCell(`I${currentRow}`);
