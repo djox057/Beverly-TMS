@@ -1,0 +1,342 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface EfsRequestDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  driverId: string;
+  driverName: string;
+  truckNumber: string;
+  companyName: string;
+  requesterEmail?: string;
+  requesterName?: string;
+}
+
+const EFS_PURPOSE_OPTIONS = [
+  { value: "scale_ticket", label: "Scale ticket" },
+  { value: "fuel", label: "Fuel" },
+  { value: "cash_advance", label: "Cash advance" },
+  { value: "lumper", label: "Lumper" },
+  { value: "escort", label: "Escort" },
+  { value: "truck_wash", label: "Truck wash" },
+  { value: "straps", label: "Straps" },
+  { value: "repairs", label: "Repairs" },
+];
+
+export function EfsRequestDialog({
+  open,
+  onOpenChange,
+  driverId,
+  driverName,
+  truckNumber,
+  companyName,
+  requesterEmail,
+  requesterName,
+}: EfsRequestDialogProps) {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("cash-advance");
+  
+  // Cash Advance tab state
+  const [cashAdvanceAmount, setCashAdvanceAmount] = useState(50);
+  const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
+  const { data: cashAdvanceData, refetch: refetchCashAdvance, isLoading: isCashAdvanceLoading } = useDriverCashAdvance(driverId);
+  
+  // Other tab state
+  const [otherPurpose, setOtherPurpose] = useState<string>("");
+  const [otherAmount, setOtherAmount] = useState<string>("");
+  const [isRequestingOther, setIsRequestingOther] = useState(false);
+
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setCashAdvanceAmount(50);
+      setOtherPurpose("");
+      setOtherAmount("");
+      setActiveTab("cash-advance");
+    }
+  }, [open]);
+
+  const handleCashAdvanceRequest = async () => {
+    setIsRequestingCashAdvance(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-cash-advance-request", {
+        body: {
+          driverId,
+          driverName,
+          truckNumber,
+          companyName,
+          amount: cashAdvanceAmount,
+          requesterEmail,
+          requesterName,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success === false) {
+        toast({
+          title: "Cannot request cash advance",
+          description: data.error || "Request failed",
+          variant: "destructive",
+        });
+        refetchCashAdvance();
+        return;
+      }
+      
+      toast({
+        title: "Cash advance requested",
+        description: `$${cashAdvanceAmount} cash advance sent for ${driverName}`,
+      });
+      
+      refetchCashAdvance();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Cash advance error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to request cash advance",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingCashAdvance(false);
+    }
+  };
+
+  const handleOtherRequest = async () => {
+    if (!otherPurpose || !otherAmount) return;
+    
+    setIsRequestingOther(true);
+    try {
+      const purposeLabel = EFS_PURPOSE_OPTIONS.find(p => p.value === otherPurpose)?.label || otherPurpose;
+      
+      const { data, error } = await supabase.functions.invoke("send-efs-other-request", {
+        body: {
+          driverName,
+          truckNumber,
+          companyName,
+          amount: parseFloat(otherAmount),
+          purpose: purposeLabel,
+          requesterEmail,
+          requesterName,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success === false) {
+        toast({
+          title: "Request failed",
+          description: data.error || "Failed to send request",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "EFS request sent",
+        description: `$${parseFloat(otherAmount).toFixed(2)} ${purposeLabel} request sent for ${driverName}`,
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error("EFS other request error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send EFS request",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingOther(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>EFS Request</DialogTitle>
+        </DialogHeader>
+        
+        <div className="text-sm text-muted-foreground mb-4">
+          <p><strong>Driver:</strong> {driverName}</p>
+          <p><strong>Truck:</strong> #{truckNumber}</p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="cash-advance">Cash Advance</TabsTrigger>
+            <TabsTrigger value="other">Other</TabsTrigger>
+          </TabsList>
+          
+          {/* Cash Advance Tab */}
+          <TabsContent value="cash-advance" className="space-y-4 mt-4">
+            {isCashAdvanceLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Weekly Usage Progress */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Weekly Usage</span>
+                    <span className="text-sm font-semibold">
+                      ${cashAdvanceData?.weeklyAmount || 0} / $150
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2.5">
+                    <div 
+                      className="bg-primary h-2.5 rounded-full transition-all"
+                      style={{ width: `${Math.min(((cashAdvanceData?.weeklyAmount || 0) / 150) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {cashAdvanceData?.weekCount ?? 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount ?? 150} remaining
+                  </p>
+                </div>
+
+                {/* Daily Usage */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Today</span>
+                  <span className="text-sm">
+                    {cashAdvanceData?.todayCount || 0} / 1 request
+                  </span>
+                </div>
+
+                {/* Amount Input */}
+                {cashAdvanceData?.canRequest && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cash-advance-amount" className="text-sm font-medium">Amount ($)</Label>
+                    <Input
+                      id="cash-advance-amount"
+                      type="number"
+                      min={0}
+                      max={Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
+                      value={cashAdvanceAmount}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount ?? 150)));
+                      }}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Status Message */}
+                {cashAdvanceData && !cashAdvanceData.canRequest && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                    <p className="text-sm text-destructive font-medium">
+                      {(cashAdvanceData.remainingAmount ?? 150) <= 0
+                        ? "Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time)."
+                        : cashAdvanceData.weekCount >= 3
+                          ? "Weekly request limit (3 requests) reached. Resets Monday at midnight (Chicago time)."
+                          : "Daily limit reached. Resets at midnight (Chicago time)."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => onOpenChange(false)}
+                    disabled={isRequestingCashAdvance}
+                  >
+                    Close
+                  </Button>
+                  {!isCashAdvanceLoading && cashAdvanceData?.canRequest && (
+                    <Button 
+                      onClick={handleCashAdvanceRequest}
+                      disabled={isRequestingCashAdvance || cashAdvanceAmount <= 0}
+                    >
+                      {isRequestingCashAdvance ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        `Request $${cashAdvanceAmount}`
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </TabsContent>
+          
+          {/* Other Tab */}
+          <TabsContent value="other" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="efs-purpose" className="text-sm font-medium">Purpose</Label>
+              <Select value={otherPurpose} onValueChange={setOtherPurpose}>
+                <SelectTrigger id="efs-purpose">
+                  <SelectValue placeholder="Select purpose" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EFS_PURPOSE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="efs-amount" className="text-sm font-medium">Amount ($)</Label>
+              <Input
+                id="efs-amount"
+                type="number"
+                step="0.01"
+                min={0}
+                value={otherAmount}
+                onChange={(e) => setOtherAmount(e.target.value)}
+                placeholder="Enter amount"
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              This request has no usage limits and will not count toward the cash advance limits.
+            </p>
+
+            {/* Actions */}
+            <div className="flex gap-2 justify-end pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => onOpenChange(false)}
+                disabled={isRequestingOther}
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={handleOtherRequest}
+                disabled={isRequestingOther || !otherPurpose || !otherAmount || parseFloat(otherAmount) <= 0}
+              >
+                {isRequestingOther ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Request"
+                )}
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
