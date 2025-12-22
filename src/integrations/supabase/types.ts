@@ -1171,6 +1171,53 @@ export type Database = {
           },
         ]
       }
+      efs_other_requests: {
+        Row: {
+          amount: number
+          company_name: string | null
+          created_at: string
+          driver_id: string | null
+          driver_name: string
+          id: string
+          purpose: string
+          requested_at: string
+          requested_by: string | null
+          truck_number: string | null
+        }
+        Insert: {
+          amount?: number
+          company_name?: string | null
+          created_at?: string
+          driver_id?: string | null
+          driver_name: string
+          id?: string
+          purpose: string
+          requested_at?: string
+          requested_by?: string | null
+          truck_number?: string | null
+        }
+        Update: {
+          amount?: number
+          company_name?: string | null
+          created_at?: string
+          driver_id?: string | null
+          driver_name?: string
+          id?: string
+          purpose?: string
+          requested_at?: string
+          requested_by?: string | null
+          truck_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "efs_other_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exported_weeks: {
         Row: {
           created_at: string
