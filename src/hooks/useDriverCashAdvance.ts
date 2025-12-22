@@ -4,27 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 // Get Chicago time boundaries as UTC ISO strings for database queries
 function getChicagoTodayStartUTC(): string {
   const now = new Date();
-  // Get Chicago's current offset (CST = -6, CDT = -5)
+  // Get Chicago's current offset in milliseconds
   const chicagoOffset = getChicagoOffset(now);
   // Calculate what time it is in Chicago right now
-  const chicagoNow = new Date(now.getTime() + chicagoOffset * 60 * 1000);
+  const chicagoNow = new Date(now.getTime() + chicagoOffset);
   // Set to midnight Chicago time
   chicagoNow.setUTCHours(0, 0, 0, 0);
   // Convert back to UTC by subtracting the offset
-  const utcMidnight = new Date(chicagoNow.getTime() - chicagoOffset * 60 * 1000);
+  const utcMidnight = new Date(chicagoNow.getTime() - chicagoOffset);
   return utcMidnight.toISOString();
 }
 
 function getChicagoWeekStartUTC(): string {
   const now = new Date();
+  // Get Chicago's current offset in milliseconds
   const chicagoOffset = getChicagoOffset(now);
-  const chicagoNow = new Date(now.getTime() + chicagoOffset * 60 * 1000);
+  const chicagoNow = new Date(now.getTime() + chicagoOffset);
   // Get day of week (0 = Sunday)
   const dayOfWeek = chicagoNow.getUTCDay();
   const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days since Monday
   chicagoNow.setUTCDate(chicagoNow.getUTCDate() - diff);
   chicagoNow.setUTCHours(0, 0, 0, 0);
-  const utcMonday = new Date(chicagoNow.getTime() - chicagoOffset * 60 * 1000);
+  const utcMonday = new Date(chicagoNow.getTime() - chicagoOffset);
   return utcMonday.toISOString();
 }
 
