@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.send-efs-other-request]
 verify_jwt = false
+
+[functions.calculate-mapbox-route]
+verify_jwt = false
