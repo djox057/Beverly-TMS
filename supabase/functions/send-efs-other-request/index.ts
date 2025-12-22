@@ -1,0 +1,207 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface EfsOtherRequest {
+  driverName: string;
+  truckNumber: string;
+  companyName: string;
+  amount: number;
+  purpose: string;
+  requesterEmail?: string;
+  requesterName?: string;
+}
+
+// Extract last word from name (e.g., "David Mijailovic-Dom" -> "Dom")
+function getLastNamePart(fullName: string | undefined): string {
+  if (!fullName) return "App";
+  const parts = fullName.trim().split(/[\s-]+/);
+  return parts[parts.length - 1] || "App";
+}
+
+// Map company name to EFS sender email
+function getEfsEmail(companyName: string | null): string {
+  if (!companyName) return "efs@bfprime.net";
+  const normalized = companyName.toUpperCase();
+  if (normalized.includes("BEVERLY FREIGHT")) return "efs@beverlyfreight.net";
+  if (normalized.includes("BF PRIME UNITED")) return "efs@bfprimeunited.net";
+  if (normalized.includes("BG PRIME")) return "efs@bgprime.net";
+  if (normalized.includes("BF PRIME")) return "efs@bfprime.net";
+  if (normalized.includes("BEVERLY GROUP")) return "efs@bfprime.net";
+  return "efs@bfprime.net";
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const body: EfsOtherRequest = await req.json();
+    const { driverName, truckNumber, companyName, amount, purpose } = body;
+
+    // Prefer resolving requester identity from the JWT
+    let requesterEmail = body.requesterEmail;
+    let requesterName = body.requesterName;
+
+    console.log("EFS Other request received:", {
+      driverName,
+      truckNumber,
+      companyName,
+      amount,
+      purpose,
+      requesterEmail,
+      requesterName,
+    });
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Resolve requester from JWT (role-independent)
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      });
+
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+      if (userError) {
+        console.warn("Could not resolve requester from JWT:", userError);
+      } else if (userData?.user) {
+        requesterEmail = userData.user.email ?? requesterEmail;
+        requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: requesterProfile, error: requesterProfileError } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", userData.user.id)
+          .maybeSingle();
+
+        if (requesterProfileError) {
+          console.warn("Failed to fetch requester profile:", requesterProfileError);
+        } else {
+          requesterName = requesterProfile?.full_name || requesterName;
+        }
+      }
+    }
+
+    console.log("Requester resolved:", { requesterEmail, requesterName });
+
+    // Validate required fields
+    if (!driverName || !truckNumber || amount === undefined || !purpose) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate amount
+    if (amount < 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Amount must be positive" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Format the email body
+    const emailBody = `Unit: ${truckNumber || "N/A"}
+Driver: ${driverName}
+Amount: $${amount.toFixed(2)}
+Purpose: ${purpose}`;
+
+    // Determine sender email based on company
+    const fromEmail = getEfsEmail(companyName);
+
+    console.log("Sending EFS email from:", fromEmail);
+    console.log("Email body:", emailBody);
+
+    // Send email using Resend REST API
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("Missing RESEND_API_KEY");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Email service is not configured (missing RESEND_API_KEY).",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const lastNamePart = getLastNamePart(requesterName);
+    const emailPayload = {
+      from: `EFS Request <${fromEmail}>`,
+      to: ["efsrequest@gmail.com"],
+      ...(requesterEmail ? { bcc: [requesterEmail] } : {}),
+      reply_to: requesterEmail ? [requesterEmail, fromEmail] : [fromEmail],
+      subject: `EFS request by ${lastNamePart}`,
+      text: emailBody,
+    };
+
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailPayload),
+    });
+
+    const emailResultText = await emailResponse.text();
+    let emailResult: any = null;
+    try {
+      emailResult = emailResultText ? JSON.parse(emailResultText) : null;
+    } catch {
+      emailResult = { raw: emailResultText };
+    }
+
+    console.log("Resend response:", { ok: emailResponse.ok, status: emailResponse.status, result: emailResult });
+
+    if (!emailResponse.ok) {
+      console.error("Resend API error:", { status: emailResponse.status, result: emailResult, fromEmail });
+      const resendErrorMessage = emailResult?.message || emailResult?.error?.message || `Resend error ${emailResponse.status}`;
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Email failed: ${resendErrorMessage}. Sender domain "${fromEmail}" may need to be verified in Resend.`,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    console.log("Email sent successfully:", emailResult);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "EFS request sent successfully",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  } catch (error: any) {
+    console.error("Error in send-efs-other-request:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+};
+
+serve(handler);

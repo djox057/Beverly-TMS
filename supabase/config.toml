@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.calculate-yard-transfer-miles]
 verify_jwt = false
+
+[functions.send-efs-other-request]
+verify_jwt = false

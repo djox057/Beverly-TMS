@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { EfsRequestDialog } from "@/components/EfsRequestDialog";
 import {
   MapPin,
   AlertCircle,
@@ -43,7 +44,7 @@ import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
-import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
+
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
 import { useChristmasNotes } from "@/hooks/useChristmasNotes";
 import { supabase } from "@/integrations/supabase/client";
@@ -422,16 +423,13 @@ const Reports = () => {
   const [lumperConfirmation, setLumperConfirmation] = useState<string | null>(null);
   const [isSubmittingLumper, setIsSubmittingLumper] = useState(false);
   
-  // Cash Advance state
-  const [cashAdvanceDialog, setCashAdvanceDialog] = useState<{
+  // EFS Request dialog state (includes Cash Advance and Other tabs)
+  const [efsRequestDialog, setEfsRequestDialog] = useState<{
     driverId: string;
     driverName: string;
     truckNumber: string;
     companyName: string;
   } | null>(null);
-  const [isRequestingCashAdvance, setIsRequestingCashAdvance] = useState(false);
-  const [cashAdvanceAmount, setCashAdvanceAmount] = useState(50);
-  const { data: cashAdvanceData, refetch: refetchCashAdvance, isLoading: isCashAdvanceLoading } = useDriverCashAdvance(cashAdvanceDialog?.driverId || null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState<string>("");
@@ -2920,7 +2918,7 @@ const Reports = () => {
                                                               className="h-6 w-6 p-0"
                                                               onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setCashAdvanceDialog({
+                                                                setEfsRequestDialog({
                                                                   driverId: truck.driverId!,
                                                                   driverName: truck.driver1Name,
                                                                   truckNumber: truck.truckNumber,
@@ -3058,7 +3056,7 @@ const Reports = () => {
                                                                 className="h-6 w-6 p-0"
                                                                 onClick={(e) => {
                                                                   e.stopPropagation();
-                                                                  setCashAdvanceDialog({
+                                                                  setEfsRequestDialog({
                                                                     driverId: truck.driverId!,
                                                                     driverName: truck.driver,
                                                                     truckNumber: truck.truckNumber,
@@ -5269,171 +5267,17 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Cash Advance Dialog */}
-      <Dialog open={!!cashAdvanceDialog} onOpenChange={(open) => {
-        if (!open) {
-          setCashAdvanceDialog(null);
-          setCashAdvanceAmount(50); // Reset to default
-        }
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Request Cash Advance</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-muted-foreground">
-              <p><strong>Driver:</strong> {cashAdvanceDialog?.driverName}</p>
-              <p><strong>Truck:</strong> #{cashAdvanceDialog?.truckNumber}</p>
-            </div>
-
-            {isCashAdvanceLoading ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <>
-                {/* Weekly Usage Progress */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Weekly Usage</span>
-                    <span className="text-sm font-semibold">
-                      ${cashAdvanceData?.weeklyAmount || 0} / $150
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2.5">
-                    <div 
-                      className="bg-primary h-2.5 rounded-full transition-all"
-                      style={{ width: `${Math.min(((cashAdvanceData?.weeklyAmount || 0) / 150) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {cashAdvanceData?.weekCount ?? 0} of 3 requests this week • ${cashAdvanceData?.remainingAmount ?? 150} remaining
-                  </p>
-                </div>
-
-                {/* Daily Usage */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Today</span>
-                  <span className="text-sm">
-                    {cashAdvanceData?.todayCount || 0} / 1 request
-                  </span>
-                </div>
-
-                {/* Amount Input */}
-                {cashAdvanceData?.canRequest && (
-                  <div className="space-y-2">
-                    <Label htmlFor="cash-advance-amount" className="text-sm font-medium">Amount ($)</Label>
-                    <Input
-                      id="cash-advance-amount"
-                      type="number"
-                      min={0}
-                      max={Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
-                      value={cashAdvanceAmount}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setCashAdvanceAmount(Math.min(Math.max(0, val), Math.min(150, cashAdvanceData?.remainingAmount ?? 150)));
-                      }}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enter amount between $0 and ${Math.min(150, cashAdvanceData?.remainingAmount ?? 150)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Status Message - only show when data loaded and can't request */}
-                {cashAdvanceData && !cashAdvanceData.canRequest && (
-                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                    <p className="text-sm text-destructive font-medium">
-                      {(cashAdvanceData.remainingAmount ?? 150) <= 0
-                        ? "Weekly amount limit ($150) reached. Resets Monday at midnight (Chicago time)."
-                        : cashAdvanceData.weekCount >= 3
-                          ? "Weekly request limit (3 requests) reached. Resets Monday at midnight (Chicago time)."
-                          : "Daily limit reached. Resets at midnight (Chicago time)."}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setCashAdvanceDialog(null);
-                  setCashAdvanceAmount(50);
-                }}
-                disabled={isRequestingCashAdvance}
-              >
-                Close
-              </Button>
-              {!isCashAdvanceLoading && cashAdvanceData?.canRequest && (
-                <Button 
-                  onClick={async () => {
-                    if (!cashAdvanceDialog) return;
-                    
-                    setIsRequestingCashAdvance(true);
-                    try {
-                      const { data, error } = await supabase.functions.invoke("send-cash-advance-request", {
-                        body: {
-                          driverId: cashAdvanceDialog.driverId,
-                          driverName: cashAdvanceDialog.driverName,
-                          truckNumber: cashAdvanceDialog.truckNumber,
-                          companyName: cashAdvanceDialog.companyName,
-                          amount: cashAdvanceAmount,
-                          requesterEmail: profile?.email,
-                          requesterName: profile?.full_name,
-                        },
-                      });
-
-                      if (error) throw error;
-                      
-                      // Check for business logic errors (returned with success: false)
-                      if (data?.success === false) {
-                        toast({
-                          title: "Cannot request cash advance",
-                          description: data.error || "Request failed",
-                          variant: "destructive",
-                        });
-                        refetchCashAdvance();
-                        return;
-                      }
-                      
-                      toast({
-                        title: "Cash advance requested",
-                        description: `$${cashAdvanceAmount} cash advance sent for ${cashAdvanceDialog.driverName}`,
-                      });
-                      
-                      refetchCashAdvance();
-                      setCashAdvanceDialog(null);
-                      setCashAdvanceAmount(50);
-                    } catch (error) {
-                      console.error("Cash advance error:", error);
-                      toast({
-                        title: "Error",
-                        description: error instanceof Error ? error.message : "Failed to request cash advance",
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setIsRequestingCashAdvance(false);
-                    }
-                  }}
-                  disabled={isRequestingCashAdvance || cashAdvanceAmount <= 0}
-                >
-                  {isRequestingCashAdvance ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    `Request $${cashAdvanceAmount} Cash Advance`
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* EFS Request Dialog (Cash Advance & Other) */}
+      <EfsRequestDialog
+        open={!!efsRequestDialog}
+        onOpenChange={(open) => !open && setEfsRequestDialog(null)}
+        driverId={efsRequestDialog?.driverId || ""}
+        driverName={efsRequestDialog?.driverName || ""}
+        truckNumber={efsRequestDialog?.truckNumber || ""}
+        companyName={efsRequestDialog?.companyName || ""}
+        requesterEmail={profile?.email}
+        requesterName={profile?.full_name}
+      />
 
       {/* Christmas Note Dialog */}
       <ChristmasNoteDialog
