@@ -38,6 +38,24 @@ export type Database = {
         }
         Relationships: []
       }
+      archive_version: {
+        Row: {
+          id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          id?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       archived_orders_metadata: {
         Row: {
           created_at: string

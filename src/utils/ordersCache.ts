@@ -8,6 +8,7 @@ interface OrdersCacheDB extends DBSchema {
       data: any[];
       timestamp: number;
       version: number;
+      serverVersion: number; // Track the server version we downloaded
     };
   };
   'pickup-drops': {
@@ -16,6 +17,7 @@ interface OrdersCacheDB extends DBSchema {
       data: any[];
       timestamp: number;
       version: number;
+      serverVersion: number;
     };
   };
   'order-files': {
@@ -24,6 +26,7 @@ interface OrdersCacheDB extends DBSchema {
       data: any[];
       timestamp: number;
       version: number;
+      serverVersion: number;
     };
   };
 }
@@ -35,8 +38,7 @@ const ORDER_FILES_STORE = 'order-files';
 const ORDERS_CACHE_KEY = 'locked-orders-data';
 const PICKUP_DROPS_CACHE_KEY = 'pickup-drops-data';
 const ORDER_FILES_CACHE_KEY = 'order-files-data';
-const CACHE_VERSION = 2;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_VERSION = 3; // Bump version to force schema update
 
 let dbInstance: IDBPDatabase<OrdersCacheDB> | null = null;
 
@@ -61,6 +63,46 @@ async function getDB(): Promise<IDBPDatabase<OrdersCacheDB>> {
   return dbInstance;
 }
 
+// Helper to get server version for an archive type
+async function getServerVersion(archiveType: string): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('archive_version')
+      .select('version')
+      .eq('id', archiveType)
+      .single();
+    
+    if (error || !data) {
+      console.log(`📦 No server version found for ${archiveType}`);
+      return 0;
+    }
+    
+    return data.version;
+  } catch (error) {
+    console.error(`Failed to get server version for ${archiveType}:`, error);
+    return 0;
+  }
+}
+
+// Helper to update server version after upload
+async function updateServerVersion(archiveType: string): Promise<void> {
+  try {
+    const newVersion = Date.now();
+    const { error } = await supabase
+      .from('archive_version')
+      .update({ version: newVersion, updated_at: new Date().toISOString() })
+      .eq('id', archiveType);
+    
+    if (error) {
+      console.error(`Failed to update server version for ${archiveType}:`, error);
+    } else {
+      console.log(`✅ Updated server version for ${archiveType} to ${newVersion}`);
+    }
+  } catch (error) {
+    console.error(`Failed to update server version for ${archiveType}:`, error);
+  }
+}
+
 export async function saveLockedOrders(orders: any[]): Promise<void> {
   try {
     // Save to Supabase Storage for company-wide access
@@ -70,18 +112,23 @@ export async function saveLockedOrders(orders: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('locked-orders.json', blob, {
-        cacheControl: '0',
+        cacheControl: '31536000', // 1 year - CDN can cache forever, we invalidate via version
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
+    // Update server version to invalidate all client caches
+    await updateServerVersion('locked-orders');
+
     // Also cache locally for faster access
     const db = await getDB();
+    const serverVersion = Date.now();
     await db.put(ORDERS_STORE, {
       data: orders,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, ORDERS_CACHE_KEY);
     
     console.log('✅ Uploaded', orders.length, 'locked orders to company storage');
@@ -100,18 +147,23 @@ export async function savePickupDrops(pickupDrops: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('pickup-drops.json', blob, {
-        cacheControl: '0',
+        cacheControl: '31536000', // 1 year
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
+    // Update server version
+    await updateServerVersion('pickup-drops');
+
     // Also cache locally
     const db = await getDB();
+    const serverVersion = Date.now();
     await db.put(PICKUP_DROPS_STORE, {
       data: pickupDrops,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, PICKUP_DROPS_CACHE_KEY);
     
     console.log('✅ Uploaded', pickupDrops.length, 'pickup/drops to company storage');
@@ -130,18 +182,23 @@ export async function saveOrderFiles(orderFiles: any[]): Promise<void> {
     const { error: uploadError } = await supabase.storage
       .from('archived-orders')
       .upload('order-files.json', blob, {
-        cacheControl: '0',
+        cacheControl: '31536000', // 1 year
         upsert: true,
       });
 
     if (uploadError) throw uploadError;
 
+    // Update server version
+    await updateServerVersion('order-files');
+
     // Also cache locally
     const db = await getDB();
+    const serverVersion = Date.now();
     await db.put(ORDER_FILES_STORE, {
       data: orderFiles,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, ORDER_FILES_CACHE_KEY);
     
     console.log('✅ Uploaded', orderFiles.length, 'order files to company storage');
@@ -153,31 +210,30 @@ export async function saveOrderFiles(orderFiles: any[]): Promise<void> {
 
 export async function getLockedOrders(): Promise<any[] | null> {
   try {
-    // Try local cache first for speed - ALWAYS return cached data immediately if available
     const db = await getDB();
     const cached = await db.get(ORDERS_STORE, ORDERS_CACHE_KEY);
     
-    // Always return cached data if we have it - this prevents flickering on re-fetches
+    // Check server version to see if we need to refresh
+    const serverVersion = await getServerVersion('locked-orders');
+    
+    // If we have cached data and server version matches, return cached
     if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      const isValid = isCacheValid(cached.timestamp);
-      console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (age:', ageHours, 'hours, valid:', isValid, ')');
+      const localVersion = cached.serverVersion || 0;
       
-      // If cache is stale, refresh in background but still return cached data immediately
-      if (!isValid) {
-        refreshLockedOrdersInBackground(db);
+      if (localVersion >= serverVersion) {
+        console.log('✅ Loaded', cached.data.length, 'locked orders from local cache (version matches:', serverVersion, ')');
+        return cached.data;
       }
       
-      return cached.data;
+      // Version mismatch - need to fetch fresh data
+      console.log('🔄 Server version changed:', localVersion, '->', serverVersion, '- fetching fresh data...');
     }
 
-    // No local cache - fetch from company storage
-    console.log('📡 Fetching locked orders from company storage (no local cache)...');
-    const cacheBuster = Date.now();
+    // No local cache or version mismatch - fetch from company storage
+    console.log('📡 Fetching locked orders from company storage...');
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download(`locked-orders.json?t=${cacheBuster}`);
+      .download('locked-orders.json');
 
     if (error) {
       console.log('📦 No company archived orders found');
@@ -187,11 +243,12 @@ export async function getLockedOrders(): Promise<any[] | null> {
     const text = await data.text();
     const orders = JSON.parse(text);
 
-    // Update local cache
+    // Update local cache with server version
     await db.put(ORDERS_STORE, {
       data: orders,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, ORDERS_CACHE_KEY);
 
     console.log('✅ Loaded', orders.length, 'locked orders from company storage');
@@ -202,62 +259,30 @@ export async function getLockedOrders(): Promise<any[] | null> {
   }
 }
 
-// Background refresh function that doesn't block the main thread
-async function refreshLockedOrdersInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
-  try {
-    console.log('🔄 Refreshing locked orders in background...');
-    const cacheBuster = Date.now();
-    const { data, error } = await supabase.storage
-      .from('archived-orders')
-      .download(`locked-orders.json?t=${cacheBuster}`);
-
-    if (error) {
-      console.log('⚠️ Background refresh failed:', error.message);
-      return;
-    }
-
-    const text = await data.text();
-    const orders = JSON.parse(text);
-
-    await db.put(ORDERS_STORE, {
-      data: orders,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-    }, ORDERS_CACHE_KEY);
-
-    console.log('✅ Background refresh complete:', orders.length, 'locked orders');
-  } catch (error) {
-    console.error('Background refresh error:', error);
-  }
-}
-
 export async function getPickupDrops(): Promise<any[] | null> {
   try {
-    // Try local cache first - ALWAYS return cached data immediately if available
     const db = await getDB();
     const cached = await db.get(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
     
-    // Always return cached data if we have it - this prevents flickering on re-fetches
+    // Check server version
+    const serverVersion = await getServerVersion('pickup-drops');
+    
     if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      const isValid = isCacheValid(cached.timestamp);
-      console.log('✅ Loaded', cached.data.length, 'pickup/drops from local cache (age:', ageHours, 'hours, valid:', isValid, ')');
+      const localVersion = cached.serverVersion || 0;
       
-      // If cache is stale, refresh in background but still return cached data immediately
-      if (!isValid) {
-        refreshPickupDropsInBackground(db);
+      if (localVersion >= serverVersion) {
+        console.log('✅ Loaded', cached.data.length, 'pickup/drops from local cache (version matches:', serverVersion, ')');
+        return cached.data;
       }
       
-      return cached.data;
+      console.log('🔄 Server version changed for pickup/drops:', localVersion, '->', serverVersion);
     }
 
-    // No local cache - fetch from company storage
-    console.log('📡 Fetching pickup/drops from company storage (no local cache)...');
-    const cacheBuster = Date.now();
+    // Fetch from company storage
+    console.log('📡 Fetching pickup/drops from company storage...');
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download(`pickup-drops.json?t=${cacheBuster}`);
+      .download('pickup-drops.json');
 
     if (error) {
       console.log('📦 No company archived pickup/drops found');
@@ -272,6 +297,7 @@ export async function getPickupDrops(): Promise<any[] | null> {
       data: pickupDrops,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, PICKUP_DROPS_CACHE_KEY);
 
     console.log('✅ Loaded', pickupDrops.length, 'pickup/drops from company storage');
@@ -282,59 +308,30 @@ export async function getPickupDrops(): Promise<any[] | null> {
   }
 }
 
-// Background refresh for pickup drops
-async function refreshPickupDropsInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
-  try {
-    console.log('🔄 Refreshing pickup/drops in background...');
-    const cacheBuster = Date.now();
-    const { data, error } = await supabase.storage
-      .from('archived-orders')
-      .download(`pickup-drops.json?t=${cacheBuster}`);
-
-    if (error) return;
-
-    const text = await data.text();
-    const pickupDrops = JSON.parse(text);
-
-    await db.put(PICKUP_DROPS_STORE, {
-      data: pickupDrops,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-    }, PICKUP_DROPS_CACHE_KEY);
-
-    console.log('✅ Background refresh complete:', pickupDrops.length, 'pickup/drops');
-  } catch (error) {
-    console.error('Background refresh error (pickup/drops):', error);
-  }
-}
-
 export async function getOrderFiles(): Promise<any[] | null> {
   try {
-    // Try local cache first - ALWAYS return cached data immediately if available
     const db = await getDB();
     const cached = await db.get(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
     
-    // Always return cached data if we have it - this prevents flickering on re-fetches
+    // Check server version
+    const serverVersion = await getServerVersion('order-files');
+    
     if (cached && Array.isArray(cached.data) && cached.data.length > 0) {
-      const age = Date.now() - cached.timestamp;
-      const ageHours = Math.floor(age / (1000 * 60 * 60));
-      const isValid = isCacheValid(cached.timestamp);
-      console.log('✅ Loaded', cached.data.length, 'order files from local cache (age:', ageHours, 'hours, valid:', isValid, ')');
+      const localVersion = cached.serverVersion || 0;
       
-      // If cache is stale, refresh in background but still return cached data immediately
-      if (!isValid) {
-        refreshOrderFilesInBackground(db);
+      if (localVersion >= serverVersion) {
+        console.log('✅ Loaded', cached.data.length, 'order files from local cache (version matches:', serverVersion, ')');
+        return cached.data;
       }
       
-      return cached.data;
+      console.log('🔄 Server version changed for order files:', localVersion, '->', serverVersion);
     }
 
-    // No local cache - fetch from company storage
-    console.log('📡 Fetching order files from company storage (no local cache)...');
-    const cacheBuster = Date.now();
+    // Fetch from company storage
+    console.log('📡 Fetching order files from company storage...');
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download(`order-files.json?t=${cacheBuster}`);
+      .download('order-files.json');
 
     if (error) {
       console.log('📦 No company archived order files found');
@@ -349,6 +346,7 @@ export async function getOrderFiles(): Promise<any[] | null> {
       data: orderFiles,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      serverVersion,
     }, ORDER_FILES_CACHE_KEY);
 
     console.log('✅ Loaded', orderFiles.length, 'order files from company storage');
@@ -359,42 +357,14 @@ export async function getOrderFiles(): Promise<any[] | null> {
   }
 }
 
-// Background refresh for order files
-async function refreshOrderFilesInBackground(db: IDBPDatabase<OrdersCacheDB>): Promise<void> {
-  try {
-    console.log('🔄 Refreshing order files in background...');
-    const cacheBuster = Date.now();
-    const { data, error } = await supabase.storage
-      .from('archived-orders')
-      .download(`order-files.json?t=${cacheBuster}`);
-
-    if (error) return;
-
-    const text = await data.text();
-    const orderFiles = JSON.parse(text);
-
-    await db.put(ORDER_FILES_STORE, {
-      data: orderFiles,
-      timestamp: Date.now(),
-      version: CACHE_VERSION,
-    }, ORDER_FILES_CACHE_KEY);
-
-    console.log('✅ Background refresh complete:', orderFiles.length, 'order files');
-  } catch (error) {
-    console.error('Background refresh error (order files):', error);
-  }
-}
-
-// Get order transfers from storage (if available) - no local caching, just storage fetch
+// Get order transfers from storage (if available) - no local caching
 export async function getOrderTransfers(): Promise<any[] | null> {
   try {
-    const cacheBuster = Date.now();
     const { data, error } = await supabase.storage
       .from('archived-orders')
-      .download(`order-transfers.json?t=${cacheBuster}`);
+      .download('order-transfers.json');
 
     if (error) {
-      // File doesn't exist yet - this is expected for older cached data
       console.log('📦 No order transfers cache found - will use database data for transfers');
       return null;
     }
@@ -407,12 +377,6 @@ export async function getOrderTransfers(): Promise<any[] | null> {
     console.error('Failed to get order transfers:', error);
     return null;
   }
-}
-
-export function isCacheValid(timestamp?: number): boolean {
-  if (!timestamp) return false;
-  const age = Date.now() - timestamp;
-  return age < CACHE_DURATION;
 }
 
 export async function getCacheAge(): Promise<number | null> {
@@ -445,6 +409,8 @@ export async function getCacheStats(): Promise<{
     cacheAge: number | null;
     isValid: boolean;
     itemCount: number;
+    serverVersion: number;
+    localVersion: number;
   };
   pickupDrops: {
     hasCachedData: boolean;
@@ -465,22 +431,31 @@ export async function getCacheStats(): Promise<{
     const pickupDropsCache = await db.get(PICKUP_DROPS_STORE, PICKUP_DROPS_CACHE_KEY);
     const orderFilesCache = await db.get(ORDER_FILES_STORE, ORDER_FILES_CACHE_KEY);
     
+    // Check server version for orders
+    const serverVersion = await getServerVersion('locked-orders');
+    const localVersion = ordersCache?.serverVersion || 0;
+    const isValid = localVersion >= serverVersion;
+    
     return {
       orders: ordersCache ? {
         hasCachedData: true,
         cacheAge: Date.now() - ordersCache.timestamp,
-        isValid: isCacheValid(ordersCache.timestamp),
+        isValid,
         itemCount: ordersCache.data.length,
+        serverVersion,
+        localVersion,
       } : {
         hasCachedData: false,
         cacheAge: null,
         isValid: false,
         itemCount: 0,
+        serverVersion,
+        localVersion: 0,
       },
       pickupDrops: pickupDropsCache ? {
         hasCachedData: true,
         cacheAge: Date.now() - pickupDropsCache.timestamp,
-        isValid: isCacheValid(pickupDropsCache.timestamp),
+        isValid: true, // Simplified for non-orders
         itemCount: pickupDropsCache.data.length,
       } : {
         hasCachedData: false,
@@ -491,7 +466,7 @@ export async function getCacheStats(): Promise<{
       orderFiles: orderFilesCache ? {
         hasCachedData: true,
         cacheAge: Date.now() - orderFilesCache.timestamp,
-        isValid: isCacheValid(orderFilesCache.timestamp),
+        isValid: true,
         itemCount: orderFilesCache.data.length,
       } : {
         hasCachedData: false,
