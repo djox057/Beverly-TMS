@@ -405,6 +405,7 @@ const Reports = () => {
     allPickupStops: any[];
     allDeliveryStops: any[];
     documents: string[];
+    orderFiles: { id: string; file_name: string; file_path: string; file_category: string }[];
     notes: string;
     truckNumber: string;
     driverNames: string;
@@ -414,6 +415,13 @@ const Reports = () => {
     loadedMiles: number;
     driverPay: number;
   } | null>(null);
+  
+  // Additional files popover state
+  const [additionalFilesPopover, setAdditionalFilesPopover] = useState<{
+    open: boolean;
+    files: { id: string; file_name: string; file_path: string }[];
+    anchorEl: HTMLElement | null;
+  }>({ open: false, files: [], anchorEl: null });
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelFormData, setCancelFormData] = useState({ tonu: "", driverRate: "", dhMiles: "", notes: "" });
@@ -586,6 +594,12 @@ const Reports = () => {
       allPickupStops: order.pickupStops || [],
       allDeliveryStops: order.deliveryStops || [],
       documents: (order.loadDetails.documents || []).map((d: any) => d.category),
+      orderFiles: (order.order_files || []).map((f: any) => ({
+        id: f.id,
+        file_name: f.file_name,
+        file_path: f.file_path,
+        file_category: f.file_category,
+      })),
       notes: order.loadDetails.notes,
       truckNumber: truck.truckNumber,
       driverNames: driverNames || "Unassigned",
@@ -4652,23 +4666,102 @@ const Reports = () => {
             <div>
               <h4 className="text-sm font-semibold mb-3">Document Status</h4>
               <div className="flex gap-3 flex-wrap items-center">
-                {["RC", "BOL", "POD"].map((doc) => {
+                {["RC", "BOL", "POD", "ADDITIONAL"].map((doc) => {
                   const isChecked = zoomedLoad?.documents.includes(doc);
+                  const additionalFiles = doc === "ADDITIONAL" 
+                    ? zoomedLoad?.orderFiles?.filter(f => f.file_category === "ADDITIONAL") || []
+                    : [];
+                  
                   return (
-                    <div
+                    <Popover 
                       key={doc}
-                      onClick={() => handleDocumentClick(doc, isChecked)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
-                        isChecked
-                          ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))]"
-                          : "bg-card text-muted-foreground border-border cursor-pointer hover:border-primary/50"
-                      }`}
+                      open={doc === "ADDITIONAL" && additionalFilesPopover.open && additionalFiles.length > 1}
+                      onOpenChange={(open) => {
+                        if (!open) setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        {isChecked ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-                        <span>{doc}</span>
-                      </div>
-                    </div>
+                      <PopoverTrigger asChild>
+                        <div
+                          onClick={async (e) => {
+                            if (!isChecked) {
+                              // Not uploaded - trigger upload dialog
+                              handleDocumentClick(doc, false);
+                            } else if (doc === "ADDITIONAL") {
+                              // Additional files are uploaded - handle click
+                              if (additionalFiles.length === 1) {
+                                // Single file - open directly
+                                const file = additionalFiles[0];
+                                const { data, error } = await supabase.storage
+                                  .from("order-files")
+                                  .createSignedUrl(file.file_path, 3600);
+                                
+                                if (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to get file URL",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                                window.open(data.signedUrl, "_blank");
+                              } else if (additionalFiles.length > 1) {
+                                // Multiple files - show popover
+                                setAdditionalFilesPopover({
+                                  open: true,
+                                  files: additionalFiles,
+                                  anchorEl: e.currentTarget as HTMLElement,
+                                });
+                              }
+                            }
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                            isChecked
+                              ? "bg-[hsl(var(--cell-delivered))] text-[hsl(var(--cell-delivered-foreground))] border-[hsl(var(--cell-delivered))] cursor-pointer"
+                              : "bg-card text-muted-foreground border-border cursor-pointer hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isChecked ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                            <span>{doc === "ADDITIONAL" ? "Additionals" : doc}</span>
+                            {doc === "ADDITIONAL" && additionalFiles.length > 1 && (
+                              <span className="text-xs opacity-75">({additionalFiles.length})</span>
+                            )}
+                          </div>
+                        </div>
+                      </PopoverTrigger>
+                      {doc === "ADDITIONAL" && additionalFiles.length > 1 && (
+                        <PopoverContent className="w-64 p-2" align="start">
+                          <div className="text-sm font-semibold mb-2">Select File</div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {additionalFiles.map((file, idx) => (
+                              <div
+                                key={file.id}
+                                className="px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm truncate"
+                                onClick={async () => {
+                                  const { data, error } = await supabase.storage
+                                    .from("order-files")
+                                    .createSignedUrl(file.file_path, 3600);
+                                  
+                                  if (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to get file URL",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  window.open(data.signedUrl, "_blank");
+                                  setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
+                                }}
+                                title={file.file_name}
+                              >
+                                {idx + 1}. {file.file_name}
+                              </div>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      )}
+                    </Popover>
                   );
                 })}
 
@@ -4693,7 +4786,7 @@ const Reports = () => {
                       setCancelDialogOpen(true);
                     }}
                   >
-                    <Ban className="h-4 w-4 mr-2" />
+                    <Ban className="h-4 w-4" />
                     Cancel Load
                   </Button>
                 </div>
