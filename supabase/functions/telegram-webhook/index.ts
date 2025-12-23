@@ -27,8 +27,24 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const { message_id, chat } = update.message_reaction;
+    const { message_id, chat, new_reaction } = update.message_reaction;
     console.log(`Reaction received on message_id: ${message_id} in chat: ${chat.id}`);
+    console.log('New reactions:', JSON.stringify(new_reaction));
+
+    // Check if the reaction is a clown emoji (🤡)
+    const hasClownEmoji = new_reaction?.some((reaction: any) => 
+      reaction.type === 'emoji' && reaction.emoji === '🤡'
+    );
+
+    if (!hasClownEmoji) {
+      console.log('Not a clown emoji reaction, ignoring');
+      return new Response(JSON.stringify({ ok: true, message: 'Not a clown emoji' }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    console.log('Clown emoji detected, processing HOS completion');
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
