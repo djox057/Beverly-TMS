@@ -105,7 +105,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: 'HOS Notifications <onboarding@resend.dev>',
+      from: 'HOS Notifications <bob.i@bfprime.net>',
       to: [hosRequest.requester_email],
       subject: `HOS Done - ${hosRequest.driver_name} (${hosRequest.truck_number})`,
       html: emailHtml,
