@@ -3117,7 +3117,7 @@ const Trips = () => {
                             ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
                           const isEvenRow = orderIndex % 2 === 1;
-                          const alternatingBg = isEvenRow ? "bg-muted/30" : "";
+                          const alternatingBg = isEvenRow ? "bg-muted/30 hover:bg-muted/30" : "bg-background hover:bg-background";
 
                           const rowClassName = isRecovery
                             ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
@@ -3132,7 +3132,7 @@ const Trips = () => {
                                     : alternatingBg;
 
                           return (
-                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName} hover:bg-transparent`}>
+                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName}`}>
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
