@@ -419,7 +419,7 @@ const Reports = () => {
   // Additional files popover state
   const [additionalFilesPopover, setAdditionalFilesPopover] = useState<{
     open: boolean;
-    files: { id: string; file_name: string; file_path: string }[];
+    files: { id: string; file_name: string; file_path: string; file_category: string }[];
     anchorEl: HTMLElement | null;
   }>({ open: false, files: [], anchorEl: null });
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
@@ -4668,14 +4668,12 @@ const Reports = () => {
               <div className="flex gap-3 flex-wrap items-center">
                 {["RC", "BOL", "POD", "ADDITIONAL"].map((doc) => {
                   const isChecked = zoomedLoad?.documents.includes(doc);
-                  const additionalFiles = doc === "ADDITIONAL" 
-                    ? zoomedLoad?.orderFiles?.filter(f => f.file_category === "ADDITIONAL") || []
-                    : [];
+                  const docFiles = zoomedLoad?.orderFiles?.filter(f => f.file_category === doc) || [];
                   
                   return (
                     <Popover 
                       key={doc}
-                      open={doc === "ADDITIONAL" && additionalFilesPopover.open && additionalFiles.length > 1}
+                      open={additionalFilesPopover.open && additionalFilesPopover.files[0]?.file_category === doc && docFiles.length > 1}
                       onOpenChange={(open) => {
                         if (!open) setAdditionalFilesPopover({ open: false, files: [], anchorEl: null });
                       }}
@@ -4686,32 +4684,29 @@ const Reports = () => {
                             if (!isChecked) {
                               // Not uploaded - trigger upload dialog
                               handleDocumentClick(doc, false);
-                            } else if (doc === "ADDITIONAL") {
-                              // Additional files are uploaded - handle click
-                              if (additionalFiles.length === 1) {
-                                // Single file - open directly
-                                const file = additionalFiles[0];
-                                const { data, error } = await supabase.storage
-                                  .from("order-files")
-                                  .createSignedUrl(file.file_path, 3600);
-                                
-                                if (error) {
-                                  toast({
-                                    title: "Error",
-                                    description: "Failed to get file URL",
-                                    variant: "destructive",
-                                  });
-                                  return;
-                                }
-                                window.open(data.signedUrl, "_blank");
-                              } else if (additionalFiles.length > 1) {
-                                // Multiple files - show popover
-                                setAdditionalFilesPopover({
-                                  open: true,
-                                  files: additionalFiles,
-                                  anchorEl: e.currentTarget as HTMLElement,
+                            } else if (docFiles.length === 1) {
+                              // Single file - open directly
+                              const file = docFiles[0];
+                              const { data, error } = await supabase.storage
+                                .from("order-files")
+                                .createSignedUrl(file.file_path, 3600);
+                              
+                              if (error) {
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to get file URL",
+                                  variant: "destructive",
                                 });
+                                return;
                               }
+                              window.open(data.signedUrl, "_blank");
+                            } else if (docFiles.length > 1) {
+                              // Multiple files - show popover
+                              setAdditionalFilesPopover({
+                                open: true,
+                                files: docFiles,
+                                anchorEl: e.currentTarget as HTMLElement,
+                              });
                             }
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
@@ -4723,17 +4718,17 @@ const Reports = () => {
                           <div className="flex items-center gap-2">
                             {isChecked ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
                             <span>{doc === "ADDITIONAL" ? "Additionals" : doc}</span>
-                            {doc === "ADDITIONAL" && additionalFiles.length > 1 && (
-                              <span className="text-xs opacity-75">({additionalFiles.length})</span>
+                            {docFiles.length > 1 && (
+                              <span className="text-xs opacity-75">({docFiles.length})</span>
                             )}
                           </div>
                         </div>
                       </PopoverTrigger>
-                      {doc === "ADDITIONAL" && additionalFiles.length > 1 && (
+                      {docFiles.length > 1 && (
                         <PopoverContent className="w-64 p-2" align="start">
                           <div className="text-sm font-semibold mb-2">Select File</div>
                           <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {additionalFiles.map((file, idx) => (
+                            {docFiles.map((file, idx) => (
                               <div
                                 key={file.id}
                                 className="px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-sm truncate"
