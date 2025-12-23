@@ -954,7 +954,7 @@ const Orders = () => {
                         ((order as any).dateChangeNotes && (order as any).dateChangeNotes.trim() !== "");
 
                       const isEvenRow = index % 2 === 1;
-                      const alternatingBg = isEvenRow ? "bg-muted/30 hover:bg-muted/30" : "bg-background hover:bg-background";
+                      const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
 
                       const rowClassName = isRecovery
                         ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
