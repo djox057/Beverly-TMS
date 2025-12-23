@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/pagination";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -519,14 +520,6 @@ const Trips = () => {
     weekStart: string;
     weekOrders: any[];
     newPaidStatus: boolean;
-  } | null>(null);
-
-  // State for order info popup
-  const [orderInfoPopup, setOrderInfoPopup] = useState<{
-    open: boolean;
-    type: 'additionals' | 'reschedule';
-    title: string;
-    items: string[];
   } | null>(null);
 
   // Show confirmation dialog before toggling paid status
@@ -3251,18 +3244,21 @@ const Trips = () => {
                                     if (additionals.length === 0) return null;
                                     
                                     return (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setOrderInfoPopup({
-                                          open: true,
-                                          type: 'additionals',
-                                          title: 'Additional Charges',
-                                          items: additionals,
-                                        })}
-                                      >
-                                        <Info className="h-4 w-4 text-blue-500" />
-                                      </Button>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="sm">
+                                            <Info className="h-4 w-4 text-blue-500" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-3" align="start">
+                                          <div className="text-sm font-semibold mb-2">Additional Charges</div>
+                                          <div className="space-y-1">
+                                            {additionals.map((item, idx) => (
+                                              <div key={idx} className="text-sm">{item}</div>
+                                            ))}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
                                     );
                                   })()}
                                   {(() => {
@@ -3270,18 +3266,17 @@ const Trips = () => {
                                     if (!dateChangeNotes || dateChangeNotes.trim() === '') return null;
                                     
                                     return (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setOrderInfoPopup({
-                                          open: true,
-                                          type: 'reschedule',
-                                          title: 'Reschedule Notes',
-                                          items: [dateChangeNotes],
-                                        })}
-                                      >
-                                        <CalendarClock className="h-4 w-4 text-orange-500" />
-                                      </Button>
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button variant="ghost" size="sm">
+                                            <CalendarClock className="h-4 w-4 text-orange-500" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-3 max-w-xs" align="start">
+                                          <div className="text-sm font-semibold mb-2">Reschedule Notes</div>
+                                          <div className="text-sm">{dateChangeNotes}</div>
+                                        </PopoverContent>
+                                      </Popover>
                                     );
                                   })()}
                                 </div>
@@ -3338,24 +3333,6 @@ const Trips = () => {
             <AlertDialogAction onClick={confirmPaidToggle}>
               {paidConfirmDialog?.newPaidStatus ? "Mark Paid" : "Mark Unpaid"}
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      {/* Order Info Popup Dialog */}
-      <AlertDialog open={orderInfoPopup?.open ?? false} onOpenChange={(open) => !open && setOrderInfoPopup(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{orderInfoPopup?.title}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-1">
-                {orderInfoPopup?.items.map((item, idx) => (
-                  <div key={idx} className="text-sm">{item}</div>
-                ))}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setOrderInfoPopup(null)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
