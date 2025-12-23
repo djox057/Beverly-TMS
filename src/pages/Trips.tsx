@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, Info } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, Info, CalendarClock } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
@@ -519,6 +519,14 @@ const Trips = () => {
     weekStart: string;
     weekOrders: any[];
     newPaidStatus: boolean;
+  } | null>(null);
+
+  // State for order info popup
+  const [orderInfoPopup, setOrderInfoPopup] = useState<{
+    open: boolean;
+    type: 'additionals' | 'reschedule';
+    title: string;
+    items: string[];
   } | null>(null);
 
   // Show confirmation dialog before toggling paid status
@@ -3246,15 +3254,33 @@ const Trips = () => {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="relative group"
-                                        title={additionals.join('\n')}
+                                        onClick={() => setOrderInfoPopup({
+                                          open: true,
+                                          type: 'additionals',
+                                          title: 'Additional Charges',
+                                          items: additionals,
+                                        })}
                                       >
                                         <Info className="h-4 w-4 text-blue-500" />
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-popover text-popover-foreground border rounded-md shadow-lg p-2 text-xs whitespace-nowrap">
-                                          {additionals.map((item, idx) => (
-                                            <div key={idx}>{item}</div>
-                                          ))}
-                                        </div>
+                                      </Button>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const dateChangeNotes = (order as any).dateChangeNotes;
+                                    if (!dateChangeNotes || dateChangeNotes.trim() === '') return null;
+                                    
+                                    return (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setOrderInfoPopup({
+                                          open: true,
+                                          type: 'reschedule',
+                                          title: 'Reschedule Notes',
+                                          items: [dateChangeNotes],
+                                        })}
+                                      >
+                                        <CalendarClock className="h-4 w-4 text-orange-500" />
                                       </Button>
                                     );
                                   })()}
@@ -3312,6 +3338,24 @@ const Trips = () => {
             <AlertDialogAction onClick={confirmPaidToggle}>
               {paidConfirmDialog?.newPaidStatus ? "Mark Paid" : "Mark Unpaid"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Order Info Popup Dialog */}
+      <AlertDialog open={orderInfoPopup?.open ?? false} onOpenChange={(open) => !open && setOrderInfoPopup(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{orderInfoPopup?.title}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-1">
+                {orderInfoPopup?.items.map((item, idx) => (
+                  <div key={idx} className="text-sm">{item}</div>
+                ))}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setOrderInfoPopup(null)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
