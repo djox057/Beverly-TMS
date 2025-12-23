@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,18 @@ export const HosRequestDialog = ({
   const [cycleHours, setCycleHours] = useState('');
   const [cycleMinutes, setCycleMinutes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  // Get the current user's email directly from Supabase auth
+  useEffect(() => {
+    const getEmail = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setCurrentUserEmail(user.email);
+      }
+    };
+    getEmail();
+  }, []);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -58,7 +70,7 @@ export const HosRequestDialog = ({
         companyName,
         requestType,
         violationFix,
-        requesterEmail,
+        requesterEmail: currentUserEmail || requesterEmail,
       };
 
       if (requestType === 'custom') {
