@@ -58,10 +58,21 @@ const handler = async (req: Request): Promise<Response> => {
     } else if (requestType === 'full_cycle') {
       requestTypeText = 'Full Cycle';
     } else if (requestType === 'custom' && customHours) {
-      const driveDuration = formatDuration(customHours.driveHours, customHours.driveMinutes);
-      const shiftDuration = formatDuration(customHours.shiftHours, customHours.shiftMinutes);
-      const cycleDuration = formatDuration(customHours.cycleHours, customHours.cycleMinutes);
-      requestTypeText = `Custom:\nDrive: ${driveDuration}\nShift: ${shiftDuration}\nCycle: ${cycleDuration}`;
+      const parts: string[] = [];
+      const driveTotal = customHours.driveHours + customHours.driveMinutes;
+      const shiftTotal = customHours.shiftHours + customHours.shiftMinutes;
+      const cycleTotal = customHours.cycleHours + customHours.cycleMinutes;
+      
+      if (driveTotal > 0) {
+        parts.push(`${formatDuration(customHours.driveHours, customHours.driveMinutes)} in Drive`);
+      }
+      if (shiftTotal > 0) {
+        parts.push(`${formatDuration(customHours.shiftHours, customHours.shiftMinutes)} in Shift`);
+      }
+      if (cycleTotal > 0) {
+        parts.push(`${formatDuration(customHours.cycleHours, customHours.cycleMinutes)} in Cycle`);
+      }
+      requestTypeText = parts.join('\n');
     }
 
     // Add violation fix suffix if checked
