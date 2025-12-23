@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, Info } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
@@ -3215,16 +3215,50 @@ const Trips = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    localStorage.setItem("returnToTrips", "true");
-                                    navigate(`/edit-order/${order.id}`);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      localStorage.setItem("returnToTrips", "true");
+                                      navigate(`/edit-order/${order.id}`);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  {(() => {
+                                    const additionals: string[] = [];
+                                    if ((order as any).detentionDriver > 0) additionals.push(`Detention: ${formatCurrency((order as any).detentionDriver)}`);
+                                    if ((order as any).layoverDriver > 0) additionals.push(`Layover: ${formatCurrency((order as any).layoverDriver)}`);
+                                    if ((order as any).lateFeeDriver > 0) additionals.push(`Late Fee: ${formatCurrency((order as any).lateFeeDriver)}`);
+                                    if ((order as any).noTrackingFeeDriver > 0) additionals.push(`No Tracking: ${formatCurrency((order as any).noTrackingFeeDriver)}`);
+                                    if ((order as any).wrongAddressFeeDriver > 0) additionals.push(`Wrong Address: ${formatCurrency((order as any).wrongAddressFeeDriver)}`);
+                                    if ((order as any).escortFee > 0) additionals.push(`Escort: ${formatCurrency((order as any).escortFee)}`);
+                                    if ((order as any).lumper > 0) additionals.push(`Lumper: ${formatCurrency((order as any).lumper)}`);
+                                    if ((order as any).lumperDriver > 0) additionals.push(`Lumper Driver: ${formatCurrency((order as any).lumperDriver)}`);
+                                    if ((order as any).extraStopDriver > 0) additionals.push(`Extra Stop: ${formatCurrency((order as any).extraStopDriver)}`);
+                                    if ((order as any).tonuDriver > 0) additionals.push(`TONU: ${formatCurrency((order as any).tonuDriver)}`);
+                                    if ((order as any).otherChargesDriver > 0) additionals.push(`Other: ${formatCurrency((order as any).otherChargesDriver)}`);
+                                    
+                                    if (additionals.length === 0) return null;
+                                    
+                                    return (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="relative group"
+                                        title={additionals.join('\n')}
+                                      >
+                                        <Info className="h-4 w-4 text-blue-500" />
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-popover text-popover-foreground border rounded-md shadow-lg p-2 text-xs whitespace-nowrap">
+                                          {additionals.map((item, idx) => (
+                                            <div key={idx}>{item}</div>
+                                          ))}
+                                        </div>
+                                      </Button>
+                                    );
+                                  })()}
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
