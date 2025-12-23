@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.calculate-mapbox-route]
 verify_jwt = false
+
+[functions.send-hos-request]
+verify_jwt = false

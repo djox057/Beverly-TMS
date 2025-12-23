@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EfsRequestDialog } from "@/components/EfsRequestDialog";
+import { HosRequestDialog } from "@/components/HosRequestDialog";
 import {
   MapPin,
   AlertCircle,
@@ -426,6 +427,13 @@ const Reports = () => {
   // EFS Request dialog state (includes Cash Advance and Other tabs)
   const [efsRequestDialog, setEfsRequestDialog] = useState<{
     driverId: string;
+    driverName: string;
+    truckNumber: string;
+    companyName: string;
+  } | null>(null);
+  
+  // HOS Request dialog state
+  const [hosRequestDialog, setHosRequestDialog] = useState<{
     driverName: string;
     truckNumber: string;
     companyName: string;
@@ -2928,6 +2936,21 @@ const Reports = () => {
                                                             >
                                                               <DollarSign className="h-3 w-3" />
                                                             </Button>
+                                                            <Button
+                                                              variant="ghost"
+                                                              size="sm"
+                                                              className="h-6 w-6 p-0"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setHosRequestDialog({
+                                                                  driverName: truck.driver1Name,
+                                                                  truckNumber: truck.truckNumber,
+                                                                  companyName: truck.companyName || "",
+                                                                });
+                                                              }}
+                                                            >
+                                                              <Clock className="h-3 w-3" />
+                                                            </Button>
                                                           </div>
                                                         )}
                                                       </div>
@@ -3065,6 +3088,21 @@ const Reports = () => {
                                                                 }}
                                                               >
                                                                 <DollarSign className="h-3 w-3" />
+                                                              </Button>
+                                                              <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 w-6 p-0"
+                                                                onClick={(e) => {
+                                                                  e.stopPropagation();
+                                                                  setHosRequestDialog({
+                                                                    driverName: truck.driver,
+                                                                    truckNumber: truck.truckNumber,
+                                                                    companyName: truck.companyName || "",
+                                                                  });
+                                                                }}
+                                                              >
+                                                                <Clock className="h-3 w-3" />
                                                               </Button>
                                                             </>
                                                           )}
@@ -5287,6 +5325,15 @@ const Reports = () => {
         driverName={christmasNoteDialog?.driverName || ""}
         truckId={christmasNoteDialog?.truckId || null}
         truckNumber={christmasNoteDialog?.truckNumber || ""}
+      />
+
+      {/* HOS Request Dialog */}
+      <HosRequestDialog
+        open={!!hosRequestDialog}
+        onClose={() => setHosRequestDialog(null)}
+        driverName={hosRequestDialog?.driverName || ""}
+        truckNumber={hosRequestDialog?.truckNumber || ""}
+        companyName={hosRequestDialog?.companyName || ""}
       />
     </>
   );
