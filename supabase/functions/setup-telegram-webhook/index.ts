@@ -23,6 +23,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const webhookUrl = "https://wjkbtagwgjniilmgwutb.supabase.co/functions/v1/telegram-webhook";
     
+    // First delete existing webhook to force re-registration with new settings
+    await fetch(
+      `https://api.telegram.org/bot${telegramBotToken}/deleteWebhook`,
+      { method: 'POST' }
+    );
+    console.log('Deleted existing webhook');
+    
+    // Now set webhook with reaction updates enabled
     const response = await fetch(
       `https://api.telegram.org/bot${telegramBotToken}/setWebhook`,
       {
@@ -30,7 +38,7 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: webhookUrl,
-          allowed_updates: ["message_reaction"]
+          allowed_updates: ["message", "message_reaction"]
         }),
       }
     );
