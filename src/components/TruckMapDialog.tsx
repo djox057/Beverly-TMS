@@ -3,17 +3,33 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN || '';
+// Cache the token to avoid repeated API calls
+let cachedMapboxToken: string | null = null;
+
+async function getMapboxToken(): Promise<string> {
+  if (cachedMapboxToken) return cachedMapboxToken;
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+    if (error) throw error;
+    cachedMapboxToken = data.token;
+    return data.token;
+  } catch (error) {
+    console.error('Failed to get Mapbox token:', error);
+    return '';
+  }
+}
 
 // Use Mapbox geocoding API directly instead of edge function
-async function geocodeWithMapbox(address: string): Promise<{ lat: number; lon: number } | null> {
-  if (!address || address.trim() === '') return null;
+async function geocodeWithMapbox(address: string, token: string): Promise<{ lat: number; lon: number } | null> {
+  if (!address || address.trim() === '' || !token) return null;
   
   try {
     const encodedAddress = encodeURIComponent(address);
     const response = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${MAPBOX_TOKEN}&limit=1`
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${token}&limit=1`
     );
     
     if (!response.ok) return null;
@@ -81,6 +97,14 @@ export function TruckMapDialog({
       setIsLoading(true);
       
       try {
+        // Get Mapbox token first
+        const token = await getMapboxToken();
+        if (!token) {
+          console.error('No Mapbox token available');
+          setIsLoading(false);
+          return;
+        }
+
         // Find truck location from Samsara
         const truckLocation = locations?.find(
           loc => loc.truck_id === truckId || loc.truck_number === truckNumber
@@ -93,7 +117,7 @@ export function TruckMapDialog({
         }
 
         // Initialize map
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        mapboxgl.accessToken = token;
         
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
@@ -119,7 +143,7 @@ export function TruckMapDialog({
 
         // Geocode and add pickup marker using Mapbox
         if (pickupAddress) {
-          const pickupCoords = await geocodeWithMapbox(pickupAddress);
+          const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
@@ -136,7 +160,7 @@ export function TruckMapDialog({
 
         // Geocode and add delivery marker using Mapbox
         if (deliveryAddress) {
-          const deliveryCoords = await geocodeWithMapbox(deliveryAddress);
+          const deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
@@ -151,13 +175,14 @@ export function TruckMapDialog({
 
             // If we have both pickup and delivery, draw a route
             if (pickupAddress) {
-              const pickupCoords = await geocodeWithMapbox(pickupAddress);
+              const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
               if (pickupCoords) {
                 await drawRoute(
                   map.current,
                   [truckLocation.longitude, truckLocation.latitude],
                   [pickupCoords.lon, pickupCoords.lat],
-                  [deliveryCoords.lon, deliveryCoords.lat]
+                  [deliveryCoords.lon, deliveryCoords.lat],
+                  token
                 );
               }
             }
@@ -186,13 +211,14 @@ export function TruckMapDialog({
     mapInstance: mapboxgl.Map,
     truckCoords: [number, number],
     pickupCoords: [number, number],
-    deliveryCoords: [number, number]
+    deliveryCoords: [number, number],
+    token: string
   ) => {
     try {
       // Get route from Mapbox Directions API
       const coordinates = `${truckCoords[0]},${truckCoords[1]};${pickupCoords[0]},${pickupCoords[1]};${deliveryCoords[0]},${deliveryCoords[1]}`;
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${token}`
       );
       
       const data = await response.json();
@@ -282,6 +308,14 @@ export function TruckMapView({
       setIsLoading(true);
       
       try {
+        // Get Mapbox token first
+        const token = await getMapboxToken();
+        if (!token) {
+          console.error('No Mapbox token available');
+          setIsLoading(false);
+          return;
+        }
+
         // Find truck location from Samsara
         const truckLocation = locations?.find(
           loc => loc.truck_id === truckId || loc.truck_number === truckNumber
@@ -294,7 +328,7 @@ export function TruckMapView({
         }
 
         // Initialize map
-        mapboxgl.accessToken = MAPBOX_TOKEN;
+        mapboxgl.accessToken = token;
         
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
@@ -338,7 +372,7 @@ export function TruckMapView({
 
         // Always show pickup marker if address exists
         if (pickupAddress) {
-          pickupCoords = await geocodeWithMapbox(pickupAddress);
+          pickupCoords = await geocodeWithMapbox(pickupAddress, token);
           if (pickupCoords) {
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
@@ -355,7 +389,7 @@ export function TruckMapView({
 
         // Always show delivery marker if address exists
         if (deliveryAddress) {
-          deliveryCoords = await geocodeWithMapbox(deliveryAddress);
+          deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
           if (deliveryCoords) {
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
@@ -375,13 +409,15 @@ export function TruckMapView({
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [pickupCoords.lon, pickupCoords.lat]
+            [pickupCoords.lon, pickupCoords.lat],
+            token
           );
         } else if (shouldRouteToDelivery && deliveryCoords) {
           await drawRouteToDestination(
             map.current,
             [truckLocation.longitude, truckLocation.latitude],
-            [deliveryCoords.lon, deliveryCoords.lat]
+            [deliveryCoords.lon, deliveryCoords.lat],
+            token
           );
         }
 
@@ -406,12 +442,13 @@ export function TruckMapView({
   const drawRouteToDestination = async (
     mapInstance: mapboxgl.Map,
     startCoords: [number, number],
-    endCoords: [number, number]
+    endCoords: [number, number],
+    token: string
   ) => {
     try {
       const coordinates = `${startCoords[0]},${startCoords[1]};${endCoords[0]},${endCoords[1]}`;
       const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${MAPBOX_TOKEN}`
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${token}`
       );
       
       const data = await response.json();
