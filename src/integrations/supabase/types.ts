@@ -1373,6 +1373,54 @@ export type Database = {
         }
         Relationships: []
       }
+      hos_requests: {
+        Row: {
+          company_name: string
+          created_at: string
+          driver_name: string
+          id: string
+          notified_at: string | null
+          request_details: string | null
+          request_type: string
+          requester_email: string
+          requester_user_id: string | null
+          status: string
+          telegram_chat_id: string
+          telegram_message_id: number
+          truck_number: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          driver_name: string
+          id?: string
+          notified_at?: string | null
+          request_details?: string | null
+          request_type: string
+          requester_email: string
+          requester_user_id?: string | null
+          status?: string
+          telegram_chat_id: string
+          telegram_message_id: number
+          truck_number: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          driver_name?: string
+          id?: string
+          notified_at?: string | null
+          request_details?: string | null
+          request_type?: string
+          requester_email?: string
+          requester_user_id?: string | null
+          status?: string
+          telegram_chat_id?: string
+          telegram_message_id?: number
+          truck_number?: string
+        }
+        Relationships: []
+      }
       invoice_number_config: {
         Row: {
           created_at: string | null
