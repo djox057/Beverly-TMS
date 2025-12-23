@@ -3132,7 +3132,7 @@ const Trips = () => {
                                     : alternatingBg;
 
                           return (
-                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName}`}>
+                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName} hover:bg-transparent`}>
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
