@@ -75,8 +75,12 @@ ${requestTypeText}${violationText}`;
 
     console.log('Sending message to Telegram:', message);
 
-    const telegramBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const telegramChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+    const telegramBotToken = (Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "").trim();
+    const telegramChatId = (Deno.env.get("TELEGRAM_CHAT_ID") ?? "").trim();
+
+    console.log(
+      `Telegram config loaded: token_len=${telegramBotToken.length}, token_last4=${telegramBotToken.slice(-4)}, chat_id_len=${telegramChatId.length}`
+    );
 
     if (!telegramBotToken || !telegramChatId) {
       console.error('Missing Telegram configuration');
