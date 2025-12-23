@@ -26,6 +26,7 @@ interface HosRequestDialogProps {
   driverName: string;
   truckNumber: string;
   companyName: string;
+  requesterEmail?: string;
 }
 
 type RequestType = 'full_shift' | 'full_cycle' | 'custom';
@@ -36,6 +37,7 @@ export const HosRequestDialog = ({
   driverName,
   truckNumber,
   companyName,
+  requesterEmail,
 }: HosRequestDialogProps) => {
   const [requestType, setRequestType] = useState<RequestType>('full_shift');
   const [violationFix, setViolationFix] = useState(false);
@@ -56,6 +58,7 @@ export const HosRequestDialog = ({
         companyName,
         requestType,
         violationFix,
+        requesterEmail,
       };
 
       if (requestType === 'custom') {

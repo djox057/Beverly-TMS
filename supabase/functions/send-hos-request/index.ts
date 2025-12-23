@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,7 @@ interface HosRequestPayload {
     cycleMinutes: number;
   };
   violationFix: boolean;
+  requesterEmail?: string;
 }
 
 const formatDuration = (hours: number, minutes: number): string => {
@@ -49,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
     const payload: HosRequestPayload = await req.json();
     console.log('Received HOS request payload:', JSON.stringify(payload, null, 2));
 
-    const { driverName, truckNumber, companyName, requestType, customHours, violationFix } = payload;
+    const { driverName, truckNumber, companyName, requestType, customHours, violationFix, requesterEmail } = payload;
 
     // Build request type text
     let requestTypeText = '';
@@ -130,6 +132,39 @@ ${requestTypeText}${violationText}`;
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
+    }
+
+    // Store the request in the database if we have requester email
+    if (requesterEmail && telegramResult.result?.message_id) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        const requestDetails = requestType === 'custom' && customHours
+          ? `${requestTypeText}${violationText}`
+          : `${requestTypeText}${violationText}`;
+        
+        const { error: dbError } = await supabase.from('hos_requests').insert({
+          telegram_message_id: telegramResult.result.message_id,
+          telegram_chat_id: telegramChatId,
+          requester_email: requesterEmail,
+          driver_name: driverName,
+          truck_number: truckNumber,
+          company_name: companyName,
+          request_type: requestType,
+          request_details: requestDetails,
+          status: 'pending'
+        });
+        
+        if (dbError) {
+          console.error('Failed to store HOS request in database:', dbError);
+          // Don't fail the request if DB insert fails
+        } else {
+          console.log('HOS request stored in database with message_id:', telegramResult.result.message_id);
+        }
+      }
     }
 
     return new Response(

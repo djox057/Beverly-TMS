@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.send-hos-request]
 verify_jwt = false
+
+[functions.telegram-webhook]
+verify_jwt = false
