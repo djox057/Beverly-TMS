@@ -23,42 +23,10 @@ export const useAvailableTrailers = (currentTruckId?: string) => {
     staleTime: 30000, // 30 seconds
   });
 
-  // Effect to remove yard trailers from trucks that have them assigned
-  useEffect(() => {
-    const removeYardTrailersFromTrucks = async () => {
-      if (yardLoadTrailerIds.length === 0) return;
-
-      // Find trucks that have yard trailers assigned
-      const { data: trucksWithYardTrailers, error: fetchError } = await supabase
-        .from('trucks')
-        .select('id, trailer_id')
-        .in('trailer_id', yardLoadTrailerIds);
-
-      if (fetchError) {
-        console.error('Error fetching trucks with yard trailers:', fetchError);
-        return;
-      }
-
-      if (trucksWithYardTrailers && trucksWithYardTrailers.length > 0) {
-        // Remove the trailer from these trucks
-        const truckIds = trucksWithYardTrailers.map(t => t.id);
-        const { error: updateError } = await supabase
-          .from('trucks')
-          .update({ trailer_id: null })
-          .in('id', truckIds);
-
-        if (updateError) {
-          console.error('Error removing yard trailers from trucks:', updateError);
-        } else {
-          console.log(`Removed yard trailers from ${truckIds.length} truck(s)`);
-          // Invalidate trucks query to reflect changes
-          queryClient.invalidateQueries({ queryKey: ['trucks'] });
-        }
-      }
-    };
-
-    removeYardTrailersFromTrucks();
-  }, [yardLoadTrailerIds, queryClient]);
+  // NOTE: We intentionally do NOT auto-unassign yard-load trailers from trucks here.
+  // Doing so can race with the yard-load pickup flow (truck gets set to the yard trailer,
+  // then this effect clears it back to null). We only filter these trailers out of the
+  // "available trailers" list (see below).
 
   return useQuery({
     queryKey: ['available-trailers', currentTruckId, yardLoadTrailerIds],
