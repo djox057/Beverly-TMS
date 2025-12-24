@@ -152,12 +152,8 @@ serve(async (req) => {
           results.push({ userId, action: 'skipped - no afterhours role' });
         }
 
-        // Clean up old schedule entries (delete entries older than today)
-        await supabaseAdmin
-          .from('afterhours_schedule')
-          .delete()
-          .eq('user_id', userId)
-          .lte('scheduled_date', todayStr);
+        // Note: We no longer delete old schedule entries to preserve history
+        // Historical records are kept for reference
       }
     }
 
