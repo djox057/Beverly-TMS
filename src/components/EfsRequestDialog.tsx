@@ -24,12 +24,12 @@ interface EfsRequestDialogProps {
 const EFS_PURPOSE_OPTIONS = [
   { value: "scale_ticket", label: "Scale ticket" },
   { value: "fuel", label: "Fuel" },
-  { value: "cash_advance", label: "Cash advance" },
   { value: "lumper", label: "Lumper" },
   { value: "escort", label: "Escort" },
   { value: "truck_wash", label: "Truck wash" },
   { value: "straps", label: "Straps" },
   { value: "repairs", label: "Repairs" },
+  { value: "custom", label: "Custom" },
 ];
 
 export function EfsRequestDialog({
@@ -52,6 +52,7 @@ export function EfsRequestDialog({
   
   // Other tab state
   const [otherPurpose, setOtherPurpose] = useState<string>("");
+  const [customPurpose, setCustomPurpose] = useState<string>("");
   const [otherAmount, setOtherAmount] = useState<string>("");
   const [isRequestingOther, setIsRequestingOther] = useState(false);
 
@@ -60,6 +61,7 @@ export function EfsRequestDialog({
     if (!open) {
       setCashAdvanceAmount(50);
       setOtherPurpose("");
+      setCustomPurpose("");
       setOtherAmount("");
       setActiveTab("cash-advance");
     }
@@ -113,10 +115,13 @@ export function EfsRequestDialog({
 
   const handleOtherRequest = async () => {
     if (!otherPurpose || !otherAmount) return;
+    if (otherPurpose === "custom" && !customPurpose.trim()) return;
     
     setIsRequestingOther(true);
     try {
-      const purposeLabel = EFS_PURPOSE_OPTIONS.find(p => p.value === otherPurpose)?.label || otherPurpose;
+      const purposeLabel = otherPurpose === "custom" 
+        ? customPurpose.trim() 
+        : (EFS_PURPOSE_OPTIONS.find(p => p.value === otherPurpose)?.label || otherPurpose);
       
       const { data, error } = await supabase.functions.invoke("send-efs-other-request", {
         body: {
@@ -281,7 +286,10 @@ export function EfsRequestDialog({
           <TabsContent value="other" className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="efs-purpose" className="text-sm font-medium">Purpose</Label>
-              <Select value={otherPurpose} onValueChange={setOtherPurpose}>
+              <Select value={otherPurpose} onValueChange={(val) => {
+                setOtherPurpose(val);
+                if (val !== "custom") setCustomPurpose("");
+              }}>
                 <SelectTrigger id="efs-purpose" className="w-full">
                   <SelectValue placeholder="Select purpose" />
                 </SelectTrigger>
@@ -294,6 +302,20 @@ export function EfsRequestDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {otherPurpose === "custom" && (
+              <div className="space-y-2">
+                <Label htmlFor="custom-purpose" className="text-sm font-medium">Custom Purpose</Label>
+                <Input
+                  id="custom-purpose"
+                  type="text"
+                  value={customPurpose}
+                  onChange={(e) => setCustomPurpose(e.target.value)}
+                  placeholder="Enter custom purpose"
+                  maxLength={100}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="efs-amount" className="text-sm font-medium">Amount ($)</Label>
@@ -323,7 +345,7 @@ export function EfsRequestDialog({
               </Button>
               <Button 
                 onClick={handleOtherRequest}
-                disabled={isRequestingOther || !otherPurpose || !otherAmount || parseFloat(otherAmount) <= 0}
+                disabled={isRequestingOther || !otherPurpose || !otherAmount || parseFloat(otherAmount) <= 0 || (otherPurpose === "custom" && !customPurpose.trim())}
               >
                 {isRequestingOther ? (
                   <>
