@@ -694,7 +694,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                               </span>
                                               {hasNotWorked ? (
                                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-500">
-                                                  NEW
+                                                  Suggested
                                                 </Badge>
                                               ) : monthlyCount > 0 && (
                                                 <span className="text-[10px] text-muted-foreground">
