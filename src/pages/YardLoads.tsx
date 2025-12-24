@@ -290,6 +290,65 @@ export default function YardLoads() {
     }
 
     try {
+      // Get the current truck assigned to the order (the new truck that took over)
+      const { data: currentOrder } = await supabase
+        .from('orders')
+        .select('truck_id')
+        .eq('id', order.id)
+        .single();
+
+      const currentTruckId = currentOrder?.truck_id;
+
+      // Find the previous trailer for this truck from assignment_history
+      // Look for the most recent trailer_assignment BEFORE the transfer was created
+      let previousTrailerId: string | null = null;
+      
+      if (currentTruckId) {
+        // Get the transfer creation time from order_transfers
+        const { data: transferData } = await supabase
+          .from('order_transfers')
+          .select('created_at')
+          .eq('order_id', order.id)
+          .eq('sequence_number', 1)
+          .single();
+
+        const transferCreatedAt = transferData?.created_at;
+
+        if (transferCreatedAt) {
+          // Look for the trailer assignment just BEFORE the transfer
+          const { data: historyData } = await supabase
+            .from('assignment_history')
+            .select('trailer_id')
+            .eq('truck_id', currentTruckId)
+            .eq('change_type', 'trailer_assignment')
+            .lt('changed_at', transferCreatedAt)
+            .order('changed_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          previousTrailerId = historyData?.trailer_id || null;
+        }
+
+        // Reset the new truck's trailer to what it had before
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: previousTrailerId })
+          .eq('id', currentTruckId);
+
+        if (truckError) {
+          console.error('Error resetting truck trailer:', truckError);
+        }
+
+        // Record this trailer change in assignment_history
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from('assignment_history').insert({
+          truck_id: currentTruckId,
+          trailer_id: previousTrailerId,
+          change_type: 'trailer_assignment',
+          changed_by: userData?.user?.id || null,
+        });
+      }
+
       const { error } = await supabase
         .from('orders')
         .update({
@@ -333,6 +392,37 @@ export default function YardLoads() {
     const yardLoadTrailerId = selectedOrderForTransfer.trailerId;
 
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      // Get the truck's current trailer before making changes (for assignment history)
+      if (data.transferTruckId) {
+        const { data: currentTruck } = await supabase
+          .from('trucks')
+          .select('trailer_id')
+          .eq('id', data.transferTruckId)
+          .single();
+
+        const previousTrailerId = currentTruck?.trailer_id || null;
+
+        // Record the truck's current trailer in assignment_history before changing
+        await supabase.from('assignment_history').insert({
+          truck_id: data.transferTruckId,
+          trailer_id: previousTrailerId,
+          change_type: 'trailer_assignment',
+          changed_by: userData?.user?.id || null,
+        });
+
+        // Always update the truck's trailer to the yard load's trailer (even if null)
+        const { error: truckError } = await supabase
+          .from('trucks')
+          .update({ trailer_id: yardLoadTrailerId || null })
+          .eq('id', data.transferTruckId);
+
+        if (truckError) {
+          console.error('Error updating truck trailer:', truckError);
+        }
+      }
+
       // Update the order with transfer driver info - use yard load's trailer
       const { error } = await supabase
         .from('orders')
@@ -346,19 +436,6 @@ export default function YardLoads() {
         .eq('id', selectedOrderForTransfer.id);
 
       if (error) throw error;
-
-      // Update the truck's trailer to the yard load's trailer
-      if (data.transferTruckId && yardLoadTrailerId) {
-        const { error: truckError } = await supabase
-          .from('trucks')
-          .update({ trailer_id: yardLoadTrailerId })
-          .eq('id', data.transferTruckId);
-
-        if (truckError) {
-          console.error('Error updating truck trailer:', truckError);
-          // Don't throw, the main assignment succeeded
-        }
-      }
 
       // Create order_transfers records for Original (sequence 0) and Transfer #1 (sequence 1)
       // First, delete any existing transfers for this order to avoid duplicates
