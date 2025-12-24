@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb, AlertCircle } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, isSaturday, isWeekend, startOfDay, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
@@ -564,79 +564,6 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                             </div>
                           ) : (
                             <>
-                              {/* Suggestions Section */}
-                              {selectedDate && (() => {
-                                const dateStr = format(selectedDate, 'yyyy-MM-dd');
-                                const existingForDateLocal = schedulesByDate[dateStr] || [];
-                                const officeSchedulesOnlyLocal = existingForDateLocal.filter(s => !s.user?.isMaintenance);
-                                const scheduledByOfficeLocal = officeSchedulesOnlyLocal.reduce((acc, schedule) => {
-                                  const officeRaw = schedule.user?.office?.toLowerCase() || '';
-                                  let office: OfficeKey | null = null;
-                                  if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
-                                    office = 'cacak';
-                                  } else if (officeRaw.includes('beograd')) {
-                                    office = 'beograd';
-                                  } else if (officeRaw.includes('kragujevac')) {
-                                    office = 'kragujevac';
-                                  }
-                                  if (office) {
-                                    if (!acc[office]) acc[office] = [];
-                                    acc[office].push(schedule);
-                                  }
-                                  return acc;
-                                }, {} as Record<OfficeKey, ScheduleEntry[]>);
-                                
-                                // Check if any office has suggestions
-                                const allSuggestions = (['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
-                                  const alreadyScheduledIds = new Set((scheduledByOfficeLocal[office] || []).map(s => s.user_id));
-                                  return { office, ...getSuggestions(selectedDate, office, alreadyScheduledIds) };
-                                });
-                                
-                                const hasSuggestions = allSuggestions.some(s => s.notWorkedThisMonth.length > 0);
-                                
-                                if (!hasSuggestions) return null;
-                                
-                                return (
-                                  <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <Lightbulb className="h-4 w-4 text-amber-500" />
-                                      <span className="text-sm font-medium">
-                                        Suggestions for {format(selectedDate, 'MMMM yyyy')}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mb-2">
-                                      These dispatchers haven't worked this month yet:
-                                    </p>
-                                    <div className="space-y-2">
-                                      {allSuggestions.map(({ office, notWorkedThisMonth }) => {
-                                        if (notWorkedThisMonth.length === 0) return null;
-                                        const config = OFFICE_CONFIG[office];
-                                        return (
-                                          <div key={office} className="flex items-start gap-2">
-                                            <Badge variant="outline" className="text-xs shrink-0">
-                                              {config.label.split(' ')[0]}
-                                            </Badge>
-                                            <div className="flex flex-wrap gap-1">
-                                              {notWorkedThisMonth.map(user => (
-                                                <Badge 
-                                                  key={user.id} 
-                                                  variant="secondary" 
-                                                  className="text-xs cursor-pointer hover:bg-amber-500/20"
-                                                  onClick={() => handleUserToggle(user.id, office)}
-                                                >
-                                                  {user.full_name?.split(' ')[0] || user.email.split('@')[0]}
-                                                  {selectedUsers[office].includes(user.id) && ' ✓'}
-                                                </Badge>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                              
                               <ScrollArea className="flex-1 border rounded-md p-2">
                               {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
                                 const officeUsersForOffice = usersByOffice[office] || [];
@@ -651,6 +578,21 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 // Filter out already scheduled users
                                 const alreadyScheduledIds = new Set((scheduledByOffice[office] || []).map(s => s.user_id));
                                 const availableUsers = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
+                                
+                                // Get suggestions for this office
+                                const { notWorkedThisMonth, workCounts } = selectedDate 
+                                  ? getSuggestions(selectedDate, office, alreadyScheduledIds)
+                                  : { notWorkedThisMonth: [], workCounts: {} };
+                                const notWorkedIds = new Set(notWorkedThisMonth.map(u => u.id));
+                                
+                                // Sort users: those who haven't worked first, then by name
+                                const sortedUsers = [...availableUsers].sort((a, b) => {
+                                  const aNotWorked = notWorkedIds.has(a.id);
+                                  const bNotWorked = notWorkedIds.has(b.id);
+                                  if (aNotWorked && !bNotWorked) return -1;
+                                  if (!aNotWorked && bNotWorked) return 1;
+                                  return (a.full_name || a.email).localeCompare(b.full_name || b.email);
+                                });
                                 
                                 const isFilled = totalCount >= config.slots;
                                 
@@ -720,25 +662,48 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                       <span className="text-xs text-muted-foreground">
                                         {totalCount}/{config.slots} (need {MIN_THRESHOLDS[office] - existingCount} more)
                                       </span>
+                                      {notWorkedThisMonth.length > 0 && (
+                                        <span className="text-xs text-amber-500 flex items-center gap-1">
+                                          <Lightbulb className="h-3 w-3" />
+                                          {notWorkedThisMonth.length} haven't worked
+                                        </span>
+                                      )}
                                     </div>
-                                    {availableUsers.length === 0 ? (
+                                    {sortedUsers.length === 0 ? (
                                       <p className="text-xs text-muted-foreground pl-2">No available users in this office</p>
                                     ) : (
                                       <div className="space-y-1 pl-2">
-                                        {availableUsers.map(user => (
-                                          <label
-                                            key={user.id}
-                                            className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer"
-                                          >
-                                            <Checkbox
-                                              checked={selectedUsers[office].includes(user.id)}
-                                              onCheckedChange={() => handleUserToggle(user.id, office)}
-                                            />
-                                            <span className="text-sm">
-                                              {user.full_name || user.email}
-                                            </span>
-                                          </label>
-                                        ))}
+                                        {sortedUsers.map(user => {
+                                          const hasNotWorked = notWorkedIds.has(user.id);
+                                          const monthlyCount = workCounts[user.id]?.count || 0;
+                                          return (
+                                            <label
+                                              key={user.id}
+                                              className={`flex items-center gap-2 p-1.5 rounded cursor-pointer ${
+                                                hasNotWorked 
+                                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30' 
+                                                  : 'hover:bg-muted'
+                                              }`}
+                                            >
+                                              <Checkbox
+                                                checked={selectedUsers[office].includes(user.id)}
+                                                onCheckedChange={() => handleUserToggle(user.id, office)}
+                                              />
+                                              <span className="text-sm flex-1">
+                                                {user.full_name || user.email}
+                                              </span>
+                                              {hasNotWorked ? (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-500">
+                                                  NEW
+                                                </Badge>
+                                              ) : monthlyCount > 0 && (
+                                                <span className="text-[10px] text-muted-foreground">
+                                                  {monthlyCount}x
+                                                </span>
+                                              )}
+                                            </label>
+                                          );
+                                        })}
                                       </div>
                                     )}
                                   </div>
