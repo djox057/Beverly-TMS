@@ -390,7 +390,6 @@ export default function YardLoads() {
     if (!selectedOrderForTransfer) return;
 
     const yardLoadTrailerId = selectedOrderForTransfer.trailerId;
-    console.log('YardLoads: Assigning transfer - yardLoadTrailerId:', yardLoadTrailerId, 'selectedOrderForTransfer:', selectedOrderForTransfer);
 
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -407,14 +406,11 @@ export default function YardLoads() {
         previousTrailerId = currentTruck?.trailer_id || null;
 
         // Always update the truck's trailer to the yard load's trailer (even if null)
-        console.log('YardLoads: Updating truck', data.transferTruckId, 'trailer from', previousTrailerId, 'to', yardLoadTrailerId);
-        const { error: truckError, data: updateResult } = await supabase
+        const { error: truckError } = await supabase
           .from('trucks')
           .update({ trailer_id: yardLoadTrailerId || null })
-          .eq('id', data.transferTruckId)
-          .select();
+          .eq('id', data.transferTruckId);
 
-        console.log('YardLoads: Truck update result:', updateResult, 'error:', truckError);
         if (truckError) {
           console.error('Error updating truck trailer:', truckError);
         }
