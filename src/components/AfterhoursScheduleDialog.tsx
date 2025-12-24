@@ -5,10 +5,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2 } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, isSaturday, isWeekend, startOfDay } from "date-fns";
+import { format, isSaturday, isWeekend, startOfDay, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import { useAuthContext } from "@/contexts/AuthContext";
 
 interface ScheduleUser {
@@ -298,6 +298,56 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     return acc;
   }, {} as Record<string, ScheduleEntry[]>);
 
+  // Calculate who has worked this month (for suggestions)
+  const getMonthlyWorkCounts = (targetDate: Date) => {
+    const monthStart = startOfMonth(targetDate);
+    const monthEnd = endOfMonth(targetDate);
+    
+    const workCounts: Record<string, { count: number; user: ScheduleUser }> = {};
+    
+    // Initialize all non-maintenance users with 0 count
+    officeUsers.forEach(user => {
+      workCounts[user.id] = { count: 0, user };
+    });
+    
+    // Count schedules within the month
+    existingSchedules.forEach(schedule => {
+      const scheduleDate = new Date(schedule.scheduled_date);
+      if (isWithinInterval(scheduleDate, { start: monthStart, end: monthEnd })) {
+        if (workCounts[schedule.user_id]) {
+          workCounts[schedule.user_id].count++;
+        }
+      }
+    });
+    
+    return workCounts;
+  };
+
+  // Get suggestions for who should work (users who haven't worked this month)
+  const getSuggestions = (targetDate: Date, office: OfficeKey, alreadyScheduledIds: Set<string>) => {
+    const workCounts = getMonthlyWorkCounts(targetDate);
+    const officeUsersForOffice = usersByOffice[office] || [];
+    
+    // Filter to users in this office who aren't already scheduled for the selected date
+    const availableOfficeUsers = officeUsersForOffice.filter(u => !alreadyScheduledIds.has(u.id));
+    
+    // Sort by work count (ascending) - those who worked less come first
+    const sorted = availableOfficeUsers.sort((a, b) => {
+      const countA = workCounts[a.id]?.count || 0;
+      const countB = workCounts[b.id]?.count || 0;
+      return countA - countB;
+    });
+    
+    // Get users who haven't worked this month
+    const notWorkedThisMonth = sorted.filter(u => (workCounts[u.id]?.count || 0) === 0);
+    
+    return {
+      notWorkedThisMonth,
+      workCounts,
+      sorted
+    };
+  };
+
   // Holidays that can be scheduled (month is 0-indexed)
   const HOLIDAYS = [
     { month: 0, day: 1, name: "New Year" },           // 1/1
@@ -513,7 +563,81 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               <Loader2 className="h-5 w-5 animate-spin" />
                             </div>
                           ) : (
-                            <ScrollArea className="flex-1 border rounded-md p-2">
+                            <>
+                              {/* Suggestions Section */}
+                              {selectedDate && (() => {
+                                const dateStr = format(selectedDate, 'yyyy-MM-dd');
+                                const existingForDateLocal = schedulesByDate[dateStr] || [];
+                                const officeSchedulesOnlyLocal = existingForDateLocal.filter(s => !s.user?.isMaintenance);
+                                const scheduledByOfficeLocal = officeSchedulesOnlyLocal.reduce((acc, schedule) => {
+                                  const officeRaw = schedule.user?.office?.toLowerCase() || '';
+                                  let office: OfficeKey | null = null;
+                                  if (officeRaw.includes('cacak') || officeRaw.includes('čačak')) {
+                                    office = 'cacak';
+                                  } else if (officeRaw.includes('beograd')) {
+                                    office = 'beograd';
+                                  } else if (officeRaw.includes('kragujevac')) {
+                                    office = 'kragujevac';
+                                  }
+                                  if (office) {
+                                    if (!acc[office]) acc[office] = [];
+                                    acc[office].push(schedule);
+                                  }
+                                  return acc;
+                                }, {} as Record<OfficeKey, ScheduleEntry[]>);
+                                
+                                // Check if any office has suggestions
+                                const allSuggestions = (['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
+                                  const alreadyScheduledIds = new Set((scheduledByOfficeLocal[office] || []).map(s => s.user_id));
+                                  return { office, ...getSuggestions(selectedDate, office, alreadyScheduledIds) };
+                                });
+                                
+                                const hasSuggestions = allSuggestions.some(s => s.notWorkedThisMonth.length > 0);
+                                
+                                if (!hasSuggestions) return null;
+                                
+                                return (
+                                  <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-md">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Lightbulb className="h-4 w-4 text-amber-500" />
+                                      <span className="text-sm font-medium">
+                                        Suggestions for {format(selectedDate, 'MMMM yyyy')}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mb-2">
+                                      These dispatchers haven't worked this month yet:
+                                    </p>
+                                    <div className="space-y-2">
+                                      {allSuggestions.map(({ office, notWorkedThisMonth }) => {
+                                        if (notWorkedThisMonth.length === 0) return null;
+                                        const config = OFFICE_CONFIG[office];
+                                        return (
+                                          <div key={office} className="flex items-start gap-2">
+                                            <Badge variant="outline" className="text-xs shrink-0">
+                                              {config.label.split(' ')[0]}
+                                            </Badge>
+                                            <div className="flex flex-wrap gap-1">
+                                              {notWorkedThisMonth.map(user => (
+                                                <Badge 
+                                                  key={user.id} 
+                                                  variant="secondary" 
+                                                  className="text-xs cursor-pointer hover:bg-amber-500/20"
+                                                  onClick={() => handleUserToggle(user.id, office)}
+                                                >
+                                                  {user.full_name?.split(' ')[0] || user.email.split('@')[0]}
+                                                  {selectedUsers[office].includes(user.id) && ' ✓'}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                              
+                              <ScrollArea className="flex-1 border rounded-md p-2">
                               {(['kragujevac', 'cacak', 'beograd'] as OfficeKey[]).map(office => {
                                 const officeUsersForOffice = usersByOffice[office] || [];
                                 const config = OFFICE_CONFIG[office];
@@ -717,6 +841,7 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 </div>
                               )}
                             </ScrollArea>
+                            </>
                           )}
 
                           <Button 
