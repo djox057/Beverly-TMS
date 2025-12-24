@@ -495,7 +495,12 @@ const Orders = () => {
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     try {
-      const { error } = await supabase.from("orders").update({ locked: !currentLockStatus }).eq("id", orderId);
+      // When unlocking, also set invoiced to false
+      const updateData = currentLockStatus 
+        ? { locked: false, invoiced: false } 
+        : { locked: true };
+      
+      const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
 
       if (error) throw error;
 

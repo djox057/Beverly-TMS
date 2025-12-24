@@ -218,9 +218,14 @@ export default function YardLoads() {
 
   const toggleOrderLock = async (orderId: string, currentLockState: boolean) => {
     try {
+      // When unlocking, also set invoiced to false
+      const updateData = currentLockState 
+        ? { locked: false, invoiced: false } 
+        : { locked: true };
+      
       const { error } = await supabase
         .from('orders')
-        .update({ locked: !currentLockState })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) throw error;
