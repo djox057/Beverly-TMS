@@ -1,9 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 
 export const useAvailableTrailers = (currentTruckId?: string) => {
-  const queryClient = useQueryClient();
 
   // Fetch yard load trailer IDs (trailers that are on yard loads and should not be assignable)
   const { data: yardLoadTrailerIds = [] } = useQuery({
