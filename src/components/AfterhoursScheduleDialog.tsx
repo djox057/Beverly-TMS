@@ -413,6 +413,34 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
               disabled={isDateDisabled}
               className="rounded-md border"
             />
+            
+            {/* People who worked more than 1 day this month */}
+            {selectedDate && (() => {
+              const workCounts = getMonthlyWorkCounts(selectedDate);
+              const usersWithMultipleDays = Object.values(workCounts)
+                .filter(entry => entry.count > 1)
+                .sort((a, b) => b.count - a.count);
+              
+              if (usersWithMultipleDays.length === 0) return null;
+              
+              return (
+                <div className="border rounded-md p-3 bg-muted/30">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2">
+                    Worked 2+ days in {format(selectedDate, 'MMMM')}
+                  </h4>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {usersWithMultipleDays.map(({ user, count }) => (
+                      <div key={user.id} className="flex items-center justify-between text-sm">
+                        <span className="truncate">{user.full_name || user.email}</span>
+                        <Badge variant="secondary" className="text-xs ml-2">
+                          {count}x
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Right side - Schedule for selected date */}
