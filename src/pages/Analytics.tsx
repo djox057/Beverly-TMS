@@ -1043,6 +1043,8 @@ const Analytics = () => {
                   </div>
                 </div>
 
+                {/* Only show dispatcher table if there's more than 1 dispatcher */}
+                {dispatcherStats.length > 1 && (
                 <div className="overflow-x-auto -mx-4 sm:mx-0">
                 <Table>
                   <TableHeader>
@@ -1078,78 +1080,71 @@ const Analytics = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dispatcherStats.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No data available
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      dispatcherStats.map((stat, index) => {
-                        // Get the most recent note for this dispatcher in the date range
-                        const dispatcherNotesForUser = dispatcherNotes.filter((n) => n.dispatcher_id === stat.userId);
-                        const mostRecentNote =
-                          dispatcherNotesForUser.length > 0
-                            ? dispatcherNotesForUser.reduce((latest, current) =>
-                                new Date(current.date) > new Date(latest.date) ? current : latest,
-                              )
-                            : null;
+                    {dispatcherStats.map((stat, index) => {
+                      // Get the most recent note for this dispatcher in the date range
+                      const dispatcherNotesForUser = dispatcherNotes.filter((n) => n.dispatcher_id === stat.userId);
+                      const mostRecentNote =
+                        dispatcherNotesForUser.length > 0
+                          ? dispatcherNotesForUser.reduce((latest, current) =>
+                              new Date(current.date) > new Date(latest.date) ? current : latest,
+                            )
+                          : null;
 
-                        const canViewAndEditNotes =
-                          hasRole("manager") || hasRole("admin") || hasRole("chicago_management");
-                        const todayDate = format(new Date(), "yyyy-MM-dd");
+                      const canViewAndEditNotes =
+                        hasRole("manager") || hasRole("admin") || hasRole("chicago_management");
+                      const todayDate = format(new Date(), "yyyy-MM-dd");
 
-                        return (
-                          <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center">
-                                {stat.name}
-                                {canViewAndEditNotes && stat.userId && (
-                                  <DispatcherNoteDialog
-                                    dispatcherId={stat.userId}
-                                    initialDate={todayDate}
-                                    existingNote={
-                                      mostRecentNote
-                                        ? {
-                                            id: mostRecentNote.id,
-                                            note: mostRecentNote.note,
-                                            color: mostRecentNote.color,
-                                          }
-                                        : undefined
-                                    }
-                                    canEdit={canViewAndEditNotes}
-                                  />
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              $
-                              {stat.totalFreight.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
-                            <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
+                      return (
+                        <TableRow key={stat.name} className={index === dispatcherStats.length - 1 ? "border-b" : ""}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center">
+                              {stat.name}
+                              {canViewAndEditNotes && stat.userId && (
+                                <DispatcherNoteDialog
+                                  dispatcherId={stat.userId}
+                                  initialDate={todayDate}
+                                  existingNote={
+                                    mostRecentNote
+                                      ? {
+                                          id: mostRecentNote.id,
+                                          note: mostRecentNote.note,
+                                          color: mostRecentNote.color,
+                                        }
+                                      : undefined
+                                  }
+                                  canEdit={canViewAndEditNotes}
+                                />
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            $
+                            {stat.totalFreight.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right">{stat.totalMiles.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${stat.ratePerMile.toFixed(2)}</TableCell>
 
-                            <TableCell className="text-right">
-                              $
-                              {stat.cut.toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
-                            <TableCell className="text-right">
-                              {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
+                          <TableCell className="text-right">
+                            $
+                            {stat.cut.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right">{stat.cutPercent.toFixed(1)}%</TableCell>
+                          <TableCell className="text-right">
+                            {stat.avgTrucks > 0 ? stat.avgTrucks.toFixed(1) : "-"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
