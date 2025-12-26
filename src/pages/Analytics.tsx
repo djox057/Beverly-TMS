@@ -408,10 +408,10 @@ const Analytics = () => {
           return matchesDate && dispatcherProfile.office === profile.office;
         }
 
-        // Dispatchers only see their own orders
-        if (primaryRole === "dispatch") {
+        // Dispatchers and Afterhours only see their own orders
+        if (primaryRole === "dispatch" || primaryRole === "afterhours") {
           if (!profile?.full_name && !profile?.user_id) {
-            console.log("❌ Dispatch filter: Missing profile name or ID");
+            console.log("❌ Dispatch/Afterhours filter: Missing profile name or ID");
             return false;
           }
           // Check both full_name and user_id to handle both old and new data formats
