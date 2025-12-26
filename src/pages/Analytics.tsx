@@ -297,8 +297,9 @@ const Analytics = () => {
     }
     const filtered =
       orders?.filter((order) => {
-        // Exclude canceled orders from analytics
-        if (order.canceled) {
+        // Exclude canceled orders from analytics UNLESS they have TONU values
+        // TONU from canceled orders should still count in gross/commission
+        if (order.canceled && !(order.tonu > 0 || order.tonuDriver > 0)) {
           return false;
         }
 
