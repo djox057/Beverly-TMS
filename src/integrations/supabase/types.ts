@@ -237,51 +237,6 @@ export type Database = {
           },
         ]
       }
-      christmas_notes: {
-        Row: {
-          created_at: string
-          dispatcher_id: string
-          driver_id: string
-          id: string
-          note: string | null
-          truck_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          dispatcher_id: string
-          driver_id: string
-          id?: string
-          note?: string | null
-          truck_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          dispatcher_id?: string
-          driver_id?: string
-          id?: string
-          note?: string | null
-          truck_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "christmas_notes_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: true
-            referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "christmas_notes_truck_id_fkey"
-            columns: ["truck_id"]
-            isOneToOne: false
-            referencedRelation: "trucks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       companies: {
         Row: {
           created_at: string
