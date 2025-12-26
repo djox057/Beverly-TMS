@@ -2665,19 +2665,41 @@ const Reports = () => {
                                 const isLastTruck = truckIndex === group.trucks.length - 1;
                                 const isMapExpanded = expandedTruckMap === truck.id;
 
-                                // Get current order (earliest order without POD based on pickup datetime) - exclude GAME-OVER blocks
-                                const currentOrder = truck.allOrders
-                                  ?.filter(
-                                    (order) =>
-                                      order.notes !== "GAME|OVER" &&
-                                      !order.order_files?.some((file: any) => file.file_category === "POD"),
-                                  )
+                                // Current order logic (aligned with edge function):
+                                // 1. Default: last/latest load that has BOL
+                                // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
+                                // 3. Fallback: if no load with BOL, use last load
+                                const allSortedOrders = truck.allOrders
+                                  ?.filter((order) => !order.canceled && order.notes !== "GAME|OVER")
                                   .sort((a, b) => {
-                                    // Sort by pickup datetime ascending (earliest first)
                                     const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
                                     const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
                                     return aDate - bDate;
-                                  })[0];
+                                  }) || [];
+                                
+                                let currentOrder: typeof allSortedOrders[0] | undefined = undefined;
+                                if (allSortedOrders.length > 0) {
+                                  const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                                  const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
+                                  
+                                  if (lastOrderHasBOL) {
+                                    currentOrder = lastOrder;
+                                  } else if (allSortedOrders.length >= 2) {
+                                    const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                                    const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
+                                    
+                                    if (previousHasPOD) {
+                                      currentOrder = lastOrder;
+                                    } else {
+                                      const lastWithBOL = [...allSortedOrders].reverse().find(order =>
+                                        order.order_files?.some((file: any) => file.file_category === "BOL")
+                                      );
+                                      currentOrder = lastWithBOL || lastOrder;
+                                    }
+                                  } else {
+                                    currentOrder = lastOrder;
+                                  }
+                                }
 
                                 // Multi-drop support (non-mutating): derive stops if missing
                                 const pickupStopsForDisplay =
