@@ -25,44 +25,12 @@ interface Coordinates {
 }
 
 /**
- * Geocode an address using OpenStreetMap Nominatim
- */
-async function geocodeAddress(address: string): Promise<Coordinates | null> {
-  try {
-    const encodedAddress = encodeURIComponent(address);
-    const response = await fetch(
-      `https://nominatim.server4beverly.us/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`
-    );
-    
-    if (!response.ok) {
-      console.error('Geocoding API error:', response.status);
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!data || data.length === 0) {
-      console.log('No geocoding results for:', address);
-      return null;
-    }
-    
-    return {
-      lat: parseFloat(data[0].lat),
-      lon: parseFloat(data[0].lon),
-    };
-  } catch (error) {
-    console.error('Geocoding error:', error);
-    return null;
-  }
-}
-
-/**
  * Calculate route distance using OSRM
  */
 async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<number | null> {
   const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
   try {
-    console.log(`${truckPrefix}📍 Calling OSRM: https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false&alternatives=false&steps=false`);
+    console.log(`${truckPrefix}📍 Calling OSRM: start(${start.lat},${start.lon}) -> end(${end.lat},${end.lon})`);
     
     const response = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/calculate-route`,
@@ -90,21 +58,16 @@ async function calculateRouteDistance(start: Coordinates, end: Coordinates, truc
 }
 
 /**
- * Calculate distance from truck's current location to target
+ * Calculate distance from truck's current location to target using pre-stored coordinates
  */
 async function calculateDistanceFromTruck(
   truckLocation: TruckLocation,
-  targetAddress: string | null = null
+  targetCoords: Coordinates | null,
+  targetDescription: string
 ): Promise<number | null> {
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`📍 CALCULATE DISTANCE FROM TRUCK ${truckLocation.truck_number}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🚛 Truck:', truckLocation.truck_number);
-  console.log('📍 Truck Location:', {
-    lat: truckLocation.latitude,
-    lon: truckLocation.longitude
-  });
-  console.log('🎯 Target:', targetAddress || 'TERMINAL');
+  console.log(`📍 CALCULATE DISTANCE - Truck ${truckLocation.truck_number}`);
+  console.log(`   🚛 Truck: (${truckLocation.latitude}, ${truckLocation.longitude})`);
+  console.log(`   🎯 Target: ${targetDescription}`);
 
   if (!truckLocation) {
     console.log('❌ Missing truck location');
@@ -112,78 +75,50 @@ async function calculateDistanceFromTruck(
   }
 
   try {
-    let targetCoords: Coordinates;
-    
-    if (!targetAddress) {
-      targetCoords = TERMINAL_COORDINATES;
-      console.log('📍 Using terminal coordinates:', targetCoords);
-    } else {
-      console.log('🌐 Geocoding address...');
-      const geocodedCoords = await geocodeAddress(targetAddress);
-      console.log('🌐 Geocode result:', geocodedCoords);
-      
-      if (!geocodedCoords) {
-        console.error('❌ GEOCODING FAILED for:', targetAddress);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-        return null;
-      }
-      targetCoords = geocodedCoords;
-    }
+    // Use terminal coordinates if no target provided
+    const endCoords = targetCoords || TERMINAL_COORDINATES;
+    console.log(`   📍 End coords: (${endCoords.lat}, ${endCoords.lon})`);
 
     const truckCoords: Coordinates = {
       lat: truckLocation.latitude,
       lon: truckLocation.longitude,
     };
     
-    console.log('🛣️ Calculating route distance via OSRM...');
-    console.log('🛣️ From:', truckCoords);
-    console.log('🛣️ To:', targetCoords);
-    
-    const distance = await calculateRouteDistance(truckCoords, targetCoords, truckLocation.truck_number);
-    
-    console.log('🛣️ OSRM Result:', distance, 'miles');
+    const distance = await calculateRouteDistance(truckCoords, endCoords, truckLocation.truck_number);
     
     if (distance === null) {
       console.error('❌ OSRM CALCULATION FAILED');
     } else {
-      console.log('✅ SUCCESS: Distance =', distance, 'miles');
+      console.log(`   ✅ Distance: ${distance} miles`);
     }
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return distance;
   } catch (error) {
     console.error('❌ Error calculating distance:', error);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     return null;
   }
 }
 
 /**
- * Calculate distance for an order based on its status
+ * Calculate distance for an order based on its status using pre-stored coordinates
  */
 async function calculateOrderDistance(
   truckLocation: TruckLocation,
   order: any,
   truckStatus?: string
 ): Promise<number> {
-  console.log('\n╔════════════════════════════════════════╗');
-  console.log('║   ORDER DISTANCE CALCULATION START     ║');
-  console.log('╚════════════════════════════════════════╝');
-  
   if (!truckLocation || !order) {
     console.log('⚠️ Missing data:', { hasTruckLocation: !!truckLocation, hasOrder: !!order });
     return 0;
   }
 
-  console.log('📦 Order:', order.load_number);
-  console.log('📦 Status:', order.status);
-  console.log('🚛 Truck Status:', truckStatus);
+  console.log(`📦 Order: ${order.load_number} | Status: ${order.status} | Truck Status: ${truckStatus}`);
 
   const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
   const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
   const pickupArrived = order.pickupStop?.arrived_at;
 
-  console.log('📄 Files:', { hasBOL, hasPOD, pickupArrived: !!pickupArrived });
+  console.log(`   📄 hasBOL: ${hasBOL}, hasPOD: ${hasPOD}, pickupArrived: ${!!pickupArrived}`);
 
   // Maintenance - 0 miles
   if (truckStatus === 'Maintenance') {
@@ -197,64 +132,54 @@ async function calculateOrderDistance(
     return 0;
   }
 
-  // Available - calculate to next pickup (if exists)
+  // Available - 0 miles
   if (truckStatus === 'Available') {
-    console.log('🏭 Status: Available - Looking for next pickup');
-    // This truck is available, so we don't calculate distance for this delivered order
-    // The parent function will look for the next order
+    console.log('🏭 Status: Available, returning 0 miles');
     return 0;
   }
 
-  // Pending (not picked up and not arrived) - calculate to pickup
+  // Pending (not picked up and not arrived) - calculate to pickup using stored coords
   if (!pickupArrived && !hasBOL) {
-    console.log('📦 Status: Pending (not arrived) - Calculating distance to pickup');
+    console.log('📦 Status: Pending - Calculating distance to PICKUP');
     const pickupStop = order.pickupStop;
-    const deliveryStop = order.deliveryStop;
-    console.log('📦 VERIFICATION - Pickup stop:', pickupStop);
-    console.log('📦 VERIFICATION - Delivery stop (should NOT use this):', deliveryStop);
     
-    if (!pickupStop?.address) {
-      console.log('❌ No pickup address found');
+    if (!pickupStop) {
+      console.log('❌ No pickup stop found');
       return 0;
     }
-    
-    const fullAddress = `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''} ${pickupStop.zip_code || ''}`
-      .trim()
-      .replace(/,\s*,/g, ',')
-      .replace(/\s+/g, ' ');
-    console.log('📦 Full pickup address being used:', fullAddress);
-    console.log('📦 COMPARISON - Delivery address (should NOT match above):', 
-      deliveryStop ? `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''} ${deliveryStop.zip_code || ''}`.trim() : 'N/A');
-    
-    const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
-    console.log('📦 Pickup distance result:', distance);
-    return distance || 0;
+
+    // Use pre-stored coordinates if available
+    if (pickupStop.latitude && pickupStop.longitude) {
+      const targetCoords: Coordinates = { lat: pickupStop.latitude, lon: pickupStop.longitude };
+      const targetDesc = `PICKUP: ${pickupStop.city || ''}, ${pickupStop.state || ''} (stored coords)`;
+      const distance = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
+      return distance || 0;
+    } else {
+      console.log('⚠️ No stored coordinates for pickup, skipping');
+      return 0;
+    }
   }
 
   // Picked up (arrived at pickup OR has BOL) but not delivered - calculate to delivery
   if ((pickupArrived || hasBOL) && !hasPOD) {
-    console.log('🚛 Status: In Transit (arrived or has BOL) - Calculating distance to delivery');
+    console.log('🚛 Status: In Transit - Calculating distance to DELIVERY');
     const deliveryStop = order.deliveryStop;
-    const pickupStop = order.pickupStop;
-    console.log('🚛 VERIFICATION - Delivery stop:', deliveryStop);
-    console.log('🚛 VERIFICATION - Pickup stop (should NOT use this):', pickupStop);
     
-    if (!deliveryStop?.address) {
-      console.log('❌ No delivery address found');
+    if (!deliveryStop) {
+      console.log('❌ No delivery stop found');
       return 0;
     }
-    
-    const fullAddress = `${deliveryStop.address}, ${deliveryStop.city || ''}, ${deliveryStop.state || ''} ${deliveryStop.zip_code || ''}`
-      .trim()
-      .replace(/,\s*,/g, ',')
-      .replace(/\s+/g, ' ');
-    console.log('🚛 Full delivery address being used:', fullAddress);
-    console.log('🚛 COMPARISON - Pickup address (should NOT match above):', 
-      pickupStop ? `${pickupStop.address}, ${pickupStop.city || ''}, ${pickupStop.state || ''} ${pickupStop.zip_code || ''}`.trim() : 'N/A');
-    
-    const distance = await calculateDistanceFromTruck(truckLocation, fullAddress);
-    console.log('🚛 Delivery distance result:', distance);
-    return distance || 0;
+
+    // Use pre-stored coordinates if available
+    if (deliveryStop.latitude && deliveryStop.longitude) {
+      const targetCoords: Coordinates = { lat: deliveryStop.latitude, lon: deliveryStop.longitude };
+      const targetDesc = `DELIVERY: ${deliveryStop.city || ''}, ${deliveryStop.state || ''} (stored coords)`;
+      const distance = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
+      return distance || 0;
+    } else {
+      console.log('⚠️ No stored coordinates for delivery, skipping');
+      return 0;
+    }
   }
 
   console.log('⚠️ No matching condition, returning 0 miles');
@@ -318,7 +243,9 @@ Deno.serve(async (req) => {
             state,
             zip_code,
             datetime,
-            arrived_at
+            arrived_at,
+            latitude,
+            longitude
           )
         )
       `)
