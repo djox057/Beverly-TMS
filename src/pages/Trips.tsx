@@ -948,9 +948,8 @@ const Trips = () => {
       f3Cell.value = invoiceNumber;
       f3Cell.font = { bold: true, size: 16 };
 
-      // F4: Thursday date
-      const thursday = new Date(weekStartDate);
-      thursday.setDate(weekStartDate.getDate() + 4);
+      // F4: Thursday date (2 weeks in the future)
+      const thursday = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
       const f4Cell = worksheet.getCell("F4");
       f4Cell.value = format(thursday, "MM/dd/yyyy");
       f4Cell.font = { size: 16 };
@@ -1325,9 +1324,8 @@ const Trips = () => {
       f3Cell.value = invoiceNumber;
       f3Cell.font = { bold: true, size: 16 };
 
-      // F4: Thursday date
-      const thursday = new Date(weekStartDate);
-      thursday.setDate(weekStartDate.getDate() + 4);
+      // F4: Thursday date (2 weeks in the future)
+      const thursday = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
       const f4Cell = worksheet.getCell("F4");
       f4Cell.value = format(thursday, "MM/dd/yyyy");
       f4Cell.font = { size: 16 };
@@ -1705,21 +1703,14 @@ const Trips = () => {
         }
       }
 
-      // Find Thursday in the date range
-      let thursdayDate = weekStartDate;
-      for (let i = 0; i < 7; i++) {
-        const checkDate = addDays(weekStartDate, i);
-        if (getDay(checkDate) === 4) {
-          thursdayDate = checkDate;
-          break;
-        }
-      }
+      // Find Thursday 2 weeks in the future
+      const thursdayDate = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
 
       // C7: Statement number
       const c7Cell = worksheet.getCell("C7");
       c7Cell.value = invoiceNumber;
 
-      // C8: Issue date (Thursday)
+      // C8: Issue date (Thursday 2 weeks in future)
       const c8Cell = worksheet.getCell("C8");
       c8Cell.value = format(thursdayDate, "M/d/yyyy");
 
@@ -2079,20 +2070,12 @@ const Trips = () => {
         }
       }
 
-      // Find Thursday in the date range
-      let thursdayDate = weekStartDate;
-      for (let i = 0; i < 7; i++) {
-        const checkDate = addDays(weekStartDate, i);
-        if (getDay(checkDate) === 4) {
-          // Thursday is day 4
-          thursdayDate = checkDate;
-          break;
-        }
-      }
+      // Find Thursday 2 weeks in the future
+      const thursdayDate = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
 
       // Fill in header information
       worksheet.getCell("C2").value = invoiceNumber; // Trips invoice number
-      worksheet.getCell("B3").value = format(thursdayDate, "M/d/yyyy"); // Thursday date (moved down 2)
+      worksheet.getCell("B3").value = format(thursdayDate, "M/d/yyyy"); // Thursday date (2 weeks in future)
       worksheet.getCell("B8").value = driver?.company_name || ""; // Company name from driver
       worksheet.getCell("F7").value = driver?.agreement_start_date
         ? format(new Date(driver.agreement_start_date), "M/d/yyyy")
