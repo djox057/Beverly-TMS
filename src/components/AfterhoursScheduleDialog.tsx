@@ -205,20 +205,8 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
       return;
     }
 
-    // Check if it's a weekend or holiday
-    const isValidScheduleDate = isWeekend(selectedDate) || (() => {
-      const month = selectedDate.getMonth();
-      const day = selectedDate.getDate();
-      const HOLIDAYS = [
-        { month: 0, day: 1 },   // New Year
-        { month: 4, day: 25 },  // Memorial Day
-        { month: 6, day: 4 },   // Independence Day
-        { month: 8, day: 7 },   // Labor Day
-        { month: 10, day: 26 }, // Thanksgiving
-        { month: 11, day: 25 }, // Christmas
-      ];
-      return HOLIDAYS.some(h => h.month === month && h.day === day);
-    })();
+    // Check if it's a weekend or holiday (using the dynamic isHoliday function)
+    const isValidScheduleDate = isWeekend(selectedDate) || isHoliday(selectedDate);
     
     if (!isValidScheduleDate) {
       toast.error('Please select a weekend or holiday');
@@ -348,28 +336,54 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
     };
   };
 
-  // Holidays that can be scheduled (month is 0-indexed)
-  const HOLIDAYS = [
-    { month: 0, day: 1, name: "New Year" },           // 1/1
-    { month: 4, day: 25, name: "Memorial Day" },      // 5/25
-    { month: 6, day: 4, name: "Independence Day" },   // 7/4
-    { month: 8, day: 7, name: "Labor Day" },          // 9/7
-    { month: 10, day: 26, name: "Thanksgiving" },     // 11/26
-    { month: 11, day: 25, name: "Christmas" },        // 12/25
-  ];
+  // Helper function to calculate dynamic holidays for a given year
+  const getHolidaysForYear = (year: number) => {
+    const holidays: { date: Date; name: string }[] = [];
+    
+    // Fixed holidays
+    holidays.push({ date: new Date(year, 0, 1), name: "New Year's Day" }); // Jan 1
+    holidays.push({ date: new Date(year, 6, 4), name: "Independence Day" }); // Jul 4
+    holidays.push({ date: new Date(year, 11, 25), name: "Christmas" }); // Dec 25
+    
+    // Memorial Day - last Monday of May
+    const lastDayMay = new Date(year, 5, 0); // Last day of May
+    const memorialDay = new Date(year, 4, lastDayMay.getDate() - ((lastDayMay.getDay() + 6) % 7));
+    holidays.push({ date: memorialDay, name: "Memorial Day" });
+    
+    // Labor Day - first Monday of September
+    const firstSept = new Date(year, 8, 1);
+    const laborDay = new Date(year, 8, 1 + ((8 - firstSept.getDay()) % 7));
+    holidays.push({ date: laborDay, name: "Labor Day" });
+    
+    // Thanksgiving - 4th Thursday of November
+    const firstNov = new Date(year, 10, 1);
+    const firstThursday = new Date(year, 10, 1 + ((11 - firstNov.getDay()) % 7));
+    const thanksgiving = new Date(year, 10, firstThursday.getDate() + 21);
+    holidays.push({ date: thanksgiving, name: "Thanksgiving" });
+    
+    return holidays;
+  };
+
+  // Get holidays for current and next year to cover edge cases
+  const currentYear = new Date().getFullYear();
+  const HOLIDAYS = [...getHolidaysForYear(currentYear), ...getHolidaysForYear(currentYear + 1)];
 
   // Check if a date is a holiday
   const isHoliday = (date: Date) => {
-    const month = date.getMonth();
-    const day = date.getDate();
-    return HOLIDAYS.some(h => h.month === month && h.day === day);
+    return HOLIDAYS.some(h => 
+      h.date.getFullYear() === date.getFullYear() &&
+      h.date.getMonth() === date.getMonth() &&
+      h.date.getDate() === date.getDate()
+    );
   };
 
   // Get holiday name for a date
   const getHolidayName = (date: Date) => {
-    const month = date.getMonth();
-    const day = date.getDate();
-    const holiday = HOLIDAYS.find(h => h.month === month && h.day === day);
+    const holiday = HOLIDAYS.find(h => 
+      h.date.getFullYear() === date.getFullYear() &&
+      h.date.getMonth() === date.getMonth() &&
+      h.date.getDate() === date.getDate()
+    );
     return holiday?.name || null;
   };
 
