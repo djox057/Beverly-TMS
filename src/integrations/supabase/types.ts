@@ -732,6 +732,71 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_expenses: {
+        Row: {
+          amount: number
+          created_at: string
+          driver_id: string
+          expense_date: string | null
+          explanation: string
+          id: string
+          is_fixed: boolean
+          name: string
+          notice_1: string | null
+          notice_2: string | null
+          paid_amount: number | null
+          paid_date: string | null
+          status: string
+          trailer_number: string | null
+          truck_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          driver_id: string
+          expense_date?: string | null
+          explanation: string
+          id?: string
+          is_fixed?: boolean
+          name: string
+          notice_1?: string | null
+          notice_2?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          status?: string
+          trailer_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          driver_id?: string
+          expense_date?: string | null
+          explanation?: string
+          id?: string
+          is_fixed?: boolean
+          name?: string
+          notice_1?: string | null
+          notice_2?: string | null
+          paid_amount?: number | null
+          paid_date?: string | null
+          status?: string
+          trailer_number?: string | null
+          truck_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_expenses_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_files: {
         Row: {
           content_type: string | null

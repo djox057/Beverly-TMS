@@ -63,6 +63,7 @@ const navigation = [
   { name: "Trucks", href: "/trucks", icon: Truck },
   { name: "Trailers", href: "/trailers", icon: Package },
   { name: "Drivers", href: "/drivers", icon: UserCheck },
+  { name: "Stuff", href: "/stuff", icon: User, roles: ['manager', 'admin', 'accounting', 'chicago_management'] },
   { name: "Brokers", href: "/brokers", icon: Building2 },
   { name: "Fleets", href: "/fleets", icon: Users },
   { name: "Reports", href: "/reports", icon: BarChart3 },

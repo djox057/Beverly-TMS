@@ -30,6 +30,7 @@ import Trips from "./pages/Trips";
 import DataManagement from "./pages/DataManagement";
 import Repairs from "./pages/Repairs";
 import FuelReports from "./pages/FuelReports";
+import Stuff from "./pages/Stuff";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -205,6 +206,16 @@ const AppContent = () => {
         <Route path="/data-management" element={
           <ProtectedRoute requiredRole="admin">
             <Layout><DataManagement /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/stuff" element={
+          <ProtectedRoute>
+            <Layout><Stuff /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/stuff/:driverId" element={
+          <ProtectedRoute>
+            <Layout><Stuff /></Layout>
           </ProtectedRoute>
         } />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
