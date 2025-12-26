@@ -3322,12 +3322,12 @@ const Reports = () => {
                                             ) : (
                                               <div className="flex items-center">
                                                 <div
-                                                  className="text-[10px] text-foreground font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                  className="text-[10px] text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
                                                   onClick={() =>
-                                                    handleEdit(truck.id, "miles-away", truck.awayDays.toString())
+                                                    handleEdit(truck.id, "miles-away", "0")
                                                   }
                                                 >
-                                                  {truck.awayDays}
+                                                  0
                                                 </div>
                                                 {truck.totalMiles > 0 && (
                                                   <span className="text-[10px] text-muted-foreground">/{truck.totalMiles}</span>
