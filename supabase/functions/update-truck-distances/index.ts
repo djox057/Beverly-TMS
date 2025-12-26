@@ -338,7 +338,18 @@ Deno.serve(async (req) => {
         const truckLocation = samsaraLocations.find((loc) => loc.truck_number === truck.truck_number);
         
         if (!truckLocation) {
-          console.log(`⏭️ Skipping truck ${truck.truck_number}: No location data`);
+          console.log(`⚠️ Truck ${truck.truck_number}: No location data, setting miles_away to 0`);
+          // Reset miles to 0 when no GPS data is available to avoid stale values
+          const { error: updateError } = await supabase
+            .from('trucks')
+            .update({ miles_away: 0 })
+            .eq('id', truck.id);
+          
+          if (updateError) {
+            console.error(`❌ Error resetting truck ${truck.truck_number}:`, updateError);
+          } else {
+            updatedCount++;
+          }
           continue;
         }
 
