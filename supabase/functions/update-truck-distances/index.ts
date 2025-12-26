@@ -351,49 +351,59 @@ Deno.serve(async (req) => {
       
       console.log(`\n🔍 Finding current load for truck ${truck.truck_number}...`);
       
-      // Get all incomplete orders (no POD) for this truck
-      const incompleteOrders = truck.orders?.filter((order: any) => 
-        !order.order_files?.some((file: any) => file.file_category === 'POD')
-      ) || [];
+      // Get all non-canceled orders for this truck, sorted by pickup datetime
+      const allOrders = (truck.orders || [])
+        .filter((order: any) => !order.canceled)
+        .sort((a: any, b: any) => {
+          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
+          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
+          return aDate - bDate;
+        });
       
-      console.log(`📋 Found ${incompleteOrders.length} incomplete orders for truck ${truck.truck_number}`);
+      console.log(`📋 Found ${allOrders.length} orders for truck ${truck.truck_number}`);
       
-      if (incompleteOrders.length === 0) {
-        console.log(`✅ Truck ${truck.truck_number}: No incomplete orders, setting to 0 miles`);
+      if (allOrders.length === 0) {
+        console.log(`✅ Truck ${truck.truck_number}: No orders, setting to 0 miles`);
       }
 
-      // PRIORITY 1: Find orders in active transit (BOL exists OR arrived at pickup)
-      const activeTransitOrders = incompleteOrders.filter((order: any) => {
-        const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
-        const pickupStop = order.pickup_drops?.find((pd: any) => pd.type === 'pickup');
-        const arrivedAtPickup = !!pickupStop?.arrived_at;
-        const inTransit = hasBOL || arrivedAtPickup;
-        
-        if (inTransit) {
-          console.log(`🚛 Active transit order found: ${order.load_number} (BOL: ${hasBOL}, Arrived: ${arrivedAtPickup})`);
-        }
-        
-        return inTransit;
-      });
-
+      // Current order logic (aligned with Reports page):
+      // 1. Default: current = last/latest load that has BOL
+      // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
+      // 3. Fallback: if no load with BOL, use last load
       let currentOrder = null;
       
-      if (activeTransitOrders.length > 0) {
-        // Multiple active orders? Take the earliest one by pickup date
-        currentOrder = activeTransitOrders.sort((a: any, b: any) => {
-          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
-          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
-          return aDate - bDate;
-        })[0];
-        console.log(`✅ Current load (ACTIVE TRANSIT): ${currentOrder.load_number}`);
-      } else if (incompleteOrders.length > 0) {
-        // PRIORITY 2: No active transit, get next upcoming order (earliest pickup)
-        currentOrder = incompleteOrders.sort((a: any, b: any) => {
-          const aDate = new Date(a.pickup_datetime || '9999-12-31').getTime();
-          const bDate = new Date(b.pickup_datetime || '9999-12-31').getTime();
-          return aDate - bDate;
-        })[0];
-        console.log(`✅ Current load (NEXT ASSIGNMENT): ${currentOrder.load_number}`);
+      if (allOrders.length > 0) {
+        const lastOrder = allOrders[allOrders.length - 1];
+        const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+        
+        if (lastOrderHasBOL) {
+          // Last load has BOL - it's the current load
+          currentOrder = lastOrder;
+          console.log(`✅ Current load (LAST WITH BOL): ${currentOrder.load_number}`);
+        } else {
+          // Last load doesn't have BOL
+          if (allOrders.length >= 2) {
+            const previousOrder = allOrders[allOrders.length - 2];
+            const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+            
+            if (previousHasPOD) {
+              // Previous load is complete (has POD), so the last load without BOL is current
+              currentOrder = lastOrder;
+              console.log(`✅ Current load (LAST, PREV HAS POD): ${currentOrder.load_number}`);
+            } else {
+              // Previous load doesn't have POD, find the last load with BOL
+              const lastWithBOL = [...allOrders].reverse().find((order: any) =>
+                order.order_files?.some((file: any) => file.file_category === 'BOL')
+              );
+              currentOrder = lastWithBOL || lastOrder;
+              console.log(`✅ Current load (LAST WITH BOL FALLBACK): ${currentOrder.load_number}`);
+            }
+          } else {
+            // Only one order and it doesn't have BOL
+            currentOrder = lastOrder;
+            console.log(`✅ Current load (SINGLE ORDER): ${currentOrder.load_number}`);
+          }
+        }
       } else {
         console.log(`ℹ️ Truck ${truck.truck_number}: No current load`);
       }
