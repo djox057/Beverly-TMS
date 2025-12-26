@@ -262,8 +262,8 @@ export const Sidebar = () => {
       return filteredNav.filter(item => yardPages.includes(item.href));
     }
     
-    // Dispatch role: all navigation
-    if (primaryRole === 'dispatch') {
+    // Dispatch and Afterhours roles: all navigation
+    if (primaryRole === 'dispatch' || primaryRole === 'afterhours') {
       return filteredNav;
     }
     
