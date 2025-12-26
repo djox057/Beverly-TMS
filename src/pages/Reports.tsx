@@ -3267,7 +3267,6 @@ const Reports = () => {
                                         >
                                           {/* Away Days - Show distance in miles if available */}
                                           <div className="flex flex-col items-center">
-                                            <div className="text-[9px] text-muted-foreground mb-0">AWAY (D)</div>
                                             {editing?.truckId === truck.id && editing?.field === "miles-away" ? (
                                               <Input
                                                 type="number"
@@ -3279,13 +3278,13 @@ const Reports = () => {
                                                   if (e.key === "Enter") handleSave();
                                                   if (e.key === "Escape") handleCancel();
                                                 }}
-                                                className="w-12 h-5 text-[10px] p-1"
+                                                className="w-12 h-5 text-xs p-1"
                                                 autoFocus
                                               />
                                             ) : truck.milesAway > 0 ? (
                                               <div className="flex items-center">
                                                 <div
-                                                  className="text-[10px] text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
                                                   onClick={() =>
                                                     handleEdit(truck.id, "miles-away", truck.milesAway.toString())
                                                   }
@@ -3293,13 +3292,13 @@ const Reports = () => {
                                                   {truck.milesAway}
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-[10px] text-muted-foreground">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground">/{truck.totalMiles}</span>
                                                 )}
                                               </div>
                                             ) : (
                                               <div className="flex items-center">
                                                 <div
-                                                  className="text-[10px] text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
                                                   onClick={() =>
                                                     handleEdit(truck.id, "miles-away", "0")
                                                   }
@@ -3307,7 +3306,7 @@ const Reports = () => {
                                                   0
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-[10px] text-muted-foreground">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground">/{truck.totalMiles}</span>
                                                 )}
                                               </div>
                                             )}
