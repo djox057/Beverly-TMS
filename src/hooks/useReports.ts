@@ -1266,43 +1266,21 @@ export const useReports = () => {
                 return aPickup - bPickup;
               });
 
-            // Find current order with "skip to next without POD" rule
-            // Per spec: If an order without POD is followed by an order WITH POD, 
-            // then another without POD, the LAST one without POD is current
+            // Current order = latest load with BOL (sorted by pickup datetime, last with BOL wins)
             let currentOrder: typeof sortedActiveOrders[0] | null = null;
             
             if (sortedActiveOrders.length > 0) {
-              // Find first order without POD
-              const firstWithoutPODIndex = sortedActiveOrders.findIndex(order => {
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                return !hasPOD;
+              // Find the latest order that has a BOL
+              const ordersWithBOL = sortedActiveOrders.filter(order => {
+                const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+                return hasBOL;
               });
               
-              if (firstWithoutPODIndex >= 0) {
-                // Check if any subsequent order has POD
-                const hasSubsequentWithPOD = sortedActiveOrders.slice(firstWithoutPODIndex + 1).some(order => {
-                  const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                  return hasPOD;
-                });
-                
-                if (hasSubsequentWithPOD) {
-                  // Find the next order without POD after the one with POD
-                  for (let i = firstWithoutPODIndex + 1; i < sortedActiveOrders.length; i++) {
-                    const hasPOD = sortedActiveOrders[i].order_files?.some((file: any) => file.file_category === 'POD');
-                    if (!hasPOD) {
-                      currentOrder = sortedActiveOrders[i];
-                      break;
-                    }
-                  }
-                  // If no subsequent without POD found, use the first one
-                  if (!currentOrder) {
-                    currentOrder = sortedActiveOrders[firstWithoutPODIndex];
-                  }
-                } else {
-                  currentOrder = sortedActiveOrders[firstWithoutPODIndex];
-                }
+              if (ordersWithBOL.length > 0) {
+                // Get the last one (latest by pickup datetime since already sorted)
+                currentOrder = ordersWithBOL[ordersWithBOL.length - 1];
               } else {
-                // All active orders have POD, use the first one
+                // No orders with BOL, fall back to first active order
                 currentOrder = sortedActiveOrders[0];
               }
             } else if (recentCompletedOrders.length > 0) {
