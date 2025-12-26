@@ -1266,22 +1266,39 @@ export const useReports = () => {
                 return aPickup - bPickup;
               });
 
-            // Current order = latest load with BOL (sorted by pickup datetime, last with BOL wins)
+            // Current order logic:
+            // 1. Default: current = last/latest load that has BOL
+            // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
             let currentOrder: typeof sortedActiveOrders[0] | null = null;
             
             if (sortedActiveOrders.length > 0) {
-              // Find the latest order that has a BOL
-              const ordersWithBOL = sortedActiveOrders.filter(order => {
-                const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
-                return hasBOL;
-              });
+              const lastOrder = sortedActiveOrders[sortedActiveOrders.length - 1];
+              const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
               
-              if (ordersWithBOL.length > 0) {
-                // Get the last one (latest by pickup datetime since already sorted)
-                currentOrder = ordersWithBOL[ordersWithBOL.length - 1];
+              if (lastOrderHasBOL) {
+                // Last load has BOL - it's the current load
+                currentOrder = lastOrder;
               } else {
-                // No orders with BOL, fall back to first active order
-                currentOrder = sortedActiveOrders[0];
+                // Last load doesn't have BOL
+                // Check if there's a previous order with POD (completed)
+                if (sortedActiveOrders.length >= 2) {
+                  const previousOrder = sortedActiveOrders[sortedActiveOrders.length - 2];
+                  const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                  
+                  if (previousHasPOD) {
+                    // Previous load is complete (has POD), so the last load without BOL is current
+                    currentOrder = lastOrder;
+                  } else {
+                    // Previous load doesn't have POD, find the last load with BOL
+                    const lastWithBOL = [...sortedActiveOrders].reverse().find(order =>
+                      order.order_files?.some((file: any) => file.file_category === 'BOL')
+                    );
+                    currentOrder = lastWithBOL || sortedActiveOrders[0];
+                  }
+                } else {
+                  // Only one order and it doesn't have BOL
+                  currentOrder = lastOrder;
+                }
               }
             } else if (recentCompletedOrders.length > 0) {
               currentOrder = allOrdersWithStops.find((order) => order.isRecentCompleted) || null;
