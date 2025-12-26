@@ -3292,7 +3292,7 @@ const Reports = () => {
                                                   {truck.milesAway}
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium">/{truck.totalMiles}</span>
                                                 )}
                                               </div>
                                             ) : (
@@ -3306,7 +3306,7 @@ const Reports = () => {
                                                   0
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium">/{truck.totalMiles}</span>
                                                 )}
                                               </div>
                                             )}
