@@ -412,8 +412,8 @@ const Fleets = () => {
                         <div className="text-2xl font-bold text-primary">
                           {avgOnDuty} / {avgAll}
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {/* median: {median} */}
+                        <div className="text-xs text-muted-foreground mt-1 font-mono">
+                          {`// median: ${median}`}
                         </div>
                       </>
                     );
