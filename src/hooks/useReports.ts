@@ -1269,10 +1269,21 @@ export const useReports = () => {
             // Current order logic:
             // 1. Default: current = last/latest load that has BOL
             // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
-            let currentOrder: typeof sortedActiveOrders[0] | null = null;
+            // 3. Fallback: if no load with BOL, use last load
+            // NOTE: We use ALL orders (not just those without POD) to find current load
+            let currentOrder: typeof allOrdersWithStops[0] | null = null;
             
-            if (sortedActiveOrders.length > 0) {
-              const lastOrder = sortedActiveOrders[sortedActiveOrders.length - 1];
+            // Sort ALL non-canceled orders by pickup datetime for current load logic
+            const allSortedOrders = allOrdersWithStops
+              .filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+              .sort((a, b) => {
+                const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+                const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+                return aPickup - bPickup;
+              });
+            
+            if (allSortedOrders.length > 0) {
+              const lastOrder = allSortedOrders[allSortedOrders.length - 1];
               const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
               
               if (lastOrderHasBOL) {
@@ -1281,8 +1292,8 @@ export const useReports = () => {
               } else {
                 // Last load doesn't have BOL
                 // Check if there's a previous order with POD (completed)
-                if (sortedActiveOrders.length >= 2) {
-                  const previousOrder = sortedActiveOrders[sortedActiveOrders.length - 2];
+                if (allSortedOrders.length >= 2) {
+                  const previousOrder = allSortedOrders[allSortedOrders.length - 2];
                   const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
                   
                   if (previousHasPOD) {
@@ -1290,7 +1301,7 @@ export const useReports = () => {
                     currentOrder = lastOrder;
                   } else {
                     // Previous load doesn't have POD, find the last load with BOL
-                    const lastWithBOL = [...sortedActiveOrders].reverse().find(order =>
+                    const lastWithBOL = [...allSortedOrders].reverse().find(order =>
                       order.order_files?.some((file: any) => file.file_category === 'BOL')
                     );
                     // Fallback: if no load with BOL found, use last load
@@ -1789,44 +1800,51 @@ export const useReports = () => {
               return aPickup - bPickup;
             });
 
-          // Find current order with "skip to next without POD" rule
-          // Per spec: If an order without POD is followed by an order WITH POD, 
-          // then another without POD, the LAST one without POD is current
-          let currentOrder: typeof sortedActiveOrders[0] | null = null;
+          // Current order logic:
+          // 1. Default: current = last/latest load that has BOL
+          // 2. Exception: if last load has no BOL but previous load has POD, then last load is current
+          // 3. Fallback: if no load with BOL, use last load
+          // NOTE: We use ALL orders (not just those without POD) to find current load
+          let currentOrder: typeof allOrdersWithStops[0] | null = null;
           
-          if (sortedActiveOrders.length > 0) {
-            // Find first order without POD
-            const firstWithoutPODIndex = sortedActiveOrders.findIndex(order => {
-              const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-              return !hasPOD;
+          // Sort ALL non-canceled orders by pickup datetime for current load logic
+          const allSortedOrders = allOrdersWithStops
+            .filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+            .sort((a, b) => {
+              const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+              const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+              return aPickup - bPickup;
             });
+          
+          if (allSortedOrders.length > 0) {
+            const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+            const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
             
-            if (firstWithoutPODIndex >= 0) {
-              // Check if any subsequent order has POD
-              const hasSubsequentWithPOD = sortedActiveOrders.slice(firstWithoutPODIndex + 1).some(order => {
-                const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
-                return hasPOD;
-              });
-              
-              if (hasSubsequentWithPOD) {
-                // Find the next order without POD after the one with POD
-                for (let i = firstWithoutPODIndex + 1; i < sortedActiveOrders.length; i++) {
-                  const hasPOD = sortedActiveOrders[i].order_files?.some((file: any) => file.file_category === 'POD');
-                  if (!hasPOD) {
-                    currentOrder = sortedActiveOrders[i];
-                    break;
-                  }
-                }
-                // If no subsequent without POD found, use the first one
-                if (!currentOrder) {
-                  currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+            if (lastOrderHasBOL) {
+              // Last load has BOL - it's the current load
+              currentOrder = lastOrder;
+            } else {
+              // Last load doesn't have BOL
+              // Check if there's a previous order with POD (completed)
+              if (allSortedOrders.length >= 2) {
+                const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+                
+                if (previousHasPOD) {
+                  // Previous load is complete (has POD), so the last load without BOL is current
+                  currentOrder = lastOrder;
+                } else {
+                  // Previous load doesn't have POD, find the last load with BOL
+                  const lastWithBOL = [...allSortedOrders].reverse().find(order =>
+                    order.order_files?.some((file: any) => file.file_category === 'BOL')
+                  );
+                  // Fallback: if no load with BOL found, use last load
+                  currentOrder = lastWithBOL || lastOrder;
                 }
               } else {
-                currentOrder = sortedActiveOrders[firstWithoutPODIndex];
+                // Only one order and it doesn't have BOL
+                currentOrder = lastOrder;
               }
-            } else {
-              // All active orders have POD, use the first one
-              currentOrder = sortedActiveOrders[0];
             }
           } else if (recentCompletedOrders.length > 0) {
             currentOrder = allOrdersWithStops.find((order) => order.isRecentCompleted) || null;
