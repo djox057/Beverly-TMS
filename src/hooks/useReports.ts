@@ -1293,7 +1293,8 @@ export const useReports = () => {
                     const lastWithBOL = [...sortedActiveOrders].reverse().find(order =>
                       order.order_files?.some((file: any) => file.file_category === 'BOL')
                     );
-                    currentOrder = lastWithBOL || sortedActiveOrders[0];
+                    // Fallback: if no load with BOL found, use last load
+                    currentOrder = lastWithBOL || lastOrder;
                   }
                 } else {
                   // Only one order and it doesn't have BOL
