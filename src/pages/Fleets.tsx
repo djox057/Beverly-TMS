@@ -378,28 +378,46 @@ const Fleets = () => {
                   <Truck className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-primary">
-                    {(() => {
-                      // Only count trucks assigned to users with 'dispatch' role
-                      const dispatchOnlyFleets = dispatchers.filter(d => d.dispatcher.roles?.includes('dispatch'));
-                      const onDutyDispatchers = dispatchOnlyFleets.filter(d => d.isActive);
-                      const allDispatchersCount = allDispatchers.filter((d: any) => d.roles?.includes('dispatch')).length;
-                      
-                      const totalTrucks = dispatchOnlyFleets.reduce((total, d) => {
-                        const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
-                        return total + uniqueTrucks.size;
-                      }, 0);
-                      
-                      const avgOnDuty = onDutyDispatchers.length > 0 
-                        ? (totalTrucks / onDutyDispatchers.length).toFixed(1) 
-                        : '0';
-                      const avgAll = allDispatchersCount > 0 
-                        ? (totalTrucks / allDispatchersCount).toFixed(1) 
-                        : '0';
-                      
-                      return `${avgOnDuty} / ${avgAll}`;
-                    })()}
-                  </div>
+                  {(() => {
+                    // Only count trucks assigned to users with 'dispatch' role
+                    const dispatchOnlyFleets = dispatchers.filter(d => d.dispatcher.roles?.includes('dispatch'));
+                    const onDutyDispatchers = dispatchOnlyFleets.filter(d => d.isActive);
+                    const allDispatchersCount = allDispatchers.filter((d: any) => d.roles?.includes('dispatch')).length;
+                    
+                    // Calculate truck counts per dispatcher
+                    const truckCounts = dispatchOnlyFleets.map(d => {
+                      const uniqueTrucks = new Set(d.drivers.map((driver: any) => driver.truck?.id).filter(Boolean));
+                      return uniqueTrucks.size;
+                    });
+                    
+                    const totalTrucks = truckCounts.reduce((sum, count) => sum + count, 0);
+                    
+                    // Calculate median
+                    const sortedCounts = [...truckCounts].sort((a, b) => a - b);
+                    const median = sortedCounts.length > 0
+                      ? sortedCounts.length % 2 === 0
+                        ? ((sortedCounts[sortedCounts.length / 2 - 1] + sortedCounts[sortedCounts.length / 2]) / 2).toFixed(1)
+                        : sortedCounts[Math.floor(sortedCounts.length / 2)].toString()
+                      : '0';
+                    
+                    const avgOnDuty = onDutyDispatchers.length > 0 
+                      ? (totalTrucks / onDutyDispatchers.length).toFixed(1) 
+                      : '0';
+                    const avgAll = allDispatchersCount > 0 
+                      ? (totalTrucks / allDispatchersCount).toFixed(1) 
+                      : '0';
+                    
+                    return (
+                      <>
+                        <div className="text-2xl font-bold text-primary">
+                          {avgOnDuty} / {avgAll}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {/* median: {median} */}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>
