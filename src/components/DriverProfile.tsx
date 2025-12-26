@@ -1,0 +1,426 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image } from "lucide-react";
+import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
+import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
+import { AddDriverExpenseDialog } from "./AddDriverExpenseDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+
+interface Driver {
+  id: string;
+  name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+  truck_number?: string | null;
+  trailer_number?: string | null;
+  company_name?: string | null;
+  dispatcher_name?: string | null;
+  hire_date?: string | null;
+  cdl_expiration_date?: string | null;
+  medical_card_expiration_date?: string | null;
+}
+
+interface DriverProfileProps {
+  driver: Driver;
+  onBack: () => void;
+}
+
+interface CashAdvance {
+  id: string;
+  amount: number;
+  requested_at: string;
+  truck_number: string | null;
+}
+
+export function DriverProfile({ driver, onBack }: DriverProfileProps) {
+  const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
+  const [cdlImageUrl, setCdlImageUrl] = useState<string | null>(null);
+  const [isUploadingCdl, setIsUploadingCdl] = useState(false);
+  const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
+  const [editingExpense, setEditingExpense] = useState<DriverExpense | null>(null);
+
+  const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
+  const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
+
+  // Initialize default expenses on first view
+  useEffect(() => {
+    if (driver.id) {
+      initializeDefaultExpenses(driver.id);
+    }
+  }, [driver.id]);
+
+  // Fetch CDL image from driver files
+  useEffect(() => {
+    const fetchCdlImage = async () => {
+      const { data } = await supabase
+        .from("driver_files")
+        .select("file_path, file_name")
+        .eq("driver_id", driver.id)
+        .ilike("file_name", "%cdl%")
+        .limit(1);
+
+      if (data && data.length > 0) {
+        const { data: urlData } = supabase.storage
+          .from("driver-files")
+          .getPublicUrl(data[0].file_path);
+        setCdlImageUrl(urlData?.publicUrl || null);
+      }
+    };
+    fetchCdlImage();
+  }, [driver.id]);
+
+  // Fetch cash advances
+  useEffect(() => {
+    const fetchCashAdvances = async () => {
+      const { data } = await supabase
+        .from("driver_cash_advances")
+        .select("*")
+        .eq("driver_id", driver.id)
+        .order("requested_at", { ascending: false });
+
+      if (data) {
+        setCashAdvances(data);
+      }
+    };
+    fetchCashAdvances();
+  }, [driver.id]);
+
+  const handleCdlUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingCdl(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `cdl_${driver.id}.${fileExt}`;
+      const filePath = `${driver.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("driver-files")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Save to driver_files table
+      await supabase.from("driver_files").upsert({
+        driver_id: driver.id,
+        file_name: `CDL_${driver.name || "Driver"}.${fileExt}`,
+        file_path: filePath,
+        content_type: file.type,
+        file_size: file.size,
+      }, { onConflict: 'driver_id,file_name' });
+
+      const { data: urlData } = supabase.storage
+        .from("driver-files")
+        .getPublicUrl(filePath);
+
+      setCdlImageUrl(urlData?.publicUrl || null);
+      toast.success("CDL image uploaded successfully");
+    } catch (error) {
+      console.error("Error uploading CDL:", error);
+      toast.error("Failed to upload CDL image");
+    } finally {
+      setIsUploadingCdl(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "paid":
+        return "bg-green-500/10 text-green-600 border-green-500/20";
+      case "pending":
+        return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+      case "partial":
+        return "bg-cyan-500/10 text-cyan-600 border-cyan-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const handleAddExpense = (expense: NewDriverExpense) => {
+    addExpense(expense);
+  };
+
+  const handleUpdateExpense = (id: string, updates: Partial<DriverExpense>) => {
+    updateExpense({ id, ...updates });
+    setEditingExpense(null);
+  };
+
+  // Combine expenses with cash advances for display
+  const allItems = [
+    ...expenses,
+    ...cashAdvances.map((ca) => ({
+      id: `ca-${ca.id}`,
+      driver_id: driver.id,
+      truck_number: ca.truck_number,
+      trailer_number: null,
+      name: driver.name || "Driver",
+      explanation: "Cash Advance",
+      expense_date: ca.requested_at.split("T")[0],
+      amount: ca.amount,
+      status: "paid",
+      paid_date: ca.requested_at.split("T")[0],
+      paid_amount: ca.amount,
+      notice_1: null,
+      notice_2: null,
+      is_fixed: false,
+      created_at: ca.requested_at,
+      updated_at: ca.requested_at,
+      isCashAdvance: true,
+    })),
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  return (
+    <div className="space-y-6">
+      {/* Header with back button */}
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Driver Profile</h1>
+      </div>
+
+      {/* Driver Info Header */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex gap-6">
+            {/* CDL Image */}
+            <div className="flex-shrink-0">
+              <div className="w-40 h-28 border-2 border-dashed border-muted rounded-lg overflow-hidden relative flex items-center justify-center bg-muted/50">
+                {cdlImageUrl ? (
+                  <img
+                    src={cdlImageUrl}
+                    alt="CDL"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <Image className="h-8 w-8 mx-auto mb-1" />
+                    <span className="text-xs">CDL Photo</span>
+                  </div>
+                )}
+                <label className="absolute inset-0 cursor-pointer hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                  <Upload className="h-6 w-6 text-white" />
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCdlUpload}
+                    disabled={isUploadingCdl}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Driver Details */}
+            <div className="flex-1 grid grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground">Name</label>
+                <p className="font-semibold">{driver.name || `${driver.first_name} ${driver.last_name}`}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Phone</label>
+                <p className="font-medium">{driver.phone || "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Email</label>
+                <p className="font-medium truncate">{driver.email || "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Company</label>
+                <p className="font-medium">{driver.company_name || "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Truck</label>
+                <p className="font-medium">{driver.truck_number || "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Trailer</label>
+                <p className="font-medium">{driver.trailer_number || "-"}</p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Hire Date</label>
+                <p className="font-medium">
+                  {driver.hire_date ? formatDateNoTimezone(driver.hire_date) : "-"}
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Dispatcher</label>
+                <p className="font-medium">{driver.dispatcher_name || "-"}</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cash Advance Summary */}
+      {cashAdvanceData && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Cash Advance Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-6">
+              <div>
+                <span className="text-sm text-muted-foreground">Today:</span>{" "}
+                <Badge variant="outline">{cashAdvanceData.todayCount}/1</Badge>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">This Week:</span>{" "}
+                <Badge variant="outline">{cashAdvanceData.weekCount}/3</Badge>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Weekly Amount:</span>{" "}
+                <Badge variant="outline">{formatCurrency(cashAdvanceData.weeklyAmount)}/150</Badge>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Remaining:</span>{" "}
+                <Badge variant={cashAdvanceData.remainingAmount > 0 ? "default" : "destructive"}>
+                  {formatCurrency(cashAdvanceData.remainingAmount || 0)}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Expenses Table */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-lg">Expenses & Cash Advances</CardTitle>
+          <Button size="sm" onClick={() => setShowAddExpenseDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Expense
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[500px]">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10">
+                <TableRow>
+                  <TableHead className="w-[80px]">TRUCK/TRL</TableHead>
+                  <TableHead className="w-[100px]">NAME</TableHead>
+                  <TableHead>EXPLANATION</TableHead>
+                  <TableHead className="w-[100px]">DATE</TableHead>
+                  <TableHead className="w-[100px] text-right">AMOUNT</TableHead>
+                  <TableHead className="w-[80px]">STATUS</TableHead>
+                  <TableHead className="w-[100px]">PAID DATE</TableHead>
+                  <TableHead className="w-[100px] text-right">PAID AMT</TableHead>
+                  <TableHead className="w-[120px]">NOTICE 1</TableHead>
+                  <TableHead className="w-[120px]">NOTICE 2</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : allItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                      No expenses found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  allItems.map((item) => {
+                    const isCashAdvance = 'isCashAdvance' in item && item.isCashAdvance;
+                    return (
+                      <TableRow key={item.id} className={isCashAdvance ? "bg-green-500/5" : ""}>
+                        <TableCell className="font-mono text-xs">
+                          {item.truck_number || "-"}/{item.trailer_number || "-"}
+                        </TableCell>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>{item.explanation}</TableCell>
+                        <TableCell>
+                          {item.expense_date ? formatDateNoTimezone(item.expense_date) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.amount)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(item.status)} variant="outline">
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {item.paid_date ? formatDateNoTimezone(item.paid_date) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.paid_amount ? formatCurrency(item.paid_amount) : "-"}
+                        </TableCell>
+                        <TableCell className="text-xs">{item.notice_1 || "-"}</TableCell>
+                        <TableCell className="text-xs">{item.notice_2 || "-"}</TableCell>
+                        <TableCell>
+                          {!isCashAdvance && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => setEditingExpense(item as DriverExpense)}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              {!item.is_fixed && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => deleteExpense(item.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* Add Expense Dialog */}
+      <AddDriverExpenseDialog
+        open={showAddExpenseDialog}
+        onOpenChange={setShowAddExpenseDialog}
+        driverId={driver.id}
+        driverName={driver.name || `${driver.first_name} ${driver.last_name}`}
+        truckNumber={driver.truck_number || undefined}
+        trailerNumber={driver.trailer_number || undefined}
+        onSubmit={handleAddExpense}
+        isSubmitting={isAdding}
+      />
+
+      {/* Edit Expense Dialog */}
+      {editingExpense && (
+        <AddDriverExpenseDialog
+          open={!!editingExpense}
+          onOpenChange={(open) => !open && setEditingExpense(null)}
+          driverId={driver.id}
+          driverName={editingExpense.name}
+          truckNumber={editingExpense.truck_number || undefined}
+          trailerNumber={editingExpense.trailer_number || undefined}
+          onSubmit={(expense) => handleUpdateExpense(editingExpense.id, expense)}
+          isSubmitting={isUpdating}
+        />
+      )}
+    </div>
+  );
+}
