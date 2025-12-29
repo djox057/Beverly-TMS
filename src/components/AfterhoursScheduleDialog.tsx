@@ -533,24 +533,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                   </span>
                                 </div>
                                 <div className="space-y-1 pl-2">
-                                  {officeSchedules.map(schedule => (
-                                    <div 
-                                      key={schedule.id} 
-                                      className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
-                                    >
-                                      <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                      {canManageSchedules && !isPastDate && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-5 w-5 text-destructive hover:text-destructive"
-                                          onClick={() => handleDeleteSchedule(schedule.id)}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
+                                  {officeSchedules.map(schedule => {
+                                    const workCounts = getMonthlyWorkCounts(selectedDate);
+                                    const userWorkCount = schedule.user?.id ? workCounts[schedule.user.id]?.count || 0 : 0;
+                                    const isExtra = userWorkCount > 1;
+                                    
+                                    return (
+                                      <div 
+                                        key={schedule.id} 
+                                        className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
+                                          {isExtra && (
+                                            <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
+                                              extra
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        {canManageSchedules && !isPastDate && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-destructive hover:text-destructive"
+                                            onClick={() => handleDeleteSchedule(schedule.id)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );
@@ -566,24 +579,37 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 </span>
                               </div>
                               <div className="space-y-1 pl-2">
-                                {maintenanceSchedules.map(schedule => (
-                                  <div 
-                                    key={schedule.id} 
-                                    className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
-                                  >
-                                    <span>{schedule.user?.full_name || schedule.user?.email || 'Unknown'}</span>
-                                    {canManageSchedules && !isPastDate && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5 text-destructive hover:text-destructive"
-                                        onClick={() => handleDeleteSchedule(schedule.id)}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))}
+                                {maintenanceSchedules.map(schedule => {
+                                  const workCounts = getMonthlyWorkCounts(selectedDate);
+                                  const userWorkCount = schedule.user?.id ? workCounts[schedule.user.id]?.count || 0 : 0;
+                                  const isExtra = userWorkCount > 1;
+                                  
+                                  return (
+                                    <div 
+                                      key={schedule.id} 
+                                      className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm"
+                                    >
+                                      <span className="flex items-center gap-2">
+                                        {schedule.user?.full_name || schedule.user?.email || 'Unknown'}
+                                        {isExtra && (
+                                          <Badge variant="outline" className="text-xs text-orange-500 border-orange-500">
+                                            extra
+                                          </Badge>
+                                        )}
+                                      </span>
+                                      {canManageSchedules && !isPastDate && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-destructive hover:text-destructive"
+                                          onClick={() => handleDeleteSchedule(schedule.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
