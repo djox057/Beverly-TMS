@@ -2143,17 +2143,57 @@ const Reports = () => {
         loadNumber: string;
       }> = [];
 
-      // Get current Chicago time
+      // Get current time
       const now = new Date();
-      const chicagoNow = toZonedTime(now, "America/Chicago");
       
-      // Helper to parse datetime as Chicago local time
-      // Database stores times as UTC but they actually represent Chicago local time
-      const parseAsChicagoTime = (dateStr: string): Date => {
-        // Remove timezone offset and parse as local Chicago time
+      // Helper to get timezone for a US state
+      const getTimezoneForState = (state: string | null | undefined): string => {
+        if (!state) return 'America/Chicago';
+        const upperState = state.toUpperCase().trim();
+        
+        // Eastern Time states
+        const easternStates = ['CT', 'DE', 'FL', 'GA', 'IN', 'KY', 'ME', 'MD', 'MA', 'MI', 'NH', 'NJ', 'NY', 'NC', 'OH', 'PA', 'RI', 'SC', 'TN', 'VT', 'VA', 'WV', 'DC'];
+        // Mountain Time states
+        const mountainStates = ['AZ', 'CO', 'ID', 'MT', 'NE', 'NM', 'ND', 'SD', 'UT', 'WY'];
+        // Pacific Time states
+        const pacificStates = ['CA', 'NV', 'OR', 'WA'];
+        
+        if (easternStates.includes(upperState)) return 'America/New_York';
+        if (mountainStates.includes(upperState)) return 'America/Denver';
+        if (pacificStates.includes(upperState)) return 'America/Los_Angeles';
+        return 'America/Chicago'; // Default to Central Time
+      };
+      
+      // Helper to parse datetime as the stop's local time and convert to comparable Date
+      // Database stores times as local times for the stop's timezone
+      const parseStopLocalTime = (dateStr: string, stopState: string | null | undefined): Date => {
+        // Remove any timezone suffix - the datetime represents local time at the stop
         const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, '');
-        const localDate = new Date(cleanDate);
-        return localDate;
+        
+        // Parse as a simple date (treating it as local to the stop's timezone)
+        const [datePart, timePart] = cleanDate.includes('T') 
+          ? cleanDate.split('T') 
+          : cleanDate.split(' ');
+        
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
+        
+        // Create date in the stop's timezone
+        const stopTimezone = getTimezoneForState(stopState);
+        
+        // Build an ISO string and use toZonedTime to get the correct comparison time
+        // We create a date in UTC that represents the local time at the stop
+        const stopLocalDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
+        
+        // Convert from stop's local time to get actual UTC for comparison
+        // toZonedTime gives us the time in that timezone, so we need the inverse
+        const stopTimeZoned = toZonedTime(now, stopTimezone);
+        const utcNow = now.getTime();
+        const zonedNow = stopTimeZoned.getTime();
+        const tzOffsetMs = zonedNow - utcNow;
+        
+        // Adjust the stop time by the timezone offset to get comparable time
+        return new Date(stopLocalDate.getTime() - tzOffsetMs);
       };
 
       // Iterate through all trucks
@@ -2163,8 +2203,8 @@ const Reports = () => {
           const etaMinutes = truck.etaMinutes || 0;
           if (etaMinutes <= 0) return; // No valid ETA
 
-          // Calculate estimated arrival time in Chicago
-          const estimatedArrival = new Date(chicagoNow.getTime() + etaMinutes * 60 * 1000);
+          // Calculate estimated arrival time (now + ETA minutes)
+          const estimatedArrivalUtc = new Date(now.getTime() + etaMinutes * 60 * 1000);
 
           // Check active orders for this truck
           truck.allOrders?.forEach((order: any) => {
@@ -2183,11 +2223,12 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                const scheduledEnd = parseAsChicagoTime(endDatetime);
+                // Parse scheduled time using the stop's timezone
+                const scheduledEnd = parseStopLocalTime(endDatetime, stop.state);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
-                if (estimatedArrival > scheduledEnd) {
+                if (estimatedArrivalUtc > scheduledEnd) {
                   newLatePickups.add(order.id);
 
                   // Check if we should send notification (max 1 per order/load)
@@ -2204,7 +2245,7 @@ const Reports = () => {
                       dispatcherName: truck.dispatcherName || "Dispatcher",
                       stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
                       scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
-                      estimatedArrival: format(estimatedArrival, "MMM dd, yyyy HH:mm"),
+                      estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                       loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
                     });
                     setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
@@ -2221,11 +2262,12 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                const scheduledEnd = parseAsChicagoTime(endDatetime);
+                // Parse scheduled time using the stop's timezone
+                const scheduledEnd = parseStopLocalTime(endDatetime, stop.state);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
-                if (estimatedArrival > scheduledEnd) {
+                if (estimatedArrivalUtc > scheduledEnd) {
                   newLateDeliveries.add(order.id);
 
                   // Check if we should send notification (max 1 per order/load)
@@ -2242,7 +2284,7 @@ const Reports = () => {
                       dispatcherName: truck.dispatcherName || "Dispatcher",
                       stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
                       scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
-                      estimatedArrival: format(estimatedArrival, "MMM dd, yyyy HH:mm"),
+                      estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
                       loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
                     });
                     setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
