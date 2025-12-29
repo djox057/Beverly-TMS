@@ -1529,11 +1529,14 @@ export const useReports = () => {
               hasMultipleOrders: (driverOrders.length || 0) > 1,
               lost_day_notes: truckLostDayNotes,
               milesAway: truck.miles_away || 0,
+              etaMinutes: truck.eta_minutes || 0,
               totalMiles: currentOrder?.loaded_miles || 0,
               goingYard: truck.driver1?.going_yard || false,
               needsRecovery: truck.needs_recovery || false,
               isRecoveryDriver: truck.driver1?.is_recovery || false,
               trailerId: truck.trailer_id || null,
+              dispatcherEmail: dispatcherInfo?.email || null,
+              dispatcherName: dispatcherInfo?.full_name || null,
             };
           }) || [];
 
