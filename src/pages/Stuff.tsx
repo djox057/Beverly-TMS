@@ -24,15 +24,17 @@ export default function Stuff() {
       const name = driver.name?.toLowerCase() || "";
       const firstName = driver.first_name?.toLowerCase() || "";
       const lastName = driver.last_name?.toLowerCase() || "";
-      const truckNumber = driver.truck_number?.toLowerCase() || "";
+      const truckNumber = driver.truck_info?.truck_number?.toLowerCase() || "";
       const phone = driver.phone?.toLowerCase() || "";
+      const companyName = driver.company?.name?.toLowerCase() || "";
       
       return (
         name.includes(query) ||
         firstName.includes(query) ||
         lastName.includes(query) ||
         truckNumber.includes(query) ||
-        phone.includes(query)
+        phone.includes(query) ||
+        companyName.includes(query)
       );
     });
   }, [drivers, searchQuery]);
@@ -55,10 +57,10 @@ export default function Stuff() {
             last_name: selectedDriver.last_name,
             phone: selectedDriver.phone,
             email: selectedDriver.email,
-            truck_number: selectedDriver.truck_number,
-            trailer_number: selectedDriver.trailer_number,
-            company_name: selectedDriver.company_name,
-            dispatcher_name: selectedDriver.dispatcher_name,
+            truck_number: selectedDriver.truck_info?.truck_number || null,
+            trailer_number: selectedDriver.truck_info?.trailer_number || null,
+            company_name: selectedDriver.company?.name || null,
+            dispatcher_name: selectedDriver.dispatcher_info?.full_name || selectedDriver.dispatcher_info?.email || null,
             hire_date: selectedDriver.hire_date,
             cdl_expiration_date: selectedDriver.cdl_expiration_date,
             medical_card_expiration_date: selectedDriver.medical_card_expiration_date,
@@ -116,15 +118,15 @@ export default function Stuff() {
                         {driver.name || `${driver.first_name} ${driver.last_name}`}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
-                        {driver.truck_number && (
+                        {driver.truck_info?.truck_number && (
                           <Badge variant="outline" className="text-xs">
                             <Truck className="h-3 w-3 mr-1" />
-                            {driver.truck_number}
+                            {driver.truck_info.truck_number}
                           </Badge>
                         )}
-                        {driver.company_name && (
+                        {driver.company?.name && (
                           <Badge variant="secondary" className="text-xs truncate max-w-[100px]">
-                            {driver.company_name}
+                            {driver.company.name}
                           </Badge>
                         )}
                       </div>
