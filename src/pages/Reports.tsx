@@ -380,6 +380,8 @@ const Reports = () => {
   } | null>(null);
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
+  const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
+  const [notifiedLateStops, setNotifiedLateStops] = useState<Set<string>>(new Set());
   const [yardActionDialog, setYardActionDialog] = useState<{
     driverId: string;
     driverName: string;
@@ -1167,8 +1169,12 @@ const Reports = () => {
       const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
       const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
       const hasArrived = order.pickupStop?.arrived_at;
+      const isLate = latePickups.has(order.id);
+      
       if (hasBOL || hasPOD)
         return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+      // Check if ETA is late BEFORE checking other statuses
+      if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
       if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
       if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
       return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
@@ -2114,17 +2120,155 @@ const Reports = () => {
     };
   }, [groupedReports, debouncedTruckDriverFilter, debouncedDispatchNameFilter, debouncedLoadNumberFilter]);
 
-  // DISABLED: Check delivery ETAs - was causing massive edge function invocations
-  // This feature called geocode-address + calculate-route for EVERY order, causing 100% CPU
-  // If needed in future, implement server-side batch processing with aggressive caching
-  // useEffect(() => {
-  //   const checkETAs = async () => { ... };
-  //   if (groupedReports?.length) {
-  //     checkETAs();
-  //     const interval = setInterval(checkETAs, 30 * 60 * 1000);
-  //     return () => clearInterval(interval);
-  //   }
-  // }, [groupedReports]);
+  // Check for late pickups/deliveries using eta_minutes from trucks table
+  // This runs client-side using already-loaded truck data (no additional API calls)
+  useEffect(() => {
+    if (!groupedReports) return;
+
+    const checkLateStops = async () => {
+      const newLatePickups = new Set<string>();
+      const newLateDeliveries = new Set<string>();
+      const lateStopsToNotify: Array<{
+        orderId: string;
+        stopType: "pickup" | "delivery";
+        stopId?: string;
+        truckId: string;
+        truckNumber: string;
+        driverName: string;
+        dispatcherEmail: string;
+        dispatcherName: string;
+        stopAddress: string;
+        scheduledTime: string;
+        estimatedArrival: string;
+        loadNumber: string;
+      }> = [];
+
+      // Get current Chicago time
+      const now = new Date();
+      const chicagoNow = toZonedTime(now, "America/Chicago");
+
+      // Iterate through all trucks
+      Object.values(groupedReports).forEach((group: any) => {
+        group.trucks?.forEach((truck: any) => {
+          // Get ETA minutes from truck (calculated by update-truck-distances)
+          const etaMinutes = truck.etaMinutes || 0;
+          if (etaMinutes <= 0) return; // No valid ETA
+
+          // Calculate estimated arrival time
+          const estimatedArrival = new Date(chicagoNow.getTime() + etaMinutes * 60 * 1000);
+
+          // Check active orders for this truck
+          truck.allOrders?.forEach((order: any) => {
+            // Skip canceled or completed orders
+            if (order.canceled) return;
+            const hasPOD = order.order_files?.some((f: any) => f.file_category === "POD");
+            if (hasPOD) return; // Already delivered
+
+            const hasBOL = order.order_files?.some((f: any) => f.file_category === "BOL");
+
+            // Check pickup stops (only if BOL not yet uploaded)
+            if (!hasBOL) {
+              order.pickupStops?.forEach((stop: any) => {
+                if (stop.arrived_at) return; // Already arrived at pickup
+
+                const endDatetime = stop.end_datetime || stop.datetime;
+                if (!endDatetime) return;
+
+                const scheduledEnd = new Date(endDatetime);
+                if (isNaN(scheduledEnd.getTime())) return;
+
+                // Compare estimated arrival with scheduled end time
+                if (estimatedArrival > scheduledEnd) {
+                  newLatePickups.add(order.id);
+
+                  // Check if we should send notification
+                  const notifyKey = `${order.id}-pickup-${stop.id || "main"}`;
+                  if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                    lateStopsToNotify.push({
+                      orderId: order.id,
+                      stopType: "pickup",
+                      stopId: stop.id,
+                      truckId: truck.id,
+                      truckNumber: truck.truckNumber,
+                      driverName: truck.driver || "Unknown",
+                      dispatcherEmail: truck.dispatcherEmail,
+                      dispatcherName: truck.dispatcherName || "Dispatcher",
+                      stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
+                      scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
+                      estimatedArrival: format(estimatedArrival, "MMM dd, yyyy HH:mm"),
+                      loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
+                    });
+                    setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
+                  }
+                }
+              });
+            }
+
+            // Check delivery stops (only if BOL is uploaded)
+            if (hasBOL) {
+              order.deliveryStops?.forEach((stop: any) => {
+                if (stop.arrived_at) return; // Already arrived at delivery
+
+                const endDatetime = stop.end_datetime || stop.datetime;
+                if (!endDatetime) return;
+
+                const scheduledEnd = new Date(endDatetime);
+                if (isNaN(scheduledEnd.getTime())) return;
+
+                // Compare estimated arrival with scheduled end time
+                if (estimatedArrival > scheduledEnd) {
+                  newLateDeliveries.add(order.id);
+
+                  // Check if we should send notification
+                  const notifyKey = `${order.id}-delivery-${stop.id || "main"}`;
+                  if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                    lateStopsToNotify.push({
+                      orderId: order.id,
+                      stopType: "delivery",
+                      stopId: stop.id,
+                      truckId: truck.id,
+                      truckNumber: truck.truckNumber,
+                      driverName: truck.driver || "Unknown",
+                      dispatcherEmail: truck.dispatcherEmail,
+                      dispatcherName: truck.dispatcherName || "Dispatcher",
+                      stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
+                      scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
+                      estimatedArrival: format(estimatedArrival, "MMM dd, yyyy HH:mm"),
+                      loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
+                    });
+                    setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
+                  }
+                }
+              });
+            }
+          });
+        });
+      });
+
+      // Update state
+      setLatePickups(newLatePickups);
+      setLateDeliveries(newLateDeliveries);
+
+      // Send notifications for new late stops (fire and forget)
+      lateStopsToNotify.forEach(async (lateStop) => {
+        try {
+          await supabase.functions.invoke("send-late-notification", {
+            body: lateStop,
+          });
+          console.log("📧 Late notification sent for:", lateStop.truckNumber, lateStop.stopType);
+        } catch (error) {
+          console.error("Failed to send late notification:", error);
+        }
+      });
+    };
+
+    // Run immediately
+    checkLateStops();
+
+    // Re-run every 60 seconds
+    const interval = setInterval(checkLateStops, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [groupedReports, notifiedLateStops]);
 
   // Auto-switch to correct dispatcher page when filters find matches
   useEffect(() => {
