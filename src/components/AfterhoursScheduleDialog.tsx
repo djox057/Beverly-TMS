@@ -5,7 +5,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CalendarDays, Trash2, Lightbulb } from "lucide-react";
+import { Loader2, CalendarDays, Trash2, Lightbulb, Info } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, isSaturday, isWeekend, startOfDay, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
@@ -437,11 +438,75 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
               
               if (usersWithMultipleDays.length === 0) return null;
               
+              // Calculate extra days per person (excluding holidays)
+              const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+              const monthEndStr = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+              
+              const getExtraDaysForUser = (userId: string) => {
+                // Get all non-holiday dates this user worked in the month
+                const userSchedules = existingSchedules
+                  .filter(s => 
+                    s.user_id === userId &&
+                    s.scheduled_date >= monthStartStr &&
+                    s.scheduled_date <= monthEndStr &&
+                    !isHoliday(new Date(s.scheduled_date + 'T12:00:00')) // Use noon to avoid timezone issues
+                  )
+                  .map(s => s.scheduled_date)
+                  .sort();
+                
+                // First day is not extra, subsequent days are extra
+                return userSchedules.slice(1);
+              };
+              
+              // Build list of users with extra days
+              const usersWithExtraDays = usersWithMultipleDays
+                .map(({ user, count }) => ({
+                  user,
+                  count,
+                  extraDays: getExtraDaysForUser(user.id)
+                }))
+                .filter(entry => entry.extraDays.length > 0);
+              
               return (
                 <div className="border rounded-md p-3 bg-muted/30">
-                  <h4 className="text-xs font-medium text-muted-foreground mb-2">
-                    Worked 2+ days in {format(selectedDate, 'MMMM')}
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-medium text-muted-foreground">
+                      Worked 2+ days in {format(selectedDate, 'MMMM')}
+                    </h4>
+                    {usersWithExtraDays.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-5 w-5">
+                            <Info className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 max-h-96 overflow-y-auto" align="end">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Extra Days in {format(selectedDate, 'MMMM')}</h4>
+                            <p className="text-xs text-muted-foreground">Holidays are excluded from extra day calculations.</p>
+                            <div className="space-y-3">
+                              {usersWithExtraDays.map(({ user, extraDays }) => (
+                                <div key={user.id} className="border-b pb-2 last:border-0">
+                                  <div className="font-medium text-sm">{user.full_name || user.email}</div>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {extraDays.map(date => (
+                                      <Badge 
+                                        key={date} 
+                                        variant="outline" 
+                                        className="text-xs text-orange-500 border-orange-500"
+                                      >
+                                        {format(new Date(date + 'T12:00:00'), 'MMM d')}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
                     {usersWithMultipleDays.map(({ user, count }) => (
                       <div key={user.id} className="flex items-center justify-between text-sm">
