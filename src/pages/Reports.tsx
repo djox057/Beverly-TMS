@@ -2258,17 +2258,26 @@ const Reports = () => {
       setLatePickups(newLatePickups);
       setLateDeliveries(newLateDeliveries);
 
-      // Send notifications for new late stops (fire and forget)
-      lateStopsToNotify.forEach(async (lateStop) => {
-        try {
-          await supabase.functions.invoke("send-late-notification", {
-            body: lateStop,
-          });
-          console.log("📧 Late notification sent for:", lateStop.truckNumber, lateStop.stopType);
-        } catch (error) {
-          console.error("Failed to send late notification:", error);
+      // Send notifications sequentially with rate limiting (max 1 per second to stay under Resend's 2/sec limit)
+      const sendNotificationsSequentially = async () => {
+        for (const lateStop of lateStopsToNotify) {
+          try {
+            await supabase.functions.invoke("send-late-notification", {
+              body: lateStop,
+            });
+            console.log("📧 Late notification sent for:", lateStop.truckNumber, lateStop.stopType);
+            // Wait 1 second between notifications to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            console.error("Failed to send late notification:", error);
+          }
         }
-      });
+      };
+      
+      // Run in background (fire and forget)
+      if (lateStopsToNotify.length > 0) {
+        sendNotificationsSequentially();
+      }
     };
 
     // Run immediately
