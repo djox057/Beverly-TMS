@@ -535,11 +535,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                                 <div className="space-y-1 pl-2">
                                   {officeSchedules.map(schedule => {
                                     // Check if this user worked any day BEFORE this date in the same month
-                                    const monthStart = startOfMonth(selectedDate);
+                                    // Use string comparison to avoid timezone issues
+                                    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+                                    const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
                                     const daysWorkedBefore = existingSchedules.filter(s => 
                                       s.user_id === schedule.user_id &&
-                                      new Date(s.scheduled_date) >= monthStart &&
-                                      new Date(s.scheduled_date) < selectedDate
+                                      s.scheduled_date >= monthStartStr &&
+                                      s.scheduled_date < selectedDateStr
                                     ).length;
                                     const isExtra = daysWorkedBefore >= 1;
                                     
@@ -586,11 +588,13 @@ export const AfterhoursScheduleDialog = ({ open, onOpenChange }: AfterhoursSched
                               <div className="space-y-1 pl-2">
                                 {maintenanceSchedules.map(schedule => {
                                   // Check if this user worked any day BEFORE this date in the same month
-                                  const monthStart = startOfMonth(selectedDate);
+                                  // Use string comparison to avoid timezone issues
+                                  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+                                  const monthStartStr = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
                                   const daysWorkedBefore = existingSchedules.filter(s => 
                                     s.user_id === schedule.user_id &&
-                                    new Date(s.scheduled_date) >= monthStart &&
-                                    new Date(s.scheduled_date) < selectedDate
+                                    s.scheduled_date >= monthStartStr &&
+                                    s.scheduled_date < selectedDateStr
                                   ).length;
                                   const isExtra = daysWorkedBefore >= 1;
                                   
