@@ -125,7 +125,7 @@ export default function Stuff() {
                           </Badge>
                         )}
                         {driver.company?.name && (
-                          <Badge variant="secondary" className="text-xs truncate max-w-[100px]">
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">
                             {driver.company.name}
                           </Badge>
                         )}
