@@ -340,6 +340,10 @@ const EditOrder = () => {
       sender: "BG Prime Dispatch <truckload@bgprime.net>",
       cc: "dispatch@bgprime.net",
     },
+    "United Enterprise Solutions INC": {
+      sender: "United Enterprise Solutions Dispatch <dispatch@unitedenterprisesolutions.net>",
+      cc: "dispatch@unitedenterprisesolutions.net",
+    },
   };
 
   // Fetch profiles for booked by dropdown
