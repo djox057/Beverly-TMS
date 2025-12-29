@@ -24,10 +24,15 @@ interface Coordinates {
   lon: number;
 }
 
+interface RouteResult {
+  distance: number | null;
+  duration: number | null; // in seconds
+}
+
 /**
- * Calculate route distance using OSRM
+ * Calculate route distance and duration using OSRM
  */
-async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<number | null> {
+async function calculateRouteDistance(start: Coordinates, end: Coordinates, truckNumber?: string): Promise<RouteResult> {
   const truckPrefix = truckNumber ? `[Truck ${truckNumber}] ` : '';
   try {
     console.log(`${truckPrefix}📍 Calling OSRM: start(${start.lat},${start.lon}) -> end(${end.lat},${end.lon})`);
@@ -46,32 +51,38 @@ async function calculateRouteDistance(start: Coordinates, end: Coordinates, truc
 
     if (!response.ok) {
       console.error(`${truckPrefix}Route calculation API error:`, response.status);
-      return null;
+      return { distance: null, duration: null };
     }
 
     const data = await response.json();
-    return data.success ? data.distance : null;
+    if (data.success) {
+      return { 
+        distance: data.distance, 
+        duration: data.duration // duration in seconds from OSRM
+      };
+    }
+    return { distance: null, duration: null };
   } catch (error) {
     console.error(`${truckPrefix}Route calculation error:`, error);
-    return null;
+    return { distance: null, duration: null };
   }
 }
 
 /**
- * Calculate distance from truck's current location to target using pre-stored coordinates
+ * Calculate distance and ETA from truck's current location to target using pre-stored coordinates
  */
 async function calculateDistanceFromTruck(
   truckLocation: TruckLocation,
   targetCoords: Coordinates | null,
   targetDescription: string
-): Promise<number | null> {
+): Promise<RouteResult> {
   console.log(`📍 CALCULATE DISTANCE - Truck ${truckLocation.truck_number}`);
   console.log(`   🚛 Truck: (${truckLocation.latitude}, ${truckLocation.longitude})`);
   console.log(`   🎯 Target: ${targetDescription}`);
 
   if (!truckLocation) {
     console.log('❌ Missing truck location');
-    return null;
+    return { distance: null, duration: null };
   }
 
   try {
@@ -84,32 +95,40 @@ async function calculateDistanceFromTruck(
       lon: truckLocation.longitude,
     };
     
-    const distance = await calculateRouteDistance(truckCoords, endCoords, truckLocation.truck_number);
+    const result = await calculateRouteDistance(truckCoords, endCoords, truckLocation.truck_number);
     
-    if (distance === null) {
+    if (result.distance === null) {
       console.error('❌ OSRM CALCULATION FAILED');
     } else {
-      console.log(`   ✅ Distance: ${distance} miles`);
+      const etaMinutes = result.duration ? Math.round(result.duration / 60) : null;
+      console.log(`   ✅ Distance: ${result.distance} miles, ETA: ${etaMinutes} minutes`);
     }
     
-    return distance;
+    return result;
   } catch (error) {
     console.error('❌ Error calculating distance:', error);
-    return null;
+    return { distance: null, duration: null };
   }
 }
 
+interface OrderDistanceResult {
+  distance: number;
+  etaMinutes: number | null;
+}
+
 /**
- * Calculate distance for an order based on its status using pre-stored coordinates
+ * Calculate distance and ETA for an order based on its status using pre-stored coordinates
  */
 async function calculateOrderDistance(
   truckLocation: TruckLocation,
   order: any,
   truckStatus?: string
-): Promise<number> {
+): Promise<OrderDistanceResult> {
+  const zeroResult: OrderDistanceResult = { distance: 0, etaMinutes: null };
+  
   if (!truckLocation || !order) {
     console.log('⚠️ Missing data:', { hasTruckLocation: !!truckLocation, hasOrder: !!order });
-    return 0;
+    return zeroResult;
   }
 
   console.log(`📦 Order: ${order.load_number} | Status: ${order.status} | Truck Status: ${truckStatus}`);
@@ -123,19 +142,19 @@ async function calculateOrderDistance(
   // Maintenance - 0 miles
   if (truckStatus === 'Maintenance') {
     console.log('🛑 Truck in maintenance, returning 0 miles');
-    return 0;
+    return zeroResult;
   }
 
   // Delivered with POD - 0 miles
   if (hasPOD) {
     console.log('✅ Order delivered (has POD), returning 0 miles');
-    return 0;
+    return zeroResult;
   }
 
   // Available - 0 miles
   if (truckStatus === 'Available') {
     console.log('🏭 Status: Available, returning 0 miles');
-    return 0;
+    return zeroResult;
   }
 
   // Pending (not picked up and not arrived) - calculate to pickup using stored coords
@@ -145,18 +164,21 @@ async function calculateOrderDistance(
     
     if (!pickupStop) {
       console.log('❌ No pickup stop found');
-      return 0;
+      return zeroResult;
     }
 
     // Use pre-stored coordinates if available
     if (pickupStop.latitude && pickupStop.longitude) {
       const targetCoords: Coordinates = { lat: pickupStop.latitude, lon: pickupStop.longitude };
       const targetDesc = `PICKUP: ${pickupStop.city || ''}, ${pickupStop.state || ''} (stored coords)`;
-      const distance = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
-      return distance || 0;
+      const result = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
+      return { 
+        distance: result.distance || 0, 
+        etaMinutes: result.duration ? Math.round(result.duration / 60) : null 
+      };
     } else {
       console.log('⚠️ No stored coordinates for pickup, skipping');
-      return 0;
+      return zeroResult;
     }
   }
 
@@ -167,23 +189,26 @@ async function calculateOrderDistance(
     
     if (!deliveryStop) {
       console.log('❌ No delivery stop found');
-      return 0;
+      return zeroResult;
     }
 
     // Use pre-stored coordinates if available
     if (deliveryStop.latitude && deliveryStop.longitude) {
       const targetCoords: Coordinates = { lat: deliveryStop.latitude, lon: deliveryStop.longitude };
       const targetDesc = `DELIVERY: ${deliveryStop.city || ''}, ${deliveryStop.state || ''} (stored coords)`;
-      const distance = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
-      return distance || 0;
+      const result = await calculateDistanceFromTruck(truckLocation, targetCoords, targetDesc);
+      return { 
+        distance: result.distance || 0, 
+        etaMinutes: result.duration ? Math.round(result.duration / 60) : null 
+      };
     } else {
       console.log('⚠️ No stored coordinates for delivery, skipping');
-      return 0;
+      return zeroResult;
     }
   }
 
   console.log('⚠️ No matching condition, returning 0 miles');
-  return 0;
+  return zeroResult;
 }
 
 Deno.serve(async (req) => {
@@ -336,11 +361,13 @@ Deno.serve(async (req) => {
       }
 
       let distance = 0;
+      let etaMinutes: number | null = null;
 
       if (!currentOrder) {
         // No current order - truck is available, set to 0
         console.log(`📦 Truck ${truck.truck_number}: No active order, setting miles_away to 0`);
         distance = 0;
+        etaMinutes = null;
       } else {
         // Format order with pickup/delivery stops
         const pickupStop = currentOrder.pickup_drops?.find((pd: any) => pd.type === 'pickup');
@@ -352,20 +379,22 @@ Deno.serve(async (req) => {
           deliveryStop,
         };
 
-        // Calculate distance
-        distance = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
+        // Calculate distance and ETA
+        const result = await calculateOrderDistance(truckLocation, formattedOrder, truck.status);
+        distance = result.distance;
+        etaMinutes = result.etaMinutes;
       }
 
-        // Update truck record (even if 0)
+        // Update truck record with both miles_away and eta_minutes
         const { error: updateError } = await supabase
           .from('trucks')
-          .update({ miles_away: distance })
+          .update({ miles_away: distance, eta_minutes: etaMinutes })
           .eq('id', truck.id);
 
         if (updateError) {
           console.error(`❌ Error updating truck ${truck.truck_number}:`, updateError);
         } else {
-          console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles`);
+          console.log(`✅ Updated truck ${truck.truck_number}: ${distance} miles, ETA: ${etaMinutes} minutes`);
           updatedCount++;
         }
       } catch (truckError) {
