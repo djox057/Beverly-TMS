@@ -116,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Dispatch Alerts <alerts@bftransport.co>",
+        from: "Dispatch Alerts <jon@bfprime.net>",
         to: [requestData.dispatcherEmail],
         subject: subject,
         html: htmlBody,
