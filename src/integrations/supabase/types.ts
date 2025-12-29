@@ -2209,6 +2209,55 @@ export type Database = {
         }
         Relationships: []
       }
+      proximity_tracking: {
+        Row: {
+          created_at: string
+          entered_radius_at: string
+          id: string
+          order_id: string
+          stop_id: string
+          truck_id: string
+        }
+        Insert: {
+          created_at?: string
+          entered_radius_at?: string
+          id?: string
+          order_id: string
+          stop_id: string
+          truck_id: string
+        }
+        Update: {
+          created_at?: string
+          entered_radius_at?: string
+          id?: string
+          order_id?: string
+          stop_id?: string
+          truck_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proximity_tracking_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proximity_tracking_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "pickup_drops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proximity_tracking_truck_id_fkey"
+            columns: ["truck_id"]
+            isOneToOne: false
+            referencedRelation: "trucks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recovery_history: {
         Row: {
           created_at: string
