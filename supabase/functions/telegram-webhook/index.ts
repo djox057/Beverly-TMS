@@ -31,20 +31,24 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Reaction received on message_id: ${message_id} in chat: ${chat.id}`);
     console.log('New reactions:', JSON.stringify(new_reaction));
 
-    // Check if the reaction is a clown emoji (🤡)
+    // Check if the reaction is a clown emoji (🤡) for completion or thumbs down (👎) for failure
     const hasClownEmoji = new_reaction?.some((reaction: any) => 
       reaction.type === 'emoji' && reaction.emoji === '🤡'
     );
+    const hasThumbsDownEmoji = new_reaction?.some((reaction: any) => 
+      reaction.type === 'emoji' && reaction.emoji === '👎'
+    );
 
-    if (!hasClownEmoji) {
-      console.log('Not a clown emoji reaction, ignoring');
-      return new Response(JSON.stringify({ ok: true, message: 'Not a clown emoji' }), {
+    if (!hasClownEmoji && !hasThumbsDownEmoji) {
+      console.log('Not a clown or thumbs down emoji reaction, ignoring');
+      return new Response(JSON.stringify({ ok: true, message: 'Not a recognized emoji' }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
-    console.log('Clown emoji detected, processing HOS completion');
+    const isFailure = hasThumbsDownEmoji;
+    console.log(isFailure ? 'Thumbs down emoji detected, processing HOS failure' : 'Clown emoji detected, processing HOS completion');
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -105,10 +109,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const resend = new Resend(resendApiKey);
 
+    const statusText = isFailure ? 'Failed' : 'Completed';
+    const statusColor = isFailure ? '#ef4444' : '#22c55e';
+    const statusSymbol = isFailure ? '✗' : '✓';
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #22c55e;">HOS Request Completed ✓</h2>
-        <p>Your HOS request has been processed.</p>
+        <h2 style="color: ${statusColor};">HOS Request ${statusText} ${statusSymbol}</h2>
+        <p>Your HOS request has ${isFailure ? 'failed to be processed' : 'been processed'}.</p>
         <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 16px 0;">
           <p style="margin: 4px 0;"><strong>Driver:</strong> ${hosRequest.driver_name}</p>
           <p style="margin: 4px 0;"><strong>Vehicle:</strong> ${hosRequest.truck_number}</p>
@@ -123,20 +131,27 @@ const handler = async (req: Request): Promise<Response> => {
     const emailResponse = await resend.emails.send({
       from: 'HOS Notifications <bob.i@bfprime.net>',
       to: [hosRequest.requester_email],
-      subject: `HOS Done - ${hosRequest.driver_name} (${hosRequest.truck_number})`,
+      subject: `HOS ${statusText} - ${hosRequest.driver_name} (${hosRequest.truck_number})`,
       html: emailHtml,
     });
 
     console.log('Email sent:', emailResponse);
 
     // Update the request status
+    const newStatus = isFailure ? 'failed' : 'completed';
     const { error: updateError } = await supabase
       .from('hos_requests')
       .update({
-        status: 'completed',
+        status: newStatus,
         notified_at: new Date().toISOString(),
       })
       .eq('id', hosRequest.id);
+
+    if (updateError) {
+      console.error('Failed to update HOS request status:', updateError);
+    } else {
+      console.log(`HOS request marked as ${newStatus}`);
+    }
 
     if (updateError) {
       console.error('Failed to update HOS request status:', updateError);
