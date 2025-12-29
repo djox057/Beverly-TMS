@@ -2146,6 +2146,15 @@ const Reports = () => {
       // Get current Chicago time
       const now = new Date();
       const chicagoNow = toZonedTime(now, "America/Chicago");
+      
+      // Helper to parse datetime as Chicago local time
+      // Database stores times as UTC but they actually represent Chicago local time
+      const parseAsChicagoTime = (dateStr: string): Date => {
+        // Remove timezone offset and parse as local Chicago time
+        const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, '');
+        const localDate = new Date(cleanDate);
+        return localDate;
+      };
 
       // Iterate through all trucks
       Object.values(groupedReports).forEach((group: any) => {
@@ -2154,7 +2163,7 @@ const Reports = () => {
           const etaMinutes = truck.etaMinutes || 0;
           if (etaMinutes <= 0) return; // No valid ETA
 
-          // Calculate estimated arrival time
+          // Calculate estimated arrival time in Chicago
           const estimatedArrival = new Date(chicagoNow.getTime() + etaMinutes * 60 * 1000);
 
           // Check active orders for this truck
@@ -2174,7 +2183,7 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                const scheduledEnd = new Date(endDatetime);
+                const scheduledEnd = parseAsChicagoTime(endDatetime);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
@@ -2212,7 +2221,7 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                const scheduledEnd = new Date(endDatetime);
+                const scheduledEnd = parseAsChicagoTime(endDatetime);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
@@ -4696,10 +4705,8 @@ const Reports = () => {
                       cardBgClass = "bg-lime-500/20 border-lime-500/50";
                     }
 
-                    // Check if delivery is late
-                    const deliveryTime = new Date(stop.datetime);
-                    const now = new Date();
-                    const isLate = !stop.arrived_at && !zoomedLoad.documents.includes("POD") && deliveryTime < now;
+                    // Check if delivery is late using the lateDeliveries Set
+                    const isLate = !stop.arrived_at && lateDeliveries.has(zoomedLoad.orderId);
                     if (isLate) {
                       cardBgClass = "bg-red-500/20 border-red-500/50";
                     }
