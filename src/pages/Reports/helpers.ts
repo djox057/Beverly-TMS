@@ -178,7 +178,7 @@ export const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null =
 };
 
 // Helper to get pickup cell color based on status and previous load
-export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean) => {
+export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boolean, latePickups?: Set<string>) => {
   // Show destructive styling for canceled orders
   if (order.canceled) return "bg-destructive/80 text-destructive-foreground border-destructive/50";
 
@@ -187,8 +187,10 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
   const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
   const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
   const hasArrived = order.pickupStop?.arrived_at;
+  const isLate = latePickups?.has(order.id);
 
   if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
+  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
   if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
   if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
   return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
