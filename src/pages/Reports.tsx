@@ -253,6 +253,8 @@ const Reports = () => {
     setShowNewDrivers,
     showTwoWeekNotice,
     setShowTwoWeekNotice,
+    showLateTrucks,
+    setShowLateTrucks,
     truckDriverFilter,
     setTruckDriverFilter,
     dispatchNameFilter,
@@ -381,6 +383,7 @@ const Reports = () => {
   const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
+  const [lateTrucks, setLateTrucks] = useState<Set<string>>(new Set()); // Track late trucks by truck ID
   const [notifiedLateStops, setNotifiedLateStops] = useState<Set<string>>(new Set());
   const [yardActionDialog, setYardActionDialog] = useState<{
     driverId: string;
@@ -2165,6 +2168,9 @@ const Reports = () => {
         return fromZonedTime(chicagoLocalDate, 'America/Chicago');
       };
 
+      // Track late trucks by ID
+      const newLateTrucks = new Set<string>();
+
       // Iterate through all trucks
       Object.values(groupedReports).forEach((group: any) => {
         group.trucks?.forEach((truck: any) => {
@@ -2175,80 +2181,116 @@ const Reports = () => {
           // Calculate estimated arrival time (now + ETA minutes)
           const estimatedArrivalUtc = new Date(now.getTime() + etaMinutes * 60 * 1000);
 
-          // Check active orders for this truck
-          truck.allOrders?.forEach((order: any) => {
-            // Skip canceled or completed orders
-            if (order.canceled) return;
-            const hasPOD = order.order_files?.some((f: any) => f.file_category === "POD");
-            if (hasPOD) return; // Already delivered
+          // Determine the current order for this truck (same logic as rendering)
+          const allSortedOrders = truck.allOrders
+            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
+            .sort((a: any, b: any) => {
+              const aDate = a.pickupStop?.datetime || "";
+              const bDate = b.pickupStop?.datetime || "";
+              return aDate.localeCompare(bDate);
+            }) || [];
 
-            const hasBOL = order.order_files?.some((f: any) => f.file_category === "BOL");
+          if (allSortedOrders.length === 0) return;
 
-            // Check pickup stops (only if BOL not yet uploaded)
-            if (!hasBOL) {
-              order.pickupStops?.forEach((stop: any) => {
-                if (stop.arrived_at) return; // Already arrived at pickup
+          let currentOrder: any = undefined;
+          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+          const lastOrderHasBOL = lastOrder?.order_files?.some((f: any) => f.file_category === "BOL");
 
-                const endDatetime = stop.end_datetime || stop.datetime;
-                if (!endDatetime) return;
+          if (lastOrderHasBOL) {
+            currentOrder = lastOrder;
+          } else if (allSortedOrders.length >= 2) {
+            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+            const previousHasPOD = previousOrder?.order_files?.some((f: any) => f.file_category === "POD");
 
-                // Parse scheduled time as Chicago time
-                const scheduledEnd = parseAsChicagoTime(endDatetime);
-                if (isNaN(scheduledEnd.getTime())) return;
-
-                // Compare estimated arrival with scheduled end time
-                if (estimatedArrivalUtc > scheduledEnd) {
-                  newLatePickups.add(order.id);
-
-                  // Check if we should send notification (max 1 per order/load)
-                  const notifyKey = order.id;
-                  if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
-                    lateStopsToNotify.push({
-                      orderId: order.id,
-                      stopType: "pickup",
-                      stopId: stop.id,
-                      truckId: truck.id,
-                      truckNumber: truck.truckNumber,
-                      driverName: truck.driver || "Unknown",
-                      dispatcherEmail: truck.dispatcherEmail,
-                      dispatcherName: truck.dispatcherName || "Dispatcher",
-                      stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
-                      scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
-                      estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
-                      loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
-                    });
-                    setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
-                  }
-                }
-              });
+            if (previousHasPOD) {
+              currentOrder = lastOrder;
+            } else {
+              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
+                order.order_files?.some((file: any) => file.file_category === "BOL")
+              );
+              currentOrder = lastWithBOL || lastOrder;
             }
+          } else {
+            currentOrder = lastOrder;
+          }
 
-            // Check delivery stops (only if BOL is uploaded)
-            if (hasBOL) {
-              order.deliveryStops?.forEach((stop: any) => {
-                if (stop.arrived_at) return; // Already arrived at delivery
+          if (!currentOrder) return;
 
-                const endDatetime = stop.end_datetime || stop.datetime;
-                if (!endDatetime) return;
+          // Check if current order is already delivered
+          const hasPOD = currentOrder.order_files?.some((f: any) => f.file_category === "POD");
+          if (hasPOD) return;
 
-                // Parse scheduled time as Chicago time
-                const scheduledEnd = parseAsChicagoTime(endDatetime);
-                if (isNaN(scheduledEnd.getTime())) return;
+          const hasBOL = currentOrder.order_files?.some((f: any) => f.file_category === "BOL");
 
-                // Compare estimated arrival with scheduled end time
-                if (estimatedArrivalUtc > scheduledEnd) {
-                  newLateDeliveries.add(order.id);
-                  // Note: Email notifications disabled for late deliveries (only visual indicator)
+          // Check pickup stops (only if BOL not yet uploaded)
+          if (!hasBOL) {
+            const pickupStops = currentOrder.pickupStops || (currentOrder.pickupStop ? [currentOrder.pickupStop] : []);
+            pickupStops.forEach((stop: any) => {
+              if (stop.arrived_at) return; // Already arrived at pickup
+
+              const endDatetime = stop.end_datetime || stop.datetime;
+              if (!endDatetime) return;
+
+              // Parse scheduled time as Chicago time
+              const scheduledEnd = parseAsChicagoTime(endDatetime);
+              if (isNaN(scheduledEnd.getTime())) return;
+
+              // Compare estimated arrival with scheduled end time
+              if (estimatedArrivalUtc > scheduledEnd) {
+                newLatePickups.add(currentOrder.id);
+                newLateTrucks.add(truck.id);
+
+                // Check if we should send notification (max 1 per order/load)
+                const notifyKey = currentOrder.id;
+                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                  lateStopsToNotify.push({
+                    orderId: currentOrder.id,
+                    stopType: "pickup",
+                    stopId: stop.id,
+                    truckId: truck.id,
+                    truckNumber: truck.truckNumber,
+                    driverName: truck.driver || "Unknown",
+                    dispatcherEmail: truck.dispatcherEmail,
+                    dispatcherName: truck.dispatcherName || "Dispatcher",
+                    stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
+                    scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
+                    estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
+                    loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
+                  });
+                  setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
                 }
-              });
-            }
-          });
+              }
+            });
+          }
+
+          // Check delivery stops (only if BOL is uploaded)
+          if (hasBOL) {
+            const deliveryStops = currentOrder.deliveryStops || (currentOrder.deliveryStop ? [currentOrder.deliveryStop] : []);
+            deliveryStops.forEach((stop: any) => {
+              if (stop.arrived_at) return; // Already arrived at delivery
+
+              const endDatetime = stop.end_datetime || stop.datetime;
+              if (!endDatetime) return;
+
+              // Parse scheduled time as Chicago time
+              const scheduledEnd = parseAsChicagoTime(endDatetime);
+              if (isNaN(scheduledEnd.getTime())) return;
+
+              // Compare estimated arrival with scheduled end time
+              if (estimatedArrivalUtc > scheduledEnd) {
+                newLateDeliveries.add(currentOrder.id);
+                newLateTrucks.add(truck.id);
+                // Note: Email notifications disabled for late deliveries (only visual indicator)
+              }
+            });
+          }
         });
       });
 
       // Update state
       setLatePickups(newLatePickups);
       setLateDeliveries(newLateDeliveries);
+      setLateTrucks(newLateTrucks);
 
       // Send notifications sequentially with rate limiting (max 1 per second to stay under Resend's 2/sec limit)
       const sendNotificationsSequentially = async () => {
@@ -2326,6 +2368,21 @@ const Reports = () => {
           return {
             ...group,
             trucks: twoWeekNoticeTrucks,
+          };
+        })
+        .filter((group) => group.trucks.length > 0);
+    }
+
+    // Late trucks filter: show only trucks that are late for current pickup/delivery
+    if (showLateTrucks) {
+      return reports
+        .map((group) => {
+          const lateFilteredTrucks = group.trucks.filter((truck) => {
+            return lateTrucks.has(truck.id);
+          });
+          return {
+            ...group,
+            trucks: lateFilteredTrucks,
           };
         })
         .filter((group) => group.trucks.length > 0);
@@ -2461,7 +2518,7 @@ const Reports = () => {
         };
       })
       .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
-  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice]);
+  }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice, showLateTrucks, lateTrucks]);
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -2606,6 +2663,15 @@ const Reports = () => {
                     onClick={() => setShowEmptyTrucks(!showEmptyTrucks)}
                   >
                     Empty trucks
+                  </Button>
+                  <Button
+                    variant={showLateTrucks ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowLateTrucks(!showLateTrucks)}
+                    className="gap-2"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Late trucks
                   </Button>
                   <Button
                     variant={showTwoWeekNotice ? "default" : "outline"}
