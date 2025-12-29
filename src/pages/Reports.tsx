@@ -2280,7 +2280,26 @@ const Reports = () => {
               if (estimatedArrivalUtc > scheduledEnd) {
                 newLateDeliveries.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
-                // Note: Email notifications disabled for late deliveries (only visual indicator)
+
+                // Queue email notification for late delivery
+                const notifyKey = `${currentOrder.id}-delivery-${stop.id || 'main'}`;
+                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                  lateStopsToNotify.push({
+                    orderId: currentOrder.id,
+                    stopType: "delivery",
+                    stopId: stop.id,
+                    truckId: truck.id,
+                    truckNumber: truck.truckNumber,
+                    driverName: truck.driver || "Unknown",
+                    dispatcherEmail: truck.dispatcherEmail,
+                    dispatcherName: truck.dispatcherName || "Dispatcher",
+                    stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
+                    scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
+                    estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
+                    loadNumber: currentOrder.loadDetails?.loadNumber || currentOrder.load_number || "N/A",
+                  });
+                  setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
+                }
               }
             });
           }
