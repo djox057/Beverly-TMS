@@ -23,7 +23,6 @@ import {
   Info,
   Clock,
   Maximize2,
-  XCircle,
   UserPlus,
   History,
   HelpCircle,
@@ -39,7 +38,7 @@ import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
 import { CheckInOutTimeDialog } from "@/components/CheckInOutTimeDialog";
 import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
-import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
+
 
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
@@ -95,13 +94,6 @@ interface EditingState {
 }
 interface DispatcherCalendarState {
   [dispatcherId: string]: Date;
-}
-interface GameOverDialogState {
-  truckId: string;
-  truckNumber: string;
-  existingDates: string[]; // Dates that already have "game over"
-  needsRecovery: boolean; // truck.needs_recovery
-  hasRecoveryDriver: boolean; // truck has a recovery driver assigned
 }
 // getStatusBadge - kept locally as it returns JSX
 const getStatusBadge = (status: string) => {
@@ -380,7 +372,7 @@ const Reports = () => {
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [gameOverDialog, setGameOverDialog] = useState<GameOverDialogState | null>(null);
+  
   const [lateDeliveries, setLateDeliveries] = useState<Set<string>>(new Set());
   const [latePickups, setLatePickups] = useState<Set<string>>(new Set());
   const [lateTrucks, setLateTrucks] = useState<Set<string>>(new Set()); // Track late trucks by truck ID
@@ -2614,38 +2606,6 @@ const Reports = () => {
       });
     }
   };
-  const handleGameOverClick = (truckId: string, driverName: string) => {
-    // Find existing "game over" dates for this truck
-    const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-    const truck = allTrucks.find((t: any) => t.id === truckId);
-    const existingGameOverDates =
-      truck?.lost_day_notes
-        ?.filter((note: any) => note.note && note.note.toLowerCase().includes("game over"))
-        .map((note: any) => note.date) || [];
-    
-    // Check if truck has recovery status and if a recovery driver is assigned
-    const needsRecovery = truck?.needsRecovery === true;
-    // A recovery driver is assigned if driver1_id exists AND the driver is_recovery = true
-    const hasRecoveryDriver = needsRecovery && truck?.driverId && truck?.isRecoveryDriver === true;
-    
-    console.log("🎮 Opening game over dialog for truck:", {
-      truckId,
-      driverName,
-      needsRecovery,
-      hasRecoveryDriver,
-      rawNeedsRecovery: truck?.needsRecovery,
-      isRecoveryDriver: truck?.isRecoveryDriver,
-      driverId: truck?.driverId,
-    });
-    
-    setGameOverDialog({
-      truckId,
-      truckNumber: driverName,
-      existingDates: existingGameOverDates,
-      needsRecovery,
-      hasRecoveryDriver: !!hasRecoveryDriver,
-    });
-  };
   return (
     <>
       <div className="h-full bg-background flex flex-col">
@@ -3646,7 +3606,7 @@ const Reports = () => {
                                             (file: any) => file.file_category === "POD",
                                           );
                                           return order.is_recovery && !hasPOD;
-                                        }) ? (
+                                        }) && (
                                           <Button
                                             variant="ghost"
                                             size="sm"
@@ -3764,18 +3724,6 @@ const Reports = () => {
                                           >
                                             <span className="text-[10px] text-green-600">Revert</span>
                                           </Button>
-                                        ) : (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="absolute top-1 right-1 h-[23px] w-[23px] p-0.5 bg-background hover:bg-destructive/10 rounded-full z-[50] border border-border"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleGameOverClick(truck.id, truck.driver);
-                                            }}
-                                          >
-                                            <XCircle className="h-[19px] w-[19px] text-destructive" />
-                                          </Button>
                                         )}
                                         {truck.editDate}
                                       </td>
@@ -3871,428 +3819,6 @@ const Reports = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Game Over Dialog */}
-      <SetDriverStatusDialog
-        open={gameOverDialog !== null}
-        onOpenChange={(open) => !open && setGameOverDialog(null)}
-        truckNumber={gameOverDialog?.truckNumber || ""}
-        truckId={gameOverDialog?.truckId || ""}
-        existingDates={gameOverDialog?.existingDates || []}
-        hasRecoveryStatus={gameOverDialog?.needsRecovery || false}
-        hasRecoveryDriverAssigned={gameOverDialog?.hasRecoveryDriver || false}
-        onAssignRecoveryDriver={async (recoveryDriverId) => {
-          if (!gameOverDialog) return;
-          try {
-            console.log("🚀 Assigning recovery driver to existing status...", { recoveryDriverId });
-            
-            // Find the truck and original driver info
-            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
-            
-            if (!truck) {
-              throw new Error("Truck not found");
-            }
-            
-            // Get original dispatcher ID
-            let originalDispatcherId = null;
-            if (truck?.driverId) {
-              const { data: originalDriver } = await supabase
-                .from("drivers")
-                .select("dispatcher_id")
-                .eq("id", truck.driverId)
-                .maybeSingle();
-              originalDispatcherId = originalDriver?.dispatcher_id || null;
-            }
-            
-            // Update truck with recovery driver
-            const { error: truckError } = await supabase
-              .from("trucks")
-              .update({ driver1_id: recoveryDriverId })
-              .eq("id", gameOverDialog.truckId);
-            
-            if (truckError) throw truckError;
-            
-            // Update active orders with recovery driver
-            if (truck?.activeOrders && truck.activeOrders.length > 0) {
-              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
-              
-              // Get recovery driver's truck
-              const { data: recoveryTrucks } = await supabase
-                .from("trucks")
-                .select("id, truck_number")
-                .eq("driver1_id", recoveryDriverId)
-                .limit(1);
-              
-              const orderUpdate: any = { driver1_id: recoveryDriverId };
-              if (recoveryTrucks && recoveryTrucks.length > 0) {
-                orderUpdate.truck_id = recoveryTrucks[0].id;
-              }
-              
-              await supabase.from("orders").update(orderUpdate).in("id", activeOrderIds);
-              
-              // Save recovery history
-              for (const orderId of activeOrderIds) {
-                await supabase.from("recovery_history").insert({
-                  order_id: orderId,
-                  original_driver1_id: truck.driverId,
-                  original_driver2_id: truck.driver2Id || null,
-                  original_truck_id: gameOverDialog.truckId,
-                  original_trailer_id: truck.trailerId || null,
-                  original_dispatcher_id: originalDispatcherId,
-                  recovery_driver1_id: recoveryDriverId,
-                  recovery_truck_id: recoveryTrucks?.[0]?.id || null,
-                });
-              }
-            }
-            
-            toast({
-              title: "Recovery driver assigned",
-              description: `Recovery driver assigned to truck ${gameOverDialog.truckNumber}`,
-            });
-            setGameOverDialog(null);
-          } catch (error) {
-            console.error("❌ Assign recovery driver failed:", error);
-            toast({
-              title: "Failed to assign recovery driver",
-              description: error instanceof Error ? error.message : "Unknown error",
-              variant: "destructive",
-            });
-          }
-        }}
-        onInitialConfirm={async (startDate, type, note) => {
-          // This handles ONLY the "ALWAYS" actions when no recovery driver is selected
-          if (!gameOverDialog) return;
-
-          try {
-            console.log("🚀 Starting initial set driver status (no recovery driver)...", { startDate, type, note });
-            const dateStr = format(startDate, "yyyy-MM-dd");
-            const noteText = type === "yard" ? "game over - yard" : "game over - at road";
-
-            // Find the truck to get driver info
-            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
-
-            if (!truck) {
-              throw new Error("Truck not found in reports data");
-            }
-
-            // Create lost day note for the driver
-            if (truck?.driverId) {
-              console.log("📝 Creating lost day note for driver...");
-              await updateLostDayNote.mutateAsync({
-                driverId: truck.driverId,
-                date: dateStr,
-                note: noteText,
-              });
-              console.log("✅ Lost day note created");
-            }
-
-            // Update truck note
-            console.log("📝 Updating truck note...");
-            await updateTruckNote.mutateAsync({
-              truckId: gameOverDialog.truckId,
-              note: note.trim(),
-            });
-            console.log("✅ Truck note updated");
-
-            // Set recovery status on truck (but DO NOT null out driver/trailer)
-            const { error: truckError } = await supabase
-              .from("trucks")
-              .update({
-                needs_recovery: true,
-                left_by_driver_id: truck?.driverId || null,
-              })
-              .eq("id", gameOverDialog.truckId);
-
-            if (truckError) {
-              console.error("❌ Truck update failed:", truckError);
-              throw truckError;
-            }
-            console.log("✅ Truck marked for recovery");
-
-            // Mark active orders as recovery loads (but DO NOT change driver assignment)
-            if (truck?.activeOrders && truck.activeOrders.length > 0) {
-              console.log("📦 Marking active orders as recovery:", truck.activeOrders.length);
-              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
-
-              const { error: orderError } = await supabase
-                .from("orders")
-                .update({
-                  is_recovery: true,
-                  original_driver1_id: truck.driverId,
-                  original_driver2_id: truck.driver2Id || null,
-                  original_truck_id: gameOverDialog.truckId,
-                  original_trailer_id: truck.trailerId || null,
-                })
-                .in("id", activeOrderIds);
-
-              if (orderError) {
-                console.error("❌ Order update failed:", orderError);
-                throw orderError;
-              }
-              console.log("✅ Orders marked as recovery");
-            }
-
-            console.log("🎉 Initial status set completed - awaiting recovery driver assignment");
-            toast({
-              title: "Truck marked for recovery",
-              description: `Truck ${gameOverDialog.truckNumber} marked for recovery - select a recovery driver or assign later`,
-            });
-          } catch (error) {
-            console.error("❌ Initial set driver status failed:", error);
-            toast({
-              title: "Failed to set status",
-              description: error instanceof Error ? error.message : "Unknown error occurred",
-              variant: "destructive",
-            });
-            throw error; // Re-throw to prevent step change in dialog
-          }
-        }}
-        onConfirm={async (startDate, type, note, recoveryDriverId) => {
-          if (!gameOverDialog) return;
-
-          try {
-            console.log("🚀 Starting set driver status...", { startDate, type, note, recoveryDriverId });
-            const dateStr = format(startDate, "yyyy-MM-dd");
-            const noteText = type === "yard" ? "game over - yard" : "game over - at road";
-
-            // Find the truck to get driver and active orders info
-            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
-            console.log("📦 Found truck:", {
-              truckId: truck?.truckId,
-              driverId: truck?.driverId,
-              driverName: truck?.driverName,
-            });
-
-            if (!truck) {
-              throw new Error("Truck not found in reports data");
-            }
-
-            // Create lost day note for the driver (not truck)
-            if (truck?.driverId) {
-              console.log("📝 Creating lost day note for driver...");
-              await updateLostDayNote.mutateAsync({
-                driverId: truck.driverId,
-                date: dateStr,
-                note: noteText,
-              });
-              console.log("✅ Lost day note created");
-            } else {
-              console.warn("⚠️ No driver assigned to truck, cannot create lost day note");
-            }
-
-            // Update truck note
-            console.log("📝 Updating truck note...");
-            await updateTruckNote.mutateAsync({
-              truckId: gameOverDialog.truckId,
-              note: note.trim(),
-            });
-            console.log("✅ Truck note updated");
-
-            // Set recovery status on truck
-            console.log("🔍 Truck data before update:", {
-              truckId: gameOverDialog.truckId,
-              truck: truck,
-              driverId: truck?.driverId,
-              driverName: truck?.driverName,
-            });
-
-            const truckUpdate: any = {
-              needs_recovery: true,
-              left_by_driver_id: truck?.driverId || null,
-            };
-
-            // Get original dispatcher ID BEFORE we unassign it
-            let originalDispatcherId = null;
-            if (truck?.driverId) {
-              const { data: originalDriver } = await supabase
-                .from("drivers")
-                .select("dispatcher_id")
-                .eq("id", truck.driverId)
-                .maybeSingle();
-              originalDispatcherId = originalDriver?.dispatcher_id || null;
-              console.log("📋 Original dispatcher ID:", originalDispatcherId);
-            }
-
-            // If recovery driver selected, assign to them (keep dispatcher unchanged for original driver)
-            if (recoveryDriverId) {
-              truckUpdate.driver1_id = recoveryDriverId;
-              console.log("👤 Assigning recovery driver:", recoveryDriverId);
-            } else {
-              truckUpdate.driver1_id = null;
-              truckUpdate.driver2_id = null;
-              truckUpdate.trailer_id = null;
-              console.log("🚫 Unassigning driver and trailer");
-            }
-
-            console.log("🚛 EXACT truck update object:", JSON.stringify(truckUpdate, null, 2));
-            console.log("🚛 Truck ID for update:", gameOverDialog.truckId);
-            const { error: truckError } = await supabase
-              .from("trucks")
-              .update(truckUpdate)
-              .eq("id", gameOverDialog.truckId);
-
-            if (truckError) {
-              console.error("❌ Truck update failed:", truckError);
-              throw truckError;
-            }
-            console.log("✅ Truck status updated");
-
-            // Mark active orders as recovery loads
-            if (truck?.activeOrders && truck.activeOrders.length > 0) {
-              console.log("📦 Updating active orders:", truck.activeOrders.length);
-              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
-
-              const orderUpdate: any = {
-                is_recovery: true,
-                original_driver1_id: truck.driverId,
-                original_driver2_id: truck.driver2Id || null,
-                original_truck_id: gameOverDialog.truckId,
-                original_trailer_id: truck.trailerId || null,
-              };
-
-              // If recovery driver selected, assign them to the loads
-              if (recoveryDriverId) {
-                console.log("🔍 Fetching recovery driver's truck assignment...");
-                // Fetch the recovery driver's current truck assignment
-                const { data: recoveryTrucks, error: recoveryTruckError } = await supabase
-                  .from("trucks")
-                  .select("id, truck_number")
-                  .eq("driver1_id", recoveryDriverId)
-                  .limit(1);
-
-                if (recoveryTruckError) {
-                  console.error("❌ Failed to fetch recovery driver's truck:", recoveryTruckError);
-                  // Continue without updating truck_id if we can't fetch it
-                }
-
-                orderUpdate.driver1_id = recoveryDriverId;
-
-                // If recovery driver has a truck, assign the load to that truck too
-                if (recoveryTrucks && recoveryTrucks.length > 0) {
-                  orderUpdate.truck_id = recoveryTrucks[0].id;
-                  console.log("✅ Recovery driver has truck:", recoveryTrucks[0].truck_number);
-                } else {
-                  console.log("⚠️ Recovery driver has no assigned truck, keeping original truck");
-                }
-
-                // Save recovery history for each order
-                for (const orderId of activeOrderIds) {
-                  const { error: historyError } = await supabase.from("recovery_history").insert({
-                    order_id: orderId,
-                    original_driver1_id: truck.driverId,
-                    original_driver2_id: truck.driver2Id || null,
-                    original_truck_id: gameOverDialog.truckId,
-                    original_trailer_id: truck.trailerId || null,
-                    original_dispatcher_id: originalDispatcherId,
-                    recovery_driver1_id: recoveryDriverId,
-                    recovery_driver2_id: null,
-                    recovery_truck_id: recoveryTrucks && recoveryTrucks.length > 0 ? recoveryTrucks[0].id : null,
-                    recovery_trailer_id: null,
-                  });
-
-                  if (historyError) {
-                    console.error("❌ Failed to save recovery history:", historyError);
-                  }
-                }
-              } else {
-                // No recovery driver selected - unassign driver but keep truck
-                orderUpdate.driver1_id = null;
-                console.log("🚫 Unassigning driver from orders (no recovery driver selected)");
-              }
-
-              console.log("📦 Order update data:", orderUpdate);
-              const { error: orderError } = await supabase.from("orders").update(orderUpdate).in("id", activeOrderIds);
-
-              if (orderError) {
-                console.error("❌ Order update failed:", orderError);
-                throw orderError;
-              }
-              console.log("✅ Orders updated successfully");
-            } else {
-              console.log("ℹ️ No active orders to update");
-            }
-
-            console.log("🎉 Set driver status completed successfully");
-            toast({
-              title: "Truck sent to recovery",
-              description: recoveryDriverId
-                ? `Truck ${gameOverDialog.truckNumber} assigned to recovery driver${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""}`
-                : `Truck ${gameOverDialog.truckNumber} marked for recovery${truck?.activeOrders?.length > 0 ? ` with ${truck.activeOrders.length} active load(s)` : ""} - awaiting driver assignment`,
-            });
-            setGameOverDialog(null);
-          } catch (error) {
-            console.error("❌ Set driver status failed:", error);
-            toast({
-              title: "Failed to set status",
-              description: error instanceof Error ? error.message : "Unknown error occurred",
-              variant: "destructive",
-            });
-          }
-        }}
-        onRemoveAll={async () => {
-          if (!gameOverDialog) return;
-          
-          try {
-            // Find the truck to get driver ID
-            const allTrucks = Object.values(groupedReports || {}).flatMap((g: any) => g.trucks);
-            const truck = allTrucks.find((t: any) => t.id === gameOverDialog.truckId);
-
-            console.log("🔍 Remove Status - Finding truck:", {
-              searchingForTruckId: gameOverDialog.truckId,
-              foundTruck: truck,
-              driverId: truck?.driverId,
-              needsRecovery: truck?.needsRecovery,
-            });
-
-            // Delete lost day notes if any exist
-            if (truck?.driverId && gameOverDialog.existingDates.length > 0) {
-              for (const date of gameOverDialog.existingDates) {
-                await deleteLostDayNote.mutateAsync({
-                  driverId: truck.driverId,
-                  date,
-                });
-              }
-            }
-            
-            // Reset truck recovery status
-            const { error: truckError } = await supabase
-              .from("trucks")
-              .update({
-                needs_recovery: false,
-                left_by_driver_id: null,
-              })
-              .eq("id", gameOverDialog.truckId);
-            
-            if (truckError) {
-              console.error("❌ Failed to reset truck recovery status:", truckError);
-              throw truckError;
-            }
-            
-            // Reset is_recovery on active orders for this truck
-            if (truck?.activeOrders && truck.activeOrders.length > 0) {
-              const activeOrderIds = truck.activeOrders.map((o: any) => o.id);
-              await supabase
-                .from("orders")
-                .update({ is_recovery: false })
-                .in("id", activeOrderIds);
-            }
-            
-            toast({
-              title: "Status removed",
-              description: `Recovery status removed from truck ${gameOverDialog.truckNumber}`,
-            });
-            setGameOverDialog(null);
-          } catch (error) {
-            toast({
-              title: "Error",
-              description: error instanceof Error ? error.message : "Failed to remove status",
-              variant: "destructive",
-            });
-          }
-        }}
-      />
 
       {/* Drug Test Dialog */}
       <Dialog open={!!dialogs.drugTestDialog} onOpenChange={(open) => !open && dialogs.setDrugTestDialog(null)}>
