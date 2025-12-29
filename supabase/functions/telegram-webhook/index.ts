@@ -31,16 +31,16 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Reaction received on message_id: ${message_id} in chat: ${chat.id}`);
     console.log('New reactions:', JSON.stringify(new_reaction));
 
-    // Check if the reaction is a clown emoji (🤡) for completion or thumbs down (👎) for failure
-    const hasClownEmoji = new_reaction?.some((reaction: any) => 
-      reaction.type === 'emoji' && reaction.emoji === '🤡'
+    // Check if the reaction is a heart emoji (❤️) for completion or thumbs down (👎) for failure
+    const hasHeartEmoji = new_reaction?.some((reaction: any) => 
+      reaction.type === 'emoji' && reaction.emoji === '❤'
     );
     const hasThumbsDownEmoji = new_reaction?.some((reaction: any) => 
       reaction.type === 'emoji' && reaction.emoji === '👎'
     );
 
-    if (!hasClownEmoji && !hasThumbsDownEmoji) {
-      console.log('Not a clown or thumbs down emoji reaction, ignoring');
+    if (!hasHeartEmoji && !hasThumbsDownEmoji) {
+      console.log('Not a heart or thumbs down emoji reaction, ignoring');
       return new Response(JSON.stringify({ ok: true, message: 'Not a recognized emoji' }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -48,7 +48,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const isFailure = hasThumbsDownEmoji;
-    console.log(isFailure ? 'Thumbs down emoji detected, processing HOS failure' : 'Clown emoji detected, processing HOS completion');
+    console.log(isFailure ? 'Thumbs down emoji detected, processing HOS failure' : 'Heart emoji detected, processing HOS completion');
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
