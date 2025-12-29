@@ -66,16 +66,7 @@ const prefetchData = async () => {
         return data || [];
       },
     }),
-    queryClient.prefetchQuery({
-      queryKey: ['drivers', 'v2'],
-      queryFn: async () => {
-        const { data } = await supabase
-          .from('drivers')
-          .select('*')
-          .order('name');
-        return data || [];
-      },
-    }),
+    // Note: drivers prefetch removed - useDrivers hook handles enriched data fetching
     queryClient.prefetchQuery({
       queryKey: ['brokers'],
       queryFn: async () => {

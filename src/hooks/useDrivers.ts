@@ -185,7 +185,7 @@ export const useDrivers = () => {
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Use cached data when available
+    refetchOnMount: 'always', // Always refetch to ensure fresh truck/company/dispatcher data
     staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
     gcTime: 30 * 60 * 1000, // 30 minutes - keep in cache
     structuralSharing: false, // Prevent React Query from merging old/new data structures
