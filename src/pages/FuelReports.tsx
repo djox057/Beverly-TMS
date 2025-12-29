@@ -268,7 +268,7 @@ const FuelReports = () => {
           <CardTitle className="text-sm font-medium">Upload CSV by Company (drag & drop or click)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-6 gap-2">
             {COMPANIES.map((company) => (
               <div
                 key={company.id}
@@ -276,7 +276,7 @@ const FuelReports = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, company.id, company.label)}
                 onClick={() => fileInputRefs.current[company.id]?.click()}
-                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+                className={`border-2 border-dashed rounded-md p-2 text-center transition-colors cursor-pointer ${
                   dragOverCompany === company.id
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/30"
@@ -290,12 +290,11 @@ const FuelReports = () => {
                   className="hidden"
                 />
                 {uploadingCompany === company.id ? (
-                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+                  <Loader2 className="h-4 w-4 mx-auto mb-1 animate-spin text-primary" />
                 ) : (
-                  <Upload className={`h-6 w-6 mx-auto mb-2 ${dragOverCompany === company.id ? "text-primary" : "text-muted-foreground"}`} />
+                  <Upload className={`h-4 w-4 mx-auto mb-1 ${dragOverCompany === company.id ? "text-primary" : "text-muted-foreground"}`} />
                 )}
-                <p className="text-sm font-medium">{company.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">Drop CSV or click</p>
+                <p className="text-xs font-medium truncate">{company.label}</p>
               </div>
             ))}
           </div>
