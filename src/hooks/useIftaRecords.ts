@@ -25,8 +25,7 @@ export interface IftaRecordInsert {
   tax_paid_gallons: number;
 }
 
-export interface DriverStateData {
-  driverName: string;
+export interface TruckStateData {
   truckNumber: string;
   states: {
     state: string;
@@ -73,8 +72,8 @@ export const useIftaRecords = (fuelFilters?: FuelFilters) => {
   
   const { transactions: fuelTransactions } = useFuelTransactions(fuelFilters || defaultFilters);
 
-  // Combine IFTA miles data with fuel ULSD data per driver per state
-  const driverStateReport: DriverStateData[] = (() => {
+  // Combine IFTA miles data with fuel ULSD data per truck per state
+  const truckStateReport: TruckStateData[] = (() => {
     // Group IFTA records by truck number
     const iftaByTruck = new Map<string, { jurisdiction: string; totalMiles: number; taxableMiles: number }[]>();
     
@@ -96,60 +95,60 @@ export const useIftaRecords = (fuelFilters?: FuelFilters) => {
       }
     }
 
-    // Group ULSD fuel transactions by driver and state
-    const fuelByDriverState = new Map<string, Map<string, { gallons: number; truckNumber: string }>>();
+    // Group ULSD fuel transactions by truck and state
+    const fuelByTruckState = new Map<string, Map<string, number>>();
     
     for (const tx of fuelTransactions) {
-      if (tx.item !== "ULSD" || !tx.state) continue;
+      if (tx.item !== "ULSD" || !tx.state || !tx.truck_number) continue;
       
-      if (!fuelByDriverState.has(tx.driver_name)) {
-        fuelByDriverState.set(tx.driver_name, new Map());
+      if (!fuelByTruckState.has(tx.truck_number)) {
+        fuelByTruckState.set(tx.truck_number, new Map());
       }
-      const driverStates = fuelByDriverState.get(tx.driver_name)!;
-      const existing = driverStates.get(tx.state);
-      if (existing) {
-        existing.gallons += tx.quantity || 0;
-      } else {
-        driverStates.set(tx.state, { gallons: tx.quantity || 0, truckNumber: tx.truck_number });
-      }
+      const truckStates = fuelByTruckState.get(tx.truck_number)!;
+      const existing = truckStates.get(tx.state) || 0;
+      truckStates.set(tx.state, existing + (tx.quantity || 0));
     }
 
-    // Build driver report combining IFTA miles and fuel gallons
-    const result: DriverStateData[] = [];
+    // Get all unique truck numbers from both IFTA and fuel data
+    const allTrucks = new Set([
+      ...iftaByTruck.keys(),
+      ...fuelByTruckState.keys(),
+    ]);
+
+    // Build truck report combining IFTA miles and fuel gallons
+    const result: TruckStateData[] = [];
     
-    for (const [driverName, stateData] of fuelByDriverState) {
-      // Get first truck number for this driver (from fuel data)
-      const firstTruck = Array.from(stateData.values())[0]?.truckNumber || "";
-      const iftaStates = iftaByTruck.get(firstTruck) || [];
+    for (const truckNumber of allTrucks) {
+      const iftaStates = iftaByTruck.get(truckNumber) || [];
+      const fuelStates = fuelByTruckState.get(truckNumber) || new Map();
       
       // Combine all states from both IFTA and fuel data
       const allStates = new Set([
         ...iftaStates.map(s => s.jurisdiction),
-        ...Array.from(stateData.keys()),
+        ...fuelStates.keys(),
       ]);
       
       const states = Array.from(allStates).map(state => {
         const iftaData = iftaStates.find(s => s.jurisdiction === state);
-        const fuelData = stateData.get(state);
+        const ulsdGallons = fuelStates.get(state) || 0;
         
         return {
           state,
           totalMiles: iftaData?.totalMiles || 0,
           taxableMiles: iftaData?.taxableMiles || 0,
-          ulsdGallons: fuelData?.gallons || 0,
+          ulsdGallons,
         };
       }).sort((a, b) => a.state.localeCompare(b.state));
       
       result.push({
-        driverName,
-        truckNumber: firstTruck,
+        truckNumber,
         states,
         totalMiles: states.reduce((sum, s) => sum + s.totalMiles, 0),
         totalUlsdGallons: states.reduce((sum, s) => sum + s.ulsdGallons, 0),
       });
     }
     
-    return result.sort((a, b) => a.driverName.localeCompare(b.driverName));
+    return result.sort((a, b) => a.truckNumber.localeCompare(b.truckNumber));
   })();
 
   // Upload IFTA records mutation
@@ -215,7 +214,7 @@ export const useIftaRecords = (fuelFilters?: FuelFilters) => {
   return {
     iftaRecords,
     isLoadingIfta,
-    driverStateReport,
+    truckStateReport,
     uploadIftaRecords: uploadMutation.mutate,
     isUploadingIfta: uploadMutation.isPending,
     deleteAllIfta: deleteAllMutation.mutate,

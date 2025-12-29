@@ -86,12 +86,19 @@ const FuelReports = () => {
   const {
     iftaRecords,
     isLoadingIfta,
-    driverStateReport,
+    truckStateReport,
     uploadIftaRecords,
     isUploadingIfta,
     deleteAllIfta,
     isDeletingIfta,
   } = useIftaRecords({ ...filters, itemType: "ULSD" });
+
+  // IFTA search filter
+  const [iftaTruckSearch, setIftaTruckSearch] = useState("");
+  
+  const filteredTruckStateReport = truckStateReport.filter(truck =>
+    truck.truckNumber.toLowerCase().includes(iftaTruckSearch.toLowerCase())
+  );
 
   // Pagination
   const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
@@ -781,35 +788,43 @@ const FuelReports = () => {
             </CardContent>
           </Card>
 
-          {/* Driver State Report */}
+          {/* Truck State Report */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Driver Miles & ULSD Gallons by State
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Truck Miles & ULSD Gallons by State
+                </CardTitle>
+                <div className="w-64">
+                  <input
+                    type="text"
+                    placeholder="Search by truck number..."
+                    value={iftaTruckSearch}
+                    onChange={(e) => setIftaTruckSearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoadingIfta ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : driverStateReport.length === 0 ? (
+              ) : filteredTruckStateReport.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No data available. Upload IFTA and fuel transaction CSVs to see the report.
+                  {iftaTruckSearch ? "No trucks match your search." : "No data available. Upload IFTA and fuel transaction CSVs to see the report."}
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {driverStateReport.map((driver) => (
-                    <div key={driver.driverName} className="border rounded-lg p-4">
+                  {filteredTruckStateReport.map((truck) => (
+                    <div key={truck.truckNumber} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="font-semibold text-lg">{driver.driverName}</h3>
-                          <p className="text-sm text-muted-foreground">Truck: {driver.truckNumber || "N/A"}</p>
-                        </div>
+                        <h3 className="font-semibold text-lg">Truck {truck.truckNumber}</h3>
                         <div className="text-right">
-                          <p className="text-sm font-medium">Total: {formatNumber(driver.totalMiles, 1)} mi</p>
-                          <p className="text-sm text-muted-foreground">{formatNumber(driver.totalUlsdGallons, 1)} gal ULSD</p>
+                          <p className="text-sm font-medium">Total: {formatNumber(truck.totalMiles, 1)} mi</p>
+                          <p className="text-sm text-muted-foreground">{formatNumber(truck.totalUlsdGallons, 1)} gal ULSD</p>
                         </div>
                       </div>
                       <div className="rounded-md border">
@@ -823,7 +838,7 @@ const FuelReports = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {driver.states.map((state) => (
+                            {truck.states.map((state) => (
                               <TableRow key={state.state}>
                                 <TableCell className="font-medium">{state.state}</TableCell>
                                 <TableCell className="text-right">{formatNumber(state.totalMiles, 1)}</TableCell>
