@@ -38,6 +38,7 @@ const COMPANIES = [
   { id: "beverly_freight", label: "Beverly Freight" },
   { id: "bg_prime_inc", label: "BG Prime Inc" },
   { id: "beverly_group_drivers", label: "Beverly Group Drivers" },
+  { id: "united_enterprise", label: "United Enterprise Solutions" },
 ];
 
 const ITEMS_PER_PAGE = 20;
