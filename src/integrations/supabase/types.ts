@@ -1441,6 +1441,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ifta_records: {
+        Row: {
+          created_at: string
+          fuel_type: string
+          id: string
+          jurisdiction: string
+          tax_paid_gallons: number
+          taxable_miles: number
+          total_miles: number
+          uploaded_at: string
+          uploaded_by: string | null
+          vehicle: string
+        }
+        Insert: {
+          created_at?: string
+          fuel_type: string
+          id?: string
+          jurisdiction: string
+          tax_paid_gallons?: number
+          taxable_miles?: number
+          total_miles?: number
+          uploaded_at?: string
+          uploaded_by?: string | null
+          vehicle: string
+        }
+        Update: {
+          created_at?: string
+          fuel_type?: string
+          id?: string
+          jurisdiction?: string
+          tax_paid_gallons?: number
+          taxable_miles?: number
+          total_miles?: number
+          uploaded_at?: string
+          uploaded_by?: string | null
+          vehicle?: string
+        }
+        Relationships: []
+      }
       invoice_number_config: {
         Row: {
           created_at: string | null

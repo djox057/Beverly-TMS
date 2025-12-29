@@ -12,8 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import { useFuelTransactions, getDefaultDateRange, FuelTransactionInsert, FuelFilters } from "@/hooks/useFuelTransactions";
+import { useIftaRecords, IftaRecordInsert } from "@/hooks/useIftaRecords";
 import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
 import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
 import { format, parse } from "date-fns";
@@ -30,6 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 const COMPANIES = [
@@ -46,10 +48,14 @@ const ITEMS_PER_PAGE = 20;
 const FuelReports = () => {
   const { toast } = useToast();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const iftaFileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingCompany, setUploadingCompany] = useState<string | null>(null);
+  const [uploadingIfta, setUploadingIfta] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [dragOverCompany, setDragOverCompany] = useState<string | null>(null);
+  const [dragOverIfta, setDragOverIfta] = useState(false);
   const [togglePaidTransaction, setTogglePaidTransaction] = useState<{ id: string; currentPaid: boolean; driverName: string } | null>(null);
+  const [activeTab, setActiveTab] = useState("fuel");
 
   const [filters, setFilters] = useState<FuelFilters>({
     startDate: null,
@@ -75,6 +81,17 @@ const FuelReports = () => {
   } = useFuelTransactions(filters);
 
   const { unmatchedDrivers, refetchUnmatched } = useFuelDriverMappings();
+
+  // IFTA data - use same date filters for fuel gallons
+  const {
+    iftaRecords,
+    isLoadingIfta,
+    driverStateReport,
+    uploadIftaRecords,
+    isUploadingIfta,
+    deleteAllIfta,
+    isDeletingIfta,
+  } = useIftaRecords({ ...filters, itemType: "ULSD" });
 
   // Pagination
   const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
@@ -223,6 +240,103 @@ const FuelReports = () => {
     });
   };
 
+  // IFTA file processing
+  const processIftaFile = (file: File) => {
+    setUploadingIfta(true);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const records: IftaRecordInsert[] = [];
+        
+        for (const row of results.data as Record<string, string>[]) {
+          const vehicle = row["Vehicle"]?.trim();
+          const fuelType = row["Fuel Type"]?.trim();
+          const jurisdiction = row["Jurisdiction"]?.trim();
+          const taxableMilesStr = row["Taxable Miles"]?.trim();
+          const totalMilesStr = row["Total Miles"]?.trim();
+          const taxPaidGallonsStr = row["Tax Paid Gallons"]?.trim();
+
+          if (!vehicle || !jurisdiction) {
+            continue;
+          }
+
+          records.push({
+            vehicle,
+            fuel_type: fuelType || "Unspecified",
+            jurisdiction,
+            taxable_miles: parseFloat(taxableMilesStr) || 0,
+            total_miles: parseFloat(totalMilesStr) || 0,
+            tax_paid_gallons: parseFloat(taxPaidGallonsStr) || 0,
+          });
+        }
+
+        if (records.length === 0) {
+          toast({
+            title: "No valid records",
+            description: "The CSV file did not contain any valid IFTA records.",
+            variant: "destructive",
+          });
+          setUploadingIfta(false);
+          return;
+        }
+
+        uploadIftaRecords(records, {
+          onSettled: () => {
+            setUploadingIfta(false);
+          },
+        });
+      },
+      error: (error) => {
+        toast({
+          title: "Parse error",
+          description: error.message,
+          variant: "destructive",
+        });
+        setUploadingIfta(false);
+      },
+    });
+  };
+
+  const handleIftaDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverIfta(true);
+  };
+
+  const handleIftaDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverIfta(false);
+  };
+
+  const handleIftaDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverIfta(false);
+    
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
+    if (files.length === 0) {
+      toast({
+        title: "Invalid file",
+        description: "Please drop CSV files only.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    processIftaFile(files[0]);
+  };
+
+  const handleIftaFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    processIftaFile(file);
+
+    if (iftaFileInputRef.current) {
+      iftaFileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -235,32 +349,75 @@ const FuelReports = () => {
         <div className="flex items-center gap-2">
           <FuelDriverMappingDialog unmatchedCount={unmatchedDrivers.length} />
           
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isDeleting || transactions.length === 0}>
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
-                )}
-                Clear All
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete all fuel transactions?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete all {transactions.length} fuel transactions. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => deleteAll()}>Delete All</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {activeTab === "fuel" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={isDeleting || transactions.length === 0}>
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Clear All
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all fuel transactions?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {transactions.length} fuel transactions. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteAll()}>Delete All</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          
+          {activeTab === "ifta" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={isDeletingIfta || iftaRecords.length === 0}>
+                  {isDeletingIfta ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Clear IFTA
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all IFTA records?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all {iftaRecords.length} IFTA records. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteAllIfta()}>Delete All</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="fuel" className="flex items-center gap-2">
+            <Fuel className="h-4 w-4" />
+            Fuel Transactions
+          </TabsTrigger>
+          <TabsTrigger value="ifta" className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            IFTA
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="fuel" className="space-y-6 mt-6">
 
       {/* Company Upload Zones */}
       <Card>
@@ -579,7 +736,112 @@ const FuelReports = () => {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+        </TabsContent>
+
+        {/* IFTA Tab */}
+        <TabsContent value="ifta" className="space-y-6 mt-6">
+          {/* IFTA Upload Zone */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Upload IFTA CSV (drag & drop or click)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                onDragOver={handleIftaDragOver}
+                onDragLeave={handleIftaDragLeave}
+                onDrop={handleIftaDrop}
+                onClick={() => iftaFileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-md p-4 text-center transition-colors cursor-pointer ${
+                  dragOverIfta
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/30"
+                } ${uploadingIfta ? "opacity-50" : ""}`}
+              >
+                <input
+                  ref={iftaFileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleIftaFileUpload}
+                  className="hidden"
+                />
+                {uploadingIfta || isUploadingIfta ? (
+                  <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-primary" />
+                ) : (
+                  <Upload className={`h-6 w-6 mx-auto mb-2 ${dragOverIfta ? "text-primary" : "text-muted-foreground"}`} />
+                )}
+                <p className="text-sm font-medium">Drop IFTA CSV or click to upload</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Expected columns: Vehicle, Fuel Type, Jurisdiction, Taxable Miles, Total Miles, Tax Paid Gallons
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {iftaRecords.length} IFTA records loaded
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Driver State Report */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Driver Miles & ULSD Gallons by State
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingIfta ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : driverStateReport.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No data available. Upload IFTA and fuel transaction CSVs to see the report.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {driverStateReport.map((driver) => (
+                    <div key={driver.driverName} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-semibold text-lg">{driver.driverName}</h3>
+                          <p className="text-sm text-muted-foreground">Truck: {driver.truckNumber || "N/A"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium">Total: {formatNumber(driver.totalMiles, 1)} mi</p>
+                          <p className="text-sm text-muted-foreground">{formatNumber(driver.totalUlsdGallons, 1)} gal ULSD</p>
+                        </div>
+                      </div>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>State</TableHead>
+                              <TableHead className="text-right">Total Miles</TableHead>
+                              <TableHead className="text-right">Taxable Miles</TableHead>
+                              <TableHead className="text-right">ULSD Gallons</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {driver.states.map((state) => (
+                              <TableRow key={state.state}>
+                                <TableCell className="font-medium">{state.state}</TableCell>
+                                <TableCell className="text-right">{formatNumber(state.totalMiles, 1)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(state.taxableMiles, 1)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(state.ulsdGallons, 1)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Toggle Paid Confirmation Dialog */}
       <AlertDialog open={!!togglePaidTransaction} onOpenChange={(open) => !open && setTogglePaidTransaction(null)}>
