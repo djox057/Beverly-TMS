@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image } from "lucide-react";
 import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
@@ -156,6 +156,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   };
 
   // Combine expenses with cash advances for display
+  // Sort: fixed expenses (Start Expenses) first, then by created_at
   const allItems = [
     ...expenses,
     ...cashAdvances.map((ca) => ({
@@ -177,7 +178,13 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       updated_at: ca.requested_at,
       isCashAdvance: true,
     })),
-  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  ].sort((a, b) => {
+    // Fixed expenses always come first
+    if (a.is_fixed && !b.is_fixed) return -1;
+    if (!a.is_fixed && b.is_fixed) return 1;
+    // Within same category, sort by created_at
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
 
   return (
     <div className="space-y-6">
@@ -303,96 +310,94 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[500px]">
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[80px]">TRUCK/TRL</TableHead>
+                <TableHead className="w-[100px]">NAME</TableHead>
+                <TableHead>EXPLANATION</TableHead>
+                <TableHead className="w-[100px]">DATE</TableHead>
+                <TableHead className="w-[100px] text-right">AMOUNT</TableHead>
+                <TableHead className="w-[80px]">STATUS</TableHead>
+                <TableHead className="w-[100px]">PAID DATE</TableHead>
+                <TableHead className="w-[100px] text-right">PAID AMT</TableHead>
+                <TableHead className="w-[120px]">NOTICE 1</TableHead>
+                <TableHead className="w-[120px]">NOTICE 2</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
                 <TableRow>
-                  <TableHead className="w-[80px]">TRUCK/TRL</TableHead>
-                  <TableHead className="w-[100px]">NAME</TableHead>
-                  <TableHead>EXPLANATION</TableHead>
-                  <TableHead className="w-[100px]">DATE</TableHead>
-                  <TableHead className="w-[100px] text-right">AMOUNT</TableHead>
-                  <TableHead className="w-[80px]">STATUS</TableHead>
-                  <TableHead className="w-[100px]">PAID DATE</TableHead>
-                  <TableHead className="w-[100px] text-right">PAID AMT</TableHead>
-                  <TableHead className="w-[120px]">NOTICE 1</TableHead>
-                  <TableHead className="w-[120px]">NOTICE 2</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableCell colSpan={11} className="text-center py-8">
+                    Loading...
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                ) : allItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                      No expenses found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  allItems.map((item) => {
-                    const isCashAdvance = 'isCashAdvance' in item && item.isCashAdvance;
-                    return (
-                      <TableRow key={item.id} className={isCashAdvance ? "bg-green-500/5" : ""}>
-                        <TableCell className="font-mono text-xs">
-                          {item.truck_number || "-"}/{item.trailer_number || "-"}
-                        </TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell>{item.explanation}</TableCell>
-                        <TableCell>
-                          {item.expense_date ? formatDateNoTimezone(item.expense_date) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(item.amount)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(item.status)} variant="outline">
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {item.paid_date ? formatDateNoTimezone(item.paid_date) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.paid_amount ? formatCurrency(item.paid_amount) : "-"}
-                        </TableCell>
-                        <TableCell className="text-xs">{item.notice_1 || "-"}</TableCell>
-                        <TableCell className="text-xs">{item.notice_2 || "-"}</TableCell>
-                        <TableCell>
-                          {!isCashAdvance && (
-                            <div className="flex gap-1">
+              ) : allItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    No expenses found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                allItems.map((item) => {
+                  const isCashAdvance = 'isCashAdvance' in item && item.isCashAdvance;
+                  return (
+                    <TableRow key={item.id} className={isCashAdvance ? "bg-green-500/5" : item.is_fixed ? "bg-primary/5" : ""}>
+                      <TableCell className="font-mono text-xs">
+                        {item.truck_number || "-"}/{item.trailer_number || "-"}
+                      </TableCell>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.explanation}</TableCell>
+                      <TableCell>
+                        {item.expense_date ? formatDateNoTimezone(item.expense_date) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(item.amount)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(item.status)} variant="outline">
+                          {item.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {item.paid_date ? formatDateNoTimezone(item.paid_date) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {item.paid_amount ? formatCurrency(item.paid_amount) : "-"}
+                      </TableCell>
+                      <TableCell className="text-xs">{item.notice_1 || "-"}</TableCell>
+                      <TableCell className="text-xs">{item.notice_2 || "-"}</TableCell>
+                      <TableCell>
+                        {!isCashAdvance && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setEditingExpense(item as DriverExpense)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            {!item.is_fixed && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
-                                onClick={() => setEditingExpense(item as DriverExpense)}
+                                className="h-7 w-7 text-destructive"
+                                onClick={() => deleteExpense(item.id)}
                               >
-                                <Edit2 className="h-3 w-3" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
-                              {!item.is_fixed && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive"
-                                  onClick={() => deleteExpense(item.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
