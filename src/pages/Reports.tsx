@@ -56,7 +56,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCarousel } from "@/components/ui/calendar-carousel";
 import { Calendar } from "@/components/ui/calendar";
 import { startOfWeek, addDays, isSameDay, format } from "date-fns";
-import { toZonedTime } from "date-fns-tz";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { TruckMapDialog, TruckMapView } from "@/components/TruckMapDialog";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -2146,31 +2146,13 @@ const Reports = () => {
       // Get current time
       const now = new Date();
       
-      // Helper to get timezone for a US state
-      const getTimezoneForState = (state: string | null | undefined): string => {
-        if (!state) return 'America/Chicago';
-        const upperState = state.toUpperCase().trim();
-        
-        // Eastern Time states
-        const easternStates = ['CT', 'DE', 'FL', 'GA', 'IN', 'KY', 'ME', 'MD', 'MA', 'MI', 'NH', 'NJ', 'NY', 'NC', 'OH', 'PA', 'RI', 'SC', 'TN', 'VT', 'VA', 'WV', 'DC'];
-        // Mountain Time states
-        const mountainStates = ['AZ', 'CO', 'ID', 'MT', 'NE', 'NM', 'ND', 'SD', 'UT', 'WY'];
-        // Pacific Time states
-        const pacificStates = ['CA', 'NV', 'OR', 'WA'];
-        
-        if (easternStates.includes(upperState)) return 'America/New_York';
-        if (mountainStates.includes(upperState)) return 'America/Denver';
-        if (pacificStates.includes(upperState)) return 'America/Los_Angeles';
-        return 'America/Chicago'; // Default to Central Time
-      };
-      
-      // Helper to parse datetime as the stop's local time and convert to comparable Date
-      // Database stores times as local times for the stop's timezone
-      const parseStopLocalTime = (dateStr: string, stopState: string | null | undefined): Date => {
-        // Remove any timezone suffix - the datetime represents local time at the stop
+      // Helper to parse datetime as Chicago time and convert to UTC for comparison
+      // Database stores times that represent Chicago local time (tagged incorrectly as UTC)
+      const parseAsChicagoTime = (dateStr: string): Date => {
+        // Remove any timezone suffix - the datetime represents Chicago local time
         const cleanDate = dateStr.replace(/[+-]\d{2}:\d{2}$|[+-]\d{4}$|Z$/, '');
         
-        // Parse as a simple date (treating it as local to the stop's timezone)
+        // Parse the date parts
         const [datePart, timePart] = cleanDate.includes('T') 
           ? cleanDate.split('T') 
           : cleanDate.split(' ');
@@ -2178,22 +2160,9 @@ const Reports = () => {
         const [year, month, day] = datePart.split('-').map(Number);
         const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
         
-        // Create date in the stop's timezone
-        const stopTimezone = getTimezoneForState(stopState);
-        
-        // Build an ISO string and use toZonedTime to get the correct comparison time
-        // We create a date in UTC that represents the local time at the stop
-        const stopLocalDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
-        
-        // Convert from stop's local time to get actual UTC for comparison
-        // toZonedTime gives us the time in that timezone, so we need the inverse
-        const stopTimeZoned = toZonedTime(now, stopTimezone);
-        const utcNow = now.getTime();
-        const zonedNow = stopTimeZoned.getTime();
-        const tzOffsetMs = zonedNow - utcNow;
-        
-        // Adjust the stop time by the timezone offset to get comparable time
-        return new Date(stopLocalDate.getTime() - tzOffsetMs);
+        // Create a date representing Chicago local time, then convert to UTC
+        const chicagoLocalDate = new Date(year, month - 1, day, hours, minutes, 0);
+        return fromZonedTime(chicagoLocalDate, 'America/Chicago');
       };
 
       // Iterate through all trucks
@@ -2223,8 +2192,8 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                // Parse scheduled time using the stop's timezone
-                const scheduledEnd = parseStopLocalTime(endDatetime, stop.state);
+                // Parse scheduled time as Chicago time
+                const scheduledEnd = parseAsChicagoTime(endDatetime);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
@@ -2262,8 +2231,8 @@ const Reports = () => {
                 const endDatetime = stop.end_datetime || stop.datetime;
                 if (!endDatetime) return;
 
-                // Parse scheduled time using the stop's timezone
-                const scheduledEnd = parseStopLocalTime(endDatetime, stop.state);
+                // Parse scheduled time as Chicago time
+                const scheduledEnd = parseAsChicagoTime(endDatetime);
                 if (isNaN(scheduledEnd.getTime())) return;
 
                 // Compare estimated arrival with scheduled end time
