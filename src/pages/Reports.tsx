@@ -2269,26 +2269,7 @@ const Reports = () => {
                 // Compare estimated arrival with scheduled end time
                 if (estimatedArrivalUtc > scheduledEnd) {
                   newLateDeliveries.add(order.id);
-
-                  // Check if we should send notification (max 1 per order/load)
-                  const notifyKey = order.id;
-                  if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
-                    lateStopsToNotify.push({
-                      orderId: order.id,
-                      stopType: "delivery",
-                      stopId: stop.id,
-                      truckId: truck.id,
-                      truckNumber: truck.truckNumber,
-                      driverName: truck.driver || "Unknown",
-                      dispatcherEmail: truck.dispatcherEmail,
-                      dispatcherName: truck.dispatcherName || "Dispatcher",
-                      stopAddress: `${stop.city || ""}, ${stop.state || ""}`.trim() || stop.address || "Unknown",
-                      scheduledTime: format(scheduledEnd, "MMM dd, yyyy HH:mm"),
-                      estimatedArrival: format(estimatedArrivalUtc, "MMM dd, yyyy HH:mm"),
-                      loadNumber: order.loadDetails?.loadNumber || order.load_number || "N/A",
-                    });
-                    setNotifiedLateStops((prev) => new Set(prev).add(notifyKey));
-                  }
+                  // Note: Email notifications disabled for late deliveries (only visual indicator)
                 }
               });
             }
