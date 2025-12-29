@@ -2190,8 +2190,8 @@ const Reports = () => {
                 if (estimatedArrival > scheduledEnd) {
                   newLatePickups.add(order.id);
 
-                  // Check if we should send notification
-                  const notifyKey = `${order.id}-pickup-${stop.id || "main"}`;
+                  // Check if we should send notification (max 1 per order/load)
+                  const notifyKey = order.id;
                   if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                     lateStopsToNotify.push({
                       orderId: order.id,
@@ -2228,8 +2228,8 @@ const Reports = () => {
                 if (estimatedArrival > scheduledEnd) {
                   newLateDeliveries.add(order.id);
 
-                  // Check if we should send notification
-                  const notifyKey = `${order.id}-delivery-${stop.id || "main"}`;
+                  // Check if we should send notification (max 1 per order/load)
+                  const notifyKey = order.id;
                   if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                     lateStopsToNotify.push({
                       orderId: order.id,
