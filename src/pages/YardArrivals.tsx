@@ -22,7 +22,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck } from "lucide-react";
+import { Loader2, Wrench, TruckIcon, X, Pencil, Bell, Check, ShieldCheck, XCircle } from "lucide-react";
+import { SetDriverStatusDialog } from "@/components/SetDriverStatusDialog";
 import { CompletedDriversDialog } from "@/components/CompletedDriversDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -87,6 +88,17 @@ export default function YardArrivals() {
   // Edit driver dialog state
   const [isEditDriverDialogOpen, setIsEditDriverDialogOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any>(null);
+  
+  // Set Driver Status dialog state
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDialogData, setStatusDialogData] = useState<{
+    truckId: string;
+    truckNumber: string;
+    driverId: string;
+    existingDates: string[];
+    hasRecoveryStatus: boolean;
+    hasRecoveryDriverAssigned: boolean;
+  } | null>(null);
   
   // Fetch all drivers for edit dialog
   const { data: allDrivers } = useDrivers();
@@ -383,6 +395,146 @@ export default function YardArrivals() {
       setEditingDriver(driver);
       setIsEditDriverDialogOpen(true);
     }
+  };
+
+  // Open Set Driver Status dialog for a recovery action
+  const handleOpenStatusDialog = async (action: YardAction) => {
+    try {
+      // Fetch truck by driver1_id
+      const { data: truck } = await supabase
+        .from("trucks")
+        .select("id, truck_number, needs_recovery, driver1_id, left_by_driver_id")
+        .eq("driver1_id", action.driver_id)
+        .maybeSingle();
+
+      // Fetch existing game over notes for this driver
+      const { data: gameOverNotes } = await supabase
+        .from("lost_day_notes")
+        .select("date, note")
+        .eq("driver_id", action.driver_id)
+        .ilike("note", "%game over%");
+
+      // Check if a recovery driver is already assigned by checking if driver1_id differs from original
+      // When needs_recovery is true and driver1_id is a recovery driver, left_by_driver_id has the original driver
+      const hasRecoveryDriverAssigned = truck?.needs_recovery && truck?.left_by_driver_id && truck?.driver1_id !== truck?.left_by_driver_id;
+
+      setStatusDialogData({
+        truckId: truck?.id || "",
+        truckNumber: action.truck?.truck_number || truck?.truck_number || "",
+        driverId: action.driver_id,
+        existingDates: gameOverNotes?.map(n => n.date) || [],
+        hasRecoveryStatus: truck?.needs_recovery || false,
+        hasRecoveryDriverAssigned: !!hasRecoveryDriverAssigned,
+      });
+      setStatusDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching truck/notes data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load status data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler for initial status confirm (creates notes, sets needs_recovery)
+  const handleStatusInitialConfirm = async (startDate: Date, type: "yard" | "at_road", note: string) => {
+    if (!statusDialogData) return;
+    
+    const dateStr = startDate.toISOString().split("T")[0];
+    const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
+    
+    // Create lost_day_note
+    await supabase.from("lost_day_notes").insert({
+      driver_id: statusDialogData.driverId,
+      date: dateStr,
+      note: noteText,
+      note_type: "game_over",
+    });
+    
+    // Set truck.needs_recovery = true and set left_by_driver_id to current driver
+    if (statusDialogData.truckId) {
+      await supabase.from("trucks").update({ 
+        needs_recovery: true,
+        left_by_driver_id: statusDialogData.driverId,
+      }).eq("id", statusDialogData.truckId);
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    queryClient.invalidateQueries({ queryKey: ["recovery-trucks"] });
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
+    
+    // Update dialog state to show awaiting recovery step
+    setStatusDialogData(prev => prev ? { ...prev, hasRecoveryStatus: true, existingDates: [...prev.existingDates, dateStr] } : null);
+  };
+
+  // Handler for full confirm with recovery driver
+  const handleStatusConfirm = async (startDate: Date, type: "yard" | "at_road", note: string, recoveryDriverId?: string) => {
+    if (!statusDialogData) return;
+    
+    const dateStr = startDate.toISOString().split("T")[0];
+    const noteText = type === "yard" ? `game over - yard: ${note}` : `game over - at road: ${note}`;
+    
+    // Create lost_day_note
+    await supabase.from("lost_day_notes").insert({
+      driver_id: statusDialogData.driverId,
+      date: dateStr,
+      note: noteText,
+      note_type: "game_over",
+    });
+    
+    // Update truck
+    if (statusDialogData.truckId) {
+      const updateData: { needs_recovery: boolean; left_by_driver_id: string; driver1_id?: string } = { 
+        needs_recovery: true,
+        left_by_driver_id: statusDialogData.driverId,
+      };
+      if (recoveryDriverId) {
+        // Assign recovery driver as the new driver1_id
+        updateData.driver1_id = recoveryDriverId;
+      }
+      await supabase.from("trucks").update(updateData).eq("id", statusDialogData.truckId);
+    }
+    
+    toast({ title: "Driver status set" });
+    queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    queryClient.invalidateQueries({ queryKey: ["recovery-trucks"] });
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
+  };
+
+  // Handler to assign recovery driver only
+  const handleAssignRecoveryDriver = async (recoveryDriverId: string) => {
+    if (!statusDialogData?.truckId) return;
+    
+    // Assign recovery driver as driver1_id
+    await supabase.from("trucks").update({ driver1_id: recoveryDriverId }).eq("id", statusDialogData.truckId);
+    
+    toast({ title: "Recovery driver assigned" });
+    queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    queryClient.invalidateQueries({ queryKey: ["recovery-trucks"] });
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
+  };
+
+  // Handler to remove all status
+  const handleRemoveAllStatus = async () => {
+    if (!statusDialogData) return;
+    
+    // Delete game over notes
+    await supabase
+      .from("lost_day_notes")
+      .delete()
+      .eq("driver_id", statusDialogData.driverId)
+      .ilike("note", "%game over%");
+    
+    // Reset truck recovery status
+    if (statusDialogData.truckId) {
+      await supabase.from("trucks").update({ needs_recovery: false, left_by_driver_id: null }).eq("id", statusDialogData.truckId);
+    }
+    
+    toast({ title: "Status removed" });
+    queryClient.invalidateQueries({ queryKey: ["yard-arrivals"] });
+    queryClient.invalidateQueries({ queryKey: ["recovery-trucks"] });
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
   };
 
   const formatDateTime = (dateString: string | null) => {
@@ -709,11 +861,20 @@ export default function YardArrivals() {
                             Date: {formatDateTime(action.arrival_datetime || action.created_at)}
                             {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium mb-1">Reason:</p>
-                            <div className="border rounded-md p-2 bg-background/50">
-                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
-                            </div>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">Reason:</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleOpenStatusDialog(action)}
+                              title="Set Game Over / Recovery Status"
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="border rounded-md p-2 bg-background/50">
+                            <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
                           </div>
                         </div>
                        ))}
@@ -991,6 +1152,23 @@ export default function YardArrivals() {
         onOpenChange={setIsEditDriverDialogOpen}
         driver={editingDriver}
       />
+
+      {/* Set Driver Status Dialog */}
+      {statusDialogData && (
+        <SetDriverStatusDialog
+          open={statusDialogOpen}
+          onOpenChange={setStatusDialogOpen}
+          truckNumber={statusDialogData.truckNumber}
+          truckId={statusDialogData.truckId}
+          existingDates={statusDialogData.existingDates}
+          hasRecoveryStatus={statusDialogData.hasRecoveryStatus}
+          hasRecoveryDriverAssigned={statusDialogData.hasRecoveryDriverAssigned}
+          onConfirm={handleStatusConfirm}
+          onInitialConfirm={handleStatusInitialConfirm}
+          onAssignRecoveryDriver={handleAssignRecoveryDriver}
+          onRemoveAll={handleRemoveAllStatus}
+        />
+      )}
     </div>
   );
 }
