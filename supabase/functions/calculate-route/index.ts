@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.78.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,57 +37,6 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
-
-    // Check cache first (round to 5 decimals for matching ~1m precision)
-    const roundLat = (lat: number) => Math.round(lat * 100000) / 100000;
-    
-    const { data: cached } = await supabase
-      .from('route_cache')
-      .select('distance_miles, duration_seconds, hit_count, created_at')
-      .eq('start_lat', roundLat(startLat))
-      .eq('start_lon', roundLat(startLon))
-      .eq('end_lat', roundLat(endLat))
-      .eq('end_lon', roundLat(endLon))
-      .maybeSingle();
-
-    // Use cache if exists and is less than 30 days old
-    if (cached) {
-      const cacheAge = Date.now() - new Date(cached.created_at).getTime();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      
-      if (cacheAge < thirtyDaysMs) {
-        console.log('✅ Route cache hit');
-        
-        // Update hit count every 10th hit to reduce DB writes
-        if ((cached.hit_count || 0) % 10 === 0) {
-          supabase
-            .from('route_cache')
-            .update({ hit_count: (cached.hit_count || 0) + 1 })
-            .eq('start_lat', roundLat(startLat))
-            .eq('start_lon', roundLat(startLon))
-            .eq('end_lat', roundLat(endLat))
-            .eq('end_lon', roundLat(endLon))
-            .then();
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            distance: cached.distance_miles,
-            distanceMeters: cached.distance_miles * 1609.34,
-            duration: cached.duration_seconds,
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-    }
-
     // Call OSRM API from server side (no CORS issues)
     // OSRM format is: longitude,latitude (note the order!)
     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=false&alternatives=false&steps=false`;
@@ -118,20 +66,6 @@ serve(async (req) => {
       const distanceInMeters = data.routes[0].distance;
       const distanceInMiles = Math.round(distanceInMeters * 0.000621371);
       const duration = data.routes[0].duration;
-
-      // Store in cache (don't wait)
-      supabase
-        .from('route_cache')
-        .insert({
-          start_lat: roundLat(startLat),
-          start_lon: roundLat(startLon),
-          end_lat: roundLat(endLat),
-          end_lon: roundLat(endLon),
-          distance_miles: distanceInMiles,
-          distance_meters: distanceInMeters,
-          duration_seconds: duration,
-        })
-        .then();
 
       return new Response(
         JSON.stringify({
