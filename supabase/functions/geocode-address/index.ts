@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.78.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,48 +12,6 @@ serve(async (req) => {
 
   try {
     const { address } = await req.json();
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
-
-    // Check cache first with longer TTL
-    const { data: cached } = await supabase
-      .from('geocoding_cache')
-      .select('latitude, longitude, hit_count, created_at')
-      .eq('address', address)
-      .maybeSingle();
-
-    // Use cache if exists and is less than 30 days old
-    if (cached) {
-      const cacheAge = Date.now() - new Date(cached.created_at).getTime();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      
-      if (cacheAge < thirtyDaysMs) {
-        console.log('✅ Cache hit for:', address);
-        
-        // Update hit count asynchronously every 10th hit to reduce DB writes
-        if ((cached.hit_count || 0) % 10 === 0) {
-          supabase
-            .from('geocoding_cache')
-            .update({ hit_count: (cached.hit_count || 0) + 1 })
-            .eq('address', address)
-            .then();
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            latitude: parseFloat(cached.latitude),
-            longitude: parseFloat(cached.longitude),
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-    }
 
     console.log('🔍 Geocoding address:', address);
 
@@ -100,16 +57,6 @@ serve(async (req) => {
       };
 
       console.log('✅ Geocoded successfully:', result);
-
-      // Store in cache for future use (don't wait)
-      supabase
-        .from('geocoding_cache')
-        .insert({
-          address,
-          latitude: result.latitude,
-          longitude: result.longitude,
-        })
-        .then();
 
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.78.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,29 +13,7 @@ interface RouteRequest {
   coordinates?: { lat: number; lon: number }[];
 }
 
-async function geocodeAddress(address: string, mapboxToken: string, supabase: any): Promise<{ lat: number; lon: number } | null> {
-  // Only cache addresses that are specific enough (contain comma = have city/state info)
-  const isAddressSpecific = address.includes(',') && address.length > 20;
-  
-  // Check cache first - but only for specific addresses
-  if (isAddressSpecific) {
-    const { data: cached } = await supabase
-      .from('geocoding_cache')
-      .select('latitude, longitude, hit_count, created_at')
-      .eq('address', address)
-      .maybeSingle();
-
-    if (cached) {
-      const cacheAge = Date.now() - new Date(cached.created_at).getTime();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      
-      if (cacheAge < thirtyDaysMs) {
-        console.log('✅ Cache hit for:', address);
-        return { lat: cached.latitude, lon: cached.longitude };
-      }
-    }
-  }
-
+async function geocodeAddress(address: string, mapboxToken: string): Promise<{ lat: number; lon: number } | null> {
   const encodedAddress = encodeURIComponent(address);
   console.log('📍 Geocoding address with Mapbox:', address);
   
@@ -55,18 +32,6 @@ async function geocodeAddress(address: string, mapboxToken: string, supabase: an
     const [lon, lat] = data.features[0].center;
     const placeName = data.features[0].place_name;
     console.log('📍 Geocoded result:', placeName, '→', { lat, lon });
-
-    // Only cache specific addresses (with city/state info) to avoid caching ambiguous partial addresses
-    if (isAddressSpecific) {
-      supabase
-        .from('geocoding_cache')
-        .insert({ address, latitude: lat, longitude: lon })
-        .then(() => {})
-        .catch(() => {});
-    } else {
-      console.log('📍 Skipping cache for non-specific address:', address);
-    }
-
     return { lat, lon };
   }
   
@@ -143,15 +108,11 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseKey!);
-
     const body: RouteRequest = await req.json();
     console.log('📍 Route request:', body.type);
 
     if (body.type === 'geocode' && body.address) {
-      const coords = await geocodeAddress(body.address, mapboxToken, supabase);
+      const coords = await geocodeAddress(body.address, mapboxToken);
       return new Response(
         JSON.stringify({ success: !!coords, coordinates: coords }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
