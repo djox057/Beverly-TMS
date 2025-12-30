@@ -125,6 +125,7 @@ const Analytics = () => {
   const [safetyTierFilter, setSafetyTierFilter] = useState<string>("all");
   const [managementTierFilter, setManagementTierFilter] = useState<string>("all");
   const [selectedOffices, setSelectedOffices] = useState<string[]>([]);
+  const [showOver100kGross, setShowOver100kGross] = useState<boolean>(false);
 
   // Check if user has only dispatch role (same logic as Orders page)
   const isDispatchOnly =
@@ -677,6 +678,13 @@ const Analytics = () => {
       }
       return false;
     })
+    .filter((stat) => {
+      // Filter by 100k+ gross if enabled
+      if (showOver100kGross && stat.totalFreight < 100000) {
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => {
       const aValue = a[sortBy];
       const bValue = b[sortBy];
@@ -969,10 +977,17 @@ const Analytics = () => {
                     )}
                   </div>
 
-                  {/* Office Filter - Only for Admin/Manager/Chicago Management */}
+                  {/* Filters - Only for Admin/Manager/Chicago Management */}
                   {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-sm font-medium text-muted-foreground">Filter by Office:</span>
+                      <Button
+                        variant={showOver100kGross ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowOver100kGross(!showOver100kGross)}
+                      >
+                        100k+ Gross
+                      </Button>
+                      <span className="text-sm font-medium text-muted-foreground ml-2">Office:</span>
                       {Array.from(
                         new Set(
                           Object.values(dispatcherProfiles)
