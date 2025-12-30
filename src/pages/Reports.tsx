@@ -2155,9 +2155,13 @@ const Reports = () => {
         const [year, month, day] = datePart.split('-').map(Number);
         const [hours, minutes] = (timePart || '00:00').split(':').map(Number);
         
-        // Create a date representing Chicago local time, then convert to UTC
-        const chicagoLocalDate = new Date(year, month - 1, day, hours, minutes, 0);
-        return fromZonedTime(chicagoLocalDate, 'America/Chicago');
+        // Build an ISO string representing the Chicago local time
+        // Format: YYYY-MM-DDTHH:mm:ss (no timezone suffix)
+        const isoString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+        
+        // fromZonedTime interprets the input as being in the specified timezone (Chicago)
+        // and returns the equivalent UTC Date
+        return fromZonedTime(isoString, 'America/Chicago');
       };
 
       // Track late trucks by ID
