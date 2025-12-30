@@ -4630,6 +4630,16 @@ const Reports = () => {
                   />
                   <span className="text-sm font-bold">BG Prime Inc</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-16 h-8 rounded border"
+                    style={{
+                      backgroundColor: "hsl(var(--company-united-enterprise))",
+                      color: "hsl(var(--company-united-enterprise-foreground))",
+                    }}
+                  />
+                  <span className="text-sm font-bold">United Enterprise Solutions INC</span>
+                </div>
               </div>
             </div>
 
