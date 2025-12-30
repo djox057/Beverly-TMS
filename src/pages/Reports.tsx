@@ -2232,9 +2232,11 @@ const Reports = () => {
                 newLatePickups.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
 
-                // Check if we should send notification (max 1 per order/load)
+                // Check if we should send notification (only if 1+ hour late)
+                const LATE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+                const isSignificantlyLate = estimatedArrivalUtc.getTime() > scheduledEnd.getTime() + LATE_THRESHOLD_MS;
                 const notifyKey = currentOrder.id;
-                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (isSignificantlyLate && !notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "pickup",
@@ -2273,9 +2275,11 @@ const Reports = () => {
                 newLateDeliveries.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
 
-                // Queue email notification for late delivery
+                // Queue email notification for late delivery (only if 1+ hour late)
+                const LATE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+                const isSignificantlyLate = estimatedArrivalUtc.getTime() > scheduledEnd.getTime() + LATE_THRESHOLD_MS;
                 const notifyKey = `${currentOrder.id}-delivery-${stop.id || 'main'}`;
-                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (isSignificantlyLate && !notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "delivery",
