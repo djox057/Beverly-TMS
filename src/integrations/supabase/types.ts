@@ -1363,36 +1363,6 @@ export type Database = {
         }
         Relationships: []
       }
-      geocoding_cache: {
-        Row: {
-          address: string
-          created_at: string | null
-          hit_count: number | null
-          id: string
-          latitude: number
-          longitude: number
-          updated_at: string | null
-        }
-        Insert: {
-          address: string
-          created_at?: string | null
-          hit_count?: number | null
-          id?: string
-          latitude: number
-          longitude: number
-          updated_at?: string | null
-        }
-        Update: {
-          address?: string
-          created_at?: string | null
-          hit_count?: number | null
-          id?: string
-          latitude?: number
-          longitude?: number
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       hos_requests: {
         Row: {
           company_name: string
@@ -2501,45 +2471,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      route_cache: {
-        Row: {
-          created_at: string | null
-          distance_meters: number | null
-          distance_miles: number
-          duration_seconds: number | null
-          end_lat: number
-          end_lon: number
-          hit_count: number | null
-          id: string
-          start_lat: number
-          start_lon: number
-        }
-        Insert: {
-          created_at?: string | null
-          distance_meters?: number | null
-          distance_miles: number
-          duration_seconds?: number | null
-          end_lat: number
-          end_lon: number
-          hit_count?: number | null
-          id?: string
-          start_lat: number
-          start_lon: number
-        }
-        Update: {
-          created_at?: string | null
-          distance_meters?: number | null
-          distance_miles?: number
-          duration_seconds?: number | null
-          end_lat?: number
-          end_lon?: number
-          hit_count?: number | null
-          id?: string
-          start_lat?: number
-          start_lon?: number
-        }
-        Relationships: []
       }
       trailer_files: {
         Row: {

@@ -410,19 +410,8 @@ const NewOrder = () => {
       }
 
       // Get all addresses in order for mile calculation
+      // Always build full address from separate fields for consistent geocoding
       const addresses = pickupsDrops.filter(item => item.address.trim()).map(item => {
-        // Check if address already contains city/state/zip to avoid duplication
-        const addressLower = item.address.toLowerCase();
-        const cityInAddress = item.city && addressLower.includes(item.city.toLowerCase());
-        const stateInAddress = item.state && addressLower.includes(item.state.toLowerCase());
-        
-        // If address already contains city/state, don't duplicate
-        if (cityInAddress || stateInAddress) {
-          // Address is already complete, just use it as-is
-          return item.address;
-        }
-        
-        // Build address from separate parts
         const parts = [item.address];
         if (item.city) parts.push(item.city);
         if (item.state) parts.push(item.state);
@@ -469,23 +458,12 @@ const NewOrder = () => {
         return;
       }
 
-      // Check if address already contains city/state/zip to avoid duplication
-      const addressLower = firstPickup.address.toLowerCase();
-      const cityInAddress = firstPickup.city && addressLower.includes(firstPickup.city.toLowerCase());
-      const stateInAddress = firstPickup.state && addressLower.includes(firstPickup.state.toLowerCase());
-      
-      let pickupAddress: string;
-      if (cityInAddress || stateInAddress) {
-        // Address is already complete
-        pickupAddress = firstPickup.address;
-      } else {
-        // Build address from separate parts
-        const addressParts = [firstPickup.address];
-        if (firstPickup.city) addressParts.push(firstPickup.city);
-        if (firstPickup.state) addressParts.push(firstPickup.state);
-        if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
-        pickupAddress = addressParts.join(', ');
-      }
+      // Always build full address from separate parts for consistent geocoding
+      const addressParts = [firstPickup.address];
+      if (firstPickup.city) addressParts.push(firstPickup.city);
+      if (firstPickup.state) addressParts.push(firstPickup.state);
+      if (firstPickup.zipCode) addressParts.push(firstPickup.zipCode);
+      const pickupAddress = addressParts.join(', ');
       
       setIsCalculatingDhMiles(true);
       try {
