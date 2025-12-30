@@ -1194,38 +1194,50 @@ export type Database = {
       efs_other_requests: {
         Row: {
           amount: number
+          city: string | null
           company_name: string | null
           created_at: string
           driver_id: string | null
           driver_name: string
           id: string
           purpose: string
+          quantity: number | null
+          receipt_path: string | null
           requested_at: string
           requested_by: string | null
+          state: string | null
           truck_number: string | null
         }
         Insert: {
           amount?: number
+          city?: string | null
           company_name?: string | null
           created_at?: string
           driver_id?: string | null
           driver_name: string
           id?: string
           purpose: string
+          quantity?: number | null
+          receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          state?: string | null
           truck_number?: string | null
         }
         Update: {
           amount?: number
+          city?: string | null
           company_name?: string | null
           created_at?: string
           driver_id?: string | null
           driver_name?: string
           id?: string
           purpose?: string
+          quantity?: number | null
+          receipt_path?: string | null
           requested_at?: string
           requested_by?: string | null
+          state?: string | null
           truck_number?: string | null
         }
         Relationships: [
