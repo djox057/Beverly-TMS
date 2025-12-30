@@ -534,12 +534,15 @@ const EditOrder = () => {
             .maybeSingle();
 
           // Get recovery history to check if trailers were swapped
-          const { data: recoveryHistory } = await supabase
+          const { data: recoveryHistoryRows } = await supabase
             .from("recovery_history")
             .select("trailers_swapped")
             .eq("order_id", id)
             .is("reverted_at", null)
-            .maybeSingle();
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          const recoveryHistory = recoveryHistoryRows?.[0] ?? null;
 
           setOriginalDriverName(origDriver?.name || "");
           setOriginalTruckNumber(origTruck?.truck_number || "");
@@ -1722,12 +1725,17 @@ const EditOrder = () => {
 
     try {
       // Get the recovery history for this order (normal transfer flow)
-      const { data: recoveryHistory, error: historyError } = await supabase
+      const { data: recoveryHistoryRows, error: historyError } = await supabase
         .from("recovery_history")
         .select("*")
         .eq("order_id", id)
         .is("reverted_at", null)
-        .maybeSingle();
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (historyError) throw historyError;
+
+      const recoveryHistory = recoveryHistoryRows?.[0] ?? null;
 
       if (historyError) throw historyError;
 
