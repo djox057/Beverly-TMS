@@ -4618,7 +4618,7 @@ const Reports = () => {
                       color: "hsl(var(--company-bf-prime-united-foreground))",
                     }}
                   />
-                  <span className="text-sm font-bold">BF Prime United LLC</span>
+                  <span className="text-sm font-bold">United Enterprises (BF Prime United)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div
