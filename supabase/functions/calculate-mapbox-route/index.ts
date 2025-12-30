@@ -15,20 +15,25 @@ interface RouteRequest {
 }
 
 async function geocodeAddress(address: string, mapboxToken: string, supabase: any): Promise<{ lat: number; lon: number } | null> {
-  // Check cache first
-  const { data: cached } = await supabase
-    .from('geocoding_cache')
-    .select('latitude, longitude, hit_count, created_at')
-    .eq('address', address)
-    .maybeSingle();
+  // Only cache addresses that are specific enough (contain comma = have city/state info)
+  const isAddressSpecific = address.includes(',') && address.length > 20;
+  
+  // Check cache first - but only for specific addresses
+  if (isAddressSpecific) {
+    const { data: cached } = await supabase
+      .from('geocoding_cache')
+      .select('latitude, longitude, hit_count, created_at')
+      .eq('address', address)
+      .maybeSingle();
 
-  if (cached) {
-    const cacheAge = Date.now() - new Date(cached.created_at).getTime();
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-    
-    if (cacheAge < thirtyDaysMs) {
-      console.log('✅ Cache hit for:', address);
-      return { lat: cached.latitude, lon: cached.longitude };
+    if (cached) {
+      const cacheAge = Date.now() - new Date(cached.created_at).getTime();
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      
+      if (cacheAge < thirtyDaysMs) {
+        console.log('✅ Cache hit for:', address);
+        return { lat: cached.latitude, lon: cached.longitude };
+      }
     }
   }
 
@@ -51,12 +56,16 @@ async function geocodeAddress(address: string, mapboxToken: string, supabase: an
     const placeName = data.features[0].place_name;
     console.log('📍 Geocoded result:', placeName, '→', { lat, lon });
 
-    // Store in cache (don't wait)
-    supabase
-      .from('geocoding_cache')
-      .insert({ address, latitude: lat, longitude: lon })
-      .then(() => {})
-      .catch(() => {});
+    // Only cache specific addresses (with city/state info) to avoid caching ambiguous partial addresses
+    if (isAddressSpecific) {
+      supabase
+        .from('geocoding_cache')
+        .insert({ address, latitude: lat, longitude: lon })
+        .then(() => {})
+        .catch(() => {});
+    } else {
+      console.log('📍 Skipping cache for non-specific address:', address);
+    }
 
     return { lat, lon };
   }
