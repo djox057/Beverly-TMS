@@ -35,7 +35,7 @@ import { EditDriverDialog } from "@/components/EditDriverDialog";
 interface YardAction {
   id: string;
   driver_id: string;
-  action_type: "maintenance" | "return_truck" | "safety";
+  action_type: "maintenance" | "return_truck" | "safety" | "recovery";
   comment: string;
   created_at: string;
   arrival_datetime: string | null;
@@ -198,6 +198,7 @@ export default function YardArrivals() {
 
   const maintenanceActions = yardActions?.filter((a) => a.action_type === "maintenance") || [];
   const returnTruckActions = yardActions?.filter((a) => a.action_type === "return_truck") || [];
+  const recoveryActions = yardActions?.filter((a) => a.action_type === "recovery") || [];
   const safetyActions = yardActions?.filter((a) => a.action_type === "safety") || [];
 
   // Group actions by date
@@ -238,6 +239,7 @@ export default function YardArrivals() {
 
   const groupedMaintenance = groupByDate(maintenanceActions);
   const groupedReturnTruck = groupByDate(returnTruckActions);
+  const groupedRecovery = groupByDate(recoveryActions);
   const groupedSafety = groupByDate(safetyActions);
   const groupedTwoWeekNotice = groupTwoWeekNoticeByDate(twoWeekNoticeDrivers || []);
 
@@ -408,7 +410,7 @@ export default function YardArrivals() {
         <CompletedDriversDialog />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         {/* Maintenance Section */}
         <Card>
           <CardHeader>
@@ -522,7 +524,7 @@ export default function YardArrivals() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TruckIcon className="h-5 w-5" />
-              Returning Truck & Recoveries ({returnTruckActions.length})
+              Returning Truck ({returnTruckActions.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -531,6 +533,114 @@ export default function YardArrivals() {
             ) : (
               <div className="space-y-6">
                 {groupedReturnTruck.map(([dateKey, actions]) => {
+                  // Parse date without timezone conversion
+                  const [year, month, day] = dateKey.split('-').map(Number);
+                  const date = new Date(year, month - 1, day);
+                  return (
+                  <div key={dateKey} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-1">
+                      {formatDate(date, "EEEE, MMMM d, yyyy")}
+                    </h3>
+                    <div className="space-y-3">
+                      {actions.map((action) => (
+                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"}{" "}
+                                {action.is_team ? "Team" : (
+                                  canEditDriver ? (
+                                    <span 
+                                      className="text-primary hover:underline cursor-pointer"
+                                      onClick={() => openEditDriverDialog(action.driver_id)}
+                                    >
+                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                    </span>
+                                  ) : (
+                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                  )
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              </p>
+                              {action.creator?.full_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  Created by: {action.creator.full_name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToEdit(action);
+                                  setEditForm({
+                                    arrival_datetime: action.arrival_datetime || action.created_at,
+                                    comment: action.comment,
+                                  });
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCheckYardAction(action.id, action.is_checked)}
+                                title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
+                              >
+                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionToCancel({
+                                    id: action.id,
+                                    driverId: action.driver_id,
+                                    driverName: action.is_team ? "Team" : (action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`),
+                                    isTeam: action.is_team,
+                                  });
+                                  setCancelDialogOpen(true);
+                                }}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium mb-1">Reason:</p>
+                            <div className="border rounded-md p-2 bg-background/50">
+                              <p className="text-sm break-words whitespace-pre-wrap">{action.comment}</p>
+                            </div>
+                          </div>
+                        </div>
+                       ))}
+                     </div>
+                   </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recoveries Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TruckIcon className="h-5 w-5" />
+              Recoveries ({recoveryActions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recoveryActions.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No recoveries</p>
+            ) : (
+              <div className="space-y-6">
+                {groupedRecovery.map(([dateKey, actions]) => {
                   // Parse date without timezone conversion
                   const [year, month, day] = dateKey.split('-').map(Number);
                   const date = new Date(year, month - 1, day);
