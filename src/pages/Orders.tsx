@@ -298,6 +298,8 @@ const Orders = () => {
           matchesMissingDocs = (order.rcFiles?.length || 0) > 0 && (order.podFiles?.length || 0) > 0;
         } else if (missingDocsFilter === "canceled") {
           matchesMissingDocs = order.canceled === true;
+        } else if (missingDocsFilter === "not-invoiced") {
+          matchesMissingDocs = order.invoiced !== true;
         }
       }
 
@@ -833,6 +835,7 @@ const Orders = () => {
                       { value: "missing-bol", label: "Missing BOL" },
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
+                      { value: "not-invoiced", label: "Not Invoiced" },
                     ]}
                     className="w-full"
                   />
@@ -885,23 +888,31 @@ const Orders = () => {
                   />
 
                   {/* Column 6 Row 2: Show Locked */}
-                  <Button
-                    variant={lockedNotInvoicedFilter ? "default" : "outline"}
-                    onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
-                    className="w-full"
-                  >
-                    {lockedNotInvoicedFilter ? (
-                      <>
-                        <LockOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
-                        Hide Locked
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="mr-2 h-3.5 w-3.5 shrink-0" />
-                        Show Locked
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant={lockedNotInvoicedFilter ? "default" : "outline"}
+                      onClick={() => setLockedNotInvoicedFilter(!lockedNotInvoicedFilter)}
+                      className="w-full"
+                    >
+                      {lockedNotInvoicedFilter ? (
+                        <>
+                          <LockOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
+                          Hide Locked
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="mr-2 h-3.5 w-3.5 shrink-0" />
+                          Show Locked
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Not Invoiced: {formatCurrency(
+                        orders?.filter(o => o.invoiced !== true)
+                          .reduce((sum, o) => sum + (o.totalFreightAmount || 0), 0) || 0
+                      )}
+                    </p>
+                  </div>
                 </div>
               </ScrollArea>
             </div>
