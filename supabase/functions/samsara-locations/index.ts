@@ -198,6 +198,7 @@ serve(async (req) => {
 
 /**
  * Flexible truck name matching with multiple variants
+ * Uses strict matching first, then falls back to pattern matching
  */
 function findMatchingVehicle(vehicles: any[], truckNumber: string): any | null {
   if (!truckNumber) {
@@ -209,59 +210,87 @@ function findMatchingVehicle(vehicles: any[], truckNumber: string): any | null {
   const norm = String(truckNumber).replace(/^#/, '').trim();
   const pad4 = norm.padStart(4, '0');
 
-  const variants = [
+  // STRICT exact match variants (must match exactly)
+  const strictVariants = [
     `TRUCK ${pad4}`,
     `TRUCK #${pad4}`,
     `TRUCK${pad4}`,
     `TRUCK #${norm}`,
     `TRUCK ${norm}`,
     `TRUCK${norm}`,
-    `#${pad4}`,
-    `#${norm}`,
     pad4,
     norm,
     String(truckNumber),
   ];
 
-  console.log(`  Trying variants: ${variants.slice(0, 5).join(', ')}...`);
+  console.log(`  Trying strict variants for "${truckNumber}": ${strictVariants.slice(0, 5).join(', ')}...`);
 
-  // Find matching vehicle
+  // First pass: STRICT exact match only
   for (const vehicle of vehicles) {
     if (!vehicle.name) continue;
 
     const vehicleName = String(vehicle.name).toUpperCase().trim();
 
-    // Check each variant
-    for (const variant of variants) {
+    // Check each variant for exact match
+    for (const variant of strictVariants) {
       const variantUpper = variant.toUpperCase();
 
-      // Exact match
+      // Exact match only
       if (vehicleName === variantUpper) {
-        console.log(`  ✓ Exact match found: "${vehicle.name}" matches "${variant}"`);
-        return vehicle;
-      }
-
-      // Word boundary match - check if variant appears as a complete word
-      // Match patterns like "TRUCK 0327" or "TRUCK 0327 - Name" but not "TRUCK 70327"
-      const wordBoundaryRegex = new RegExp(
-        `\\b${variantUpper.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
-        'i'
-      );
-      if (wordBoundaryRegex.test(vehicleName)) {
-        console.log(`  ✓ Word boundary match found: "${vehicle.name}" matches "${variant}"`);
-        return vehicle;
-      }
-
-      // Check for pattern like "TRUCK 327" or "TRUCK #327" followed by space, dash or end
-      const truckPatternRegex = new RegExp(`TRUCK\\s*#?${norm}(?:\\s|$|-|\\b)`, 'i');
-      if (truckPatternRegex.test(vehicleName)) {
-        console.log(`  ✓ Truck pattern match found: "${vehicle.name}" matches truck ${norm}`);
+        console.log(`  ✓ EXACT match found: "${vehicle.name}" === "${variant}"`);
+        console.log(`  Location: lat=${vehicle.location?.latitude || vehicle.gps?.latitude}, lon=${vehicle.location?.longitude || vehicle.gps?.longitude}`);
         return vehicle;
       }
     }
   }
 
-  console.log(`  ✗ No match found for any variant`);
+  // Second pass: Pattern match for "TRUCK XXXX" where XXXX exactly matches the number
+  // This ensures we don't match "TRUCK 17572" when looking for "TRUCK 7572"
+  const truckExactPattern = new RegExp(`^TRUCK\\s*#?0*${norm}$`, 'i');
+  const truckWithSuffixPattern = new RegExp(`^TRUCK\\s*#?0*${norm}\\s*[-\\s]`, 'i');
+  
+  for (const vehicle of vehicles) {
+    if (!vehicle.name) continue;
+
+    const vehicleName = String(vehicle.name).toUpperCase().trim();
+
+    // Match exact truck pattern (TRUCK 7572) or with suffix (TRUCK 7572 - Description)
+    if (truckExactPattern.test(vehicleName) || truckWithSuffixPattern.test(vehicleName)) {
+      console.log(`  ✓ PATTERN match found: "${vehicle.name}" matches truck pattern for ${norm}`);
+      console.log(`  Location: lat=${vehicle.location?.latitude || vehicle.gps?.latitude}, lon=${vehicle.location?.longitude || vehicle.gps?.longitude}`);
+      return vehicle;
+    }
+  }
+
+  // Third pass: Check for number at word boundary but NOT as part of a larger number
+  // e.g., "TRUCK 7572" should match, but "TRUCK 17572" or "TRUCK 75721" should NOT
+  for (const vehicle of vehicles) {
+    if (!vehicle.name) continue;
+
+    const vehicleName = String(vehicle.name).toUpperCase().trim();
+
+    // Create a regex that matches the number as a complete number (not part of a larger number)
+    // The lookbehind ensures it's not preceded by a digit, the lookahead ensures it's not followed by a digit
+    const completeNumberPattern = new RegExp(`(?<![0-9])0*${norm}(?![0-9])`, 'i');
+    
+    if (completeNumberPattern.test(vehicleName)) {
+      // Verify this isn't a different truck with a similar number
+      const allNumbers = vehicleName.match(/\d+/g) || [];
+      const foundExactNumber = allNumbers.some(n => 
+        n === norm || 
+        n === pad4 || 
+        n.replace(/^0+/, '') === norm.replace(/^0+/, '')
+      );
+      
+      if (foundExactNumber) {
+        console.log(`  ✓ NUMBER BOUNDARY match found: "${vehicle.name}" contains exact number ${norm}`);
+        console.log(`  Location: lat=${vehicle.location?.latitude || vehicle.gps?.latitude}, lon=${vehicle.location?.longitude || vehicle.gps?.longitude}`);
+        return vehicle;
+      }
+    }
+  }
+
+  console.log(`  ✗ No match found for truck ${norm}`);
   return null;
 }
 
