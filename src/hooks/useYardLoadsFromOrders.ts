@@ -127,7 +127,7 @@ export const useYardLoadsFromOrders = () => {
           internalLoadNumber: order.internal_load_number,
           trailerNumber: order.trailer?.trailer_number || null,
           trailerId: order.trailer_id || null,
-          deliveryDate: order.delivery_datetime || lastDelivery?.datetime || null,
+          deliveryDate: lastDelivery?.datetime || order.delivery_datetime || null,
           deliveryCity: lastDelivery?.city || null,
           deliveryState: lastDelivery?.state || null,
           pickupDate: order.pickup_datetime || firstPickup?.datetime || null,
