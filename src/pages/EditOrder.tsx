@@ -341,7 +341,7 @@ const EditOrder = () => {
       cc: "dispatch@bgprime.net",
     },
     "United Enterprise Solutions INC": {
-      sender: "United Enterprise Solutions Dispatch <dispatch@unitedenterprisesolutions.net>",
+      sender: "United Enterprise Solutions Dispatch <truckload@unitedenterprisesolutions.net>",
       cc: "dispatch@unitedenterprisesolutions.net",
     },
   };
