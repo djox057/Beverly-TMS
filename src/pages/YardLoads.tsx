@@ -309,15 +309,15 @@ export default function YardLoads() {
       let previousTrailerId: string | null = null;
       
       if (currentTruckId) {
-        // Get the transfer creation time from order_transfers
+        // Get the transfer creation time from order_transfers (use first one for multi-stop loads)
         const { data: transferData } = await supabase
           .from('order_transfers')
           .select('created_at')
           .eq('order_id', order.id)
-          .eq('sequence_number', 1)
-          .single();
+          .order('sequence_number', { ascending: true })
+          .limit(1);
 
-        const transferCreatedAt = transferData?.created_at;
+        const transferCreatedAt = transferData?.[0]?.created_at;
 
         if (transferCreatedAt) {
           // Look for the trailer assignment just BEFORE the transfer
@@ -328,10 +328,9 @@ export default function YardLoads() {
             .eq('change_type', 'trailer_assignment')
             .lt('changed_at', transferCreatedAt)
             .order('changed_at', { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
 
-          previousTrailerId = historyData?.trailer_id || null;
+          previousTrailerId = historyData?.[0]?.trailer_id || null;
         }
 
         // Reset the new truck's trailer to what it had before
