@@ -180,6 +180,10 @@ const NewOrder = () => {
       sender: "BG Prime Dispatch <truckload@bgprime.net>",
       cc: "dispatch@bgprime.net",
     },
+    "United Enterprise Solutions INC": {
+      sender: "United Enterprise Solutions Dispatch <truckload@unitedenterprisesolutions.net>",
+      cc: "dispatch@unitedenterprisesolutions.net",
+    },
   };
 
   // Drag states for file uploads
