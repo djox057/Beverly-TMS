@@ -435,37 +435,28 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                          <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <p className="font-semibold">
-                                  #{action.truck?.truck_number || "N/A"}{" "}
-                                  {action.is_team ? "Team" : (
-                                    canEditDriver ? (
-                                      <span 
-                                        className="text-primary hover:underline cursor-pointer"
-                                        onClick={() => openEditDriverDialog(action.driver_id)}
-                                      >
-                                        {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                                      </span>
-                                    ) : (
-                                      action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
-                                    )
-                                  )}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  Date: {formatDateTime(action.arrival_datetime || action.created_at)}
-                                </p>
-                                {action.creator?.full_name && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Created by: {action.creator.full_name}
-                                  </p>
+                          <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold">
+                                #{action.truck?.truck_number || "N/A"}{" "}
+                                {action.is_team ? "Team" : (
+                                  canEditDriver ? (
+                                    <span 
+                                      className="text-primary hover:underline cursor-pointer"
+                                      onClick={() => openEditDriverDialog(action.driver_id)}
+                                    >
+                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                    </span>
+                                  ) : (
+                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                  )
                                 )}
-                              </div>
-                              <div className="flex gap-1">
+                              </p>
+                              <div className="flex gap-0.5">
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
+                                  className="h-6 w-6"
                                   onClick={() => {
                                     setActionToEdit(action);
                                     setEditForm({
@@ -475,19 +466,21 @@ export default function YardArrivals() {
                                     setEditDialogOpen(true);
                                   }}
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Pencil className="h-3 w-3" />
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
+                                  className="h-6 w-6"
                                   onClick={() => handleCheckYardAction(action.id, action.is_checked)}
                                   title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
                                 >
-                                  <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                  <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                                 </Button>
                                 <Button
                                   variant="ghost"
-                                  size="sm"
+                                  size="icon"
+                                  className="h-6 w-6"
                                   onClick={() => {
                                     setActionToCancel({
                                       id: action.id,
@@ -498,9 +491,13 @@ export default function YardArrivals() {
                                     setCancelDialogOpen(true);
                                   }}
                                 >
-                                  <X className="h-4 w-4 text-destructive" />
+                                  <X className="h-3 w-3 text-destructive" />
                                 </Button>
                               </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                              {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                             </div>
                             <div>
                               <p className="text-sm font-medium mb-1">Reason:</p>
@@ -543,37 +540,28 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"}{" "}
-                                {action.is_team ? "Team" : (
-                                  canEditDriver ? (
-                                    <span 
-                                      className="text-primary hover:underline cursor-pointer"
-                                      onClick={() => openEditDriverDialog(action.driver_id)}
-                                    >
-                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                                    </span>
-                                  ) : (
-                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
-                                  )
-                                )}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
-                              </p>
-                              {action.creator?.full_name && (
-                                <p className="text-xs text-muted-foreground">
-                                  Created by: {action.creator.full_name}
-                                </p>
+                        <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold">
+                              #{action.truck?.truck_number || "N/A"}{" "}
+                              {action.is_team ? "Team" : (
+                                canEditDriver ? (
+                                  <span 
+                                    className="text-primary hover:underline cursor-pointer"
+                                    onClick={() => openEditDriverDialog(action.driver_id)}
+                                  >
+                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                  </span>
+                                ) : (
+                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                )
                               )}
-                            </div>
-                            <div className="flex gap-1">
+                            </p>
+                            <div className="flex gap-0.5">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToEdit(action);
                                   setEditForm({
@@ -583,19 +571,21 @@ export default function YardArrivals() {
                                   setEditDialogOpen(true);
                                 }}
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
                                 title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
                               >
-                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToCancel({
                                     id: action.id,
@@ -606,9 +596,13 @@ export default function YardArrivals() {
                                   setCancelDialogOpen(true);
                                 }}
                               >
-                                <X className="h-4 w-4 text-destructive" />
+                                <X className="h-3 w-3 text-destructive" />
                               </Button>
                             </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
@@ -651,37 +645,28 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"}{" "}
-                                {action.is_team ? "Team" : (
-                                  canEditDriver ? (
-                                    <span 
-                                      className="text-primary hover:underline cursor-pointer"
-                                      onClick={() => openEditDriverDialog(action.driver_id)}
-                                    >
-                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                                    </span>
-                                  ) : (
-                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
-                                  )
-                                )}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
-                              </p>
-                              {action.creator?.full_name && (
-                                <p className="text-xs text-muted-foreground">
-                                  Created by: {action.creator.full_name}
-                                </p>
+                        <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold">
+                              #{action.truck?.truck_number || "N/A"}{" "}
+                              {action.is_team ? "Team" : (
+                                canEditDriver ? (
+                                  <span 
+                                    className="text-primary hover:underline cursor-pointer"
+                                    onClick={() => openEditDriverDialog(action.driver_id)}
+                                  >
+                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                  </span>
+                                ) : (
+                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                )
                               )}
-                            </div>
-                            <div className="flex gap-1">
+                            </p>
+                            <div className="flex gap-0.5">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToEdit(action);
                                   setEditForm({
@@ -691,19 +676,21 @@ export default function YardArrivals() {
                                   setEditDialogOpen(true);
                                 }}
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
                                 title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
                               >
-                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToCancel({
                                     id: action.id,
@@ -714,9 +701,13 @@ export default function YardArrivals() {
                                   setCancelDialogOpen(true);
                                 }}
                               >
-                                <X className="h-4 w-4 text-destructive" />
+                                <X className="h-3 w-3 text-destructive" />
                               </Button>
                             </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
@@ -758,37 +749,28 @@ export default function YardArrivals() {
                     </h3>
                     <div className="space-y-3">
                       {actions.map((action) => (
-                        <div key={action.id} className={`border rounded-lg p-4 space-y-3 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-1">
-                              <p className="font-semibold">
-                                #{action.truck?.truck_number || "N/A"}{" "}
-                                {action.is_team ? "Team" : (
-                                  canEditDriver ? (
-                                    <span 
-                                      className="text-primary hover:underline cursor-pointer"
-                                      onClick={() => openEditDriverDialog(action.driver_id)}
-                                    >
-                                      {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
-                                    </span>
-                                  ) : (
-                                    action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
-                                  )
-                                )}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Date: {formatDateTime(action.arrival_datetime || action.created_at)}
-                              </p>
-                              {action.creator?.full_name && (
-                                <p className="text-xs text-muted-foreground">
-                                  Created by: {action.creator.full_name}
-                                </p>
+                        <div key={action.id} className={`border rounded-lg p-3 space-y-2 ${action.is_checked ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold">
+                              #{action.truck?.truck_number || "N/A"}{" "}
+                              {action.is_team ? "Team" : (
+                                canEditDriver ? (
+                                  <span 
+                                    className="text-primary hover:underline cursor-pointer"
+                                    onClick={() => openEditDriverDialog(action.driver_id)}
+                                  >
+                                    {action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`}
+                                  </span>
+                                ) : (
+                                  action.driver?.name || `${action.driver?.first_name} ${action.driver?.last_name}`
+                                )
                               )}
-                            </div>
-                            <div className="flex gap-1">
+                            </p>
+                            <div className="flex gap-0.5">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToEdit(action);
                                   setEditForm({
@@ -798,19 +780,21 @@ export default function YardArrivals() {
                                   setEditDialogOpen(true);
                                 }}
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => handleCheckYardAction(action.id, action.is_checked)}
                                 title={action.is_checked ? "Uncheck - will not auto-delete" : "Check - will auto-delete after date passes"}
                               >
-                                <Check className={`h-4 w-4 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                <Check className={`h-3 w-3 ${action.is_checked ? 'text-green-600' : 'text-muted-foreground'}`} />
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-6 w-6"
                                 onClick={() => {
                                   setActionToCancel({
                                     id: action.id,
@@ -821,9 +805,13 @@ export default function YardArrivals() {
                                   setCancelDialogOpen(true);
                                 }}
                               >
-                                <X className="h-4 w-4 text-destructive" />
+                                <X className="h-3 w-3 text-destructive" />
                               </Button>
                             </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Date: {formatDateTime(action.arrival_datetime || action.created_at)}
+                            {action.creator?.full_name && ` • Created by: ${action.creator.full_name}`}
                           </div>
                           <div>
                             <p className="text-sm font-medium mb-1">Reason:</p>
