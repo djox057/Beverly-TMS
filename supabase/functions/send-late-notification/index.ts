@@ -22,6 +22,7 @@ interface LateNotificationRequest {
   scheduledTime: string;
   estimatedArrival: string;
   loadNumber: string;
+  currentMiles?: number;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -39,7 +40,17 @@ const handler = async (req: Request): Promise<Response> => {
       truckNumber: requestData.truckNumber,
       driverName: requestData.driverName,
       dispatcherEmail: requestData.dispatcherEmail,
+      currentMiles: requestData.currentMiles,
     });
+
+    // Skip notification if truck is within 10 miles of destination
+    if (requestData.currentMiles !== undefined && requestData.currentMiles <= 10) {
+      console.log(`⏭️ Truck is only ${requestData.currentMiles} miles away, skipping late notification`);
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "within_10_miles" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
