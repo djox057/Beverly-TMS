@@ -120,7 +120,7 @@ export function useReportsDialogs() {
   const [historyDialogDriverId, setHistoryDialogDriverId] = useState<string | null>(null);
   
   // Yard action form state
-  const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "safety" | "">("");
+  const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "recovery" | "safety" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
   const [yardActionDatetime, setYardActionDatetime] = useState<Date | undefined>(new Date());
   

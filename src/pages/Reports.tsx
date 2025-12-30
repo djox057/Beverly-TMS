@@ -384,7 +384,7 @@ const Reports = () => {
     driver2Name?: string;
     truckNumber?: string;
   } | null>(null);
-  const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "safety" | "">("");
+  const [yardActionType, setYardActionType] = useState<"maintenance" | "return_truck" | "recovery" | "safety" | "">("");
   const [yardActionComment, setYardActionComment] = useState("");
   const [yardActionDatetime, setYardActionDatetime] = useState<Date | undefined>(new Date());
   
@@ -3868,13 +3868,14 @@ const Reports = () => {
               <label className="text-sm font-medium">
                 Action Type <span className="text-destructive">*</span>
               </label>
-              <Select value={yardActionType} onValueChange={(value: "maintenance" | "return_truck" | "safety") => setYardActionType(value)}>
+              <Select value={yardActionType} onValueChange={(value: "maintenance" | "return_truck" | "recovery" | "safety") => setYardActionType(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select action" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="return_truck">Return Truck & Recoveries</SelectItem>
+                  <SelectItem value="return_truck">Return Truck</SelectItem>
+                  <SelectItem value="recovery">Recoveries</SelectItem>
                   <SelectItem value="safety">Safety</SelectItem>
                 </SelectContent>
               </Select>
