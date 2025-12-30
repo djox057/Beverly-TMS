@@ -2333,28 +2333,6 @@ const Reports = () => {
     return () => clearInterval(interval);
   }, [groupedReports, notifiedLateStops]);
 
-  // Auto-mark arrivals when trucks are within 5 miles for 20+ minutes
-  useEffect(() => {
-    const runAutoMarkArrivals = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("auto-mark-arrivals");
-        if (error) {
-          console.error("Auto-mark arrivals error:", error);
-        } else if (data?.autoMarkedArrivals?.length > 0) {
-          console.log("✅ Auto-marked arrivals:", data.autoMarkedArrivals);
-        }
-      } catch (err) {
-        console.error("Failed to run auto-mark arrivals:", err);
-      }
-    };
-
-    // Run immediately
-    runAutoMarkArrivals();
-
-    // Re-run every 60 seconds (same as late check)
-    const interval = setInterval(runAutoMarkArrivals, 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Auto-switch to correct dispatcher page when filters find matches
   useEffect(() => {
