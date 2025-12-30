@@ -979,15 +979,9 @@ const Analytics = () => {
 
                   {/* Filters - Only for Admin/Manager/Chicago Management */}
                   {(hasRole("admin") || hasRole("manager") || hasRole("chicago_management")) && (
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <Button
-                        variant={showOver100kGross ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setShowOver100kGross(!showOver100kGross)}
-                      >
-                        100k+ Gross
-                      </Button>
-                      <span className="text-sm font-medium text-muted-foreground ml-2">Office:</span>
+                    <div className="flex flex-wrap gap-2 items-center w-full justify-between">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="text-sm font-medium text-muted-foreground">Office:</span>
                       {Array.from(
                         new Set(
                           Object.values(dispatcherProfiles)
@@ -1015,6 +1009,14 @@ const Analytics = () => {
                           Clear Offices
                         </Button>
                       )}
+                      </div>
+                      <Button
+                        variant={showOver100kGross ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowOver100kGross(!showOver100kGross)}
+                      >
+                        100k+ Gross
+                      </Button>
                     </div>
                   )}
                 </div>
