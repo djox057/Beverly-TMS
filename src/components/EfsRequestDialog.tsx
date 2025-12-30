@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Loader2, Upload, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface EfsRequestDialogProps {
   open: boolean;
@@ -55,6 +56,16 @@ export function EfsRequestDialog({
   const [customPurpose, setCustomPurpose] = useState<string>("");
   const [otherAmount, setOtherAmount] = useState<string>("");
   const [isRequestingOther, setIsRequestingOther] = useState(false);
+  
+  // Fuel-specific fields
+  const [fuelCity, setFuelCity] = useState<string>("");
+  const [fuelState, setFuelState] = useState<string>("");
+  const [fuelQuantity, setFuelQuantity] = useState<string>("");
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const queryClient = useQueryClient();
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -63,9 +74,34 @@ export function EfsRequestDialog({
       setOtherPurpose("");
       setCustomPurpose("");
       setOtherAmount("");
+      setFuelCity("");
+      setFuelState("");
+      setFuelQuantity("");
+      setReceiptFile(null);
+      setReceiptPreview(null);
       setActiveTab("cash-advance");
     }
   }, [open]);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setReceiptFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const clearReceiptFile = () => {
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleCashAdvanceRequest = async () => {
     setIsRequestingCashAdvance(true);
@@ -116,12 +152,32 @@ export function EfsRequestDialog({
   const handleOtherRequest = async () => {
     if (!otherPurpose || !otherAmount) return;
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
+    // Fuel requires city, state, quantity, and receipt
+    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity || !receiptFile)) return;
     
     setIsRequestingOther(true);
     try {
       const purposeLabel = otherPurpose === "custom" 
         ? customPurpose.trim() 
         : (EFS_PURPOSE_OPTIONS.find(p => p.value === otherPurpose)?.label || otherPurpose);
+      
+      let receiptPath: string | null = null;
+      
+      // Upload receipt if it's a fuel request
+      if (otherPurpose === "fuel" && receiptFile) {
+        const fileExt = receiptFile.name.split('.').pop();
+        const fileName = `${driverId}/${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("efs-receipts")
+          .upload(fileName, receiptFile);
+        
+        if (uploadError) {
+          throw new Error(`Failed to upload receipt: ${uploadError.message}`);
+        }
+        
+        receiptPath = fileName;
+      }
       
       const { data, error } = await supabase.functions.invoke("send-efs-other-request", {
         body: {
@@ -133,6 +189,13 @@ export function EfsRequestDialog({
           purpose: purposeLabel,
           requesterEmail,
           requesterName,
+          // Fuel-specific fields
+          ...(otherPurpose === "fuel" && {
+            city: fuelCity.trim(),
+            state: fuelState.trim().toUpperCase(),
+            quantity: parseFloat(fuelQuantity),
+            receiptPath,
+          }),
         },
       });
 
@@ -145,6 +208,11 @@ export function EfsRequestDialog({
           variant: "destructive",
         });
         return;
+      }
+      
+      // Invalidate fuel transactions query if it was a fuel request
+      if (otherPurpose === "fuel") {
+        queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
       }
       
       toast({
@@ -316,6 +384,89 @@ export function EfsRequestDialog({
                 />
               </div>
             )}
+            
+            {/* Fuel-specific fields */}
+            {otherPurpose === "fuel" && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="fuel-city" className="text-sm font-medium">City</Label>
+                    <Input
+                      id="fuel-city"
+                      type="text"
+                      value={fuelCity}
+                      onChange={(e) => setFuelCity(e.target.value)}
+                      placeholder="e.g., Chicago"
+                      maxLength={50}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fuel-state" className="text-sm font-medium">State</Label>
+                    <Input
+                      id="fuel-state"
+                      type="text"
+                      value={fuelState}
+                      onChange={(e) => setFuelState(e.target.value)}
+                      placeholder="e.g., IL"
+                      maxLength={2}
+                      className="uppercase"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="fuel-quantity" className="text-sm font-medium">Quantity (gallons)</Label>
+                  <Input
+                    id="fuel-quantity"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={fuelQuantity}
+                    onChange={(e) => setFuelQuantity(e.target.value)}
+                    placeholder="Enter gallons"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Receipt Photo</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  {receiptPreview ? (
+                    <div className="relative">
+                      <img 
+                        src={receiptPreview} 
+                        alt="Receipt preview" 
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={clearReceiptFile}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Receipt
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="efs-amount" className="text-sm font-medium">Amount ($)</Label>
@@ -345,7 +496,14 @@ export function EfsRequestDialog({
               </Button>
               <Button 
                 onClick={handleOtherRequest}
-                disabled={isRequestingOther || !otherPurpose || !otherAmount || parseFloat(otherAmount) <= 0 || (otherPurpose === "custom" && !customPurpose.trim())}
+                disabled={
+                  isRequestingOther || 
+                  !otherPurpose || 
+                  !otherAmount || 
+                  parseFloat(otherAmount) <= 0 || 
+                  (otherPurpose === "custom" && !customPurpose.trim()) ||
+                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity || parseFloat(fuelQuantity) <= 0 || !receiptFile))
+                }
               >
                 {isRequestingOther ? (
                   <>

@@ -15,6 +15,11 @@ interface EfsOtherRequest {
   purpose: string;
   requesterEmail?: string;
   requesterName?: string;
+  // Fuel-specific fields
+  city?: string;
+  state?: string;
+  quantity?: number;
+  receiptPath?: string;
 }
 
 // Extract last word from name (e.g., "David Mijailovic-Dom" -> "Dom")
@@ -36,6 +41,18 @@ function getEfsEmail(companyName: string | null): string {
   return "efs@bfprime.net";
 }
 
+// Map company name to short code for transaction number
+function getCompanyCode(companyName: string | null): string {
+  if (!companyName) return "BFP";
+  const normalized = companyName.toUpperCase();
+  if (normalized.includes("BEVERLY FREIGHT")) return "BEV";
+  if (normalized.includes("BF PRIME UNITED")) return "BPU";
+  if (normalized.includes("BG PRIME")) return "BGP";
+  if (normalized.includes("BF PRIME")) return "BFP";
+  if (normalized.includes("BEVERLY GROUP")) return "BG";
+  return "BFP";
+}
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -44,11 +61,12 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const body: EfsOtherRequest = await req.json();
-    const { driverId, driverName, truckNumber, companyName, amount, purpose } = body;
+    const { driverId, driverName, truckNumber, companyName, amount, purpose, city, state, quantity, receiptPath } = body;
 
     // Prefer resolving requester identity from the JWT
     let requesterEmail = body.requesterEmail;
     let requesterName = body.requesterName;
+    let requesterId: string | null = null;
 
     console.log("EFS Other request received:", {
       driverId,
@@ -57,6 +75,10 @@ const handler = async (req: Request): Promise<Response> => {
       companyName,
       amount,
       purpose,
+      city,
+      state,
+      quantity,
+      receiptPath,
       requesterEmail,
       requesterName,
     });
@@ -80,6 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (userError) {
         console.warn("Could not resolve requester from JWT:", userError);
       } else if (userData?.user) {
+        requesterId = userData.user.id;
         requesterEmail = userData.user.email ?? requesterEmail;
         requesterName = (userData.user.user_metadata as any)?.full_name ?? requesterName;
 
@@ -98,7 +121,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    console.log("Requester resolved:", { requesterEmail, requesterName });
+    console.log("Requester resolved:", { requesterEmail, requesterName, requesterId });
 
     // Validate required fields
     if (!driverName || !truckNumber || amount === undefined || !purpose) {
@@ -116,11 +139,30 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Check if this is a fuel request
+    const isFuelRequest = purpose.toLowerCase() === "fuel";
+
+    // Validate fuel-specific fields
+    if (isFuelRequest) {
+      if (!city || !state || !quantity || quantity <= 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Fuel requests require city, state, and quantity" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Format the email body
-    const emailBody = `Unit: ${truckNumber || "N/A"}
+    let emailBody = `Unit: ${truckNumber || "N/A"}
 Driver: ${driverName}
 Amount: $${amount.toFixed(2)}
 Purpose: ${purpose}`;
+
+    if (isFuelRequest && city && state && quantity) {
+      emailBody += `
+Location: ${city}, ${state}
+Quantity: ${quantity} gallons`;
+    }
 
     // Determine sender email based on company
     const fromEmail = getEfsEmail(companyName);
@@ -194,6 +236,10 @@ Purpose: ${purpose}`;
       amount: amount,
       purpose: purpose,
       requested_by: requesterName || requesterEmail || null,
+      city: city || null,
+      state: state || null,
+      quantity: quantity || null,
+      receipt_path: receiptPath || null,
     });
 
     if (dbError) {
@@ -201,6 +247,48 @@ Purpose: ${purpose}`;
       // Don't fail the request, email was already sent
     } else {
       console.log("EFS request saved to database");
+    }
+
+    // If it's a fuel request, also create a fuel transaction record
+    if (isFuelRequest && city && state && quantity) {
+      const today = new Date();
+      const transactionDate = today.toISOString().split('T')[0];
+      const companyCode = getCompanyCode(companyName);
+      const transactionNumber = `EFS-${companyCode}-${Date.now()}`;
+      
+      // Calculate unit price from amount and quantity
+      const unitPrice = quantity > 0 ? amount / quantity : 0;
+
+      const fuelTransactionData = {
+        truck_number: truckNumber,
+        driver_name: driverName,
+        transaction_number: transactionNumber,
+        transaction_date: transactionDate,
+        location_name: `EFS Request`,
+        city: city,
+        state: state.toUpperCase(),
+        fees: 0,
+        item: "ULSD", // Default to Ultra Low Sulfur Diesel
+        unit_price: unitPrice,
+        quantity: quantity,
+        amount: amount,
+        company: companyName,
+        uploaded_by: requesterId,
+        paid: false,
+      };
+
+      console.log("Creating fuel transaction:", fuelTransactionData);
+
+      const { error: fuelError } = await supabase
+        .from("fuel_transactions")
+        .insert(fuelTransactionData);
+
+      if (fuelError) {
+        console.error("Failed to create fuel transaction:", fuelError);
+        // Don't fail the request, EFS email was already sent
+      } else {
+        console.log("Fuel transaction created successfully");
+      }
     }
 
     return new Response(
