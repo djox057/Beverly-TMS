@@ -4,6 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
 import { Loader2, MapPin, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { HosCircularTimer } from '@/components/HosCircularTimer';
 
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
@@ -22,37 +23,16 @@ async function getMapboxToken(): Promise<string> {
   }
 }
 
-// Use Mapbox geocoding API
-async function geocodeWithMapbox(address: string, token: string): Promise<{ lat: number; lon: number } | null> {
-  if (!address || address.trim() === '' || !token) return null;
-  
-  try {
-    const encodedAddress = encodeURIComponent(address);
-    const response = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedAddress}.json?access_token=${token}&limit=1`
-    );
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    
-    if (data.features && data.features.length > 0) {
-      const [lon, lat] = data.features[0].center;
-      return { lat, lon };
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Mapbox geocoding error:', error);
-    return null;
-  }
-}
-
 interface TruckData {
   id: string;
   truckNumber: string;
   driverName: string;
   driver2Name?: string;
+  milesAway?: number | null;
+  driveMinutes?: number;
+  shiftMinutes?: number;
+  breakMinutes?: number;
+  cycleMinutes?: number;
   currentOrder?: {
     id: string;
     loadNumber: string;
@@ -75,208 +55,62 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const routeLayerRef = useRef<boolean>(false);
   const tokenRef = useRef<string>('');
+  const initStartedRef = useRef(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
+  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
 
   const { data: locations } = useSamsaraLocations();
 
+  // Create stable signature to detect real changes
   const trucksSignature = useMemo(() => {
-    return [...trucks]
-      .sort((a, b) => a.truckNumber.localeCompare(b.truckNumber))
-      .map((t) => `${t.id}:${t.truckNumber}:${t.currentOrder?.id ?? ''}`)
+    return trucks
+      .map((t) => t.id)
+      .sort()
       .join('|');
   }, [trucks]);
 
-  const locationsCount = locations?.length ?? 0;
+  // Keep a stable ref of trucks for popup
+  const trucksRef = useRef(trucks);
+  trucksRef.current = trucks;
 
+  // Find the selected truck from the current trucks array
   const selectedTruck = useMemo(() => {
     if (!selectedTruckId) return null;
     return trucks.find((t) => t.id === selectedTruckId) ?? null;
-  }, [trucksSignature, selectedTruckId]);
+  }, [trucks, selectedTruckId]);
 
-  // Clear route from map
-  const clearRoute = useCallback(() => {
-    if (!map.current) return;
-    
-    if (routeLayerRef.current) {
-      try {
-        if (map.current.getLayer('route')) {
-          map.current.removeLayer('route');
-        }
-        if (map.current.getSource('route')) {
-          map.current.removeSource('route');
-        }
-      } catch (e) {
-        // Ignore errors when removing layers
-      }
-      routeLayerRef.current = false;
-    }
-    
-    // Remove destination markers (pickup/delivery)
-    markersRef.current = markersRef.current.filter(marker => {
-      const el = marker.getElement();
-      if (el.innerHTML.includes('📍') || el.innerHTML.includes('🎯')) {
-        marker.remove();
-        return false;
-      }
-      return true;
-    });
+  // Handle truck marker click - just select, no zoom
+  const handleTruckClick = useCallback((
+    truckId: string,
+    screenX: number,
+    screenY: number
+  ) => {
+    setSelectedTruckId(truckId);
+    setPopupPosition({ x: screenX, y: screenY });
   }, []);
 
-  // Draw route from truck to destination
-  const drawRoute = useCallback(async (
-    startCoords: [number, number],
-    endCoords: [number, number],
-    token: string,
-    isPickup: boolean
-  ) => {
-    if (!map.current) return;
-    
-    try {
-      const coordinates = `${startCoords[0]},${startCoords[1]};${endCoords[0]},${endCoords[1]}`;
-      const response = await fetch(
-        `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${token}`
-      );
-      
-      const data = await response.json();
-      
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0].geometry;
-        
-        const addRoute = () => {
-          if (!map.current) return;
-          
-          if (map.current.getSource('route')) {
-            (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-              type: 'Feature',
-              properties: {},
-              geometry: route
-            });
-          } else {
-            map.current.addSource('route', {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: route
-              }
-            });
-
-            map.current.addLayer({
-              id: 'route',
-              type: 'line',
-              source: 'route',
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round'
-              },
-              paint: {
-                'line-color': isPickup ? 'hsl(142 76% 36%)' : 'hsl(217 91% 60%)',
-                'line-width': 4,
-                'line-opacity': 0.75
-              }
-            });
-          }
-          
-          routeLayerRef.current = true;
-          
-          // Fit map to show route
-          const bounds = new mapboxgl.LngLatBounds();
-          bounds.extend(startCoords);
-          bounds.extend(endCoords);
-          map.current?.fitBounds(bounds, { padding: 100 });
-        };
-        
-        if (map.current.isStyleLoaded()) {
-          addRoute();
-        } else {
-          map.current.once('load', addRoute);
-        }
-      }
-    } catch (error) {
-      console.error('Error drawing route:', error);
-    }
+  // Close popup
+  const closePopup = useCallback(() => {
+    setSelectedTruckId(null);
+    setPopupPosition(null);
   }, []);
 
-  // Handle truck marker click
-  const handleTruckClick = useCallback(async (
-    truck: TruckData,
-    location: { latitude: number; longitude: number },
-    token: string
-  ) => {
-    clearRoute();
-    setSelectedTruckId(truck.id);
-    
-    // Center map on selected truck
-    map.current?.flyTo({
-      center: [location.longitude, location.latitude],
-      zoom: 8,
-      duration: 1000,
-    });
-    
-    // Draw route if there's a current order
-    if (truck.currentOrder && map.current) {
-      const { hasBOL, hasPOD, pickupArrived, pickupAddress, deliveryAddress } = truck.currentOrder;
-      
-      // Determine destination (same logic as single truck map)
-      const shouldRouteToPickup = !hasBOL && !pickupArrived;
-      const shouldRouteToDelivery = hasBOL && !hasPOD;
-      
-      if (shouldRouteToPickup && pickupAddress) {
-        const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
-        if (pickupCoords && map.current) {
-          const pickupEl = document.createElement('div');
-          pickupEl.innerHTML = '📍';
-          pickupEl.style.fontSize = '32px';
-          
-          const pickupMarker = new mapboxgl.Marker(pickupEl)
-            .setLngLat([pickupCoords.lon, pickupCoords.lat])
-            .addTo(map.current);
-          markersRef.current.push(pickupMarker);
-          
-          await drawRoute(
-            [location.longitude, location.latitude],
-            [pickupCoords.lon, pickupCoords.lat],
-            token,
-            true
-          );
-        }
-      } else if (shouldRouteToDelivery && deliveryAddress) {
-        const deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
-        if (deliveryCoords && map.current) {
-          const deliveryEl = document.createElement('div');
-          deliveryEl.innerHTML = '🎯';
-          deliveryEl.style.fontSize = '32px';
-          
-          const deliveryMarker = new mapboxgl.Marker(deliveryEl)
-            .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
-            .addTo(map.current);
-          markersRef.current.push(deliveryMarker);
-          
-          await drawRoute(
-            [location.longitude, location.latitude],
-            [deliveryCoords.lon, deliveryCoords.lat],
-            token,
-            false
-          );
-        }
-      }
-    }
-  }, [clearRoute, drawRoute]);
-
-  // Initialize map
+  // Initialize map ONCE
   useEffect(() => {
     if (!mapContainer.current) return;
-    
+    if (initStartedRef.current) return;
     if (!locations || locations.length === 0) {
       setIsLoading(false);
       setNoLocationsFound(true);
       return;
     }
+
+    initStartedRef.current = true;
+    let cancelled = false;
 
     const initializeMap = async () => {
       setIsLoading(true);
@@ -284,6 +118,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       
       try {
         const token = await getMapboxToken();
+        if (cancelled) return;
+        
         if (!token) {
           console.error('No Mapbox token available');
           setIsLoading(false);
@@ -293,7 +129,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         tokenRef.current = token;
 
         // Find truck locations from Samsara
-        const truckLocations = trucks
+        const truckLocations = trucksRef.current
           .map(truck => {
             const loc = locations.find(l => 
               l.truck_id === truck.id || l.truck_number === truck.truckNumber
@@ -324,7 +160,23 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
         newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+        // ResizeObserver for container changes
+        const resizeObserver = new ResizeObserver(() => {
+          try {
+            newMap.resize();
+          } catch {
+            // ignore
+          }
+        });
+        resizeObserver.observe(mapContainer.current!);
+
         newMap.on('load', () => {
+          if (cancelled) {
+            resizeObserver.disconnect();
+            newMap.remove();
+            return;
+          }
+
           newMap.resize();
           
           const bounds = new mapboxgl.LngLatBounds();
@@ -333,10 +185,12 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
           truckLocations.forEach(({ truck, location }) => {
             const el = document.createElement('div');
             el.className = 'truck-marker-fleet';
+            el.style.cursor = 'pointer';
+
             el.innerHTML = `
               <div style="
-                background: ${truck.currentOrder ? 'hsl(var(--primary))' : 'hsl(var(--secondary))'};
-                color: ${truck.currentOrder ? 'hsl(var(--primary-foreground))' : 'hsl(var(--secondary-foreground))'};
+                background: hsl(217 91% 60%);
+                color: white;
                 padding: 4px 8px;
                 border-radius: 6px;
                 font-size: 12px;
@@ -347,22 +201,26 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
                 align-items: center;
                 gap: 6px;
                 white-space: nowrap;
-                border: 2px solid hsl(var(--background));
+                border: 2px solid white;
               ">
                 🚚 ${truck.truckNumber}
               </div>
             `;
-            el.style.cursor = 'pointer';
             
             const marker = new mapboxgl.Marker(el)
               .setLngLat([location.longitude, location.latitude])
               .addTo(newMap);
-            
-            el.addEventListener('click', () => {
-              handleTruckClick(truck, {
-                latitude: location.latitude,
-                longitude: location.longitude,
-              }, token);
+
+            el.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const rect = mapContainer.current?.getBoundingClientRect();
+              if (rect) {
+                handleTruckClick(
+                  truck.id,
+                  e.clientX - rect.left,
+                  e.clientY - rect.top
+                );
+              }
             });
             
             markersRef.current.push(marker);
@@ -380,6 +238,17 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
           console.error('Mapbox error:', e);
           setIsLoading(false);
         });
+
+        // Cleanup function override
+        const originalRemove = newMap.remove.bind(newMap);
+        newMap.remove = () => {
+          try {
+            resizeObserver.disconnect();
+          } catch {
+            // ignore
+          }
+          return originalRemove();
+        };
         
       } catch (error) {
         console.error('Error initializing fleet map:', error);
@@ -387,18 +256,75 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       }
     };
 
-    // Small delay to ensure container is rendered
-    const timeout = setTimeout(initializeMap, 50);
+    // Delay to ensure container is rendered
+    const timeout = window.setTimeout(() => {
+      void initializeMap();
+    }, 100);
 
     return () => {
-      clearTimeout(timeout);
+      cancelled = true;
+      window.clearTimeout(timeout);
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
       map.current?.remove();
       map.current = null;
-      routeLayerRef.current = false;
+      initStartedRef.current = false;
     };
-  }, [locations, trucks, handleTruckClick]);
+  }, [locations?.length, trucksSignature, handleTruckClick]);
+
+  // Click outside to close popup
+  useEffect(() => {
+    if (!selectedTruckId) return;
+    
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.fleet-popup-panel')) return;
+      if (target.closest('.truck-marker-fleet')) return;
+      closePopup();
+    };
+    
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [selectedTruckId, closePopup]);
+
+  // Calculate popup position clamped within container
+  const popupStyle = useMemo(() => {
+    if (!popupPosition || !mapContainer.current) return {};
+    const containerRect = mapContainer.current.getBoundingClientRect();
+    const popupWidth = 320;
+    const popupHeight = 280;
+    
+    let left = popupPosition.x - popupWidth / 2;
+    let top = popupPosition.y - popupHeight - 20;
+    
+    // Clamp within container
+    if (left < 8) left = 8;
+    if (left + popupWidth > containerRect.width - 8) left = containerRect.width - popupWidth - 8;
+    if (top < 8) top = popupPosition.y + 30; // Show below if not enough space above
+    
+    return {
+      left: `${left}px`,
+      top: `${top}px`,
+    };
+  }, [popupPosition]);
+
+  // Format ETA from delivery datetime
+  const formatETA = (deliveryDatetime?: string) => {
+    if (!deliveryDatetime) return null;
+    try {
+      const date = new Date(deliveryDatetime);
+      if (isNaN(date.getTime())) return null;
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <div className="relative w-full h-full">
@@ -415,59 +341,124 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         </div>
       )}
 
-      {/* Driver info popup (opens when a truck marker is clicked) */}
-      {selectedTruck && (
-        <div className="absolute left-3 bottom-3 z-20 w-[340px] max-w-[calc(100%-1.5rem)] rounded-lg border border-border bg-card/95 backdrop-blur p-3 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-foreground truncate">
-                Truck {selectedTruck.truckNumber}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {selectedTruck.driverName}{selectedTruck.driver2Name ? ` + ${selectedTruck.driver2Name}` : ""}
-              </div>
+      {/* Driver info popup - positioned near the clicked marker */}
+      {selectedTruck && popupPosition && (
+        <div
+          className="fleet-popup-panel absolute z-30 w-[320px] rounded-lg overflow-hidden shadow-lg border border-border"
+          style={popupStyle}
+        >
+          {/* Header */}
+          <div className="bg-[hsl(199_89%_48%)] text-white px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🚚</span>
+              <span className="font-semibold">Vehicle: {selectedTruck.truckNumber}</span>
             </div>
             <button
               type="button"
-              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
-              onClick={() => {
-                setSelectedTruckId(null);
-                clearRoute();
-              }}
-              aria-label="Close driver info"
+              className="text-white/80 hover:text-white"
+              onClick={closePopup}
+              aria-label="Close"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {selectedTruck.currentOrder ? (
-            <div className="mt-2 space-y-1 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">Load</span>
-                <span className="font-medium text-foreground truncate">
-                  {selectedTruck.currentOrder.loadNumber}
+          {/* Body */}
+          <div className="bg-card p-3 space-y-3">
+            {/* Driver name */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[hsl(199_89%_48%)]">Driver:</span>
+              <span className="font-medium text-foreground">
+                {selectedTruck.driverName}
+                {selectedTruck.driver2Name ? ` + ${selectedTruck.driver2Name}` : ''}
+              </span>
+            </div>
+
+            {/* Miles Away */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[hsl(199_89%_48%)]">Miles Away:</span>
+              <span className="font-medium text-foreground">
+                {selectedTruck.milesAway != null ? `${selectedTruck.milesAway} mi` : '—'}
+              </span>
+            </div>
+
+            {/* ETA */}
+            {selectedTruck.currentOrder && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-[hsl(199_89%_48%)]">ETA:</span>
+                <span className="font-medium text-foreground">
+                  {formatETA(selectedTruck.currentOrder.deliveryDatetime) || '—'}
                 </span>
               </div>
-              {selectedTruck.currentOrder.brokerLoadNumber && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Broker</span>
-                  <span className="font-medium text-foreground truncate">
-                    {selectedTruck.currentOrder.brokerLoadNumber}
-                  </span>
+            )}
+
+            {/* HOS Circles */}
+            <div className="pt-2 border-t border-border">
+              <div className="text-xs text-muted-foreground mb-2">HOS Status</div>
+              <div className="flex items-center justify-around">
+                <div className="flex flex-col items-center">
+                  <HosCircularTimer
+                    minutes={selectedTruck.driveMinutes ?? 0}
+                    maxMinutes={660}
+                    label="Drive"
+                    color="hsl(142 76% 36%)"
+                    size={44}
+                    strokeWidth={4}
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1">Drive</span>
                 </div>
-              )}
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-muted-foreground">Next</span>
-                <span className="font-medium text-foreground text-right line-clamp-2">
-                  {(!selectedTruck.currentOrder.hasBOL && !selectedTruck.currentOrder.pickupArrived
-                    ? selectedTruck.currentOrder.pickupAddress
-                    : selectedTruck.currentOrder.deliveryAddress) || "—"}
-                </span>
+                <div className="flex flex-col items-center">
+                  <HosCircularTimer
+                    minutes={selectedTruck.shiftMinutes ?? 0}
+                    maxMinutes={840}
+                    label="Shift"
+                    color="hsl(217 91% 60%)"
+                    size={44}
+                    strokeWidth={4}
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1">Shift</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <HosCircularTimer
+                    minutes={selectedTruck.breakMinutes ?? 0}
+                    maxMinutes={480}
+                    label="Break"
+                    color="hsl(45 93% 47%)"
+                    size={44}
+                    strokeWidth={4}
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1">Break</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <HosCircularTimer
+                    minutes={selectedTruck.cycleMinutes ?? 0}
+                    maxMinutes={4200}
+                    label="Cycle"
+                    color="hsl(280 67% 51%)"
+                    size={44}
+                    strokeWidth={4}
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-1">Cycle</span>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="mt-2 text-xs text-muted-foreground">No current load</div>
-          )}
+
+            {/* Load info */}
+            {selectedTruck.currentOrder && (
+              <div className="pt-2 border-t border-border text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Load:</span>
+                  <span className="font-medium">{selectedTruck.currentOrder.loadNumber}</span>
+                </div>
+                {selectedTruck.currentOrder.brokerLoadNumber && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Broker #:</span>
+                    <span className="font-medium">{selectedTruck.currentOrder.brokerLoadNumber}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -2832,8 +2832,13 @@ const Reports = () => {
                                         return {
                                           id: truck.id,
                                           truckNumber: truck.truckNumber,
-                                          driverName: truck.driverName || "No driver",
+                                          driverName: truck.driver || truck.driverName || "No driver",
                                           driver2Name: truck.driver2Name,
+                                          milesAway: truck.milesAway,
+                                          driveMinutes: truck.driveMinutes,
+                                          shiftMinutes: truck.shiftMinutes,
+                                          breakMinutes: truck.breakMinutes,
+                                          cycleMinutes: truck.cycleMinutes,
                                           currentOrder: currentOrder
                                             ? {
                                                 id: currentOrder.id,
