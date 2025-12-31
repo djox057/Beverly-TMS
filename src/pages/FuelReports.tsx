@@ -97,8 +97,8 @@ const FuelReports = () => {
   } = useIftaRecords({ ...filters, itemType: "ULSD" });
 
   // EFS missing data count for badge
-  const { requests: efsMissingReceipts, gallonsRequests: efsMissingGallons } = useEfsMissingReceipts();
-  const efsMissingCount = efsMissingReceipts.length + efsMissingGallons.length;
+  const { fuelRequests: efsMissingFuel } = useEfsMissingReceipts();
+  const efsMissingCount = efsMissingFuel.length;
 
   // IFTA search filter
   const [iftaTruckSearch, setIftaTruckSearch] = useState("");

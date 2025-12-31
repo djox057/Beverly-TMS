@@ -1,12 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export interface EfsRequestWithMissingData {
+export interface EfsFuelMissingData {
   id: string;
   driver_name: string;
   truck_number: string;
   amount: number;
-  purpose: string;
   requested_at: string;
   city?: string | null;
   state?: string | null;
@@ -17,35 +16,19 @@ export interface EfsRequestWithMissingData {
 export function useEfsMissingReceipts() {
   const queryClient = useQueryClient();
 
-  // Fetch requests missing receipts
-  const { data: receiptsRequests = [], isLoading: isLoadingReceipts, refetch: refetchReceipts } = useQuery({
-    queryKey: ["efs-missing-receipts"],
+  // Fetch Fuel requests missing receipt OR gallons
+  const { data: fuelRequests = [], isLoading, refetch } = useQuery({
+    queryKey: ["efs-fuel-missing-data"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity, receipt_path")
-        .is("receipt_path", null)
-        .order("requested_at", { ascending: false });
-
-      if (error) throw error;
-      return data as EfsRequestWithMissingData[];
-    },
-    staleTime: 30 * 1000,
-  });
-
-  // Fetch requests missing gallons (for fuel purpose only)
-  const { data: gallonsRequests = [], isLoading: isLoadingGallons, refetch: refetchGallons } = useQuery({
-    queryKey: ["efs-missing-gallons"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity, receipt_path")
+        .select("id, driver_name, truck_number, amount, requested_at, city, state, quantity, receipt_path")
         .eq("purpose", "Fuel")
-        .is("quantity", null)
+        .or("receipt_path.is.null,quantity.is.null")
         .order("requested_at", { ascending: false });
 
       if (error) throw error;
-      return data as EfsRequestWithMissingData[];
+      return data as EfsFuelMissingData[];
     },
     staleTime: 30 * 1000,
   });
@@ -80,7 +63,7 @@ export function useEfsMissingReceipts() {
       return fileName;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["efs-missing-receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["efs-fuel-missing-data"] });
     },
   });
 
@@ -94,22 +77,17 @@ export function useEfsMissingReceipts() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["efs-missing-gallons"] });
+      queryClient.invalidateQueries({ queryKey: ["efs-fuel-missing-data"] });
       queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
     },
   });
 
   return {
-    // Receipts
-    requests: receiptsRequests,
-    isLoading: isLoadingReceipts,
-    refetch: refetchReceipts,
+    fuelRequests,
+    isLoading,
+    refetch,
     uploadReceipt: uploadReceiptMutation.mutateAsync,
     isUploading: uploadReceiptMutation.isPending,
-    // Gallons
-    gallonsRequests,
-    isLoadingGallons,
-    refetchGallons,
     updateGallons: updateGallonsMutation.mutateAsync,
     isUpdatingGallons: updateGallonsMutation.isPending,
   };
