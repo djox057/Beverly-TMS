@@ -2851,6 +2851,10 @@ const Reports = () => {
                                                 pickupState: currentOrder.pickupStop?.state,
                                                 deliveryCity: currentOrder.deliveryStop?.city,
                                                 deliveryState: currentOrder.deliveryStop?.state,
+                                                pickupLatitude: currentOrder.pickupStop?.latitude,
+                                                pickupLongitude: currentOrder.pickupStop?.longitude,
+                                                deliveryLatitude: currentOrder.deliveryStop?.latitude,
+                                                deliveryLongitude: currentOrder.deliveryStop?.longitude,
                                                 pickupDatetime: currentOrder.pickupStop?.datetime,
                                                 deliveryDatetime: currentOrder.deliveryStop?.datetime,
                                                 hasBOL:
