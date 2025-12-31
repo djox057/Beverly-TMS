@@ -93,6 +93,29 @@ export interface TruckMapViewState {
   longitude: number;
 }
 
+export interface DispatcherFleetMapState {
+  dispatcherId: string;
+  dispatcherName: string;
+  trucks: Array<{
+    id: string;
+    truckNumber: string;
+    driverName: string;
+    driver2Name?: string;
+    currentOrder?: {
+      id: string;
+      loadNumber: string;
+      brokerLoadNumber?: string;
+      pickupAddress?: string;
+      deliveryAddress?: string;
+      pickupDatetime?: string;
+      deliveryDatetime?: string;
+      hasBOL: boolean;
+      hasPOD: boolean;
+      pickupArrived: boolean;
+    };
+  }>;
+}
+
 // Consolidated dialog state hook
 export function useReportsDialogs() {
   // Dialog states
@@ -108,6 +131,7 @@ export function useReportsDialogs() {
   const [redCellDialog, setRedCellDialog] = useState<RedCellDialogState | null>(null);
   const [noteDialogOpen, setNoteDialogOpen] = useState<NoteDialogState | null>(null);
   const [truckMapView, setTruckMapView] = useState<TruckMapViewState | null>(null);
+  const [fleetMapDialog, setFleetMapDialog] = useState<DispatcherFleetMapState | null>(null);
   
   // Simple boolean dialogs
   const [legendDialogOpen, setLegendDialogOpen] = useState(false);
@@ -208,6 +232,8 @@ export function useReportsDialogs() {
     setNoteDialogOpen,
     truckMapView,
     setTruckMapView,
+    fleetMapDialog,
+    setFleetMapDialog,
     
     // Simple dialogs
     legendDialogOpen,
@@ -283,6 +309,7 @@ export function useReportsDialogs() {
     redCellDialog,
     noteDialogOpen,
     truckMapView,
+    fleetMapDialog,
     legendDialogOpen,
     cancelDialogOpen,
     lumperDialogOpen,
