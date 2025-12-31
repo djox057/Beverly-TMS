@@ -2725,81 +2725,74 @@ const Reports = () => {
                                 }}
                               >
                                 <div className="flex items-center gap-2">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          // Build truck data for fleet map
-                                          const fleetTrucks = group.trucks.map((truck: any) => {
-                                            // Get current order (same logic as currentOrder below)
-                                            const allSortedOrders = truck.allOrders
-                                              ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
-                                              .sort((a: any, b: any) => {
-                                                const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
-                                                const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
-                                                return aDate - bDate;
-                                              }) || [];
-                                            
-                                            let currentOrder: any = undefined;
-                                            if (allSortedOrders.length > 0) {
-                                              const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                              const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
-                                              
-                                              if (lastOrderHasBOL) {
-                                                currentOrder = lastOrder;
-                                              } else if (allSortedOrders.length >= 2) {
-                                                const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                                const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-                                                
-                                                if (previousHasPOD) {
-                                                  currentOrder = lastOrder;
-                                                } else {
-                                                  const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                                                    order.order_files?.some((file: any) => file.file_category === "BOL")
-                                                  );
-                                                  currentOrder = lastWithBOL || lastOrder;
-                                                }
-                                              } else {
-                                                currentOrder = lastOrder;
-                                              }
-                                            }
-                                            
-                                            return {
-                                              id: truck.id,
-                                              truckNumber: truck.truckNumber,
-                                              driverName: truck.driverName || "No driver",
-                                              driver2Name: truck.driver2Name,
-                                              currentOrder: currentOrder ? {
-                                                id: currentOrder.id,
-                                                loadNumber: currentOrder.internal_load_number?.toString() || currentOrder.load_number,
-                                                brokerLoadNumber: currentOrder.broker_load_number,
-                                                pickupAddress: currentOrder.pickupStop?.address,
-                                                deliveryAddress: currentOrder.deliveryStop?.address,
-                                                pickupDatetime: currentOrder.pickupStop?.datetime,
-                                                deliveryDatetime: currentOrder.deliveryStop?.datetime,
-                                                hasBOL: currentOrder.order_files?.some((f: any) => f.file_category === "BOL") || false,
-                                                hasPOD: currentOrder.order_files?.some((f: any) => f.file_category === "POD") || false,
-                                                pickupArrived: !!currentOrder.pickupStop?.arrival_time,
-                                              } : undefined,
-                                            };
-                                          });
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Build truck data for fleet map
+                                      const fleetTrucks = group.trucks.map((truck: any) => {
+                                        // Get current order (same logic as currentOrder below)
+                                        const allSortedOrders = truck.allOrders
+                                          ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
+                                          .sort((a: any, b: any) => {
+                                            const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                            const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
+                                            return aDate - bDate;
+                                          }) || [];
+                                        
+                                        let currentOrder: any = undefined;
+                                        if (allSortedOrders.length > 0) {
+                                          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                                          const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
                                           
-                                          dialogs.setFleetMapDialog({
-                                            dispatcherId: group.dispatcherId,
-                                            dispatcherName: group.dispatcher,
-                                            trucks: fleetTrucks,
-                                          });
-                                        }}
-                                        className="p-1 hover:bg-muted rounded transition-colors"
-                                      >
-                                        <MapIcon className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>View all trucks on map</p>
-                                    </TooltipContent>
-                                  </Tooltip>
+                                          if (lastOrderHasBOL) {
+                                            currentOrder = lastOrder;
+                                          } else if (allSortedOrders.length >= 2) {
+                                            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                                            const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
+                                            
+                                            if (previousHasPOD) {
+                                              currentOrder = lastOrder;
+                                            } else {
+                                              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
+                                                order.order_files?.some((file: any) => file.file_category === "BOL")
+                                              );
+                                              currentOrder = lastWithBOL || lastOrder;
+                                            }
+                                          } else {
+                                            currentOrder = lastOrder;
+                                          }
+                                        }
+                                        
+                                        return {
+                                          id: truck.id,
+                                          truckNumber: truck.truckNumber,
+                                          driverName: truck.driverName || "No driver",
+                                          driver2Name: truck.driver2Name,
+                                          currentOrder: currentOrder ? {
+                                            id: currentOrder.id,
+                                            loadNumber: currentOrder.internal_load_number?.toString() || currentOrder.load_number,
+                                            brokerLoadNumber: currentOrder.broker_load_number,
+                                            pickupAddress: currentOrder.pickupStop?.address,
+                                            deliveryAddress: currentOrder.deliveryStop?.address,
+                                            pickupDatetime: currentOrder.pickupStop?.datetime,
+                                            deliveryDatetime: currentOrder.deliveryStop?.datetime,
+                                            hasBOL: currentOrder.order_files?.some((f: any) => f.file_category === "BOL") || false,
+                                            hasPOD: currentOrder.order_files?.some((f: any) => f.file_category === "POD") || false,
+                                            pickupArrived: !!currentOrder.pickupStop?.arrival_time,
+                                          } : undefined,
+                                        };
+                                      });
+                                      
+                                      dialogs.setFleetMapDialog({
+                                        dispatcherId: group.dispatcherId,
+                                        dispatcherName: group.dispatcher,
+                                        trucks: fleetTrucks,
+                                      });
+                                    }}
+                                    className="p-1 hover:bg-muted rounded transition-colors"
+                                  >
+                                    <MapIcon className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                  </button>
                                   <span>
                                     {group.dispatcher} ({group.trucks.length} truck{group.trucks.length !== 1 ? "s" : ""})
                                   </span>

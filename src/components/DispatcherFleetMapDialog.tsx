@@ -121,8 +121,9 @@ export function DispatcherFleetMapDialog({
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTruck, setSelectedTruck] = useState<SelectedTruckInfo | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [noLocationsFound, setNoLocationsFound] = useState(false);
   
-  const { data: locations } = useSamsaraLocations();
+  const { data: locations, isLoading: isLoadingLocations } = useSamsaraLocations();
 
   // Clear route from map
   const clearRoute = useCallback(() => {
@@ -356,10 +357,20 @@ export function DispatcherFleetMapDialog({
 
   useEffect(() => {
     if (!isOpen || !mapContainer.current) return;
+    
+    // Reset states when dialog opens
+    setNoLocationsFound(false);
+    
+    // Wait for locations to be available
+    if (!locations || locations.length === 0) {
+      console.log('Waiting for Samsara locations to load...');
+      return;
+    }
 
     const initializeMap = async () => {
       setIsLoading(true);
       setSelectedTruck(null);
+      setNoLocationsFound(false);
       
       try {
         const token = await getMapboxToken();
@@ -372,15 +383,16 @@ export function DispatcherFleetMapDialog({
         // Find truck locations from Samsara
         const truckLocations = trucks
           .map(truck => {
-            const loc = locations?.find(l => 
+            const loc = locations.find(l => 
               l.truck_id === truck.id || l.truck_number === truck.truckNumber
             );
             return loc ? { truck, location: loc } : null;
           })
-          .filter(Boolean) as Array<{ truck: TruckData; location: typeof locations[0] }>;
+          .filter(Boolean) as Array<{ truck: TruckData; location: (typeof locations)[0] }>;
 
         if (truckLocations.length === 0) {
-          console.warn('No truck locations found');
+          console.warn('No truck locations found in Samsara data for these trucks');
+          setNoLocationsFound(true);
           setIsLoading(false);
           return;
         }
@@ -487,9 +499,20 @@ export function DispatcherFleetMapDialog({
         </DialogHeader>
         
         <div className="flex-1 relative">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+          {(isLoading || isLoadingLocations) && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
               <Loader2 className="h-8 w-8 animate-spin" />
+              {isLoadingLocations && (
+                <p className="text-sm text-muted-foreground mt-2">Loading truck locations...</p>
+              )}
+            </div>
+          )}
+          
+          {noLocationsFound && !isLoading && !isLoadingLocations && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+              <MapPin className="h-12 w-12 text-muted-foreground mb-2" />
+              <p className="text-muted-foreground">No truck locations available</p>
+              <p className="text-sm text-muted-foreground">Samsara tracking data not found for these trucks</p>
             </div>
           )}
           
