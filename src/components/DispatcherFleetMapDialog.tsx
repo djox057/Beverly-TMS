@@ -97,6 +97,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
   // Handle truck marker click - just select, no zoom
   const handleTruckClick = useCallback((truckId: string) => {
+    console.log('[FleetMap] Truck selected:', truckId);
     setSelectedTruckId(truckId);
     setPopupTick((n) => n + 1);
   }, []);
@@ -106,13 +107,19 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     setSelectedTruckId(null);
   }, []);
 
+  const hasCoords = (lat?: number | null, lng?: number | null) =>
+    typeof lat === 'number' &&
+    Number.isFinite(lat) &&
+    typeof lng === 'number' &&
+    Number.isFinite(lng);
+
   // Determine next stop based on order status (hasBOL means heading to delivery)
   const getNextStop = (order: TruckData['currentOrder']) => {
     if (!order) return null;
-    
+
     // If has BOL, driver is heading to delivery
     if (order.hasBOL) {
-      if (order.deliveryLatitude && order.deliveryLongitude) {
+      if (hasCoords(order.deliveryLatitude, order.deliveryLongitude)) {
         return {
           type: 'delivery' as const,
           lat: order.deliveryLatitude,
@@ -125,7 +132,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       }
     } else {
       // No BOL yet, driver is heading to pickup
-      if (order.pickupLatitude && order.pickupLongitude) {
+      if (hasCoords(order.pickupLatitude, order.pickupLongitude)) {
         return {
           type: 'pickup' as const,
           lat: order.pickupLatitude,
@@ -137,6 +144,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         };
       }
     }
+
     return null;
   };
 
@@ -160,14 +168,14 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     const isPickup = nextStop.type === 'pickup';
     const emoji = isPickup ? '📦' : '🎯';
     const label = isPickup ? 'PICKUP' : 'DELIVERY';
-    const bgColor = isPickup ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)';
+    const bgColor = isPickup ? 'hsl(var(--warning))' : 'hsl(var(--destructive))';
 
     markerEl.innerHTML = `
       <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));">
         <div style="font-size: 36px;">${emoji}</div>
         <div style="
           background: ${bgColor};
-          color: white;
+          color: hsl(var(--primary-foreground));
           padding: 2px 8px;
           border-radius: 4px;
           font-size: 10px;
@@ -183,11 +191,19 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       .addTo(map.current);
     locationMarkersRef.current.push(marker);
 
+    // Make the "next stop" visible by fitting bounds to include truck + stop
+    if (selectedMarkerData?.lngLat) {
+      const bounds = new mapboxgl.LngLatBounds();
+      bounds.extend(selectedMarkerData.lngLat);
+      bounds.extend([nextStop.lng, nextStop.lat]);
+      map.current.fitBounds(bounds, { padding: 90, duration: 800, maxZoom: 9 });
+    }
+
     return () => {
       locationMarkersRef.current.forEach((m) => m.remove());
       locationMarkersRef.current = [];
     };
-  }, [selectedTruck]);
+  }, [selectedTruck, selectedMarkerData]);
 
   // Initialize map ONCE
   useEffect(() => {
@@ -276,6 +292,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             const el = document.createElement('div');
             el.className = 'truck-marker-fleet';
             el.style.cursor = 'pointer';
+            el.style.pointerEvents = 'auto';
+            el.style.touchAction = 'manipulation';
 
             el.innerHTML = `
               <div style="
@@ -296,20 +314,24 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
                 🚚 ${truck.truckNumber}
               </div>
             `;
-            
+
             const lngLat: [number, number] = [location.longitude, location.latitude];
-            const marker = new mapboxgl.Marker(el)
-              .setLngLat(lngLat)
-              .addTo(newMap);
+            const marker = new mapboxgl.Marker(el).setLngLat(lngLat).addTo(newMap);
 
             // Store marker reference with its position
             markersRef.current.set(truck.id, { marker, lngLat });
 
-            el.addEventListener('click', (e) => {
+            const onSelect = (e: Event) => {
+              e.preventDefault();
               e.stopPropagation();
               handleTruckClick(truck.id);
-            });
-            
+            };
+
+            // Make marker selection very reliable across browsers/devices
+            el.addEventListener('click', onSelect);
+            el.addEventListener('pointerup', onSelect);
+            el.addEventListener('touchend', onSelect as unknown as EventListener, { passive: false });
+
             bounds.extend(lngLat);
           });
 
