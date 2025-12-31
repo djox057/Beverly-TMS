@@ -112,9 +112,23 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     locationMarkersRef.current.forEach((m) => m.remove());
     locationMarkersRef.current = [];
 
-    if (!map.current || !selectedTruck?.currentOrder) return;
+    if (!map.current || !selectedTruck?.currentOrder) {
+      console.log('[FleetMap] No map or no currentOrder for selected truck', {
+        hasMap: !!map.current,
+        selectedTruckId: selectedTruck?.id,
+        hasCurrentOrder: !!selectedTruck?.currentOrder,
+      });
+      return;
+    }
 
     const order = selectedTruck.currentOrder;
+    console.log('[FleetMap] Adding pickup/delivery markers for order', {
+      loadNumber: order.loadNumber,
+      pickupLat: order.pickupLatitude,
+      pickupLng: order.pickupLongitude,
+      deliveryLat: order.deliveryLatitude,
+      deliveryLng: order.deliveryLongitude,
+    });
 
     // Create pickup marker - orange package icon
     if (order.pickupLatitude && order.pickupLongitude) {
@@ -128,6 +142,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         .setLngLat([order.pickupLongitude, order.pickupLatitude])
         .addTo(map.current);
       locationMarkersRef.current.push(pickupMarker);
+      console.log('[FleetMap] Added pickup marker at', order.pickupLatitude, order.pickupLongitude);
     }
 
     // Create delivery marker - red target/bullseye icon
@@ -142,6 +157,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         .setLngLat([order.deliveryLongitude, order.deliveryLatitude])
         .addTo(map.current);
       locationMarkersRef.current.push(deliveryMarker);
+      console.log('[FleetMap] Added delivery marker at', order.deliveryLatitude, order.deliveryLongitude);
     }
 
     return () => {
@@ -288,7 +304,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
         // Update popup position when map moves
         newMap.on('move', () => {
-          forceUpdate((n) => n + 1);
+          setPopupTick((n) => n + 1);
         });
 
         // Cleanup function override
@@ -341,6 +357,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
   // Calculate popup position based on marker's screen position
   const popupStyle = useMemo(() => {
+    // popupTick triggers recalculation on map move
+    void popupTick;
     if (!selectedMarkerData || !map.current || !mapContainer.current) return { display: 'none' };
     
     const point = map.current.project(selectedMarkerData.lngLat);
@@ -360,7 +378,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       left: `${left}px`,
       top: `${top}px`,
     };
-  }, [selectedMarkerData, selectedTruckId]);
+  }, [selectedMarkerData, selectedTruckId, popupTick]);
 
   // Calculate ETA based on miles away (rough estimate: 50 mph average)
   const calculateETA = (milesAway?: number | null) => {
