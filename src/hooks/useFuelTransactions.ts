@@ -44,7 +44,6 @@ export interface FuelFilters {
   truckNumber: string;
   driverName: string;
   itemType: string;
-  paymentType: "ALL" | "EFS" | "CARD";
 }
 
 // Get default date range: current week + last 2 weeks
@@ -58,8 +57,8 @@ export const getDefaultDateRange = () => {
   };
 };
 
-// Helper function to fetch all fuel_transactions records in batches (for CARD)
-const fetchAllCardInBatches = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
+// Helper function to fetch all records in batches
+const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
   const BATCH_SIZE = 1000;
   let allData: FuelTransaction[] = [];
   let from = 0;
@@ -101,90 +100,6 @@ const fetchAllCardInBatches = async (filters: FuelFilters): Promise<FuelTransact
   }
 
   return allData;
-};
-
-// Helper function to fetch EFS other requests (for EFS filter)
-const fetchEfsOtherRequests = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
-  const BATCH_SIZE = 1000;
-  let allData: FuelTransaction[] = [];
-  let from = 0;
-  let hasMore = true;
-
-  while (hasMore) {
-    let query = supabase
-      .from("efs_other_requests")
-      .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity")
-      .order("requested_at", { ascending: false })
-      .range(from, from + BATCH_SIZE - 1);
-
-    if (filters.startDate) {
-      query = query.gte("requested_at", format(filters.startDate, "yyyy-MM-dd"));
-    }
-    if (filters.endDate) {
-      // Add 1 day to include records on the end date
-      const endDatePlusOne = new Date(filters.endDate);
-      endDatePlusOne.setDate(endDatePlusOne.getDate() + 1);
-      query = query.lt("requested_at", format(endDatePlusOne, "yyyy-MM-dd"));
-    }
-    if (filters.truckNumber) {
-      query = query.eq("truck_number", filters.truckNumber);
-    }
-    if (filters.driverName) {
-      query = query.ilike("driver_name", `%${filters.driverName}%`);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Transform EFS requests to match FuelTransaction interface
-    const transformed: FuelTransaction[] = (data || []).map((req: any) => ({
-      id: req.id,
-      truck_number: req.truck_number || "",
-      driver_name: req.driver_name,
-      transaction_number: `EFS-${req.id.slice(0, 8)}`,
-      transaction_date: req.requested_at ? format(new Date(req.requested_at), "yyyy-MM-dd") : "",
-      location_name: null,
-      city: req.city || null,
-      state: req.state || null,
-      fees: 0,
-      item: req.purpose || "EFS Request",
-      unit_price: 0,
-      quantity: req.quantity || 0,
-      amount: req.amount || 0,
-      uploaded_at: req.requested_at,
-      uploaded_by: null,
-      paid: false,
-    }));
-
-    allData = [...allData, ...transformed];
-    
-    if (data.length < BATCH_SIZE) {
-      hasMore = false;
-    } else {
-      from += BATCH_SIZE;
-    }
-  }
-
-  return allData;
-};
-
-// Helper function to fetch all records based on payment type
-const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[]> => {
-  if (filters.paymentType === "EFS") {
-    return fetchEfsOtherRequests(filters);
-  } else if (filters.paymentType === "CARD") {
-    return fetchAllCardInBatches(filters);
-  } else {
-    // ALL - combine both
-    const [cardData, efsData] = await Promise.all([
-      fetchAllCardInBatches(filters),
-      fetchEfsOtherRequests(filters),
-    ]);
-    // Combine and sort by date descending
-    return [...cardData, ...efsData].sort((a, b) => 
-      new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
-    );
-  }
 };
 
 export const useFuelTransactions = (filters: FuelFilters) => {
