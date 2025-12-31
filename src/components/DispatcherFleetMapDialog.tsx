@@ -43,6 +43,10 @@ interface TruckData {
     pickupState?: string;
     deliveryCity?: string;
     deliveryState?: string;
+    pickupLatitude?: number | null;
+    pickupLongitude?: number | null;
+    deliveryLatitude?: number | null;
+    deliveryLongitude?: number | null;
     pickupDatetime?: string;
     deliveryDatetime?: string;
     hasBOL: boolean;
@@ -59,6 +63,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
+  const locationMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const tokenRef = useRef<string>('');
   const initStartedRef = useRef(false);
   
@@ -100,6 +105,70 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const closePopup = useCallback(() => {
     setSelectedTruckId(null);
   }, []);
+
+  // Show pickup/delivery markers for selected truck
+  useEffect(() => {
+    // Clear previous location markers
+    locationMarkersRef.current.forEach((m) => m.remove());
+    locationMarkersRef.current = [];
+
+    if (!map.current || !selectedTruck?.currentOrder) return;
+
+    const order = selectedTruck.currentOrder;
+
+    // Create pickup marker
+    if (order.pickupLatitude && order.pickupLongitude) {
+      const pickupEl = document.createElement('div');
+      pickupEl.innerHTML = `
+        <div style="
+          background: hsl(142 76% 36%);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+          border: 2px solid white;
+          white-space: nowrap;
+        ">
+          📦 Pickup
+        </div>
+      `;
+      const pickupMarker = new mapboxgl.Marker(pickupEl)
+        .setLngLat([order.pickupLongitude, order.pickupLatitude])
+        .addTo(map.current);
+      locationMarkersRef.current.push(pickupMarker);
+    }
+
+    // Create delivery marker
+    if (order.deliveryLatitude && order.deliveryLongitude) {
+      const deliveryEl = document.createElement('div');
+      deliveryEl.innerHTML = `
+        <div style="
+          background: hsl(0 84% 60%);
+          color: white;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 600;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+          border: 2px solid white;
+          white-space: nowrap;
+        ">
+          🏁 Delivery
+        </div>
+      `;
+      const deliveryMarker = new mapboxgl.Marker(deliveryEl)
+        .setLngLat([order.deliveryLongitude, order.deliveryLatitude])
+        .addTo(map.current);
+      locationMarkersRef.current.push(deliveryMarker);
+    }
+
+    return () => {
+      locationMarkersRef.current.forEach((m) => m.remove());
+      locationMarkersRef.current = [];
+    };
+  }, [selectedTruck]);
 
   // Initialize map ONCE
   useEffect(() => {
@@ -389,6 +458,22 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               </span>
             </div>
 
+            {/* Load info - moved after Driver */}
+            {selectedTruck.currentOrder && (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[hsl(199_89%_48%)]">Load:</span>
+                  <span className="font-medium text-foreground">{selectedTruck.currentOrder.loadNumber}</span>
+                </div>
+                {selectedTruck.currentOrder.brokerLoadNumber && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[hsl(199_89%_48%)]">Broker #:</span>
+                    <span className="font-medium text-foreground">{selectedTruck.currentOrder.brokerLoadNumber}</span>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Pickup Location */}
             {selectedTruck.currentOrder && (
               <div className="flex items-start justify-between text-sm">
@@ -483,22 +568,6 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
                 </div>
               </div>
             </div>
-
-            {/* Load info */}
-            {selectedTruck.currentOrder && (
-              <div className="pt-2 border-t border-border text-xs space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Load:</span>
-                  <span className="font-medium">{selectedTruck.currentOrder.loadNumber}</span>
-                </div>
-                {selectedTruck.currentOrder.brokerLoadNumber && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Broker #:</span>
-                    <span className="font-medium">{selectedTruck.currentOrder.brokerLoadNumber}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
