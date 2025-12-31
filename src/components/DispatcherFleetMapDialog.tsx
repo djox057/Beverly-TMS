@@ -116,22 +116,12 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
 
     const order = selectedTruck.currentOrder;
 
-    // Create pickup marker
+    // Create pickup marker - orange package icon
     if (order.pickupLatitude && order.pickupLongitude) {
       const pickupEl = document.createElement('div');
       pickupEl.innerHTML = `
-        <div style="
-          background: hsl(142 76% 36%);
-          color: white;
-          padding: 4px 8px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 600;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.28);
-          border: 2px solid white;
-          white-space: nowrap;
-        ">
-          📦 Pickup
+        <div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+          📦
         </div>
       `;
       const pickupMarker = new mapboxgl.Marker(pickupEl)
@@ -140,22 +130,12 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
       locationMarkersRef.current.push(pickupMarker);
     }
 
-    // Create delivery marker
+    // Create delivery marker - red target/bullseye icon
     if (order.deliveryLatitude && order.deliveryLongitude) {
       const deliveryEl = document.createElement('div');
       deliveryEl.innerHTML = `
-        <div style="
-          background: hsl(0 84% 60%);
-          color: white;
-          padding: 4px 8px;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 600;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.28);
-          border: 2px solid white;
-          white-space: nowrap;
-        ">
-          🏁 Delivery
+        <div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+          🎯
         </div>
       `;
       const deliveryMarker = new mapboxgl.Marker(deliveryEl)
