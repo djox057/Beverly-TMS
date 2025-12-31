@@ -152,8 +152,8 @@ export function EfsRequestDialog({
   const handleOtherRequest = async () => {
     if (!otherPurpose || !otherAmount) return;
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
-    // Fuel requires city, state, quantity (receipt is now OPTIONAL)
-    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity)) return;
+    // Fuel requires city, state (quantity and receipt are now OPTIONAL)
+    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim())) return;
     
     setIsRequestingOther(true);
     try {
@@ -193,7 +193,7 @@ export function EfsRequestDialog({
           ...(otherPurpose === "fuel" && {
             city: fuelCity.trim(),
             state: fuelState.trim().toUpperCase(),
-            quantity: parseFloat(fuelQuantity),
+            quantity: fuelQuantity ? parseFloat(fuelQuantity) : null,
             receiptPath,
           }),
         },
@@ -415,7 +415,9 @@ export function EfsRequestDialog({
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="fuel-quantity" className="text-sm font-medium">Quantity (gallons)</Label>
+                  <Label htmlFor="fuel-quantity" className="text-sm font-medium">
+                    Quantity (gallons) <span className="text-muted-foreground">(optional)</span>
+                  </Label>
                   <Input
                     id="fuel-quantity"
                     type="number"
@@ -467,7 +469,7 @@ export function EfsRequestDialog({
                     </Button>
                   )}
                   <p className="text-xs text-amber-600">
-                    If no receipt is uploaded, a reminder will appear to upload it later.
+                    If no receipt or gallons are entered, reminders will appear to add them later.
                   </p>
                 </div>
               </>

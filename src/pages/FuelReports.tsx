@@ -95,8 +95,9 @@ const FuelReports = () => {
     isDeletingIfta,
   } = useIftaRecords({ ...filters, itemType: "ULSD" });
 
-  // EFS missing receipts count for badge
-  const { requests: efsMissingReceipts } = useEfsMissingReceipts();
+  // EFS missing data count for badge
+  const { requests: efsMissingReceipts, gallonsRequests: efsMissingGallons } = useEfsMissingReceipts();
+  const efsMissingCount = efsMissingReceipts.length + efsMissingGallons.length;
 
   // IFTA search filter
   const [iftaTruckSearch, setIftaTruckSearch] = useState("");
@@ -429,10 +430,10 @@ const FuelReports = () => {
           </TabsTrigger>
           <TabsTrigger value="efs-receipts" className="flex items-center gap-2">
             <HelpCircle className="h-4 w-4" />
-            EFS Receipts
-            {efsMissingReceipts.length > 0 && (
+            EFS Data
+            {efsMissingCount > 0 && (
               <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-amber-500 text-white rounded-full">
-                {efsMissingReceipts.length}
+                {efsMissingCount}
               </span>
             )}
           </TabsTrigger>
