@@ -84,7 +84,7 @@ const Fleets = () => {
   const [driverCoverAssignments, setDriverCoverAssignments] = useState<Record<string, string>>({});
   const [isAfterhoursScheduleOpen, setIsAfterhoursScheduleOpen] = useState(false);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 12;
 
   // Filter drivers by search term
   const filterDrivers = (drivers: any[]) => {
