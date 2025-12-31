@@ -12,11 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { Fuel, Upload, Loader2, Droplets, DollarSign, FileText, Trash2, ChevronLeft, ChevronRight, MapPin, HelpCircle } from "lucide-react";
 import { useFuelTransactions, getDefaultDateRange, FuelTransactionInsert, FuelFilters } from "@/hooks/useFuelTransactions";
 import { useIftaRecords, IftaRecordInsert } from "@/hooks/useIftaRecords";
 import { useFuelDriverMappings } from "@/hooks/useFuelDriverMappings";
 import { FuelDriverMappingDialog } from "@/components/FuelDriverMappingDialog";
+import { EfsMissingReceiptsPanel } from "@/components/EfsMissingReceiptsPanel";
+import { useEfsMissingReceipts } from "@/hooks/useEfsMissingReceipts";
 import { format, parse } from "date-fns";
 import { formatDateNoTimezone } from "@/lib/utils";
 import Papa from "papaparse";
@@ -92,6 +94,9 @@ const FuelReports = () => {
     deleteAllIfta,
     isDeletingIfta,
   } = useIftaRecords({ ...filters, itemType: "ULSD" });
+
+  // EFS missing receipts count for badge
+  const { requests: efsMissingReceipts } = useEfsMissingReceipts();
 
   // IFTA search filter
   const [iftaTruckSearch, setIftaTruckSearch] = useState("");
@@ -421,6 +426,15 @@ const FuelReports = () => {
           <TabsTrigger value="ifta" className="flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             IFTA
+          </TabsTrigger>
+          <TabsTrigger value="efs-receipts" className="flex items-center gap-2">
+            <HelpCircle className="h-4 w-4" />
+            EFS Receipts
+            {efsMissingReceipts.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs font-medium bg-amber-500 text-white rounded-full">
+                {efsMissingReceipts.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -855,6 +869,11 @@ const FuelReports = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* EFS Receipts Tab */}
+        <TabsContent value="efs-receipts" className="space-y-6 mt-6">
+          <EfsMissingReceiptsPanel />
         </TabsContent>
       </Tabs>
 
