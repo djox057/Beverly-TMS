@@ -65,6 +65,7 @@ const FuelReports = () => {
     truckNumber: "",
     driverName: "",
     itemType: "ALL",
+    paymentType: "ALL",
   });
 
   const {
@@ -483,7 +484,7 @@ const FuelReports = () => {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-6 gap-4">
             <div className="space-y-2">
               <Label>Date Range</Label>
               <DateRangePicker
@@ -548,6 +549,21 @@ const FuelReports = () => {
             </div>
 
             <div className="space-y-2">
+              <Label>Payment</Label>
+              <Combobox
+                options={[
+                  { value: "ALL", label: "All" },
+                  { value: "EFS", label: "EFS (App)" },
+                  { value: "CARD", label: "Card" },
+                ]}
+                value={filters.paymentType}
+                onValueChange={(value) => handleFilterChange({ ...filters, paymentType: value as "ALL" | "EFS" | "CARD" })}
+                placeholder="All"
+                searchPlaceholder="Search..."
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>&nbsp;</Label>
               <Button
                 variant="outline"
@@ -558,6 +574,7 @@ const FuelReports = () => {
                     truckNumber: "",
                     driverName: "",
                     itemType: "ALL",
+                    paymentType: "ALL",
                   });
                 }}
               >
