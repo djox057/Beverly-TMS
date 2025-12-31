@@ -90,7 +90,7 @@ const fetchAllInBatches = async (filters: FuelFilters): Promise<FuelTransaction[
     
     // Payment type filter
     if (filters.paymentType === "EFS") {
-      query = query.eq("location_name", "EFS Request");
+      query = query.eq("location_name", "EFS Request").eq("item", "Fuel");
     } else if (filters.paymentType === "CARD") {
       query = query.or("location_name.neq.EFS Request,location_name.is.null");
     }
