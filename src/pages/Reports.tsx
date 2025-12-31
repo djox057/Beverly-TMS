@@ -2788,7 +2788,7 @@ const Reports = () => {
                             {expandedDispatcherMap === group.dispatcherId && (
                               <tr>
                                 <th colSpan={15} className="p-0 border-b-[3px] border-border bg-card">
-                                  <div style={{ height: "400px" }}>
+                                  <div style={{ height: "600px" }}>
                                     <DispatcherFleetMapView
                                       trucks={group.trucks.map((truck: any) => {
                                         // Build truck data with current order info
@@ -2847,6 +2847,10 @@ const Reports = () => {
                                                 brokerLoadNumber: currentOrder.broker_load_number,
                                                 pickupAddress: currentOrder.pickupStop?.address,
                                                 deliveryAddress: currentOrder.deliveryStop?.address,
+                                                pickupCity: currentOrder.pickupStop?.city,
+                                                pickupState: currentOrder.pickupStop?.state,
+                                                deliveryCity: currentOrder.deliveryStop?.city,
+                                                deliveryState: currentOrder.deliveryStop?.state,
                                                 pickupDatetime: currentOrder.pickupStop?.datetime,
                                                 deliveryDatetime: currentOrder.deliveryStop?.datetime,
                                                 hasBOL:
