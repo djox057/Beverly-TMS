@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
 import { Loader2, X, MapPin, Clock, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,8 +115,9 @@ export function DispatcherFleetMapDialog({
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const popupRef = useRef<mapboxgl.Popup | null>(null);
   const routeLayerRef = useRef<boolean>(false);
+  const mapInitialized = useRef<boolean>(false);
+  const tokenRef = useRef<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTruck, setSelectedTruck] = useState<SelectedTruckInfo | null>(null);
@@ -130,27 +131,28 @@ export function DispatcherFleetMapDialog({
     if (!map.current) return;
     
     if (routeLayerRef.current) {
-      if (map.current.getLayer('route')) {
-        map.current.removeLayer('route');
-      }
-      if (map.current.getSource('route')) {
-        map.current.removeSource('route');
-      }
-      // Remove destination markers
-      if (map.current.getLayer('pickup-marker')) {
-        map.current.removeLayer('pickup-marker');
-      }
-      if (map.current.getSource('pickup-marker')) {
-        map.current.removeSource('pickup-marker');
-      }
-      if (map.current.getLayer('delivery-marker')) {
-        map.current.removeLayer('delivery-marker');
-      }
-      if (map.current.getSource('delivery-marker')) {
-        map.current.removeSource('delivery-marker');
+      try {
+        if (map.current.getLayer('route')) {
+          map.current.removeLayer('route');
+        }
+        if (map.current.getSource('route')) {
+          map.current.removeSource('route');
+        }
+      } catch (e) {
+        // Ignore errors when removing layers
       }
       routeLayerRef.current = false;
     }
+    
+    // Remove destination markers
+    markersRef.current = markersRef.current.filter(marker => {
+      const el = marker.getElement();
+      if (el.innerHTML.includes('📍') || el.innerHTML.includes('🎯')) {
+        marker.remove();
+        return false;
+      }
+      return true;
+    });
   }, []);
 
   // Draw route from truck to destination
@@ -173,46 +175,55 @@ export function DispatcherFleetMapDialog({
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0].geometry;
         
-        // Add route layer
-        if (map.current.getSource('route')) {
-          (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
-            type: 'Feature',
-            properties: {},
-            geometry: route
-          });
-        } else {
-          map.current.addSource('route', {
-            type: 'geojson',
-            data: {
+        const addRoute = () => {
+          if (!map.current) return;
+          
+          if (map.current.getSource('route')) {
+            (map.current.getSource('route') as mapboxgl.GeoJSONSource).setData({
               type: 'Feature',
               properties: {},
               geometry: route
-            }
-          });
+            });
+          } else {
+            map.current.addSource('route', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: route
+              }
+            });
 
-          map.current.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': isPickup ? '#22c55e' : '#3b82f6',
-              'line-width': 4,
-              'line-opacity': 0.75
-            }
-          });
+            map.current.addLayer({
+              id: 'route',
+              type: 'line',
+              source: 'route',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': isPickup ? '#22c55e' : '#3b82f6',
+                'line-width': 4,
+                'line-opacity': 0.75
+              }
+            });
+          }
+          
+          routeLayerRef.current = true;
+          
+          // Fit map to show route
+          const bounds = new mapboxgl.LngLatBounds();
+          bounds.extend(startCoords);
+          bounds.extend(endCoords);
+          map.current?.fitBounds(bounds, { padding: 100 });
+        };
+        
+        if (map.current.isStyleLoaded()) {
+          addRoute();
+        } else {
+          map.current.once('load', addRoute);
         }
-        
-        routeLayerRef.current = true;
-        
-        // Fit map to show route
-        const bounds = new mapboxgl.LngLatBounds();
-        bounds.extend(startCoords);
-        bounds.extend(endCoords);
-        map.current.fitBounds(bounds, { padding: 100 });
       }
     } catch (error) {
       console.error('Error drawing route:', error);
@@ -238,7 +249,7 @@ export function DispatcherFleetMapDialog({
     });
     
     // Draw route if there's a current order
-    if (truck.currentOrder) {
+    if (truck.currentOrder && map.current) {
       const { hasBOL, hasPOD, pickupArrived, pickupAddress, deliveryAddress } = truck.currentOrder;
       
       // Determine destination
@@ -247,15 +258,14 @@ export function DispatcherFleetMapDialog({
       
       if (shouldRouteToPickup && pickupAddress) {
         const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
-        if (pickupCoords) {
-          // Add pickup marker
+        if (pickupCoords && map.current) {
           const pickupEl = document.createElement('div');
           pickupEl.innerHTML = '📍';
           pickupEl.style.fontSize = '28px';
           
           const pickupMarker = new mapboxgl.Marker(pickupEl)
             .setLngLat([pickupCoords.lon, pickupCoords.lat])
-            .addTo(map.current!);
+            .addTo(map.current);
           markersRef.current.push(pickupMarker);
           
           await drawRoute(
@@ -267,15 +277,14 @@ export function DispatcherFleetMapDialog({
         }
       } else if (shouldRouteToDelivery && deliveryAddress) {
         const deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
-        if (deliveryCoords) {
-          // Add delivery marker
+        if (deliveryCoords && map.current) {
           const deliveryEl = document.createElement('div');
           deliveryEl.innerHTML = '🎯';
           deliveryEl.style.fontSize = '28px';
           
           const deliveryMarker = new mapboxgl.Marker(deliveryEl)
             .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
-            .addTo(map.current!);
+            .addTo(map.current);
           markersRef.current.push(deliveryMarker);
           
           await drawRoute(
@@ -287,33 +296,36 @@ export function DispatcherFleetMapDialog({
         }
       }
       
-      // If we have both addresses, show both markers
-      if (pickupAddress && deliveryAddress) {
-        const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
-        const deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
-        
-        if (pickupCoords && !shouldRouteToPickup) {
-          const pickupEl = document.createElement('div');
-          pickupEl.innerHTML = '📍';
-          pickupEl.style.fontSize = '24px';
-          pickupEl.style.opacity = '0.6';
-          
-          const marker = new mapboxgl.Marker(pickupEl)
-            .setLngLat([pickupCoords.lon, pickupCoords.lat])
-            .addTo(map.current!);
-          markersRef.current.push(marker);
+      // Show both markers if we have both addresses
+      if (pickupAddress && deliveryAddress && map.current) {
+        if (!shouldRouteToPickup) {
+          const pickupCoords = await geocodeWithMapbox(pickupAddress, token);
+          if (pickupCoords && map.current) {
+            const pickupEl = document.createElement('div');
+            pickupEl.innerHTML = '📍';
+            pickupEl.style.fontSize = '24px';
+            pickupEl.style.opacity = '0.6';
+            
+            const marker = new mapboxgl.Marker(pickupEl)
+              .setLngLat([pickupCoords.lon, pickupCoords.lat])
+              .addTo(map.current);
+            markersRef.current.push(marker);
+          }
         }
         
-        if (deliveryCoords && !shouldRouteToDelivery) {
-          const deliveryEl = document.createElement('div');
-          deliveryEl.innerHTML = '🎯';
-          deliveryEl.style.fontSize = '24px';
-          deliveryEl.style.opacity = '0.6';
-          
-          const marker = new mapboxgl.Marker(deliveryEl)
-            .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
-            .addTo(map.current!);
-          markersRef.current.push(marker);
+        if (!shouldRouteToDelivery) {
+          const deliveryCoords = await geocodeWithMapbox(deliveryAddress, token);
+          if (deliveryCoords && map.current) {
+            const deliveryEl = document.createElement('div');
+            deliveryEl.innerHTML = '🎯';
+            deliveryEl.style.fontSize = '24px';
+            deliveryEl.style.opacity = '0.6';
+            
+            const marker = new mapboxgl.Marker(deliveryEl)
+              .setLngLat([deliveryCoords.lon, deliveryCoords.lat])
+              .addTo(map.current);
+            markersRef.current.push(marker);
+          }
         }
       }
     }
@@ -325,14 +337,6 @@ export function DispatcherFleetMapDialog({
   const closePopup = useCallback(() => {
     setSelectedTruck(null);
     clearRoute();
-    
-    // Remove extra markers (pickup/delivery)
-    markersRef.current.forEach(marker => {
-      const el = marker.getElement();
-      if (el.innerHTML === '📍' || el.innerHTML === '🎯') {
-        marker.remove();
-      }
-    });
     
     // Refit to all trucks
     if (map.current && locations) {
@@ -355,15 +359,25 @@ export function DispatcherFleetMapDialog({
     }
   }, [clearRoute, locations, trucks]);
 
+  // Initialize map when dialog opens and locations are available
   useEffect(() => {
-    if (!isOpen || !mapContainer.current) return;
+    if (!isOpen) {
+      // Reset state when dialog closes
+      mapInitialized.current = false;
+      return;
+    }
     
-    // Reset states when dialog opens
-    setNoLocationsFound(false);
+    if (!mapContainer.current) return;
     
-    // Wait for locations to be available
+    // If already initialized, don't reinitialize
+    if (mapInitialized.current && map.current) return;
+    
+    // Need locations to initialize
+    if (isLoadingLocations) return;
+    
     if (!locations || locations.length === 0) {
-      console.log('Waiting for Samsara locations to load...');
+      setIsLoading(false);
+      setNoLocationsFound(true);
       return;
     }
 
@@ -379,6 +393,8 @@ export function DispatcherFleetMapDialog({
           setIsLoading(false);
           return;
         }
+        
+        tokenRef.current = token;
 
         // Find truck locations from Samsara
         const truckLocations = trucks
@@ -405,7 +421,7 @@ export function DispatcherFleetMapDialog({
         const avgLon = truckLocations.reduce((sum, t) => sum + t.location.longitude, 0) / truckLocations.length;
         
         map.current = new mapboxgl.Map({
-          container: mapContainer.current,
+          container: mapContainer.current!,
           style: 'mapbox://styles/mapbox/streets-v12',
           center: [avgLon, avgLat],
           zoom: 5,
@@ -413,52 +429,58 @@ export function DispatcherFleetMapDialog({
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        const bounds = new mapboxgl.LngLatBounds();
+        map.current.on('load', () => {
+          if (!map.current) return;
+          
+          const bounds = new mapboxgl.LngLatBounds();
 
-        // Add markers for each truck
-        truckLocations.forEach(({ truck, location }) => {
-          const el = document.createElement('div');
-          el.className = 'truck-marker-fleet';
-          el.innerHTML = `
-            <div style="
-              background: ${truck.currentOrder ? '#3b82f6' : '#6b7280'};
-              color: white;
-              padding: 4px 8px;
-              border-radius: 4px;
-              font-size: 11px;
-              font-weight: 600;
-              cursor: pointer;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              white-space: nowrap;
-            ">
-              🚚 ${truck.truckNumber}
-            </div>
-          `;
-          el.style.cursor = 'pointer';
-          
-          const marker = new mapboxgl.Marker(el)
-            .setLngLat([location.longitude, location.latitude])
-            .addTo(map.current!);
-          
-          el.addEventListener('click', () => {
-            handleTruckClick(truck, {
-              latitude: location.latitude,
-              longitude: location.longitude,
-              timestamp: location.timestamp,
-            }, token);
+          // Add markers for each truck
+          truckLocations.forEach(({ truck, location }) => {
+            const el = document.createElement('div');
+            el.className = 'truck-marker-fleet';
+            el.innerHTML = `
+              <div style="
+                background: ${truck.currentOrder ? '#3b82f6' : '#6b7280'};
+                color: white;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                white-space: nowrap;
+              ">
+                🚚 ${truck.truckNumber}
+              </div>
+            `;
+            el.style.cursor = 'pointer';
+            
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([location.longitude, location.latitude])
+              .addTo(map.current!);
+            
+            el.addEventListener('click', () => {
+              handleTruckClick(truck, {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                timestamp: location.timestamp,
+              }, token);
+            });
+            
+            markersRef.current.push(marker);
+            bounds.extend([location.longitude, location.latitude]);
           });
-          
-          markersRef.current.push(marker);
-          bounds.extend([location.longitude, location.latitude]);
-        });
 
-        // Fit map to show all trucks
-        map.current.fitBounds(bounds, { padding: 80 });
+          // Fit map to show all trucks
+          map.current.fitBounds(bounds, { padding: 80 });
+          
+          mapInitialized.current = true;
+          setIsLoading(false);
+        });
         
-        setIsLoading(false);
       } catch (error) {
         console.error('Error initializing fleet map:', error);
         setIsLoading(false);
@@ -473,8 +495,9 @@ export function DispatcherFleetMapDialog({
       map.current?.remove();
       map.current = null;
       routeLayerRef.current = false;
+      mapInitialized.current = false;
     };
-  }, [isOpen, locations, trucks, handleTruckClick]);
+  }, [isOpen, locations, isLoadingLocations, trucks, handleTruckClick]);
 
   // Format timestamp for display
   const formatTimestamp = (timestamp: string) => {
@@ -496,15 +519,18 @@ export function DispatcherFleetMapDialog({
               ({trucks.length} truck{trucks.length !== 1 ? 's' : ''})
             </span>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Map showing all trucks for {dispatcherName}
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-0">
           {(isLoading || isLoadingLocations) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 z-10">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
               <Loader2 className="h-8 w-8 animate-spin" />
-              {isLoadingLocations && (
-                <p className="text-sm text-muted-foreground mt-2">Loading truck locations...</p>
-              )}
+              <p className="text-sm text-muted-foreground mt-2">
+                {isLoadingLocations ? 'Loading truck locations...' : 'Initializing map...'}
+              </p>
             </div>
           )}
           
