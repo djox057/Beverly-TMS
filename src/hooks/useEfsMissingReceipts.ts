@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export interface EfsRequestWithMissingReceipt {
+export interface EfsRequestWithMissingData {
   id: string;
   driver_name: string;
   truck_number: string;
@@ -11,29 +11,47 @@ export interface EfsRequestWithMissingReceipt {
   city?: string | null;
   state?: string | null;
   quantity?: number | null;
+  receipt_path?: string | null;
 }
 
 export function useEfsMissingReceipts() {
   const queryClient = useQueryClient();
 
-  const { data: requests = [], isLoading, refetch } = useQuery({
+  // Fetch requests missing receipts
+  const { data: receiptsRequests = [], isLoading: isLoadingReceipts, refetch: refetchReceipts } = useQuery({
     queryKey: ["efs-missing-receipts"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("efs_other_requests")
-        .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity")
+        .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity, receipt_path")
         .is("receipt_path", null)
         .order("requested_at", { ascending: false });
 
       if (error) throw error;
-      return data as EfsRequestWithMissingReceipt[];
+      return data as EfsRequestWithMissingData[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  // Fetch requests missing gallons (for fuel purpose only)
+  const { data: gallonsRequests = [], isLoading: isLoadingGallons, refetch: refetchGallons } = useQuery({
+    queryKey: ["efs-missing-gallons"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("efs_other_requests")
+        .select("id, driver_name, truck_number, amount, purpose, requested_at, city, state, quantity, receipt_path")
+        .eq("purpose", "Fuel")
+        .is("quantity", null)
+        .order("requested_at", { ascending: false });
+
+      if (error) throw error;
+      return data as EfsRequestWithMissingData[];
     },
     staleTime: 30 * 1000,
   });
 
   const uploadReceiptMutation = useMutation({
     mutationFn: async ({ requestId, file }: { requestId: string; file: File }) => {
-      // Get the driver_id from the request to organize files
       const { data: request, error: fetchError } = await supabase
         .from("efs_other_requests")
         .select("driver_id")
@@ -46,14 +64,12 @@ export function useEfsMissingReceipts() {
       const driverId = request?.driver_id || "unknown";
       const fileName = `${driverId}/${Date.now()}.${fileExt}`;
 
-      // Upload file to storage
       const { error: uploadError } = await supabase.storage
         .from("efs-receipts")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // Update the record with the receipt path
       const { error: updateError } = await supabase
         .from("efs_other_requests")
         .update({ receipt_path: fileName })
@@ -68,11 +84,33 @@ export function useEfsMissingReceipts() {
     },
   });
 
+  const updateGallonsMutation = useMutation({
+    mutationFn: async ({ requestId, quantity }: { requestId: string; quantity: number }) => {
+      const { error } = await supabase
+        .from("efs_other_requests")
+        .update({ quantity })
+        .eq("id", requestId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["efs-missing-gallons"] });
+      queryClient.invalidateQueries({ queryKey: ["fuel-transactions"] });
+    },
+  });
+
   return {
-    requests,
-    isLoading,
-    refetch,
+    // Receipts
+    requests: receiptsRequests,
+    isLoading: isLoadingReceipts,
+    refetch: refetchReceipts,
     uploadReceipt: uploadReceiptMutation.mutateAsync,
     isUploading: uploadReceiptMutation.isPending,
+    // Gallons
+    gallonsRequests,
+    isLoadingGallons,
+    refetchGallons,
+    updateGallons: updateGallonsMutation.mutateAsync,
+    isUpdatingGallons: updateGallonsMutation.isPending,
   };
 }
