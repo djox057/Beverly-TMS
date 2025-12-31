@@ -39,6 +39,10 @@ interface TruckData {
     brokerLoadNumber?: string;
     pickupAddress?: string;
     deliveryAddress?: string;
+    pickupCity?: string;
+    pickupState?: string;
+    deliveryCity?: string;
+    deliveryState?: string;
     pickupDatetime?: string;
     deliveryDatetime?: string;
     hasBOL: boolean;
@@ -54,14 +58,14 @@ interface DispatcherFleetMapViewProps {
 export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const markersRef = useRef<Map<string, { marker: mapboxgl.Marker; lngLat: [number, number] }>>(new Map());
   const tokenRef = useRef<string>('');
   const initStartedRef = useRef(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
-  const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null);
+  const [, forceUpdate] = useState(0);
 
   const { data: locations } = useSamsaraLocations();
 
@@ -83,20 +87,18 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     return trucks.find((t) => t.id === selectedTruckId) ?? null;
   }, [trucks, selectedTruckId]);
 
+  // Get the marker position for the selected truck
+  const selectedMarkerData = selectedTruckId ? markersRef.current.get(selectedTruckId) : null;
+
   // Handle truck marker click - just select, no zoom
-  const handleTruckClick = useCallback((
-    truckId: string,
-    screenX: number,
-    screenY: number
-  ) => {
+  const handleTruckClick = useCallback((truckId: string) => {
     setSelectedTruckId(truckId);
-    setPopupPosition({ x: screenX, y: screenY });
+    forceUpdate((n) => n + 1);
   }, []);
 
   // Close popup
   const closePopup = useCallback(() => {
     setSelectedTruckId(null);
-    setPopupPosition(null);
   }, []);
 
   // Initialize map ONCE
@@ -207,24 +209,20 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               </div>
             `;
             
+            const lngLat: [number, number] = [location.longitude, location.latitude];
             const marker = new mapboxgl.Marker(el)
-              .setLngLat([location.longitude, location.latitude])
+              .setLngLat(lngLat)
               .addTo(newMap);
+
+            // Store marker reference with its position
+            markersRef.current.set(truck.id, { marker, lngLat });
 
             el.addEventListener('click', (e) => {
               e.stopPropagation();
-              const rect = mapContainer.current?.getBoundingClientRect();
-              if (rect) {
-                handleTruckClick(
-                  truck.id,
-                  e.clientX - rect.left,
-                  e.clientY - rect.top
-                );
-              }
+              handleTruckClick(truck.id);
             });
             
-            markersRef.current.push(marker);
-            bounds.extend([location.longitude, location.latitude]);
+            bounds.extend(lngLat);
           });
 
           // Fit map to show all trucks
@@ -237,6 +235,11 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         newMap.on('error', (e) => {
           console.error('Mapbox error:', e);
           setIsLoading(false);
+        });
+
+        // Update popup position when map moves
+        newMap.on('move', () => {
+          forceUpdate((n) => n + 1);
         });
 
         // Cleanup function override
@@ -264,8 +267,8 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
-      markersRef.current.forEach(marker => marker.remove());
-      markersRef.current = [];
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
       map.current?.remove();
       map.current = null;
       initStartedRef.current = false;
@@ -287,43 +290,55 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     return () => window.removeEventListener('click', handleClickOutside);
   }, [selectedTruckId, closePopup]);
 
-  // Calculate popup position clamped within container
+  // Calculate popup position based on marker's screen position
   const popupStyle = useMemo(() => {
-    if (!popupPosition || !mapContainer.current) return {};
-    const containerRect = mapContainer.current.getBoundingClientRect();
-    const popupWidth = 320;
-    const popupHeight = 280;
+    if (!selectedMarkerData || !map.current || !mapContainer.current) return { display: 'none' };
     
-    let left = popupPosition.x - popupWidth / 2;
-    let top = popupPosition.y - popupHeight - 20;
+    const point = map.current.project(selectedMarkerData.lngLat);
+    const containerRect = mapContainer.current.getBoundingClientRect();
+    const popupWidth = 340;
+    const popupHeight = 380;
+    
+    let left = point.x - popupWidth / 2;
+    let top = point.y - popupHeight - 30;
     
     // Clamp within container
     if (left < 8) left = 8;
     if (left + popupWidth > containerRect.width - 8) left = containerRect.width - popupWidth - 8;
-    if (top < 8) top = popupPosition.y + 30; // Show below if not enough space above
+    if (top < 8) top = point.y + 40; // Show below if not enough space above
     
     return {
       left: `${left}px`,
       top: `${top}px`,
     };
-  }, [popupPosition]);
+  }, [selectedMarkerData, selectedTruckId]);
 
-  // Format ETA from delivery datetime
-  const formatETA = (deliveryDatetime?: string) => {
-    if (!deliveryDatetime) return null;
-    try {
-      const date = new Date(deliveryDatetime);
-      if (isNaN(date.getTime())) return null;
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } catch {
-      return null;
+  // Calculate ETA based on miles away (rough estimate: 50 mph average)
+  const calculateETA = (milesAway?: number | null) => {
+    if (milesAway == null || milesAway <= 0) return null;
+    const hoursAway = milesAway / 50; // Assume 50 mph average
+    const etaDate = new Date(Date.now() + hoursAway * 60 * 60 * 1000);
+    return etaDate.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  // Format location for display
+  const formatLocation = (city?: string, state?: string, address?: string) => {
+    if (city && state) return `${city}, ${state}`;
+    if (address) {
+      // Extract city, state from address if available
+      const parts = address.split(',').map(p => p.trim());
+      if (parts.length >= 2) {
+        return `${parts[parts.length - 3] || parts[0]}, ${parts[parts.length - 2] || parts[1]}`.replace(/\d{5}.*/, '').trim();
+      }
+      return address.length > 40 ? address.substring(0, 40) + '...' : address;
     }
+    return null;
   };
 
   return (
@@ -341,11 +356,11 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         </div>
       )}
 
-      {/* Driver info popup - positioned near the clicked marker */}
-      {selectedTruck && popupPosition && (
+      {/* Driver info popup - follows the truck marker */}
+      {selectedTruck && selectedMarkerData && (
         <div
-          className="fleet-popup-panel absolute z-30 w-[320px] rounded-lg overflow-hidden shadow-lg border border-border"
-          style={popupStyle}
+          className="fleet-popup-panel absolute w-[340px] rounded-lg overflow-hidden shadow-xl border border-border"
+          style={{ ...popupStyle, zIndex: 9999 }}
         >
           {/* Header */}
           <div className="bg-[hsl(199_89%_48%)] text-white px-3 py-2 flex items-center justify-between">
@@ -364,7 +379,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
           </div>
 
           {/* Body */}
-          <div className="bg-card p-3 space-y-3">
+          <div className="bg-card p-3 space-y-2">
             {/* Driver name */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-[hsl(199_89%_48%)]">Driver:</span>
@@ -374,6 +389,34 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               </span>
             </div>
 
+            {/* Pickup Location */}
+            {selectedTruck.currentOrder && (
+              <div className="flex items-start justify-between text-sm">
+                <span className="text-[hsl(199_89%_48%)]">Pickup:</span>
+                <span className="font-medium text-foreground text-right max-w-[200px] truncate">
+                  {formatLocation(
+                    selectedTruck.currentOrder.pickupCity,
+                    selectedTruck.currentOrder.pickupState,
+                    selectedTruck.currentOrder.pickupAddress
+                  ) || '—'}
+                </span>
+              </div>
+            )}
+
+            {/* Delivery Location */}
+            {selectedTruck.currentOrder && (
+              <div className="flex items-start justify-between text-sm">
+                <span className="text-[hsl(199_89%_48%)]">Delivery:</span>
+                <span className="font-medium text-foreground text-right max-w-[200px] truncate">
+                  {formatLocation(
+                    selectedTruck.currentOrder.deliveryCity,
+                    selectedTruck.currentOrder.deliveryState,
+                    selectedTruck.currentOrder.deliveryAddress
+                  ) || '—'}
+                </span>
+              </div>
+            )}
+
             {/* Miles Away */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-[hsl(199_89%_48%)]">Miles Away:</span>
@@ -382,15 +425,13 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
               </span>
             </div>
 
-            {/* ETA */}
-            {selectedTruck.currentOrder && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-[hsl(199_89%_48%)]">ETA:</span>
-                <span className="font-medium text-foreground">
-                  {formatETA(selectedTruck.currentOrder.deliveryDatetime) || '—'}
-                </span>
-              </div>
-            )}
+            {/* ETA (calculated from miles) */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-[hsl(199_89%_48%)]">ETA:</span>
+              <span className="font-medium text-foreground">
+                {calculateETA(selectedTruck.milesAway) || '—'}
+              </span>
+            </div>
 
             {/* HOS Circles */}
             <div className="pt-2 border-t border-border">
@@ -462,7 +503,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
         </div>
       )}
 
-      <div ref={mapContainer} className="w-full h-full min-h-[400px]" />
+      <div ref={mapContainer} className="w-full h-full min-h-[600px]" />
     </div>
   );
 }
