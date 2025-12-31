@@ -3,10 +3,11 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { Loader2, X, MapPin, Clock, Package } from 'lucide-react';
+import { Loader2, MapPin, Clock, Package, ChevronLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Cache the token to avoid repeated API calls
 let cachedMapboxToken: string | null = null;
@@ -108,7 +109,6 @@ interface SelectedTruckInfo {
 export function DispatcherFleetMapDialog({
   isOpen,
   onOpenChange,
-  dispatcherId,
   dispatcherName,
   trucks,
 }: DispatcherFleetMapDialogProps) {
@@ -116,13 +116,13 @@ export function DispatcherFleetMapDialog({
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const routeLayerRef = useRef<boolean>(false);
-  const mapInitialized = useRef<boolean>(false);
   const tokenRef = useRef<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTruck, setSelectedTruck] = useState<SelectedTruckInfo | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [noLocationsFound, setNoLocationsFound] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   
   const { data: locations, isLoading: isLoadingLocations } = useSamsaraLocations();
 
@@ -144,7 +144,7 @@ export function DispatcherFleetMapDialog({
       routeLayerRef.current = false;
     }
     
-    // Remove destination markers
+    // Remove destination markers (pickup/delivery)
     markersRef.current = markersRef.current.filter(marker => {
       const el = marker.getElement();
       if (el.innerHTML.includes('📍') || el.innerHTML.includes('🎯')) {
@@ -230,8 +230,8 @@ export function DispatcherFleetMapDialog({
     }
   }, []);
 
-  // Handle truck marker click
-  const handleTruckClick = useCallback(async (
+  // Handle truck selection (from marker click or sidebar)
+  const handleTruckSelect = useCallback(async (
     truck: TruckData,
     location: { latitude: number; longitude: number; timestamp: string },
     token: string
@@ -246,6 +246,13 @@ export function DispatcherFleetMapDialog({
       truck,
       location,
       currentAddress,
+    });
+    
+    // Center map on selected truck
+    map.current?.flyTo({
+      center: [location.longitude, location.latitude],
+      zoom: 8,
+      duration: 1000,
     });
     
     // Draw route if there's a current order
@@ -333,8 +340,8 @@ export function DispatcherFleetMapDialog({
     setIsLoadingRoute(false);
   }, [clearRoute, drawRoute]);
 
-  // Close popup
-  const closePopup = useCallback(() => {
+  // Close selected truck and reset view
+  const deselectTruck = useCallback(() => {
     setSelectedTruck(null);
     clearRoute();
     
@@ -359,21 +366,19 @@ export function DispatcherFleetMapDialog({
     }
   }, [clearRoute, locations, trucks]);
 
-  // Initialize map when dialog opens and locations are available
+  // Initialize map
   useEffect(() => {
     if (!isOpen) {
       // Reset state when dialog closes
-      mapInitialized.current = false;
+      setMapReady(false);
+      setSelectedTruck(null);
       return;
     }
     
-    if (!mapContainer.current) return;
-    
-    // If already initialized, don't reinitialize
-    if (mapInitialized.current && map.current) return;
-    
-    // Need locations to initialize
-    if (isLoadingLocations) return;
+    // Wait for locations to load
+    if (isLoadingLocations) {
+      return;
+    }
     
     if (!locations || locations.length === 0) {
       setIsLoading(false);
@@ -381,9 +386,21 @@ export function DispatcherFleetMapDialog({
       return;
     }
 
-    const initializeMap = async () => {
+    // Small delay to ensure dialog is rendered
+    const initTimeout = setTimeout(async () => {
+      if (!mapContainer.current) {
+        console.error('Map container not found');
+        setIsLoading(false);
+        return;
+      }
+      
+      // If map already exists, just resize
+      if (map.current) {
+        map.current.resize();
+        return;
+      }
+      
       setIsLoading(true);
-      setSelectedTruck(null);
       setNoLocationsFound(false);
       
       try {
@@ -420,17 +437,18 @@ export function DispatcherFleetMapDialog({
         const avgLat = truckLocations.reduce((sum, t) => sum + t.location.latitude, 0) / truckLocations.length;
         const avgLon = truckLocations.reduce((sum, t) => sum + t.location.longitude, 0) / truckLocations.length;
         
-        map.current = new mapboxgl.Map({
-          container: mapContainer.current!,
+        const newMap = new mapboxgl.Map({
+          container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v12',
           center: [avgLon, avgLat],
           zoom: 5,
         });
 
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        map.current.on('load', () => {
-          if (!map.current) return;
+        newMap.on('load', () => {
+          // Resize to ensure proper rendering
+          newMap.resize();
           
           const bounds = new mapboxgl.LngLatBounds();
 
@@ -460,10 +478,10 @@ export function DispatcherFleetMapDialog({
             
             const marker = new mapboxgl.Marker(el)
               .setLngLat([location.longitude, location.latitude])
-              .addTo(map.current!);
+              .addTo(newMap);
             
             el.addEventListener('click', () => {
-              handleTruckClick(truck, {
+              handleTruckSelect(truck, {
                 latitude: location.latitude,
                 longitude: location.longitude,
                 timestamp: location.timestamp,
@@ -475,9 +493,15 @@ export function DispatcherFleetMapDialog({
           });
 
           // Fit map to show all trucks
-          map.current.fitBounds(bounds, { padding: 80 });
+          newMap.fitBounds(bounds, { padding: 80 });
           
-          mapInitialized.current = true;
+          map.current = newMap;
+          setMapReady(true);
+          setIsLoading(false);
+        });
+        
+        newMap.on('error', (e) => {
+          console.error('Mapbox error:', e);
           setIsLoading(false);
         });
         
@@ -485,19 +509,17 @@ export function DispatcherFleetMapDialog({
         console.error('Error initializing fleet map:', error);
         setIsLoading(false);
       }
-    };
-
-    initializeMap();
+    }, 100); // Small delay for dialog to render
 
     return () => {
+      clearTimeout(initTimeout);
       markersRef.current.forEach(marker => marker.remove());
       markersRef.current = [];
       map.current?.remove();
       map.current = null;
       routeLayerRef.current = false;
-      mapInitialized.current = false;
     };
-  }, [isOpen, locations, isLoadingLocations, trucks, handleTruckClick]);
+  }, [isOpen, locations, isLoadingLocations, trucks, handleTruckSelect]);
 
   // Format timestamp for display
   const formatTimestamp = (timestamp: string) => {
@@ -508,9 +530,16 @@ export function DispatcherFleetMapDialog({
     }
   };
 
+  // Get truck locations for the sidebar list
+  const getTruckWithLocation = useCallback((truck: TruckData) => {
+    if (!locations) return null;
+    const loc = locations.find(l => l.truck_id === truck.id || l.truck_number === truck.truckNumber);
+    return loc ? { truck, location: loc } : null;
+  }, [locations]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[85vh] p-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] w-[1400px] h-[85vh] p-0 flex flex-col">
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -524,118 +553,171 @@ export function DispatcherFleetMapDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 relative min-h-0">
-          {(isLoading || isLoadingLocations) && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <p className="text-sm text-muted-foreground mt-2">
-                {isLoadingLocations ? 'Loading truck locations...' : 'Initializing map...'}
-              </p>
+        <div className="flex-1 flex min-h-0">
+          {/* Sidebar - Truck List */}
+          <div className="w-64 border-r bg-muted/30 flex flex-col min-h-0">
+            <div className="p-3 border-b bg-muted/50 flex-shrink-0">
+              <h3 className="text-sm font-medium">Trucks</h3>
             </div>
-          )}
-          
-          {noLocationsFound && !isLoading && !isLoadingLocations && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
-              <MapPin className="h-12 w-12 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No truck locations available</p>
-              <p className="text-sm text-muted-foreground">Samsara tracking data not found for these trucks</p>
-            </div>
-          )}
-          
-          <div ref={mapContainer} className="absolute inset-0" />
-          
-          {/* Truck Info Popup */}
-          {selectedTruck && (
-            <div className="absolute top-4 left-4 bg-card border border-border rounded-lg shadow-lg p-4 z-20 max-w-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    🚚 Truck {selectedTruck.truck.truckNumber}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedTruck.truck.driverName}
-                    {selectedTruck.truck.driver2Name && ` & ${selectedTruck.truck.driver2Name}`}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={closePopup}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-start gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <span className="text-muted-foreground">Last update:</span>{' '}
-                    {formatTimestamp(selectedTruck.location.timestamp)}
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <span className="text-muted-foreground">Location:</span>{' '}
-                    <span className="break-words">{selectedTruck.currentAddress}</span>
-                  </div>
-                </div>
-                
-                {selectedTruck.truck.currentOrder && (
-                  <>
-                    <div className="border-t pt-2 mt-2">
-                      <div className="flex items-start gap-2">
-                        <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
-                        <div>
-                          <span className="text-muted-foreground">Load:</span>{' '}
-                          <span className="font-medium">{selectedTruck.truck.currentOrder.loadNumber}</span>
-                          {selectedTruck.truck.currentOrder.brokerLoadNumber && (
-                            <span className="text-muted-foreground ml-1">
-                              ({selectedTruck.truck.currentOrder.brokerLoadNumber})
-                            </span>
-                          )}
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1">
+                {trucks.map(truck => {
+                  const truckLoc = getTruckWithLocation(truck);
+                  const isSelected = selectedTruck?.truck.id === truck.id;
+                  
+                  return (
+                    <button
+                      key={truck.id}
+                      onClick={() => {
+                        if (truckLoc && tokenRef.current) {
+                          handleTruckSelect(truck, {
+                            latitude: truckLoc.location.latitude,
+                            longitude: truckLoc.location.longitude,
+                            timestamp: truckLoc.location.timestamp,
+                          }, tokenRef.current);
+                        }
+                      }}
+                      disabled={!truckLoc}
+                      className={`w-full text-left p-2 rounded-md transition-colors ${
+                        isSelected 
+                          ? 'bg-primary text-primary-foreground' 
+                          : truckLoc 
+                            ? 'hover:bg-muted' 
+                            : 'opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🚚</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{truck.truckNumber}</div>
+                          <div className="text-xs truncate opacity-80">{truck.driverName}</div>
                         </div>
+                        {truck.currentOrder && (
+                          <Package className="h-3 w-3 flex-shrink-0 opacity-60" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+          
+          {/* Map Container */}
+          <div className="flex-1 relative min-h-0">
+            {(isLoading || isLoadingLocations) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-sm text-muted-foreground mt-2">
+                  {isLoadingLocations ? 'Loading truck locations...' : 'Initializing map...'}
+                </p>
+              </div>
+            )}
+            
+            {noLocationsFound && !isLoading && !isLoadingLocations && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
+                <MapPin className="h-12 w-12 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No truck locations available</p>
+                <p className="text-sm text-muted-foreground">Samsara tracking data not found for these trucks</p>
+              </div>
+            )}
+            
+            <div ref={mapContainer} className="absolute inset-0" style={{ minHeight: '400px' }} />
+            
+            {/* Selected Truck Info Panel */}
+            {selectedTruck && mapReady && (
+              <div className="absolute top-4 right-14 bg-card border border-border rounded-lg shadow-lg z-20 w-80">
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        🚚 Truck {selectedTruck.truck.truckNumber}
+                      </h3>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {selectedTruck.truck.driverName}
+                        {selectedTruck.truck.driver2Name && ` & ${selectedTruck.truck.driver2Name}`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={deselectTruck}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Back
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="text-muted-foreground">Last update:</span>{' '}
+                        {formatTimestamp(selectedTruck.location.timestamp)}
                       </div>
                     </div>
                     
-                    {selectedTruck.truck.currentOrder.pickupAddress && (
-                      <div className="flex items-start gap-2 pl-6">
-                        <span className="text-green-500">📍</span>
-                        <div className="flex-1 break-words text-xs">
-                          {selectedTruck.truck.currentOrder.pickupAddress}
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="text-muted-foreground">Location:</span>{' '}
+                        <span className="break-words">{selectedTruck.currentAddress}</span>
+                      </div>
+                    </div>
+                    
+                    {selectedTruck.truck.currentOrder && (
+                      <div className="border-t pt-2 mt-2 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Package className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-muted-foreground">Load:</span>{' '}
+                            <span className="font-medium">{selectedTruck.truck.currentOrder.loadNumber}</span>
+                            {selectedTruck.truck.currentOrder.brokerLoadNumber && (
+                              <span className="text-muted-foreground ml-1">
+                                ({selectedTruck.truck.currentOrder.brokerLoadNumber})
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        
+                        {selectedTruck.truck.currentOrder.pickupAddress && (
+                          <div className="flex items-start gap-2 pl-6">
+                            <span className="text-green-500 flex-shrink-0">📍</span>
+                            <div className="flex-1 break-words text-xs">
+                              {selectedTruck.truck.currentOrder.pickupAddress}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {selectedTruck.truck.currentOrder.deliveryAddress && (
+                          <div className="flex items-start gap-2 pl-6">
+                            <span className="flex-shrink-0">🎯</span>
+                            <div className="flex-1 break-words text-xs">
+                              {selectedTruck.truck.currentOrder.deliveryAddress}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    {selectedTruck.truck.currentOrder.deliveryAddress && (
-                      <div className="flex items-start gap-2 pl-6">
-                        <span>🎯</span>
-                        <div className="flex-1 break-words text-xs">
-                          {selectedTruck.truck.currentOrder.deliveryAddress}
-                        </div>
+                    {!selectedTruck.truck.currentOrder && (
+                      <div className="text-muted-foreground italic pt-2 border-t mt-2">
+                        No active load
                       </div>
                     )}
-                  </>
-                )}
-                
-                {!selectedTruck.truck.currentOrder && (
-                  <div className="text-muted-foreground italic pt-2 border-t mt-2">
-                    No active load
                   </div>
-                )}
-              </div>
-              
-              {isLoadingRoute && (
-                <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading route...
+                  
+                  {isLoadingRoute && (
+                    <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading route...
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
