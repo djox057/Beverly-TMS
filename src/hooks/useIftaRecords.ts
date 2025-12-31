@@ -68,6 +68,7 @@ export const useIftaRecords = (fuelFilters?: FuelFilters) => {
     truckNumber: "",
     driverName: "",
     itemType: "ULSD",
+    paymentType: "ALL",
   };
   
   const { transactions: fuelTransactions } = useFuelTransactions(fuelFilters || defaultFilters);
