@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useSamsaraLocations } from '@/hooks/useSamsaraLocations';
-import { Loader2, MapPin } from 'lucide-react';
+import { Loader2, MapPin, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Cache the token to avoid repeated API calls
@@ -81,8 +81,22 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
-  
+
   const { data: locations } = useSamsaraLocations();
+
+  const trucksSignature = useMemo(() => {
+    return [...trucks]
+      .sort((a, b) => a.truckNumber.localeCompare(b.truckNumber))
+      .map((t) => `${t.id}:${t.truckNumber}:${t.currentOrder?.id ?? ''}`)
+      .join('|');
+  }, [trucks]);
+
+  const locationsCount = locations?.length ?? 0;
+
+  const selectedTruck = useMemo(() => {
+    if (!selectedTruckId) return null;
+    return trucks.find((t) => t.id === selectedTruckId) ?? null;
+  }, [trucksSignature, selectedTruckId]);
 
   // Clear route from map
   const clearRoute = useCallback(() => {
@@ -161,7 +175,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
                 'line-cap': 'round'
               },
               paint: {
-                'line-color': isPickup ? '#22c55e' : '#3b82f6',
+                'line-color': isPickup ? 'hsl(142 76% 36%)' : 'hsl(217 91% 60%)',
                 'line-width': 4,
                 'line-opacity': 0.75
               }
@@ -321,19 +335,19 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
             el.className = 'truck-marker-fleet';
             el.innerHTML = `
               <div style="
-                background: ${truck.currentOrder ? '#3b82f6' : '#6b7280'};
-                color: white;
+                background: ${truck.currentOrder ? 'hsl(var(--primary))' : 'hsl(var(--secondary))'};
+                color: ${truck.currentOrder ? 'hsl(var(--primary-foreground))' : 'hsl(var(--secondary-foreground))'};
                 padding: 4px 8px;
-                border-radius: 4px;
+                border-radius: 6px;
                 font-size: 12px;
-                font-weight: 600;
+                font-weight: 650;
                 cursor: pointer;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.28);
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 6px;
                 white-space: nowrap;
-                border: 2px solid white;
+                border: 2px solid hsl(var(--background));
               ">
                 🚚 ${truck.truckNumber}
               </div>
@@ -393,14 +407,70 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
-      
+
       {noLocationsFound && !isLoading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10">
           <MapPin className="h-10 w-10 text-muted-foreground mb-2" />
           <p className="text-muted-foreground text-sm">No truck locations available</p>
         </div>
       )}
-      
+
+      {/* Driver info popup (opens when a truck marker is clicked) */}
+      {selectedTruck && (
+        <div className="absolute left-3 bottom-3 z-20 w-[340px] max-w-[calc(100%-1.5rem)] rounded-lg border border-border bg-card/95 backdrop-blur p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground truncate">
+                Truck {selectedTruck.truckNumber}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {selectedTruck.driverName}{selectedTruck.driver2Name ? ` + ${selectedTruck.driver2Name}` : ""}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+              onClick={() => {
+                setSelectedTruckId(null);
+                clearRoute();
+              }}
+              aria-label="Close driver info"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {selectedTruck.currentOrder ? (
+            <div className="mt-2 space-y-1 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Load</span>
+                <span className="font-medium text-foreground truncate">
+                  {selectedTruck.currentOrder.loadNumber}
+                </span>
+              </div>
+              {selectedTruck.currentOrder.brokerLoadNumber && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">Broker</span>
+                  <span className="font-medium text-foreground truncate">
+                    {selectedTruck.currentOrder.brokerLoadNumber}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-muted-foreground">Next</span>
+                <span className="font-medium text-foreground text-right line-clamp-2">
+                  {(!selectedTruck.currentOrder.hasBOL && !selectedTruck.currentOrder.pickupArrived
+                    ? selectedTruck.currentOrder.pickupAddress
+                    : selectedTruck.currentOrder.deliveryAddress) || "—"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-muted-foreground">No current load</div>
+          )}
+        </div>
+      )}
+
       <div ref={mapContainer} className="w-full h-full min-h-[400px]" />
     </div>
   );

@@ -2784,6 +2784,82 @@ const Reports = () => {
                                 Recent Activity
                               </th>
                             </tr>
+                            {/* Fleet Map Row - shows when dispatcher map is expanded */}
+                            {expandedDispatcherMap === group.dispatcherId && (
+                              <tr>
+                                <th colSpan={15} className="p-0 border-b-[3px] border-border bg-card">
+                                  <div style={{ height: "400px" }}>
+                                    <DispatcherFleetMapView
+                                      trucks={group.trucks.map((truck: any) => {
+                                        // Build truck data with current order info
+                                        const allSortedOrders =
+                                          truck.allOrders
+                                            ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
+                                            .sort((a: any, b: any) => {
+                                              const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
+                                              const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
+                                              return aDate - bDate;
+                                            }) || [];
+
+                                        let currentOrder: any = undefined;
+                                        if (allSortedOrders.length > 0) {
+                                          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+                                          const lastOrderHasBOL = lastOrder.order_files?.some(
+                                            (file: any) => file.file_category === "BOL",
+                                          );
+
+                                          if (lastOrderHasBOL) {
+                                            currentOrder = lastOrder;
+                                          } else if (allSortedOrders.length >= 2) {
+                                            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+                                            const previousHasPOD = previousOrder.order_files?.some(
+                                              (file: any) => file.file_category === "POD",
+                                            );
+
+                                            if (previousHasPOD) {
+                                              currentOrder = lastOrder;
+                                            } else {
+                                              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
+                                                order.order_files?.some((file: any) => file.file_category === "BOL"),
+                                              );
+                                              currentOrder = lastWithBOL || lastOrder;
+                                            }
+                                          } else {
+                                            currentOrder = lastOrder;
+                                          }
+                                        }
+
+                                        return {
+                                          id: truck.id,
+                                          truckNumber: truck.truckNumber,
+                                          driverName: truck.driverName || "No driver",
+                                          driver2Name: truck.driver2Name,
+                                          currentOrder: currentOrder
+                                            ? {
+                                                id: currentOrder.id,
+                                                loadNumber:
+                                                  currentOrder.internal_load_number?.toString() || currentOrder.load_number,
+                                                brokerLoadNumber: currentOrder.broker_load_number,
+                                                pickupAddress: currentOrder.pickupStop?.address,
+                                                deliveryAddress: currentOrder.deliveryStop?.address,
+                                                pickupDatetime: currentOrder.pickupStop?.datetime,
+                                                deliveryDatetime: currentOrder.deliveryStop?.datetime,
+                                                hasBOL:
+                                                  currentOrder.order_files?.some((f: any) => f.file_category === "BOL") ||
+                                                  false,
+                                                hasPOD:
+                                                  currentOrder.order_files?.some((f: any) => f.file_category === "POD") ||
+                                                  false,
+                                                pickupArrived: !!currentOrder.pickupStop?.arrival_time,
+                                              }
+                                            : undefined,
+                                        };
+                                      })}
+                                    />
+                                  </div>
+                                </th>
+                              </tr>
+                            )}
                             {/* Column Headers Row */}
                             <tr className="bg-muted/50 sticky top-[37px] z-10">
                               <th className="border-r border-b-[3px] border-gray-400 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground bg-muted/50 w-16">
@@ -2873,72 +2949,6 @@ const Reports = () => {
                               </th>
                             </tr>
                           </thead>
-                          {/* Fleet Map Row - shows when dispatcher map is expanded */}
-                          {expandedDispatcherMap === group.dispatcherId && (
-                            <tbody>
-                              <tr>
-                                <td colSpan={15} className="p-0 border-b-[3px] border-border">
-                                  <div style={{ height: '400px' }}>
-                                    <DispatcherFleetMapView
-                                      trucks={group.trucks.map((truck: any) => {
-                                        // Build truck data with current order info
-                                        const allSortedOrders = truck.allOrders
-                                          ?.filter((order: any) => !order.canceled && order.notes !== "GAME|OVER")
-                                          .sort((a: any, b: any) => {
-                                            const aDate = new Date(a.pickup_datetime || "9999-12-31").getTime();
-                                            const bDate = new Date(b.pickup_datetime || "9999-12-31").getTime();
-                                            return aDate - bDate;
-                                          }) || [];
-                                        
-                                        let currentOrder: any = undefined;
-                                        if (allSortedOrders.length > 0) {
-                                          const lastOrder = allSortedOrders[allSortedOrders.length - 1];
-                                          const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === "BOL");
-                                          
-                                          if (lastOrderHasBOL) {
-                                            currentOrder = lastOrder;
-                                          } else if (allSortedOrders.length >= 2) {
-                                            const previousOrder = allSortedOrders[allSortedOrders.length - 2];
-                                            const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === "POD");
-                                            
-                                            if (previousHasPOD) {
-                                              currentOrder = lastOrder;
-                                            } else {
-                                              const lastWithBOL = [...allSortedOrders].reverse().find((order: any) =>
-                                                order.order_files?.some((file: any) => file.file_category === "BOL")
-                                              );
-                                              currentOrder = lastWithBOL || lastOrder;
-                                            }
-                                          } else {
-                                            currentOrder = lastOrder;
-                                          }
-                                        }
-                                        
-                                        return {
-                                          id: truck.id,
-                                          truckNumber: truck.truckNumber,
-                                          driverName: truck.driverName || "No driver",
-                                          driver2Name: truck.driver2Name,
-                                          currentOrder: currentOrder ? {
-                                            id: currentOrder.id,
-                                            loadNumber: currentOrder.internal_load_number?.toString() || currentOrder.load_number,
-                                            brokerLoadNumber: currentOrder.broker_load_number,
-                                            pickupAddress: currentOrder.pickupStop?.address,
-                                            deliveryAddress: currentOrder.deliveryStop?.address,
-                                            pickupDatetime: currentOrder.pickupStop?.datetime,
-                                            deliveryDatetime: currentOrder.deliveryStop?.datetime,
-                                            hasBOL: currentOrder.order_files?.some((f: any) => f.file_category === "BOL") || false,
-                                            hasPOD: currentOrder.order_files?.some((f: any) => f.file_category === "POD") || false,
-                                            pickupArrived: !!currentOrder.pickupStop?.arrival_time,
-                                          } : undefined,
-                                        };
-                                      })}
-                                    />
-                                  </div>
-                                </td>
-                              </tr>
-                            </tbody>
-                          )}
                           <tbody>
                             {group.trucks
                               .slice(0, visibleTrucks[group.dispatcherId] || INITIAL_TRUCK_COUNT)
