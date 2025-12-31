@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Loader2, HelpCircle, CheckCircle2, Fuel } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, Fuel, Check } from "lucide-react";
 import { useEfsMissingReceipts } from "@/hooks/useEfsMissingReceipts";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -12,12 +12,10 @@ import { format } from "date-fns";
 export function EfsMissingReceiptsPanel() {
   const { toast } = useToast();
   const { 
-    requests, 
+    fuelRequests, 
     isLoading, 
     uploadReceipt, 
     isUploading,
-    gallonsRequests,
-    isLoadingGallons,
     updateGallons,
     isUpdatingGallons,
   } = useEfsMissingReceipts();
@@ -83,15 +81,13 @@ export function EfsMissingReceiptsPanel() {
     }
   };
 
-  const isLoadingAny = isLoading || isLoadingGallons;
-
-  if (isLoadingAny) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-amber-500" />
-            EFS Missing Data
+            <Fuel className="h-5 w-5 text-amber-500" />
+            EFS Fuel - Missing Data
           </CardTitle>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
@@ -101,20 +97,18 @@ export function EfsMissingReceiptsPanel() {
     );
   }
 
-  const hasNoMissingData = requests.length === 0 && gallonsRequests.length === 0;
-
-  if (hasNoMissingData) {
+  if (fuelRequests.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-500" />
-            EFS Missing Data
+            EFS Fuel - Missing Data
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground text-center py-4">
-            All EFS requests have complete data.
+            All EFS fuel requests have complete data.
           </p>
         </CardContent>
       </Card>
@@ -122,126 +116,52 @@ export function EfsMissingReceiptsPanel() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Missing Receipts Section */}
-      {requests.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-amber-500" />
-              Missing Receipts
-              <Badge variant="secondary" className="ml-2">{requests.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Truck</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Purpose</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-center">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">
-                      <span className="flex items-center gap-1">
-                        <HelpCircle className="h-4 w-4 text-amber-500" />
-                        {req.truck_number}
-                      </span>
-                    </TableCell>
-                    <TableCell>{req.driver_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{req.purpose}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ${req.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      {req.city && req.state ? `${req.city}, ${req.state}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(req.requested_at), "MMM d, h:mm a")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={(el) => (fileInputRefs.current[req.id] = el)}
-                        onChange={(e) => handleFileChange(req.id, e.target.files?.[0])}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isUploading && uploadingId === req.id}
-                        onClick={() => fileInputRefs.current[req.id]?.click()}
-                      >
-                        {isUploading && uploadingId === req.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-1" />
-                            Upload
-                          </>
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Missing Gallons Section */}
-      {gallonsRequests.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Fuel className="h-5 w-5 text-amber-500" />
-              Missing Gallons
-              <Badge variant="secondary" className="ml-2">{gallonsRequests.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Truck</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-center">Gallons</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {gallonsRequests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">
-                      <span className="flex items-center gap-1">
-                        <Fuel className="h-4 w-4 text-amber-500" />
-                        {req.truck_number}
-                      </span>
-                    </TableCell>
-                    <TableCell>{req.driver_name}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      ${req.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      {req.city && req.state ? `${req.city}, ${req.state}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(req.requested_at), "MMM d, h:mm a")}
-                    </TableCell>
-                    <TableCell>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Fuel className="h-5 w-5 text-amber-500" />
+          EFS Fuel - Missing Data
+          <Badge variant="secondary" className="ml-2">{fuelRequests.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Truck</TableHead>
+              <TableHead>Driver</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="text-center">Gallons</TableHead>
+              <TableHead className="text-center">Receipt</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {fuelRequests.map((req) => {
+              const hasGallons = req.quantity != null;
+              const hasReceipt = req.receipt_path != null;
+              
+              return (
+                <TableRow key={req.id}>
+                  <TableCell className="font-medium">{req.truck_number}</TableCell>
+                  <TableCell>{req.driver_name}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    ${req.amount.toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    {req.city && req.state ? `${req.city}, ${req.state}` : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {format(new Date(req.requested_at), "MMM d, h:mm a")}
+                  </TableCell>
+                  <TableCell>
+                    {hasGallons ? (
+                      <div className="flex items-center justify-center gap-1 text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span>{req.quantity}</span>
+                      </div>
+                    ) : (
                       <div className="flex items-center gap-2 justify-center">
                         <Input
                           type="number"
@@ -265,14 +185,46 @@ export function EfsMissingReceiptsPanel() {
                           )}
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {hasReceipt ? (
+                      <div className="flex items-center justify-center text-green-600">
+                        <Check className="h-4 w-4" />
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={(el) => (fileInputRefs.current[req.id] = el)}
+                          onChange={(e) => handleFileChange(req.id, e.target.files?.[0])}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isUploading && uploadingId === req.id}
+                          onClick={() => fileInputRefs.current[req.id]?.click()}
+                        >
+                          {isUploading && uploadingId === req.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-1" />
+                              Upload
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
