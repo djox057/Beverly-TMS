@@ -152,8 +152,8 @@ export function EfsRequestDialog({
   const handleOtherRequest = async () => {
     if (!otherPurpose || !otherAmount) return;
     if (otherPurpose === "custom" && !customPurpose.trim()) return;
-    // Fuel requires city, state, quantity, and receipt
-    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity || !receiptFile)) return;
+    // Fuel requires city, state, quantity (receipt is now OPTIONAL)
+    if (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity)) return;
     
     setIsRequestingOther(true);
     try {
@@ -428,7 +428,9 @@ export function EfsRequestDialog({
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Receipt Photo</Label>
+                  <Label className="text-sm font-medium">
+                    Receipt Photo <span className="text-muted-foreground">(optional)</span>
+                  </Label>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -464,6 +466,9 @@ export function EfsRequestDialog({
                       Upload Receipt
                     </Button>
                   )}
+                  <p className="text-xs text-amber-600">
+                    If no receipt is uploaded, a reminder will appear to upload it later.
+                  </p>
                 </div>
               </>
             )}
@@ -502,7 +507,7 @@ export function EfsRequestDialog({
                   !otherAmount || 
                   parseFloat(otherAmount) <= 0 || 
                   (otherPurpose === "custom" && !customPurpose.trim()) ||
-                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity || parseFloat(fuelQuantity) <= 0 || !receiptFile))
+                  (otherPurpose === "fuel" && (!fuelCity.trim() || !fuelState.trim() || !fuelQuantity || parseFloat(fuelQuantity) <= 0))
                 }
               >
                 {isRequestingOther ? (
