@@ -70,7 +70,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [noLocationsFound, setNoLocationsFound] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
-  const [, forceUpdate] = useState(0);
+  const [popupTick, setPopupTick] = useState(0);
 
   const { data: locations } = useSamsaraLocations();
 
@@ -98,7 +98,7 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
   // Handle truck marker click - just select, no zoom
   const handleTruckClick = useCallback((truckId: string) => {
     setSelectedTruckId(truckId);
-    forceUpdate((n) => n + 1);
+    setPopupTick((n) => n + 1);
   }, []);
 
   // Close popup
