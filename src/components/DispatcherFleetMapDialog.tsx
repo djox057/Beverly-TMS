@@ -106,59 +106,82 @@ export function DispatcherFleetMapView({ trucks }: DispatcherFleetMapViewProps) 
     setSelectedTruckId(null);
   }, []);
 
-  // Show pickup/delivery markers for selected truck
+  // Determine next stop based on order status (hasBOL means heading to delivery)
+  const getNextStop = (order: TruckData['currentOrder']) => {
+    if (!order) return null;
+    
+    // If has BOL, driver is heading to delivery
+    if (order.hasBOL) {
+      if (order.deliveryLatitude && order.deliveryLongitude) {
+        return {
+          type: 'delivery' as const,
+          lat: order.deliveryLatitude,
+          lng: order.deliveryLongitude,
+          city: order.deliveryCity,
+          state: order.deliveryState,
+          address: order.deliveryAddress,
+          datetime: order.deliveryDatetime,
+        };
+      }
+    } else {
+      // No BOL yet, driver is heading to pickup
+      if (order.pickupLatitude && order.pickupLongitude) {
+        return {
+          type: 'pickup' as const,
+          lat: order.pickupLatitude,
+          lng: order.pickupLongitude,
+          city: order.pickupCity,
+          state: order.pickupState,
+          address: order.pickupAddress,
+          datetime: order.pickupDatetime,
+        };
+      }
+    }
+    return null;
+  };
+
+  // Show next pickup/delivery marker for selected truck
   useEffect(() => {
     // Clear previous location markers
     locationMarkersRef.current.forEach((m) => m.remove());
     locationMarkersRef.current = [];
 
     if (!map.current || !selectedTruck?.currentOrder) {
-      console.log('[FleetMap] No map or no currentOrder for selected truck', {
-        hasMap: !!map.current,
-        selectedTruckId: selectedTruck?.id,
-        hasCurrentOrder: !!selectedTruck?.currentOrder,
-      });
       return;
     }
 
     const order = selectedTruck.currentOrder;
-    console.log('[FleetMap] Adding pickup/delivery markers for order', {
-      loadNumber: order.loadNumber,
-      pickupLat: order.pickupLatitude,
-      pickupLng: order.pickupLongitude,
-      deliveryLat: order.deliveryLatitude,
-      deliveryLng: order.deliveryLongitude,
-    });
+    const nextStop = getNextStop(order);
 
-    // Create pickup marker - orange package icon
-    if (order.pickupLatitude && order.pickupLongitude) {
-      const pickupEl = document.createElement('div');
-      pickupEl.innerHTML = `
-        <div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-          📦
-        </div>
-      `;
-      const pickupMarker = new mapboxgl.Marker(pickupEl)
-        .setLngLat([order.pickupLongitude, order.pickupLatitude])
-        .addTo(map.current);
-      locationMarkersRef.current.push(pickupMarker);
-      console.log('[FleetMap] Added pickup marker at', order.pickupLatitude, order.pickupLongitude);
-    }
+    if (!nextStop) return;
 
-    // Create delivery marker - red target/bullseye icon
-    if (order.deliveryLatitude && order.deliveryLongitude) {
-      const deliveryEl = document.createElement('div');
-      deliveryEl.innerHTML = `
-        <div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-          🎯
-        </div>
-      `;
-      const deliveryMarker = new mapboxgl.Marker(deliveryEl)
-        .setLngLat([order.deliveryLongitude, order.deliveryLatitude])
-        .addTo(map.current);
-      locationMarkersRef.current.push(deliveryMarker);
-      console.log('[FleetMap] Added delivery marker at', order.deliveryLatitude, order.deliveryLongitude);
-    }
+    // Create marker for next stop
+    const markerEl = document.createElement('div');
+    const isPickup = nextStop.type === 'pickup';
+    const emoji = isPickup ? '📦' : '🎯';
+    const label = isPickup ? 'PICKUP' : 'DELIVERY';
+    const bgColor = isPickup ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)';
+
+    markerEl.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));">
+        <div style="font-size: 36px;">${emoji}</div>
+        <div style="
+          background: ${bgColor};
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 700;
+          margin-top: -4px;
+          white-space: nowrap;
+        ">${label}</div>
+      </div>
+    `;
+
+    const marker = new mapboxgl.Marker(markerEl)
+      .setLngLat([nextStop.lng, nextStop.lat])
+      .addTo(map.current);
+    locationMarkersRef.current.push(marker);
 
     return () => {
       locationMarkersRef.current.forEach((m) => m.remove());
