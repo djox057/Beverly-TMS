@@ -1736,6 +1736,41 @@ export type Database = {
           },
         ]
       }
+      order_week_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          order_id: string
+          original_week_start: string
+          target_week_start: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id: string
+          original_week_start: string
+          target_week_start: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string
+          original_week_start?: string
+          target_week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_week_overrides_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           booked_by: string

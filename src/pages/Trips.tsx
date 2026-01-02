@@ -25,9 +25,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Loader2, FileDown, Edit, Info, CalendarClock } from "lucide-react";
+import { Search, Loader2, FileDown, Edit, Info, CalendarClock, ArrowLeftRight, Undo2 } from "lucide-react";
 import { useOrders } from "@/hooks/useOrders";
-import { useState, useMemo, useEffect, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
 import * as XLSX from "xlsx";
@@ -37,6 +37,8 @@ import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { useAuth } from "@/hooks/useAuth";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -413,6 +415,7 @@ const getStatusBadge = (status: string) => {
 
 const Trips = () => {
   const navigate = useNavigate();
+  const { roles } = useAuth();
 
   const { data: orders, isLoading } = useOrders();
 
@@ -426,6 +429,78 @@ const Trips = () => {
   const itemsPerPage = 50;
 
   const queryClient = useQueryClient();
+
+  // Check if user can move loads between weeks (managers, admins, accounting)
+  const canMoveLoads = roles?.some(role => ['manager', 'admin', 'accounting'].includes(role)) ?? false;
+
+  // Fetch week overrides
+  const { data: weekOverrides } = useQuery({
+    queryKey: ["order-week-overrides"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("order_week_overrides")
+        .select("*");
+      
+      if (error) throw error;
+      
+      // Convert to a map for quick lookup: order_id -> target_week_start
+      const overrideMap: Record<string, string> = {};
+      data?.forEach((row: any) => {
+        overrideMap[row.order_id] = row.target_week_start;
+      });
+      return overrideMap;
+    },
+  });
+
+  // Mutation to create/update week override
+  const createWeekOverrideMutation = useMutation({
+    mutationFn: async ({ orderId, originalWeekStart, targetWeekStart }: { 
+      orderId: string; 
+      originalWeekStart: string;
+      targetWeekStart: string;
+    }) => {
+      const { error } = await supabase
+        .from("order_week_overrides")
+        .upsert({
+          order_id: orderId,
+          original_week_start: originalWeekStart,
+          target_week_start: targetWeekStart,
+          created_by: (await supabase.auth.getUser()).data.user?.id,
+        }, {
+          onConflict: "order_id",
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order-week-overrides"] });
+      toast.success("Load moved to different week");
+    },
+    onError: (error) => {
+      console.error("Error moving load:", error);
+      toast.error("Failed to move load");
+    },
+  });
+
+  // Mutation to delete week override (revert to original week)
+  const deleteWeekOverrideMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase
+        .from("order_week_overrides")
+        .delete()
+        .eq("order_id", orderId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order-week-overrides"] });
+      toast.success("Load returned to original week");
+    },
+    onError: (error) => {
+      console.error("Error reverting load:", error);
+      toast.error("Failed to revert load");
+    },
+  });
 
   // Fetch paid status from database
   const { data: paidWeeksData } = useQuery({
@@ -775,7 +850,7 @@ const Trips = () => {
   const endIndex = startIndex + itemsPerPage;
   const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
 
-  // Group paginated orders by week (Monday-Sunday)
+  // Group paginated orders by week (Monday-Sunday), respecting week overrides
   const groupedByWeek = useMemo(() => {
     const groups: { [key: string]: any[] } = {};
 
@@ -807,13 +882,25 @@ const Trips = () => {
             return;
           }
 
-          const weekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // Tuesday
-          const weekKey = format(weekStart, "yyyy-MM-dd");
+          // Calculate original week
+          const originalWeekStart = startOfWeek(deliveryDate, { weekStartsOn: 2 }); // Tuesday
+          const originalWeekKey = format(originalWeekStart, "yyyy-MM-dd");
+          
+          // Check if this order has a week override
+          const overrideWeekKey = weekOverrides?.[order.id];
+          const weekKey = overrideWeekKey || originalWeekKey;
+          
+          // Store original week info on order for undo functionality
+          const orderWithMeta = {
+            ...order,
+            _originalWeekKey: originalWeekKey,
+            _hasWeekOverride: !!overrideWeekKey,
+          };
 
           if (!groups[weekKey]) {
             groups[weekKey] = [];
           }
-          groups[weekKey].push(order);
+          groups[weekKey].push(orderWithMeta);
         } catch (e) {
           console.error("Error parsing date:", e, "for order:", order.deliveryDate);
         }
@@ -838,7 +925,43 @@ const Trips = () => {
           return dateB - dateA; // Newest first
         }),
       }));
-  }, [paginatedOrders]);
+  }, [paginatedOrders, weekOverrides]);
+
+  // Handle drag end for moving loads between weeks
+  const handleDragEnd = useCallback((result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    
+    // No destination = dropped outside
+    if (!destination) return;
+    
+    // Dropped in same week = no change
+    if (destination.droppableId === source.droppableId) return;
+    
+    // Find the order being moved
+    const orderId = draggableId.split("_drag_")[0];
+    const sourceWeekKey = source.droppableId.replace("week-", "");
+    const targetWeekKey = destination.droppableId.replace("week-", "");
+    
+    // Find original week for this order
+    const sourceWeek = groupedByWeek.find(w => w.weekStart === sourceWeekKey);
+    const order = sourceWeek?.orders.find((o: any) => o.id === orderId || o.virtualId?.startsWith(orderId));
+    
+    if (!order) return;
+    
+    const originalWeekKey = order._originalWeekKey || sourceWeekKey;
+    
+    // Create or update the week override
+    createWeekOverrideMutation.mutate({
+      orderId: order.id,
+      originalWeekStart: originalWeekKey,
+      targetWeekStart: targetWeekKey,
+    });
+  }, [groupedByWeek, createWeekOverrideMutation]);
+
+  // Handle reverting a load to its original week
+  const handleRevertToOriginalWeek = useCallback((orderId: string) => {
+    deleteWeekOverrideMutation.mutate(orderId);
+  }, [deleteWeekOverrideMutation]);
 
   const exportWeekToExcel = async (week: any, weekStartDate: Date, weekEndDate: Date) => {
     try {
@@ -2988,10 +3111,12 @@ const Trips = () => {
           </Button>
         </CardHeader>
         <CardContent className="p-0">
+          <DragDropContext onDragEnd={handleDragEnd}>
           <div className="p-2 md:p-6 relative overflow-x-auto">
             <Table className="min-w-[900px]">
               <TableHeader className="sticky top-0 z-20">
                 <TableRow className="bg-yellow-200 dark:bg-yellow-800 border-4 border-black border-b-4">
+                  {canMoveLoads && <TableHead className="w-8 bg-yellow-200 dark:bg-yellow-800"></TableHead>}
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Truck#</TableHead>
                   <TableHead className="w-32 bg-yellow-200 dark:bg-yellow-800">Driver</TableHead>
                   <TableHead className="w-20 bg-yellow-200 dark:bg-yellow-800">Load#</TableHead>
@@ -3011,7 +3136,7 @@ const Trips = () => {
               <TableBody>
                 {groupedByWeek.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={canMoveLoads ? 15 : 14} className="text-center py-8 text-muted-foreground">
                       No trips found
                     </TableCell>
                   </TableRow>
@@ -3038,7 +3163,7 @@ const Trips = () => {
                         <Fragment key={`week-${week.weekStart}`}>
                           {/* Weekly Summary Row - Now appears FIRST */}
                           <TableRow className="bg-muted/50 font-semibold border-4 border-primary">
-                            <TableCell colSpan={7} className="py-3">
+                            <TableCell colSpan={canMoveLoads ? 8 : 7} className="py-3">
                               <div className="flex items-center gap-4">
                                 <span>Week: {format(weekStartDate, "MMM d")} - {format(weekEndDate, "MMM d, yyyy")}</span>
                                 <div className="flex items-center gap-2">
@@ -3054,6 +3179,12 @@ const Trips = () => {
                                     {weekIsPaid ? "Paid" : "Paid"}
                                   </label>
                                 </div>
+                                {canMoveLoads && (
+                                  <span className="text-xs text-muted-foreground ml-2">
+                                    <ArrowLeftRight className="h-3 w-3 inline mr-1" />
+                                    Drag loads to move weeks
+                                  </span>
+                                )}
                               </div>
                             </TableCell>
                           <TableCell className="py-3">{weekTotal.miles.toLocaleString()}</TableCell>
@@ -3080,8 +3211,12 @@ const Trips = () => {
                           </TableCell>
                         </TableRow>
 
-                        {/* Orders for this week */}
-                        {week.orders.map((order, orderIndex) => {
+                        {/* Orders for this week - wrapped in Droppable */}
+                        <Droppable droppableId={`week-${week.weekStart}`} isDropDisabled={!canMoveLoads}>
+                          {(provided, snapshot) => (
+                            <>
+                              <tr ref={provided.innerRef} {...provided.droppableProps} style={{ display: 'none' }} />
+                              {week.orders.map((order, orderIndex) => {
                           // Background color rules - Recovery orders get purple background that overrides all other colors
                           const isRecovery = order.isRecovery;
 
@@ -3101,6 +3236,10 @@ const Trips = () => {
                           const isEvenRow = orderIndex % 2 === 1;
                           const alternatingBg = isEvenRow ? "bg-muted/50 hover:bg-muted/50 dark:bg-muted/30 dark:hover:bg-muted/30" : "bg-background hover:bg-background";
 
+                          // Add blue border if order has week override
+                          const hasWeekOverride = order._hasWeekOverride;
+                          const weekOverrideBorder = hasWeekOverride ? "ring-2 ring-blue-500 ring-inset" : "";
+
                           const rowClassName = isRecovery
                             ? "bg-[hsl(270_50%_90%)] dark:bg-[hsl(270_50%_25%)] hover:bg-[hsl(270_50%_90%)] dark:hover:bg-[hsl(270_50%_25%)]"
                             : hasRedFees
@@ -3112,15 +3251,61 @@ const Trips = () => {
                                   : hasOrangeCondition
                                     ? "bg-[hsl(25_95%_90%)] dark:bg-[hsl(25_75%_30%)] hover:bg-[hsl(25_95%_90%)] dark:hover:bg-[hsl(25_75%_30%)]"
                                     : alternatingBg;
+                          
+                          const draggableId = `${order.id}_drag_${order.transferSequence ?? "base"}`;
 
                           return (
-                            <TableRow key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} className={`h-16 ${rowClassName}`}>
+                            <Draggable 
+                              key={order.virtualId ?? `${order.id}_${order.transferSequence ?? "base"}`} 
+                              draggableId={draggableId}
+                              index={orderIndex}
+                              isDragDisabled={!canMoveLoads}
+                            >
+                              {(dragProvided, dragSnapshot) => (
+                                <TableRow 
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className={`h-16 ${rowClassName} ${weekOverrideBorder} ${dragSnapshot.isDragging ? "opacity-70 shadow-lg" : ""}`}
+                                >
+                                  {canMoveLoads && (
+                                    <TableCell className="w-8 p-1">
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <div 
+                                          {...dragProvided.dragHandleProps}
+                                          className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted"
+                                          title="Drag to move to different week"
+                                        >
+                                          <ArrowLeftRight className="h-3 w-3 text-muted-foreground" />
+                                        </div>
+                                        {hasWeekOverride && (
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 p-0"
+                                            onClick={() => handleRevertToOriginalWeek(order.id)}
+                                            title="Return to original week"
+                                          >
+                                            <Undo2 className="h-3 w-3 text-blue-500" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  )}
                               <TableCell className="font-medium">
                                 <div className="line-clamp-2">{order.truckNumber}</div>
                               </TableCell>
                               <TableCell>
                                 <div className="line-clamp-2">
                                   {order.driverName}
+                                  {hasWeekOverride && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="ml-1 text-[10px] px-1 py-0 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                      title={`Originally in week of ${order._originalWeekKey}`}
+                                    >
+                                      Moved
+                                    </Badge>
+                                  )}
                                   {order.transferBadge && (
                                     <Badge 
                                       variant="outline" 
@@ -3263,8 +3448,14 @@ const Trips = () => {
                                 </div>
                               </TableCell>
                             </TableRow>
+                              )}
+                            </Draggable>
                           );
                         })}
+                              {provided.placeholder}
+                            </>
+                          )}
+                        </Droppable>
                       </Fragment>
                     );
                   })
@@ -3272,6 +3463,7 @@ const Trips = () => {
               </TableBody>
             </Table>
           </div>
+          </DragDropContext>
 
           {totalPages > 1 && (
             <div className="mt-4">
