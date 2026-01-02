@@ -29,7 +29,6 @@ import { Search, Loader2, FileDown, Edit, Info, CalendarClock } from "lucide-rea
 import { useOrders } from "@/hooks/useOrders";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDragPan } from "@/hooks/useDragPan";
 import { format, startOfWeek, endOfWeek, getDay, addDays } from "date-fns";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
@@ -413,7 +412,6 @@ const getStatusBadge = (status: string) => {
 };
 
 const Trips = () => {
-  useDragPan();
   const navigate = useNavigate();
 
   const { data: orders, isLoading } = useOrders();
