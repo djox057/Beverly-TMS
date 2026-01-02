@@ -1070,7 +1070,8 @@ const Trips = () => {
       f3Cell.font = { bold: true, size: 16 };
 
       // F4: Thursday date (2 weeks in the future)
-      const thursday = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
+      // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
+      const thursday = addDays(weekStartDate, 16);
       const f4Cell = worksheet.getCell("F4");
       f4Cell.value = format(thursday, "MM/dd/yyyy");
       f4Cell.font = { size: 16 };
@@ -1446,7 +1447,8 @@ const Trips = () => {
       f3Cell.font = { bold: true, size: 16 };
 
       // F4: Thursday date (2 weeks in the future)
-      const thursday = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
+      // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
+      const thursday = addDays(weekStartDate, 16);
       const f4Cell = worksheet.getCell("F4");
       f4Cell.value = format(thursday, "MM/dd/yyyy");
       f4Cell.font = { size: 16 };
@@ -1825,7 +1827,8 @@ const Trips = () => {
       }
 
       // Find Thursday 2 weeks in the future
-      const thursdayDate = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
+      // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
+      const thursdayDate = addDays(weekStartDate, 16);
 
       // C7: Statement number
       const c7Cell = worksheet.getCell("C7");
@@ -2192,7 +2195,8 @@ const Trips = () => {
       }
 
       // Find Thursday 2 weeks in the future
-      const thursdayDate = addDays(weekStartDate, 18); // 14 days + 4 days to Thursday
+      // Week starts on Tuesday, so Thursday is +2 days, then +14 days for 2 weeks = 16 total
+      const thursdayDate = addDays(weekStartDate, 16);
 
       // Fill in header information
       worksheet.getCell("C2").value = invoiceNumber; // Trips invoice number
