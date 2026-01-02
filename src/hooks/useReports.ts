@@ -1608,9 +1608,167 @@ export const useReports = () => {
           // Get driver's company name
           const driverCompanyName = driver.company_id ? driverCompanyMap.get(driver.company_id) || null : null;
 
+          // Find dispatcher info for this driver
+          const driverDispatcherInfo = dispatchers?.find((d) => d.user_id === driver.dispatcher_id);
+
+          // Get driver note
+          const driverNote = truckNotes?.find((note) => note.driver_id === driver.id);
+
+          // Build allOrdersWithStops for unassigned drivers
+          const allOrdersWithStops = driverOrders.map((order) => {
+            const orderPickupDrops = order.pickup_drops || [];
+            const pickupStops = orderPickupDrops.filter((pd: any) => pd.type === "pickup");
+            const deliveryStops = orderPickupDrops.filter((pd: any) => pd.type === "delivery" || pd.type === "drop");
+            const pickupStop = pickupStops[0];
+            const deliveryStop = deliveryStops[deliveryStops.length - 1];
+            const hasPOD = order.order_files?.some((file: any) => file.file_category === 'POD');
+            const hasBOL = order.order_files?.some((file: any) => file.file_category === 'BOL');
+            
+            return {
+              id: order.id,
+              order,
+              status: order.status,
+              canceled: order.canceled,
+              notes: order.notes,
+              pickup_datetime: order.pickup_datetime,
+              pickup_end_datetime: order.pickup_end_datetime,
+              delivery_datetime: order.delivery_datetime,
+              delivery_end_datetime: order.delivery_end_datetime,
+              updated_at: order.updated_at,
+              loaded_miles: order.loaded_miles,
+              order_files: order.order_files,
+              pickupStop,
+              deliveryStop,
+              pickupStops,
+              deliveryStops,
+              isActive: activeOrders.some((activeOrder) => activeOrder.id === order.id),
+              isRecentCompleted: recentCompletedOrders.some((completedOrder) => completedOrder.id === order.id),
+              documentStatus: hasPOD ? 'complete' : hasBOL ? 'partial' : 'missing',
+              documentColors: { pod: hasPOD, bol: hasBOL },
+              loadDetails: {
+                loadNumber: order.internal_load_number || "—",
+                brokerLoadNumber: order.broker_load_number || "—",
+                pickupInfo: pickupStop ? { address: pickupStop.address || "—", city: pickupStop.city || "—", state: pickupStop.state || "—", zipCode: pickupStop.zip_code || "", datetime: pickupStop.datetime || order.pickup_datetime || "—", endDatetime: order.pickup_end_datetime || "—" } : null,
+                deliveryInfo: deliveryStop ? { address: deliveryStop.address || "—", city: deliveryStop.city || "—", state: deliveryStop.state || "—", zipCode: deliveryStop.zip_code || "", datetime: deliveryStop.datetime || order.delivery_datetime || "—", endDatetime: order.delivery_end_datetime || "—" } : null,
+                allPickupStops: pickupStops.map((stop: any) => ({ address: stop.address || "—", city: stop.city || "—", state: stop.state || "—", zipCode: stop.zip_code || "", datetime: stop.datetime || order.pickup_datetime || "—", endDatetime: order.pickup_end_datetime || "—" })),
+                allDeliveryStops: deliveryStops.map((stop: any) => ({ address: stop.address || "—", city: stop.city || "—", state: stop.state || "—", zipCode: stop.zip_code || "", datetime: stop.datetime || order.delivery_datetime || "—", endDatetime: order.delivery_end_datetime || "—" })),
+                documents: (order.order_files || []).map((file: any) => ({ category: file.file_category })),
+                notes: order.notes || "—",
+              },
+            };
+          }) || [];
+
+          // Determine current order using same logic as trucks
+          let currentOrder: typeof allOrdersWithStops[0] | null = null;
+          const allSortedOrders = allOrdersWithStops
+            .filter((order) => !order.canceled && order.notes !== "GAME|OVER")
+            .sort((a, b) => {
+              const aPickup = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Infinity;
+              const bPickup = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Infinity;
+              return aPickup - bPickup;
+            });
+          
+          if (allSortedOrders.length > 0) {
+            const lastOrder = allSortedOrders[allSortedOrders.length - 1];
+            const lastOrderHasBOL = lastOrder.order_files?.some((file: any) => file.file_category === 'BOL');
+            if (lastOrderHasBOL) {
+              currentOrder = lastOrder;
+            } else if (allSortedOrders.length >= 2) {
+              const previousOrder = allSortedOrders[allSortedOrders.length - 2];
+              const previousHasPOD = previousOrder.order_files?.some((file: any) => file.file_category === 'POD');
+              if (previousHasPOD) {
+                currentOrder = lastOrder;
+              } else {
+                const lastWithBOL = [...allSortedOrders].reverse().find(order =>
+                  order.order_files?.some((file: any) => file.file_category === 'BOL')
+                );
+                currentOrder = lastWithBOL || lastOrder;
+              }
+            } else {
+              currentOrder = lastOrder;
+            }
+          } else if (recentCompletedOrders.length > 0) {
+            currentOrder = allOrdersWithStops.find((order) => order.isRecentCompleted) || null;
+          } else if (allOrdersWithStops.length > 0) {
+            currentOrder = allOrdersWithStops.find((order) => order.notes !== "GAME|OVER") || null;
+          }
+
+          // Get transfer-aware stops for unassigned driver
+          const transferStopInfo: TransferSegmentInfo = currentOrder
+            ? getTransferAwareStops(driver.id, currentOrder, currentOrder?.pickupStop, currentOrder?.deliveryStop)
+            : { effectivePickupStop: currentOrder?.pickupStop, effectiveDeliveryStop: currentOrder?.deliveryStop, isTransferDriver: false, driverSequenceNumber: 0, segmentLabel: "" };
+
+          // Format transfer info as a stop-like object
+          const formatTransferInfo = (transferInfo?: { city: string; state: string; address?: string; datetime?: string }) => {
+            if (!transferInfo) return null;
+            let location = "—";
+            const parts = [];
+            if (transferInfo.address) parts.push(transferInfo.address);
+            if (transferInfo.city) parts.push(transferInfo.city);
+            if (transferInfo.state) parts.push(transferInfo.state);
+            if (parts.length > 0) {
+              location = parts.join(", ");
+              if (location.length > 30) location = location.substring(0, 30) + "...";
+            }
+            let date = "—";
+            let time = "—";
+            if (transferInfo.datetime) {
+              const parsed = parseSimpleDateTime(transferInfo.datetime);
+              date = parsed.dateString;
+              time = parsed.timeString;
+            }
+            return { id: null, location, date, time };
+          };
+
+          // Format pickup/delivery info
+          const formatStopInfo = (stop: any, orderStartTime?: string, orderEndTime?: string) => {
+            if (!stop) return { id: null, location: "—", date: "—", time: "—" };
+            let location = "—";
+            const parts = [];
+            if (stop.address) parts.push(stop.address);
+            if (stop.city) parts.push(stop.city);
+            if (stop.state) parts.push(stop.state);
+            if (parts.length > 0) {
+              location = parts.join(", ");
+              if (location.length > 30) location = location.substring(0, 30) + "...";
+            }
+            let date = "—";
+            let time = "—";
+            const datetimeToUse = orderStartTime || stop.datetime;
+            const endDatetimeToUse = orderEndTime;
+            if (datetimeToUse) {
+              const parsed = parseSimpleDateTime(datetimeToUse);
+              date = parsed.dateString;
+              const startTime = parsed.timeString;
+              if (endDatetimeToUse) {
+                const parsedEnd = parseSimpleDateTime(endDatetimeToUse);
+                const endTime = parsedEnd.timeString;
+                if (startTime !== endTime) {
+                  time = `${startTime} - ${endTime}`;
+                } else {
+                  time = startTime;
+                }
+              } else {
+                time = startTime;
+              }
+            }
+            return { id: stop.id, location, date, time };
+          };
+
+          // Determine status
+          let status = "Available";
+          if (currentOrder) {
+            switch (currentOrder.status) {
+              case "pending": status = "Loading"; break;
+              case "in_transit": status = "In Transit"; break;
+              case "delivered": status = "Available"; break;
+              default: status = "Available";
+            }
+          }
+
           return {
             id: `driver-${driver.id}`,
-            orderId: null,
+            orderId: currentOrder?.id || null,
             truckNumber: null,
             companyName: driverCompanyName,
             driver: driver.name,
@@ -1627,7 +1785,7 @@ export const useReports = () => {
               driver.home_city && driver.home_state
                 ? `${driver.home_city}, ${driver.home_state}`
                 : driver.home_city || driver.home_state || "—",
-            dispatcher: dispatcherInfo?.full_name || dispatcherInfo?.email || "Unknown",
+            dispatcher: driverDispatcherInfo?.full_name || driverDispatcherInfo?.email || "Unknown",
             dispatcherId: driver.dispatcher_id,
             status,
             pickup: transferStopInfo.transferPickupInfo 
