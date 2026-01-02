@@ -315,11 +315,13 @@ export function EditDriverDialog({ open, onOpenChange, driver, onSuccess }: Edit
             .neq("id", formData.truck_id);
         }
 
+        // Update truck with driver and inherit driver's company
         const { error: truckError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id || null,
+            company_id: formData.company_id || null,
           })
           .eq("id", formData.truck_id);
         if (truckError) throw truckError;

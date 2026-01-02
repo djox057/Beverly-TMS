@@ -440,12 +440,13 @@ const Drivers = () => {
         }
 
         // Single atomic update: assign driver and trailer to target truck
-        // AND clear this driver from any other trucks in one transaction
+        // AND set truck's company to match driver's company
         const { error: truckError } = await supabase
           .from("trucks")
           .update({
             driver1_id: driverData.id,
             trailer_id: formData.trailer_id || null,
+            company_id: formData.company_id || null,
           })
           .eq("id", formData.truck_id);
         if (truckError) throw truckError;
@@ -634,11 +635,13 @@ const Drivers = () => {
             .neq("id", formData.truck_id);
         }
 
+        // Update truck with driver, trailer, and inherit driver's company
         const { error: truckError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id || null,
+            company_id: formData.company_id || null,
           })
           .eq("id", formData.truck_id);
         if (truckError) throw truckError;
@@ -663,11 +666,13 @@ const Drivers = () => {
           .eq("trailer_id", formData.trailer_id)
           .neq("id", existingTruckId);
 
+        // Update existing truck with trailer and inherit driver's company
         const { error: trailerError } = await supabase
           .from("trucks")
           .update({
             driver1_id: editingDriver.id,
             trailer_id: formData.trailer_id,
+            company_id: formData.company_id || null,
           })
           .eq("id", existingTruckId);
         if (trailerError) throw trailerError;

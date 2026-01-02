@@ -171,6 +171,13 @@ const Trucks = () => {
           .eq('trailer_id', formData.trailer_id);
       }
 
+      // Get driver's company_id to set on truck (truck inherits driver's company)
+      let truckCompanyId = null;
+      if (formData.driver_id) {
+        const driver = drivers?.find(d => d.id === formData.driver_id);
+        truckCompanyId = driver?.company_id || null;
+      }
+
       // ATOMIC OPERATION: Insert the truck with driver assignments
       const {
         error
@@ -180,6 +187,7 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
+        company_id: truckCompanyId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
@@ -242,6 +250,13 @@ const Trucks = () => {
           .neq('id', editingTruck.id);
       }
 
+      // Get driver's company_id to set on truck (truck inherits driver's company)
+      let truckCompanyId = null;
+      if (formData.driver_id) {
+        const driver = drivers?.find(d => d.id === formData.driver_id);
+        truckCompanyId = driver?.company_id || null;
+      }
+
       // ATOMIC OPERATION: Update the truck with new driver assignments FIRST
       const {
         error
@@ -251,6 +266,7 @@ const Trucks = () => {
         trailer_id: formData.trailer_id || null,
         driver1_id: formData.driver_id || null,
         driver2_id: formData.driver2_id || null,
+        company_id: truckCompanyId,
         ipass: formData.ipass || null,
         dot_inspection_date: formData.dot_inspection_date || null,
         plate_expiration_date: formData.plate_expiration_date || null,
