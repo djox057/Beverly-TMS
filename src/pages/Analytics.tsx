@@ -632,20 +632,21 @@ const Analytics = () => {
     .filter((stat) => {
       const dispatcherProfile = dispatcherProfiles[stat.name];
       const primaryRole = getPrimaryRole();
+
+      // Only show users with 'dispatch' role OR managers/supervisors/afterhours who have booked orders (gross > 0)
+      if (!dispatcherProfile) {
+        return false;
+      }
+
+      const hasDispatchRole = dispatcherProfile.roles.includes("dispatch");
+      const isManagerOrSupervisorOrAfterhours =
+        dispatcherProfile.roles.includes("manager") || 
+        dispatcherProfile.roles.includes("supervisor") ||
+        dispatcherProfile.roles.includes("afterhours");
       const hasBookedOrders = stat.totalFreight > 0;
 
-      // Always show users with gross > 0 (includes deleted users who booked orders)
-      if (hasBookedOrders) {
-        // Continue to role-based filtering below
-      } else {
-        // No booked orders - only show if they have dispatch role
-        if (!dispatcherProfile) {
-          return false;
-        }
-        const hasDispatchRole = dispatcherProfile.roles.includes("dispatch");
-        if (!hasDispatchRole) {
-          return false;
-        }
+      if (!hasDispatchRole && !(isManagerOrSupervisorOrAfterhours && hasBookedOrders)) {
+        return false;
       }
 
       // Filter by selected offices (only for admin/manager/chicago_management)
