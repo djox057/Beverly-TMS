@@ -511,7 +511,7 @@ const Reports = () => {
   };
 
   // Helper to determine if we should show Going to Pickup button
-  const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null): boolean => {
+  const shouldShowGoingToPickup = (order: any, stop: any, truck: any | null = null, previousLoadDeliveryComplete: boolean = false): boolean => {
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
     const goingToPickupClicked = !!stop.going_to_at;
     const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
@@ -525,11 +525,14 @@ const Reports = () => {
     // Don't show for late pickups - they should just click "Arrived"
     if (latePickups.has(order.id)) return false;
 
+    // Don't show if previous load is complete (cyan state) - already implies going to pickup
+    if (previousLoadDeliveryComplete) return false;
+
     return true;
   };
 
   // Helper to determine if we should show At Pickup button
-  const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null): boolean => {
+  const shouldShowAtPickup = (order: any, stop: any, truck: any | null = null, previousLoadDeliveryComplete: boolean = false): boolean => {
     if (stop.arrived_at) return false; // Already arrived
 
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
@@ -543,6 +546,9 @@ const Reports = () => {
 
     // Show immediately for late pickups (no need to wait for "Going to" first)
     if (isLate) return true;
+
+    // Show immediately if previous load is complete (cyan state)
+    if (previousLoadDeliveryComplete) return true;
 
     // Otherwise require "Going to" clicked and 5 seconds passed
     const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
@@ -4314,7 +4320,11 @@ const Reports = () => {
                       })),
                       id: zoomedLoad.orderId,
                     };
-                    const previousComplete = idx > 0 && zoomedLoad.allPickupStops[idx - 1].arrived_at;
+                    // For first pickup stop, skip "Going to Pickup" and show "Arrived" directly
+                    // (matches cyan cell behavior where previous load delivery is complete)
+                    const hasBOL = zoomedLoad.documents.includes("BOL");
+                    const isFirstStop = idx === 0;
+                    const previousComplete = isFirstStop ? !hasBOL : zoomedLoad.allPickupStops[idx - 1].arrived_at;
 
                     // Determine card color based on status
                     let cardBgClass = "bg-muted";
@@ -4375,7 +4385,7 @@ const Reports = () => {
 
                         {stop.id && !stop.arrived_at && (
                           <div className="flex flex-col gap-2 mt-3">
-                            {shouldShowGoingToPickup(order, stop) && (
+                            {shouldShowGoingToPickup(order, stop, null, previousComplete) && (
                               <Button
                                 variant="outline"
                                 onClick={() => {
@@ -4392,7 +4402,7 @@ const Reports = () => {
                               </Button>
                             )}
 
-                            {shouldShowAtPickup(order, stop) && (
+                            {shouldShowAtPickup(order, stop, null, previousComplete) && (
                               <Button
                                 onClick={() => {
                                   setArrivalTimeDialog({
