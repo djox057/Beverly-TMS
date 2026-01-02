@@ -692,7 +692,8 @@ const Orders = () => {
         return;
       }
 
-      // Restore original values
+      // Restore original values - recalculate mileage from loaded + dh miles
+      const restoredMileage = (backup.original_loaded_miles || 0) + (backup.original_dh_miles || 0);
       const { error: updateError } = await supabase
         .from("orders")
         .update({
@@ -700,6 +701,7 @@ const Orders = () => {
           driver_price: backup.original_driver_price,
           loaded_miles: backup.original_loaded_miles,
           dh_miles: backup.original_dh_miles,
+          mileage: restoredMileage,
           tonu: backup.original_tonu,
           tonu_driver: backup.original_tonu_driver,
           notes: backup.original_notes,
