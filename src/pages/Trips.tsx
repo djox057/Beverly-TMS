@@ -3211,11 +3211,46 @@ const Trips = () => {
                           </TableCell>
                         </TableRow>
 
-                        {/* Orders for this week - wrapped in Droppable */}
-                        <Droppable droppableId={`week-${week.weekStart}`} isDropDisabled={!canMoveLoads}>
+                        {/* Drop zone indicator - shown when dragging over this week */}
+                        <Droppable 
+                          droppableId={`week-${week.weekStart}`} 
+                          isDropDisabled={!canMoveLoads}
+                          renderClone={(provided, snapshot, rubric) => {
+                            const draggedOrder = week.orders[rubric.source.index];
+                            return (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className="bg-card border-2 border-primary rounded-md p-3 shadow-xl opacity-90"
+                              >
+                                <div className="font-medium">{draggedOrder?.truckNumber} - {draggedOrder?.driverName}</div>
+                                <div className="text-sm text-muted-foreground">Load #{draggedOrder?.internalLoadNumber}</div>
+                              </div>
+                            );
+                          }}
+                        >
                           {(provided, snapshot) => (
-                            <>
-                              <tr ref={provided.innerRef} {...provided.droppableProps} style={{ display: 'none' }} />
+                            <Fragment>
+                              {/* Drop indicator row - visible when dragging over */}
+                              {snapshot.isDraggingOver && (
+                                <TableRow className="bg-blue-100 dark:bg-blue-900/50 border-2 border-dashed border-blue-500 animate-pulse">
+                                  <TableCell colSpan={canMoveLoads ? 15 : 14} className="py-4 text-center">
+                                    <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
+                                      <ArrowLeftRight className="h-4 w-4" />
+                                      Drop here to move load to this week
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              {/* Hidden droppable target - needed for proper drop detection */}
+                              <tr 
+                                ref={provided.innerRef} 
+                                {...provided.droppableProps}
+                                className={snapshot.isDraggingOver ? "bg-blue-50 dark:bg-blue-950" : ""}
+                              >
+                                <td colSpan={canMoveLoads ? 15 : 14} style={{ padding: 0, height: snapshot.isDraggingOver ? '4px' : '0px' }} />
+                              </tr>
                               {week.orders.map((order, orderIndex) => {
                           // Background color rules - Recovery orders get purple background that overrides all other colors
                           const isRecovery = order.isRecovery;
@@ -3265,7 +3300,7 @@ const Trips = () => {
                                 <TableRow 
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
-                                  className={`h-16 ${rowClassName} ${weekOverrideBorder} ${dragSnapshot.isDragging ? "opacity-70 shadow-lg" : ""}`}
+                                  className={`h-16 ${rowClassName} ${weekOverrideBorder} ${dragSnapshot.isDragging ? "opacity-50 bg-primary/20" : ""}`}
                                 >
                                   {canMoveLoads && (
                                     <TableCell className="w-8 p-1">
@@ -3453,7 +3488,7 @@ const Trips = () => {
                           );
                         })}
                               {provided.placeholder}
-                            </>
+                            </Fragment>
                           )}
                         </Droppable>
                       </Fragment>
