@@ -1056,10 +1056,10 @@ function transformOrders(allOrders: any[]) {
       otherChargesDriver: order.other_charges_driver,
       totalDriverPay,
 
-      // Mileage fields
+      // Mileage fields - always compute mileage from loaded + dh miles
       loadedMiles: order.loaded_miles,
       dhMiles: order.dh_miles,
-      mileage: order.mileage,
+      mileage: toNum(order.loaded_miles) + toNum(order.dh_miles),
 
       // Recovery fields
       recoveryDate: order.recovery_date,
