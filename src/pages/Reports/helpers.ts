@@ -195,8 +195,10 @@ export const getPickupCellColor = (order: any, previousLoadDeliveryComplete: boo
   const isLate = latePickups?.has(order.id);
 
   if (hasBOL || hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
-  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
+  // Arrived at pickup overrides late status - if arrived, show blue not orange
   if (hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
+  // Only show late (orange) if NOT arrived
+  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
   if (previousLoadDeliveryComplete) return "bg-[#00FFFF] text-black border-border";
   return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
 };
@@ -231,8 +233,10 @@ export const getDeliveryCellColor = (order: any, stop: any | undefined, lateDeli
     if (hasPOD) return "bg-[hsl(var(--cell-complete))] text-[hsl(var(--cell-complete-foreground))] border-border";
   }
 
-  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
+  // Arrived at delivery overrides late status - if arrived, show blue not orange
   if (hasBOL && hasArrived) return "bg-[hsl(var(--cell-active))] text-[hsl(var(--cell-active-foreground))] border-border";
+  // Only show late (orange) if NOT arrived
+  if (isLate) return "bg-[hsl(var(--cell-late))] text-[hsl(var(--cell-late-foreground))] border-border";
   if (hasBOL) return "bg-[hsl(var(--cell-lime))] text-[hsl(var(--cell-lime-foreground))] border-border";
   return "bg-[hsl(var(--cell-pending))] text-[hsl(var(--cell-pending-foreground))] border-border";
 };
