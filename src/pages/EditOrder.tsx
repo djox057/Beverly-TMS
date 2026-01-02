@@ -3267,10 +3267,16 @@ const EditOrder = () => {
                 <Label htmlFor="booked-by">Booked By</Label>
                 {hasRole("manager") || hasRole("admin") ? (
                   <Combobox
-                    options={profiles.map((p) => ({
-                      value: p.full_name,
-                      label: p.full_name,
-                    }))}
+                    options={[
+                      // Include current bookedBy value if it's not in profiles (deleted user)
+                      ...(bookedBy && !profiles.find(p => p.full_name === bookedBy) 
+                        ? [{ value: bookedBy, label: `${bookedBy} (deleted)` }] 
+                        : []),
+                      ...profiles.map((p) => ({
+                        value: p.full_name,
+                        label: p.full_name,
+                      }))
+                    ]}
                     value={bookedBy}
                     onValueChange={setBookedBy}
                     placeholder="Select person"

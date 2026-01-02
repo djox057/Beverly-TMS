@@ -633,9 +633,13 @@ const Analytics = () => {
       const dispatcherProfile = dispatcherProfiles[stat.name];
       const primaryRole = getPrimaryRole();
 
-      // Only show users with 'dispatch' role OR managers/supervisors/afterhours who have booked orders (gross > 0)
+      // Show users with gross > 0 (including deleted users who still have orders)
+      // OR users with 'dispatch' role OR managers/supervisors/afterhours who have booked orders
+      const hasBookedOrders = stat.totalFreight > 0;
+      
+      // If no profile exists but they have orders with gross, show them (deleted users)
       if (!dispatcherProfile) {
-        return false;
+        return hasBookedOrders;
       }
 
       const hasDispatchRole = dispatcherProfile.roles.includes("dispatch");
@@ -643,9 +647,9 @@ const Analytics = () => {
         dispatcherProfile.roles.includes("manager") || 
         dispatcherProfile.roles.includes("supervisor") ||
         dispatcherProfile.roles.includes("afterhours");
-      const hasBookedOrders = stat.totalFreight > 0;
-
-      if (!hasDispatchRole && !(isManagerOrSupervisorOrAfterhours && hasBookedOrders)) {
+      
+      // Show if: has dispatch role, OR is manager/supervisor/afterhours with orders, OR has gross > 0 (deleted users)
+      if (!hasDispatchRole && !(isManagerOrSupervisorOrAfterhours && hasBookedOrders) && !hasBookedOrders) {
         return false;
       }
 
