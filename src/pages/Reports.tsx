@@ -519,8 +519,13 @@ const Reports = () => {
     // Don't show if stuck on previous load (has incomplete deliveries)
     if (hasIncompleteDeliveries) return false;
 
-    // Show if no BOL and Going to Pickup hasn't been clicked for this stop
-    return !hasBOL && !goingToPickupClicked;
+    // Don't show if already has BOL or already clicked going to
+    if (hasBOL || goingToPickupClicked) return false;
+
+    // Don't show for late pickups - they should just click "Arrived"
+    if (latePickups.has(order.id)) return false;
+
+    return true;
   };
 
   // Helper to determine if we should show At Pickup button
@@ -528,44 +533,41 @@ const Reports = () => {
     if (stop.arrived_at) return false; // Already arrived
 
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToPickupClicked = !!stop.going_to_at;
-    const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
-    const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
+    if (hasBOL) return false; // Already has BOL, past pickup stage
 
-    // Don't show if stuck on previous load (has incomplete deliveries)
+    const hasIncompleteDeliveries = hasPreviousOrdersWithoutPOD(truck, order);
     if (hasIncompleteDeliveries) return false;
 
-    // Show if Going to Pickup clicked AND 5 seconds have passed AND no BOL yet
-    return goingToPickupClicked && fiveSecondsPassed && !hasBOL;
+    const goingToPickupClicked = !!stop.going_to_at;
+    const isLate = latePickups.has(order.id);
+
+    // Show immediately for late pickups (no need to wait for "Going to" first)
+    if (isLate) return true;
+
+    // Otherwise require "Going to" clicked and 5 seconds passed
+    const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
+    return goingToPickupClicked && fiveSecondsPassed;
   };
 
   // Helper to determine if we should show Going to Delivery button
-  const shouldShowGoingToDelivery = (order: any, stop: any, truck: any | null = null): boolean => {
-    const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToDeliveryClicked = !!stop.going_to_at;
-
-    // CRITICAL FIX: If "Going to Delivery" was clicked, hide the button
-    // This allows the truck to move forward even if previous POD is missing
-    if (goingToDeliveryClicked) return false;
-
-    // Show if has BOL and hasn't clicked yet
-    // Don't check for incomplete deliveries - user can override by clicking
-    return hasBOL;
+  const shouldShowGoingToDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
+    // Never show "Going to Delivery" - having BOL already implies going to delivery
+    // User should just click "Arrived at Delivery" directly
+    return false;
   };
 
   // Helper to determine if we should show At Delivery button
-  const shouldShowAtDelivery = (order: any, stop: any, truck: any | null = null): boolean => {
+  const shouldShowAtDelivery = (order: any, stop: any, _truck: any | null = null): boolean => {
     if (stop.arrived_at) return false; // Already arrived
 
     const hasBOL = order.order_files?.some((file: any) => file.file_category === "BOL");
-    const goingToDeliveryClicked = !!stop.going_to_at;
-    const fiveSecondsPassed = has5SecondsPassed(stop.going_to_at);
+    const hasPOD = order.order_files?.some((file: any) => file.file_category === "POD");
+    
+    // Don't show if already has POD
+    if (hasPOD) return false;
 
-    // CRITICAL FIX: Show "At Delivery" if:
-    // 1. "Going to Delivery" was clicked AND 5 seconds passed, OR
-    // 2. Has BOL AND 5 seconds passed (for backward compatibility)
-    // This allows the truck to proceed even if previous POD is missing
-    return (hasBOL || goingToDeliveryClicked) && fiveSecondsPassed;
+    // Show "Arrived at Delivery" if has BOL (lime green or late)
+    return hasBOL;
   };
 
   // Helper to get all load details for zoom dialog
