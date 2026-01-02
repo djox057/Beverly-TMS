@@ -2234,16 +2234,17 @@ const Reports = () => {
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
 
-              // Compare estimated arrival with scheduled end time
-              if (estimatedArrivalUtc > scheduledEnd) {
+              // Cell turns orange only when scheduled end time has passed (pickup is overdue)
+              // This matches user expectation: "late" means the deadline has passed, not future ETA projection
+              const isOverdue = now > scheduledEnd;
+              
+              if (isOverdue) {
                 newLatePickups.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
 
-                // Check if we should send notification (only if 1+ hour late)
-                const LATE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour in milliseconds
-                const isSignificantlyLate = estimatedArrivalUtc.getTime() > scheduledEnd.getTime() + LATE_THRESHOLD_MS;
+                // Queue email notification for late pickup (send immediately when overdue)
                 const notifyKey = currentOrder.id;
-                if (isSignificantlyLate && !notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "pickup",
@@ -2277,16 +2278,17 @@ const Reports = () => {
               const scheduledEnd = parseAsChicagoTime(endDatetime);
               if (isNaN(scheduledEnd.getTime())) return;
 
-              // Compare estimated arrival with scheduled end time
-              if (estimatedArrivalUtc > scheduledEnd) {
+              // Cell turns orange only when scheduled end time has passed (delivery is overdue)
+              // This matches user expectation: "late" means the deadline has passed, not future ETA projection
+              const isOverdue = now > scheduledEnd;
+              
+              if (isOverdue) {
                 newLateDeliveries.add(currentOrder.id);
                 newLateTrucks.add(truck.id);
 
-                // Queue email notification for late delivery (only if 1+ hour late)
-                const LATE_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour in milliseconds
-                const isSignificantlyLate = estimatedArrivalUtc.getTime() > scheduledEnd.getTime() + LATE_THRESHOLD_MS;
+                // Queue email notification for late delivery (send immediately when overdue)
                 const notifyKey = `${currentOrder.id}-delivery-${stop.id || 'main'}`;
-                if (isSignificantlyLate && !notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
+                if (!notifiedLateStops.has(notifyKey) && truck.dispatcherEmail) {
                   lateStopsToNotify.push({
                     orderId: currentOrder.id,
                     stopType: "delivery",
