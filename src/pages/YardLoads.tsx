@@ -629,7 +629,7 @@ export default function YardLoads() {
                         <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
                         <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
                         <TableCell>
-                          {order.deliveryDate ? format(new Date(order.deliveryDate), 'h:mm a') : '-'}
+                          {order.deliveryDate ? order.deliveryDate.substring(11, 16) : '-'}
                         </TableCell>
                         <TableCell>{formatDateNoTimezone(order.deliveryDate)}</TableCell>
                         <TableCell>
