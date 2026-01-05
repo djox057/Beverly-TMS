@@ -34,6 +34,7 @@ import {
   Pill,
   DollarSign,
   Map as MapIcon,
+  Undo2,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -415,6 +416,7 @@ const Reports = () => {
     freightAmount: number;
     loadedMiles: number;
     driverPay: number;
+    canceled: boolean;
   } | null>(null);
   
   // Additional files popover state
@@ -610,6 +612,7 @@ const Reports = () => {
       freightAmount: 0,
       loadedMiles: 0,
       driverPay: 0,
+      canceled: order.canceled || false,
     };
 
     // Fetch financial data for this specific order from DB
@@ -916,6 +919,83 @@ const Reports = () => {
       toast({
         title: "Error",
         description: "Failed to cancel load",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Revert cancellation handler
+  const handleRevertCancellation = async () => {
+    if (!zoomedLoad?.orderId) return;
+
+    try {
+      // Get the backup data
+      const { data: backup, error: fetchError } = await supabase
+        .from("canceled_orders_backup")
+        .select("*")
+        .eq("order_id", zoomedLoad.orderId)
+        .order("canceled_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!backup) {
+        toast({
+          title: "Warning",
+          description: "No backup found for this order - reverting with current values",
+        });
+        // Just uncancel without restoring original values
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({ canceled: false })
+          .eq("id", zoomedLoad.orderId);
+        if (updateError) throw updateError;
+        toast({
+          title: "Success",
+          description: "Load uncanceled",
+        });
+        setZoomedLoad(null);
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        return;
+      }
+
+      // Restore original values - recalculate mileage from loaded + dh miles
+      const restoredMileage = (backup.original_loaded_miles || 0) + (backup.original_dh_miles || 0);
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({
+          freight_amount: backup.original_freight_amount,
+          driver_price: backup.original_driver_price,
+          loaded_miles: backup.original_loaded_miles,
+          dh_miles: backup.original_dh_miles,
+          mileage: restoredMileage,
+          tonu: backup.original_tonu,
+          tonu_driver: backup.original_tonu_driver,
+          notes: backup.original_notes,
+          canceled: false,
+        })
+        .eq("id", zoomedLoad.orderId);
+
+      if (updateError) throw updateError;
+
+      // Delete the backup record
+      const { error: deleteError } = await supabase.from("canceled_orders_backup").delete().eq("id", backup.id);
+
+      if (deleteError) console.error("Error deleting backup:", deleteError);
+
+      toast({
+        title: "Success",
+        description: "Load cancellation reverted successfully",
+      });
+      setZoomedLoad(null);
+
+      // Refresh reports list
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+    } catch (error) {
+      console.error("Error reverting cancellation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to revert cancellation",
         variant: "destructive",
       });
     }
@@ -4671,16 +4751,27 @@ const Reports = () => {
                     <DollarSign className="h-4 w-4 mr-2" />
                     Lumper Request
                   </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setCancelDialogOpen(true);
-                    }}
-                  >
-                    <Ban className="h-4 w-4" />
-                    Cancel Load
-                  </Button>
+                  {zoomedLoad?.canceled ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRevertCancellation}
+                    >
+                      <Undo2 className="h-4 w-4 mr-1" />
+                      Revert
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setCancelDialogOpen(true);
+                      }}
+                    >
+                      <Ban className="h-4 w-4" />
+                      Cancel Load
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
