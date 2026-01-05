@@ -35,6 +35,7 @@ import {
   DollarSign,
   Map as MapIcon,
   Undo2,
+  Fuel,
 } from "lucide-react";
 import { TruckNoteHistoryDialog } from "@/components/TruckNoteHistoryDialog";
 import { ArrivalTimeDialog } from "@/components/ArrivalTimeDialog";
@@ -45,6 +46,8 @@ import { EditLostDayNoteDialog } from "@/components/EditLostDayNoteDialog";
 import { useNavigate } from "react-router-dom";
 import { HosCircularTimer } from "@/components/HosCircularTimer";
 import { useReports } from "@/hooks/useReports";
+import { useEfsMissingByDriver } from "@/hooks/useEfsMissingByDriver";
+import { EfsMissingDataDialog } from "@/components/EfsMissingDataDialog";
 import { useDriverDrugTests } from "@/hooks/useDriverDrugTests";
 
 import { useSamsaraLocations } from "@/hooks/useSamsaraLocations";
@@ -268,6 +271,7 @@ const Reports = () => {
   const dialogs = useReportsDialogs();
   
   const { drugTests, upsertDrugTest, getDrugTestForDriver } = useDriverDrugTests();
+  const { hasDriverMissingData: hasEfsMissingData } = useEfsMissingByDriver();
   
 
   // Helper to get driver cell styling (combines drug test and game over styling)
@@ -448,6 +452,12 @@ const Reports = () => {
     driverName: string;
     truckNumber: string;
     companyName: string;
+  } | null>(null);
+  
+  // EFS Missing Data dialog state
+  const [efsMissingDataDialog, setEfsMissingDataDialog] = useState<{
+    driverId: string;
+    driverName: string;
   } | null>(null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -3238,6 +3248,27 @@ const Reports = () => {
                                           }}
                                         >
                                           <span>{truck.driver}</span>
+                                          {hasEfsMissingData(truck.driverId) && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  className="inline-flex"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEfsMissingDataDialog({
+                                                      driverId: truck.driverId!,
+                                                      driverName: truck.driver || "Unknown",
+                                                    });
+                                                  }}
+                                                >
+                                                  <Fuel className="h-3.5 w-3.5 text-amber-500 cursor-pointer" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="text-xs">EFS Fuel - Missing Data</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
                                           {truck.randomDrugTestDate && (
                                             <Popover>
                                               <PopoverTrigger asChild>
@@ -5411,6 +5442,14 @@ const Reports = () => {
         driverName={hosRequestDialog?.driverName || ""}
         truckNumber={hosRequestDialog?.truckNumber || ""}
         companyName={hosRequestDialog?.companyName || ""}
+      />
+
+      {/* EFS Missing Data Dialog */}
+      <EfsMissingDataDialog
+        open={!!efsMissingDataDialog}
+        onOpenChange={(open) => !open && setEfsMissingDataDialog(null)}
+        driverId={efsMissingDataDialog?.driverId || ""}
+        driverName={efsMissingDataDialog?.driverName || ""}
       />
     </>
   );
