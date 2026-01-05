@@ -21,6 +21,7 @@ interface ParsedExpense {
   expense_date: string | null;
   amount: number;
   status: string;
+  paid_amount: number | null;
   paid_date: string | null;
   notice_1: string | null;
   notice_2: string | null;
@@ -145,12 +146,13 @@ function generateSqlCode(
         exp.expense_date ? `'${exp.expense_date}'` : 'NULL',
         exp.amount,
         `'${exp.status}'`,
+        exp.paid_amount !== null ? exp.paid_amount : 'NULL',
         exp.paid_date ? `'${exp.paid_date}'` : 'NULL',
         exp.notice_1 ? `'${exp.notice_1.replace(/'/g, "''")}'` : 'NULL',
         exp.notice_2 ? `'${exp.notice_2.replace(/'/g, "''")}'` : 'NULL',
         exp.is_fixed
       ];
-      lines.push(`INSERT INTO driver_expenses (driver_id, truck_number, name, explanation, expense_date, amount, status, paid_date, notice_1, notice_2, is_fixed) VALUES (${values.join(', ')});`);
+      lines.push(`INSERT INTO driver_expenses (driver_id, truck_number, name, explanation, expense_date, amount, status, paid_amount, paid_date, notice_1, notice_2, is_fixed) VALUES (${values.join(', ')});`);
     }
     lines.push('');
   }
@@ -265,10 +267,21 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
           
           const truckNumber = row[columnMap['truck']] ? String(row[columnMap['truck']]).trim() : null;
           const expenseDate = parseDate(row[columnMap['date']]);
-          const status = String(row[columnMap['status']] || 'pending').toLowerCase().trim();
+          const rawStatus = row[columnMap['status']];
           const paidDate = parseDate(row[columnMap['paid_date']]);
           const notice1 = row[columnMap['notice_1']] ? String(row[columnMap['notice_1']]).trim() : null;
           const notice2 = row[columnMap['notice_2']] ? String(row[columnMap['notice_2']]).trim() : null;
+          
+          // Check if status is a number (meaning it's actually paid_amount)
+          let status: string;
+          let paidAmount: number | null = null;
+          const statusNum = parseAmount(rawStatus);
+          if (statusNum > 0 && !isNaN(statusNum)) {
+            status = 'partial';
+            paidAmount = statusNum;
+          } else {
+            status = String(rawStatus || 'pending').toLowerCase().trim();
+          }
           
           const explanationLower = explanation.toLowerCase();
           
@@ -305,6 +318,7 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
               expense_date: expenseDate,
               amount,
               status: status || 'pending',
+              paid_amount: paidAmount,
               paid_date: paidDate,
               notice_1: notice1,
               notice_2: notice2,
