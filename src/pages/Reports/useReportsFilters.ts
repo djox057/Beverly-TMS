@@ -93,12 +93,19 @@ export function useReportsFilters() {
     return false;
   }, []);
 
-  // Helper to check if truck has any game over days
+  // Helper to check if truck has any game over days (only today or future)
   const hasGameOverDays = useCallback((truck: any) => {
+    const today = getChicagoToday();
+    today.setHours(0, 0, 0, 0);
+    
     return (
       truck.lost_day_notes?.some((note: any) => {
         const noteText = note.note?.toLowerCase() || "";
-        return noteText.includes("game over");
+        if (!noteText.includes("game over")) return false;
+        
+        // Only consider game over notes for today or future dates
+        const noteDate = new Date(note.date + "T00:00:00");
+        return noteDate >= today;
       }) || false
     );
   }, []);
