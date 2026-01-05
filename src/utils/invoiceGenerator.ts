@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency, formatDateNoTimezone } from '@/lib/utils';
 import ExcelJS from 'exceljs';
-
+import { formatInternalLoadNumber } from '@/utils/formatInternalLoadNumber';
 // Helper function to load file from Supabase storage
 const loadFileAsBase64 = async (filePath: string): Promise<string | null> => {
   try {
@@ -164,9 +164,10 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       }
       
       // Invoice details table (right side)
-      const invoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
+      const rawInvoiceNumber = group.orders[0]?.internalLoadNumber || Math.floor(Math.random() * 9999) + 1000;
+      const invoiceNumber = formatInternalLoadNumber(rawInvoiceNumber, companyName);
       
-      // Simple filename - just the load number
+      // Simple filename - just the load number with suffix
       const baseFilename = `${invoiceNumber}.pdf`;
       console.log(`Generated invoice ${baseFilename} for company ${companyName}`);
     
@@ -432,7 +433,7 @@ export const generateInvoicePDF = async (orders: Order[]): Promise<string[]> => 
       group.orders.forEach(order => {
         xlsxDataByCompany[sanitizedCompanyName].push({
           'ClientNo': brokerMcMap.get(order.brokerName) || '',
-          'Invoice#': order.internalLoadNumber,
+          'Invoice#': formatInternalLoadNumber(order.internalLoadNumber, companyName),
           'Debtor Debtor Name': order.brokerName,
           'Pono': order.brokerLoadNumber,
           'InvDate': currentDate,
