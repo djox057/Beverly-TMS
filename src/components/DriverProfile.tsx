@@ -361,25 +361,33 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                   </TableRow>
                 ))}
                 {/* Truck Payment - driver specific */}
-                {driver.weekly_payment && driver.weekly_payment > 0 && (
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      Truck Payment
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({driver.weeks_count || 0}/156 payments)
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">{formatCurrency(driver.weekly_payment)}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">Weekly</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {driver.agreement_start_date 
-                        ? new Date(driver.agreement_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                )}
+                {driver.weekly_payment && driver.weekly_payment > 0 && (() => {
+                  // Calculate payments made from agreement start date
+                  const paymentsMade = driver.agreement_start_date 
+                    ? Math.max(0, Math.floor((Date.now() - new Date(driver.agreement_start_date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))
+                    : 0;
+                  const totalPayments = driver.weeks_count || 156;
+                  
+                  return (
+                    <TableRow>
+                      <TableCell className="font-medium">
+                        Truck Payment
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({paymentsMade}/{totalPayments} Payments Made)
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(driver.weekly_payment)}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">Weekly</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {driver.agreement_start_date 
+                          ? new Date(driver.agreement_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })()}
                 {/* Fuel Discount */}
                 <TableRow>
                   <TableCell className="font-medium">Fuel Discount</TableCell>
