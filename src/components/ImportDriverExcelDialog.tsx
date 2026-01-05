@@ -214,10 +214,10 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
           }
         }
         
-        // Look for truck payment pattern like "$900/208"
+        // Look for truck payment pattern like "$900/208" (must be > $600 to exclude escrow)
         for (const cell of row) {
           const payment = parseTruckPayment(cell);
-          if (payment) {
+          if (payment && payment.amount > 600) {
             dealInfo.weekly_payment = payment.amount;
             dealInfo.weeks_count = payment.weeks;
           }
