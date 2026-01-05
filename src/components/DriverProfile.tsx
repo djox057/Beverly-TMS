@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3 } from "lucide-react";
+import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3, FileSpreadsheet } from "lucide-react";
 import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { AddDriverExpenseDialog } from "./AddDriverExpenseDialog";
+import { ImportDriverExcelDialog } from "./ImportDriverExcelDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
@@ -57,6 +58,7 @@ interface CashAdvance {
 
 export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [showAddExpenseDialog, setShowAddExpenseDialog] = useState(false);
+  const [showImportExcelDialog, setShowImportExcelDialog] = useState(false);
   const [cdlImageUrl, setCdlImageUrl] = useState<string | null>(null);
   const [isUploadingCdl, setIsUploadingCdl] = useState(false);
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
@@ -479,10 +481,16 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg">Expenses & Cash Advances</CardTitle>
-          <Button size="sm" onClick={() => setShowAddExpenseDialog(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Expense
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowImportExcelDialog(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              Import Excel
+            </Button>
+            <Button size="sm" onClick={() => setShowAddExpenseDialog(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Expense
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -602,6 +610,14 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
           initialData={editingExpense}
         />
       )}
+
+      {/* Import Excel Dialog */}
+      <ImportDriverExcelDialog
+        open={showImportExcelDialog}
+        onOpenChange={setShowImportExcelDialog}
+        driverId={driver.id}
+        driverName={driver.name || `${driver.first_name} ${driver.last_name}`}
+      />
     </div>
   );
 }
