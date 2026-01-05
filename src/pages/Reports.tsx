@@ -88,6 +88,7 @@ import {
   getPreviousLoadDeliveryStatus,
   getStatusColors,
 } from "./Reports/helpers";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import type { GameOverType } from "./Reports/helpers";
 interface EditingState {
   truckId: string;
@@ -605,7 +606,7 @@ const Reports = () => {
       truckNumber: truck.truckNumber,
       driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
-      internalLoadNumber: order.internal_load_number?.toString() || order.loadDetails.loadNumber || "",
+      internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
       freightAmount: 0,
       loadedMiles: 0,
       driverPay: 0,
@@ -2855,7 +2856,7 @@ const Reports = () => {
                                             ? {
                                                 id: currentOrder.id,
                                                 loadNumber:
-                                                  currentOrder.internal_load_number?.toString() || currentOrder.load_number,
+                                                  formatInternalLoadNumber(currentOrder.internal_load_number, truck.companyName),
                                                 brokerLoadNumber: currentOrder.broker_load_number,
                                                 pickupAddress: currentOrder.pickupStop?.address,
                                                 deliveryAddress: currentOrder.deliveryStop?.address,

@@ -28,6 +28,7 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Calendar, FileText, Lock, Unlock, Plus, Download, Edit, XCircle, Undo2, LockOpen, UserPlus } from "lucide-react";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -190,7 +191,7 @@ export default function YardLoads() {
 
   const exportToExcel = () => {
     const exportData = filteredOrders.map(order => ({
-      'Load #': order.internalLoadNumber,
+      'Load #': formatInternalLoadNumber(order.internalLoadNumber, order.companyName),
       'Broker Load #': order.brokerLoadNumber || '',
       'Status': order.status,
       'Company': order.companyName || '',
@@ -631,7 +632,7 @@ export default function YardLoads() {
                     return (
                       <TableRow key={order.id} className={`h-16 ${rowClassName}`}>
                         <TableCell className="font-medium">{order.trailerNumber || '-'}</TableCell>
-                        <TableCell className="font-medium">{order.internalLoadNumber}</TableCell>
+                        <TableCell className="font-medium">{formatInternalLoadNumber(order.internalLoadNumber, order.companyName)}</TableCell>
                         <TableCell>{order.brokerLoadNumber || '-'}</TableCell>
                         <TableCell>
                           {order.deliveryDate ? order.deliveryDate.substring(11, 16) : '-'}

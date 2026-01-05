@@ -42,6 +42,7 @@ import { generateInvoicePDF } from "@/utils/invoiceGenerator";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import {
   Dialog,
   DialogContent,
@@ -472,7 +473,7 @@ const Orders = () => {
     if (!filteredOrders.length) return;
     const exportData = filteredOrders.map((order) => ({
       "Truck #": order.truckNumber,
-      "Load #": order.internalLoadNumber,
+      "Load #": formatInternalLoadNumber(order.internalLoadNumber, order.companyName || order.truckCompanyName),
       "Pickup Date": order.pickupDate,
       "Pickup City": order.pickupCity,
       "Pickup State": order.pickupState,
@@ -1006,7 +1007,7 @@ const Orders = () => {
                                   </Tooltip>
                                 </TooltipProvider>
                               )}
-                              {order.internalLoadNumber}
+                              {formatInternalLoadNumber(order.internalLoadNumber, order.companyName || order.truckCompanyName)}
                             </div>
                           </TableCell>
                           <TableCell className="w-32 p-0">

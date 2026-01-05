@@ -39,6 +39,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rebuildWorkbookClean } from "@/utils/excel/rebuildWorkbookClean";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useAuth } from "@/hooks/useAuth";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 
 // Legacy cleanup function (kept for reference)
 const cleanupWorksheet = (worksheet: ExcelJS.Worksheet, maxRow: number, maxCol: number = 12) => {
@@ -1133,7 +1134,7 @@ const Trips = () => {
         if (currentRow > 20) return;
 
         // A: Internal load number
-        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
@@ -1510,7 +1511,7 @@ const Trips = () => {
         if (currentRow > 20) return;
 
         // A: Trip No. (Internal load number)
-        worksheet.getCell(`A${currentRow}`).value = order.internalLoadNumber || "";
+        worksheet.getCell(`A${currentRow}`).value = formatInternalLoadNumber(order.internalLoadNumber, order.companyName);
 
         // B: Pickup date
         worksheet.getCell(`B${currentRow}`).value = formatDateDisplay(order.pickupDate);
