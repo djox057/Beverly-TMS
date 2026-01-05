@@ -424,6 +424,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
           trailerNumber={editingExpense.trailer_number || undefined}
           onSubmit={(expense) => handleUpdateExpense(editingExpense.id, expense)}
           isSubmitting={isUpdating}
+          initialData={editingExpense}
         />
       )}
     </div>
