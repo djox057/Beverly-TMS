@@ -87,18 +87,28 @@ Deno.serve(async (req) => {
 
     console.log('Attempting to delete user:', userId)
 
-    // First delete related records that might prevent deletion
-    // Delete from profiles table
-    const { error: profileDeleteError } = await supabaseAdmin
-      .from('profiles')
-      .delete()
-      .eq('user_id', userId)
+    // First nullify foreign key references that might prevent deletion
+    // Nullify recovery_history references
+    const { error: recoveryOriginalError } = await supabaseAdmin
+      .from('recovery_history')
+      .update({ original_dispatcher_id: null })
+      .eq('original_dispatcher_id', userId)
 
-    if (profileDeleteError) {
-      console.error('Error deleting profile:', profileDeleteError)
-      // Continue anyway - profile might not exist
+    if (recoveryOriginalError) {
+      console.error('Error nullifying recovery_history original_dispatcher_id:', recoveryOriginalError)
     } else {
-      console.log('Profile deleted successfully')
+      console.log('Recovery history original_dispatcher_id nullified successfully')
+    }
+
+    const { error: recoveryNewError } = await supabaseAdmin
+      .from('recovery_history')
+      .update({ new_dispatcher_id: null })
+      .eq('new_dispatcher_id', userId)
+
+    if (recoveryNewError) {
+      console.error('Error nullifying recovery_history new_dispatcher_id:', recoveryNewError)
+    } else {
+      console.log('Recovery history new_dispatcher_id nullified successfully')
     }
 
     // Delete from user_roles table
@@ -109,9 +119,20 @@ Deno.serve(async (req) => {
 
     if (rolesDeleteError) {
       console.error('Error deleting user roles:', rolesDeleteError)
-      // Continue anyway - roles might not exist
     } else {
       console.log('User roles deleted successfully')
+    }
+
+    // Delete from profiles table (after nullifying references)
+    const { error: profileDeleteError } = await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('user_id', userId)
+
+    if (profileDeleteError) {
+      console.error('Error deleting profile:', profileDeleteError)
+    } else {
+      console.log('Profile deleted successfully')
     }
 
     // Delete the user from auth.users using admin client
