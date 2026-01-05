@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image } from "lucide-react";
+import { ArrowLeft, Plus, Upload, User, Trash2, Edit2, Image, TrendingDown, BarChart3 } from "lucide-react";
 import { useDriverExpenses, DriverExpense, NewDriverExpense } from "@/hooks/useDriverExpenses";
 import { useDriverCashAdvance } from "@/hooks/useDriverCashAdvance";
 import { AddDriverExpenseDialog } from "./AddDriverExpenseDialog";
@@ -12,6 +11,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateNoTimezone } from "@/lib/utils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+// Fixed weekly charges (same for all drivers)
+const FIXED_WEEKLY_CHARGES = {
+  cargoInsurance: { name: "Cargo Insurance", amount: 285, frequency: "Weekly" },
+  trailerInsurance: { name: "Trailer + Insurance", amount: 285, frequency: "Weekly" },
+  eld: { name: "ELD", amount: 50, frequency: "Weekly" },
+  prePass: { name: "Pre-Pass", amount: 20, frequency: "Weekly" },
+  truckInsurance: { name: "Truck Insurance", amount: 195, frequency: "Weekly" },
+};
+
+const TOTAL_FIXED_WEEKLY = Object.values(FIXED_WEEKLY_CHARGES).reduce((sum, c) => sum + c.amount, 0);
 
 interface Driver {
   id: string;
@@ -27,6 +38,9 @@ interface Driver {
   hire_date?: string | null;
   cdl_expiration_date?: string | null;
   medical_card_expiration_date?: string | null;
+  weekly_payment?: number | null;
+  weeks_count?: number | null;
+  agreement_start_date?: string | null;
 }
 
 interface DriverProfileProps {
@@ -47,9 +61,38 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
   const [isUploadingCdl, setIsUploadingCdl] = useState(false);
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
   const [editingExpense, setEditingExpense] = useState<DriverExpense | null>(null);
+  const [showDebtGraph, setShowDebtGraph] = useState(false);
 
   const { expenses, isLoading, addExpense, updateExpense, deleteExpense, initializeDefaultExpenses, isAdding, isUpdating } = useDriverExpenses(driver.id);
   const { data: cashAdvanceData } = useDriverCashAdvance(driver.id);
+
+  // Calculate total debt from unpaid expenses and cash advances
+  const { totalDebt, debtHistory } = useMemo(() => {
+    // Calculate unpaid expense debt
+    const unpaidExpenses = expenses.filter(e => e.status !== 'paid');
+    const expenseDebt = unpaidExpenses.reduce((sum, e) => sum + (e.amount - (e.paid_amount || 0)), 0);
+    
+    // Calculate cash advance debt
+    const cashAdvanceDebt = cashAdvances.reduce((sum, ca) => sum + ca.amount, 0);
+    
+    const total = expenseDebt + cashAdvanceDebt;
+
+    // Build weekly debt history (mock data based on weeks_count for now)
+    const weeksCount = driver.weeks_count || 0;
+    const history: { week: string; debt: number }[] = [];
+    
+    // Generate last 12 weeks of history
+    for (let i = Math.max(0, weeksCount - 11); i <= weeksCount; i++) {
+      // Simulate debt decreasing over time as payments are made
+      const weekDebt = Math.max(0, total + (weeksCount - i) * 100);
+      history.push({
+        week: `W${i}`,
+        debt: weekDebt
+      });
+    }
+
+    return { totalDebt: total, debtHistory: history };
+  }, [expenses, cashAdvances, driver.weeks_count]);
 
   // Initialize default expenses on first view
   useEffect(() => {
@@ -269,36 +312,147 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
         </CardContent>
       </Card>
 
-      {/* Cash Advance Summary */}
-      {cashAdvanceData && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Cash Advance Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-6">
-              <div>
-                <span className="text-sm text-muted-foreground">Today:</span>{" "}
-                <Badge variant="outline">{cashAdvanceData.todayCount}/1</Badge>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">This Week:</span>{" "}
-                <Badge variant="outline">{cashAdvanceData.weekCount}/3</Badge>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Weekly Amount:</span>{" "}
-                <Badge variant="outline">{formatCurrency(cashAdvanceData.weeklyAmount)}/150</Badge>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Remaining:</span>{" "}
-                <Badge variant={cashAdvanceData.remainingAmount > 0 ? "default" : "destructive"}>
-                  {formatCurrency(cashAdvanceData.remainingAmount || 0)}
-                </Badge>
-              </div>
+      {/* Driver Deal Section */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              Driver Deal
+              <Badge variant="outline" className="text-xs font-normal">
+                {driver.name || `${driver.first_name} ${driver.last_name}`}
+              </Badge>
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDebtGraph(!showDebtGraph)}
+            >
+              <BarChart3 className="h-4 w-4 mr-1" />
+              {showDebtGraph ? "Hide Graph" : "Show Graph"}
+            </Button>
+          </div>
+          {driver.agreement_start_date && (
+            <p className="text-sm text-muted-foreground">
+              Deal Start: {formatDateNoTimezone(driver.agreement_start_date)} | Truck - Lease to Own, Trailer Rent
+            </p>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Fixed Weekly Charges Table */}
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead>CHARGE</TableHead>
+                  <TableHead className="text-right">AMOUNT</TableHead>
+                  <TableHead>PAYMENT</TableHead>
+                  <TableHead>NOTICE</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Object.entries(FIXED_WEEKLY_CHARGES).map(([key, charge]) => (
+                  <TableRow key={key}>
+                    <TableCell className="font-medium">{charge.name}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(charge.amount)}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{charge.frequency}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">-</TableCell>
+                  </TableRow>
+                ))}
+                {/* Truck Payment - driver specific */}
+                {driver.weekly_payment && driver.weekly_payment > 0 && (
+                  <TableRow className="bg-primary/5">
+                    <TableCell className="font-medium">
+                      Truck Payment
+                      {driver.weeks_count && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({driver.weeks_count}/{156} payments)
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatCurrency(driver.weekly_payment)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">Weekly</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {driver.agreement_start_date && formatDateNoTimezone(driver.agreement_start_date)}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {/* Fuel Discount */}
+                <TableRow>
+                  <TableCell className="font-medium">Fuel Discount</TableCell>
+                  <TableCell className="text-right">$0.25/Gallon</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">Month to Month</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">-</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Debt Summary */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Weekly Fixed</p>
+                <p className="text-lg font-bold">{formatCurrency(TOTAL_FIXED_WEEKLY)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Truck Payment</p>
+                <p className="text-lg font-bold">{formatCurrency(driver.weekly_payment || 0)}</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Payments Made</p>
+                <p className="text-lg font-bold">{driver.weeks_count || 0} / 156</p>
+              </CardContent>
+            </Card>
+            <Card className={`${totalDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <TrendingDown className="h-3 w-3" />
+                  Current Debt
+                </p>
+                <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                  {formatCurrency(totalDebt)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Debt Graph */}
+          {showDebtGraph && debtHistory.length > 0 && (
+            <div className="h-[200px] mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={debtHistory}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="week" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                    formatter={(value: number) => [formatCurrency(value), 'Debt']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="debt" 
+                    stroke="hsl(var(--destructive))" 
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--destructive))' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Expenses Table */}
       <Card>

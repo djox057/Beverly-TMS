@@ -64,6 +64,9 @@ export default function Stuff() {
             hire_date: selectedDriver.hire_date,
             cdl_expiration_date: selectedDriver.cdl_expiration_date,
             medical_card_expiration_date: selectedDriver.medical_card_expiration_date,
+            weekly_payment: selectedDriver.weekly_payment,
+            weeks_count: selectedDriver.weeks_count,
+            agreement_start_date: selectedDriver.agreement_start_date,
           }}
           onBack={() => setSelectedDriverId(null)}
         />
