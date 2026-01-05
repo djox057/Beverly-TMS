@@ -270,9 +270,18 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
           const notice1 = row[columnMap['notice_1']] ? String(row[columnMap['notice_1']]).trim() : null;
           const notice2 = row[columnMap['notice_2']] ? String(row[columnMap['notice_2']]).trim() : null;
           
+          const explanationLower = explanation.toLowerCase();
+          
+          // Skip start deposits and equipment deposits
+          const isStartDeposit = explanationLower.includes('start expenses:') ||
+                                 explanationLower.includes('equipment deposit');
+          if (isStartDeposit) {
+            continue;
+          }
+          
           // Check if it's a cash advance
-          const isCashAdvance = explanation.toLowerCase().includes('cash advance') || 
-                               explanation.toLowerCase().includes('efs money code-cash advance');
+          const isCashAdvance = explanationLower.includes('cash advance') || 
+                               explanationLower.includes('efs money code-cash advance');
           
           if (isCashAdvance) {
             cashAdvances.push({
@@ -282,15 +291,12 @@ export function ImportDriverExcelDialog({ open, onOpenChange, driverId, driverNa
             });
           } else {
             // Determine if it's a fixed expense
-            const isFixed = explanation.toLowerCase().includes('escrow') ||
-                           explanation.toLowerCase().includes('equipment deposit') ||
-                           explanation.toLowerCase().includes('drug test') ||
-                           explanation.toLowerCase().includes('mvr') ||
-                           explanation.toLowerCase().includes('registration') ||
-                           explanation.toLowerCase().includes('permits') ||
-                           explanation.toLowerCase().includes('tablet') ||
-                           explanation.toLowerCase().includes('highway use tax') ||
-                           explanation.toLowerCase().includes('2290');
+            const isFixed = explanationLower.includes('escrow') ||
+                           explanationLower.includes('registration') ||
+                           explanationLower.includes('permits') ||
+                           explanationLower.includes('tablet') ||
+                           explanationLower.includes('highway use tax') ||
+                           explanationLower.includes('2290');
             
             expenses.push({
               truck_number: truckNumber,
