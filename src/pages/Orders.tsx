@@ -43,6 +43,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { diagnoseLoadMiles } from "@/utils/diagnoseLoad";
 import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
+import { hasUpdateTracking } from "@/utils/orderChangeTracker";
 import {
   Dialog,
   DialogContent,
@@ -301,6 +302,8 @@ const Orders = () => {
           matchesMissingDocs = order.canceled === true;
         } else if (missingDocsFilter === "not-invoiced") {
           matchesMissingDocs = order.invoiced !== true;
+        } else if (missingDocsFilter === "updated") {
+          matchesMissingDocs = hasUpdateTracking(order.notes);
         }
       }
 
@@ -839,6 +842,7 @@ const Orders = () => {
                       { value: "missing-pod", label: "Missing POD" },
                       { value: "canceled", label: "Canceled Loads" },
                       { value: "not-invoiced", label: "Not Invoiced" },
+                      { value: "updated", label: "Updated Orders" },
                     ]}
                     className="w-full"
                   />

@@ -68,6 +68,7 @@ import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDial
 import { EditTransferDialog, EditTransferData } from "@/components/EditTransferDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
+import { OrderSnapshot, generateChangeMessages, appendChangesToNotes } from "@/utils/orderChangeTracker";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -231,6 +232,9 @@ const EditOrder = () => {
   // Track original delivery date and date change notes for audit trail
   const [originalDeliveryDate, setOriginalDeliveryDate] = useState<Date | null>(null);
   const [dateChangeNotes, setDateChangeNotes] = useState("");
+  
+  // Track original order snapshot for change tracking
+  const [originalSnapshot, setOriginalSnapshot] = useState<OrderSnapshot | null>(null);
 
   // Driver-specific pickup/delivery times for load confirmation only
   const [driverPickupDateRange, setDriverPickupDateRange] = useState<DateRange>();
@@ -666,6 +670,54 @@ const EditOrder = () => {
         if (orderData.order_files) {
           setExistingFiles(orderData.order_files);
         }
+        
+        // Capture original snapshot for change tracking
+        const firstPickupDrop = orderData.pickup_drops?.find((pd: any) => pd.type === 'pickup');
+        const firstDeliveryDrop = orderData.pickup_drops?.find((pd: any) => pd.type === 'delivery');
+        setOriginalSnapshot({
+          freightAmount: orderData.freight_amount,
+          driverPrice: orderData.driver_price,
+          detention: (orderData as any).detention,
+          detentionDriver: (orderData as any).detention_driver,
+          layover: (orderData as any).layover,
+          layoverDriver: (orderData as any).layover_driver,
+          extraStop: (orderData as any).extra_stop,
+          lateFee: (orderData as any).late_fee,
+          lateFeeDriver: (orderData as any).late_fee_driver,
+          tonu: (orderData as any).tonu,
+          tonuDriver: (orderData as any).tonu_driver,
+          lumper: (orderData as any).lumper,
+          otherCharges: (orderData as any).other_charges,
+          otherChargesDriver: (orderData as any).other_charges_driver,
+          noTrackingFee: (orderData as any).no_tracking_fee,
+          noTrackingFeeDriver: (orderData as any).no_tracking_fee_driver,
+          wrongAddressFee: (orderData as any).wrong_address_fee,
+          wrongAddressFeeDriver: (orderData as any).wrong_address_fee_driver,
+          escortFee: (orderData as any).escort_fee,
+          loadedMiles: (orderData as any).loaded_miles,
+          dhMiles: (orderData as any).dh_miles,
+          brokerLoadNumber: orderData.broker_load_number,
+          truckId: orderData.truck_id,
+          driver1Id: orderData.driver1_id,
+          driver2Id: orderData.driver2_id,
+          trailerId: orderData.trailer_id,
+          brokerId: orderData.broker_id,
+          bookedByCompanyId: orderData.booked_by_company_id,
+          commodity: (orderData as any).commodity,
+          weight: (orderData as any).weight,
+          referenceNumber: (orderData as any).reference_number,
+          poNumber: (orderData as any).po_number,
+          puNumber: (orderData as any).pu_number,
+          pickupAddress: firstPickupDrop?.address,
+          pickupCity: firstPickupDrop?.city,
+          pickupState: firstPickupDrop?.state,
+          deliveryAddress: firstDeliveryDrop?.address,
+          deliveryCity: firstDeliveryDrop?.city,
+          deliveryState: firstDeliveryDrop?.state,
+          pickupDatetime: orderData.pickup_datetime,
+          deliveryDatetime: orderData.delivery_datetime,
+        });
+        
         console.log("Data loading completed successfully");
       }
     } catch (error) {
@@ -1954,6 +2006,79 @@ const EditOrder = () => {
       const selectedDriver1 = drivers?.find((d) => d.id === driver1);
       const companyId = selectedTruck?.company_id || selectedDriver1?.company_id;
 
+      // Build current snapshot for change tracking
+      const currentSnapshot: OrderSnapshot = {
+        freightAmount: freightAmount ? parseFloat(freightAmount) : null,
+        driverPrice: driverPrice ? parseFloat(driverPrice) : null,
+        detention: detention ? parseFloat(detention) : null,
+        detentionDriver: detentionDriver ? parseFloat(detentionDriver) : null,
+        layover: layover ? parseFloat(layover) : null,
+        layoverDriver: layoverDriver ? parseFloat(layoverDriver) : null,
+        extraStop: extraStop ? parseFloat(extraStop) : null,
+        lateFee: lateFee ? parseFloat(lateFee) : null,
+        lateFeeDriver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
+        tonu: tonu ? parseFloat(tonu) : null,
+        tonuDriver: tonuDriver ? parseFloat(tonuDriver) : null,
+        lumper: lumper ? parseFloat(lumper) : null,
+        otherCharges: otherCharges ? parseFloat(otherCharges) : null,
+        otherChargesDriver: otherChargesDriver ? parseFloat(otherChargesDriver) : null,
+        noTrackingFee: noTrackingFee ? parseFloat(noTrackingFee) : null,
+        noTrackingFeeDriver: noTrackingFeeDriver ? parseFloat(noTrackingFeeDriver) : null,
+        wrongAddressFee: wrongAddressFee ? parseFloat(wrongAddressFee) : null,
+        wrongAddressFeeDriver: wrongAddressFeeDriver ? parseFloat(wrongAddressFeeDriver) : null,
+        escortFee: escortFee ? parseFloat(escortFee) : null,
+        loadedMiles: loadedMiles ? parseInt(loadedMiles) : null,
+        dhMiles: dhMiles ? parseInt(dhMiles) : null,
+        brokerLoadNumber: brokerLoadNumber || null,
+        truckId: truck || null,
+        driver1Id: driver1 || null,
+        driver2Id: driver2 || null,
+        trailerId: trailerId || null,
+        brokerId: broker || null,
+        bookedByCompanyId: bookedByCompany || null,
+        commodity: commodity || null,
+        weight: weight ? parseFloat(weight) : null,
+        referenceNumber: referenceNumber || null,
+        poNumber: poNumber || null,
+        puNumber: puNumber || null,
+        pickupAddress: firstPickup?.address,
+        pickupCity: firstPickup?.city,
+        pickupState: firstPickup?.state,
+        deliveryAddress: firstDelivery?.address,
+        deliveryCity: firstDelivery?.city,
+        deliveryState: firstDelivery?.state,
+        pickupDatetime: firstPickup?.dateRange?.from && firstPickup?.startTime
+          ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
+          : null,
+        deliveryDatetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime
+          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
+          : null,
+      };
+
+      // Generate change messages if we have original snapshot
+      let updatedNotes = notes;
+      if (originalSnapshot) {
+        // Build lookup maps for readable names
+        const lookupMaps = {
+          trucks: new Map(trucks?.map(t => [t.id, t.truck_number]) || []),
+          drivers: new Map(drivers?.map(d => [d.id, d.name || '']) || []),
+          trailers: new Map(trailers?.map(t => [t.id, t.trailer_number]) || []),
+          brokers: new Map(brokers?.map(b => [b.id, b.name]) || []),
+          companies: new Map(companies?.map(c => [c.id, c.name]) || []),
+        };
+        
+        const changeMessages = generateChangeMessages(
+          originalSnapshot,
+          currentSnapshot,
+          lookupMaps,
+          profile?.full_name || profile?.email || 'Unknown'
+        );
+        
+        if (changeMessages.length > 0) {
+          updatedNotes = appendChangesToNotes(notes, changeMessages);
+        }
+      }
+
       const updateData: any = {
         broker_load_number: brokerLoadNumber || null,
         booked_by_company_id: bookedByCompany || null,
@@ -2004,7 +2129,7 @@ const EditOrder = () => {
         reference_number: referenceNumber || null,
         po_number: poNumber || null,
         pu_number: puNumber || null,
-        notes: notes || null,
+        notes: updatedNotes || null,
         booked_by: bookedBy || null,
         escort_fee: escortFee ? parseFloat(escortFee) : null,
         escort_fee_broker_paid: escortFeeBrokerPaid,
