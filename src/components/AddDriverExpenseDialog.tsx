@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { NewDriverExpense } from "@/hooks/useDriverExpenses";
+import { NewDriverExpense, DriverExpense } from "@/hooks/useDriverExpenses";
 
 interface AddDriverExpenseDialogProps {
   open: boolean;
@@ -15,6 +15,7 @@ interface AddDriverExpenseDialogProps {
   trailerNumber?: string;
   onSubmit: (expense: NewDriverExpense) => void;
   isSubmitting?: boolean;
+  initialData?: DriverExpense | null;
 }
 
 export function AddDriverExpenseDialog({
@@ -25,21 +26,33 @@ export function AddDriverExpenseDialog({
   truckNumber,
   trailerNumber,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  initialData
 }: AddDriverExpenseDialogProps) {
-  const [formData, setFormData] = useState({
-    name: driverName,
-    explanation: "",
-    expense_date: "",
-    amount: "",
-    status: "pending",
-    paid_date: "",
-    paid_amount: "",
-    notice_1: "",
-    notice_2: "",
-    truck_number: truckNumber || "",
-    trailer_number: trailerNumber || "",
+  const getInitialFormData = () => ({
+    name: initialData?.name || driverName,
+    explanation: initialData?.explanation || "",
+    expense_date: initialData?.expense_date || "",
+    amount: initialData?.amount?.toString() || "",
+    status: initialData?.status || "pending",
+    paid_date: initialData?.paid_date || "",
+    paid_amount: initialData?.paid_amount?.toString() || "",
+    notice_1: initialData?.notice_1 || "",
+    notice_2: initialData?.notice_2 || "",
+    truck_number: initialData?.truck_number || truckNumber || "",
+    trailer_number: initialData?.trailer_number || trailerNumber || "",
   });
+
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // Reset form when dialog opens or initialData changes
+  useEffect(() => {
+    if (open) {
+      setFormData(getInitialFormData());
+    }
+  }, [open, initialData]);
+
+  const isEditing = !!initialData;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,23 +70,9 @@ export function AddDriverExpenseDialog({
       notice_2: formData.notice_2 || null,
       truck_number: formData.truck_number || null,
       trailer_number: formData.trailer_number || null,
-      is_fixed: false,
+      is_fixed: initialData?.is_fixed || false,
     });
 
-    // Reset form
-    setFormData({
-      name: driverName,
-      explanation: "",
-      expense_date: "",
-      amount: "",
-      status: "pending",
-      paid_date: "",
-      paid_amount: "",
-      notice_1: "",
-      notice_2: "",
-      truck_number: truckNumber || "",
-      trailer_number: trailerNumber || "",
-    });
     onOpenChange(false);
   };
 
@@ -81,7 +80,7 @@ export function AddDriverExpenseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add Driver Expense</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Expense" : "Add Driver Expense"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -217,7 +216,7 @@ export function AddDriverExpenseDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Expense"}
+              {isSubmitting ? (isEditing ? "Saving..." : "Adding...") : (isEditing ? "Save Changes" : "Add Expense")}
             </Button>
           </div>
         </form>
