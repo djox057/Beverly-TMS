@@ -362,23 +362,21 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 ))}
                 {/* Truck Payment - driver specific */}
                 {driver.weekly_payment && driver.weekly_payment > 0 && (
-                  <TableRow className="bg-primary/5">
+                  <TableRow>
                     <TableCell className="font-medium">
                       Truck Payment
-                      {driver.weeks_count && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          ({driver.weeks_count}/{156} payments)
-                        </span>
-                      )}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({driver.weeks_count || 0}/156 payments)
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(driver.weekly_payment)}
-                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(driver.weekly_payment)}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">Weekly</Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {driver.agreement_start_date && formatDateNoTimezone(driver.agreement_start_date)}
+                      {driver.agreement_start_date 
+                        ? new Date(driver.agreement_start_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+                        : '-'}
                     </TableCell>
                   </TableRow>
                 )}
