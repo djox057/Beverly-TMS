@@ -421,6 +421,7 @@ const Reports = () => {
     loadedMiles: number;
     driverPay: number;
     canceled: boolean;
+    bookedBy: string;
   } | null>(null);
   
   // Additional files popover state
@@ -623,6 +624,7 @@ const Reports = () => {
       loadedMiles: 0,
       driverPay: 0,
       canceled: order.canceled || false,
+      bookedBy: "",
     };
 
     // Fetch financial data for this specific order from DB
@@ -636,7 +638,8 @@ const Reports = () => {
           wrong_address_fee, escort_fee, other_charges,
           driver_price, detention_driver, layover_driver, tonu_driver,
           extra_stop_driver, lumper_driver, late_fee_driver,
-          no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver
+          no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver,
+          booked_by
         `)
         .eq("id", orderId)
         .single();
@@ -674,6 +677,8 @@ const Reports = () => {
           toNum(orderData.no_tracking_fee_driver) +
           toNum(orderData.wrong_address_fee_driver) +
           toNum(orderData.other_charges_driver);
+        
+        baseDetails.bookedBy = orderData.booked_by || "";
       }
     } catch (err) {
       console.error("Error fetching order financial data:", err);
@@ -4782,27 +4787,45 @@ const Reports = () => {
                     <DollarSign className="h-4 w-4 mr-2" />
                     Lumper Request
                   </Button>
-                  {zoomedLoad?.canceled ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRevertCancellation}
-                    >
-                      <Undo2 className="h-4 w-4 mr-1" />
-                      Revert
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        setCancelDialogOpen(true);
-                      }}
-                    >
-                      <Ban className="h-4 w-4" />
-                      Cancel Load
-                    </Button>
-                  )}
+                  {(() => {
+                    // Check if user is dispatch-only (not admin, manager, etc.)
+                    const isDispatchOnly =
+                      hasRole("dispatch") &&
+                      !hasRole("admin") &&
+                      !hasRole("manager") &&
+                      !hasRole("supervisor") &&
+                      !hasRole("afterhours") &&
+                      !hasRole("safety") &&
+                      !hasRole("accounting");
+                    
+                    // Dispatch-only users can only cancel their own loads
+                    const canCancelThisLoad = !isDispatchOnly || 
+                      (zoomedLoad?.bookedBy === profile?.full_name);
+                    
+                    if (!canCancelThisLoad) return null;
+                    
+                    return zoomedLoad?.canceled ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRevertCancellation}
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        Revert
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setCancelDialogOpen(true);
+                        }}
+                      >
+                        <Ban className="h-4 w-4" />
+                        Cancel Load
+                      </Button>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
