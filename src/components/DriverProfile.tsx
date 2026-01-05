@@ -526,7 +526,7 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
                 allItems.map((item) => {
                   const isCashAdvance = 'isCashAdvance' in item && item.isCashAdvance;
                   return (
-                    <TableRow key={item.id} className={isCashAdvance ? "bg-green-500/5" : item.is_fixed ? "bg-primary/5" : ""}>
+                    <TableRow key={item.id} className={item.is_fixed ? "bg-primary/5" : ""}>
                       <TableCell className="font-mono text-xs">
                         {item.truck_number || "-"}/{item.trailer_number || "-"}
                       </TableCell>
