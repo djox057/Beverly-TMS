@@ -384,6 +384,10 @@ export default function YardLoads() {
 
       toast.success("Transfer reverted - original driver and truck restored");
       queryClient.invalidateQueries({ queryKey: ["yard-loads-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["trucks"] });
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trailers"] });
     } catch (error) {
       console.error('Error reverting transfer:', error);
       toast.error("Failed to revert transfer");
@@ -493,6 +497,7 @@ export default function YardLoads() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       queryClient.invalidateQueries({ queryKey: ["trucks"] });
       queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["trailers"] });
       setTransferDialogOpen(false);
       setSelectedOrderForTransfer(null);
     } catch (error) {
