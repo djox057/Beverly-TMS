@@ -82,6 +82,12 @@ serve(async (req) => {
     }
     const base64Pdf = btoa(binaryString);
 
+    // Get current date info for smart year inference
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-12
+    const nextYear = currentYear + 1;
+
     const systemPrompt = `Extract shipping/logistics data from this PDF. Use OCR if needed.
 
 ## CRITICAL FIELDS TO EXTRACT:
@@ -121,8 +127,20 @@ US logistics documents use MM/DD/YYYY format (Month/Day/Year). You MUST parse da
 - "10/12/2025" means October 12, 2025 → output "2025-10-12"
 - The FIRST number is always the MONTH (1-12)
 - The SECOND number is always the DAY (1-31)
-- If year is missing, assume 2025
-- Common formats to handle: "12/10/25", "12-10-2025", "Dec 10, 2025", "December 10, 2025"
+
+## YEAR INFERENCE RULES (VERY IMPORTANT):
+Today's date is ${currentMonth}/${now.getDate()}/${currentYear}. Current month is ${currentMonth}.
+When the year is missing OR only 2 digits (like "25"):
+- If the extracted month is ${currentMonth} or later months of the current year, use ${currentYear}
+- If we are in late year (month >= 10) and the extracted month is early (1-3), use ${nextYear}
+- For 2-digit years like "25" or "26": if "25" appears in late ${currentYear}, treat dates with early months as ${nextYear}
+- Default to ${currentYear} unless the date would be in the past by more than 30 days
+- NEVER assume year 2025 when we are in ${currentYear} and the date would make more sense in ${nextYear}
+
+Examples for today (${currentMonth}/${now.getDate()}/${currentYear}):
+${currentMonth >= 10 ? `- "01/15/25" or "01/15" in a document → output "${nextYear}-01-15" (January is next year when we're in late ${currentYear})` : `- "01/15/25" → use context, likely ${currentYear} or ${nextYear}`}
+- If year shows "2025" but we're in ${currentYear} and date is January, consider if ${nextYear} makes more sense
+- Common formats: "12/10/25", "12-10-2025", "Dec 10, 2025", "December 10, 2025", "1/5" (no year)
 
 ## ADDRESS CLEANING RULES:
 - Remove everything after " - " (dock/gate instructions)
