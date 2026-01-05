@@ -1,6 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Terminal coordinates (Lynwood, IL yard location)
+const TERMINAL_LAT = 41.537855;
+const TERMINAL_LON = -87.578633;
+
+// Haversine formula to calculate distance between two coordinates in miles
+function calculateDistanceMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8; // Earth's radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 1.15); // Multiply by 1.15 for approximate road distance
+}
+
 export interface YardLoadOrder {
   id: string;
   internalLoadNumber: number | null;
@@ -18,6 +35,7 @@ export interface YardLoadOrder {
   brokerLoadNumber: string | null;
   notes: string | null;
   mileage: number | null;
+  terminalToDeliveryMiles: number | null; // NEW: Miles from terminal to last delivery
   driverPrice: number | null;
   freightAmount: number | null;
   companyName: string | null;
@@ -100,7 +118,9 @@ export const useYardLoadsFromOrders = () => {
             city,
             state,
             datetime,
-            sequence_number
+            sequence_number,
+            latitude,
+            longitude
           )
         `)
         .is("driver1_id", null)
@@ -122,6 +142,17 @@ export const useYardLoadsFromOrders = () => {
         const firstPickup = pickups[0];
         const lastDelivery = deliveries[deliveries.length - 1];
 
+        // Calculate miles from terminal to last delivery
+        let terminalToDeliveryMiles: number | null = null;
+        if (lastDelivery?.latitude && lastDelivery?.longitude) {
+          terminalToDeliveryMiles = calculateDistanceMiles(
+            TERMINAL_LAT,
+            TERMINAL_LON,
+            lastDelivery.latitude,
+            lastDelivery.longitude
+          );
+        }
+
         return {
           id: order.id,
           internalLoadNumber: order.internal_load_number,
@@ -139,6 +170,7 @@ export const useYardLoadsFromOrders = () => {
           brokerLoadNumber: order.broker_load_number || null,
           notes: order.notes || null,
           mileage: order.mileage || 0,
+          terminalToDeliveryMiles,
           driverPrice: order.driver_price || 0,
           freightAmount: order.freight_amount || 0,
           companyName: order.company?.name || null,

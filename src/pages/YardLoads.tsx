@@ -642,7 +642,7 @@ export default function YardLoads() {
                           <span className="line-clamp-2">{order.deliveryCity}{order.deliveryCity && order.deliveryState ? ', ' : ''}{order.deliveryState}</span>
                         </TableCell>
                         <TableCell>
-                          {order.recoveryMiles?.toLocaleString() || order.mileage?.toLocaleString() || '0'}
+                          {order.terminalToDeliveryMiles?.toLocaleString() || '0'}
                         </TableCell>
                         <TableCell>
                           <span className="line-clamp-2">{order.brokerName || '-'}</span>
