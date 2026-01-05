@@ -7,42 +7,39 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   console.log('Delete user function called')
-  
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Get the authorization header from the request
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       console.error('No authorization header')
       throw new Error('No authorization header')
     }
 
-    // Extract the JWT token from the header
     const token = authHeader.replace('Bearer ', '')
-    
-    // Create a Supabase client with anon key
+
+    // Verify requester via anon client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+        auth: { autoRefreshToken: false, persistSession: false },
       }
     )
 
-    // Verify the user token by passing it directly
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-    
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser(token)
+
     if (userError) {
       console.error('Token verification error:', userError)
       throw new Error(`Invalid token: ${userError.message}`)
     }
-    
+
     if (!user) {
       console.error('No user found in token')
       throw new Error('No user found in token')
@@ -50,19 +47,16 @@ Deno.serve(async (req) => {
 
     console.log('Authenticated user:', user.id)
 
-    // Create admin client for privileged operations
+    // Privileged operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
+        auth: { autoRefreshToken: false, persistSession: false },
       }
     )
 
-    // Check if user has admin role using user_roles table
+    // Require admin role
     const { data: userRole } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -77,9 +71,8 @@ Deno.serve(async (req) => {
 
     console.log('User has admin role')
 
-    // Get user ID to delete from request body
     const { userId } = await req.json()
-    
+
     if (!userId) {
       console.error('No userId provided in request body')
       throw new Error('User ID is required')
@@ -87,31 +80,42 @@ Deno.serve(async (req) => {
 
     console.log('Attempting to delete user:', userId)
 
-    // First nullify foreign key references that might prevent deletion
-    // Nullify recovery_history references
-    const { error: recoveryOriginalError } = await supabaseAdmin
-      .from('recovery_history')
-      .update({ original_dispatcher_id: null })
-      .eq('original_dispatcher_id', userId)
+    // 1) Clear foreign-key references that can block deletion
+    const nullifyRefs = [
+      // References to profiles(user_id)
+      { table: 'recovery_history', column: 'original_dispatcher_id', patch: { original_dispatcher_id: null } },
+      { table: 'recovery_history', column: 'reverted_by', patch: { reverted_by: null } },
+      { table: 'truck_note_history', column: 'edited_by', patch: { edited_by: null } },
+      { table: 'trucks', column: 'dispatcher_id', patch: { dispatcher_id: null } },
 
-    if (recoveryOriginalError) {
-      console.error('Error nullifying recovery_history original_dispatcher_id:', recoveryOriginalError)
-    } else {
-      console.log('Recovery history original_dispatcher_id nullified successfully')
+      // References to auth.users(id) without ON DELETE SET NULL
+      { table: 'hos_requests', column: 'requester_user_id', patch: { requester_user_id: null } },
+      { table: 'trailer_termination_notes', column: 'created_by', patch: { created_by: null } },
+      { table: 'truck_termination_notes', column: 'created_by', patch: { created_by: null } },
+
+      // (kept for backwards compatibility if column exists)
+      { table: 'recovery_history', column: 'new_dispatcher_id', patch: { new_dispatcher_id: null } },
+    ] as const
+
+    for (const ref of nullifyRefs) {
+      try {
+        const { error } = await supabaseAdmin
+          .from(ref.table)
+          // @ts-ignore - patch objects vary by table
+          .update(ref.patch)
+          .eq(ref.column, userId)
+
+        if (error) {
+          console.error(`Error nullifying ${ref.table}.${ref.column}:`, error)
+        } else {
+          console.log(`Nullified ${ref.table}.${ref.column} references`) 
+        }
+      } catch (e) {
+        console.error(`Exception nullifying ${ref.table}.${ref.column}:`, e)
+      }
     }
 
-    const { error: recoveryNewError } = await supabaseAdmin
-      .from('recovery_history')
-      .update({ new_dispatcher_id: null })
-      .eq('new_dispatcher_id', userId)
-
-    if (recoveryNewError) {
-      console.error('Error nullifying recovery_history new_dispatcher_id:', recoveryNewError)
-    } else {
-      console.log('Recovery history new_dispatcher_id nullified successfully')
-    }
-
-    // Delete from user_roles table
+    // 2) Remove app-side records (best-effort)
     const { error: rolesDeleteError } = await supabaseAdmin
       .from('user_roles')
       .delete()
@@ -123,7 +127,6 @@ Deno.serve(async (req) => {
       console.log('User roles deleted successfully')
     }
 
-    // Delete from profiles table (after nullifying references)
     const { error: profileDeleteError } = await supabaseAdmin
       .from('profiles')
       .delete()
@@ -135,7 +138,7 @@ Deno.serve(async (req) => {
       console.log('Profile deleted successfully')
     }
 
-    // Delete the user from auth.users using admin client
+    // 3) Finally delete from auth
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteError) {
@@ -145,22 +148,17 @@ Deno.serve(async (req) => {
 
     console.log('User deleted successfully from auth.users:', userId)
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
-    )
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
   } catch (error) {
     console.error('Error deleting user:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
-      }
-    )
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    })
   }
 })
