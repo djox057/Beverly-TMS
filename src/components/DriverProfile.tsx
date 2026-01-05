@@ -402,37 +402,52 @@ export function DriverProfile({ driver, onBack }: DriverProfileProps) {
           </div>
 
           {/* Debt Summary */}
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-muted/30">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Weekly Fixed</p>
-                <p className="text-lg font-bold">{formatCurrency(TOTAL_FIXED_WEEKLY)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-muted/30">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Truck Payment</p>
-                <p className="text-lg font-bold">{formatCurrency(driver.weekly_payment || 0)}</p>
-              </CardContent>
-            </Card>
-            <Card className="bg-muted/30">
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">Payments Made</p>
-                <p className="text-lg font-bold">{driver.weeks_count || 0} / 156</p>
-              </CardContent>
-            </Card>
-            <Card className={`${totalDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <TrendingDown className="h-3 w-3" />
-                  Current Debt
-                </p>
-                <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                  {formatCurrency(totalDebt)}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {(() => {
+            // Calculate payments made from agreement start date
+            const paymentsMade = driver.agreement_start_date 
+              ? Math.max(0, Math.floor((Date.now() - new Date(driver.agreement_start_date + 'T00:00:00').getTime()) / (7 * 24 * 60 * 60 * 1000)))
+              : 0;
+            const totalPayments = driver.weeks_count || 156;
+            
+            // Calculate days in company from hire date
+            const daysInCompany = driver.hire_date
+              ? Math.max(0, Math.floor((Date.now() - new Date(driver.hire_date + 'T00:00:00').getTime()) / (24 * 60 * 60 * 1000)))
+              : 0;
+            
+            return (
+              <div className="grid grid-cols-4 gap-4">
+                <Card className="bg-muted/30">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Weekly Fixed</p>
+                    <p className="text-lg font-bold">{formatCurrency(TOTAL_FIXED_WEEKLY + (driver.weekly_payment || 0))}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Days in Company</p>
+                    <p className="text-lg font-bold">{daysInCompany}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground">Payments Made</p>
+                    <p className="text-lg font-bold">{paymentsMade} / {totalPayments}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`${totalDebt > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <TrendingDown className="h-3 w-3" />
+                      Current Debt
+                    </p>
+                    <p className={`text-lg font-bold ${totalDebt > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                      {formatCurrency(totalDebt)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
 
           {/* Debt Graph */}
           {showDebtGraph && debtHistory.length > 0 && (
