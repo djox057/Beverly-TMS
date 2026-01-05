@@ -22,6 +22,7 @@ import { useBrokers } from "@/hooks/useBrokers";
 import { useNextInternalLoadNumber } from "@/hooks/useNextInternalLoadNumber";
 import { supabase } from "@/integrations/supabase/client";
 import { parseAddress } from "@/utils/addressParser";
+import { formatInternalLoadNumber } from "@/utils/formatInternalLoadNumber";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -1994,7 +1995,7 @@ const NewOrder = () => {
 
       toast({
         title: "Load Created",
-        description: `Load ${newInternalLoadNumber} has been successfully created.`,
+        description: `Load ${formatInternalLoadNumber(newInternalLoadNumber, selectedDriver1?.company?.name)} has been successfully created.`,
       });
 
       // Invalidate query cache to refetch next internal load number
@@ -2093,7 +2094,7 @@ const NewOrder = () => {
             <CardTitle className="text-2xl font-semibold">Create New Load</CardTitle>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Internal Load #</div>
-              <div className="text-lg font-medium">{nextInternalLoadNumber || "Loading..."}</div>
+              <div className="text-lg font-medium">{formatInternalLoadNumber(nextInternalLoadNumber, selectedDriver1?.company?.name)}</div>
             </div>
           </div>
         </CardHeader>

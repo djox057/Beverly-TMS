@@ -1207,6 +1207,7 @@ export const useReports = () => {
                     // Format load details for info display
                     loadDetails: {
                       loadNumber: order.internal_load_number || "—",
+                      companyName: truck.company?.name || null,
                       brokerLoadNumber: order.broker_load_number || "—",
                       pickupInfo: pickupStop
                         ? {
@@ -1647,6 +1648,7 @@ export const useReports = () => {
               documentColors: { pod: hasPOD, bol: hasBOL },
               loadDetails: {
                 loadNumber: order.internal_load_number || "—",
+                companyName: null, // Unassigned drivers don't have company info
                 brokerLoadNumber: order.broker_load_number || "—",
                 pickupInfo: pickupStop ? { address: pickupStop.address || "—", city: pickupStop.city || "—", state: pickupStop.state || "—", zipCode: pickupStop.zip_code || "", datetime: pickupStop.datetime || order.pickup_datetime || "—", endDatetime: order.pickup_end_datetime || "—" } : null,
                 deliveryInfo: deliveryStop ? { address: deliveryStop.address || "—", city: deliveryStop.city || "—", state: deliveryStop.state || "—", zipCode: deliveryStop.zip_code || "", datetime: deliveryStop.datetime || order.delivery_datetime || "—", endDatetime: order.delivery_end_datetime || "—" } : null,
