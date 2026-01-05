@@ -69,12 +69,53 @@ export function useEfsMissingReceipts() {
 
   const updateGallonsMutation = useMutation({
     mutationFn: async ({ requestId, quantity }: { requestId: string; quantity: number }) => {
+      // First get the EFS request details to create fuel transaction
+      const { data: efsRequest, error: fetchError } = await supabase
+        .from("efs_other_requests")
+        .select("driver_name, truck_number, amount, city, state, company_name, requested_at")
+        .eq("id", requestId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Update the quantity in efs_other_requests
       const { error } = await supabase
         .from("efs_other_requests")
         .update({ quantity })
         .eq("id", requestId);
 
       if (error) throw error;
+
+      // Create fuel transaction if it doesn't exist
+      // Check if a fuel transaction already exists for this EFS request
+      const transactionNumber = `EFS-APP-${requestId.substring(0, 8)}`;
+      const { data: existingTx } = await supabase
+        .from("fuel_transactions")
+        .select("id")
+        .eq("transaction_number", transactionNumber)
+        .maybeSingle();
+
+      if (!existingTx && efsRequest) {
+        const unitPrice = quantity > 0 ? efsRequest.amount / quantity : 0;
+        const transactionDate = new Date(efsRequest.requested_at).toISOString().split('T')[0];
+
+        await supabase.from("fuel_transactions").insert({
+          truck_number: efsRequest.truck_number,
+          driver_name: efsRequest.driver_name,
+          transaction_number: transactionNumber,
+          transaction_date: transactionDate,
+          location_name: "EFS Request",
+          city: efsRequest.city,
+          state: efsRequest.state?.toUpperCase() || null,
+          fees: 0,
+          item: "ULSD",
+          unit_price: unitPrice,
+          quantity: quantity,
+          amount: efsRequest.amount,
+          company: efsRequest.company_name,
+          paid: false,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["efs-fuel-missing-data"] });
