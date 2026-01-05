@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Switch } from "@/components/ui/switch";
@@ -590,8 +590,8 @@ const Reports = () => {
     return hasBOL;
   };
 
-  // Helper to get all load details for zoom dialog
-  const getLoadDetailsForZoom = useCallback(async (orderId: string, truck: any) => {
+  // Helper to get all load details for zoom dialog - uses cached data, no DB call needed
+  const getLoadDetailsForZoom = useCallback((orderId: string, truck: any) => {
     const order = truck.allOrders?.find((o: any) => o.id === orderId);
     if (!order) return null;
 
@@ -601,8 +601,42 @@ const Reports = () => {
       driverNames = driverNames ? `${driverNames} / ${truck.driver2Name}` : truck.driver2Name;
     }
 
-    // Base details from order (already in memory)
-    const baseDetails = {
+    // Helper to convert to number
+    const toNum = (val: any): number => {
+      if (val === null || val === undefined) return 0;
+      const num = Number(val);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    // Calculate financial totals from cached order data
+    const freightAmount =
+      toNum(order.freight_amount) +
+      toNum(order.detention) +
+      toNum(order.layover) +
+      toNum(order.tonu) +
+      toNum(order.extra_stop) +
+      toNum(order.lumper) +
+      toNum(order.late_fee) +
+      toNum(order.no_tracking_fee) +
+      toNum(order.wrong_address_fee) +
+      toNum(order.escort_fee) +
+      toNum(order.other_charges);
+
+    const loadedMiles = toNum(order.loaded_miles) || toNum(order.mileage);
+
+    const driverPay =
+      toNum(order.driver_price) +
+      toNum(order.detention_driver) +
+      toNum(order.layover_driver) +
+      toNum(order.tonu_driver) +
+      toNum(order.extra_stop_driver) +
+      toNum(order.lumper_driver) +
+      toNum(order.late_fee_driver) +
+      toNum(order.no_tracking_fee_driver) +
+      toNum(order.wrong_address_fee_driver) +
+      toNum(order.other_charges_driver);
+
+    return {
       orderId: order.id,
       loadNumber: order.loadDetails.loadNumber,
       brokerLoadNumber: order.loadDetails.brokerLoadNumber,
@@ -620,71 +654,12 @@ const Reports = () => {
       driverNames: driverNames || "Unassigned",
       companyName: truck.companyName || "",
       internalLoadNumber: formatInternalLoadNumber(order.internal_load_number, truck.companyName),
-      freightAmount: 0,
-      loadedMiles: 0,
-      driverPay: 0,
+      freightAmount,
+      loadedMiles,
+      driverPay,
       canceled: order.canceled || false,
-      bookedBy: "",
+      bookedBy: order.booked_by || "",
     };
-
-    // Fetch financial data for this specific order from DB
-    try {
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select(`
-          freight_amount, loaded_miles, mileage,
-          detention, layover, tonu, extra_stop,
-          lumper, late_fee, no_tracking_fee,
-          wrong_address_fee, escort_fee, other_charges,
-          driver_price, detention_driver, layover_driver, tonu_driver,
-          extra_stop_driver, lumper_driver, late_fee_driver,
-          no_tracking_fee_driver, wrong_address_fee_driver, other_charges_driver,
-          booked_by
-        `)
-        .eq("id", orderId)
-        .single();
-
-      if (orderData) {
-        const toNum = (val: any): number => {
-          if (val === null || val === undefined) return 0;
-          const num = Number(val);
-          return Number.isFinite(num) ? num : 0;
-        };
-
-        baseDetails.freightAmount =
-          toNum(orderData.freight_amount) +
-          toNum(orderData.detention) +
-          toNum(orderData.layover) +
-          toNum(orderData.tonu) +
-          toNum(orderData.extra_stop) +
-          toNum(orderData.lumper) +
-          toNum(orderData.late_fee) +
-          toNum(orderData.no_tracking_fee) +
-          toNum(orderData.wrong_address_fee) +
-          toNum(orderData.escort_fee) +
-          toNum(orderData.other_charges);
-
-        baseDetails.loadedMiles = toNum(orderData.loaded_miles) || toNum(orderData.mileage);
-
-        baseDetails.driverPay =
-          toNum(orderData.driver_price) +
-          toNum(orderData.detention_driver) +
-          toNum(orderData.layover_driver) +
-          toNum(orderData.tonu_driver) +
-          toNum(orderData.extra_stop_driver) +
-          toNum(orderData.lumper_driver) +
-          toNum(orderData.late_fee_driver) +
-          toNum(orderData.no_tracking_fee_driver) +
-          toNum(orderData.wrong_address_fee_driver) +
-          toNum(orderData.other_charges_driver);
-        
-        baseDetails.bookedBy = orderData.booked_by || "";
-      }
-    } catch (err) {
-      console.error("Error fetching order financial data:", err);
-    }
-
-    return baseDetails;
   }, []);
 
   // File upload handlers
@@ -1857,8 +1832,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={async () => {
-                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -1913,8 +1888,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={async () => {
-                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -2027,8 +2002,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={async () => {
-                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -2085,8 +2060,8 @@ const Reports = () => {
                                 }
                               : {}
                           }
-                          onClick={async () => {
-                            const loadDetails = await getLoadDetailsForZoom(order.id, truck);
+                          onClick={() => {
+                            const loadDetails = getLoadDetailsForZoom(order.id, truck);
                             if (loadDetails) setZoomedLoad(loadDetails);
                           }}
                         >
@@ -4016,6 +3991,7 @@ const Reports = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Full Note</DialogTitle>
+            <DialogDescription className="sr-only">View and edit the full note content</DialogDescription>
           </DialogHeader>
           <div className="mt-4">
             <Textarea
@@ -4049,6 +4025,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Drug Test Result - {dialogs.drugTestDialog?.driverName}</DialogTitle>
+            <DialogDescription className="sr-only">Record drug test result for this driver</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
@@ -4100,6 +4077,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Yard Action - {yardActionDialog?.driver2Name ? `${yardActionDialog?.driverName} & ${yardActionDialog?.driver2Name}` : yardActionDialog?.driverName}</DialogTitle>
+            <DialogDescription className="sr-only">Set yard action for this driver</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
@@ -4287,6 +4265,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Set 2 Week Notice - {twoWeekNoticeDialog?.driver2Name ? `${twoWeekNoticeDialog?.driverName} & ${twoWeekNoticeDialog?.driver2Name}` : twoWeekNoticeDialog?.driverName}</DialogTitle>
+            <DialogDescription className="sr-only">Set the 2 week notice end date for this driver</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -4419,6 +4398,7 @@ const Reports = () => {
                 Edit Order
               </Button>
             </DialogTitle>
+            <DialogDescription className="sr-only">View load details, pickup and delivery stops</DialogDescription>
           </DialogHeader>
 
           <div className="grid md:grid-cols-2 gap-6 mt-4">
@@ -4845,6 +4825,7 @@ const Reports = () => {
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Report Board Legend</DialogTitle>
+            <DialogDescription className="sr-only">Color coding and status legend for the reports board</DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Company Colors Section */}
@@ -5138,6 +5119,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{homeTimeDialog?.isCurrentlyHomeTime ? "Remove Home Time" : "Mark as Home Time"}</DialogTitle>
+            <DialogDescription className="sr-only">Toggle home time status for this truck</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -5234,6 +5216,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Load #{zoomedLoad?.loadNumber}</DialogTitle>
+            <DialogDescription className="sr-only">Enter cancellation details for this load</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -5242,8 +5225,8 @@ const Reports = () => {
                 id="cancel-tonu"
                 type="number"
                 step="0.01"
-                defaultValue={cancelFormData.tonu}
-                onChange={(e) => (cancelFormData.tonu = e.target.value)}
+                value={cancelFormData.tonu}
+                onChange={(e) => setCancelFormData(prev => ({ ...prev, tonu: e.target.value }))}
                 placeholder="Enter company TONU amount"
               />
             </div>
@@ -5253,8 +5236,8 @@ const Reports = () => {
                 id="cancel-driver-rate"
                 type="number"
                 step="0.01"
-                defaultValue={cancelFormData.driverRate}
-                onChange={(e) => (cancelFormData.driverRate = e.target.value)}
+                value={cancelFormData.driverRate}
+                onChange={(e) => setCancelFormData(prev => ({ ...prev, driverRate: e.target.value }))}
                 placeholder="Enter driver rate"
               />
             </div>
@@ -5263,8 +5246,8 @@ const Reports = () => {
               <Input
                 id="cancel-dh-miles"
                 type="number"
-                defaultValue={cancelFormData.dhMiles}
-                onChange={(e) => (cancelFormData.dhMiles = e.target.value)}
+                value={cancelFormData.dhMiles}
+                onChange={(e) => setCancelFormData(prev => ({ ...prev, dhMiles: e.target.value }))}
                 placeholder="Enter DH miles"
               />
             </div>
@@ -5272,8 +5255,8 @@ const Reports = () => {
               <Label htmlFor="cancel-notes">Notes (required)</Label>
               <Textarea
                 id="cancel-notes"
-                defaultValue={cancelFormData.notes}
-                onChange={(e) => (cancelFormData.notes = e.target.value)}
+                value={cancelFormData.notes}
+                onChange={(e) => setCancelFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Enter reason for cancellation"
                 rows={3}
               />
@@ -5295,6 +5278,7 @@ const Reports = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload {uploadDocType}</DialogTitle>
+            <DialogDescription className="sr-only">Upload document files for this load</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div
@@ -5379,6 +5363,7 @@ const Reports = () => {
             <DialogTitle>
               {lumperConfirmation ? "Lumper Request Sent" : "Lumper Request"}
             </DialogTitle>
+            <DialogDescription className="sr-only">Submit a lumper fee request</DialogDescription>
           </DialogHeader>
           
           {lumperConfirmation ? (
