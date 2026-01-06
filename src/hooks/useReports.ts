@@ -199,8 +199,13 @@ const getTransferAwareStops = (
   };
 };
 
-export const useReports = () => {
+interface UseReportsOptions {
+  priorityOffice?: string | null;
+}
+
+export const useReports = (options?: UseReportsOptions) => {
   const queryClient = useQueryClient();
+  const priorityOffice = options?.priorityOffice;
 
   // Set up real-time subscriptions with debouncing
   useEffect(() => {
@@ -760,10 +765,27 @@ export const useReports = () => {
   };
 
   const reportsQuery = useQuery({
-    queryKey: ["reports"],
+    queryKey: ["reports", priorityOffice],
     queryFn: async () => {
       return queryWithTimeout(async () => {
-        console.log("[useReports] Fetching from materialized view...");
+        console.log("[useReports] Fetching reports data...", priorityOffice ? `(priority: ${priorityOffice})` : "(full load)");
+        
+        // STEP 0: Fetch dispatcher info FIRST to enable priority filtering
+        const { data: dispatchers, error: dispatchersError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, email, office, ext")
+          .order("user_id", { ascending: true });
+
+        if (dispatchersError) throw dispatchersError;
+
+        // Get priority dispatcher IDs if priority office is specified
+        const priorityDispatcherIds = priorityOffice 
+          ? new Set(dispatchers?.filter(d => d.office === priorityOffice).map(d => d.user_id))
+          : null;
+        
+        if (priorityDispatcherIds) {
+          console.log(`[useReports] 🎯 Priority loading ${priorityDispatcherIds.size} dispatchers from ${priorityOffice}`);
+        }
         
         // Fetch trucks with their drivers and company info
         const { data: trucksRaw, error: trucksError } = await supabase
@@ -780,12 +802,20 @@ export const useReports = () => {
           .order("id", { ascending: true });
 
         if (trucksError) throw trucksError;
-
-        // Prioritize driver's company over truck's company
-        const trucks = trucksRaw?.map((truck) => ({
+        
+        // Filter trucks to priority office if specified
+        let trucks = trucksRaw?.map((truck) => ({
           ...truck,
           company: truck.driver1?.company || truck.company || null,
         }));
+        
+        if (priorityDispatcherIds && priorityDispatcherIds.size > 0) {
+          trucks = trucks?.filter(truck => 
+            truck.driver1?.dispatcher_id && priorityDispatcherIds.has(truck.driver1.dispatcher_id)
+          );
+          console.log(`[useReports] 🎯 Filtered to ${trucks?.length} trucks for priority office`);
+        }
+
 
         // STEP 1: Fetch UNLOCKED orders first for immediate display
         const ninetyDaysAgo = new Date();
@@ -967,13 +997,7 @@ export const useReports = () => {
         console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked, ${lockedOrders.length - deduplicatedLockedOrders.length} duplicates removed)`);
 
         // STEP 3: Fetch supporting data and build reports
-        // Fetch dispatcher information separately
-        const { data: dispatchers, error: dispatchersError } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, email, office, ext")
-          .order("user_id", { ascending: true });
-
-        if (dispatchersError) throw dispatchersError;
+        // (dispatchers already fetched above for priority filtering)
 
         // Fetch truck notes separately
         const { data: truckNotes, error: notesError } = await supabase
