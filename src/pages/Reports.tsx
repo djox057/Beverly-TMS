@@ -2625,35 +2625,27 @@ const Reports = () => {
       })
       .filter((group) => group.trucks.length > 0); // Only show dispatchers with empty trucks
   }, [activeTab, filterReportsByOffice, showEmptyTrucks, showNewDrivers, showTwoWeekNotice, showLateTrucks, lateTrucks]);
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
-          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+  // Loading skeleton component for tab content
+  const LoadingSkeleton = () => (
+    <div className="space-y-4 p-4">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="border rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+            <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="grid grid-cols-12 gap-2">
+            <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+            <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+            <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+            {[...Array(7)].map((_, idx) => (
+              <div key={idx} className="col-span-1 h-8 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
         </div>
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-                <div className="h-6 w-24 bg-muted animate-pulse rounded" />
-              </div>
-              <div className="grid grid-cols-12 gap-2">
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                <div className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                {[...Array(7)].map((_, idx) => (
-                  <div key={idx} className="col-span-1 h-8 bg-muted animate-pulse rounded" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
+      ))}
+    </div>
+  );
   if (error) {
     return (
       <div className="space-y-6">
@@ -2772,7 +2764,9 @@ const Reports = () => {
 
           {/* Only render the active tab content */}
           <TabsContent value={activeTab} className="mt-0 flex-1 overflow-auto">
-            {activeOfficeReports.length === 0 ? (
+            {isLoading && !groupedReports ? (
+              <LoadingSkeleton />
+            ) : activeOfficeReports.length === 0 ? (
               <div className="p-4">
                 <div className="text-center py-12 text-muted-foreground">
                   No trucks assigned to dispatchers in {activeTab}
