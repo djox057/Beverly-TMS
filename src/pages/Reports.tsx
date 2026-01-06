@@ -3697,23 +3697,23 @@ const Reports = () => {
                                                 autoFocus
                                               />
                                             ) : truck.milesAway > 0 ? (
-                                              <div className="flex items-center">
+                                              <div className="flex items-center w-[70px] justify-end">
                                                 <div
-                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
                                                   onClick={() =>
                                                     handleEdit(truck.id, "miles-away", truck.milesAway.toString())
                                                   }
                                                 >
-                                                  {truck.milesAway}
+                                                  {Math.round(truck.milesAway)}
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">/{Math.round(truck.totalMiles)}</span>
                                                 )}
                                               </div>
                                             ) : (
-                                              <div className="flex items-center">
+                                              <div className="flex items-center w-[70px] justify-end">
                                                 <div
-                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded"
+                                                  className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
                                                   onClick={() =>
                                                     handleEdit(truck.id, "miles-away", "0")
                                                   }
@@ -3721,7 +3721,7 @@ const Reports = () => {
                                                   0
                                                 </div>
                                                 {truck.totalMiles > 0 && (
-                                                  <span className="text-xs text-muted-foreground font-medium">/{truck.totalMiles}</span>
+                                                  <span className="text-xs text-muted-foreground font-medium tabular-nums">/{Math.round(truck.totalMiles)}</span>
                                                 )}
                                               </div>
                                             )}
