@@ -2,6 +2,9 @@
  * Utility to track and format order changes for audit logging
  */
 
+// Delimiter to separate user notes from system notes
+export const SYSTEM_NOTES_DELIMITER = "\n\n---SYSTEM NOTES---\n";
+
 export interface OrderSnapshot {
   freightAmount?: number | null;
   driverPrice?: number | null;
@@ -53,6 +56,86 @@ interface LookupMaps {
   trailers?: Map<string, string>; // id -> trailer_number
   brokers?: Map<string, string>; // id -> name
   companies?: Map<string, string>; // id -> name
+}
+
+export interface ParsedNotes {
+  userNotes: string;
+  systemNotes: string;
+}
+
+/**
+ * Parse notes string into user notes and system notes sections
+ */
+export function parseNotes(notes: string | null | undefined): ParsedNotes {
+  if (!notes) {
+    return { userNotes: "", systemNotes: "" };
+  }
+  
+  const delimiterIndex = notes.indexOf(SYSTEM_NOTES_DELIMITER);
+  
+  if (delimiterIndex === -1) {
+    // No delimiter found - check if entire content looks like system notes
+    if (hasUpdateTracking(notes)) {
+      // All content appears to be system-generated
+      return { userNotes: "", systemNotes: notes };
+    }
+    // All content is user notes
+    return { userNotes: notes, systemNotes: "" };
+  }
+  
+  const userNotes = notes.substring(0, delimiterIndex).trim();
+  const systemNotes = notes.substring(delimiterIndex + SYSTEM_NOTES_DELIMITER.length).trim();
+  
+  return { userNotes, systemNotes };
+}
+
+/**
+ * Combine user notes and system notes back into a single string
+ */
+export function combineNotes(userNotes: string, systemNotes: string): string {
+  const trimmedUser = userNotes.trim();
+  const trimmedSystem = systemNotes.trim();
+  
+  if (!trimmedUser && !trimmedSystem) {
+    return "";
+  }
+  
+  if (!trimmedSystem) {
+    return trimmedUser;
+  }
+  
+  if (!trimmedUser) {
+    return SYSTEM_NOTES_DELIMITER.trim() + "\n" + trimmedSystem;
+  }
+  
+  return trimmedUser + SYSTEM_NOTES_DELIMITER + trimmedSystem;
+}
+
+/**
+ * Append a user note with timestamp to the user notes section
+ */
+export function appendUserNote(
+  existingUserNotes: string,
+  userNote: string,
+  userName: string
+): string {
+  if (!userNote.trim()) return existingUserNotes;
+  
+  const timestamp = new Date().toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  
+  const formattedNote = `[${timestamp} by ${userName}]\n${userNote.trim()}`;
+  
+  if (existingUserNotes.trim()) {
+    return existingUserNotes.trim() + "\n\n" + formattedNote;
+  }
+  
+  return formattedNote;
 }
 
 const formatCurrency = (value: number | null | undefined): string => {
@@ -209,16 +292,19 @@ export function generateChangeMessages(
   return [];
 }
 
+/**
+ * Append system-generated changes to the system notes section
+ */
 export function appendChangesToNotes(
-  existingNotes: string,
+  existingSystemNotes: string,
   changeMessages: string[]
 ): string {
-  if (changeMessages.length === 0) return existingNotes;
+  if (changeMessages.length === 0) return existingSystemNotes;
   
   const changeBlock = changeMessages.join('\n');
   
-  if (existingNotes) {
-    return `${existingNotes}\n\n${changeBlock}`;
+  if (existingSystemNotes.trim()) {
+    return existingSystemNotes.trim() + '\n\n' + changeBlock;
   }
   return changeBlock;
 }
