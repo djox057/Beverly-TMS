@@ -165,6 +165,7 @@ async function enrichLockedOrdersWithLookups(
 
 interface UseOrdersOptions {
   bookedBy?: string | null;
+  dispatcherUserId?: string | null;
 }
 
 export const useOrders = (options?: UseOrdersOptions) => {
@@ -172,10 +173,21 @@ export const useOrders = (options?: UseOrdersOptions) => {
 
 
   const query = useQuery({
-    queryKey: ["orders", options?.bookedBy],
+    queryKey: ["orders", options?.bookedBy, options?.dispatcherUserId],
     queryFn: async () => {
       const initialBatchSize = 200;
       const batchSize = 500;
+
+      // If dispatcher user ID is provided, fetch driver IDs assigned to them
+      let dispatcherDriverIds: string[] = [];
+      if (options?.dispatcherUserId) {
+        const { data: assignedDrivers } = await supabase
+          .from("drivers")
+          .select("id")
+          .eq("dispatcher_id", options.dispatcherUserId);
+        
+        dispatcherDriverIds = (assignedDrivers || []).map(d => d.id);
+      }
 
       // Fetch first 500 UNLOCKED orders immediately with joins
       let initialQuery = supabase
@@ -336,7 +348,13 @@ export const useOrders = (options?: UseOrdersOptions) => {
         .order("created_at", { ascending: false })
         .range(0, initialBatchSize - 1);
 
-      if (options?.bookedBy) {
+      // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
+      if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+        // Use OR filter: booked_by matches OR driver1_id is in their assigned drivers
+        initialQuery = initialQuery.or(
+          `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+        );
+      } else if (options?.bookedBy) {
         initialQuery = initialQuery.eq("booked_by", options.bookedBy);
       }
 
@@ -542,7 +560,12 @@ export const useOrders = (options?: UseOrdersOptions) => {
                 .order("created_at", { ascending: false })
                 .range(offset, offset + batchSize - 1);
 
-              if (options?.bookedBy) {
+              // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
+              if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+                bgQuery = bgQuery.or(
+                  `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+                );
+              } else if (options?.bookedBy) {
                 bgQuery = bgQuery.eq("booked_by", options.bookedBy);
               }
 
