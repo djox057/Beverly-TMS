@@ -68,7 +68,8 @@ import { AddTransferDialog, AddTransferData } from "@/components/AddTransferDial
 import { EditTransferDialog, EditTransferData } from "@/components/EditTransferDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
-import { OrderSnapshot, generateChangeMessages, appendChangesToNotes } from "@/utils/orderChangeTracker";
+import { OrderSnapshot, generateChangeMessages, appendChangesToNotes, parseNotes, combineNotes, appendUserNote } from "@/utils/orderChangeTracker";
+import { ChangeNoteDialog } from "@/components/ChangeNoteDialog";
 interface PickupDrop {
   id: string;
   type: "pickup" | "delivery";
@@ -205,7 +206,14 @@ const EditOrder = () => {
   const [existingFiles, setExistingFiles] = useState<any[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [userNotes, setUserNotes] = useState("");
+  const [systemNotes, setSystemNotes] = useState("");
   const [bookedBy, setBookedBy] = useState("");
+  
+  // Change note dialog state
+  const [showChangeNoteDialog, setShowChangeNoteDialog] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState<string[]>([]);
+  const [pendingSubmitEvent, setPendingSubmitEvent] = useState<React.FormEvent | null>(null);
   const [internalLoadNumber, setInternalLoadNumber] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
@@ -469,6 +477,10 @@ const EditOrder = () => {
         setPoNumber((orderData as any).po_number || "");
         setPuNumber((orderData as any).pu_number || "");
         setNotes(orderData.notes || "");
+        // Parse notes into user and system sections
+        const parsedNotes = parseNotes(orderData.notes || "");
+        setUserNotes(parsedNotes.userNotes);
+        setSystemNotes(parsedNotes.systemNotes);
         setBookedBy(orderData.booked_by || "");
         setEscortFee((orderData as any).escort_fee?.toString() || "");
         setEscortFeeBrokerPaid((orderData as any).escort_fee_broker_paid || false);
@@ -1962,15 +1974,92 @@ const EditOrder = () => {
       });
     }
   };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Build current snapshot for change detection
+  const buildCurrentSnapshot = useCallback((): OrderSnapshot => {
+    const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
+    const allDeliveries = pickupsDrops.filter((item) => item.type === "delivery");
+    const firstPickup = allPickups[0];
+    const firstDelivery = allDeliveries[0];
 
-    // Prevent duplicate submissions
-    if (isSubmitting) {
-      console.log("Form submission already in progress, ignoring duplicate submission");
-      return;
-    }
-    setIsSubmitting(true);
+    return {
+      freightAmount: freightAmount ? parseFloat(freightAmount) : null,
+      driverPrice: driverPrice ? parseFloat(driverPrice) : null,
+      detention: detention ? parseFloat(detention) : null,
+      detentionDriver: detentionDriver ? parseFloat(detentionDriver) : null,
+      layover: layover ? parseFloat(layover) : null,
+      layoverDriver: layoverDriver ? parseFloat(layoverDriver) : null,
+      extraStop: extraStop ? parseFloat(extraStop) : null,
+      lateFee: lateFee ? parseFloat(lateFee) : null,
+      lateFeeDriver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
+      tonu: tonu ? parseFloat(tonu) : null,
+      tonuDriver: tonuDriver ? parseFloat(tonuDriver) : null,
+      lumper: lumper ? parseFloat(lumper) : null,
+      otherCharges: otherCharges ? parseFloat(otherCharges) : null,
+      otherChargesDriver: otherChargesDriver ? parseFloat(otherChargesDriver) : null,
+      noTrackingFee: noTrackingFee ? parseFloat(noTrackingFee) : null,
+      noTrackingFeeDriver: noTrackingFeeDriver ? parseFloat(noTrackingFeeDriver) : null,
+      wrongAddressFee: wrongAddressFee ? parseFloat(wrongAddressFee) : null,
+      wrongAddressFeeDriver: wrongAddressFeeDriver ? parseFloat(wrongAddressFeeDriver) : null,
+      escortFee: escortFee ? parseFloat(escortFee) : null,
+      loadedMiles: loadedMiles ? parseInt(loadedMiles) : null,
+      dhMiles: dhMiles ? parseInt(dhMiles) : null,
+      brokerLoadNumber: brokerLoadNumber || null,
+      truckId: truck || null,
+      driver1Id: driver1 || null,
+      driver2Id: driver2 || null,
+      trailerId: trailerId || null,
+      brokerId: broker || null,
+      bookedByCompanyId: bookedByCompany || null,
+      commodity: commodity || null,
+      weight: weight ? parseFloat(weight) : null,
+      referenceNumber: referenceNumber || null,
+      poNumber: poNumber || null,
+      puNumber: puNumber || null,
+      pickupAddress: firstPickup?.address,
+      pickupCity: firstPickup?.city,
+      pickupState: firstPickup?.state,
+      deliveryAddress: firstDelivery?.address,
+      deliveryCity: firstDelivery?.city,
+      deliveryState: firstDelivery?.state,
+      pickupDatetime: firstPickup?.dateRange?.from && firstPickup?.startTime
+        ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
+        : null,
+      deliveryDatetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime
+        ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
+        : null,
+    };
+  }, [
+    freightAmount, driverPrice, detention, detentionDriver, layover, layoverDriver,
+    extraStop, lateFee, lateFeeDriver, tonu, tonuDriver, lumper, otherCharges,
+    otherChargesDriver, noTrackingFee, noTrackingFeeDriver, wrongAddressFee,
+    wrongAddressFeeDriver, escortFee, loadedMiles, dhMiles, brokerLoadNumber,
+    truck, driver1, driver2, trailerId, broker, bookedByCompany, commodity,
+    weight, referenceNumber, poNumber, puNumber, pickupsDrops
+  ]);
+
+  // Check for changes and show dialog if needed
+  const detectChanges = useCallback((): string[] => {
+    if (!originalSnapshot) return [];
+    
+    const currentSnapshot = buildCurrentSnapshot();
+    const lookupMaps = {
+      trucks: new Map(trucks?.map(t => [t.id, t.truck_number]) || []),
+      drivers: new Map(drivers?.map(d => [d.id, d.name || '']) || []),
+      trailers: new Map(trailers?.map(t => [t.id, t.trailer_number]) || []),
+      brokers: new Map(brokers?.map(b => [b.id, b.name]) || []),
+      companies: new Map(companies?.map(c => [c.id, c.name]) || []),
+    };
+    
+    return generateChangeMessages(
+      originalSnapshot,
+      currentSnapshot,
+      lookupMaps,
+      profile?.full_name || profile?.email || 'Unknown'
+    );
+  }, [originalSnapshot, buildCurrentSnapshot, trucks, drivers, trailers, brokers, companies, profile]);
+
+  // Actually perform the save with optional user note
+  const performSave = async (changeNote?: string) => {
     try {
       // Update order - Calculate pickup/delivery datetimes from stops
       const allPickups = pickupsDrops.filter((item) => item.type === "pickup");
@@ -2009,8 +2098,8 @@ const EditOrder = () => {
             day: "2-digit",
             year: "numeric",
           });
-          const changeNote = `Supposed to deliver on ${oldDateStr}`;
-          updatedDateChangeNotes = dateChangeNotes ? `${dateChangeNotes}\n${changeNote}` : changeNote;
+          const dateNote = `Supposed to deliver on ${oldDateStr}`;
+          updatedDateChangeNotes = dateChangeNotes ? `${dateChangeNotes}\n${dateNote}` : dateNote;
           dateWasChanged = true;
         }
       }
@@ -2020,78 +2109,28 @@ const EditOrder = () => {
       const selectedDriver1 = drivers?.find((d) => d.id === driver1);
       const companyId = selectedTruck?.company_id || selectedDriver1?.company_id;
 
-      // Build current snapshot for change tracking
-      const currentSnapshot: OrderSnapshot = {
-        freightAmount: freightAmount ? parseFloat(freightAmount) : null,
-        driverPrice: driverPrice ? parseFloat(driverPrice) : null,
-        detention: detention ? parseFloat(detention) : null,
-        detentionDriver: detentionDriver ? parseFloat(detentionDriver) : null,
-        layover: layover ? parseFloat(layover) : null,
-        layoverDriver: layoverDriver ? parseFloat(layoverDriver) : null,
-        extraStop: extraStop ? parseFloat(extraStop) : null,
-        lateFee: lateFee ? parseFloat(lateFee) : null,
-        lateFeeDriver: lateFeeDriver ? parseFloat(lateFeeDriver) : null,
-        tonu: tonu ? parseFloat(tonu) : null,
-        tonuDriver: tonuDriver ? parseFloat(tonuDriver) : null,
-        lumper: lumper ? parseFloat(lumper) : null,
-        otherCharges: otherCharges ? parseFloat(otherCharges) : null,
-        otherChargesDriver: otherChargesDriver ? parseFloat(otherChargesDriver) : null,
-        noTrackingFee: noTrackingFee ? parseFloat(noTrackingFee) : null,
-        noTrackingFeeDriver: noTrackingFeeDriver ? parseFloat(noTrackingFeeDriver) : null,
-        wrongAddressFee: wrongAddressFee ? parseFloat(wrongAddressFee) : null,
-        wrongAddressFeeDriver: wrongAddressFeeDriver ? parseFloat(wrongAddressFeeDriver) : null,
-        escortFee: escortFee ? parseFloat(escortFee) : null,
-        loadedMiles: loadedMiles ? parseInt(loadedMiles) : null,
-        dhMiles: dhMiles ? parseInt(dhMiles) : null,
-        brokerLoadNumber: brokerLoadNumber || null,
-        truckId: truck || null,
-        driver1Id: driver1 || null,
-        driver2Id: driver2 || null,
-        trailerId: trailerId || null,
-        brokerId: broker || null,
-        bookedByCompanyId: bookedByCompany || null,
-        commodity: commodity || null,
-        weight: weight ? parseFloat(weight) : null,
-        referenceNumber: referenceNumber || null,
-        poNumber: poNumber || null,
-        puNumber: puNumber || null,
-        pickupAddress: firstPickup?.address,
-        pickupCity: firstPickup?.city,
-        pickupState: firstPickup?.state,
-        deliveryAddress: firstDelivery?.address,
-        deliveryCity: firstDelivery?.city,
-        deliveryState: firstDelivery?.state,
-        pickupDatetime: firstPickup?.dateRange?.from && firstPickup?.startTime
-          ? combineDateAndTime(firstPickup.dateRange.from, firstPickup.startTime)
-          : null,
-        deliveryDatetime: firstDelivery?.dateRange?.from && firstDelivery?.startTime
-          ? combineDateAndTime(firstDelivery.dateRange.from, firstDelivery.startTime)
-          : null,
-      };
+      const currentSnapshot = buildCurrentSnapshot();
 
-      // Generate change messages if we have original snapshot
-      let updatedNotes = notes;
-      if (originalSnapshot) {
-        // Build lookup maps for readable names
-        const lookupMaps = {
-          trucks: new Map(trucks?.map(t => [t.id, t.truck_number]) || []),
-          drivers: new Map(drivers?.map(d => [d.id, d.name || '']) || []),
-          trailers: new Map(trailers?.map(t => [t.id, t.trailer_number]) || []),
-          brokers: new Map(brokers?.map(b => [b.id, b.name]) || []),
-          companies: new Map(companies?.map(c => [c.id, c.name]) || []),
-        };
-        
-        const changeMessages = generateChangeMessages(
-          originalSnapshot,
-          currentSnapshot,
-          lookupMaps,
+      // Build the final notes
+      let finalUserNotes = userNotes;
+      let finalSystemNotes = systemNotes;
+      
+      // If there's a change note, append it to user notes
+      if (changeNote) {
+        finalUserNotes = appendUserNote(
+          userNotes,
+          changeNote,
           profile?.full_name || profile?.email || 'Unknown'
         );
-        
-        if (changeMessages.length > 0) {
-          updatedNotes = appendChangesToNotes(notes, changeMessages);
-        }
       }
+      
+      // If there are system changes, append them to system notes
+      if (originalSnapshot && pendingChanges.length > 0) {
+        finalSystemNotes = appendChangesToNotes(systemNotes, pendingChanges);
+      }
+      
+      // Combine notes for storage
+      const updatedNotes = combineNotes(finalUserNotes, finalSystemNotes);
 
       const updateData: any = {
         broker_load_number: brokerLoadNumber || null,
@@ -2435,6 +2474,39 @@ const EditOrder = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      console.log("Form submission already in progress, ignoring duplicate submission");
+      return;
+    }
+
+    // Detect changes
+    const changes = detectChanges();
+    
+    // If there are changes, show dialog to require user note
+    if (changes.length > 0) {
+      setPendingChanges(changes);
+      setPendingSubmitEvent(e);
+      setShowChangeNoteDialog(true);
+      return;
+    }
+
+    // No changes detected, proceed with save
+    setIsSubmitting(true);
+    await performSave();
+  };
+
+  const handleChangeNoteConfirm = async (note: string) => {
+    setShowChangeNoteDialog(false);
+    setIsSubmitting(true);
+    await performSave(note);
+    setPendingChanges([]);
+    setPendingSubmitEvent(null);
   };
 
   const handleLeftAtYard = async () => {
@@ -3449,16 +3521,33 @@ const EditOrder = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                disabled={isLocked}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="user-notes">User Notes</Label>
+                <Textarea
+                  id="user-notes"
+                  placeholder="Add your notes here..."
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  rows={3}
+                  disabled={isLocked}
+                />
+              </div>
+
+              {systemNotes && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-muted-foreground font-medium">System Notes (Auto-generated)</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-3 max-h-[200px] overflow-y-auto">
+                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap font-sans">
+                      {systemNotes}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Transfer Details Section */}
@@ -4484,6 +4573,15 @@ const EditOrder = () => {
           transfer={editingTransfer}
         />
       )}
+
+      {/* Change Note Dialog */}
+      <ChangeNoteDialog
+        open={showChangeNoteDialog}
+        onOpenChange={setShowChangeNoteDialog}
+        changes={pendingChanges}
+        onConfirm={handleChangeNoteConfirm}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };
