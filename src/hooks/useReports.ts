@@ -778,15 +778,16 @@ export const useReports = (options?: UseReportsOptions) => {
 
     // Get dispatcher IDs for filter office if specified
     const filterDispatcherIds = filterOffice 
-      ? new Set(dispatchers?.filter(d => d.office === filterOffice).map(d => d.user_id))
+      ? dispatchers?.filter(d => d.office === filterOffice).map(d => d.user_id).filter(Boolean)
       : null;
     
-    if (filterDispatcherIds) {
-      console.log(`[useReports] 🎯 Loading ${filterDispatcherIds.size} dispatchers from ${filterOffice}`);
+    if (filterDispatcherIds && filterDispatcherIds.length > 0) {
+      console.log(`[useReports] 🎯 Loading ${filterDispatcherIds.length} dispatchers from ${filterOffice}`);
     }
     
     // Fetch trucks with their drivers and company info
-    const { data: trucksRaw, error: trucksError } = await supabase
+    // When filtering by office, we filter at the database level using driver dispatcher_id
+    let trucksQuery = supabase
       .from("trucks")
       .select(
         `
@@ -799,20 +800,22 @@ export const useReports = (options?: UseReportsOptions) => {
       )
       .order("id", { ascending: true });
 
+    // Apply dispatcher filter at database level for faster priority loading
+    if (filterDispatcherIds && filterDispatcherIds.length > 0) {
+      trucksQuery = trucksQuery.in("dispatcher_id", filterDispatcherIds);
+    }
+
+    const { data: trucksRaw, error: trucksError } = await trucksQuery;
+
     if (trucksError) throw trucksError;
     
-    // Map trucks and filter to office if specified
-    let trucks = trucksRaw?.map((truck) => ({
+    // Map trucks
+    const trucks = trucksRaw?.map((truck) => ({
       ...truck,
       company: truck.driver1?.company || truck.company || null,
     }));
     
-    if (filterDispatcherIds && filterDispatcherIds.size > 0) {
-      trucks = trucks?.filter(truck => 
-        truck.driver1?.dispatcher_id && filterDispatcherIds.has(truck.driver1.dispatcher_id)
-      );
-      console.log(`[useReports] 🎯 Filtered to ${trucks?.length} trucks for ${filterOffice}`);
-    }
+    console.log(`[useReports] ✅ Fetched ${trucks?.length} trucks${filterOffice ? ` for ${filterOffice}` : ""}`);
 
     // STEP 1: Fetch UNLOCKED orders
     const ninetyDaysAgo = new Date();
