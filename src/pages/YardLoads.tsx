@@ -219,6 +219,9 @@ export default function YardLoads() {
 
   const toggleOrderLock = async (orderId: string, currentLockState: boolean) => {
     try {
+      // Import cache functions dynamically
+      const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
+      
       // When unlocking, also set invoiced to false
       const updateData = currentLockState 
         ? { locked: false, invoiced: false } 
@@ -230,6 +233,23 @@ export default function YardLoads() {
         .eq('id', orderId);
 
       if (error) throw error;
+
+      // Update the locked orders cache
+      if (!currentLockState) {
+        // Locking - fetch full order data and add to cache
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", orderId)
+          .single();
+        
+        if (orderData) {
+          await addLockedOrderToCache(orderData);
+        }
+      } else {
+        // Unlocking - remove from cache
+        await removeLockedOrderFromCache(orderId);
+      }
 
       toast.success(currentLockState ? "Load Unlocked" : "Load Locked");
     } catch (error) {

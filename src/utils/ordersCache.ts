@@ -480,3 +480,71 @@ export async function getCacheStats(): Promise<{
     return null;
   }
 }
+
+// Add a newly locked order to the cache
+export async function addLockedOrderToCache(order: any): Promise<void> {
+  try {
+    console.log('📦 Adding locked order to cache:', order.id);
+    
+    // Get current locked orders from storage
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('locked-orders.json');
+
+    let existingOrders: any[] = [];
+    if (!error && data) {
+      const text = await data.text();
+      existingOrders = JSON.parse(text);
+    }
+
+    // Check if order already exists
+    const existingIndex = existingOrders.findIndex((o: any) => o.id === order.id);
+    if (existingIndex >= 0) {
+      // Update existing order
+      existingOrders[existingIndex] = order;
+    } else {
+      // Add new order
+      existingOrders.push(order);
+    }
+
+    // Save back to storage
+    await saveLockedOrders(existingOrders);
+    console.log('✅ Added locked order to cache, total:', existingOrders.length);
+  } catch (error) {
+    console.error('Failed to add locked order to cache:', error);
+    throw error;
+  }
+}
+
+// Remove an order from the locked cache (when unlocking)
+export async function removeLockedOrderFromCache(orderId: string): Promise<void> {
+  try {
+    console.log('📦 Removing unlocked order from cache:', orderId);
+    
+    // Get current locked orders from storage
+    const { data, error } = await supabase.storage
+      .from('archived-orders')
+      .download('locked-orders.json');
+
+    if (error || !data) {
+      console.log('No locked orders cache to remove from');
+      return;
+    }
+
+    const text = await data.text();
+    let existingOrders: any[] = JSON.parse(text);
+
+    // Remove the order
+    const originalLength = existingOrders.length;
+    existingOrders = existingOrders.filter((o: any) => o.id !== orderId);
+
+    if (existingOrders.length < originalLength) {
+      // Save back to storage
+      await saveLockedOrders(existingOrders);
+      console.log('✅ Removed order from cache, remaining:', existingOrders.length);
+    }
+  } catch (error) {
+    console.error('Failed to remove order from cache:', error);
+    // Don't throw - unlocking should still work even if cache update fails
+  }
+}

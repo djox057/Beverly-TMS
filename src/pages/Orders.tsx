@@ -501,6 +501,9 @@ const Orders = () => {
   };
   const toggleOrderLock = async (orderId: string, currentLockStatus: boolean) => {
     try {
+      // Import cache functions dynamically
+      const { addLockedOrderToCache, removeLockedOrderFromCache } = await import("@/utils/ordersCache");
+      
       // When unlocking, also set invoiced to false
       const updateData = currentLockStatus 
         ? { locked: false, invoiced: false } 
@@ -509,6 +512,23 @@ const Orders = () => {
       const { error } = await supabase.from("orders").update(updateData).eq("id", orderId);
 
       if (error) throw error;
+
+      // Update the locked orders cache
+      if (!currentLockStatus) {
+        // Locking - fetch full order data and add to cache
+        const { data: orderData } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", orderId)
+          .single();
+        
+        if (orderData) {
+          await addLockedOrderToCache(orderData);
+        }
+      } else {
+        // Unlocking - remove from cache
+        await removeLockedOrderFromCache(orderId);
+      }
 
       toast.success(`Load ${!currentLockStatus ? "locked" : "unlocked"} successfully`);
 
