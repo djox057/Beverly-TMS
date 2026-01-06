@@ -230,15 +230,30 @@ export async function getLockedOrders(): Promise<any[] | null> {
     }
 
     // No local cache or version mismatch - fetch from company storage
-    console.log('📡 Fetching locked orders from company storage...');
-    const { data, error } = await supabase.storage
+    // Use createSignedUrl with cache-busting to bypass CDN cache
+    console.log('📡 Fetching locked orders from company storage (v:', serverVersion, ')...');
+    
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('archived-orders')
-      .download('locked-orders.json');
-
-    if (error) {
+      .createSignedUrl('locked-orders.json', 60, {
+        download: false,
+      });
+    
+    if (signedUrlError || !signedUrlData?.signedUrl) {
       console.log('📦 No company archived orders found');
       return null;
     }
+    
+    // Add cache-busting parameter using server version
+    const urlWithCacheBust = `${signedUrlData.signedUrl}&v=${serverVersion}`;
+    const response = await fetch(urlWithCacheBust);
+    
+    if (!response.ok) {
+      console.log('📦 Failed to fetch archived orders:', response.statusText);
+      return null;
+    }
+    
+    const data = await response.blob();
 
     const text = await data.text();
     const orders = JSON.parse(text);
@@ -278,18 +293,29 @@ export async function getPickupDrops(): Promise<any[] | null> {
       console.log('🔄 Server version changed for pickup/drops:', localVersion, '->', serverVersion);
     }
 
-    // Fetch from company storage
-    console.log('📡 Fetching pickup/drops from company storage...');
-    const { data, error } = await supabase.storage
+    // Fetch from company storage with cache-busting
+    console.log('📡 Fetching pickup/drops from company storage (v:', serverVersion, ')...');
+    
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('archived-orders')
-      .download('pickup-drops.json');
-
-    if (error) {
+      .createSignedUrl('pickup-drops.json', 60, {
+        download: false,
+      });
+    
+    if (signedUrlError || !signedUrlData?.signedUrl) {
       console.log('📦 No company archived pickup/drops found');
       return null;
     }
-
-    const text = await data.text();
+    
+    const urlWithCacheBust = `${signedUrlData.signedUrl}&v=${serverVersion}`;
+    const response = await fetch(urlWithCacheBust);
+    
+    if (!response.ok) {
+      console.log('📦 Failed to fetch pickup/drops:', response.statusText);
+      return null;
+    }
+    
+    const text = await response.text();
     const pickupDrops = JSON.parse(text);
 
     // Update local cache
@@ -327,18 +353,29 @@ export async function getOrderFiles(): Promise<any[] | null> {
       console.log('🔄 Server version changed for order files:', localVersion, '->', serverVersion);
     }
 
-    // Fetch from company storage
-    console.log('📡 Fetching order files from company storage...');
-    const { data, error } = await supabase.storage
+    // Fetch from company storage with cache-busting
+    console.log('📡 Fetching order files from company storage (v:', serverVersion, ')...');
+    
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('archived-orders')
-      .download('order-files.json');
-
-    if (error) {
+      .createSignedUrl('order-files.json', 60, {
+        download: false,
+      });
+    
+    if (signedUrlError || !signedUrlData?.signedUrl) {
       console.log('📦 No company archived order files found');
       return null;
     }
-
-    const text = await data.text();
+    
+    const urlWithCacheBust = `${signedUrlData.signedUrl}&v=${serverVersion}`;
+    const response = await fetch(urlWithCacheBust);
+    
+    if (!response.ok) {
+      console.log('📦 Failed to fetch order files:', response.statusText);
+      return null;
+    }
+    
+    const text = await response.text();
     const orderFiles = JSON.parse(text);
 
     // Update local cache
