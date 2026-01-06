@@ -2795,7 +2795,8 @@ const Reports = () => {
                           className="w-full border-collapse bg-card border-[3px] border-gray-400"
                           style={{
                             tableLayout: "auto",
-                            contain: "paint",
+                            transform: "translateZ(0)",
+                            willChange: "transform",
                           }}
                         >
                           <thead>
