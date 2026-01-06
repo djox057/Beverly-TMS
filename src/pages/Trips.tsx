@@ -741,7 +741,32 @@ const Trips = () => {
           const badge = isOriginal ? "Orig" : seq === 1 ? "Rec" : `Transfer ${seq}`;
           // Use transfer's datetime for the delivery date if available
           const transferDeliveryDate = transfer.transfer_datetime || order.deliveryDatetime;
-          
+
+          const driverName = isOriginal
+            ? (order.originalDriver1Name || order.originalDriver2Name || transfer.driver1?.name || transfer.manual_driver_name || order.driverName)
+            : (transfer.driver1?.name || transfer.manual_driver_name || order.driverName);
+
+          const driver1Name = isOriginal
+            ? (order.originalDriver1Name || transfer.driver1?.name || transfer.manual_driver_name)
+            : (transfer.driver1?.name || transfer.manual_driver_name);
+
+          const driver2Name = isOriginal
+            ? (order.originalDriver2Name || transfer.driver2?.name)
+            : transfer.driver2?.name;
+
+          const truckId = isOriginal ? (order.originalTruckId || transfer.truck_id) : transfer.truck_id;
+          const truckNumber = isOriginal
+            ? (order.originalTruckNumber || transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber)
+            : (transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber);
+
+          const trailerId = isOriginal ? (order.originalTrailerId || transfer.trailer_id) : transfer.trailer_id;
+          const trailerNumber = isOriginal
+            ? (order.originalTrailerNumber || transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber)
+            : (transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber);
+
+          const mileage = isOriginal ? (transfer.miles ?? order.originalMiles ?? 0) : (transfer.miles ?? 0);
+          const driverPay = isOriginal ? (transfer.driver_price ?? order.originalDriverPrice ?? 0) : (transfer.driver_price ?? 0);
+
           segments.push({
             ...order,
             virtualId: `${order.id}_transfer_${seq}`,
@@ -749,18 +774,18 @@ const Trips = () => {
             transferBadge: badge,
             isOriginalDriverPortion: isOriginal,
             isRecoveryDriverPortion: seq === 1,
-            driver1Id: transfer.driver1_id,
-            driver2Id: transfer.driver2_id,
-            driverName: transfer.driver1?.name || transfer.manual_driver_name || order.driverName,
-            driver1Name: transfer.driver1?.name || transfer.manual_driver_name,
-            driver2Name: transfer.driver2?.name,
-            truckId: transfer.truck_id,
-            truckNumber: transfer.truck?.truck_number || transfer.manual_truck_number || order.truckNumber,
-            trailerId: transfer.trailer_id,
-            trailerNumber: transfer.trailer?.trailer_number || transfer.manual_trailer_number || order.trailerNumber,
-            mileage: transfer.miles || 0,
-            totalDriverPay: transfer.driver_price || 0,
-            driverPrice: transfer.driver_price || 0,
+            driver1Id: isOriginal ? (order.originalDriver1Id || transfer.driver1_id) : transfer.driver1_id,
+            driver2Id: isOriginal ? (order.originalDriver2Id || transfer.driver2_id) : transfer.driver2_id,
+            driverName,
+            driver1Name,
+            driver2Name,
+            truckId,
+            truckNumber,
+            trailerId,
+            trailerNumber,
+            mileage,
+            totalDriverPay: driverPay,
+            driverPrice: driverPay,
             // Override delivery date with transfer's specific datetime
             deliveryDatetime: transferDeliveryDate,
             deliveryDate: transferDeliveryDate,
