@@ -2787,9 +2787,9 @@ const Reports = () => {
                       {/* Google Sheets-style table */}
                       <div className="w-full">
                         <table
-                          className="w-full border-collapse bg-card border-[3px] border-gray-400"
+                          className="w-full border-collapse bg-card border-[3px] border-gray-400 table-fixed"
                           style={{
-                            tableLayout: "auto",
+                            tableLayout: "fixed",
                           }}
                         >
                           <thead>
