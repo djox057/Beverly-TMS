@@ -3697,7 +3697,7 @@ const Reports = () => {
                                                 autoFocus
                                               />
                                             ) : truck.milesAway > 0 ? (
-                                              <div className="flex items-center w-[70px] justify-end">
+                                              <div className="flex items-center w-[58px] justify-end">
                                                 <div
                                                   className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
                                                   onClick={() =>
@@ -3711,7 +3711,7 @@ const Reports = () => {
                                                 )}
                                               </div>
                                             ) : (
-                                              <div className="flex items-center w-[70px] justify-end">
+                                              <div className="flex items-center w-[58px] justify-end">
                                                 <div
                                                   className="text-xs text-[hsl(var(--info))] font-medium cursor-pointer hover:bg-accent/50 px-1 rounded tabular-nums"
                                                   onClick={() =>
