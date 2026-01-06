@@ -332,7 +332,7 @@ const Reports = () => {
     updateCheckInOutTimes,
     markGoingToPickup,
     markGoingToDelivery,
-  } = useReports();
+  } = useReports({ priorityOffice: profile?.office });
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
