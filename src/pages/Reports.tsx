@@ -1064,16 +1064,21 @@ const Reports = () => {
   const INITIAL_TRUCK_COUNT = 12;
   const LOAD_MORE_COUNT = 6;
 
-  // Initialize visible trucks count when data loads
+  // Initialize visible trucks count when data loads (only for new dispatchers)
   useEffect(() => {
     if (groupedReports) {
-      const initialCounts: {
-        [key: string]: number;
-      } = {};
-      groupedReports.forEach((group) => {
-        initialCounts[group.dispatcherId] = INITIAL_TRUCK_COUNT;
+      setVisibleTrucks((prev) => {
+        const updated = { ...prev };
+        let hasChanges = false;
+        groupedReports.forEach((group) => {
+          // Only set initial count for dispatchers we haven't seen yet
+          if (updated[group.dispatcherId] === undefined) {
+            updated[group.dispatcherId] = INITIAL_TRUCK_COUNT;
+            hasChanges = true;
+          }
+        });
+        return hasChanges ? updated : prev;
       });
-      setVisibleTrucks(initialCounts);
     }
   }, [groupedReports]);
 
