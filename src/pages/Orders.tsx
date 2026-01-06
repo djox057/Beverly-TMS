@@ -234,13 +234,9 @@ const Orders = () => {
     }
   }, []);
 
-  // Set bookedBy filter for dispatchers when profile loads (only if not restoring)
-  // Exclude safety role from auto-filter
-  useEffect(() => {
-    if (!hasRestoredFilters && isDispatcher && profile?.full_name && !hasRole("safety")) {
-      setBookedByFilter(profile.full_name);
-    }
-  }, [isDispatcher, profile?.full_name, hasRole, hasRestoredFilters]);
+  // For dispatch-only users, we don't auto-set bookedByFilter anymore
+  // since the DB query already filters to their booked orders + their assigned drivers' orders
+  // They can still manually filter by "booked by" if they want to see only their own bookings
 
   const { data: orders, isLoading, error } = useOrders(orderFilterOptions);
 
