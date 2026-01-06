@@ -764,62 +764,59 @@ export const useReports = (options?: UseReportsOptions) => {
     }
   };
 
-  const reportsQuery = useQuery({
-    queryKey: ["reports", priorityOffice],
-    queryFn: async () => {
-      return queryWithTimeout(async () => {
-        console.log("[useReports] Fetching reports data...", priorityOffice ? `(priority: ${priorityOffice})` : "(full load)");
-        
-        // STEP 0: Fetch dispatcher info FIRST to enable priority filtering
-        const { data: dispatchers, error: dispatchersError } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, email, office, ext")
-          .order("user_id", { ascending: true });
+  // Helper function to fetch and process reports data
+  const fetchReportsData = async (filterOffice: string | null) => {
+    console.log("[useReports] Fetching reports data...", filterOffice ? `(office: ${filterOffice})` : "(all offices)");
+    
+    // STEP 0: Fetch dispatcher info FIRST to enable filtering
+    const { data: dispatchers, error: dispatchersError } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email, office, ext")
+      .order("user_id", { ascending: true });
 
-        if (dispatchersError) throw dispatchersError;
+    if (dispatchersError) throw dispatchersError;
 
-        // Get priority dispatcher IDs if priority office is specified
-        const priorityDispatcherIds = priorityOffice 
-          ? new Set(dispatchers?.filter(d => d.office === priorityOffice).map(d => d.user_id))
-          : null;
-        
-        if (priorityDispatcherIds) {
-          console.log(`[useReports] 🎯 Priority loading ${priorityDispatcherIds.size} dispatchers from ${priorityOffice}`);
-        }
-        
-        // Fetch trucks with their drivers and company info
-        const { data: trucksRaw, error: trucksError } = await supabase
-          .from("trucks")
-          .select(
-            `
-            *,
-            driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
-            driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
-            trailer:trailer_id(trailer_number),
-            company:companies(name)
-          `,
-          )
-          .order("id", { ascending: true });
+    // Get dispatcher IDs for filter office if specified
+    const filterDispatcherIds = filterOffice 
+      ? new Set(dispatchers?.filter(d => d.office === filterOffice).map(d => d.user_id))
+      : null;
+    
+    if (filterDispatcherIds) {
+      console.log(`[useReports] 🎯 Loading ${filterDispatcherIds.size} dispatchers from ${filterOffice}`);
+    }
+    
+    // Fetch trucks with their drivers and company info
+    const { data: trucksRaw, error: trucksError } = await supabase
+      .from("trucks")
+      .select(
+        `
+        *,
+        driver1:drivers!trucks_driver1_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
+        driver2:drivers!trucks_driver2_id_fkey(id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, going_yard, is_recovery, company:companies!company_id(id, name)),
+        trailer:trailer_id(trailer_number),
+        company:companies(name)
+      `,
+      )
+      .order("id", { ascending: true });
 
-        if (trucksError) throw trucksError;
-        
-        // Filter trucks to priority office if specified
-        let trucks = trucksRaw?.map((truck) => ({
-          ...truck,
-          company: truck.driver1?.company || truck.company || null,
-        }));
-        
-        if (priorityDispatcherIds && priorityDispatcherIds.size > 0) {
-          trucks = trucks?.filter(truck => 
-            truck.driver1?.dispatcher_id && priorityDispatcherIds.has(truck.driver1.dispatcher_id)
-          );
-          console.log(`[useReports] 🎯 Filtered to ${trucks?.length} trucks for priority office`);
-        }
+    if (trucksError) throw trucksError;
+    
+    // Map trucks and filter to office if specified
+    let trucks = trucksRaw?.map((truck) => ({
+      ...truck,
+      company: truck.driver1?.company || truck.company || null,
+    }));
+    
+    if (filterDispatcherIds && filterDispatcherIds.size > 0) {
+      trucks = trucks?.filter(truck => 
+        truck.driver1?.dispatcher_id && filterDispatcherIds.has(truck.driver1.dispatcher_id)
+      );
+      console.log(`[useReports] 🎯 Filtered to ${trucks?.length} trucks for ${filterOffice}`);
+    }
 
-
-        // STEP 1: Fetch UNLOCKED orders first for immediate display
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    // STEP 1: Fetch UNLOCKED orders
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
         console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops and order_transfers)...');
         const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await supabase
@@ -1938,16 +1935,45 @@ export const useReports = (options?: UseReportsOptions) => {
         }
 
         return groupedData;
-      });
-    },
+  };
+
+  // Priority query - loads only user's office for fast initial display
+  const priorityQuery = useQuery({
+    queryKey: ["reports", "priority", priorityOffice],
+    queryFn: () => queryWithTimeout(() => fetchReportsData(priorityOffice || null)),
+    retry: 2,
+    retryDelay: 1000,
+    staleTime: 300000,
+    gcTime: 600000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000,
+  });
+
+  // Background query - loads ALL data after priority is ready
+  const backgroundQuery = useQuery({
+    queryKey: ["reports", "full"],
+    queryFn: () => queryWithTimeout(() => fetchReportsData(null)),
+    enabled: priorityQuery.isSuccess, // Only start after priority loads
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
-    staleTime: 300000, // Cache for 5 minutes
-    gcTime: 600000, // Keep in memory for 10 minutes
+    staleTime: 300000,
+    gcTime: 600000,
     refetchOnWindowFocus: false,
-    placeholderData: (previousData) => previousData,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 60000, // Slower refresh for background
   });
+
+  // Merge: use background data if available, otherwise priority data
+  const reportsQuery = {
+    data: backgroundQuery.data ?? priorityQuery.data,
+    isLoading: priorityQuery.isLoading, // Only show loading for priority
+    isPending: priorityQuery.isPending,
+    isError: priorityQuery.isError && backgroundQuery.isError,
+    error: priorityQuery.error ?? backgroundQuery.error,
+    isSuccess: priorityQuery.isSuccess || backgroundQuery.isSuccess,
+    refetch: async () => {
+      await Promise.all([priorityQuery.refetch(), backgroundQuery.refetch()]);
+    },
+  };
 
   return {
     ...reportsQuery,
