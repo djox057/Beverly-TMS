@@ -332,7 +332,7 @@ const Reports = () => {
     updateCheckInOutTimes,
     markGoingToPickup,
     markGoingToDelivery,
-  } = useReports({ priorityOffice: profile?.office });
+  } = useReports({ priorityOffice: profile?.office || "Čačak" });
   const { data: samsaraLocations, isLoading: isLoadingSamsara } = useSamsaraLocations();
   const queryClient = useQueryClient();
 
