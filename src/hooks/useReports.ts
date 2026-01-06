@@ -817,201 +817,236 @@ export const useReports = (options?: UseReportsOptions) => {
     
     console.log(`[useReports] ✅ Fetched ${trucks?.length} trucks${filterOffice ? ` for ${filterOffice}` : ""}`);
 
+    // Get driver IDs from filtered trucks for order filtering
+    const truckDriverIds = new Set<string>();
+    trucks?.forEach(truck => {
+      if (truck.driver1_id) truckDriverIds.add(truck.driver1_id);
+      if (truck.driver2_id) truckDriverIds.add(truck.driver2_id);
+    });
+    const driverIdsArray = Array.from(truckDriverIds);
+
     // STEP 1: Fetch UNLOCKED orders
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops and order_transfers)...');
-        const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await supabase
-          .from("orders")
-          .select(`
-            id,
-            load_number,
-            internal_load_number,
-            broker_load_number,
-            status,
-            notes,
-            date_change_notes,
-            created_at,
-            updated_at,
-            pickup_datetime,
-            pickup_end_datetime,
-            delivery_datetime,
-            delivery_end_datetime,
-            canceled,
-            driver1_id,
-            driver2_id,
-            truck_id,
-            is_recovery,
-            locked,
-            mileage,
-            loaded_miles,
-            dh_miles,
-            original_driver1_id,
-            original_driver2_id,
-            freight_amount,
-            driver_price,
-            detention,
-            detention_driver,
-            layover,
-            layover_driver,
-            tonu,
-            tonu_driver,
-            extra_stop,
-            extra_stop_driver,
-            lumper,
-            lumper_driver,
-            late_fee,
-            late_fee_driver,
-            no_tracking_fee,
-            no_tracking_fee_driver,
-            wrong_address_fee,
-            wrong_address_fee_driver,
-            escort_fee,
-            other_charges,
-            other_charges_driver,
-            booked_by,
-            pickup_drops (
-              id,
-              type,
-              address,
-              city,
-              state,
-              zip_code,
-              datetime,
-              end_datetime,
-              sequence_number,
-              arrived_at,
-              checked_out_at,
-              going_to_at
-            ),
-            order_files (
-              id,
-              file_category,
-              file_name,
-              file_path
-            ),
-            order_transfers (
-              id,
-              sequence_number,
-              driver1_id,
-              driver2_id,
-              truck_id,
-              trailer_id,
-              miles,
-              driver_price,
-              transfer_city,
-              transfer_state,
-              transfer_address,
-              transfer_datetime
-            )
-          `)
-          // Note: canceled orders are included and filtered in JS to show most recent canceled if no newer load
-          .eq("locked", false)
-          .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
-          .order("delivery_datetime", { ascending: false, nullsFirst: true })
-          .limit(1000);
+    console.log('[useReports] 🚀 Loading UNLOCKED orders from DATABASE (with nested pickup_drops and order_transfers)...');
+    
+    // Build query - filter by driver IDs when loading for specific office
+    let ordersQuery = supabase
+      .from("orders")
+      .select(`
+        id,
+        load_number,
+        internal_load_number,
+        broker_load_number,
+        status,
+        notes,
+        date_change_notes,
+        created_at,
+        updated_at,
+        pickup_datetime,
+        pickup_end_datetime,
+        delivery_datetime,
+        delivery_end_datetime,
+        canceled,
+        driver1_id,
+        driver2_id,
+        truck_id,
+        is_recovery,
+        locked,
+        mileage,
+        loaded_miles,
+        dh_miles,
+        original_driver1_id,
+        original_driver2_id,
+        freight_amount,
+        driver_price,
+        detention,
+        detention_driver,
+        layover,
+        layover_driver,
+        tonu,
+        tonu_driver,
+        extra_stop,
+        extra_stop_driver,
+        lumper,
+        lumper_driver,
+        late_fee,
+        late_fee_driver,
+        no_tracking_fee,
+        no_tracking_fee_driver,
+        wrong_address_fee,
+        wrong_address_fee_driver,
+        escort_fee,
+        other_charges,
+        other_charges_driver,
+        booked_by,
+        pickup_drops (
+          id,
+          type,
+          address,
+          city,
+          state,
+          zip_code,
+          datetime,
+          end_datetime,
+          sequence_number,
+          arrived_at,
+          checked_out_at,
+          going_to_at
+        ),
+        order_files (
+          id,
+          file_category,
+          file_name,
+          file_path
+        ),
+        order_transfers (
+          id,
+          sequence_number,
+          driver1_id,
+          driver2_id,
+          truck_id,
+          trailer_id,
+          miles,
+          driver_price,
+          transfer_city,
+          transfer_state,
+          transfer_address,
+          transfer_datetime
+        )
+      `)
+      .eq("locked", false)
+      .or(`delivery_datetime.gte.${ninetyDaysAgo.toISOString()},delivery_datetime.is.null,status.eq.in_transit,status.eq.pending`)
+      .order("delivery_datetime", { ascending: false, nullsFirst: true })
+      .limit(1000);
 
-        if (unlockedOrdersError) throw unlockedOrdersError;
+    // Note: For priority office loading, we filter orders in JS after fetching
+    // since combining multiple OR conditions in Supabase is complex. 
+    // The main speed improvement comes from skipping locked orders loading.
 
-        const totalPickupDropsFromDB = unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;
-        console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE`);
+    const { data: unlockedOrdersRaw, error: unlockedOrdersError } = await ordersQuery;
 
-        // STEP 2: Load locked orders from storage bucket (avoids database egress)
-        let lockedOrders: any[] = [];
-        try {
-          console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
-          const { getLockedOrders, getPickupDrops, getOrderFiles, getOrderTransfers } = await import("@/utils/ordersCache");
-          
-          const cachedOrders = await getLockedOrders();
-          const cachedPickupDrops = await getPickupDrops();
-          const cachedOrderFiles = await getOrderFiles();
-          const cachedOrderTransfers = await getOrderTransfers();
+    if (unlockedOrdersError) throw unlockedOrdersError;
 
-          if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
-            console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
+    const totalPickupDropsFromDB = unlockedOrdersRaw?.reduce((sum, order) => sum + (order.pickup_drops?.length || 0), 0) || 0;
+    console.log(`[useReports] ✅ Fetched ${unlockedOrdersRaw?.length || 0} UNLOCKED orders with ${totalPickupDropsFromDB} pickup_drops from DATABASE${filterOffice ? ` (filtered for ${filterOffice})` : ""}`);
 
-            // Helper to convert CSV "null" strings and booleans to proper types
-            const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
-            const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
+    // STEP 2: Load locked orders from storage bucket (avoids database egress)
+    // For priority office loading, we filter locked orders to only those relevant to office drivers
+    let lockedOrders: any[] = [];
+    
+    // Skip locked orders entirely for priority office loading - they slow things down significantly
+    // and most current/active orders are unlocked anyway
+    if (!filterOffice) {
+      try {
+        console.log('[useReports] 📦 Loading LOCKED orders from company storage...');
+        const { getLockedOrders, getPickupDrops, getOrderFiles, getOrderTransfers } = await import("@/utils/ordersCache");
+        
+        const cachedOrders = await getLockedOrders();
+        const cachedPickupDrops = await getPickupDrops();
+        const cachedOrderFiles = await getOrderFiles();
+        const cachedOrderTransfers = await getOrderTransfers();
 
-            // Match pickup_drops, order_files, and order_transfers to orders, and normalize CSV string values
-            const ordersWithRelations = cachedOrders.map((order: any) => ({
-              ...order,
-              // Normalize CSV string values to proper types
-              is_recovery: normalizeBool(order.is_recovery),
-              canceled: normalizeBool(order.canceled),
-              locked: normalizeBool(order.locked),
-              invoiced: normalizeBool(order.invoiced),
-              notes: normalizeNull(order.notes),
-              date_change_notes: normalizeNull(order.date_change_notes),
-              commodity: normalizeNull(order.commodity),
-              pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
-              order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
-              order_transfers: cachedOrderTransfers?.filter((ot: any) => ot.order_id === order.id) || [],
-            }));
+        if (cachedOrders && Array.isArray(cachedOrders) && cachedOrders.length > 0) {
+          console.log(`[useReports] ✅ Loaded ${cachedOrders.length} locked orders from STORAGE BUCKET`);
 
-            const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
-            console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
+          // Helper to convert CSV "null" strings and booleans to proper types
+          const normalizeNull = (val: any) => (val === 'null' || val === 'NULL' || val === '' || val === undefined) ? null : val;
+          const normalizeBool = (val: any) => val === true || val === 'true' || val === '1' || val === 1;
 
-            // Filter locked orders for reports criteria (90 days)
-            const ninetyDaysAgoForFilter = new Date();
-            ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
+          // Match pickup_drops, order_files, and order_transfers to orders, and normalize CSV string values
+          const ordersWithRelations = cachedOrders.map((order: any) => ({
+            ...order,
+            // Normalize CSV string values to proper types
+            is_recovery: normalizeBool(order.is_recovery),
+            canceled: normalizeBool(order.canceled),
+            locked: normalizeBool(order.locked),
+            invoiced: normalizeBool(order.invoiced),
+            notes: normalizeNull(order.notes),
+            date_change_notes: normalizeNull(order.date_change_notes),
+            commodity: normalizeNull(order.commodity),
+            pickup_drops: cachedPickupDrops?.filter((pd: any) => pd.order_id === order.id) || [],
+            order_files: cachedOrderFiles?.filter((of: any) => of.order_id === order.id) || [],
+            order_transfers: cachedOrderTransfers?.filter((ot: any) => ot.order_id === order.id) || [],
+          }));
 
-            lockedOrders = ordersWithRelations.filter((order: any) => {
-              // Per spec: Locked canceled orders should NOT display
-              if (order.canceled || order.status === 'canceled') return false;
-              
-              // Normalize delivery_datetime - CSV uses space separator, ISO uses T
-              const deliveryDateStr = order.delivery_datetime ? 
-                String(order.delivery_datetime).replace(' ', 'T') : null;
-              const deliveryDate = deliveryDateStr ? new Date(deliveryDateStr) : null;
+          const totalPickupDropsFromStorage = ordersWithRelations.reduce((sum: number, order: any) => sum + (order.pickup_drops?.length || 0), 0);
+          console.log(`[useReports] 📦 Matched ${totalPickupDropsFromStorage} pickup_drops for locked orders from STORAGE BUCKET`);
 
-              return (
-                !order.delivery_datetime ||
-                (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgoForFilter) ||
-                order.status === 'in_transit' ||
-                order.status === 'pending'
-              );
-            });
+          // Filter locked orders for reports criteria (90 days)
+          const ninetyDaysAgoForFilter = new Date();
+          ninetyDaysAgoForFilter.setDate(ninetyDaysAgoForFilter.getDate() - 90);
 
-            console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from STORAGE`);
-          } else {
-            console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
-          }
-        } catch (error) {
-          console.error('[useReports] ⚠️ Could not load locked orders from storage:', error);
-          // Continue without locked orders - this is not a fatal error
-          lockedOrders = [];
+          lockedOrders = ordersWithRelations.filter((order: any) => {
+            // Per spec: Locked canceled orders should NOT display
+            if (order.canceled || order.status === 'canceled') return false;
+            
+            // Normalize delivery_datetime - CSV uses space separator, ISO uses T
+            const deliveryDateStr = order.delivery_datetime ? 
+              String(order.delivery_datetime).replace(' ', 'T') : null;
+            const deliveryDate = deliveryDateStr ? new Date(deliveryDateStr) : null;
+
+            return (
+              !order.delivery_datetime ||
+              (deliveryDate && !isNaN(deliveryDate.getTime()) && deliveryDate >= ninetyDaysAgoForFilter) ||
+              order.status === 'in_transit' ||
+              order.status === 'pending'
+            );
+          });
+
+          console.log(`[useReports] 🔀 Including ${lockedOrders.length} relevant locked orders from STORAGE`);
+        } else {
+          console.log('[useReports] ⚠️ No locked orders in storage bucket yet. Upload via Data Management page.');
         }
+      } catch (error) {
+        console.error('[useReports] ⚠️ Could not load locked orders from storage:', error);
+        // Continue without locked orders - this is not a fatal error
+        lockedOrders = [];
+      }
+    } else {
+      console.log(`[useReports] ⚡ Skipping locked orders for priority load (${filterOffice})`);
+    }
 
-        // NOTE: Recently locked orders fetch was removed due to high CPU usage (50% increase).
-        // Locked orders now only appear after CSV cache is updated via Data Management page.
+    // NOTE: Recently locked orders fetch was removed due to high CPU usage (50% increase).
+    // Locked orders now only appear after CSV cache is updated via Data Management page.
 
-        // Combine unlocked (from database) and locked (from storage bucket) orders
-        // IMPORTANT: Deduplicate by order ID, prioritizing unlocked orders (from DB) 
-        // because they have the latest data including order_transfers
-        const unlockedOrderIds = new Set((unlockedOrdersRaw || []).map((o: any) => o.id));
-        const deduplicatedLockedOrders = lockedOrders.filter((o: any) => !unlockedOrderIds.has(o.id));
-        const allOrders = [...(unlockedOrdersRaw || []), ...deduplicatedLockedOrders];
-        console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked, ${lockedOrders.length - deduplicatedLockedOrders.length} duplicates removed)`);
+    // Combine unlocked (from database) and locked (from storage bucket) orders
+    // IMPORTANT: Deduplicate by order ID, prioritizing unlocked orders (from DB) 
+    // because they have the latest data including order_transfers
+    const unlockedOrderIds = new Set((unlockedOrdersRaw || []).map((o: any) => o.id));
+    const deduplicatedLockedOrders = lockedOrders.filter((o: any) => !unlockedOrderIds.has(o.id));
+    const allOrders = [...(unlockedOrdersRaw || []), ...deduplicatedLockedOrders];
+    console.log(`[useReports] 📊 Processing ${allOrders.length} total orders (${unlockedOrdersRaw?.length || 0} unlocked + ${deduplicatedLockedOrders.length} locked)${filterOffice ? ` for ${filterOffice}` : ""}`);
 
         // STEP 3: Fetch supporting data and build reports
         // (dispatchers already fetched above for priority filtering)
 
-        // Fetch truck notes separately
-        const { data: truckNotes, error: notesError } = await supabase
+        // Fetch truck notes - filter by driver IDs when loading for specific office
+        let notesQuery = supabase
           .from("truck_notes")
           .select("*")
           .order("updated_at", { ascending: false });
+        
+        if (filterOffice && driverIdsArray.length > 0) {
+          notesQuery = notesQuery.in("driver_id", driverIdsArray);
+        }
+
+        const { data: truckNotes, error: notesError } = await notesQuery;
 
         if (notesError) throw notesError;
 
-        // Fetch lost day notes separately
-        const { data: lostDayNotes, error: lostDayError } = await supabase
+        // Fetch lost day notes - filter by driver IDs when loading for specific office
+        let lostDayQuery = supabase
           .from("lost_day_notes")
           .select("*")
           .order("id", { ascending: true });
+
+        if (filterOffice && driverIdsArray.length > 0) {
+          lostDayQuery = lostDayQuery.in("driver_id", driverIdsArray);
+        }
+
+        const { data: lostDayNotes, error: lostDayError } = await lostDayQuery;
 
         if (lostDayError) throw lostDayError;
 
@@ -1587,14 +1622,21 @@ export const useReports = (options?: UseReportsOptions) => {
             };
           }) || [];
 
-        // Fetch all active drivers FIRST (needed for segment generation)
-        const { data: allDrivers, error: driversError } = await supabase
+        // Fetch active drivers - filter by dispatcher when loading for specific office
+        let driversQuery = supabase
           .from("drivers")
           .select(
             "id, name, phone, email, emergency_contact_name, emergency_contact_relation, emergency_contact_phone, home_city, home_state, hos_drive_minutes, hos_shift_minutes, hos_break_minutes, hos_cycle_minutes, hos_status, hos_last_updated, two_week_block_date, random_drug_test_date, dispatcher_id, is_active, going_yard, company_id",
           )
           .eq("is_active", true)
           .order("name", { ascending: true });
+
+        // Filter drivers by dispatcher IDs when loading for specific office
+        if (filterDispatcherIds && filterDispatcherIds.length > 0) {
+          driversQuery = driversQuery.in("dispatcher_id", filterDispatcherIds);
+        }
+
+        const { data: allDrivers, error: driversError } = await driversQuery;
 
         if (driversError) throw driversError;
 
