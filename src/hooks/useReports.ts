@@ -786,8 +786,10 @@ export const useReports = (options?: UseReportsOptions) => {
     }
     
     // Fetch trucks with their drivers and company info
-    // When filtering by office, we filter at the database level using driver dispatcher_id
-    let trucksQuery = supabase
+    // Fetch ALL trucks upfront - filtering by truck.dispatcher_id misses trucks where 
+    // driver.dispatcher_id differs from truck.dispatcher_id. JS filtering is faster than 
+    // additional database queries and ensures complete data for priority office.
+    const trucksQuery = supabase
       .from("trucks")
       .select(
         `
@@ -800,20 +802,23 @@ export const useReports = (options?: UseReportsOptions) => {
       )
       .order("id", { ascending: true });
 
-    // Apply dispatcher filter at database level for faster priority loading
-    if (filterDispatcherIds && filterDispatcherIds.length > 0) {
-      trucksQuery = trucksQuery.in("dispatcher_id", filterDispatcherIds);
-    }
-
     const { data: trucksRaw, error: trucksError } = await trucksQuery;
 
     if (trucksError) throw trucksError;
     
-    // Map trucks
-    const trucks = trucksRaw?.map((truck) => ({
+    // Map trucks and filter by driver's dispatcher_id for priority office loading
+    // This ensures we get trucks where the driver belongs to the office, not just truck.dispatcher_id
+    let trucks = trucksRaw?.map((truck) => ({
       ...truck,
       company: truck.driver1?.company || truck.company || null,
     }));
+    
+    // Filter trucks by driver's dispatcher for priority office loading
+    if (filterDispatcherIds && filterDispatcherIds.length > 0 && trucks) {
+      trucks = trucks.filter(truck => 
+        truck.driver1?.dispatcher_id && filterDispatcherIds.includes(truck.driver1.dispatcher_id)
+      );
+    }
     
     console.log(`[useReports] ✅ Fetched ${trucks?.length} trucks${filterOffice ? ` for ${filterOffice}` : ""}`);
 
