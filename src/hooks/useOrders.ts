@@ -349,12 +349,23 @@ export const useOrders = (options?: UseOrdersOptions) => {
         .range(0, initialBatchSize - 1);
 
       // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
-      if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-        // Use OR filter: booked_by matches OR driver1_id is in their assigned drivers
-        initialQuery = initialQuery.or(
-          `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-        );
+      if (options?.dispatcherUserId) {
+        // Dispatcher mode: filter by booked_by AND/OR assigned drivers
+        if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+          // Has both booked_by name and assigned drivers - use OR filter
+          initialQuery = initialQuery.or(
+            `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+          );
+        } else if (options?.bookedBy) {
+          // Only has booked_by name, no assigned drivers
+          initialQuery = initialQuery.eq("booked_by", options.bookedBy);
+        } else if (dispatcherDriverIds.length > 0) {
+          // Only has assigned drivers, no booked_by name yet
+          initialQuery = initialQuery.in("driver1_id", dispatcherDriverIds);
+        }
+        // If neither bookedBy nor drivers, this will return no orders (intended for dispatcher)
       } else if (options?.bookedBy) {
+        // Non-dispatcher mode with bookedBy filter
         initialQuery = initialQuery.eq("booked_by", options.bookedBy);
       }
 
@@ -366,7 +377,16 @@ export const useOrders = (options?: UseOrdersOptions) => {
       }
 
       // Load LOCKED orders from cache only (no DB fetch for performance)
-      const lockedOrders = await getLockedOrders();
+      let lockedOrders = await getLockedOrders();
+      
+      // Filter locked orders for dispatchers (by booked_by or assigned drivers)
+      if (options?.dispatcherUserId && lockedOrders) {
+        lockedOrders = lockedOrders.filter(order => {
+          const matchesBookedBy = options?.bookedBy && order.booked_by === options.bookedBy;
+          const matchesDriver = dispatcherDriverIds.includes(order.driver1_id);
+          return matchesBookedBy || matchesDriver;
+        });
+      }
 
       // Enrich locked orders with lookup data (fetches pickup_drops and order_files from database)
       let enrichedLockedOrders: any[] = [];
@@ -561,10 +581,17 @@ export const useOrders = (options?: UseOrdersOptions) => {
                 .range(offset, offset + batchSize - 1);
 
               // Apply dispatcher filtering - include orders booked by them OR with their assigned drivers
-              if (options?.bookedBy && dispatcherDriverIds.length > 0) {
-                bgQuery = bgQuery.or(
-                  `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
-                );
+              if (options?.dispatcherUserId) {
+                // Dispatcher mode: filter by booked_by AND/OR assigned drivers
+                if (options?.bookedBy && dispatcherDriverIds.length > 0) {
+                  bgQuery = bgQuery.or(
+                    `booked_by.eq.${options.bookedBy},driver1_id.in.(${dispatcherDriverIds.join(',')})`
+                  );
+                } else if (options?.bookedBy) {
+                  bgQuery = bgQuery.eq("booked_by", options.bookedBy);
+                } else if (dispatcherDriverIds.length > 0) {
+                  bgQuery = bgQuery.in("driver1_id", dispatcherDriverIds);
+                }
               } else if (options?.bookedBy) {
                 bgQuery = bgQuery.eq("booked_by", options.bookedBy);
               }
@@ -605,7 +632,7 @@ export const useOrders = (options?: UseOrdersOptions) => {
               
               // Merge with deduplicated locked orders and update cache progressively
               const mergedData = transformOrders([...backgroundOrders, ...currentDeduplicatedLocked]);
-              queryClient.setQueryData(["orders", options?.bookedBy], mergedData);
+              queryClient.setQueryData(["orders", options?.bookedBy, options?.dispatcherUserId], mergedData);
             }
 
           } catch (error) {
