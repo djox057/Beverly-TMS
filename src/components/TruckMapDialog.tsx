@@ -377,14 +377,16 @@ export function TruckMapView({
             pickupCoordsList.push(coords);
             const pickupEl = document.createElement('div');
             pickupEl.className = 'pickup-marker';
-            pickupEl.style.fontSize = '24px';
             pickupEl.style.display = 'flex';
             pickupEl.style.alignItems = 'center';
-            pickupEl.style.gap = '2px';
+            pickupEl.style.gap = '4px';
             // Show number only if multiple pickups
-            pickupEl.innerHTML = allPickupAddresses.length > 1 
-              ? `<span style="background:#22c55e;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">P${i + 1}</span>`
-              : '📍';
+            if (allPickupAddresses.length > 1) {
+              pickupEl.innerHTML = `<span style="background:#22c55e;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;">P${i + 1}</span>`;
+            } else {
+              pickupEl.innerHTML = '📍';
+              pickupEl.style.fontSize = '32px';
+            }
             
             new mapboxgl.Marker(pickupEl)
               .setLngLat([coords.lon, coords.lat])
@@ -405,19 +407,19 @@ export function TruckMapView({
             deliveryCoordsList.push(coords);
             const deliveryEl = document.createElement('div');
             deliveryEl.className = 'delivery-marker';
-            deliveryEl.style.fontSize = '24px';
             deliveryEl.style.display = 'flex';
             deliveryEl.style.alignItems = 'center';
-            deliveryEl.style.gap = '2px';
+            deliveryEl.style.gap = '4px';
             
             const isCompleted = i < completedDeliveryCount;
             // Show number only if multiple deliveries, with different color for completed
             if (allDeliveryAddresses.length > 1) {
               deliveryEl.innerHTML = isCompleted
-                ? `<span style="background:#22c55e;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">✓</span>`
-                : `<span style="background:#ef4444;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;">D${i + 1}</span>`;
+                ? `<span style="background:#22c55e;color:white;border-radius:12px;padding:4px 8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;white-space:nowrap;">D${i + 1} ✓</span>`
+                : `<span style="background:#ef4444;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;">D${i + 1}</span>`;
             } else {
               deliveryEl.innerHTML = '🎯';
+              deliveryEl.style.fontSize = '32px';
             }
             
             new mapboxgl.Marker(deliveryEl)
